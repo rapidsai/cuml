@@ -13,7 +13,6 @@ from cupyx.scipy.sparse import csc_matrix as cp_csc_matrix
 from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
 from scipy.sparse import coo_matrix, csc_matrix, csr_matrix
 
-import cuml
 from cuml.common.kernel_utils import cuda_kernel_factory
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 
@@ -72,7 +71,6 @@ def _map_l2_norm_kernel(dtype):
     return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
 
 
-@cuml.internals.api_return_any()
 def csr_row_normalize_l1(X, inplace=True):
     """Row normalize for csr matrix using the l1 norm"""
     if not inplace:
@@ -88,7 +86,6 @@ def csr_row_normalize_l1(X, inplace=True):
     return X
 
 
-@cuml.internals.api_return_any()
 def csr_row_normalize_l2(X, inplace=True):
     """Row normalize for csr matrix using the l2 norm"""
     if not inplace:
@@ -104,7 +101,6 @@ def csr_row_normalize_l2(X, inplace=True):
     return X
 
 
-@cuml.internals.api_return_any()
 def csr_diag_mul(X, y, inplace=True):
     """Multiply a sparse X matrix with diagonal matrix y"""
     if not inplace:
@@ -115,7 +111,6 @@ def csr_diag_mul(X, y, inplace=True):
     return X
 
 
-@cuml.internals.api_return_any()
 def create_csr_matrix_from_count_df(
     count_df, empty_doc_ids, n_doc, n_features, dtype=np.float32
 ):
@@ -263,7 +258,7 @@ def _determine_k_from_arrays(
     return total_elements // n_samples
 
 
-def extract_knn_graph(knn_info, n_neighbors):
+def extract_knn_graph(knn_info, n_neighbors, mem_type="device"):
     """
     Extract the nearest neighbors distances and indices
     from the knn_info parameter.
@@ -367,6 +362,7 @@ def extract_knn_graph(knn_info, n_neighbors):
         deepcopy=deepcopy,
         check_dtype=np.int64,
         convert_to_dtype=np.int64,
+        convert_to_mem_type=mem_type,
     )
 
     knn_dists_m, _, _, _ = input_to_cuml_array(
@@ -375,6 +371,7 @@ def extract_knn_graph(knn_info, n_neighbors):
         deepcopy=deepcopy,
         check_dtype=np.float32,
         convert_to_dtype=np.float32,
+        convert_to_mem_type=mem_type,
     )
 
     return knn_indices_m, knn_dists_m

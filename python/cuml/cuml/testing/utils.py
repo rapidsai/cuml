@@ -14,10 +14,8 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from pylibraft.common.cuda import Stream
 from sklearn.metrics import brier_score_loss, mean_squared_error
 
-import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
@@ -124,9 +122,8 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         str_b[0] = f"b: {str_b[0][3:]}"
 
         # Create assertion error message and raise exception.
-        assertion_error_msg = (
-            dedent(
-                f"""
+        assertion_error_msg = dedent(
+            f"""
         Arrays are not equal
 
         unit_tol:  {unit_tol}
@@ -134,9 +131,7 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
         with_sign: {with_sign}
 
         """
-            )
-            + "\n".join(str_a + str_b)
-        )
+        ) + "\n".join(str_a + str_b)
         raise AssertionError(assertion_error_msg)
 
 
@@ -222,10 +217,10 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
         la, lb = ref[i], actual[i]
 
         if i in core_set:  # core point
-            assert (
-                la == lb
-            ), "Core point mismatch at #{}: " "{} (expected {})".format(
-                i, lb, la
+            assert la == lb, (
+                "Core point mismatch at #{}: {} (expected {})".format(
+                    i, lb, la
+                )
             )
         elif la == -1:  # noise point
             assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
@@ -246,14 +241,6 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
     # Note: we can also do it in a rand score fashion by checking that pairs
     # correspond in both label arrays for core points, if we need to drop the
     # requirement of minimality for core points
-
-
-def get_handle(use_handle, n_streams=0):
-    if not use_handle:
-        return None, None
-    s = Stream()
-    h = cuml.Handle(stream=s, n_streams=n_streams)
-    return h, s
 
 
 def unit_param(*args, **kwargs):
@@ -407,22 +394,6 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cp.array(a), cp.array(b), a, b
     else:
         return cuda.to_device(a), cuda.to_device(b), a, b
-
-
-def score_labeling_with_handle(
-    func, ground_truth, predictions, use_handle, dtype=np.int32
-):
-    """Test helper to standardize inputs between sklearn and our prims metrics.
-
-    Using this function we can pass python lists as input of a test just like
-    with sklearn as well as an option to use handle with our metrics.
-    """
-    a = cp.array(ground_truth, dtype=dtype)
-    b = cp.array(predictions, dtype=dtype)
-
-    handle, stream = get_handle(use_handle)
-
-    return func(a, b, handle=handle)
 
 
 def get_number_positional_args(func, default=2):
@@ -629,6 +600,10 @@ def compare_svm(
                 "Skipping decision function test due to low  accuracy",
                 accuracy2,
             )
+
+    # Compare `class_weight_` attribute for classifiers, if present
+    if hasattr(svm1, "class_weight_"):
+        np.testing.assert_allclose(svm1.class_weight_, svm2.class_weight_)
 
     # Compare support_ (dataset indices of points that form the support
     # vectors) and ensure that some overlap (~1/8) between two exists

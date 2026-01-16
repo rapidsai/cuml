@@ -5,7 +5,6 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
 
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -13,6 +12,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 
@@ -81,7 +81,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         raise NotImplementedError
 
     @generate_docstring()
-    @cuml.internals.api_base_return_any()
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
         n_samples, n_features = X.shape
@@ -119,6 +119,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         return self
 
     @generate_docstring()
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
         # Coerce X to a cupy array or cupyx sparse matrix
@@ -154,6 +155,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         return CumlArray(data=out, index=index)
 
     @generate_docstring()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """Fit to data, then transform it."""
         return self.fit(X, convert_dtype=convert_dtype).transform(
@@ -199,13 +201,12 @@ class GaussianRandomProjection(_BaseRandomProjection):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -315,13 +316,12 @@ class SparseRandomProjection(_BaseRandomProjection):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.

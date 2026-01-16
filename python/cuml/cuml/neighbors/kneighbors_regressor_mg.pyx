@@ -2,13 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.internals import get_handle, logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -52,7 +48,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
     def __init__(self, **kwargs):
         super(KNeighborsRegressorMG, self).__init__(**kwargs)
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         index,
@@ -114,7 +110,8 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
             out_result_local_parts.push_back(new floatData_t(
                 <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
@@ -135,7 +132,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-        self.handle.sync()
+        handle.sync()
 
         # Release memory
         type(self).free_mem(input)

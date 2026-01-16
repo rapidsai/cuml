@@ -75,6 +75,6 @@ def test_dbscan_consistency(clustering_data):
     X, y_true = clustering_data
     dbscan1 = DBSCAN(eps=0.5).fit(X)
     dbscan2 = DBSCAN(eps=0.5).fit(X)
-    assert np.array_equal(
-        dbscan1.labels_, dbscan2.labels_
-    ), "Results should be consistent across runs"
+    assert np.array_equal(dbscan1.labels_, dbscan2.labels_), (
+        "Results should be consistent across runs"
+    )

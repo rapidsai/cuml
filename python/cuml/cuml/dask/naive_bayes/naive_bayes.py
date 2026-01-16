@@ -15,7 +15,6 @@ from cuml.naive_bayes import MultinomialNB as MNB
 
 
 class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
-
     """
     Distributed Naive Bayes classifier for multinomial models
 
@@ -70,9 +69,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         Create new multinomial distributed Naive Bayes classifier instance
 
         Parameters
-        -----------
-
-        client : dask.distributed.Client optional Dask client to use
+        ----------
+        client : dask.distributed.Client, optional
+            Dask client to use
         """
         super().__init__(client=client, verbose=verbose, **kwargs)
 
@@ -84,7 +83,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
 
     @staticmethod
     def _fit(Xy, classes, kwargs):
-
         X, y = Xy
 
         model = MNB(**kwargs)

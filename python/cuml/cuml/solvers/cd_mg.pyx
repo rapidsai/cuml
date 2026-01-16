@@ -4,7 +4,7 @@
 #
 import numpy as np
 
-import cuml.internals
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -30,7 +30,6 @@ cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg" nogil:
         float *coef,
         float *intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         float alpha,
         float l1_ratio,
@@ -47,7 +46,6 @@ cdef extern from "cuml/solvers/cd_mg.hpp" namespace "ML::CD::opg" nogil:
         double *coef,
         double *intercept,
         bool fit_intercept,
-        bool normalize,
         int epochs,
         double alpha,
         double l1_ratio,
@@ -61,12 +59,12 @@ class CDMG(MGFitMixin, CD):
     """
     Cython class for MNMG code usage. Not meant for end user consumption.
     """
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _fit(self, uintptr_t X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool use_f32 = self.dtype == np.float32
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool normalize = self.normalize
         cdef int max_iter = self.max_iter
         cdef double alpha = self.alpha
         cdef double l1_ratio = self.l1_ratio
@@ -86,7 +84,6 @@ class CDMG(MGFitMixin, CD):
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
                     max_iter,
                     <float>alpha,
                     <float>l1_ratio,
@@ -103,7 +100,6 @@ class CDMG(MGFitMixin, CD):
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
                     max_iter,
                     alpha,
                     l1_ratio,
@@ -111,7 +107,7 @@ class CDMG(MGFitMixin, CD):
                     tol,
                     False
                 )
-        self.handle.sync()
+        handle.sync()
 
         self.intercept_ = intercept_f32 if use_f32 else intercept_f64
         self.n_iter_ = n_iter

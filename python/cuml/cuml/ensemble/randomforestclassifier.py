@@ -6,15 +6,15 @@ import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
 from cuml.metrics import accuracy_score
-from cuml.prims.label.classlabels import invert_labels, make_monotonic
 
 
 class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
@@ -122,13 +122,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically. To configure the number of streams
+            used please use the `n_streams` parameter instead.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -141,17 +142,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     Attributes
     ----------
+    classes_ : np.ndarray, shape=(n_classes,)
+        A sorted array of the class labels.
     oob_score_ : float
         Score of the training dataset obtained using an out-of-bag estimate.
         This attribute exists only when ``oob_score`` is True.
-
     oob_decision_function_ : ndarray of shape (n_samples, n_classes)
         Decision function computed with out-of-bag estimate on the training
         set. If n_estimators is small it might be possible that a data point
         was never left out during the bootstrap. In this case,
         ``oob_decision_function_`` might contain NaN. This attribute exists
         only when ``oob_score`` is True.
-
     feature_importances_ : ndarray of shape (n_features,)
         The impurity-based feature importances.
 
@@ -168,8 +169,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     `importances = cuml_model.feature_importances_`
     """
 
-    classes_ = CumlArrayDescriptor()
-
     oob_decision_function_ = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
@@ -182,14 +181,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     def _attrs_from_cpu(self, model):
         return {
-            "classes_": to_gpu(model.classes_),
+            "classes_": model.classes_,
             "n_classes_": model.n_classes_,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "classes_": to_cpu(self.classes_),
+            "classes_": self.classes_,
             "n_classes_": self.n_classes_,
             **super()._attrs_to_cpu(model),
         }
@@ -220,6 +219,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y="dense_intdtype",
         convert_dtype_cast="np.float32",
     )
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
@@ -237,18 +237,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             check_dtype=[np.float32, np.float64],
             order="F",
         ).array
-        y_m = input_to_cuml_array(
-            y,
-            convert_to_dtype=(np.int32 if convert_dtype else None),
-            check_dtype=np.int32,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
-
-        self.classes_ = cp.unique(y_m)
-        self.n_classes_ = len(self.classes_)
-        if not (self.classes_ == cp.arange(self.n_classes_)).all():
-            y_m, _ = make_monotonic(y_m)
+        y, classes = preprocess_labels(
+            y, n_samples=X_m.shape[0], dtype=cp.int32
+        )
+        self.classes_ = classes
+        self.n_classes_ = len(classes)
+        y_m = CumlArray(data=y)
 
         return self._fit_forest(X_m, y_m)
 
@@ -260,7 +254,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    @cuml.internals.run_in_internal_context
     def predict(
         self,
         X,
@@ -270,7 +264,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts the labels for X.
 
@@ -301,19 +295,16 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        preds = fil.predict(X, threshold=threshold)
-
-        if not (self.classes_ == cp.arange(self.n_classes_)).all():
-            preds = preds.to_output("cupy").astype(
-                self.classes_.dtype, copy=False
-            )
-            preds = CumlArray(invert_labels(preds, self.classes_))
-        return preds
+        inds = fil.predict(X, threshold=threshold).to_output("cupy")
+        with cuml.internals.exit_internal_context():
+            output_type = self._get_output_type(X)
+        return decode_labels(inds, self.classes_, output_type=output_type)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
+    @cuml.internals.reflect
     def predict_proba(
         self,
         X,
@@ -367,6 +358,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
+    @cuml.internals.run_in_internal_context
     def score(
         self,
         X,

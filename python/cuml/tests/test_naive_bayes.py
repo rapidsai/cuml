@@ -34,8 +34,8 @@ from cuml.naive_bayes import (
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
-    X, y = nlp_20news
+def test_sparse_integral_dtype_fails(x_dtype, y_dtype, sparse_text_dataset):
+    X, y = sparse_text_dataset
 
     X = X.astype(x_dtype)
     y = y.astype(y_dtype)
@@ -57,12 +57,12 @@ def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64, cp.int32])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_multinomial_basic_fit_predict_dense_numpy(
-    x_dtype, y_dtype, nlp_20news
+    x_dtype, y_dtype, sparse_text_dataset
 ):
     """
     Cupy Test
     """
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
     n_rows = 500
     n_cols = 10000
 
@@ -83,10 +83,10 @@ def test_multinomial_basic_fit_predict_dense_numpy(
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.float32, cp.float64])
-def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
     chunk_size = 500
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
@@ -100,7 +100,6 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
     total_fit = 0
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -129,9 +128,8 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_multinomial(x_dtype, y_dtype, nlp_20news):
-
-    X, y = nlp_20news
+def test_multinomial(x_dtype, y_dtype, sparse_text_dataset):
+    X, y = sparse_text_dataset
 
     cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     cu_y = y.astype(y_dtype)
@@ -167,8 +165,8 @@ def test_multinomial(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
-def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
-    X, y = nlp_20news
+def test_bernoulli(x_dtype, y_dtype, is_sparse, sparse_text_dataset):
+    X, y = sparse_text_dataset
     n_rows = 500
     n_cols = 20000
 
@@ -203,11 +201,11 @@ def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.float32, cp.float64])
-def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
+def test_bernoulli_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
     chunk_size = 500
     n_rows = 1500
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)[:n_rows]
@@ -220,7 +218,6 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
     classes = np.unique(y)
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -247,8 +244,8 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
 @pytest.mark.parametrize("norm", [True, False])
-def test_complement(x_dtype, y_dtype, is_sparse, norm, nlp_20news):
-    X, y = nlp_20news
+def test_complement(x_dtype, y_dtype, is_sparse, norm, sparse_text_dataset):
+    X, y = sparse_text_dataset
     n_rows = 500
     n_cols = 20000
 
@@ -308,7 +305,6 @@ def test_complement_partial_fit(x_dtype, y_dtype, norm):
     classes = np.unique(y)
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -373,12 +369,14 @@ def test_gaussian_basic():
     "y_dtype", [cp.int32, cp.int64, cp.float32, cp.float64]
 )
 @pytest.mark.parametrize("is_sparse", [True, False])
-def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse, nlp_20news):
+def test_gaussian_fit_predict(
+    x_dtype, y_dtype, is_sparse, sparse_text_dataset
+):
     """
     Cupy Test
     """
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
     model = GaussianNB()
     n_rows = 500
     n_cols = 50000
@@ -400,13 +398,13 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse, nlp_20news):
     assert accuracy_score(y, y_hat) >= 0.99
 
 
-def test_gaussian_partial_fit(nlp_20news):
+def test_gaussian_partial_fit(sparse_text_dataset):
     chunk_size = 250
     n_rows = 1500
     n_cols = 60000
     x_dtype, y_dtype = cp.float32, cp.int32
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:n_rows, :n_cols]
     y = y.astype(y_dtype)[:n_rows]
@@ -418,7 +416,6 @@ def test_gaussian_partial_fit(nlp_20news):
     total_fit = 0
 
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -452,13 +449,13 @@ def test_gaussian_partial_fit(nlp_20news):
 
 @pytest.mark.parametrize("priors", [None, "balanced", "unbalanced"])
 @pytest.mark.parametrize("var_smoothing", [1e-5, 1e-7, 1e-9])
-def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
+def test_gaussian_parameters(priors, var_smoothing, sparse_text_dataset):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 150
     ncols = 20000
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()[:, :ncols]
     y = y.astype(y_dtype)[:nrows]
@@ -492,10 +489,10 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
-def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
+def test_categorical(x_dtype, y_dtype, is_sparse, sparse_text_dataset):
     if x_dtype == cp.int32 and is_sparse:
         pytest.skip("Sparse matrices with integers dtype are not supported")
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
     n_rows = 500
     n_cols = 400
 
@@ -535,15 +532,17 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("is_sparse", [True, False])
-def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
+def test_categorical_partial_fit(
+    x_dtype, y_dtype, is_sparse, sparse_text_dataset
+):
     if x_dtype == cp.int32 and is_sparse:
         pytest.skip("Sparse matrices with integers dtype are not supported")
     n_rows = 5000
     n_cols = 500
     chunk_size = 1000
-    expected_score = 0.1040
+    expected_score = 0.9852
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X, "float32").tocsr()[:n_rows, :n_cols]
     if is_sparse:
@@ -556,7 +555,6 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
 
     classes = np.unique(y)
     for i in range(math.ceil(X.shape[0] / chunk_size)):
-
         upper = i * chunk_size + chunk_size
         if upper > X.shape[0]:
             upper = -1
@@ -585,14 +583,14 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
 @pytest.mark.parametrize("fit_prior", [False, True])
 @pytest.mark.parametrize("is_sparse", [False, True])
 def test_categorical_parameters(
-    class_prior, alpha, fit_prior, is_sparse, nlp_20news
+    class_prior, alpha, fit_prior, is_sparse, sparse_text_dataset
 ):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 2000
     ncols = 500
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:nrows, :ncols]
     if not is_sparse:
@@ -617,5 +615,5 @@ def test_categorical_parameters(
     y_hat_sk = model_sk.predict(X)
     y_log_prob_sk = model_sk.predict_log_proba(X)
 
-    assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4)
+    assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4, atol=1e-10)
     assert_array_equal(y_hat, y_hat_sk)

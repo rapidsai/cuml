@@ -1,12 +1,16 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import pytest
+import sklearn
+from packaging import version
+from packaging.version import Version
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 @pytest.fixture(scope="module")
@@ -88,10 +92,11 @@ def test_logistic_regression_fit_intercept(classification_data, fit_intercept):
 
 
 @pytest.mark.parametrize("intercept_scaling", [0.5, 1.0, 2.0])
-def test_logistic_regression_intercept_scaling(
-    classification_data, intercept_scaling
-):
-    X, y = classification_data
+def test_logistic_regression_intercept_scaling(intercept_scaling):
+    # Cannot use multi-class data for this test as using the liblinear solver
+    # with multi-class data is deprecated in scikit-learn version 1.5 and will
+    # be removed in version 1.8.
+    X, y = make_classification(random_state=42)
     # 'intercept_scaling' is only used when solver='liblinear' and fit_intercept=True
     clf = LogisticRegression(
         solver="liblinear",
@@ -139,6 +144,20 @@ def test_logistic_regression_max_iter(classification_data, max_iter):
     accuracy_score(y, y_pred)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:.*multi_class.*was deprecated.*:FutureWarning"
+)
+# Ignore DeprecationWarning from sklearn's internal call to scipy.optimize.minimize
+# with the L-BFGS-B method. sklearn passes deprecated 'disp' and 'iprint' parameters
+# to scipy, which is not in our control. This filter can be removed once the minimum
+# supported sklearn version is 1.7.1+ (where this was fixed).
+@pytest.mark.filterwarnings(
+    "ignore:scipy.optimize.*disp.*iprint.*:DeprecationWarning"
+)
+@pytest.mark.xfail(
+    version.parse(sklearn.__version__) >= version.parse("1.8.0"),
+    reason="multi_class parameter removed in scikit-learn 1.8",
+)
 @pytest.mark.parametrize(
     "multi_class, solver",
     [
@@ -152,11 +171,19 @@ def test_logistic_regression_max_iter(classification_data, max_iter):
         ("auto", "liblinear"),
     ],
 )
+@pytest.mark.skipif(SKLEARN_18, reason="parameter removed in sklearn 1.8")
 def test_logistic_regression_multi_class(
     classification_data, multi_class, solver
 ):
     X, y = classification_data
-    if solver == "liblinear" and multi_class == "multinomial":
+    if (
+        version.parse(sklearn.__version__) >= version.parse("1.7.0")
+        and solver == "liblinear"
+    ):
+        pytest.skip(
+            "liblinear does not support multinomial multi_class in scikit-learn 1.7+"
+        )
+    elif solver == "liblinear" and multi_class == "multinomial":
         pytest.skip("liblinear does not support multinomial multi_class")
     clf = LogisticRegression(
         multi_class=multi_class, solver=solver, max_iter=200
@@ -165,6 +192,13 @@ def test_logistic_regression_multi_class(
     accuracy_score(y, y_pred)
 
 
+# Ignore DeprecationWarning from sklearn's internal call to scipy.optimize.minimize
+# with the L-BFGS-B method (default solver). sklearn passes deprecated 'disp' and
+# 'iprint' parameters to scipy, which is not in our control. This filter can be
+# removed once the minimum supported sklearn version is 1.7.1+ (where this was fixed).
+@pytest.mark.filterwarnings(
+    "ignore:scipy.optimize.*disp.*iprint.*:DeprecationWarning"
+)
 @pytest.mark.parametrize("warm_start", [True, False])
 def test_logistic_regression_warm_start(classification_data, warm_start):
     X, y = classification_data

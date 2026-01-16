@@ -14,7 +14,7 @@ from cuml.internals.base import Base
 from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
-@cuml.internals.api_return_sparse_array()
+@cuml.internals.reflect
 def label_binarize(
     y, classes, neg_label=0, pos_label=1, sparse_output=False
 ) -> SparseCumlArray:
@@ -40,9 +40,6 @@ def label_binarize(
     row_ind = cp.arange(0, labels.shape[0], 1, dtype=y.dtype)
     col_ind, _ = make_monotonic(labels, classes, copy=True)
 
-    # Convert from CumlArray to cupy
-    col_ind = cp.asarray(col_ind)
-
     val = cp.full(row_ind.shape[0], pos_label, dtype=y.dtype)
 
     sp = cupyx.scipy.sparse.coo_matrix(
@@ -61,7 +58,6 @@ def label_binarize(
             sp = sp.getcol(1)  # getcol does not support -1 indexing
         return sp
     else:
-
         arr = sp.toarray().astype(y.dtype)
         arr[arr == 0] = neg_label
         if is_binary:
@@ -70,7 +66,6 @@ def label_binarize(
 
 
 class LabelBinarizer(Base):
-
     """
     A multi-class dummy encoder for labels.
 
@@ -83,13 +78,13 @@ class LabelBinarizer(Base):
         label to be used as the positive binary label
     sparse_output : bool (default=False)
         whether to return sparse arrays for transformed output
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -171,6 +166,7 @@ class LabelBinarizer(Base):
         self.sparse_output = sparse_output
         self.classes_ = None
 
+    @cuml.internals.reflect(reset=True)
     def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer
@@ -190,7 +186,6 @@ class LabelBinarizer(Base):
             raise ValueError("labels cannot be greater than 2 dimensions")
 
         if y.ndim == 2:
-
             unique_classes = cp.unique(y)
             if unique_classes != [0, 1]:
                 raise ValueError("2-d array can must be binary")
@@ -203,6 +198,7 @@ class LabelBinarizer(Base):
 
         return self
 
+    @cuml.internals.reflect
     def fit_transform(self, y) -> SparseCumlArray:
         """
         Fit label binarizer and transform multi-class labels to their
@@ -219,6 +215,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
+    @cuml.internals.reflect
     def transform(self, y) -> SparseCumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
@@ -240,6 +237,7 @@ class LabelBinarizer(Base):
             sparse_output=self.sparse_output,
         )
 
+    @cuml.internals.reflect
     def inverse_transform(self, y, *, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels
@@ -266,7 +264,7 @@ class LabelBinarizer(Base):
                 y.dtype
             )
 
-        return invert_labels(y_mapped, self.classes_)
+        return CumlArray(data=invert_labels(y_mapped, self.classes_))
 
     @classmethod
     def _get_param_names(cls):

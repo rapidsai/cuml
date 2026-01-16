@@ -4,7 +4,7 @@
 #
 import numpy as np
 
-import cuml.internals
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.linear_model import LogisticRegression
 from cuml.linear_model.base_mg import MGFitMixin
@@ -144,9 +144,10 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             convert_index=self._convert_index,
         )
 
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _fit(self, X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Determine the number of classes in y
         if self.dtype == np.float32:
@@ -184,9 +185,9 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             tol=self.tol,
             delta=None,
             linesearch_max_iter=self.linesearch_max_iter,
-            lbfgs_memory=5,
-            penalty_normalized=True,
-            verbose=self.verbose,
+            lbfgs_memory=self.lbfgs_memory,
+            penalty_normalized=self.penalty_normalized,
+            verbose=self._verbose_level,
         )
 
         # Allocate outputs
@@ -311,7 +312,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                             &n_iter,
                         )
 
-        self.handle.sync()
+        handle.sync()
 
         # Postprocess coef into coef_ and intercept_
         coef_cp = coef.to_output("cupy")

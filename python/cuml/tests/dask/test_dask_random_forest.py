@@ -42,14 +42,12 @@ def _prep_training_data(c, X_train, y_train, partitions_per_worker):
 
 @pytest.mark.parametrize("partitions_per_worker", [3])
 def test_rf_classification_multi_class(partitions_per_worker, cluster):
-
     # Use CUDA_VISIBLE_DEVICES to control the number of workers
     c = Client(cluster)
     kwargs = {"n_workers": -1} if DASK_2025_4_0() else {}
     n_workers = len(c.scheduler_info(**kwargs)["workers"])
 
     try:
-
         X, y = make_classification(
             n_samples=n_workers * 8000,
             n_features=20,

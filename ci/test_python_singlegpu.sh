@@ -21,7 +21,7 @@ trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest cuml single GPU"
-./ci/run_cuml_singlegpu_pytests.sh \
+timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
@@ -30,7 +30,7 @@ rapids-logger "pytest cuml single GPU"
   --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
 
   rapids-logger "pytest cuml accelerator"
-./ci/run_cuml_singlegpu_accel_pytests.sh \
+timeout 15m ./ci/run_cuml_singlegpu_accel_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \

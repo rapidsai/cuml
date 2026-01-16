@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
@@ -11,7 +11,7 @@ from typing import Literal
 from cuda.bindings import runtime
 
 from cuml.accel.accelerator import Accelerator
-from cuml.internals.memory_utils import set_global_output_type
+from cuml.internals.outputs import set_global_output_type
 
 
 class Logger:
@@ -39,7 +39,7 @@ class Logger:
         return "<Logger level={self.level.name!r}>"
 
     def _log(self, msg):
-        print(f"[cuml.accel] {msg}")
+        print(f"[cuml.accel] {msg}", flush=True)
 
     def set_level(self, level: str) -> None:
         """Set the logger level.
@@ -78,6 +78,7 @@ logger = Logger()
 ACCELERATED_MODULES = [
     "hdbscan",
     "sklearn.cluster",
+    "sklearn.covariance",
     "sklearn.decomposition",
     "sklearn.ensemble",
     "sklearn.kernel_ridge",
@@ -137,7 +138,7 @@ def enabled() -> bool:
 
 def install(
     disable_uvm: bool = False,
-    log_level: Literal["error", "warn", "info", "debug"] = "warn",
+    log_level: Literal["error", "warn", "info", "debug", None] = None,
 ) -> None:
     """Enable `cuml.accel`.
 
@@ -146,18 +147,24 @@ def install(
     disable_uvm : bool, optional
         Whether to disable UVM.
     log_level : {"error", "warn", "info", "debug"}, optional
-        The log level to set for the `cuml.accel` logger. Defaults to `"warn"`,
-        set to `"info"` or `"debug"` to get more information about what methods
-        `cuml.accel` accelerated for a given run.
+        The log level to set for the `cuml.accel` logger. Defaults to `None` to
+        check the value of the `CUML_ACCEL_LOG_LEVEL` environment variable,
+        falling back to `"warn"` if not configured. Set to `"info"` or
+        `"debug"` to get more information about what methods `cuml.accel`
+        accelerated for a given run.
     """
     if enabled():
         # Already enabled, no-op
         return
 
+    if log_level is None:
+        log_level = os.environ.get("CUML_ACCEL_LOG_LEVEL", "warn")
+
     logger.set_level(log_level)
     # Set the environment variable if not already set so cuml.accel will
     # be automatically enabled in subprocesses
     os.environ.setdefault("CUML_ACCEL_ENABLED", "1")
+    os.environ.setdefault("CUML_ACCEL_LOG_LEVEL", log_level)
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():

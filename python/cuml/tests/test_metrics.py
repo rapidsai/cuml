@@ -66,9 +66,7 @@ from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
     generate_random_labels,
-    get_handle,
     quality_param,
-    score_labeling_with_handle,
     stress_param,
     unit_param,
 )
@@ -139,13 +137,11 @@ def test_sklearn_search():
 
     alpha = np.array([1.0])
     fit_intercept = True
-    normalize = False
 
     params = {"alpha": np.logspace(-3, -1, 10)}
     cu_clf = cumlRidge(
         alpha=alpha,
         fit_intercept=fit_intercept,
-        normalize=normalize,
         solver="eig",
     )
 
@@ -270,7 +266,6 @@ dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [
     "nrows", [unit_param(20), quality_param(5000), stress_param(500000)]
 )
 def test_rand_index_score(name, nrows):
-
     default_base = {
         "quantile": 0.3,
         "eps": 0.3,
@@ -309,9 +304,9 @@ def test_adjusted_rand_score_small(nrows):
         for y_pred in arrs:
             res = cu_ars(y, y_pred)
             sol = sk_ars(y, y_pred)
-            assert (
-                res == sol
-            ), f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
+            assert res == sol, (
+                f"adjusted_rand_score({y}, {y_pred}) = {res}, expected {sol}"
+            )
 
 
 @pytest.mark.parametrize(
@@ -324,7 +319,6 @@ def test_adjusted_rand_score_small(nrows):
     "github.com/rapidsai/cuml/issues/5025",
 )
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
-
     X, labels = labeled_clusters
     cuml_score = cu_silhouette_score(
         X, labels, metric=metric, chunksize=int(X.shape[0] / chunk_divider)
@@ -380,93 +374,75 @@ def test_silhouette_score_batched_non_monotonic():
     assert array_equal(cuml_samples, sk_samples)
 
 
-def score_homogeneity(ground_truth, predictions, use_handle):
-    return score_labeling_with_handle(
-        cuml.metrics.homogeneity_score,
-        ground_truth,
-        predictions,
-        use_handle,
-        dtype=np.int32,
-    )
+def score_homogeneity(ground_truth, predictions):
+    a = cp.array(ground_truth, dtype=np.int32)
+    b = cp.array(predictions, dtype=np.int32)
+    return cuml.metrics.homogeneity_score(a, b)
 
 
-def score_completeness(ground_truth, predictions, use_handle):
-    return score_labeling_with_handle(
-        cuml.metrics.completeness_score,
-        ground_truth,
-        predictions,
-        use_handle,
-        dtype=np.int32,
-    )
+def score_completeness(ground_truth, predictions):
+    a = cp.array(ground_truth, dtype=np.int32)
+    b = cp.array(predictions, dtype=np.int32)
+    return cuml.metrics.completeness_score(a, b)
 
 
-def score_mutual_info(ground_truth, predictions, use_handle):
-    return score_labeling_with_handle(
-        cuml.metrics.mutual_info_score,
-        ground_truth,
-        predictions,
-        use_handle,
-        dtype=np.int32,
-    )
+def score_mutual_info(ground_truth, predictions):
+    a = cp.array(ground_truth, dtype=np.int32)
+    b = cp.array(predictions, dtype=np.int32)
+    return cuml.metrics.mutual_info_score(a, b)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [1, 1, 0, 0]), ([0, 0, 1, 1], [0, 0, 1, 1])]
 )
-def test_homogeneity_perfect_labeling(use_handle, data):
+def test_homogeneity_perfect_labeling(data):
     # Perfect labelings are homogeneous
-    hom = score_homogeneity(*data, use_handle)
+    hom = score_homogeneity(*data)
     assert_almost_equal(hom, 1.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [0, 0, 1, 2]), ([0, 0, 1, 1], [0, 1, 2, 3])]
 )
-def test_homogeneity_non_perfect_labeling(use_handle, data):
+def test_homogeneity_non_perfect_labeling(data):
     # Non-perfect labelings that further split classes into more clusters can
     # be perfectly homogeneous
-    hom = score_homogeneity(*data, use_handle)
+    hom = score_homogeneity(*data)
     assert_almost_equal(hom, 1.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [0, 1, 0, 1]), ([0, 0, 1, 1], [0, 0, 0, 0])]
 )
-def test_homogeneity_non_homogeneous_labeling(use_handle, data):
+def test_homogeneity_non_homogeneous_labeling(data):
     # Clusters that include samples from different classes do not make for an
     # homogeneous labeling
-    hom = score_homogeneity(*data, use_handle)
+    hom = score_homogeneity(*data)
     assert_almost_equal(hom, 0.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("input_range", [[0, 1000], [-1000, 1000]])
-def test_homogeneity_score_big_array(use_handle, input_range):
+def test_homogeneity_score_big_array(input_range):
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, int(10e4), dtype=np.int32)
     )
-    score = score_homogeneity(a, b, use_handle)
+    score = score_homogeneity(a, b)
     ref = sk_homogeneity_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "input_range", [[0, 2], [-5, 20], [int(-10e2), int(10e2)]]
 )
-def test_homogeneity_completeness_symmetry(use_handle, input_range):
+def test_homogeneity_completeness_symmetry(input_range):
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, int(10e3), dtype=np.int32)
     )
-    hom = score_homogeneity(a, b, use_handle)
-    com = score_completeness(b, a, use_handle)
+    hom = score_homogeneity(a, b)
+    com = score_completeness(b, a)
     np.testing.assert_almost_equal(hom, com, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "input_labels",
     [
@@ -478,86 +454,79 @@ def test_homogeneity_completeness_symmetry(use_handle, input_range):
         ([0, 0, 1, 1], [0, 0, 0, 0]),
     ],
 )
-def test_mutual_info_score(use_handle, input_labels):
-    score = score_mutual_info(*input_labels, use_handle)
+def test_mutual_info_score(input_labels):
+    score = score_mutual_info(*input_labels)
     ref = sk_mutual_info_score(*input_labels)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("input_range", [[0, 1000], [-1000, 1000]])
-def test_mutual_info_score_big_array(use_handle, input_range):
+def test_mutual_info_score_big_array(input_range):
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, int(10e4), dtype=np.int32)
     )
-    score = score_mutual_info(a, b, use_handle)
+    score = score_mutual_info(a, b)
     ref = sk_mutual_info_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("n", [14])
-def test_mutual_info_score_range_equal_samples(use_handle, n):
+def test_mutual_info_score_range_equal_samples(n):
     input_range = (-n, n)
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, n, dtype=np.int32)
     )
-    score = score_mutual_info(a, b, use_handle)
+    score = score_mutual_info(a, b)
     ref = sk_mutual_info_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("input_range", [[0, 19], [0, 2], [-5, 20]])
 @pytest.mark.parametrize("n_samples", [129, 258])
-def test_mutual_info_score_many_blocks(use_handle, input_range, n_samples):
+def test_mutual_info_score_many_blocks(input_range, n_samples):
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, n_samples, dtype=np.int32)
     )
-    score = score_mutual_info(a, b, use_handle)
+    score = score_mutual_info(a, b)
     ref = sk_mutual_info_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [1, 1, 0, 0]), ([0, 0, 1, 1], [0, 0, 1, 1])]
 )
-def test_completeness_perfect_labeling(use_handle, data):
+def test_completeness_perfect_labeling(data):
     # Perfect labelings are complete
-    com = score_completeness(*data, use_handle)
+    com = score_completeness(*data)
     np.testing.assert_almost_equal(com, 1.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [0, 0, 0, 0]), ([0, 1, 2, 3], [0, 0, 1, 1])]
 )
-def test_completeness_non_perfect_labeling(use_handle, data):
+def test_completeness_non_perfect_labeling(data):
     # Non-perfect labelings that assign all classes members to the same
     # clusters are still complete
-    com = score_completeness(*data, use_handle)
+    com = score_completeness(*data)
     np.testing.assert_almost_equal(com, 1.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "data", [([0, 0, 1, 1], [0, 1, 0, 1]), ([0, 0, 0, 0], [0, 1, 2, 3])]
 )
-def test_completeness_non_complete_labeling(use_handle, data):
+def test_completeness_non_complete_labeling(data):
     # If classes members are split across different clusters, the assignment
     # cannot be complete
-    com = score_completeness(*data, use_handle)
+    com = score_completeness(*data)
     np.testing.assert_almost_equal(com, 0.0, decimal=4)
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("input_range", [[0, 1000], [-1000, 1000]])
-def test_completeness_score_big_array(use_handle, input_range):
+def test_completeness_score_big_array(input_range):
     a, b, _, _ = generate_random_labels(
         lambda rd: rd.randint(*input_range, int(10e4), dtype=np.int32)
     )
-    score = score_completeness(a, b, use_handle)
+    score = score_completeness(a, b)
     ref = sk_completeness_score(a, b)
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
@@ -771,28 +740,22 @@ def test_mean_squared_log_error_negative_values(inputs):
         )
 
 
-@pytest.mark.parametrize("use_handle", [True, False])
-def test_entropy(use_handle):
-    handle, stream = get_handle(use_handle)
-
+def test_entropy():
     # The outcome of a fair coin is the most uncertain:
     # in base 2 the result is 1 (One bit of entropy).
     cluster = np.array([0, 1], dtype=np.int32)
-    assert_almost_equal(entropy(cluster, base=2.0, handle=handle), 1.0)
+    assert_almost_equal(entropy(cluster, base=2.0), 1.0)
 
     # The outcome of a biased coin is less uncertain:
     cluster = np.array(([0] * 9) + [1], dtype=np.int32)
-    assert_almost_equal(entropy(cluster, base=2.0, handle=handle), 0.468995593)
+    assert_almost_equal(entropy(cluster, base=2.0), 0.468995593)
     # base e
-    assert_almost_equal(entropy(cluster, handle=handle), 0.32508297339144826)
+    assert_almost_equal(entropy(cluster), 0.32508297339144826)
 
 
 @pytest.mark.parametrize("n_samples", [50, stress_param(500000)])
 @pytest.mark.parametrize("base", [None, 2, 10, 50])
-@pytest.mark.parametrize("use_handle", [True, False])
-def test_entropy_random(n_samples, base, use_handle):
-    handle, stream = get_handle(use_handle)
-
+def test_entropy_random(n_samples, base):
     clustering, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 1000, n_samples)
     )
@@ -803,7 +766,7 @@ def test_entropy_random(n_samples, base, use_handle):
     # scipy's entropy uses probabilities
     sp_S = sp_entropy(pk, base=base)
     # we use a clustering
-    S = entropy(np.array(clustering, dtype=np.int32), base, handle=handle)
+    S = entropy(np.array(clustering, dtype=np.int32), base)
 
     assert_almost_equal(S, sp_S, decimal=2)
 
@@ -905,7 +868,6 @@ def test_roc_auc_score():
 @pytest.mark.parametrize("n_samples", [50, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_roc_auc_score_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 2, n_samples).astype(dtype)
     )
@@ -935,7 +897,7 @@ def test_roc_auc_score_at_limits():
     y_true = np.array([0.0, 0.5, 1.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "Continuous format of y_true  " "is not supported."
+    err_msg = "Continuous format of y_true  is not supported."
 
     with pytest.raises(ValueError, match=err_msg):
         roc_auc_score(y_true, y_pred)
@@ -965,9 +927,7 @@ def test_precision_recall_curve_at_limits():
     y_true = np.array([0.0, 0.0, 0.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = (
-        "precision_recall_curve cannot be used when " "y_true is all zero."
-    )
+    err_msg = "precision_recall_curve cannot be used when y_true is all zero."
 
     with pytest.raises(ValueError, match=err_msg):
         precision_recall_curve(y_true, y_pred)
@@ -975,7 +935,7 @@ def test_precision_recall_curve_at_limits():
     y_true = np.array([0.0, 0.5, 1.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "Continuous format of y_true  " "is not supported."
+    err_msg = "Continuous format of y_true  is not supported."
 
     with pytest.raises(ValueError, match=err_msg):
         precision_recall_curve(y_true, y_pred)
@@ -988,7 +948,6 @@ def test_precision_recall_curve_at_limits():
 @pytest.mark.parametrize("n_samples", [50, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_precision_recall_curve_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 2, n_samples).astype(dtype)
     )
@@ -1027,7 +986,6 @@ def test_log_loss():
 @pytest.mark.parametrize("n_samples", [500, 500000])
 @pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_log_loss_random(n_samples, dtype):
-
     y_true, _, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, 10, n_samples).astype(dtype)
     )
@@ -1048,7 +1006,7 @@ def test_log_loss_at_limits():
     y_true = np.array([0.0, 1.0, 2.0], dtype=float)
     y_pred = np.array([0.0, 0.5, 1.0], dtype=float)
 
-    err_msg = "The shape of y_pred doesn't " "match the number of classes"
+    err_msg = "The shape of y_pred doesn't match the number of classes"
 
     with pytest.raises(ValueError, match=err_msg):
         log_loss(y_true, y_pred)
@@ -1322,7 +1280,6 @@ def test_pairwise_distances_unsuppored_metrics(metric):
 
 
 def test_pairwise_distances_exceptions():
-
     rng = np.random.RandomState(4)
 
     X_int = rng.randint(10, size=(5, 4))
@@ -1373,7 +1330,6 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
 
     # Use the global manager object. Should do nothing unless use_global is set
     with cuml.using_output_type(output_type):
-
         # Compare to sklearn, fp64
         S = pairwise_distances(
             X, Y, metric="euclidean", output_type=output_type_param
@@ -1637,7 +1593,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
 
 
 @pytest.mark.xfail(
-    reason="Temporarily disabling this test. " "See rapidsai/cuml#3569"
+    reason="Temporarily disabling this test. See rapidsai/cuml#3569"
 )
 @pytest.mark.parametrize(
     "nrows, ncols, n_info",

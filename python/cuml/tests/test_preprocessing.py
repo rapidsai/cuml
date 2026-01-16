@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -76,7 +76,9 @@ from cuml.testing.test_preproc_utils import (  # noqa: F401
 
 @pytest.mark.parametrize("feature_range", [(0, 1), (0.1, 0.8)])
 def test_minmax_scaler(
-    failure_logger, clf_dataset, feature_range  # noqa: F811
+    failure_logger,
+    clf_dataset,
+    feature_range,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -97,7 +99,10 @@ def test_minmax_scaler(
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("feature_range", [(0, 1), (0.1, 0.8)])
 def test_minmax_scale(
-    failure_logger, clf_dataset, axis, feature_range  # noqa: F811
+    failure_logger,
+    clf_dataset,
+    axis,
+    feature_range,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -112,7 +117,10 @@ def test_minmax_scale(
 @pytest.mark.parametrize("with_mean", [True, False])
 @pytest.mark.parametrize("with_std", [True, False])
 def test_standard_scaler(
-    failure_logger, clf_dataset, with_mean, with_std  # noqa: F811
+    failure_logger,
+    clf_dataset,
+    with_mean,
+    with_std,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -136,7 +144,9 @@ def test_standard_scaler(
 
 @pytest.mark.parametrize("with_std", [True, False])
 def test_standard_scaler_sparse(
-    failure_logger, sparse_clf_dataset, with_std  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    with_std,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -172,7 +182,11 @@ def test_standard_scaler_sparse(
 # For more information see : https://github.com/rapidsai/cuml/issues/4203
 @pytest.mark.filterwarnings("ignore:Numerical issues::")
 def test_scale(
-    failure_logger, clf_dataset, axis, with_mean, with_std  # noqa: F811
+    failure_logger,
+    clf_dataset,
+    axis,
+    with_mean,
+    with_std,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -190,7 +204,9 @@ def test_scale(
 
 @pytest.mark.parametrize("with_std", [True, False])
 def test_scale_sparse(
-    failure_logger, sparse_clf_dataset, with_std  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    with_std,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -235,9 +251,7 @@ def test_maxabs_scaler(failure_logger, clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
-def test_maxabs_scaler_sparse(
-    failure_logger, sparse_clf_dataset
-):  # noqa: F811
+def test_maxabs_scaler_sparse(failure_logger, sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
     scaler = cuMaxAbsScaler(copy=True)
@@ -278,7 +292,9 @@ def test_normalizer(failure_logger, clf_dataset, norm):  # noqa: F811
 
 @pytest.mark.parametrize("norm", ["l1", "l2", "max"])
 def test_normalizer_sparse(
-    failure_logger, sparse_clf_dataset, norm  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    norm,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -303,7 +319,11 @@ def test_normalizer_sparse(
 @pytest.mark.parametrize("norm", ["l1", "l2", "max"])
 @pytest.mark.parametrize("return_norm", [True, False])
 def test_normalize(
-    failure_logger, clf_dataset, axis, norm, return_norm  # noqa: F811
+    failure_logger,
+    clf_dataset,
+    axis,
+    norm,
+    return_norm,  # noqa: F811
 ):
     X_np, X = clf_dataset
 
@@ -327,7 +347,9 @@ def test_normalize(
 
 @pytest.mark.parametrize("norm", ["l1", "l2", "max"])
 def test_normalize_sparse(
-    failure_logger, sparse_clf_dataset, norm  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    norm,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -516,7 +538,9 @@ def test_add_dummy_feature(failure_logger, clf_dataset, value):  # noqa: F811
 
 @pytest.mark.parametrize("value", [1.0, 42])
 def test_add_dummy_feature_sparse(
-    failure_logger, sparse_dataset_with_coo, value  # noqa: F811
+    failure_logger,
+    sparse_dataset_with_coo,
+    value,  # noqa: F811
 ):
     X_np, X = sparse_dataset_with_coo
 
@@ -545,7 +569,9 @@ def test_binarize(failure_logger, clf_dataset, threshold):  # noqa: F811
 
 @pytest.mark.parametrize("threshold", [0.0, 1.0])
 def test_binarize_sparse(
-    failure_logger, sparse_clf_dataset, threshold  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    threshold,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -577,7 +603,9 @@ def test_binarizer(failure_logger, clf_dataset, threshold):  # noqa: F811
 
 @pytest.mark.parametrize("threshold", [0.0, 1.0])
 def test_binarizer_sparse(
-    failure_logger, sparse_clf_dataset, threshold  # noqa: F811
+    failure_logger,
+    sparse_clf_dataset,
+    threshold,  # noqa: F811
 ):
     X_np, X = sparse_clf_dataset
 
@@ -780,7 +808,11 @@ def test_robust_scale_sparse(
     ],
 )
 def test_kbinsdiscretizer(
-    failure_logger, blobs_dataset, n_bins, encode, strategy  # noqa: F811
+    failure_logger,
+    blobs_dataset,
+    n_bins,
+    encode,
+    strategy,  # noqa: F811
 ):
     X_np, X = blobs_dataset
 
@@ -795,7 +827,13 @@ def test_kbinsdiscretizer(
         assert type(r_X) is type(t_X)
 
     transformer = skKBinsDiscretizer(
-        n_bins=n_bins, encode=encode, strategy=strategy
+        n_bins=n_bins,
+        encode=encode,
+        strategy=strategy,
+        # defaults for subsample were changed in sklearn version 1.5+
+        subsample=200_000
+        if strategy in ("uniform", "quantile", "kmeans")
+        else None,
     )
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
@@ -810,7 +848,10 @@ def test_kbinsdiscretizer(
 @pytest.mark.parametrize("missing_values", [0, 1, np.nan])
 @pytest.mark.parametrize("features", ["missing-only", "all"])
 def test_missing_indicator(
-    failure_logger, int_dataset, missing_values, features  # noqa: F811
+    failure_logger,
+    int_dataset,
+    missing_values,
+    features,  # noqa: F811
 ):
     zero_filled, one_filled, nan_filled = int_dataset
     if missing_values == 0:
@@ -842,7 +883,9 @@ def test_missing_indicator(
 
 @pytest.mark.parametrize("features", ["missing-only", "all"])
 def test_missing_indicator_sparse(
-    failure_logger, sparse_int_dataset, features  # noqa: F811
+    failure_logger,
+    sparse_int_dataset,
+    features,  # noqa: F811
 ):
     X_np, X = sparse_int_dataset
 
@@ -1082,7 +1125,10 @@ def test_quantile_transform(
 @pytest.mark.parametrize("method", ["yeo-johnson", "box-cox"])
 @pytest.mark.parametrize("standardize", [False, True])
 def test_power_transformer(
-    failure_logger, nan_filled_positive, method, standardize  # noqa: F811
+    failure_logger,
+    nan_filled_positive,
+    method,
+    standardize,  # noqa: F811
 ):
     X_np, X = nan_filled_positive
 
@@ -1110,7 +1156,10 @@ def test_power_transformer(
 @pytest.mark.parametrize("method", ["yeo-johnson", "box-cox"])
 @pytest.mark.parametrize("standardize", [False, True])
 def test_power_transform(
-    failure_logger, nan_filled_positive, method, standardize  # noqa: F811
+    failure_logger,
+    nan_filled_positive,
+    method,
+    standardize,  # noqa: F811
 ):
     X_np, X = nan_filled_positive
 

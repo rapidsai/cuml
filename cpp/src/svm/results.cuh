@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,7 +20,7 @@
 
 #include <rmm/aligned.hpp>
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
 #include <cub/device/device_select.cuh>
@@ -62,7 +62,7 @@ class Results {
           const math_t* y,
           const math_t* C,
           SvmType svmType)
-    : rmm_alloc(rmm::mr::get_current_device_resource()),
+    : rmm_alloc(rmm::mr::get_current_device_resource_ref()),
       stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),

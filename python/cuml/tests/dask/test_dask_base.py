@@ -32,7 +32,6 @@ def make_dataset(datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("data_size", [[500, 20, 10]])
 @pytest.mark.parametrize("fit_intercept", [True, False])
 def test_get_combined_model(datatype, keys, data_size, fit_intercept, client):
-
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
     model = LinearRegression(
@@ -53,7 +52,6 @@ def test_get_combined_model(datatype, keys, data_size, fit_intercept, client):
 
 
 def test_check_internal_model_failures(client):
-
     # Test model not trained yet
     model = LinearRegression(client=client)
     assert model.get_combined_model() is None
@@ -79,7 +77,6 @@ def test_check_internal_model_failures(client):
 def test_regressor_mg_train_sg_predict(
     datatype, keys, data_size, fit_intercept, client
 ):
-
     nrows, ncols, n_info = data_size
     X_train, y_train, X_test = make_dataset(datatype, nrows, ncols, n_info)
 
@@ -103,7 +100,6 @@ def test_regressor_mg_train_sg_predict(
 def test_regressor_sg_train_mg_predict(
     datatype, keys, data_size, fit_intercept, client
 ):
-
     # Just testing for basic compatibility w/ dask-ml's ParallelPostFit.
     # Refer to test_pickle.py for more extensive testing of single-GPU
     # model serialization.
@@ -133,7 +129,6 @@ def test_regressor_sg_train_mg_predict(
 
 
 def test_getattr(client):
-
     # Test getattr on local param
     kmeans_model = KMeans(client=client)
 
@@ -166,20 +161,3 @@ def test_getattr(client):
 
     assert nb_model.feature_count_ is not None
     assert isinstance(nb_model.feature_count_, cupy.ndarray)
-
-
-@pytest.mark.parametrize(
-    "cls",
-    [
-        cuml.dask.linear_model.LinearRegression,
-        cuml.dask.linear_model.Lasso,
-        cuml.dask.linear_model.Ridge,
-        cuml.dask.linear_model.ElasticNet,
-    ],
-)
-def test_deprecated_normalize(client, cls):
-    X, y = make_regression(random_state=42)
-    model = cls(normalize=True, client=client)
-
-    with pytest.warns(FutureWarning, match="normalize"):
-        model.fit(X, y)

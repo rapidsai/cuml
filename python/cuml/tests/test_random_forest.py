@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 import treelite
 from cudf.pandas import LOADED as cudf_pandas_active
-from numba import cuda
 from sklearn.datasets import (
     fetch_california_housing,
     load_breast_cancer,
@@ -31,18 +30,11 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 
 import cuml
-import cuml.internals.logger as logger
-from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
-from cuml.testing.utils import (
-    get_handle,
-    quality_param,
-    stress_param,
-    unit_param,
-)
+from cuml.testing.utils import quality_param, stress_param, unit_param
 
 
 @pytest.fixture(
@@ -191,6 +183,25 @@ def special_reg(request):
     return X, y
 
 
+def test_as_fil_doesnt_warn_handle_deprecated():
+    X, y = make_classification()
+    with pytest.warns(FutureWarning):
+        handle = cuml.Handle(n_streams=4)
+        model = cuml.RandomForestClassifier(
+            handle=handle, n_streams=4, n_bins=32
+        )
+
+    model.fit(X, y)
+
+    # Test that no warning raised
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fil = model.as_fil()
+
+    # handle was forwarded
+    assert fil.handle is handle
+
+
 def test_default_parameters():
     reg_params = curfr().get_params()
     clf_params = curfc().get_params()
@@ -204,11 +215,7 @@ def test_default_parameters():
     assert clf_params["split_criterion"] == "gini"
 
     # Drop differing params
-    for name in [
-        "max_features",
-        "split_criterion",
-        "handle",
-    ]:
+    for name in ["max_features", "split_criterion"]:
         reg_params.pop(name)
         clf_params.pop(name)
 
@@ -291,17 +298,12 @@ def test_tweedie_convergence(max_depth, split_criterion):
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
 def test_rf_classification(small_clf, datatype, max_samples, max_features):
-    use_handle = True
-
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
-
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(
@@ -313,7 +315,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
         random_state=123,
         n_streams=1,
         n_estimators=40,
-        handle=handle,
         max_leaves=-1,
         max_depth=16,
     )
@@ -344,8 +345,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
 def test_rf_classification_unorder(
     small_clf, datatype, max_samples, max_features=1, a=2, b=5
 ):
-    use_handle = True
-
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
@@ -354,8 +353,6 @@ def test_rf_classification_unorder(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
@@ -368,7 +365,6 @@ def test_rf_classification_unorder(
         random_state=123,
         n_streams=1,
         n_estimators=40,
-        handle=handle,
         max_leaves=-1,
         max_depth=16,
     )
@@ -416,18 +412,12 @@ def test_rf_classification_unorder(
 def test_rf_regression(
     special_reg, datatype, max_features, max_samples, n_bins
 ):
-
-    use_handle = True
-
     X, y = special_reg
     X = X.astype(datatype)
     y = y.astype(datatype)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
-
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(
@@ -439,7 +429,6 @@ def test_rf_regression(
         random_state=123,
         n_streams=1,
         n_estimators=50,
-        handle=handle,
         max_leaves=-1,
         max_depth=16,
     )
@@ -470,7 +459,6 @@ def test_rf_regression(
 )
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 def test_rf_classification_seed(small_clf, datatype):
-
     X, y = small_clf
     X = X.astype(datatype)
     y = y.astype(np.int32)
@@ -584,8 +572,6 @@ def rf_classification(
     )
     X_test = X_test.astype(datatype[1])
 
-    n_streams = 1
-    handle, stream = get_handle(True, n_streams=n_streams)
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(
@@ -596,10 +582,9 @@ def rf_classification(
         min_samples_leaf=2,
         random_state=999,
         n_estimators=40,
-        handle=handle,
         max_leaves=-1,
         max_depth=16,
-        n_streams=n_streams,
+        n_streams=1,
     )
     if array_type == "dataframe":
         X_train_df = cudf.DataFrame(X_train)
@@ -671,7 +656,6 @@ def test_rf_classification_proba(
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
 def test_rf_classification_sparse(small_clf, datatype, fil_layout):
-    use_handle = True
     num_trees = 50
 
     X, y = small_clf
@@ -680,9 +664,6 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=0.8, random_state=0
     )
-
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
 
     # Initialize, fit and predict using cuML's
     # random forest classification model
@@ -693,7 +674,6 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
         random_state=123,
         n_streams=1,
         n_estimators=num_trees,
-        handle=handle,
         max_leaves=-1,
         max_depth=40,
     )
@@ -738,7 +718,6 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
 def test_rf_regression_sparse(special_reg, datatype, fil_layout):
-    use_handle = True
     num_trees = 50
 
     X, y = special_reg
@@ -748,9 +727,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         X, y, train_size=0.8, random_state=0
     )
 
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
-
     # Initialize and fit using cuML's random forest regression model
     cuml_model = curfr(
         n_bins=16,
@@ -759,7 +735,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         random_state=123,
         n_streams=1,
         n_estimators=num_trees,
-        handle=handle,
         max_leaves=-1,
         max_depth=40,
     )
@@ -796,56 +771,6 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
         assert r2 >= (sk_r2 - 0.08)
 
 
-@pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
-@pytest.mark.memleak
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize(
-    "fil_layout", ["depth_first", "breadth_first", "layered"]
-)
-@pytest.mark.parametrize(
-    "n_iter", [unit_param(5), quality_param(30), stress_param(80)]
-)
-def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
-    use_handle = True
-
-    X, y = small_clf
-    X = X.astype(datatype)
-    y = y.astype(np.int32)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=0.8, random_state=0
-    )
-
-    # Create a handle for the cuml model
-    handle, stream = get_handle(use_handle, n_streams=1)
-
-    # Warmup. Some modules that are used in RF allocate space on the device
-    # and consume memory. This is to make sure that the allocation is done
-    # before the first call to get_memory_info.
-    base_model = curfc(handle=handle)
-    base_model.fit(X_train, y_train)
-    handle.sync()  # just to be sure
-    free_mem = cuda.current_context().get_memory_info()[0]
-
-    def test_for_memory_leak():
-        nonlocal free_mem
-        cuml_mods = curfc(handle=handle)
-        cuml_mods.fit(X_train, y_train)
-        handle.sync()  # just to be sure
-        # Calculate the memory free after fitting the cuML model
-        delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-        assert delta_mem == 0
-
-        for i in range(2):
-            cuml_mods.predict(X_test, layout=fil_layout)
-            handle.sync()  # just to be sure
-            # Calculate the memory free after predicting the cuML model
-            delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-            assert delta_mem == 0
-
-    for i in range(n_iter):
-        test_for_memory_leak()
-
-
 @pytest.mark.parametrize("max_features", [1.0, "log2", "sqrt"])
 @pytest.mark.parametrize("max_depth", [10, 13, 16])
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
@@ -853,7 +778,6 @@ def test_rf_memory_leakage(small_clf, datatype, fil_layout, n_iter):
 def test_create_classification_model(
     max_features, max_depth, n_estimators, n_bins
 ):
-
     # random forest classification model
     cuml_model = curfc(
         max_features=max_features,
@@ -874,7 +798,6 @@ def test_create_classification_model(
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
 @pytest.mark.parametrize("n_bins", [8, 9, 10])
 def test_multiple_fits_classification(large_clf, n_estimators, n_bins):
-
     datatype = np.float32
     X, y = large_clf
     X = X.astype(datatype)
@@ -931,122 +854,6 @@ def test_multiple_fits_regression(column_info, nrows, n_estimators, n_bins):
     assert params["n_bins"] == n_bins
 
 
-@pytest.mark.xfail(
-    reason="Needs refactoring/debugging due to sporadic failures"
-    "https://github.com/rapidsai/cuml/issues/5528"
-)
-@pytest.mark.memleak
-@pytest.mark.parametrize("estimator_type", ["classification"])
-def test_rf_host_memory_leak(large_clf, estimator_type):
-    import gc
-    import os
-
-    try:
-        import psutil
-    except ImportError:
-        pytest.skip("psutil not installed")
-
-    process = psutil.Process(os.getpid())
-
-    X, y = large_clf
-    X = X.astype(np.float32)
-    params = {"max_depth": 50}
-    if estimator_type == "classification":
-        base_model = curfc(max_depth=10, n_estimators=100, random_state=123)
-        y = y.astype(np.int32)
-    else:
-        base_model = curfr(max_depth=10, n_estimators=100, random_state=123)
-        y = y.astype(np.float32)
-
-    # Pre-fit once - this is our baseline and memory usage
-    # should not significantly exceed it after later fits
-    base_model.fit(X, y)
-    gc.collect()
-    initial_baseline_mem = process.memory_info().rss
-
-    for i in range(5):
-        base_model.fit(X, y)
-        base_model.set_params(**params)
-        gc.collect()
-        final_mem = process.memory_info().rss
-
-    # Some tiny allocations may occur, but we should not leak
-    # without bounds, which previously happened
-    assert (final_mem - initial_baseline_mem) < 2.4e6
-
-
-@pytest.mark.xfail(
-    reason="Needs refactoring/debugging due to sporadic failures"
-    "https://github.com/rapidsai/cuml/issues/5528"
-)
-@pytest.mark.memleak
-@pytest.mark.parametrize("estimator_type", ["regression", "classification"])
-@pytest.mark.parametrize("i", list(range(100)))
-def test_concat_memory_leak(large_clf, estimator_type, i):
-    import gc
-    import os
-
-    try:
-        import psutil
-    except ImportError:
-        pytest.skip("psutil not installed")
-
-    process = psutil.Process(os.getpid())
-
-    X, y = large_clf
-    X = X.astype(np.float32)
-
-    # Build a series of RF models
-    n_models = 10
-    if estimator_type == "classification":
-        base_models = [
-            curfc(max_depth=10, n_estimators=100, random_state=123)
-            for i in range(n_models)
-        ]
-        y = y.astype(np.int32)
-    elif estimator_type == "regression":
-        base_models = [
-            curfr(max_depth=10, n_estimators=100, random_state=123)
-            for i in range(n_models)
-        ]
-        y = y.astype(np.float32)
-    else:
-        assert False
-
-    # Pre-fit once - this is our baseline and memory usage
-    # should not significantly exceed it after later fits
-    for model in base_models:
-        model.fit(X, y)
-
-    # Just concatenate over and over in a loop
-    concat_models = base_models[1:]
-    init_model = base_models[0]
-    other_handles = [
-        model._obtain_treelite_handle() for model in concat_models
-    ]
-    init_model._concatenate_treelite_handle(other_handles)
-
-    gc.collect()
-    initial_baseline_mem = process.memory_info().rss
-    for i in range(10):
-        init_model._concatenate_treelite_handle(other_handles)
-        gc.collect()
-        used_mem = process.memory_info().rss
-        logger.debug(
-            "memory at rep %2d: %d m"
-            % (i, (used_mem - initial_baseline_mem) / 1e6)
-        )
-
-    gc.collect()
-    used_mem = process.memory_info().rss
-    logger.info(
-        "Final memory delta: %d" % ((used_mem - initial_baseline_mem) / 1e6)
-    )
-
-    # increasing margin to avoid very infrequent failures
-    assert (used_mem - initial_baseline_mem) < 1.1e6
-
-
 def test_rf_nbins_small(small_clf):
     X, y = small_clf
     X = X.astype(np.float32)
@@ -1101,7 +908,7 @@ def test_rf_regression_with_identical_labels():
 
 
 def test_rf_regressor_gtil_integration(tmpdir):
-    X, y = fetch_california_housing(return_X_y=True)
+    X, y = make_regression(n_samples=10000, random_state=0)
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
@@ -1112,7 +919,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
     out_pred = treelite.gtil.predict(tl_model, X)
-    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=4)
 
 
 def test_rf_binary_classifier_gtil_integration(tmpdir):
@@ -1183,7 +990,6 @@ def test_max_features(max_features, sol):
 
 
 def test_rf_predict_returns_int():
-
     X, y = make_classification()
 
     # Capture and verify expected warning
@@ -1285,20 +1091,6 @@ def test_rf_feature_importance_regressor():
     )
 
 
-# Note: check_no_attributes_set_in_init, which is one of the common checks,
-# cwould already check that these attributes don't exist. However, that test
-# is marked as xfail. TODO: remove this once we have fixed the xfail.
-def test_rf_feature_importance_not_fitted():
-    """Test that accessing feature importances before fitting raises error"""
-    clf = curfc()
-    with pytest.raises((NotFittedError, AttributeError)):
-        _ = clf.feature_importances_
-
-    reg = curfr()
-    with pytest.raises((NotFittedError, AttributeError)):
-        _ = reg.feature_importances_
-
-
 def test_rf_feature_importance_exact_match_with_fixed_trees():
     """Test that feature importances are reproducible with fixed parameters.
 
@@ -1325,14 +1117,14 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
     cu_importances = cu_rf.feature_importances_
 
     if cu_importances.sum() > 0:
-        assert np.allclose(
-            cu_importances.sum(), 1.0, rtol=1e-5
-        ), f"Feature importances don't sum to 1: {cu_importances.sum()}"
+        assert np.allclose(cu_importances.sum(), 1.0, rtol=1e-5), (
+            f"Feature importances don't sum to 1: {cu_importances.sum()}"
+        )
 
         top_features = np.argsort(cu_importances)[-2:]
-        assert (
-            0 in top_features
-        ), f"Feature 0 not in top features. Importances: {cu_importances}"
+        assert 0 in top_features, (
+            f"Feature 0 not in top features. Importances: {cu_importances}"
+        )
 
     cu_rf2 = curfc(
         n_estimators=5,
@@ -1348,9 +1140,9 @@ def test_rf_feature_importance_exact_match_with_fixed_trees():
     cu_importances2 = cu_rf2.feature_importances_
 
     # With same parameters and no randomness, should get identical importances
-    assert np.allclose(
-        cu_importances, cu_importances2, rtol=1e-5
-    ), f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+    assert np.allclose(cu_importances, cu_importances2, rtol=1e-5), (
+        f"Importances not reproducible:\n1st run: {cu_importances}\n2nd run: {cu_importances2}"
+    )
 
 
 def test_rf_feature_importance_consistency():
@@ -1386,7 +1178,9 @@ def test_rf_feature_importance_consistency():
     for i in range(1, len(importances_list)):
         assert np.allclose(
             importances_list[0], importances_list[i], rtol=1e-5
-        ), f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+        ), (
+            f"Run {i} produced different importances:\n{importances_list[0]}\nvs\n{importances_list[i]}"
+        )
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

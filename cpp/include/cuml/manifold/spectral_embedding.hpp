@@ -1,11 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <raft/core/device_coo_matrix.hpp>
 #include <raft/core/device_mdspan.hpp>
 #include <raft/core/resources.hpp>
+
+#include <optional>
 
 namespace cuvs::preprocessing::spectral_embedding {
 
@@ -32,7 +34,7 @@ struct params {
   bool drop_first;
 
   /** @brief Random seed for reproducibility */
-  uint64_t seed;
+  std::optional<uint64_t> seed = std::nullopt;
 };
 
 cuvs::preprocessing::spectral_embedding::params to_cuvs(ML::SpectralEmbedding::params& config);
@@ -44,7 +46,7 @@ void transform(raft::resources const& handle,
 
 void transform(raft::resources const& handle,
                ML::SpectralEmbedding::params config,
-               raft::device_coo_matrix_view<float, int, int, int> connectivity_graph,
+               raft::device_coo_matrix_view<float, int, int, int64_t> connectivity_graph,
                raft::device_matrix_view<float, int, raft::col_major> embedding);
 
 void transform(raft::resources const& handle,

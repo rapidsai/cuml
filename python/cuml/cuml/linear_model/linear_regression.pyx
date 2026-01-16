@@ -7,25 +7,21 @@ import warnings
 
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
 )
-from cuml.internals.memory_utils import cuda_ptr
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import (
-    LinearPredictMixin,
-    check_deprecated_normalize,
-)
+from cuml.internals.outputs import reflect
+from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -42,7 +38,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      float *sample_weight) except +
 
@@ -54,7 +49,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize,
                      int algo,
                      double *sample_weight) except +
 
@@ -98,6 +92,13 @@ class LinearRegression(Base,
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
+    cuML's LinearRegression can take array-like objects, either in host as
+    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
+    compliant), in addition to cuDF objects.
+    It provides two algorithms: Singular Value
+    Decomposition (SVD) and Eigndecomposition (Eig) to fit a linear model.
+    SVD is more numerically stable, but Eig (the default) is much faster.
+
     Examples
     --------
 
@@ -109,8 +110,7 @@ class LinearRegression(Base,
         >>> # Both import methods supported
         >>> from cuml import LinearRegression
         >>> from cuml.linear_model import LinearRegression
-        >>> lr = LinearRegression(fit_intercept = True, normalize = False,
-        ...                       algorithm = "eig")
+        >>> lr = LinearRegression(fit_intercept = True, algorithm = "eig")
         >>> X = cudf.DataFrame()
         >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
         >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
@@ -138,41 +138,42 @@ class LinearRegression(Base,
     algorithm : {'auto', 'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'auto')
         Choose an algorithm:
 
-          * 'auto' - 'eig', or 'svd' if y multi-target or X has only one column
-          * 'svd' - alias for svd-jacobi
-          * 'eig' - use an eigendecomposition of the covariance matrix
-          * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
-          * 'svd-qr' - compute SVD decomposition using QR algorithm
-          * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations
+          * 'auto' - ``'eig'``, or ``'svd'`` if y multi-target or X has only one column
+          * ``'svd'`` - alias for svd-jacobi
+          * ``'eig'`` - use an eigendecomposition of the covariance matrix
+          * ``'qr'``  - use QR decomposition algorithm and solve `Rx = Q^T y`
+          * ``'svd-qr'`` - compute SVD decomposition using QR algorithm
+          * ``'svd-jacobi'`` - compute SVD decomposition using Jacobi iterations
 
-        Among these algorithms, only 'svd-jacobi' supports the case when the
+        Among these algorithms, only ``'svd-jacobi'`` supports the case when the
         number of features is larger than the sample size; this algorithm
         is force-selected automatically in such a case.
 
-        For the broad range of inputs, 'eig' and 'qr' are usually the fastest,
-        followed by 'svd-jacobi' and then 'svd-qr'. In theory, SVD-based
-        algorithms are more stable.
+        For the broad range of inputs, ``'eig'`` and ``'qr'`` are usually the fastest,
+        followed by ``'svd-jacobi'`` and then ``'svd-qr'``. In theory, `svd`-based
+        algorithms are more numerically stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    copy_X : bool, default=True
-        If True, cuml will copy X when needed to avoid mutating the input array.
-        If you're ok with X being overwritten, setting to False may avoid a copy,
-        reducing memory usage for certain algorithms.
-    normalize : boolean, default=False
+    copy_X : boolean, default=True
+        If True, it is guaranteed that a copy of X is created, leaving the
+        original X unchanged. However, if set to False, X may be modified
+        directly, which would reduce the memory usage of the estimator.
 
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
+        .. versionchanged:: 23.08
+            Starting from version 23.08, the new `copy_X` parameter defaults
+            to ``True``, ensuring a copy of X is created after passing it to
+            `fit()`, preventing any changes to the input, but with increased
+            memory usage. This represents a change in behavior from previous
+            versions. With `copy_X=False` a copy might still be created if
+            necessary.
+    handle : cuml.Handle or None, default=None
 
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -194,9 +195,9 @@ class LinearRegression(Base,
     -----
     LinearRegression suffers from multicollinearity (when columns are
     correlated with each other), and variance explosions from outliers.
-    Consider using Ridge Regression to fix the multicollinearity problem, and
-    consider maybe first DBSCAN to remove the outliers, or statistical analysis
-    to filter possible outliers.
+    Consider using :class:`Ridge` to fix the multicollinearity problem, and
+    consider maybe first :class:`DBSCAN` to remove the outliers, or
+    statistical analysis to filter possible outliers.
 
     **Applications of LinearRegression**
 
@@ -206,8 +207,8 @@ class LinearRegression(Base,
         tasks. This model should be first tried if the machine learning problem
         is a regression task (predicting a continuous variable).
 
-    For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
+    For additional information, see scikit-learn's documentation for
+    :class:`sklearn.linear_model.LinearRegression`.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
@@ -225,7 +226,6 @@ class LinearRegression(Base,
             "algorithm",
             "fit_intercept",
             "copy_X",
-            "normalize",
         ]
 
     @classmethod
@@ -264,22 +264,15 @@ class LinearRegression(Base,
         algorithm="auto",
         fit_intercept=True,
         copy_X=True,
-        normalize=False,
         handle=None,
         verbose=False,
         output_type=None
     ):
-        if handle is None and algorithm in ("auto", "eig"):
-            # if possible, create two streams, so that eigenvalue decomposition
-            # can benefit from running independent operations concurrently.
-            handle = Handle(n_streams=2)
-
         super().__init__(handle=handle, verbose=verbose, output_type=output_type)
 
         self.algorithm = algorithm
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
-        self.normalize = normalize
 
     def _select_algo(self, X, y):
         """Select the solver algorithm based on `algorithm` and problem dimensions"""
@@ -306,13 +299,12 @@ class LinearRegression(Base,
         return algo
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
@@ -378,9 +370,10 @@ class LinearRegression(Base,
         cdef bool is_float32 = X_m.dtype == np.float32
         cdef float intercept_f32
         cdef double intercept_f64
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        # Always use 2 streams to expose concurrency in the eig computation
+        handle = get_handle(model=self, n_streams=2)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool normalize = self.normalize
 
         with nogil:
             if is_float32:
@@ -393,7 +386,6 @@ class LinearRegression(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
                     algo,
                     <float*>sample_weight_ptr,
                 )
@@ -407,11 +399,10 @@ class LinearRegression(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
                     algo,
                     <double*>sample_weight_ptr,
                 )
-        self.handle.sync()
+        handle.sync()
 
         self.intercept_ = intercept_f32 if is_float32 else intercept_f64
         self.coef_ = coef
@@ -421,12 +412,6 @@ class LinearRegression(Base,
     def _fit_multi_target(
         self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False,
     ):
-        if self.normalize:
-            raise ValueError(
-                "The normalize option is not supported when `y` has "
-                "multiple columns."
-            )
-
         X = X_m.to_output("cupy")
         y = y_m.to_output("cupy")
 

@@ -6,7 +6,6 @@ import math
 import numpy as np
 import pytest
 import sklearn.svm
-from pylibraft.common import Handle
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
 
@@ -289,14 +288,13 @@ def test_linear_svr_n_iter_max_iter(loss):
 
 
 @pytest.mark.parametrize("penalty", ["l1", "l2"])
-@pytest.mark.parametrize("parallel_streams", [False, True])
-def test_linear_svc_n_iter_max_iter(penalty, parallel_streams):
-    handle = Handle(n_streams=4) if parallel_streams else None
+@pytest.mark.parametrize("n_streams", [1, 4])
+def test_linear_svc_n_iter_max_iter(penalty, n_streams):
     X, y = make_classification(random_state=42)
-    model = cuml.LinearSVC(penalty=penalty, handle=handle).fit(X, y)
+    model = cuml.LinearSVC(penalty=penalty, n_streams=n_streams).fit(X, y)
     assert model.n_iter_ <= model.max_iter
 
-    model = cuml.LinearSVC(penalty=penalty, handle=handle, max_iter=10).fit(
-        X, y
-    )
+    model = cuml.LinearSVC(
+        penalty=penalty, n_streams=n_streams, max_iter=10
+    ).fit(X, y)
     assert model.n_iter_ == 10

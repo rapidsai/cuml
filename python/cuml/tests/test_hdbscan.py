@@ -1,13 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import hdbscan
 import numpy as np
 import pandas as pd
 import pytest
-from pylibraft.common import DeviceResourcesSNMG
+import sklearn
+from packaging.version import Version
 from sklearn import datasets
 from sklearn.datasets import make_blobs
 from sklearn.model_selection import train_test_split
@@ -20,10 +20,22 @@ from cuml.cluster.hdbscan import (
     membership_vector,
 )
 from cuml.cluster.hdbscan.hdbscan import _condense_hierarchy, _extract_clusters
-from cuml.internals import logger
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip(
+        "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
+    )
+
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of hdbscan use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 
 dataset_names = ["noisy_circles", "noisy_moons", "varied"]
 
@@ -156,7 +168,6 @@ def test_hdbscan_blobs(
     max_cluster_size,
     min_samples,
 ):
-
     X, y = make_blobs(
         n_samples=int(nrows),
         n_features=ncols,
@@ -167,7 +178,6 @@ def test_hdbscan_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -217,7 +227,6 @@ def test_hdbscan_sklearn_datasets(
     min_samples_cluster_size_bounds,
     allow_single_cluster,
 ):
-
     (
         min_samples,
         min_cluster_size,
@@ -227,7 +236,6 @@ def test_hdbscan_sklearn_datasets(
     X = supervised_learning_dataset
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         gen_min_span_tree=True,
         min_samples=min_samples,
@@ -324,12 +332,10 @@ def test_hdbscan_cluster_patterns(
     max_cluster_size,
     min_samples,
 ):
-
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -385,7 +391,6 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     max_cluster_size,
     min_samples,
 ):
-
     # This also tests duplicate data points
     X, y = make_pattern(dataset, nrows)[0]
 
@@ -530,7 +535,6 @@ def test_all_points_membership_vectors_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -577,11 +581,9 @@ def test_all_points_membership_vectors_moons(
     max_cluster_size,
     batch_size,
 ):
-
     X, y = datasets.make_moons(n_samples=nrows, noise=0.05, random_state=42)
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -637,7 +639,6 @@ def test_all_points_membership_vectors_circles(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -709,7 +710,6 @@ def test_approximate_predict_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -759,7 +759,6 @@ def test_approximate_predict_moons(
     max_cluster_size,
     cluster_selection_method,
 ):
-
     X, y = datasets.make_moons(
         n_samples=nrows + n_points_to_predict, noise=0.05, random_state=42
     )
@@ -768,7 +767,6 @@ def test_approximate_predict_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -833,7 +831,6 @@ def test_approximate_predict_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -899,7 +896,6 @@ def test_approximate_predict_digits(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         min_samples=min_samples,
         max_cluster_size=max_cluster_size,
@@ -973,7 +969,6 @@ def test_membership_vector_blobs(
     )
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
         min_cluster_size=min_cluster_size,
@@ -1028,7 +1023,6 @@ def test_membership_vector_moons(
     max_cluster_size,
     batch_size,
 ):
-
     X, y = datasets.make_moons(
         n_samples=nrows + n_points_to_predict, noise=0.05, random_state=42
     )
@@ -1037,7 +1031,6 @@ def test_membership_vector_moons(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -1101,7 +1094,6 @@ def test_membership_vector_circles(
     X_test = X[nrows:]
 
     cuml_agg = HDBSCAN(
-        verbose=logger.level_enum.info,
         min_samples=min_samples,
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -1211,9 +1203,9 @@ def test_approximate_predict_output_type():
 
 @pytest.mark.parametrize("n_clusters", [1, 4, 7])
 @pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
-@pytest.mark.parametrize("do_snmg", [False, True])
+@pytest.mark.parametrize("device_ids", [None, "all"])
 @pytest.mark.parametrize("min_samples", [15, 30])
-def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
+def test_hdbscan_build_algo(n_clusters, build_algo, device_ids, min_samples):
     X, y = make_blobs(
         n_samples=10_000,
         n_features=16,
@@ -1221,17 +1213,37 @@ def test_hdbscan_build_algo(n_clusters, build_algo, do_snmg, min_samples):
         random_state=42,
     )
 
-    hdbscan_handle = None
-    if do_snmg:
-        hdbscan_handle = DeviceResourcesSNMG()
-
     cuml_agg = HDBSCAN(
         build_algo=build_algo,
         build_kwds={"knn_n_clusters": n_clusters, "nnd_graph_degree": 32},
-        handle=hdbscan_handle,
+        device_ids=device_ids,
         min_samples=min_samples,
     ).fit(X)
 
     sk_agg = hdbscan.HDBSCAN().fit(X)
+
+    assert adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.9
+
+
+@pytest.mark.parametrize("n_clusters", [1, 4])
+@pytest.mark.parametrize("build_algo", ["nn_descent", "brute_force"])
+@pytest.mark.parametrize("data_on_device", [False, True])
+def test_hdbscan_data_memory_type(n_clusters, build_algo, data_on_device):
+    X, y = make_blobs(
+        n_samples=10_000,
+        n_features=32,
+        centers=10,
+        random_state=42,
+    )
+
+    sk_agg = hdbscan.HDBSCAN().fit(X)
+
+    if data_on_device:
+        X = cp.asarray(X)
+
+    cuml_agg = HDBSCAN(
+        build_algo=build_algo,
+        build_kwds={"knn_n_clusters": n_clusters},
+    ).fit(X)
 
     assert adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.9

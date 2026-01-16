@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-
 import warnings
 
 import cupy
@@ -8,7 +7,6 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -16,7 +14,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -24,6 +22,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -104,9 +103,9 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
 
 # Changed in scikit-learn version 1.5: Parameter name changed from n_iter to max_iter.
 if Version(sklearn.__version__) >= Version("1.5.0"):
-    _SKLEARN_N_ITER_PARAM = "max_iter"
+    _SKLEARN_MAX_ITER_PARAM = "max_iter"
 else:
-    _SKLEARN_N_ITER_PARAM = "n_iter"
+    _SKLEARN_MAX_ITER_PARAM = "n_iter"
 
 _SUPPORTED_METRICS = {
     "l2": DistanceType.L2SqrtExpanded,
@@ -173,7 +172,6 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     adaptive_learning = _check_mapping(
         self, "learning_rate_method", {"adaptive": True, "none": False, None: False}
     )
-    n_iter = _check_numeric(self, "n_iter", gt=0)
     min_grad_norm = _check_numeric(self, "min_grad_norm", ge=0)
     angle = _check_numeric(self, "angle", ge=0, le=1)
     n_neighbors = _check_numeric(self, "n_neighbors", gt=0)
@@ -188,7 +186,9 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     if n_samples < 2:
         raise ValueError("TSNE requires >= 2 samples")
 
-    exaggeration_iter = min(exaggeration_iter, self.n_iter)
+    max_iter = _check_numeric(self, "max_iter", gt=0)
+
+    exaggeration_iter = min(exaggeration_iter, max_iter)
     if n_neighbors > 1023:
         warnings.warn(
             f"n_neighbors ({n_neighbors}) should be < 1024, "
@@ -237,12 +237,12 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     params.min_gain = 0.01
     params.pre_learning_rate = pre_learning_rate
     params.post_learning_rate = post_learning_rate
-    params.max_iter = n_iter
+    params.max_iter = max_iter
     params.min_grad_norm = min_grad_norm
     params.pre_momentum = pre_momentum
     params.post_momentum = post_momentum
     params.random_state = seed
-    params.verbosity = self.verbose
+    params.verbosity = self._verbose_level
     params.square_distances = self.square_distances
     params.algorithm = algo
     params.init = init
@@ -283,7 +283,7 @@ class TSNE(Base,
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
         t-SNE could look like a cloud / ball of points.
-    n_iter : int (default 1000)
+    max_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
         Currently unused. When the KL Divergence becomes too small after some
@@ -347,13 +347,13 @@ class TSNE(Base,
         the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
         should match the metric used to train the TSNE embeedings.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -417,7 +417,7 @@ class TSNE(Base,
             "early_exaggeration",
             "late_exaggeration",
             "learning_rate",
-            "n_iter",
+            "max_iter",
             "n_iter_without_progress",
             "min_grad_norm",
             "metric",
@@ -469,8 +469,8 @@ class TSNE(Base,
             # For now have `learning_rate="auto"` just use cuml's default
             params["learning_rate"]: model.learning_rate
 
-        if (max_iter := getattr(model, _SKLEARN_N_ITER_PARAM, None)) is not None:
-            params["n_iter"] = max_iter
+        if (max_iter := getattr(model, _SKLEARN_MAX_ITER_PARAM, None)) is not None:
+            params["max_iter"] = max_iter
 
         return params
 
@@ -489,7 +489,7 @@ class TSNE(Base,
             "init": self.init,
             "random_state": self.random_state,
             "method": method,
-            _SKLEARN_N_ITER_PARAM: self.n_iter,
+            _SKLEARN_MAX_ITER_PARAM: self.max_iter,
         }
         return params
 
@@ -511,43 +511,42 @@ class TSNE(Base,
             **super()._attrs_to_cpu(model)
         }
 
-    def __init__(self, *,
-                 n_components=2,
-                 perplexity=30.0,
-                 early_exaggeration=12.0,
-                 late_exaggeration=1.0,
-                 learning_rate=200.0,
-                 n_iter=1000,
-                 n_iter_without_progress=300,
-                 min_grad_norm=1e-07,
-                 metric='euclidean',
-                 metric_params=None,
-                 init='random',
-                 random_state=None,
-                 method='fft',
-                 angle=0.5,
-                 n_neighbors=90,
-                 perplexity_max_iter=100,
-                 exaggeration_iter=250,
-                 pre_momentum=0.5,
-                 post_momentum=0.8,
-                 learning_rate_method='adaptive',
-                 square_distances=True,
-                 precomputed_knn=None,
-                 verbose=False,
-                 handle=None,
-                 output_type=None):
-
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
+    def __init__(
+        self,
+        *,
+        n_components=2,
+        perplexity=30.0,
+        early_exaggeration=12.0,
+        late_exaggeration=1.0,
+        learning_rate=200.0,
+        max_iter=1000,
+        n_iter_without_progress=300,
+        min_grad_norm=1e-07,
+        metric='euclidean',
+        metric_params=None,
+        init='random',
+        random_state=None,
+        method='fft',
+        angle=0.5,
+        n_neighbors=90,
+        perplexity_max_iter=100,
+        exaggeration_iter=250,
+        pre_momentum=0.5,
+        post_momentum=0.8,
+        learning_rate_method='adaptive',
+        square_distances=True,
+        precomputed_knn=None,
+        verbose=False,
+        handle=None,
+        output_type=None,
+    ):
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
         self.late_exaggeration = late_exaggeration
         self.learning_rate = learning_rate
-        self.n_iter = n_iter
+        self.max_iter = max_iter
         self.n_iter_without_progress = n_iter_without_progress
         self.min_grad_norm = min_grad_norm
         self.metric = metric
@@ -574,6 +573,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -599,9 +599,7 @@ class TSNE(Base,
 
         # Normalize input X
         if sparse_fit:
-            X_m = SparseCumlArray(
-                X, convert_to_dtype=cupy.float32, convert_format=False
-            )
+            X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32)
             n_samples, n_features = X_m.shape
             X_ptr = <uintptr_t>X_m.data.ptr
             X_indptr_ptr = <uintptr_t>X_m.indptr.ptr
@@ -645,7 +643,8 @@ class TSNE(Base,
         cdef uintptr_t embed_ptr = embedding.ptr
 
         # Execute fit
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef float kl_divergence = 0
         cdef int n_iter = 0
 
@@ -679,7 +678,7 @@ class TSNE(Base,
                     &kl_divergence,
                     &n_iter,
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes
         self._kl_divergence_ = kl_divergence
@@ -696,7 +695,7 @@ class TSNE(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.

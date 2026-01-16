@@ -2,12 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 
-import cuml.internals
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
+from cuml.internals import get_handle, run_in_internal_context
 from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
@@ -36,7 +35,8 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             float *explained_var_ratio,
                             float *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose) except +
+                            bool verbose,
+                            bool flip_signs_based_on_U) except +
 
     cdef void fit_transform(handle_t& handle,
                             vector[doubleData_t *] input_data,
@@ -48,11 +48,12 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             double *explained_var_ratio,
                             double *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose) except +
+                            bool verbose,
+                            bool flip_signs_based_on_U) except +
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _mg_fit_transform(
         self, X_ptr, n_rows, n_cols, dtype, trans_ptr, input_desc_ptr, trans_desc_ptr
     ):
@@ -95,7 +96,9 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform Fit
         with nogil:
@@ -111,7 +114,8 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
                     params,
-                    False
+                    False,
+                    flip_signs_based_on_U
                 )
             else:
                 fit_transform(
@@ -125,9 +129,10 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
                     params,
-                    False
+                    False,
+                    flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components

@@ -13,7 +13,6 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
@@ -24,7 +23,7 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/per_device_resource.hpp>
 
 #include <cuda/functional>
 #include <cuda/std/functional>

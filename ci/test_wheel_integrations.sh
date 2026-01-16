@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -41,15 +41,26 @@ print('✓ Import test passed')
 
 # Test 2: Run minimal end-to-end example
 rapids-logger "Running BERTopic end-to-end smoke test"
-python -c "
+timeout 20m python -c "
 import warnings
 warnings.filterwarnings('ignore')
 
+import random
 from bertopic import BERTopic
-from sklearn.datasets import fetch_20newsgroups
 
-# Create a small sample dataset
-docs = fetch_20newsgroups(subset='train', categories=['sci.space'])['data'][:100]
+# Generate synthetic documents with topic-like word clusters
+random.seed(42)
+topics = [
+    ['star', 'galaxy', 'planet', 'orbit', 'telescope', 'nasa', 'astronaut'],
+    ['rocket', 'launch', 'satellite', 'mission', 'space', 'shuttle', 'station'],
+    ['moon', 'mars', 'jupiter', 'asteroid', 'comet', 'meteor', 'crater'],
+]
+
+docs = []
+for i in range(100):
+    topic_words = topics[i % len(topics)]
+    doc = ' '.join(random.choices(topic_words, k=random.randint(10, 30)))
+    docs.append(doc)
 
 # Initialize BERTopic with cuML UMAP backend
 # BERTopic will automatically use cuML's UMAP if available

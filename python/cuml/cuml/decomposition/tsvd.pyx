@@ -10,7 +10,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
@@ -30,7 +30,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -39,7 +40,8 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms) except +
+                               const paramsTSVD &prms,
+                               bool u_based_decisoin) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -140,13 +142,13 @@ class TruncatedSVD(Base,
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -207,6 +209,7 @@ class TruncatedSVD(Base,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
+    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -281,6 +284,7 @@ class TruncatedSVD(Base,
         return self.components_.shape[0]
 
     @generate_docstring()
+    @cuml.internals.reflect
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -293,7 +297,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_fit_transform()
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.
@@ -315,6 +319,7 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
+        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -344,7 +349,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef uintptr_t out_ptr = out.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Perform fit
         with nogil:
@@ -357,7 +363,8 @@ class TruncatedSVD(Base,
                     <float*> explained_variance_ptr,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
-                    params
+                    params,
+                    flip_signs_based_on_U
                 )
             else:
                 tsvdFitTransform(
@@ -368,9 +375,10 @@ class TruncatedSVD(Base,
                     <double*> explained_variance_ptr,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
-                    params
+                    params,
+                    flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components
@@ -384,6 +392,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
+    @cuml.internals.reflect
     def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
@@ -411,7 +420,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -430,7 +440,7 @@ class TruncatedSVD(Base,
                     <double*> out_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out
 
@@ -438,6 +448,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.
@@ -462,7 +473,8 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -481,6 +493,6 @@ class TruncatedSVD(Base,
                     <double*> out_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out

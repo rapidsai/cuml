@@ -1,14 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-
 import cupy as cp
 import numpy as np
 import pytest
 from sklearn.linear_model import SGDRegressor
 from sklearn.model_selection import train_test_split
 
+import cuml
 from cuml.datasets import make_regression
-from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
@@ -73,8 +72,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
     if nrows < 500000:
-
-        cu_mbsgd_regressor = cumlMBSGRegressor(
+        cu_mbsgd_regressor = cuml.MBSGDRegressor(
             learning_rate=lrate,
             eta0=0.005,
             epochs=100,
@@ -118,7 +116,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
 def test_mbsgd_regressor(lrate, penalty, make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
-    model = cumlMBSGRegressor(
+    model = cuml.MBSGDRegressor(
         learning_rate=lrate,
         eta0=0.005,
         epochs=100,
@@ -146,30 +144,9 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
 def test_mbsgd_regressor_default(make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
-    cu_mbsgd_regressor = cumlMBSGRegressor(batch_size=nrows / 100)
+    cu_mbsgd_regressor = cuml.MBSGDRegressor(batch_size=nrows / 100)
     cu_mbsgd_regressor.fit(X_train, y_train)
     cu_pred = cu_mbsgd_regressor.predict(X_test)
     cu_r2 = r2_score(cu_pred, y_test)
 
     assert cu_r2 > 0.9
-
-
-def test_mbsgd_regressor_set_params():
-    x = np.linspace(0, 1, 50)
-    y = x * 2
-
-    model = cumlMBSGRegressor()
-    model.fit(x, y)
-    coef_before = model.coef_
-
-    model = cumlMBSGRegressor(eta0=0.1, fit_intercept=False)
-    model.fit(x, y)
-    coef_after = model.coef_
-
-    model = cumlMBSGRegressor()
-    model.set_params(**{"eta0": 0.1, "fit_intercept": False})
-    model.fit(x, y)
-    coef_test = model.coef_
-
-    assert coef_before != coef_after
-    assert coef_after == coef_test

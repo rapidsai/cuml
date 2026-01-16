@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,11 +7,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from hypothesis import target
-from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import ElasticNet as skElasticNet
@@ -187,7 +185,6 @@ def test_linear_regression_single_column():
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default(dataset):
-
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
@@ -218,7 +215,6 @@ def test_linear_regression_model_default(dataset):
 @example(small_regression_dataset(np.float32))
 @example(small_regression_dataset(np.float64))
 def test_linear_regression_model_default_generalized(dataset):
-
     X_train, X_test, y_train, _ = dataset
 
     # Filter datasets based on required assumptions
@@ -245,7 +241,6 @@ def test_linear_regression_model_default_generalized(dataset):
 @given(
     num_classes=st.integers(min_value=2, max_value=10),
     dtype=dataset_dtypes(),
-    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
     l1_ratio=st.floats(min_value=0.0, max_value=1.0),
     fit_intercept=st.booleans(),
     nrows=st.integers(min_value=1000, max_value=5000),
@@ -255,32 +250,20 @@ def test_linear_regression_model_default_generalized(dataset):
 @example(
     num_classes=2,
     dtype=np.float32,
-    penalty=None,
     l1_ratio=1.0,
     fit_intercept=True,
     nrows=1000,
-    C=1.0,
+    C=np.inf,
     tol=1e-3,
 )
 @example(
     num_classes=10,
     dtype=np.float64,
-    penalty="l2",
-    l1_ratio=1.0,
+    l1_ratio=0.0,
     fit_intercept=True,
     nrows=5000,
     C=1.0,
     tol=1e-8,
-)
-@example(
-    num_classes=10,
-    dtype=np.float32,
-    penalty="elasticnet",
-    l1_ratio=0.0,
-    fit_intercept=True,
-    nrows=1000,
-    C=1.0,
-    tol=1e-3,
 )
 # ignoring UserWarnings in sklearn about setting unused parameters
 # like l1 for none penalty
@@ -288,7 +271,6 @@ def test_linear_regression_model_default_generalized(dataset):
 def test_logistic_regression(
     num_classes,
     dtype,
-    penalty,
     l1_ratio,
     fit_intercept,
     nrows,
@@ -296,12 +278,6 @@ def test_logistic_regression(
     tol,
 ):
     ncols, n_info = 20, 10
-    # Checking sklearn >= 0.21 for testing elasticnet
-    sk_check = Version(str(sklearn.__version__)) >= Version("0.21.0")
-    if not sk_check and penalty == "elasticnet":
-        pytest.skip(
-            "Need sklearn > 0.21 for testing logistic with" "elastic net."
-        )
 
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype,
@@ -314,7 +290,6 @@ def test_logistic_regression(
     y_test = y_test.astype(dtype)
 
     culog = cuLog(
-        penalty=penalty,
         l1_ratio=l1_ratio,
         C=C,
         fit_intercept=fit_intercept,
@@ -322,33 +297,12 @@ def test_logistic_regression(
     )
     culog.fit(X_train, y_train)
 
-    # Only solver=saga supports elasticnet in scikit
-    if penalty in ["elasticnet", "l1"]:
-        if sk_check:
-            sklog = skLog(
-                penalty=penalty,
-                l1_ratio=l1_ratio,
-                solver="saga",
-                C=C,
-                fit_intercept=fit_intercept,
-                multi_class="auto",
-            )
-        else:
-            sklog = skLog(
-                penalty=penalty,
-                solver="saga",
-                C=C,
-                fit_intercept=fit_intercept,
-                multi_class="auto",
-            )
-    else:
-        sklog = skLog(
-            penalty=penalty,
-            solver="lbfgs",
-            C=C,
-            fit_intercept=fit_intercept,
-            multi_class="auto",
-        )
+    sklog = skLog(
+        solver="saga",
+        l1_ratio=l1_ratio,
+        C=C,
+        fit_intercept=fit_intercept,
+    )
 
     sklog.fit(X_train, y_train)
     cu_preds = culog.predict(X_test)
@@ -370,16 +324,12 @@ def test_logistic_regression(
 @given(
     dtype=dataset_dtypes(),
     l1_ratio=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0)),
-    penalty=st.sampled_from([None, "l1", "l2", "elasticnet"]),
+    C=st.sampled_from([1.0, np.inf]),
 )
-@example(dtype=np.float32, l1_ratio=None, penalty=None)
-@example(dtype=np.float64, l1_ratio=None, penalty="l1")
-@example(dtype=np.float64, l1_ratio=0.5, penalty="elasticnet")
-@example(dtype=np.float64, l1_ratio=0.5, penalty="l2")
-def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
-    if penalty == "elasticnet":
-        assume(l1_ratio is not None)
-
+@example(dtype=np.float32, l1_ratio=None, C=np.inf)
+@example(dtype=np.float64, l1_ratio=1.0, C=1.0)
+@example(dtype=np.float64, l1_ratio=0.0, C=1.0)
+def test_logistic_regression_unscaled(dtype, l1_ratio, C):
     # Test logistic regression on the breast cancer dataset. We do not scale
     # the dataset which could lead to numerical problems (fixed in PR #2543).
     X, y = load_breast_cancer(return_X_y=True)
@@ -387,8 +337,7 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
     y = y.astype(dtype)
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
     params = {
-        "penalty": penalty,
-        "C": 1,
+        "C": C,
         "tol": 1e-4,
         "fit_intercept": True,
         "max_iter": 5000,
@@ -414,13 +363,12 @@ def test_logistic_regression_unscaled(dtype, penalty, l1_ratio):
 @example(dtype=np.float32)
 @example(dtype=np.float64)
 def test_logistic_regression_model_default(dtype):
-
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
     culog = cuLog()
     culog.fit(X_train, y_train)
-    sklog = skLog(multi_class="auto")
+    sklog = skLog()
 
     sklog.fit(X_train, y_train)
 
@@ -458,7 +406,6 @@ def test_logistic_regression_model_default(dtype):
 def test_logistic_regression_model_digits(
     dtype, order, sparse_input, fit_intercept, penalty
 ):
-
     # smallest sklearn score with max_iter = 10000
     # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
     # to converge and has a bug returning an unrelated error if not converged.
@@ -484,13 +431,12 @@ def test_logistic_regression_model_digits(
 @given(dtype=dataset_dtypes())
 @example(dtype=np.float32)
 @example(dtype=np.float64)
-def test_logistic_regression_sparse_only(dtype, nlp_20news):
-
+def test_logistic_regression_sparse_only(dtype, sparse_text_dataset):
     # sklearn score with max_iter = 10000
     sklearn_score = 0.878
     acceptable_score = sklearn_score - 0.01
 
-    X, y = nlp_20news
+    X, y = sparse_text_dataset
 
     X = csr_matrix(X.astype(dtype))
     y = y.get().astype(dtype)
@@ -591,11 +537,7 @@ def test_logistic_regression_predict_proba(
 
     sklog = skLog(
         fit_intercept=fit_intercept,
-        **(
-            {"solver": "lbfgs", "multi_class": "multinomial"}
-            if num_classes > 2
-            else {}
-        ),
+        **({"solver": "lbfgs"} if num_classes > 2 else {}),
     )
     sklog.coef_ = culog.coef_
     sklog.intercept_ = culog.intercept_ if fit_intercept else 0
@@ -895,35 +837,6 @@ def test_logistic_regression_max_iter_n_iter(penalty):
     assert model.n_iter_.max() == 10
 
 
-@pytest.mark.parametrize("algo", [cuLog])
-# ignoring warning about change of solver
-@pytest.mark.filterwarnings("ignore::UserWarning:cuml[.*]")
-def test_linear_models_set_params(algo):
-    x = np.linspace(0, 1, 50)[:, None]
-    y = 2 * x
-
-    model = algo()
-    model.fit(x, y)
-    coef_before = model.coef_
-
-    if algo == cuLog:
-        params = {"penalty": None, "C": 1, "max_iter": 30}
-        model = algo(penalty=None, C=1, max_iter=30)
-    else:
-        model = algo(solver="svd", alpha=0.1)
-        params = {"solver": "svd", "alpha": 0.1}
-    model.fit(x, y)
-    coef_after = model.coef_
-
-    model = algo()
-    model.set_params(**params)
-    model.fit(x, y)
-    coef_test = model.coef_
-
-    assert not array_equal(coef_before, coef_after)
-    assert array_equal(coef_after, coef_test)
-
-
 @given(
     datatype=dataset_dtypes(),
     alpha=st.sampled_from([0.1, 1.0, 10.0]),
@@ -946,7 +859,6 @@ def test_linear_models_set_params(algo):
     column_info=[100, 50],
 )
 def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
-
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
@@ -1091,14 +1003,3 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
             total_tol=1e-0,
             with_sign=True,
         )
-
-
-@pytest.mark.parametrize(
-    "cls", [cuml.Ridge, cuml.ElasticNet, cuml.Lasso, cuml.LinearRegression]
-)
-def test_deprecated_normalize(cls):
-    X, y = make_regression()
-    model = cls(normalize=True)
-
-    with pytest.raises(FutureWarning, match="normalize"):
-        model.fit(X, y)

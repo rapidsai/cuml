@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cudf
 import cupy as cp
 import numpy as np
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import (
+    decode_labels,
+    preprocess_labels,
+    process_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
@@ -14,105 +16,20 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import (
     input_to_cuml_array,
-    input_to_cupy_array,
     input_to_host_array,
     input_to_host_array_with_sparse_support,
 )
-from cuml.internals.interop import (
-    UnsupportedOnCPU,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
 from cuml.internals.utils import check_random_seed
-from cuml.multiclass import MulticlassClassifier
-from cuml.preprocessing import LabelEncoder
+from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
-
-
-def apply_class_weight(
-    handle, sample_weight, class_weight, y, verbose, output_type, dtype
-) -> cp.ndarray | None:
-    """
-    Scale the sample weights with the class weights.
-
-    Returns the modified sample weights, or None if neither class weights
-    nor sample weights are defined. The returned weights are defined as
-
-    sample_weight[i] = class_weight[y[i]] * sample_weight[i].
-
-    Parameters:
-    -----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model.
-    sample_weight: array-like (device or host), shape = (n_samples, 1)
-        sample weights or None if not given
-    class_weight : dict or string (default=None)
-        Weights to modify the parameter C for class i to class_weight[i]*C. The
-        string 'balanced' is also accepted, in which case ``class_weight[i] =
-        n_samples / (n_classes * n_samples_of_class[i])``
-    y: array of floats or doubles, shape = (n_samples, 1)
-    verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
-        See :ref:`verbosity-levels` for more info.
-    output_type : {{'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}}, default=None
-        Return results and set estimator attributes to the indicated output
-        type. If None, the output type set at the module level
-        (`cuml.global_settings.output_type`) will be used. See
-        :ref:`output-data-type-configuration` for more info.
-    dtype : dtype for sample_weights
-
-    Returns
-    --------
-    sample_weight: device array shape = (n_samples, 1) or None
-    """
-    n_samples = y.shape[0] if hasattr(y, "shape") else len(y)
-
-    if sample_weight is not None:
-        sample_weight, _, _, _ = input_to_cupy_array(
-            sample_weight,
-            convert_to_dtype=dtype,
-            check_rows=n_samples,
-            check_cols=1,
-        )
-
-    if class_weight is None:
-        return sample_weight
-
-    if type(y) is CumlArray:
-        y_m = y
-    else:
-        y_m, _, _, _ = input_to_cuml_array(y, check_cols=1)
-
-    le = LabelEncoder(handle=handle, verbose=verbose, output_type=output_type)
-    labels = y_m.to_output(output_type="series")
-    encoded_labels = cp.asarray(le.fit_transform(labels))
-
-    # Define class weights for the encoded labels
-    if class_weight == "balanced":
-        counts = cp.asnumpy(cp.bincount(encoded_labels))
-        n_classes = len(counts)
-        weights = n_samples / (n_classes * counts)
-        class_weight = {i: weights[i] for i in range(n_classes)}
-    else:
-        keys = class_weight.keys()
-        encoded_keys = le.transform(cudf.Series(keys)).values_host
-        class_weight = {
-            enc_key: class_weight[key]
-            for enc_key, key in zip(encoded_keys, keys)
-        }
-
-    if sample_weight is None:
-        sample_weight = cp.ones(y_m.shape, dtype=dtype)
-
-    for label, weight in class_weight.items():
-        sample_weight[encoded_labels == label] *= weight
-
-    return sample_weight
 
 
 class SVC(SVMBase, ClassifierMixin):
@@ -138,13 +55,13 @@ class SVC(SVMBase, ClassifierMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -177,19 +94,8 @@ class SVC(SVMBase, ClassifierMixin):
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVC.TotalIters`.
-            For example ``SVC(max_iter=SVC.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVC.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -205,10 +111,13 @@ class SVC(SVMBase, ClassifierMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    probability: bool (default = False)
-        Enable or disable probability estimates.
+    probability : bool (default = False)
+        Set to ``True`` to enable probability estimates
+        (``predict_proba``/``predict_log_proba``). Note that
+        ``probability=True`` requires your training data have at least 5
+        samples per class.
     random_state: int (default = None)
-        Seed for random number generator (used only when probability = True).
+        Seed for random number generator (used only when ``probability=True``).
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -234,8 +143,11 @@ class SVC(SVMBase, ClassifierMixin):
     coef_ : float, shape (1, n_cols)
         Only available for linear kernels. It is the normal of the
         hyperplane.
-    classes_ : shape (`n_classes_`,)
-        Array of class labels
+    classes_ : np.ndarray, shape=(n_classes,)
+        A sorted array of the class labels.
+    class_weight_ : np.ndarray of shape (n_classes,)
+        Class weight multipliers, computed based on the ``class_weight``
+        parameter.
     n_classes_ : int
         Number of classes
 
@@ -260,8 +172,6 @@ class SVC(SVMBase, ClassifierMixin):
        <https://github.com/Xtra-Computing/thundersvm>`_
 
     """
-
-    classes_ = CumlArrayDescriptor()
 
     _cpu_class_path = "sklearn.svm.SVC"
 
@@ -318,7 +228,8 @@ class SVC(SVMBase, ClassifierMixin):
             raise UnsupportedOnGPU("multiclass models are not supported")
         return {
             "n_classes_": n_classes,
-            "classes_": to_gpu(model.classes_),
+            "classes_": model.classes_,
+            "class_weight_": model.class_weight_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -335,7 +246,8 @@ class SVC(SVMBase, ClassifierMixin):
         out.update(
             _dual_coef_=-out["dual_coef_"],
             _intercept_=-out["intercept_"],
-            classes_=to_cpu(self.classes_),
+            classes_=self.classes_,
+            class_weight_=self.class_weight_,
         )
         return out
 
@@ -379,7 +291,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -394,7 +306,7 @@ class SVC(SVMBase, ClassifierMixin):
         self._support_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -408,26 +320,31 @@ class SVC(SVMBase, ClassifierMixin):
     def intercept_(self, value):
         self._intercept_ = value
 
-    def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
+    def _fit_multiclass(self, X, y, sample_weight):
         if sample_weight is not None:
             warn(
                 "Sample weights are currently ignored for multi class classification"
             )
 
         params = self.get_params()
-        strategy = params.pop("decision_function_shape", "ovo")
-        self._multiclass = MulticlassClassifier(
+        decision_function_shape = params.pop("decision_function_shape")
+        wrappers = {"ovo": OneVsOneClassifier, "ovr": OneVsRestClassifier}
+        if (multiclass_cls := wrappers.get(decision_function_shape)) is None:
+            raise ValueError(
+                f"Expected `decision_function_shape` to be one of "
+                f"{list(wrappers)}, got {decision_function_shape}"
+            )
+        self._multiclass = multiclass_cls(
             estimator=SVC(**params),
             handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
-            strategy=strategy,
         )
         self._multiclass.fit(X, y)
 
         # if using one-vs-one we align support_ indices to those of
         # full dataset
-        if strategy == "ovo":
+        if decision_function_shape == "ovo":
             y = cp.array(y)
             classes = cp.unique(y)
             n_classes = len(classes)
@@ -456,7 +373,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight):
         from sklearn.calibration import CalibratedClassifierCV
         from sklearn.model_selection import StratifiedKFold
 
@@ -471,19 +388,8 @@ class SVC(SVMBase, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2608
         X = input_to_host_array_with_sparse_support(X)
 
-        sample_weight = apply_class_weight(
-            self.handle,
-            sample_weight,
-            self.class_weight,
-            y,
-            self.verbose,
-            self.output_type,
-            X.dtype,
-        )
-
         if sample_weight is not None:
-            # Convert cupy array to numpy array
-            sample_weight = sample_weight.get()
+            sample_weight = sample_weight.to_output("numpy")
 
         y = input_to_host_array(y).array
 
@@ -494,7 +400,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_context():
             cccv.fit(X, y, sample_weight=sample_weight)
 
         cal_clf = cccv.calibrated_classifiers_[0]
@@ -526,6 +432,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -534,22 +441,27 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y = input_to_cupy_array(y, check_cols=1).array
-        classes = cp.unique(y)
-        n_classes = len(classes)
-
-        if n_classes < 2:
+        y, classes = preprocess_labels(y)
+        if len(classes) == 1:
             raise ValueError(
-                f"The number of classes has to be greater than one; got "
-                f"{n_classes} class"
+                "This solver needs samples of at least 2 classes in the data, but "
+                "the data contains only 1 class"
             )
-        self.n_classes_ = n_classes
-        self.classes_ = CumlArray(data=classes)
+        self.n_classes_ = len(classes)
+        self.classes_ = classes
+        self.class_weight_, sample_weight = process_class_weight(
+            classes,
+            y,
+            class_weight=self.class_weight,
+            sample_weight=sample_weight,
+            float64=(getattr(X, "dtype", np.float32) == np.float64),
+            balanced_with_sample_weight=False,
+        )
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
 
-        if n_classes > 2:
+        if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
         if is_sparse(X):
@@ -558,6 +470,7 @@ class SVC(SVMBase, ClassifierMixin):
                 convert_to_dtype=(
                     None if X.dtype in (np.float32, np.float64) else np.float32
                 ),
+                check_rows=y.shape[0],
             )
         else:
             X = input_to_cuml_array(
@@ -568,28 +481,8 @@ class SVC(SVMBase, ClassifierMixin):
                 order="F",
             ).array
 
-        sample_weight = apply_class_weight(
-            self.handle,
-            sample_weight,
-            self.class_weight,
-            y,
-            self.verbose,
-            self.output_type,
-            X.dtype,
-        )
-        if sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X.dtype,
-                convert_to_dtype=(X.dtype if convert_dtype else None),
-                check_rows=X.shape[0],
-                check_cols=1,
-            ).array
-
-        # Encode y to -1/1 (like [0, 1, 0, 1] -> [1, -1, 1, -1])
-        y = CumlArray(
-            data=cp.array([1, -1], dtype=X.dtype).take(y == classes[0])
-        )
+        # Encode y to -1/1 (like [0, 1, 0, 1] -> [-1, 1, -1, 1])
+        y = CumlArray(data=cp.array([-1, 1], dtype=X.dtype).take(y))
 
         self._fit(X, y, sample_weight)
 
@@ -603,23 +496,24 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @run_in_internal_context
+    def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
         if hasattr(self, "_multiclass"):
-            return self._multiclass.predict(X)
-
-        classes = self.classes_.to_output("cupy")
-
-        if self.probability:
+            inds = self._multiclass.predict(X).to_output("cupy")
+        elif self.probability:
             probs = self.predict_proba(X).to_output("cupy")
             inds = cp.argmax(probs, axis=1)
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
-            inds = res.to_output("cupy") >= 0
-        return CumlArray(data=classes.take(inds))
+            inds = (res.to_output("cupy") >= 0).view(cp.int8)
+
+        with exit_internal_context():
+            output_type = self._get_output_type(X)
+        return decode_labels(inds, self.classes_, output_type=output_type)
 
     @generate_docstring(
         skip_parameters_heading=True,
@@ -630,6 +524,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -686,6 +581,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         }
     )
+    @reflect
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -703,6 +599,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.

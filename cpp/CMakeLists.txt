@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -22,6 +22,9 @@ project(
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES CXX CUDA
 )
+
+# Disable C++20 module scanning (not using modules, just C++20 features)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -53,7 +56,6 @@ option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable deprecation warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
-option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
@@ -70,9 +72,6 @@ option(CUML_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the sta
 # dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
-option(CUML_EXCLUDE_CUMLPRIMS_MG_FROM_ALL "Exclude cumlprims_mg targets from cuML's 'all' target"
-       OFF
-)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
 
@@ -93,7 +92,6 @@ message(VERBOSE
         "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}"
 )
 message(VERBOSE "CUML_CPP: Disabling OpenMP: ${DISABLE_OPENMP}")
-message(VERBOSE "CUML_CPP: Enabling algorithms that use libcumlprims_mg: ${ENABLE_CUMLPRIMS_MG}")
 message(VERBOSE "CUML_CPP: Enabling kernel resource usage info: ${KERNEL_INFO}")
 message(VERBOSE "CUML_CPP: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
 message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
@@ -218,13 +216,12 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif()
 
-# SingleGPU build disables cumlprims_mg and comms components
+# SingleGPU build disables comms components
 if(SINGLEGPU)
   message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
   message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_MPI_COMMS OFF)
-  set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
 endif()
 
@@ -285,16 +282,9 @@ endif()
 
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
-  # Workaround until https://github.com/rapidsai/rapids-cmake/issues/176 is resolved
-  if(NOT BUILD_SHARED_LIBS)
-    rapids_export_package(BUILD GPUTreeShap cuml-exports)
-    rapids_export_package(INSTALL GPUTreeShap cuml-exports)
-  endif()
 endif()
 
-if(ENABLE_CUMLPRIMS_MG)
-  include(cmake/thirdparty/get_cumlprims_mg.cmake)
-endif()
+# cumlprims_mg functionality has been moved into cuML directly
 
 if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
@@ -343,7 +333,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR arima_algo)
-    target_sources(cuml_objs PRIVATE src/arima/batched_arima.cu src/arima/batched_kalman.cu)
+    target_sources(
+      cuml_objs PRIVATE src/arima/arima_common.cu src/arima/batched_arima.cu
+                        src/arima/batched_kalman.cu
+    )
   endif()
 
   if(all_algo OR datasets_algo)
@@ -513,7 +506,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR spectralclustering_algo)
-    target_sources(cuml_objs PRIVATE src/spectral/spectral.cu src/spectral/spectral_embedding.cu)
+    target_sources(
+      cuml_objs PRIVATE src/spectral/spectral_clustering.cu src/spectral/spectral_embedding.cu
+    )
   endif()
 
   if(all_algo OR svm_algo)
@@ -539,7 +534,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/umap/umap.cu)
   endif()
 
-  # Multi-GPU components. TODO: separate mnmg that require cumlprims from those that don't
+  # Multi-GPU components
   if(NOT SINGLEGPU)
     target_sources(
       cuml_objs
@@ -554,14 +549,30 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/pca/sign_flip_mg.cu
               src/solver/cd_mg.cu
               src/tsvd/tsvd_mg.cu
+              # OPG primitives (moved from cumlprims_mg)
+              src_prims/opg/matrix/part_descriptor.cu
+              src_prims/opg/matrix/matrix_utils.cu
+              src_prims/opg/matrix/math.cu
+              src_prims/opg/linalg/eig.cu
+              src_prims/opg/linalg/svd.cu
+              src_prims/opg/linalg/gemm.cu
+              src_prims/opg/linalg/lstsq.cu
+              src_prims/opg/linalg/mm_aTa.cu
+              src_prims/opg/linalg/mv_aTb.cu
+              src_prims/opg/linalg/norm.cu
+              src_prims/opg/linalg/mean_squared_error.cu
+              src_prims/opg/stats/mean.cu
+              src_prims/opg/stats/mean_center.cu
+              src_prims/opg/stats/stddev.cu
+              src_prims/opg/stats/cov.cu
     )
   endif()
 
   set_target_properties(
     cuml_objs
-    PROPERTIES CXX_STANDARD 17
+    PROPERTIES CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
@@ -610,21 +621,17 @@ if(BUILD_CUML_CPP_LIBRARY)
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
   )
 
-  set(_cuml_cpp_libs_var_name "_cuml_cpp_public_libs")
   if(CUDA_STATIC_RUNTIME)
-    set(_cuml_cpp_libs_var_name "_cuml_cpp_private_libs")
     # Add CTK include paths because we're going to make our CTK library links private below
     target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
   endif()
 
-  # The visibility of these depend on whether we're linking the CTK statically, because cumlprims_mg
-  # and cuML inherit their CUDA libs from the raft::raft INTERFACE target.
-  list(APPEND ${_cuml_cpp_libs_var_name} $<TARGET_NAME_IF_EXISTS:cumlprims_mg::cumlprims_mg>)
+  # The visibility of these depend on whether we're linking the CTK statically
 
   target_link_libraries(
     cuml_objs
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -644,9 +651,9 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
     ${CUML_CPP_TARGET}
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
-               CUDA_STANDARD 17
+               CUDA_STANDARD 20
                CUDA_STANDARD_REQUIRED ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
                POSITION_INDEPENDENT_CODE ON
@@ -684,8 +691,8 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -720,7 +727,7 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     ${CUML_CPP_TARGET}_static
     PROPERTIES BUILD_RPATH "\$ORIGIN"
                INSTALL_RPATH "\$ORIGIN"
-               CXX_STANDARD 17
+               CXX_STANDARD 20
                CXX_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
@@ -761,8 +768,8 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 
   target_link_libraries(
     ${CUML_CPP_TARGET}_static
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft cumlprims_mg::cumlprims_mg
-           ${TREELITE_LIBS} ${_cuml_cpp_public_libs}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
+           ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )
 
@@ -831,11 +838,26 @@ install(
   TARGETS ${_cuml_lib_targets}
   DESTINATION ${lib_dir}
   EXPORT cuml-exports
+  COMPONENT cuml
 )
 
-install(DIRECTORY include/cuml/ DESTINATION include/cuml)
+install(
+  DIRECTORY include/cuml/
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp DESTINATION include/cuml)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
+  DESTINATION include/cuml
+  COMPONENT cuml
+)
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/common/logger_macros.hpp
+  DESTINATION include/cuml/common
+  COMPONENT cuml
+)
 
 # ##################################################################################################
 # # - install export -------------------------------------------------------------------------------

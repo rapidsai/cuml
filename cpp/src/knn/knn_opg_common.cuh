@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,12 +8,11 @@
 #include <cuml/common/distance_type.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
+#include <cuml/prims/opg/matrix/data.hpp>
+#include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
-#include <cumlprims/opg/matrix/data.hpp>
-#include <cumlprims/opg/matrix/part_descriptor.hpp>
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/spatial/knn/knn.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -23,6 +22,8 @@
 #include <cstddef>
 #include <memory>
 #include <set>
+
+using namespace MLCommon;
 
 namespace ML {
 namespace KNN {
@@ -372,29 +373,18 @@ void broadcast_query(opg_knn_work<in_t, ind_t, dist_t, out_t>& work,
                      in_t* broadcast,
                      size_t broadcast_size)
 {
-  int request_idx = 0;
-  std::vector<raft::comms::request_t> requests;
-  if (part_rank == work.my_rank) {  // Either broadcast to other workers
-    int idx_rank_size = work.idxRanks.size();
-    if (work.idxRanks.find(work.my_rank) != work.idxRanks.end()) { --idx_rank_size; }
+  cudaStream_t stream = handle.get_stream();
 
-    requests.resize(idx_rank_size);
-
+  if (part_rank == work.my_rank) {  // Sender: send to all other idx ranks
     for (int rank : work.idxRanks) {
       if (rank != work.my_rank) {
-        handle.get_comms().isend(broadcast, broadcast_size, rank, 0, requests.data() + request_idx);
-        ++request_idx;
+        handle.get_comms().device_send(broadcast, broadcast_size, rank, stream);
       }
     }
-
-  } else {  // Or receive from broadcaster
-    requests.resize(1);
-    handle.get_comms().irecv(
-      broadcast, broadcast_size, part_rank, 0, requests.data() + request_idx);
-    ++request_idx;
+  } else {  // Receiver: receive from sender
+    handle.get_comms().device_recv(broadcast, broadcast_size, part_rank, stream);
   }
-
-  handle.get_comms().waitall(requests.size(), requests.data());
+  handle.sync_stream(stream);
 }
 
 /*!
@@ -545,43 +535,30 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                       int part_rank,
                       size_t batch_size)
 {
-  size_t batch_elms = batch_size * params.k;
+  size_t batch_elms   = batch_size * params.k;
+  cudaStream_t stream = handle.get_stream();
 
-  int request_idx = 0;
-  std::vector<raft::comms::request_t> requests;
-  if (part_rank != work.my_rank) {  // Either send local KNN results
-    requests.resize(2);
-    handle.get_comms().isend(
-      work.res_I.data(), batch_elms, part_rank, 0, requests.data() + request_idx);
-    ++request_idx;
-
-    handle.get_comms().isend(
-      work.res_D.data(), batch_elms, part_rank, 0, requests.data() + request_idx);
-    ++request_idx;
+  if (part_rank != work.my_rank) {  // Sender: send local KNN results to part_rank
+    handle.get_comms().device_send(work.res_I.data(), batch_elms, part_rank, stream);
+    handle.get_comms().device_send(work.res_D.data(), batch_elms, part_rank, stream);
 
     if (params.knn_op != knn_operation::knn) {
-      requests.resize(2 + params.n_outputs);
       for (std::size_t o = 0; o < params.n_outputs; o++) {
-        handle.get_comms().isend(work.res.data() + (o * batch_elms),
-                                 batch_elms,
-                                 part_rank,
-                                 0,
-                                 requests.data() + request_idx);
-        ++request_idx;
+        out_t* send_ptr = work.res.data() + (o * batch_elms);
+        handle.get_comms().device_send(send_ptr, batch_elms, part_rank, stream);
       }
     }
-  } else {  // Or, as the owner of currently processed query batch,
-    // receive results from other workers for reduce
+    handle.sync_stream(stream);
+
+  } else {  // Receiver: receive results from other workers for reduce
     bool part_rank_is_idx = work.idxRanks.find(part_rank) != work.idxRanks.end();
     size_t idx_rank_size  = work.idxRanks.size();
 
-    // if root rank is an index, it will already have
-    // query data, so no need to receive from it.
-    work.res_I.resize(batch_elms * idx_rank_size, handle.get_stream());
-    work.res_D.resize(batch_elms * idx_rank_size, handle.get_stream());
+    work.res_I.resize(batch_elms * idx_rank_size, stream);
+    work.res_D.resize(batch_elms * idx_rank_size, stream);
 
     if (params.knn_op != knn_operation::knn) {
-      work.res.resize(batch_elms * params.n_outputs * idx_rank_size, handle.get_stream());
+      work.res.resize(batch_elms * params.n_outputs * idx_rank_size, stream);
     }
 
     if (part_rank_is_idx) {
@@ -590,76 +567,59 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
        * has some local results as well,
        * copy them at right location
        */
-      --idx_rank_size;
       int i = 0;
       for (int rank : work.idxRanks) {
         if (rank == work.my_rank) {
           size_t batch_offset = batch_elms * i;
 
           // Indices and distances are stored in rank order
-          raft::copy_async(
-            work.res_I.data() + batch_offset, work.res_I.data(), batch_elms, handle.get_stream());
-          raft::copy_async(
-            work.res_D.data() + batch_offset, work.res_D.data(), batch_elms, handle.get_stream());
+          raft::copy_async(work.res_I.data() + batch_offset, work.res_I.data(), batch_elms, stream);
+          raft::copy_async(work.res_D.data() + batch_offset, work.res_D.data(), batch_elms, stream);
 
           if (params.knn_op != knn_operation::knn) {
-            rmm::device_uvector<out_t> tmp_res(params.n_outputs * batch_elms, handle.get_stream());
-            raft::copy_async(tmp_res.data(), work.res.data(), tmp_res.size(), handle.get_stream());
+            rmm::device_uvector<out_t> tmp_res(params.n_outputs * batch_elms, stream);
+            raft::copy_async(tmp_res.data(), work.res.data(), tmp_res.size(), stream);
 
             for (std::size_t o = 0; o < params.n_outputs; ++o) {
               // Outputs are stored in target order and then in rank order
-              raft::copy_async(
-                work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset,
-                tmp_res.data() + (o * batch_elms),
-                batch_elms,
-                handle.get_stream());
+              out_t* dst_ptr =
+                work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset;
+              out_t* src_ptr = tmp_res.data() + (o * batch_elms);
+              raft::copy_async(dst_ptr, src_ptr, batch_elms, stream);
             }
           }
-          handle.sync_stream(handle.get_stream());
+          handle.sync_stream(stream);
           break;
         }
         i++;
       }
     }
 
-    size_t request_size = 2 * idx_rank_size;
-    if (params.knn_op != knn_operation::knn) request_size = (2 + params.n_outputs) * idx_rank_size;
-    requests.resize(request_size);
-
+    // Receive from each sender rank
     int num_received = 0;
     for (int rank : work.idxRanks) {
       if (rank != work.my_rank) {
         size_t batch_offset = batch_elms * num_received;
 
         // Indices and distances are stored in rank order
-        handle.get_comms().irecv(
-          work.res_I.data() + batch_offset, batch_elms, rank, 0, requests.data() + request_idx);
-        ++request_idx;
-        handle.get_comms().irecv(
-          work.res_D.data() + batch_offset, batch_elms, rank, 0, requests.data() + request_idx);
-        ++request_idx;
+        ind_t* recv_I_ptr = work.res_I.data() + batch_offset;
+        handle.get_comms().device_recv(recv_I_ptr, batch_elms, rank, stream);
+
+        dist_t* recv_D_ptr = work.res_D.data() + batch_offset;
+        handle.get_comms().device_recv(recv_D_ptr, batch_elms, rank, stream);
 
         if (params.knn_op != knn_operation::knn) {
           for (std::size_t o = 0; o < params.n_outputs; o++) {
             // Outputs are stored in target order and then in rank order
             out_t* r = work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset;
-            handle.get_comms().irecv(r, batch_elms, rank, 0, requests.data() + request_idx);
-            ++request_idx;
+            handle.get_comms().device_recv(r, batch_elms, rank, stream);
           }
         }
       }
-      if (rank != work.my_rank || part_rank_is_idx) {
-        /**
-         * Increase index for each new reception
-         * Also increase index when the worker doing a reduce operation
-         * has some index data (previously copied at right location).
-         */
-        ++num_received;
-      }
+      if (rank != work.my_rank || part_rank_is_idx) { ++num_received; }
     }
+    handle.sync_stream(stream);
   }
-
-  handle.get_comms().waitall(requests.size(), requests.data());
 }
 
 /*!
@@ -714,7 +674,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       work.res_I.data(), batch_size * work.idxRanks.size(), params.k),
     raft::make_device_matrix_view<dist_t, int64_t>(distances, batch_size, params.k),
     raft::make_device_matrix_view<ind_t, int64_t>(indices, batch_size, params.k),
-    raft::make_device_vector_view<trans_t>(trans.data(), trans.size()));
+    raft::make_device_vector_view<trans_t, int64_t>(trans.data(), trans.size()));
   handle.sync_stream(handle.get_stream());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 

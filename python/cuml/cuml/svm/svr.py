@@ -9,6 +9,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.svm.svm_base import SVMBase
 
 
@@ -18,13 +19,13 @@ class SVR(SVMBase, RegressorMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -57,19 +58,8 @@ class SVR(SVMBase, RegressorMixin):
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVR.TotalIters`.
-            For example ``SVR(max_iter=SVR.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVR.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -145,6 +135,7 @@ class SVR(SVMBase, RegressorMixin):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
@@ -194,6 +185,7 @@ class SVR(SVMBase, RegressorMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.

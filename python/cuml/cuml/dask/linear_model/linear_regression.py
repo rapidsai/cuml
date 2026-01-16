@@ -9,7 +9,6 @@ from cuml.dask.common.base import (
     BaseEstimator,
     DelayedPredictionMixin,
     SyncFitMixinLinearModel,
-    check_deprecated_normalize,
     mnmg_import,
 )
 
@@ -21,34 +20,22 @@ class LinearRegression(
     LinearRegression is a simple machine learning model where the response y is
     modelled by a linear combination of the predictors in X.
 
-    cuML's dask Linear Regression (multi-node multi-gpu) expects dask cuDF
-    DataFrame and provides an algorithms, Eig, to fit a linear model.
-    And provides an eigendecomposition-based algorithm to fit a linear model.
-    (SVD, which is more stable than eig, will be added in an upcoming version.)
-    Eig algorithm is usually preferred when the X is a tall and skinny matrix.
-    As the number of features in X increases, the accuracy of Eig algorithm
-    drops.
-
-    This is an experimental implementation of dask Linear Regression. It
-    supports input X that has more than one column. Single column input
-    X will be supported after SVD algorithm is added in an upcoming version.
+    cuML's Dask Linear Regression (multi-node multi-GPU) expects Dask cuDF
+    DataFrame and provides an eigendecomposition-based algorithm (Eig) to fit
+    a linear model. The Eig algorithm is usually preferred when X is a tall
+    and skinny matrix. As the number of features in X increases, the accuracy
+    of the Eig algorithm may decrease.
 
     Parameters
     ----------
     algorithm : 'eig'
-        Eig uses a eigendecomposition of the covariance matrix, and is much
+        Eig uses an eigendecomposition of the covariance matrix, and is much
         faster.
         SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
         LinearRegression adds an additional term c to correct for the global
         mean of y, modeling the response as "x * beta + c".
         If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
 
     Attributes
     ----------
@@ -67,13 +54,11 @@ class LinearRegression(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Features for regression
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels (outcome values)
         """
-        check_deprecated_normalize(self)
-
         models = self._fit(
             model_func=LinearRegression._create_model, data=(X, y)
         )
@@ -88,7 +73,7 @@ class LinearRegression(
 
         Parameters
         ----------
-        X : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, n_features)
+        X : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, n_features)
             Distributed dense matrix (floats or doubles) of shape
             (n_samples, n_features).
 
@@ -98,7 +83,7 @@ class LinearRegression(
 
         Returns
         -------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
         """
         return self._predict(X, delayed=delayed)
 

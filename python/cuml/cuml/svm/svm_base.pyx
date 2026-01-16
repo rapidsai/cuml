@@ -12,7 +12,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -131,7 +131,14 @@ cdef class _SVMModel:
 
 
 class TotalIters(int):
-    """Indicates the maximum number of total iterations the solver may run."""
+    """Indicates the maximum number of total iterations the solver may run.
+
+    .. deprecated:: 26.02
+
+        TotalIters was deprecated in 26.02 and will be removed in 26.04.
+        The `max_iter` parameter now always places a limit on total iterations,
+        wrapping with `TotalIters` is no longer necessary.
+    """
     def __repr__(self):
         return f"TotalIters({int(self)})"
 
@@ -181,7 +188,7 @@ class SVMBase(Base,
             "tol": model.tol,
             "C": model.C,
             "cache_size": cache_size,
-            "max_iter": TotalIters(model.max_iter),
+            "max_iter": model.max_iter,
             "epsilon": model.epsilon,
         }
 
@@ -189,8 +196,7 @@ class SVMBase(Base,
         if isinstance(self.max_iter, TotalIters):
             max_iter = int(self.max_iter)
         else:
-            # No way to restrict outer iters only in sklearn, just use the default
-            max_iter = -1
+            max_iter = self.max_iter
 
         return {
             "kernel": self.kernel,
@@ -316,7 +322,7 @@ class SVMBase(Base,
         self.nochange_steps = nochange_steps
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def coef_(self):
         if self.kernel != "linear":
             raise AttributeError("coef_ is only available for linear kernels")
@@ -369,6 +375,17 @@ class SVMBase(Base,
         assert X.dtype == y.dtype
         assert sample_weight is None or X.dtype == sample_weight.dtype
 
+        if X.shape[0] < 2:
+            raise ValueError(
+                f"Found array with {X.shape[0]} sample(s) (shape={X.shape}) while a "
+                f"minimum of 2 is required."
+            )
+        elif len(X.shape) > 1 and X.shape[1] < 1:
+            raise ValueError(
+                f"Found array with {X.shape[1]} feature(s) (shape={X.shape}) while "
+                f"a minimum of 1 is required."
+            )
+
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_sparse = isinstance(X, SparseCumlArray)
         cdef bool is_float32 = X.dtype == np.float32
@@ -386,35 +403,27 @@ class SVMBase(Base,
         param.cache_size = self.cache_size
         param.nochange_steps = self.nochange_steps
         param.tol = self.tol
-        param.verbosity = self.verbose
+        param.verbosity = self._verbose_level
         param.epsilon = self.epsilon
         param.svmType = lib.SvmType.C_SVC if is_classifier else lib.SvmType.EPSILON_SVR
 
+        param.max_outer_iter = -1
         if isinstance(self.max_iter, TotalIters):
-            param.max_iter = int(self.max_iter)
-            param.max_outer_iter = -1
-        elif self.max_iter == -1:
-            param.max_iter = -1
-            param.max_outer_iter = -1
-        else:
-            name = type(self).__name__
             warnings.warn(
                 (
-                    "The meaning of `max_iter` will change in version 26.02 from "
-                    "'max outer iterations' to 'max total iterations'.\n\n"
-                    "You may opt into the new behavior now with:\n\n"
-                    f"  {name}(max_iter={name}.TotalIters(max_total_iter), ...)\n\n"
-                    "The number of total iterations run during a fit may be accessed "
-                    "through the `n_iter_` attribute. In 26.02 the `TotalIters` "
-                    "wrapper will be deprecated and `max_iter` will put a limit "
-                    "on total iterations."
+                    "Passing `TotalIters` to `max_iter` was deprecated in 26.02 "
+                    "and will be removed in 26.04. `max_iter` now always places a "
+                    "limit on total iterations, please pass an integer directly "
+                    "instead of wrapping with `TotalIters`."
                 ),
                 FutureWarning,
             )
-            param.max_iter = -1
-            param.max_outer_iter = self.max_iter
+            param.max_iter = int(self.max_iter)
+        else:
+            param.max_iter = self.max_iter
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int n_rows, n_cols, X_nnz
         n_rows, n_cols = X.shape
         cdef uintptr_t X_ptr, X_data_ptr, y_ptr, sample_weight_ptr
@@ -432,7 +441,7 @@ class SVMBase(Base,
         sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
 
         cdef int n_iter
-        cdef _SVMModel internal = _SVMModel.new(self.handle, is_float32)
+        cdef _SVMModel internal = _SVMModel.new(handle, is_float32)
 
         with nogil:
             if is_sparse:
@@ -491,7 +500,7 @@ class SVMBase(Base,
                         internal.model_d[0],
                         <double*>sample_weight_ptr,
                     )
-        self.handle.sync()
+        handle.sync()
 
         support, support_vectors, dual_coef, intercept = internal.unpack()
 
@@ -587,7 +596,8 @@ class SVMBase(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef double cache_size = self.cache_size
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle(model=self)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call predict
         with nogil:
@@ -647,7 +657,7 @@ class SVMBase(Base,
                         <double>cache_size,
                         False,
                     )
-        self.handle.sync()
+        handle.sync()
 
         return out
 

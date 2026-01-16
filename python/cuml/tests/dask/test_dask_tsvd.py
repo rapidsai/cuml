@@ -5,9 +5,13 @@
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.testing.utils import array_equal, stress_param, unit_param
+
+SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
 
 
 @pytest.mark.mg
@@ -67,15 +71,18 @@ def test_tsvd_fit(data_info, input_type, client):
     ]
 
     for attr in all_attr:
-        with_sign = False if attr in ["components_"] else True
         cuml_res = getattr(cutsvd, attr)
         if type(cuml_res) is np.ndarray:
             cuml_res = cuml_res.to_numpy()
         skl_res = getattr(sktsvd, attr)
         if attr == "singular_values_":
-            assert array_equal(cuml_res, skl_res, 1, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1, with_sign=True)
+        elif attr == "components_":
+            assert array_equal(
+                cuml_res, skl_res, 1e-1, with_sign=SKLEARN_GE_1_5_0
+            )
         else:
-            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=with_sign)
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
 
 
 @pytest.mark.mg
@@ -84,7 +91,6 @@ def test_tsvd_fit(data_info, input_type, client):
     [unit_param([1000, 20, 46]), stress_param([int(9e6), 5000, 46])],
 )
 def test_tsvd_fit_transform_fp32(data_info, client):
-
     nrows, ncols, n_parts = data_info
     from cuml.dask.datasets import make_blobs
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
@@ -109,7 +115,6 @@ def test_tsvd_fit_transform_fp32(data_info, client):
     [unit_param([1000, 20, 33]), stress_param([int(9e6), 5000, 33])],
 )
 def test_tsvd_fit_transform_fp64(data_info, client):
-
     nrows, ncols, n_parts = data_info
 
     from cuml.dask.datasets import make_blobs

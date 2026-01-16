@@ -51,6 +51,7 @@ the following estimators are mostly or entirely accelerated when run with
 * Scikit-Learn
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
+    * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
     * ``sklearn.decomposition.TruncatedSVD``
     * ``sklearn.ensemble.RandomForestClassifier``
@@ -193,6 +194,14 @@ sklearn/umap-learn/hdbscan counterpart.
 
 Note that the same serialized model may also be loaded with ``cuml.accel``
 active, in which case they'll be accelerated ``cuml.accel`` backed models.
+
+.. warning::
+
+   Only unpickle or deserialize models from trusted sources. The ``pickle``
+   module is not secure - malicious pickle data can execute arbitrary code
+   during deserialization, potentially compromising your entire system.
+   See the `Python pickle documentation <https://docs.python.org/3/library/pickle.html>`_
+   for more information.
 
 11. How can I tell which parts of my code are being accelerated and why some operations might not be?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

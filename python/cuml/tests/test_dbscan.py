@@ -14,7 +14,6 @@ from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import (
     array_equal,
     assert_dbscan_equal,
-    get_handle,
     quality_param,
     stress_param,
     unit_param,
@@ -23,7 +22,6 @@ from cuml.testing.utils import (
 
 @pytest.mark.parametrize("max_mbytes_per_batch", [1e3, None])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize(
     "nrows", [unit_param(500), quality_param(5000), stress_param(500000)]
 )
@@ -44,7 +42,6 @@ from cuml.testing.utils import (
 @pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 def test_dbscan(
     datatype,
-    use_handle,
     nrows,
     ncols,
     max_mbytes_per_batch,
@@ -76,11 +73,8 @@ def test_dbscan(
     )
     X = X.astype(datatype)
 
-    handle, stream = get_handle(use_handle)
-
     eps = 1
     cuml_dbscan = cuDBSCAN(
-        handle=handle,
         eps=eps,
         min_samples=2,
         algorithm=algorithm,
@@ -439,13 +433,10 @@ def test_core_point_prop3():
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize("use_handle", [True, False])
 @pytest.mark.parametrize("out_dtype", ["int32", np.int32, "int64", np.int64])
 @pytest.mark.parametrize("algorithm", ["brute", "rbc"])
 @pytest.mark.parametrize("n_samples", [unit_param(500), stress_param(5000)])
-def test_dbscan_propagation(
-    datatype, use_handle, out_dtype, algorithm, n_samples
-):
+def test_dbscan_propagation(datatype, out_dtype, algorithm, n_samples):
     if algorithm == "rbc":
         if datatype == np.float64 or out_dtype in ["int32", np.int32]:
             pytest.skip("RBC does not support float64 dtype or int32 labels")
@@ -459,10 +450,8 @@ def test_dbscan_propagation(
     )
     X = X.astype(datatype)
 
-    handle, stream = get_handle(use_handle)
     eps = 0.5
     cuml_dbscan = cuDBSCAN(
-        handle=handle,
         eps=eps,
         min_samples=5,
         algorithm=algorithm,
@@ -485,7 +474,6 @@ def test_dbscan_propagation(
 
 
 def test_dbscan_no_calc_core_point_indices():
-
     params = {"eps": 1.1, "min_samples": 4}
     n_samples = 1000
     pat = make_pattern("noisy_moons", n_samples)
@@ -509,7 +497,6 @@ def test_dbscan_no_calc_core_point_indices():
 
 
 def test_dbscan_on_empty_array():
-
     X = np.array([])
     cuml_dbscan = cuDBSCAN()
 

@@ -21,21 +21,16 @@ class RandomForestClassifier(
     DelayedPredictionProbaMixin,
     BaseEstimator,
 ):
-
     """
-    Experimental API implementing a multi-GPU Random Forest classifier
-    model which fits multiple decision tree classifiers in an
-    ensemble. This uses Dask to partition data over multiple GPUs
-    (possibly on different nodes).
+    Multi-GPU Random Forest classifier model which fits multiple decision tree
+    classifiers in an ensemble. This uses Dask to partition data over multiple
+    GPUs (possibly on different nodes).
 
-    Currently, this API makes the following assumptions:
+    This implementation makes the following assumptions:
      * The set of Dask workers used between instantiation, fit, \
         and predict are all consistent
      * Training data comes in the form of cuDF dataframes or Dask Arrays \
         distributed so that each worker has at least one partition.
-
-    Future versions of the API will support more flexible data
-    distribution and additional input types.
 
     The distributed algorithm uses an *embarrassingly-parallel*
     approach. For a forest with `N` trees being built on `w` workers, each
@@ -55,13 +50,13 @@ class RandomForestClassifier(
     ----------
     n_estimators : int (default = 100)
                    total number of trees in the forest (not per-worker)
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     split_criterion : int or string (default = ``0`` (``'gini'``))
         The criterion used to split nodes.\n
          * ``0`` or ``'gini'`` for gini impurity
@@ -131,8 +126,6 @@ class RandomForestClassifier(
         while splitting. When True, it returns the results from workers
         with data (the number of trained estimators will be less than
         n_estimators) When False, throws a RuntimeError.
-        This is an experimental parameter, and may be removed
-        in the future.
 
     Examples
     --------
@@ -151,7 +144,6 @@ class RandomForestClassifier(
         ignore_empty_partitions=False,
         **kwargs,
     ):
-
         super().__init__(client=client, verbose=verbose, **kwargs)
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
@@ -220,9 +212,16 @@ class RandomForestClassifier(
             is trained on its partition
 
         """
-        self.unique_classes = cp.asarray(
-            y.unique().compute().sort_values(ignore_index=True)
-        )
+        # Handle both Dask Arrays and Dask Series/DataFrames
+        if isinstance(y, dask.array.Array):
+            # For Dask Arrays, use dask.array.unique
+            unique_vals = dask.array.unique(y).compute()
+            self.unique_classes = cp.sort(cp.asarray(unique_vals))
+        else:
+            # For Dask Series/DataFrames, use .unique() method
+            self.unique_classes = cp.asarray(
+                y.unique().compute().sort_values(ignore_index=True)
+            )
         self.num_classes = len(self.unique_classes)
         self._set_internal_model(None)
         self._fit(

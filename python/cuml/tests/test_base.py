@@ -1,44 +1,29 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import inspect
+import warnings
 
 import numpy as np
 import numpydoc.docscrape
+import pandas as pd
+import pylibraft.common.handle
 import pytest
-from pylibraft.common.cuda import Stream
-from sklearn.datasets import make_regression
+from sklearn.datasets import (
+    make_classification,
+    make_multilabel_classification,
+    make_regression,
+)
 
 import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
+from cuml.internals import get_handle
 from cuml.testing.datasets import small_classification_dataset
 from cuml.testing.utils import get_all_base_subclasses
 
 all_base_children = get_all_base_subclasses()
-
-
-def test_base_class_usage():
-    # Ensure base class returns the 3 main properties needed by all classes
-    base = cuml.Base()
-    base.handle.sync()
-    base_params = base._get_param_names()
-
-    assert "handle" in base_params
-    assert "verbose" in base_params
-    assert "output_type" in base_params
-
-    del base
-
-
-def test_base_class_usage_with_handle():
-    stream = Stream()
-    handle = cuml.Handle(stream=stream)
-    base = cuml.Base(handle=handle)
-    base.handle.sync()
-    del base
 
 
 @pytest.mark.parametrize("datatype", ["float32", "float64"])
@@ -127,21 +112,25 @@ def test_base_subclass_init_matches_docs(child_class: str):
         )
 
         if klass.__doc__ is not None:
-
             found_doc = get_param_doc(klass_doc_params, name)
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
-            if not (
-                found_doc.type.startswith("cuml.Handle")
-                and klass == cuml.manifold.umap.UMAP
-            ):
-                # Ensure the docstring is identical
-                assert (
-                    found_doc.type == base_item_doc.type
-                ), "Docstring mismatch for {}".format(name)
+            assert found_doc.type == base_item_doc.type, (
+                f"Docstring mismatch for {name}"
+            )
 
-                assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+            found = " ".join(found_doc.desc)
+            expected = " ".join(base_item_doc.desc)
+
+            if name == "handle":
+                # Handle may have a trailing suffix, class dependent
+                assert found.startswith(expected), (
+                    f"Docstring mismatch for {name}"
+                )
+            else:
+                # Exact match
+                assert found == expected, f"Docstring mismatch for {name}"
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
@@ -213,6 +202,7 @@ EXCEPTIONS = {
     "LabelBinarizer.fit": ["self", "y"],
     "LabelBinarizer.fit_transform": ["self", "y"],
     "LabelBinarizer.transform": ["self", "y"],
+    "LedoitWolf.score": ["self", "X_test", "y"],
 }
 
 
@@ -303,6 +293,94 @@ def test_common_signatures(cls, method):
     [
         cls
         for cls in all_base_children.values()
+        if not (
+            "Base" in cls.__name__
+            or cls.__name__.endswith("MG")
+            or cls.__module__.startswith("cuml.tsa")
+            or cls.__name__ in ["ColumnTransformer"]
+        )
+    ],
+)
+def test_handle_deprecated(cls):
+    if cls.__name__ in ("OneVsRestClassifier", "OneVsOneClassifier"):
+
+        def create(handle=None):
+            return cls(cuml.SVC(), handle=handle)
+    else:
+        create = cls
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # No warning by default
+        model = create()
+    assert get_handle(model=model) is get_handle()
+
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle") as rec:
+        model = create(handle=handle)
+
+    assert get_handle(model=model) is handle
+
+    if cls in (cuml.UMAP, cuml.HDBSCAN):
+        assert "device_ids" in str(rec[0].message)
+    elif cls in (
+        cuml.LinearSVC,
+        cuml.RandomForestClassifier,
+        cuml.RandomForestRegressor,
+    ):
+        assert "n_streams" in str(rec[0].message)
+
+
+def test_cuml_handle_deprecated():
+    with pytest.warns(FutureWarning, match="cuml.Handle"):
+        assert cuml.Handle is pylibraft.common.handle.Handle
+
+
+def test_get_handle():
+    # Threadlocal is cached
+    assert get_handle() is get_handle()
+
+    # Handle arg warns and returns
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle)
+    assert res is handle
+
+    # Handle arg takes precedence
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle, n_streams=4)
+    assert res is handle
+
+    # n_streams doesn't use the threadlocal handle
+    res = get_handle(n_streams=4)
+    assert res is not get_handle()
+    assert isinstance(res, pylibraft.common.handle.Handle)
+
+
+def test_get_handle_device_ids():
+    for device_ids in ["all", [0]]:
+        res = get_handle(device_ids=device_ids)
+        assert isinstance(res, pylibraft.common.handle.DeviceResourcesSNMG)
+
+    # None uses default handle
+    assert get_handle(device_ids=None) is get_handle()
+
+    # Handle arg takes precedence
+    handle = pylibraft.common.handle.Handle()
+    with pytest.warns(FutureWarning, match="handle"):
+        res = get_handle(handle=handle, device_ids="all")
+    assert res is handle
+
+    with pytest.raises(ValueError, match="n_streams"):
+        # Can't mix n_streams and device_ids
+        get_handle(n_streams=4, device_ids="all")
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        cls
+        for cls in all_base_children.values()
         if getattr(cls, "_estimator_type", None) == "regressor"
         and hasattr(cls, "fit")
         and hasattr(cls, "predict")
@@ -328,3 +406,78 @@ def test_regressor_predict_dtype(cls):
     # in sklearn here: https://github.com/scikit-learn/scikit-learn/issues/22682
     y_pred = cls().fit(X32, y32).predict(X32)
     assert y_pred.dtype == np.float32
+
+
+@pytest.mark.parametrize(
+    "cls, kwargs",
+    [
+        (cuml.LogisticRegression, None),
+        (cuml.RandomForestClassifier, None),
+        (cuml.SVC, None),
+        (cuml.SVC, {"probability": True}),
+        (cuml.LinearSVC, None),
+        (cuml.KNeighborsClassifier, None),
+        (cuml.MBSGDClassifier, None),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_kind", ["binary", "multiclass", "multitarget"]
+)
+@pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
+def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
+    supports_multitarget = [cuml.KNeighborsClassifier]
+    binary_only = [cuml.MBSGDClassifier]
+    if target_kind == "multitarget" and cls not in supports_multitarget:
+        pytest.skip(f"{cls.__name__} doesn't support multitarget y")
+    elif target_kind == "multiclass" and cls in binary_only:
+        pytest.skip(f"{cls.__name__} doesn't support multiclass y")
+
+    labels = {
+        "int-monotonic": [0, 1, 2, 3],
+        "int": [5, 10, 15, 20],
+        "string": ["a", "b", "c", "d"],
+    }[dtype_kind]
+
+    if target_kind == "binary":
+        X, y = make_classification(n_samples=200, random_state=42, n_classes=2)
+        y = np.array(labels).take(y)
+    elif target_kind == "multiclass":
+        X, y = make_classification(
+            n_samples=200, random_state=42, n_classes=4, n_informative=4
+        )
+        y = np.array(labels).take(y)
+    elif target_kind == "multitarget":
+        X, y = make_multilabel_classification(
+            n_samples=200, random_state=42, n_classes=4
+        )
+        y = np.array(labels).take(y)
+
+    model = cls(**(kwargs or {})).fit(X, y)
+
+    # Classes are of correct dtype
+    if target_kind == "multitarget":
+        assert all(c.dtype == y.dtype for c in model.classes_)
+    else:
+        assert model.classes_.dtype == y.dtype
+
+    # Predicted labels are of correct type, dtype, and shape
+    preds = model.predict(X)
+    assert isinstance(preds, np.ndarray)
+    assert preds.dtype == y.dtype
+    assert preds.shape == y.shape
+    # Just a smoketest that the classifier is better than `np.zeros`
+    score = (preds == y).sum() / y.size
+    assert score > 0.5
+
+    # `predict` still supports type reflection
+    with cuml.using_output_type("pandas"):
+        preds2 = model.predict(X)
+    assert isinstance(preds2, (pd.Series, pd.DataFrame))
+
+    # Unsupported dtype & output type pairs raise nicely
+    if dtype_kind == "string" and target_kind == "binary":
+        with pytest.raises(
+            TypeError, match="output_type='cupy' doesn't support"
+        ):
+            with cuml.using_output_type("cupy"):
+                preds2 = model.predict(X)

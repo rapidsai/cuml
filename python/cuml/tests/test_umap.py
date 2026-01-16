@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -9,8 +9,9 @@ import joblib
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
+import sklearn
 import umap
-from pylibraft.common import DeviceResourcesSNMG
+from packaging.version import Version
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
@@ -19,7 +20,7 @@ from sklearn.metrics import adjusted_rand_score
 from sklearn.neighbors import NearestNeighbors
 
 import cuml
-from cuml.internals import GraphBasedDimRedCallback, logger
+from cuml.internals import GraphBasedDimRedCallback
 from cuml.manifold.umap import UMAP as cuUMAP
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
@@ -27,6 +28,17 @@ from cuml.testing.utils import (
     quality_param,
     stress_param,
     unit_param,
+)
+
+if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
+
+# Ignore FutureWarning from third-party umap-learn package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of umap-learn use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
 )
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
@@ -40,7 +52,6 @@ dataset_names = ["iris", "digits", "wine", "blobs"]
 )
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_blobs_cluster(nrows, n_feats, build_algo):
-
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
@@ -74,7 +85,6 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
 )
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_score(nrows, n_feats, build_algo):
-
     n_samples = nrows
     n_features = n_feats
 
@@ -135,7 +145,6 @@ def test_umap_trustworthiness_on_iris():
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_iris(target_metric):
-
     iris = datasets.load_iris()
 
     iris_selection = np.random.RandomState(42).choice(
@@ -167,7 +176,6 @@ def test_umap_transform_on_iris(target_metric):
 def test_umap_transform_on_digits_sparse(
     target_metric, input_type, xform_method
 ):
-
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
@@ -185,7 +193,6 @@ def test_umap_transform_on_digits_sparse(
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_enum.info,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -214,7 +221,6 @@ def test_umap_transform_on_digits_sparse(
 
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 def test_umap_transform_on_digits(target_metric):
-
     digits = datasets.load_digits()
 
     digits_selection = np.random.RandomState(42).choice(
@@ -224,7 +230,6 @@ def test_umap_transform_on_digits(target_metric):
 
     fitter = cuUMAP(
         n_neighbors=15,
-        verbose=logger.level_enum.debug,
         init="random",
         n_epochs=0,
         min_dist=0.01,
@@ -245,7 +250,6 @@ def test_umap_transform_on_digits(target_metric):
 @pytest.mark.parametrize("target_metric", ["categorical", "euclidean"])
 @pytest.mark.parametrize("name", dataset_names)
 def test_umap_fit_transform_trust(name, target_metric):
-
     if name == "iris":
         iris = datasets.load_iris()
         data = iris.data
@@ -296,7 +300,6 @@ def test_umap_data_formats(
     target_metric,
     build_algo,
 ):
-
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = nrows
     n_feats = n_feats
@@ -326,7 +329,6 @@ def test_umap_data_formats(
 @pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_score_default(target_metric, build_algo):
-
     n_samples = 500
     n_features = 20
 
@@ -350,7 +352,6 @@ def test_umap_fit_transform_score_default(target_metric, build_algo):
 
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_fit_transform_against_fit_and_transform(build_algo):
-
     n_samples = 500
     n_features = 20
 
@@ -400,7 +401,6 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
     ],
 )
 def test_umap_fit_transform_reproducibility(n_components, random_state):
-
     n_samples = 8000
     n_features = 200
 
@@ -448,7 +448,6 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     ],
 )
 def test_umap_transform_reproducibility(n_components, random_state):
-
     n_samples = 5000
     n_features = 200
 
@@ -552,7 +551,8 @@ def test_fit_fewer_rows_than_n_neighbors():
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
-def test_umap_knn_graph(n_neighbors, build_algo):
+@pytest.mark.parametrize("data_on_gpu", [True, False])
+def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
     data, labels = datasets.make_blobs(
         n_samples=2000, n_features=10, centers=5, random_state=0
     )
@@ -565,9 +565,13 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        return model.fit_transform(
-            data, knn_graph=knn_graph, convert_dtype=True
+        embd = model.fit_transform(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
         )
+
+        return embd.get() if data_on_gpu else embd
 
     def transform_embed(knn_graph=None):
         model = cuUMAP(
@@ -576,8 +580,15 @@ def test_umap_knn_graph(n_neighbors, build_algo):
             n_neighbors=n_neighbors,
             build_algo=build_algo,
         )
-        model.fit(data, knn_graph=knn_graph, convert_dtype=True)
-        return model.transform(data, convert_dtype=True)
+        model.fit(
+            cp.array(data) if data_on_gpu else data,
+            knn_graph=knn_graph,
+            convert_dtype=True,
+        )
+        embd = model.transform(
+            cp.array(data) if data_on_gpu else data, convert_dtype=True
+        )
+        return embd.get() if data_on_gpu else embd
 
     def test_trustworthiness(embedding):
         trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
@@ -849,23 +860,19 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("num_clusters", [3, 5])
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
-@pytest.mark.parametrize("do_snmg", [True, False])
+@pytest.mark.parametrize("device_ids", [None, "all"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, do_snmg
+    num_clusters, fit_then_transform, metric, device_ids
 ):
     digits = datasets.load_digits()
 
-    umap_handle = None
-    if do_snmg:
-        umap_handle = DeviceResourcesSNMG()
-
     cuml_model = cuUMAP(
-        handle=umap_handle,
         n_neighbors=10,
         min_dist=0.01,
         build_algo="nn_descent",
         build_kwds={"nnd_n_clusters": num_clusters},
         metric=metric,
+        device_ids=device_ids,
     )
 
     if fit_then_transform:
@@ -927,14 +934,9 @@ def test_umap_small_fit_large_transform():
     assert trust >= 0.9
 
 
-@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/7412")
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 def test_umap_outliers(n_neighbors, n_components):
-    all_neighbors = pytest.importorskip("cuvs.neighbors.all_neighbors")
-    nn_descent = pytest.importorskip("cuvs.neighbors.nn_descent")
-
-    k = n_neighbors
     n_rows = 50_000
 
     # This dataset was specifically chosen because UMAP produces outliers
@@ -942,28 +944,7 @@ def test_umap_outliers(n_neighbors, n_components):
     data, _ = make_moons(n_samples=n_rows, noise=0.0, random_state=42)
     data = data.astype(np.float32)
 
-    # precompute knn for faster testing with CPU UMAP
-    nn_descent_params = nn_descent.IndexParams(
-        metric="euclidean",
-        graph_degree=k,
-        intermediate_graph_degree=k * 2,
-    )
-    params = all_neighbors.AllNeighborsParams(
-        algo="nn_descent",
-        metric="euclidean",
-        nn_descent_params=nn_descent_params,
-    )
-    indices, distances = all_neighbors.build(
-        data,
-        k,
-        params,
-        distances=cp.empty((n_rows, k), dtype=cp.float32),
-    )
-    indices = cp.asnumpy(indices)
-    distances = cp.asnumpy(distances)
-
     gpu_umap = cuUMAP(
-        precomputed_knn=(indices, distances),
         build_algo="nn_descent",
         init="spectral",
         n_neighbors=n_neighbors,
@@ -971,22 +952,15 @@ def test_umap_outliers(n_neighbors, n_components):
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 
-    cpu_umap = umap.UMAP(
-        precomputed_knn=(indices, distances),
-        init="spectral",
-        n_neighbors=n_neighbors,
-        n_components=n_components,
-    )
-    cpu_umap_embeddings = cpu_umap.fit_transform(data)
-
-    # test to see if there are values in the final embedding that are too out of range
-    # compared to the cpu umap output.
-    lower_bound = 3 * cpu_umap_embeddings.min()
-    upper_bound = 3 * cpu_umap_embeddings.max()
+    # Ideally, this threshold should be determined by running the CPU UMAP implementation
+    # and comparing the max and min values of the resulting embedding. However, running CPU UMAP
+    # with this data size using spectral initialization is too slow to run repetitively in CI.
+    # Instead, we hardwire a locally determined threshold for this dataset.
+    threshold = 50.0
 
     assert np.all(
-        (gpu_umap_embeddings >= lower_bound)
-        & (gpu_umap_embeddings <= upper_bound)
+        (gpu_umap_embeddings >= -threshold)
+        & (gpu_umap_embeddings <= threshold)
     )
 
 
@@ -1064,4 +1038,57 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
         init="random",
     )
     with pytest.raises(ValueError, match=".*fewer neighbors.*"):
+        model.fit(data)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+def test_umap_custom_init(input_type):
+    n_samples = 500
+    n_features = 20
+    n_components = 2
+
+    data, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=5, random_state=42
+    )
+    data = data.astype(np.float32)
+
+    # Custom initial positions
+    init_pos = (
+        np.random.RandomState(42)
+        .randn(n_samples, n_components)
+        .astype(np.float32)
+    )
+
+    if input_type == "cupy":
+        init_pos = cp.array(init_pos)
+
+    model = cuUMAP(
+        n_neighbors=10,
+        init=init_pos,
+        n_epochs=0,
+        learning_rate=0,
+        random_state=42,
+    )
+
+    # Should return the init_pos since learning_rate=0
+    embedding = model.fit_transform(data)
+
+    assert array_equal(embedding, init_pos)
+
+
+def test_umap_custom_init_errors():
+    n_samples = 100
+    data, _ = make_blobs(n_samples=n_samples, n_features=10, random_state=42)
+    data = data.astype(np.float32)
+
+    # Wrong number of samples
+    init_wrong_samples = np.zeros((n_samples + 1, 2), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_samples)
+    with pytest.raises(ValueError, match=".*rows.*"):
+        model.fit(data)
+
+    # Wrong number of components
+    init_wrong_components = np.zeros((n_samples, 3), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_components, n_components=2)
+    with pytest.raises(ValueError, match=".*columns.*"):
         model.fit(data)

@@ -26,8 +26,8 @@ class PCA(
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's multi-node multi-gpu (MNMG) PCA expects a dask-cuDF object as input
-    and provides 2 algorithms, Full and Jacobi. Full (default) uses a full
+    cuML's multi-node multi-GPU (MNMG) PCA expects a Dask cuDF object as input
+    and provides 2 algorithms: Full and Jacobi. Full (default) uses a full
     eigendecomposition then selects the top K eigenvectors. The Jacobi
     algorithm can be much faster as it iteratively tries to correct the top K
     eigenvectors, but might be less accurate.
@@ -77,13 +77,13 @@ class PCA(
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -120,6 +120,9 @@ class PCA(
 
     Notes
     -----
+    **Known Limitation:** The `random_state` parameter is not supported in the
+    multi-node multi-GPU implementation. Results may vary slightly between runs.
+
     PCA considers linear combinations of features, specifically those that
     maximize global variance structure. This means PCA is fantastic for global
     structure analyses, but weak for local relationships. Consider UMAP or
@@ -138,7 +141,6 @@ class PCA(
     """
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
-
         super().__init__(
             model_func=PCA._create_pca,
             client=client,

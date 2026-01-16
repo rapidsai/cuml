@@ -8,7 +8,7 @@ on:
 
 jobs:
     get-project-id:
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-item-id.yaml@main
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-item-id.yaml@release/26.02
       if: github.event.pull_request.state == 'open'
       secrets: inherit
       permissions:
@@ -19,7 +19,7 @@ jobs:
 
     update-status:
       # This job sets the PR and its linked issues to "In Progress" status
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@release/26.02
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       with:
@@ -34,27 +34,43 @@ jobs:
       secrets: inherit
 
     get-release-version:
+      # Determines the release version based on target branch
+      # - release/* branches: extract version from branch name (e.g., release/26.02 -> 26.02), always override
+      # - main branch: read VERSION file, preserve existing values (no override)
+      # - other branches: skip update
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       runs-on: ubuntu-latest
       outputs:
-        release-version: ${{ steps.parse-version.outputs.release-version }}
+        release-version: ${{ steps.determine-version.outputs.release-version }}
+        override-item: ${{ steps.determine-version.outputs.override-item }}
       steps:
-        - name: Checkout repository
+        - name: Checkout main branch if needed
+          if: ${{ github.event.pull_request.base.ref == 'main' }}
           uses: actions/checkout@v4
           with:
-            ref: ${{ github.event.pull_request.base.ref }}
-        - name: Parse VERSION file
-          id: parse-version
+            ref: main
+        - name: Determine release version
+          id: determine-version
           run: |
-            version=$(cat VERSION | head -n 1)
-            release=$(echo "$version" | cut -d. -f1,2)
-            echo "release-version=$release" >> "$GITHUB_OUTPUT"
+            if [[ "$BASE_BRANCH" == release/* ]]; then
+              release="${BASE_BRANCH#release/}"
+              echo "release-version=$release" >> "$GITHUB_OUTPUT"
+              echo "override-item=true" >> "$GITHUB_OUTPUT"
+            elif [ "$BASE_BRANCH" = "main" ] && [ -f VERSION ]; then
+              release=$(head -n 1 VERSION | cut -d. -f1,2)
+              echo "release-version=$release" >> "$GITHUB_OUTPUT"
+              echo "override-item=false" >> "$GITHUB_OUTPUT"
+            fi
+          env:
+            BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
 
     update-release:
-      # This job sets the PR and its linked issues to the release they are targeting
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
+      # This job sets the PR's Release field based on the target branch
+      # - For release/* branches: always override the field
+      # - For main branch: only set if not already set (preserve manual values)
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@release/26.02
+      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.release-version != '' }}
       needs: [get-project-id, get-release-version]
       with:
         PROJECT_ID: "PVT_kwDOAp2shc4AA8lR"
@@ -64,5 +80,6 @@ jobs:
         ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
         ITEM_NODE_ID: "${{ github.event.pull_request.node_id }}"
         UPDATE_ITEM: true
-        UPDATE_LINKED_ISSUES: true
+        OVERRIDE_ITEM: ${{ needs.get-release-version.outputs.override-item == 'true' }}
+        UPDATE_LINKED_ISSUES: false
       secrets: inherit

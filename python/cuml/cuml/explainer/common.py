@@ -2,11 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
-from pylibraft.common.handle import Handle
 
-from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
 
 
@@ -33,30 +30,6 @@ def get_tag_from_model_func(func, tag, default=None):
         return result
 
     return default
-
-
-def get_handle_from_cuml_model_func(func, create_new=False):
-    """
-    Function to obtain a RAFT handle from the object that `func` is bound to
-    if possible.
-
-    Parameters
-    ----------
-    func: object
-        Function to check whether the object it is bound to has a _get_tags
-        attribute, and return tags from it.
-    create_new: boolean (default = False)
-        Whether to return a new RAFT handle if none could be fetched. Otherwise
-        the function will return None.
-    """
-    owner = getattr(func, "__self__", None)
-
-    if owner is not None and isinstance(owner, Base):
-        if owner.handle is not None:
-            return owner.handle
-
-    handle = Handle() if create_new else None
-    return handle
 
 
 def model_func_call(X, model_func, gpu_model=False):
@@ -96,7 +69,7 @@ def get_link_fn_from_str_or_fn(link):
             link_fn = link_dict[link]
         else:
             raise ValueError(
-                "'link' string does not identify any known" " link functions. "
+                "'link' string does not identify any known link functions. "
             )
     elif callable(link):
         if callable(getattr(link, "inverse", None)):

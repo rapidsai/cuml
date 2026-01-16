@@ -22,10 +22,10 @@ test_args=(
 
 # Run tests
 rapids-logger "pytest cuml-dask (No UCXX)"
-timeout 2h ./ci/run_cuml_dask_pytests.sh "${test_args[@]}"
+timeout 1h ./ci/run_cuml_dask_pytests.sh "${test_args[@]}"
 
 rapids-logger "pytest cuml-dask (UCXX only)"
-timeout 5m ./ci/run_cuml_dask_pytests.sh "${test_args[@]}" --run_ucx
+timeout 10m ./ci/run_cuml_dask_pytests.sh "${test_args[@]}" --run_ucx
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

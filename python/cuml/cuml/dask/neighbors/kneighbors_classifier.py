@@ -5,10 +5,9 @@
 
 from uuid import uuid1
 
-import cudf
+import cupy as cp
 import dask.array as da
 import numpy as np
-import pandas as pd
 from dask.dataframe import Series as DaskSeries
 from dask.distributed import get_worker
 from raft_dask.common.comms import get_raft_comm_state
@@ -40,13 +39,13 @@ class KNeighborsClassifier(NearestNeighbors):
         of this value will vary for different layouts and index to query
         ratios, but it will require `batch_size * n_features * 4` bytes of
         additional memory on each worker hosting index partitions.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -76,9 +75,6 @@ class KNeighborsClassifier(NearestNeighbors):
         -------
         self : KNeighborsClassifier model
         """
-
-        if not isinstance(X._meta, (np.ndarray, pd.DataFrame, cudf.DataFrame)):
-            raise ValueError("This chunk type is not supported")
 
         self.data_handler = DistributedDataHandler.create(
             data=[X, y], client=self.client
@@ -111,6 +107,8 @@ class KNeighborsClassifier(NearestNeighbors):
             uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
         elif hasattr(uniq_labels[0], "values"):  # for pandas Series
             uniq_labels = list(map(lambda x: x.values, uniq_labels))
+        elif isinstance(uniq_labels[0], cp.ndarray):  # for CuPy arrays
+            uniq_labels = list(map(lambda x: cp.asnumpy(x), uniq_labels))
         self.uniq_labels = np.sort(np.array(uniq_labels))
         self.n_unique = list(map(lambda x: len(x), self.uniq_labels))
 
