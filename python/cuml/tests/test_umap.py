@@ -413,7 +413,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random", n_components=n_components, random_state=random_state, build_algo="brute_force_knn"
         )
         return reducer.fit_transform(data, convert_dtype=True)
 
@@ -466,7 +466,7 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random", n_components=n_components, random_state=random_state, build_algo="brute_force_knn"
         )
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
@@ -890,6 +890,42 @@ def test_umap_trustworthiness_on_batch_nnd(
 
     assert cuml_trust > 0.9
 
+@pytest.mark.parametrize(
+    "n_components,random_state",
+    [
+        unit_param(2, 8),
+        unit_param(2, np.random.RandomState(42)),
+        unit_param(21, np.random.RandomState(42)),
+        unit_param(25, 8),
+        stress_param(50, 8),
+    ],
+)
+@pytest.mark.parametrize("num_clusters", [4, 7])
+def test_umap_fit_transform_batch_brute_force_reproducibility(n_components, random_state, num_clusters):
+    n_samples = 8000
+    n_features = 200
+
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
+
+    def get_embedding(n_components, random_state):
+        reducer = cuUMAP(
+            init="random", n_components=n_components, random_state=random_state, build_algo="brute_force_knn",
+            build_kwds={"knn_n_clusters": num_clusters},
+        )
+        return reducer.fit_transform(data, convert_dtype=True)
+
+    state = copy.deepcopy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.deepcopy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
+    mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
+    assert mean_diff == 0.0
 
 def test_callback():
     class Callback(GraphBasedDimRedCallback):
