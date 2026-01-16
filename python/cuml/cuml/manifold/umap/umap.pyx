@@ -1020,11 +1020,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 check_cols=self.n_components,
             ).array
 
-            n_bytes_c = <size_t>n_rows * <size_t>self.n_components * sizeof(float)
             embeddings_buffer.reset(
                 new device_buffer(
                     <const void*><uintptr_t>init_m.ptr,
-                    n_bytes_c,
+                    init_m.size,
                     handle_.get_stream(),
                     get_current_device_resource()
                 )
