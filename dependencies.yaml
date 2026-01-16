@@ -117,6 +117,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
@@ -126,6 +127,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
