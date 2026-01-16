@@ -121,15 +121,22 @@ jobs:
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml-nightly-dependencies-versions:
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
     with:
       build_type: ${{ inputs.build_type }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
-      node_type: "gpu-l4-latest-1"
-      script: ci/test_wheel_nightly_versions.sh
+      script: ci/test_wheel.sh
       continue-on-error: true
+      # Select one amd64 entry with highest CUDA/Python versions and set DEPENDENCIES to "nightly"
+      matrix_filter: '
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "latest"))
+        | max_by([.CUDA_VER, .PY_VER] | map(split(".") | map(tonumber)))
+        | .DEPENDENCIES = "nightly"
+        | [.]
+      '
   wheel-tests-cuml-dask:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
