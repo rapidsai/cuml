@@ -377,19 +377,21 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     build_kwds = self.build_kwds or {}
     if "nnd_n_clusters" in build_kwds:
         warnings.warn(
-            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to `knn_n_clusters` in 26.04."
+            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
+            "`knn_n_clusters` in 26.04."
         )
         n_clusters = build_kwds.get("nnd_n_clusters", 1)
     else:
         n_clusters = build_kwds.get("knn_n_clusters", 1)
     if "nnd_overlap_factor" in build_kwds:
         warnings.warn(
-            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to `knn_overlap_factor` in 26.04."
+            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
+            "`knn_overlap_factor` in 26.04."
         )
         overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
     else:
         overlap_factor = build_kwds.get("knn_overlap_factor", 2)
-    
+
     params.build_params.n_clusters = n_clusters
     params.build_params.overlap_factor = overlap_factor
 
@@ -632,10 +634,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
           memory usage. This is independent from knn_overlap_factor as long as
           'knn_overlap_factor' < 'knn_n_clusters'.
-        
+
         .. deprecated:: 26.02
-            The `knn_n_clusters` and `knn_overlap_factor` was deprecated in 26.02 and will be changed to 
-            `knn_n_clusters` and `knn_overlap_factor` in 26.04.
+            The `knn_n_clusters` and `knn_overlap_factor` was deprecated in 26.02 and
+            will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
 
     device_ids : list[int], "all", or None, default=None
         The device IDs to use during fitting (only used when
@@ -984,7 +986,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 convert_to_mem_type=(
                     MemoryType.host
-                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN and params.build_params.n_clusters > 1)
+                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or
+                    (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+                        and params.build_params.n_clusters > 1)
                     else mem_type
                 )
             ).array
