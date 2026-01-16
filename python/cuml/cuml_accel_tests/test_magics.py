@@ -30,6 +30,7 @@ def run_script(body):
         stderr=subprocess.STDOUT,
         stdout=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
     )
     # Pull out attributes before assert for nicer error reporting on failure
     returncode = res.returncode
