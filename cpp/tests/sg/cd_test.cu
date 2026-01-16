@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <test_utils.h>
+
+#include <iostream>
 
 namespace ML {
 namespace Solver {
@@ -45,6 +47,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
       coef3_ref(params.n_col, stream),
       coef4_ref(params.n_col, stream)
   {
+    std::cout << "test" << std::endl;
     RAFT_CUDA_TRY(cudaMemsetAsync(coef.data(), 0, coef.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef2.data(), 0, coef2.size() * sizeof(T), stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(coef3.data(), 0, coef3.size() * sizeof(T), stream));
