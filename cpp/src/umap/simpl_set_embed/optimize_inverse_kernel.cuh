@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "optimize_batch_kernel.cuh"
+#include "optimize_batch_kernel.cuh"  // For clip() and other utility functions
 
 #include <cuml/manifold/umapparams.h>
 
@@ -28,8 +28,13 @@ using namespace ML;
  * Optimizes points in the original high-dimensional space to minimize
  * the cross-entropy between the graph in embedding space and the
  * reconstructed positions.
+ *
+ * @tparam use_shared_mem If true, uses shared memory for per-thread buffers.
+ *                        If false, reads/writes directly from global memory.
+ *                        Should be false when n_components is large enough
+ *                        that shared memory would exceed device limits.
  */
-template <typename T, typename nnz_t, int TPB_X>
+template <typename T, typename nnz_t, int TPB_X, bool use_shared_mem>
 CUML_KERNEL void optimize_inverse_kernel(T* head_embedding,
                                          const T* tail_embedding,
                                          const int* head,
@@ -49,9 +54,17 @@ CUML_KERNEL void optimize_inverse_kernel(T* head_embedding,
                                          int n_components,
                                          T nsr_inv)
 {
+  // Shared memory pointers (only used when use_shared_mem == true)
   extern __shared__ char shared_mem[];
-  T* current = reinterpret_cast<T*>(shared_mem) + threadIdx.x * n_components * 2;
-  T* grad    = current + n_components;
+  T* current  = nullptr;
+  T* original = nullptr;
+  T* grad     = nullptr;
+
+  if constexpr (use_shared_mem) {
+    current  = reinterpret_cast<T*>(shared_mem) + threadIdx.x * n_components * 3;
+    original = current + n_components;
+    grad     = original + n_components;
+  }
 
   size_t row = blockIdx.x * TPB_X + threadIdx.x;
 
@@ -68,27 +81,46 @@ CUML_KERNEL void optimize_inverse_kernel(T* head_embedding,
     T* current_ptr               = head_embedding + j * n_components;
     const T* other               = tail_embedding + k * n_components;
 
-    // Load current point
-    for (int i = 0; i < n_components; ++i)
-      current[i] = current_ptr[i];
-
     // Compute distance and gradient to positive sample
     T dist_sq = T(0);
-    for (int i = 0; i < n_components; ++i) {
-      T diff  = current[i] - other[i];
-      grad[i] = diff;
-      dist_sq += diff * diff;
+    if constexpr (use_shared_mem) {
+      // Load current point and store original for delta computation
+      for (int i = 0; i < n_components; ++i) {
+        current[i]  = current_ptr[i];
+        original[i] = current_ptr[i];
+      }
+      for (int i = 0; i < n_components; ++i) {
+        T diff  = current[i] - other[i];
+        grad[i] = diff;
+        dist_sq += diff * diff;
+      }
+    } else {
+      for (int i = 0; i < n_components; ++i) {
+        T diff = current_ptr[i] - other[i];
+        dist_sq += diff * diff;
+      }
     }
     T dist = sqrt(dist_sq);
-    if (dist > T(1e-10)) {
-      for (int i = 0; i < n_components; ++i)
-        grad[i] /= dist;
-    }
 
     // Attractive force: grad_coeff = -1 / (weight * sigma + eps)
     T grad_coeff = T(-1) / (weight[row] * sigmas[k] + T(1e-6));
-    for (int d = 0; d < n_components; ++d)
-      current[d] += clip(grad_coeff * grad[d], T(-4), T(4)) * alpha;
+    if constexpr (use_shared_mem) {
+      if (dist > T(1e-10)) {
+        for (int i = 0; i < n_components; ++i)
+          grad[i] /= dist;
+      }
+      for (int d = 0; d < n_components; ++d)
+        current[d] += clip(grad_coeff * grad[d], T(-4), T(4)) * alpha;
+    } else {
+      // Without shared memory, compute and apply gradient directly
+      T dist_inv = (dist > T(1e-10)) ? T(1) / dist : T(0);
+      for (int d = 0; d < n_components; ++d) {
+        T diff   = current_ptr[d] - other[d];
+        T grad_d = diff * dist_inv;
+        T update = clip(grad_coeff * grad_d, T(-4), T(4)) * alpha;
+        raft::myAtomicAdd(current_ptr + d, update);
+      }
+    }
 
     epoch_of_next_sample[row] += eps;
 
@@ -105,30 +137,51 @@ CUML_KERNEL void optimize_inverse_kernel(T* head_embedding,
 
       // Compute distance to negative sample
       dist_sq = T(0);
-      for (int i = 0; i < n_components; ++i) {
-        T diff  = current[i] - negative[i];
-        grad[i] = diff;
-        dist_sq += diff * diff;
+      if constexpr (use_shared_mem) {
+        for (int i = 0; i < n_components; ++i) {
+          T diff  = current[i] - negative[i];
+          grad[i] = diff;
+          dist_sq += diff * diff;
+        }
+      } else {
+        for (int i = 0; i < n_components; ++i) {
+          T diff = current_ptr[i] - negative[i];
+          dist_sq += diff * diff;
+        }
       }
       dist = sqrt(dist_sq);
-      if (dist > T(1e-10)) {
-        for (int i = 0; i < n_components; ++i)
-          grad[i] /= dist;
-      }
 
       // Repulsive force
+      // Note: max(..., 1e-6) matches umap-learn's implementation for numerical stability,
+      // slightly dampening w_h near rho to avoid edge cases in the gradient computation.
       T w_h      = exp(-max(dist - rhos[t], T(1e-6)) / (sigmas[t] + T(1e-6)));
       grad_coeff = gamma * w_h / ((T(1) - w_h) * sigmas[t] + T(1e-6));
 
-      for (int d = 0; d < n_components; ++d)
-        current[d] += clip(grad_coeff * grad[d], T(-4), T(4)) * alpha;
+      if constexpr (use_shared_mem) {
+        if (dist > T(1e-10)) {
+          for (int i = 0; i < n_components; ++i)
+            grad[i] /= dist;
+        }
+        for (int d = 0; d < n_components; ++d)
+          current[d] += clip(grad_coeff * grad[d], T(-4), T(4)) * alpha;
+      } else {
+        T dist_inv = (dist > T(1e-10)) ? T(1) / dist : T(0);
+        for (int d = 0; d < n_components; ++d) {
+          T diff   = current_ptr[d] - negative[d];
+          T grad_d = diff * dist_inv;
+          T update = clip(grad_coeff * grad_d, T(-4), T(4)) * alpha;
+          raft::myAtomicAdd(current_ptr + d, update);
+        }
+      }
     }
 
     epoch_of_next_negative_sample[row] = next_neg + n_neg * epochs_per_negative_sample;
 
-    // Write back
-    for (int d = 0; d < n_components; ++d)
-      current_ptr[d] = current[d];
+    // Write back delta atomically (only needed for shared memory path)
+    if constexpr (use_shared_mem) {
+      for (int d = 0; d < n_components; ++d)
+        raft::myAtomicAdd(current_ptr + d, current[d] - original[d]);
+    }
 
     row += gridDim.x * TPB_X;
   }
@@ -174,29 +227,57 @@ void optimize_layout_inverse(T* head_embedding,
 
   dim3 grid(raft::ceildiv(nnz, static_cast<nnz_t>(TPB_X)));
   dim3 blk(TPB_X);
-  size_t shared_size = TPB_X * n_components * 2 * sizeof(T);
-  uint64_t seed      = params->random_state;
+  uint64_t seed = params->random_state;
+
+  // Check if shared memory requirements exceed device limits
+  // Each thread needs 3 * n_components elements (current, original, grad)
+  size_t required_shared_size = TPB_X * n_components * 3 * sizeof(T);
+  bool use_shared_mem = required_shared_size < static_cast<size_t>(raft::getSharedMemPerBlock());
 
   for (int epoch = 0; epoch < n_epochs; ++epoch) {
-    optimize_inverse_kernel<T, nnz_t, TPB_X>
-      <<<grid, blk, shared_size, stream>>>(head_embedding,
-                                           tail_embedding,
-                                           head,
-                                           tail,
-                                           weight,
-                                           sigmas,
-                                           rhos,
-                                           nnz,
-                                           epochs_per_sample,
-                                           epoch_of_next_negative_sample.data(),
-                                           epoch_of_next_sample.data(),
-                                           alpha,
-                                           epoch,
-                                           gamma,
-                                           seed,
-                                           tail_n,
-                                           n_components,
-                                           nsr_inv);
+    if (use_shared_mem) {
+      optimize_inverse_kernel<T, nnz_t, TPB_X, true>
+        <<<grid, blk, required_shared_size, stream>>>(head_embedding,
+                                                      tail_embedding,
+                                                      head,
+                                                      tail,
+                                                      weight,
+                                                      sigmas,
+                                                      rhos,
+                                                      nnz,
+                                                      epochs_per_sample,
+                                                      epoch_of_next_negative_sample.data(),
+                                                      epoch_of_next_sample.data(),
+                                                      alpha,
+                                                      epoch,
+                                                      gamma,
+                                                      seed,
+                                                      tail_n,
+                                                      n_components,
+                                                      nsr_inv);
+    } else {
+      // Fallback: read/write directly from global memory when shared memory
+      // is insufficient (e.g., for high-dimensional feature spaces)
+      optimize_inverse_kernel<T, nnz_t, TPB_X, false>
+        <<<grid, blk, 0, stream>>>(head_embedding,
+                                   tail_embedding,
+                                   head,
+                                   tail,
+                                   weight,
+                                   sigmas,
+                                   rhos,
+                                   nnz,
+                                   epochs_per_sample,
+                                   epoch_of_next_negative_sample.data(),
+                                   epoch_of_next_sample.data(),
+                                   alpha,
+                                   epoch,
+                                   gamma,
+                                   seed,
+                                   tail_n,
+                                   n_components,
+                                   nsr_inv);
+    }
     RAFT_CUDA_TRY(cudaGetLastError());
 
     alpha = (params->initial_alpha / T(4)) * (T(1) - T(epoch) / T(n_epochs));

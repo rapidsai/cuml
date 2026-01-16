@@ -160,7 +160,16 @@ def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
     )
 
     # Find starting vertices (first vertex of simplex containing each point)
-    start_vertices = deltri.simplices[deltri.find_simplex(X_np)][:, 0]
+    simplex_indices = deltri.find_simplex(X_np)
+    out_of_hull_mask = simplex_indices == -1
+    if np.any(out_of_hull_mask):
+        n_outside = out_of_hull_mask.sum()
+        raise ValueError(
+            f"{n_outside} point(s) are outside the convex hull of the embedding "
+            "and cannot be inverse transformed. Ensure all points to inverse "
+            "transform lie within the range of the original embedding."
+        )
+    start_vertices = deltri.simplices[simplex_indices][:, 0]
 
     # Build adjacency matrix from simplices
     simplices = deltri.simplices
@@ -186,7 +195,7 @@ def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
 
 
 def _build_inverse_graph(X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, a, b):
-    """Build inverse transform graph and compute initial points.
+    """Build inverse transform graph and compute initial points on GPU.
 
     Parameters
     ----------
@@ -205,37 +214,64 @@ def _build_inverse_graph(X_np, embedding_np, raw_data_np, neighborhoods, min_ver
 
     Returns
     -------
-    inv_transformed : np.ndarray
+    inv_transformed : cp.ndarray
         Initial inverse transformed points (n_samples, n_features).
-    rows, cols, weights : np.ndarray
-        COO graph arrays.
+    rows, cols, weights : cp.ndarray
+        COO graph arrays (on GPU).
+    raw_data_gpu : cp.ndarray
+        Original training data on GPU (n_orig, n_features).
     """
     n_samples = X_np.shape[0]
-    indices = np.zeros((n_samples, min_vertices), dtype=np.int32)
-    distances = np.zeros((n_samples, min_vertices), dtype=np.float32)
 
-    # Find closest neighbors within each neighborhood
+    # Pad neighborhoods to uniform length for GPU processing
+    hood_lengths = np.array([len(h) for h in neighborhoods], dtype=np.int32)
+    max_hood_len = int(hood_lengths.max())
+    hoods_padded = np.zeros((n_samples, max_hood_len), dtype=np.int32)
     for i, hood in enumerate(neighborhoods):
-        dists = np.linalg.norm(X_np[i] - embedding_np[hood], axis=1)
-        closest = np.argsort(dists)[:min_vertices]
-        indices[i] = hood[closest]
-        distances[i] = dists[closest]
+        hoods_padded[i, :len(hood)] = hood
+
+    # Transfer to GPU (raw_data with C-contiguous layout for CUDA kernels)
+    X_gpu = cp.asarray(X_np, dtype=cp.float32)
+    embedding_gpu = cp.asarray(embedding_np, dtype=cp.float32)
+    raw_data_gpu = cp.asarray(raw_data_np, dtype=cp.float32, order="C")
+    hoods_gpu = cp.asarray(hoods_padded, dtype=cp.int32)
+    lengths_gpu = cp.asarray(hood_lengths, dtype=cp.int32)
+
+    # Gather neighbor embeddings: (n_samples, max_hood_len, n_components)
+    neighbor_embs = embedding_gpu[hoods_gpu]
+
+    # Compute distances: (n_samples, max_hood_len)
+    diffs = X_gpu[:, None, :] - neighbor_embs
+    dists = cp.linalg.norm(diffs, axis=2)
+
+    # Mask invalid entries with infinity
+    valid_mask = cp.arange(max_hood_len)[None, :] < lengths_gpu[:, None]
+    dists = cp.where(valid_mask, dists, cp.inf)
+
+    # Get top-k closest indices
+    order = cp.argsort(dists, axis=1)[:, :min_vertices]
+
+    # Gather indices and distances
+    row_idx = cp.arange(n_samples, dtype=cp.int32)[:, None]
+    indices = hoods_gpu[row_idx, order]
+    distances = dists[row_idx, order]
 
     # Compute membership strengths
     weights_2d = 1.0 / (1.0 + a * distances ** (2 * b))
 
     # Build COO graph
-    rows = np.repeat(np.arange(n_samples, dtype=np.int32), min_vertices)
+    rows = cp.repeat(cp.arange(n_samples, dtype=cp.int32), min_vertices)
     cols = indices.ravel()
-    weights = weights_2d.ravel().astype(np.float32)
+    weights = weights_2d.ravel().astype(cp.float32)
 
     # Initialize via L1-normalized weighted average
     weights_norm = weights_2d / weights_2d.sum(axis=1, keepdims=True)
-    inv_transformed = np.sum(
-        weights_norm[:, :, None] * raw_data_np[indices], axis=1
-    ).astype(np.float32)
+    neighbor_data = raw_data_gpu[indices]  # (n_samples, min_vertices, n_features)
+    inv_transformed = cp.sum(
+        weights_norm[:, :, None] * neighbor_data, axis=1
+    ).astype(cp.float32)
 
-    return inv_transformed, rows, cols, weights
+    return inv_transformed, rows, cols, weights, raw_data_gpu
 
 
 cdef class RaftCOO:
@@ -1464,6 +1500,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             check_dtype=np.float32,
             convert_to_dtype=(np.float32 if convert_dtype else None),
         ).array
+        index = X.index
 
         n_samples = X.shape[0]
         if X.shape[1] != self.n_components:
@@ -1478,32 +1515,33 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         raw_data_np = self._raw_data.to_output("numpy")
 
         # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
-        min_vertices = min(raw_data_np.shape[1], raw_data_np.shape[0])
+        # Cap neighborhood size to prevent explosion for high-dimensional data.
+        # We use 3x n_neighbors as an upper bound since that's the scale at which
+        # the manifold was learned. This avoids creating excessively dense graphs
+        # when n_features >> n_neighbors (e.g., 10000 features).
+        max_neighbors = 3 * self._n_neighbors
+        min_vertices = min(raw_data_np.shape[1], raw_data_np.shape[0], max_neighbors)
         neighborhoods = _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices)
 
-        # Phase 2: Build graph and initial points (CPU, simple numpy operations)
-        inv_transformed, rows, cols, weights = _build_inverse_graph(
+        # Phase 2: Build graph and initial points (GPU-accelerated)
+        inv_transformed_gpu, rows_gpu, cols_gpu, vals_gpu, raw_data_gpu = _build_inverse_graph(
             X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, self._a, self._b
         )
 
-        # Phase 3: CUDA optimization (transfer to GPU and call C++)
+        # Phase 3: CUDA optimization (call C++)
         cdef int n_epochs_inv
         if self.n_epochs is None:
             n_epochs_inv = 100 if n_samples <= 10000 else 30
         else:
             n_epochs_inv = int(self.n_epochs // 3)
 
-        # Transfer to GPU - use cupy directly, only wrap output in CumlArray
-        inv_transformed_gpu = cp.asarray(inv_transformed, order="C")
-        raw_data_gpu = cp.asarray(raw_data_np, order="C")
-        rows_gpu = cp.asarray(rows, order="C")
-        cols_gpu = cp.asarray(cols, order="C")
-        vals_gpu = cp.asarray(weights, order="C")
+        # Ensure C-contiguous layout for CUDA kernels
+        inv_transformed_gpu = cp.ascontiguousarray(inv_transformed_gpu)
 
         cdef int c_n_samples = n_samples
         cdef int c_n_features = raw_data_np.shape[1]
         cdef int c_orig_n = raw_data_np.shape[0]
-        cdef int c_nnz = weights.shape[0]
+        cdef int c_nnz = vals_gpu.shape[0]
 
         cdef uintptr_t inv_ptr = inv_transformed_gpu.data.ptr
         cdef uintptr_t raw_ptr = raw_data_gpu.data.ptr
@@ -1530,7 +1568,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         )
         handle.sync()
 
-        return CumlArray(data=inv_transformed_gpu, order="C")
+        return CumlArray(data=inv_transformed_gpu, order="C", index=index)
 
 
 def fuzzy_simplicial_set(

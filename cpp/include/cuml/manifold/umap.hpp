@@ -111,8 +111,8 @@ void init_and_refine(const raft::handle_t& handle,
  * @param[out] embeddings: unique_ptr to device_buffer that will be allocated and filled with
  * embeddings
  * @param[out] graph: pointer to fuzzy simplicial set graph
- * @param[out] sigmas: optional output array for per-point sigma values (size n, host memory)
- * @param[out] rhos: optional output array for per-point rho values (size n, host memory)
+ * @param[out] sigmas: optional output array for per-point sigma values (size n, device memory)
+ * @param[out] rhos: optional output array for per-point rho values (size n, device memory)
  */
 void fit(const raft::handle_t& handle,
          float* X,
