@@ -39,6 +39,7 @@ from cuml.metrics.regression import (
     r2_score,
 )
 from cuml.metrics.trustworthiness import trustworthiness
+from .cluster import adjusted_mutual_info_score
 
 __all__ = [
     "trustworthiness",
@@ -49,6 +50,7 @@ __all__ = [
     "median_absolute_error",
     "accuracy_score",
     "adjusted_rand_score",
+    "adjusted_mutual_info_score"
     "roc_auc_score",
     "precision_recall_curve",
     "log_loss",

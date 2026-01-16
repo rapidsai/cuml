@@ -13,7 +13,11 @@ dependencies:
 - cuda-nvcc
 - cuda-profiler-api
 - cuda-python>=13.0.1,<14.0
+<<<<<<< HEAD:conda/environments/all_cuda-130_arch-aarch64.yaml
+- cuda-version=13.0
+=======
 - cuda-version=13.1
+>>>>>>> upstream/main:conda/environments/all_cuda-131_arch-aarch64.yaml
 - cudf==26.2.*,>=0.0.0a0
 - cupy>=13.6.0
 - cuvs==26.2.*,>=0.0.0a0
@@ -64,12 +68,16 @@ dependencies:
 - rapids-build-backend>=0.4.0,<0.5.0
 - rapids-dask-dependency==26.2.*,>=0.0.0a0
 - rapids-logger==0.2.*,>=0.0.0a0
-- rapids-xgboost==26.2.*,>=0.0.0a0
 - recommonmark
 - rich
 - rmm==26.2.*,>=0.0.0a0
+<<<<<<< HEAD:conda/environments/all_cuda-130_arch-aarch64.yaml
+- scikit-build-core>=0.10.0
+- scikit-learn>=1.4
+=======
 - scikit-build-core>=0.11.0
 - scikit-learn>=1.5
+>>>>>>> upstream/main:conda/environments/all_cuda-131_arch-aarch64.yaml
 - scipy>=1.13.0
 - seaborn
 - sphinx
@@ -77,6 +85,10 @@ dependencies:
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-aarch64==2.28
+<<<<<<< HEAD:conda/environments/all_cuda-130_arch-aarch64.yaml
+- tenacity
+=======
+>>>>>>> upstream/main:conda/environments/all_cuda-131_arch-aarch64.yaml
 - treelite>=4.6.1,<5.0.0
 - umap-learn==0.5.7
 name: all_cuda-131_arch-aarch64
