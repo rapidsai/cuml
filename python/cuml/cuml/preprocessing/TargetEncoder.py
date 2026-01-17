@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,6 +11,14 @@ import numpy as np
 import pandas as pd
 
 from cuml.common.exceptions import NotFittedError
+from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
+from cuml.internals.interop import (  # UnsupportedOnGPU,
+    InteropMixin,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.outputs import reflect
 
 
 def get_stat_func(stat):
@@ -24,7 +32,7 @@ def get_stat_func(stat):
     return func
 
 
-class TargetEncoder:
+class TargetEncoder(Base, InteropMixin):
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or multiple categorical variables, 'Xs', with the average of
@@ -52,8 +60,12 @@ class TargetEncoder:
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
         in `fit()` or `fit_transform()` functions.
-    output_type : {'cupy', 'numpy', 'auto'}, default = 'auto'
-        The data type of output. If 'auto', it matches input data.
+    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
+        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Return results and set estimator attributes to the indicated output
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
     stat : {'mean','var','median'}, default = 'mean'
         The statistic used in encoding, mean, variance or median of the
         target.
@@ -81,28 +93,25 @@ class TargetEncoder:
     [1.   0.75 0.5  1.  ]
     """
 
+    # InteropMixin requirements
+    _cpu_class_path = "sklearn.preprocessing.TargetEncoder"
+
     def __init__(
         self,
         n_folds=4,
         smooth=0,
         seed=42,
         split_method="interleaved",
-        output_type="auto",
+        output_type=None,
         stat="mean",
     ):
+        super().__init__(output_type=output_type)
         if smooth < 0:
             raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
                 "n_folds {} is not a positive integer".format(n_folds)
             )
-        if output_type not in {"cupy", "numpy", "auto"}:
-            msg = (
-                "output_type should be either 'cupy'"
-                " or 'numpy' or 'auto', "
-                "got {0}.".format(output_type)
-            )
-            raise ValueError(msg)
         if stat not in {"mean", "var", "median"}:
             msg = f"stat should be 'mean', 'var' or 'median'.got {stat}."
             raise ValueError(msg)
@@ -135,9 +144,9 @@ class TargetEncoder:
         self.fold_col = "__FOLD__"
         self.id_col = "__INDEX__"
         self.train = None
-        self.output_type = output_type
         self.stat = stat
 
+    @reflect(reset=True)
     def fit(self, x, y, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
@@ -185,7 +194,8 @@ class TargetEncoder:
         self._fitted = True
         return self
 
-    def fit_transform(self, x, y, fold_ids=None):
+    @reflect
+    def fit_transform(self, x, y, fold_ids=None) -> CumlArray:
         """
         Simultaneously fit and transform an input
 
@@ -214,7 +224,8 @@ class TargetEncoder:
         self.fit(x, y, fold_ids=fold_ids)
         return self.train_encode
 
-    def transform(self, x):
+    @reflect
+    def transform(self, x) -> CumlArray:
         """
         Transform an input into its categorical keys.
 
@@ -245,7 +256,6 @@ class TargetEncoder:
         """
         Core function of target encoding
         """
-        self.output_type = self._get_output_type(x)
         cp.random.seed(self.seed)
         train = self._data_with_strings_to_cudf_dataframe(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
@@ -442,9 +452,7 @@ class TargetEncoder:
         df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
-        if self.output_type == "numpy":
-            return cp.asnumpy(res)
-        return res
+        return CumlArray(res)
 
     def _data_with_strings_to_cudf_dataframe(self, x):
         """
@@ -480,36 +488,50 @@ class TargetEncoder:
         df[self.id_col] = cp.arange(len(x))
         return df.reset_index(drop=True)
 
-    def _get_output_type(self, x):
-        """
-        Infer output type if 'auto'
-        """
-        if self.output_type != "auto":
-            return self.output_type
-        if (
-            isinstance(x, np.ndarray)
-            or isinstance(x, pd.DataFrame)
-            or isinstance(x, pd.Series)
-        ):
-            return "numpy"
-        return "cupy"
-
     @classmethod
     def _get_param_names(cls):
-        return [
+        return super()._get_param_names() + [
             "n_folds",
             "smooth",
             "seed",
             "split_method",
+            "stat",
         ]
 
-    def get_params(self, deep=False):
-        """
-        Returns a dict of all params owned by this class.
-        """
-        params = dict()
-        variables = self._get_param_names()
-        for key in variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
+    @classmethod
+    def _params_from_cpu(cls, model):
+        params = {
+            "n_folds": model.cv,
+            "seed": 42 if model.random_state is None else model.random_state,
+            "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
+            "split_method": "random" if model.shuffle else "continuous",
+            "stat": "mean",
+        }
         return params
+
+    def _params_to_cpu(self):
+        params = {
+            "cv": self.n_folds,
+            "random_state": self.seed,
+            "smooth": self.smooth,
+            "shuffle": self.split_method == "random",
+            "categories": "auto",
+            "target_type": "continuous",
+        }
+        return params
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "encode_all": to_gpu(model.encodings_),
+            "categories_": to_gpu(model.categories_),
+            "mean": to_gpu(model.target_mean_),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "encodings_": to_cpu(self.encode_all),
+            "categories_": to_cpu(self.categories_),
+            "target_mean_": to_cpu(self.mean),
+            **super()._attrs_to_cpu(model),
+        }
