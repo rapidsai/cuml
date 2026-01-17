@@ -497,24 +497,6 @@ class TargetEncoder(Base, InteropMixin):
             "split_method",
         ]
 
-    # def get_params(self, deep=False):
-    #     """
-    #     Returns a dict of all params owned by this class.
-    #     """
-    #     params = dict()
-    #     variables = self._get_param_names()
-    #     for key in variables:
-    #         var_value = getattr(self, key, None)
-    #         params[key] = var_value
-    #     return params
-
-    # @classmethod
-    # def _get_tags(cls):
-    #     return {
-    #         "X_types_gpu": ["2darray"],  # Supports 2D arrays on GPU
-    #         "requires_y": True,  # Requires y for fitting
-    #     }
-
     @classmethod
     def _params_from_cpu(cls, model):
         params = {
