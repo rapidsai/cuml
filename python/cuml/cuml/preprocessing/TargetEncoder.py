@@ -504,7 +504,6 @@ class TargetEncoder(Base, InteropMixin):
             "seed": 42 if model.random_state is None else model.random_state,
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
-            "output_type": None,
             "stat": "mean",
         }
         return params
