@@ -495,6 +495,7 @@ class TargetEncoder(Base, InteropMixin):
             "smooth",
             "seed",
             "split_method",
+            "stat",
         ]
 
     @classmethod
@@ -523,15 +524,14 @@ class TargetEncoder(Base, InteropMixin):
         return {
             "encode_all": to_gpu(model.encodings_),
             "categories_": to_gpu(model.categories_),
-            "target_mean_": to_gpu(model.target_mean_),
-            "_fitted": True,
+            "mean": to_gpu(model.target_mean_),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
             "encodings_": to_cpu(self.encode_all),
+            "categories_": to_cpu(self.categories_),
             "target_mean_": to_cpu(self.mean),
-            "n_features_in_": len(self.train.columns) - 3,
             **super()._attrs_to_cpu(model),
         }
