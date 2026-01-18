@@ -514,15 +514,15 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
     target_n_neighbors: int (optional, default=-1)
         The number of nearest neighbors to use to construct the target
         simplicial set. If set to -1 use the ``n_neighbors`` value.
-    target_metric: string or callable (optional, default='categorical')
+    target_metric: string (optional, default='categorical')
         The metric used to measure distance for a target array when using
         supervised dimension reduction. By default this is 'categorical'
         which will measure distance in terms of whether categories match
         or are different. Furthermore, if semi-supervised is required
         target values of -1 will be treated as unlabelled under the
         'categorical' metric. If the target array takes continuous values
-        (e.g. for a regression problem) then metric of 'l1' or 'l2' is
-        probably more appropriate.
+        (e.g. for a regression problem) then metric of 'euclidean' or 'l2' 
+        is probably more appropriate.
     target_weight: float (optional, default=0.5)
         Weighting factor between data topology and target topology. A
         value of 0.0 weights predominantly on data, a value of 1.0 places
