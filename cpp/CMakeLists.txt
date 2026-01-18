@@ -553,7 +553,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src_prims/opg/matrix/part_descriptor.cu
               src_prims/opg/matrix/matrix_utils.cu
               src_prims/opg/matrix/math.cu
-              src_prims/opg/linalg/qr.cu
               src_prims/opg/linalg/eig.cu
               src_prims/opg/linalg/svd.cu
               src_prims/opg/linalg/gemm.cu
@@ -562,7 +561,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src_prims/opg/linalg/mv_aTb.cu
               src_prims/opg/linalg/norm.cu
               src_prims/opg/linalg/mean_squared_error.cu
-              src_prims/opg/linalg/qr_based_svd.cu
               src_prims/opg/stats/mean.cu
               src_prims/opg/stats/mean_center.cu
               src_prims/opg/stats/stddev.cu
