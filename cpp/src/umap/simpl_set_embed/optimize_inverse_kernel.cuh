@@ -208,9 +208,10 @@ void optimize_layout_inverse(T* head_embedding,
                              float gamma,
                              UMAPParams* params,
                              int n_epochs,
+                             int n_features,
                              cudaStream_t stream)
 {
-  int n_components = params->n_components;
+  int n_components = n_features;
   T alpha          = params->initial_alpha / T(4);
   T nsr_inv        = T(1) / params->negative_sample_rate;
 

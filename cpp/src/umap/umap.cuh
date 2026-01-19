@@ -297,6 +297,7 @@ inline void _inverse_transform(const raft::handle_t& handle,
     params->repulsion_strength,
     params,
     n_epochs,
+    n_features,
     stream);
 }
 
