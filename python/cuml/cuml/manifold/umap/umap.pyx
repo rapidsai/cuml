@@ -39,6 +39,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
+from rmm.librmm.per_device_resource cimport get_current_device_resource
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 cimport cuml.manifold.umap.lib as lib
@@ -535,11 +536,14 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
-    if self.init in _INITS:
+    if is_array_like(self.init):
+        params.init = 2
+    elif self.init in _INITS:
         params.init = _INITS[self.init]
     else:
         raise ValueError(
-            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
+            f"Expected `init` to be an array or one of {list(_INITS)}, "
+            f"got {self.init!r}"
         )
 
     if self.target_metric in _TARGET_METRICS:
@@ -644,6 +648,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
         * 'random': assign initial embedding positions at random.
+        * An array-like with initial embedding positions.
 
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
@@ -869,7 +874,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not (isinstance(model.init, str) and model.init in _INITS):
+        if not ((isinstance(model.init, str) and model.init in _INITS) or
+                is_array_like(model.init)):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -919,6 +925,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if (precomputed_knn := self.precomputed_knn) is None:
             precomputed_knn = (None, None, None)
 
+        init = self.init
+        if is_array_like(init):
+            init = cp.asnumpy(init)
+
         return {
             "n_neighbors": self.n_neighbors,
             "n_components": self.n_components,
@@ -933,7 +943,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "repulsion_strength": self.repulsion_strength,
             "negative_sample_rate": self.negative_sample_rate,
             "transform_queue_size": self.transform_queue_size,
-            "init": self.init,
+            "init": init,
             "a": self.a,
             "b": self.b,
             "target_n_neighbors": self.target_n_neighbors,
@@ -1200,6 +1210,27 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
+        handle_ = <handle_t*> <size_t> handle.getHandle()
+
+        if is_array_like(self.init):
+            init_m = input_to_cuml_array(
+                self.init,
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=np.float32,
+                convert_to_mem_type=False,
+                check_rows=n_rows,
+                check_cols=self.n_components,
+            ).array
+
+            embeddings_buffer.reset(
+                new device_buffer(
+                    <const void*><uintptr_t>init_m.ptr,
+                    init_m.size,
+                    handle_.get_stream(),
+                    get_current_device_resource()
+                )
+            )
 
         # Allocate device arrays for sigmas and rhos (needed for inverse_transform)
         # Note: fit_sparse in C++ doesn't output sigmas/rhos yet.
