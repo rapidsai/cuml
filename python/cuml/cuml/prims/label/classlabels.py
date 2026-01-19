@@ -11,25 +11,29 @@ from cuml.internals.input_utils import input_to_cupy_array
 def make_monotonic(labels, classes=None, copy=False):
     """
     Takes a set of labels that might not be drawn from the
-    set [0, n-1] and renumbers them to be drawn that
+    set [0, n-1] and renumbers them to be drawn from that
     interval.
 
-    Replaces labels not present in classes by len(classes)+1.
+    Labels not present in classes are mapped to len(classes).
 
     Parameters
     ----------
-
-    labels : array-like of size (n,) labels to convert
-    classes : array-like of size (n_classes,) the unique
-              set of classes in the set of labels
-    copy : boolean if true, a copy will be returned and the
-           operation will not be done in place.
+    labels : array-like of shape (n_samples,)
+        Labels to convert to monotonic indices.
+    classes : array-like of shape (n_classes,), optional
+        The unique set of classes. If None, classes are derived
+        from the unique values in labels.
+    copy : bool, default=False
+        If True, a copy of labels is returned. If False, the
+        operation is performed in-place on device arrays.
 
     Returns
     -------
-
-    mapped_labels : array-like of size (n,)
-    classes : array-like of size (n_classes,)
+    mapped_labels : cupy.ndarray of shape (n_samples,)
+        Labels mapped to monotonic indices [0, n_classes-1].
+        Labels not in classes are mapped to n_classes.
+    classes : cupy.ndarray of shape (n_classes,)
+        Sorted unique class labels.
     """
     labels = input_to_cupy_array(labels, deepcopy=copy).array
 
@@ -37,30 +41,29 @@ def make_monotonic(labels, classes=None, copy=False):
         raise ValueError("Labels array must be 1D")
 
     if classes is None:
-        classes = cp.unique(labels)
+        # Derive classes from labels and get inverse mapping directly
+        classes, mapped_labels = cp.unique(labels, return_inverse=True)
+        if not copy:
+            labels[:] = mapped_labels
+            mapped_labels = labels
     else:
+        # Convert and sort provided classes
         classes = input_to_cupy_array(classes).array
+        classes = cp.sort(classes)
 
-    # Sort classes to ensure consistent ordering
-    classes = cp.sort(classes)
+        # Map each label to its index in sorted classes using binary search
+        indices = cp.searchsorted(classes, labels)
 
-    # Create mapping from original labels to monotonic indices [0, n_classes-1]
-    # Use searchsorted to find the position of each label in the sorted classes
-    mapped_labels = cp.searchsorted(classes, labels)
+        # Validate: check if the found position actually matches the label
+        # Out-of-bounds indices are clamped to avoid index errors
+        indices_safe = cp.minimum(indices, len(classes) - 1)
+        valid = (indices < len(classes)) & (classes[indices_safe] == labels)
 
-    # Check which labels are actually present in classes
-    # Labels that match their corresponding class get their index,
-    # others get len(classes)
-    valid_mask = (mapped_labels < len(classes)) & (
-        classes[mapped_labels] == labels
-    )
+        # Map valid labels to their indices, invalid labels to len(classes)
+        mapped_labels = cp.where(valid, indices, len(classes))
 
-    # Set invalid labels (not in classes) to len(classes)
-    if copy:
-        mapped_labels = cp.where(valid_mask, mapped_labels, len(classes))
-    else:
-        # Modify in-place
-        labels[:] = cp.where(valid_mask, mapped_labels, len(classes))
-        mapped_labels = labels
+        if not copy:
+            labels[:] = mapped_labels
+            mapped_labels = labels
 
     return mapped_labels, classes
