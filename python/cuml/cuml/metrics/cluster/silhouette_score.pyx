@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -8,7 +8,6 @@ import numpy as np
 from cuml.common import input_to_cuml_array
 from cuml.internals import get_handle
 from cuml.metrics.pairwise_distances import _determine_metric
-from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -93,19 +92,16 @@ def _silhouette_coeff(
         convert_to_dtype=np.int32
     )
 
-    n_labels = cp.unique(
-        labels.to_output(output_type='cupy', output_dtype='int')
-    ).shape[0]
+    # Use cp.unique with return_inverse to get monotonic labels efficiently
+    labels_cupy = labels.to_output(output_type='cupy', output_dtype='int')
+    unique_labels, inverse = cp.unique(labels_cupy, return_inverse=True)
+    n_labels = unique_labels.shape[0]
 
-    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
-        mono_labels, _ = make_monotonic(labels, copy=True)
-        mono_labels, _, _, _ = input_to_cuml_array(
-            mono_labels,
-            order='C',
-            convert_to_dtype=np.int32
-        )
-    else:
-        mono_labels = labels
+    mono_labels, _, _, _ = input_to_cuml_array(
+        inverse.astype(np.int32),
+        order='C',
+        convert_to_dtype=np.int32
+    )
 
     cdef uintptr_t scores_ptr
     if sil_scores is None:

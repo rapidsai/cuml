@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -6,7 +6,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.prims.label import make_monotonic
 from cuml.testing.utils import array_equal
 
 
@@ -36,14 +36,14 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
             assert array_equal(arr, monotonic)
 
     wrong_classes = cp.asarray([0, 1, 2], dtype=dtype)
-    val_labels = check_labels(monotonic, classes=wrong_classes)
+    val_labels = bool(cp.all(cp.isin(monotonic, wrong_classes)))
 
     cp.cuda.Stream.null.synchronize()
 
     assert not val_labels
 
     correct_classes = cp.asarray([0, 1, 2, 3, 4], dtype=dtype)
-    val_labels = check_labels(monotonic, classes=correct_classes)
+    val_labels = bool(cp.all(cp.isin(monotonic, correct_classes)))
 
     cp.cuda.Stream.null.synchronize()
 
@@ -52,11 +52,13 @@ def test_monotonic_validate_invert_labels(arr_type, dtype, copy):
     if arr_type == "cp":
         monotonic_copy = monotonic.copy()
 
-    inverted = invert_labels(
-        monotonic,
-        classes=cp.asarray([0, 10, 15, 20, 50], dtype=dtype),
-        copy=copy,
-    )
+    # Invert labels: map monotonic indices back to original class values
+    original_classes = cp.asarray([0, 10, 15, 20, 50], dtype=dtype)
+    if copy:
+        inverted = original_classes[monotonic]
+    else:
+        monotonic[:] = original_classes[monotonic]
+        inverted = monotonic
 
     cp.cuda.Stream.null.synchronize()
 
