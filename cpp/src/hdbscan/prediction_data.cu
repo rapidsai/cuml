@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/count.h>
 #include <thrust/execution_policy.h>
@@ -67,13 +68,13 @@ void build_index_into_children(const raft::handle_t& handle,
   auto counting = thrust::make_counting_iterator<value_idx>(0);
 
   auto index_op = [index_into_children] __device__(auto t) {
-    index_into_children[thrust::get<0>(t)] = thrust::get<1>(t);
+    index_into_children[cuda::std::get<0>(t)] = cuda::std::get<1>(t);
     return;
   };
   thrust::for_each(
     exec_policy,
-    thrust::make_zip_iterator(thrust::make_tuple(children, counting)),
-    thrust::make_zip_iterator(thrust::make_tuple(children + n_edges, counting + n_edges)),
+    thrust::make_zip_iterator(cuda::std::make_tuple(children, counting)),
+    thrust::make_zip_iterator(cuda::std::make_tuple(children + n_edges, counting + n_edges)),
     index_op);
 }
 /**
