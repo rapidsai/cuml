@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -19,6 +19,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/std/tuple>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
@@ -27,7 +28,6 @@
 #include <thrust/reduce.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
-#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -115,10 +115,10 @@ void compute_stabilities(const raft::handle_t& handle,
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their children
   auto births_zip =
-    thrust::make_zip_iterator(thrust::make_tuple(births.data(), births_parent_min.data()));
-  auto min_op = [] __device__(const thrust::tuple<value_t, value_t>& birth_pair) {
-    auto birth             = thrust::get<0>(birth_pair);
-    auto births_parent_min = thrust::get<1>(birth_pair);
+    thrust::make_zip_iterator(cuda::std::make_tuple(births.data(), births_parent_min.data()));
+  auto min_op = [] __device__(const cuda::std::tuple<value_t, value_t>& birth_pair) {
+    auto birth             = cuda::std::get<0>(birth_pair);
+    auto births_parent_min = cuda::std::get<1>(birth_pair);
 
     return birth < births_parent_min ? birth : births_parent_min;
   };
@@ -179,13 +179,13 @@ void get_stability_scores(const raft::handle_t& handle,
    */
 
   auto enumeration = thrust::make_zip_iterator(
-    thrust::make_tuple(thrust::make_counting_iterator(0), cluster_sizes.data()));
+    cuda::std::make_tuple(thrust::make_counting_iterator(0), cluster_sizes.data()));
   thrust::for_each(exec_policy,
                    enumeration,
                    enumeration + n_condensed_clusters,
-                   [=] __device__(thrust::tuple<value_idx, value_idx> tup) {
-                     value_idx size        = thrust::get<1>(tup);
-                     value_idx c           = thrust::get<0>(tup);
+                   [=] __device__(cuda::std::tuple<value_idx, value_idx> tup) {
+                     value_idx size        = cuda::std::get<1>(tup);
+                     value_idx c           = cuda::std::get<0>(tup);
                      value_idx out_cluster = label_map[c];
 
                      if (out_cluster >= 0) {

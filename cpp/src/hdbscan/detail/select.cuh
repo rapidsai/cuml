@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,6 +20,7 @@
 
 #include <cub/cub.cuh>
 #include <cuda/std/functional>
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -31,7 +32,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -170,15 +170,16 @@ void excess_of_mass(const raft::handle_t& handle,
 
   value_idx* cluster_sizes_ptr = cluster_sizes.data();
 
-  auto out = thrust::make_zip_iterator(thrust::make_tuple(parents, children, sizes));
+  auto out = thrust::make_zip_iterator(cuda::std::make_tuple(parents, children, sizes));
   thrust::for_each(exec_policy,
                    out,
                    out + cluster_tree_edges,
-                   [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx>& tup) {
+                   [=] __device__(const cuda::std::tuple<value_idx, value_idx, value_idx>& tup) {
                      // if parent is root (0), add to cluster_sizes_ptr
-                     if (thrust::get<0>(tup) == 0) cluster_sizes_ptr[0] += thrust::get<2>(tup);
+                     if (cuda::std::get<0>(tup) == 0)
+                       cluster_sizes_ptr[0] += cuda::std::get<2>(tup);
 
-                     cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
+                     cluster_sizes_ptr[cuda::std::get<1>(tup)] = cuda::std::get<2>(tup);
                    });
 
   /**
@@ -325,7 +326,7 @@ void cluster_epsilon_search(const raft::handle_t& handle,
                   [] __device__(auto cluster) { return cluster; });
 
   // sort lambdas and parents by children for epsilon search
-  auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
+  auto start = thrust::make_zip_iterator(cuda::std::make_tuple(parents, lambdas));
   thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges, start);
   rmm::device_uvector<value_t> eps(cluster_tree_edges, stream);
   thrust::transform(
