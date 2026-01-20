@@ -30,10 +30,11 @@ def make_monotonic(labels, classes=None, copy=False):
     Returns
     -------
     mapped_labels : cupy.ndarray of shape (n_samples,)
-        Labels mapped to monotonic indices [0, n_classes-1].
+        Labels mapped to indices [0, n_classes-1].
         Labels not in classes are mapped to n_classes.
     classes : cupy.ndarray of shape (n_classes,)
-        Sorted unique class labels.
+        Unique class labels. These will be sorted if classes is None.
+        If classes is provided, the original order is preserved.
     """
     labels = input_to_cupy_array(labels, deepcopy=copy).array
 
@@ -47,20 +48,28 @@ def make_monotonic(labels, classes=None, copy=False):
             labels[:] = mapped_labels
             mapped_labels = labels
     else:
-        # Convert and sort provided classes
+        # Convert provided classes
         classes = input_to_cupy_array(classes).array
-        classes = cp.sort(classes)
+
+        # Sort provided classes for binary search, but keep track of
+        # original indices to maintain provided order.
+        sort_indices = cp.argsort(classes)
+        sorted_classes = classes[sort_indices]
 
         # Map each label to its index in sorted classes using binary search
-        indices = cp.searchsorted(classes, labels)
+        indices = cp.searchsorted(sorted_classes, labels)
 
         # Validate: check if the found position actually matches the label
         # Out-of-bounds indices are clamped to avoid index errors
         indices_safe = cp.minimum(indices, len(classes) - 1)
-        valid = (indices < len(classes)) & (classes[indices_safe] == labels)
+        valid = (indices < len(classes)) & (
+            sorted_classes[indices_safe] == labels
+        )
 
-        # Map valid labels to their indices, invalid labels to len(classes)
-        mapped_labels = cp.where(valid, indices, len(classes))
+        # Map valid labels to their indices in original classes
+        mapped_labels = cp.where(
+            valid, sort_indices[indices_safe], len(classes)
+        )
 
         if not copy:
             labels[:] = mapped_labels
