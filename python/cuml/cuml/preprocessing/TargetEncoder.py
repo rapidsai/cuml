@@ -70,6 +70,33 @@ class TargetEncoder(Base, InteropMixin):
         The statistic used in encoding, mean, variance or median of the
         target.
 
+    Attributes
+    ----------
+    categories_ : list of cupy.ndarray
+        The categories of each input feature determined during fitting.
+        Each element is an array of unique category values for that feature,
+        sorted in ascending order.
+    n_features_in_ : int
+        Number of features seen during :meth:`fit`.
+    encode_all : cudf.DataFrame
+        DataFrame containing the learned encodings for all category
+        combinations. Used internally for transforming new data.
+    mean : float
+        The overall mean of the target variable, computed during fitting.
+        Used for smoothing and imputing unseen categories.
+    y_stat_val : float
+        The statistic value (mean, variance, or median) of the target
+        variable, depending on the ``stat`` parameter. Used to impute
+        encodings for unseen categories.
+    train : cudf.DataFrame or None
+        The training DataFrame used during fitting, containing the original
+        features, target values, and fold assignments. Set to ``None`` if
+        the encoder was loaded from a sklearn model via :meth:`from_sklearn`.
+    train_encode : cuml.internals.array.CumlArray or None
+        The encoded values for the training data, computed during
+        :meth:`fit` or :meth:`fit_transform`. Set to ``None`` if the
+        encoder was loaded from a sklearn model via :meth:`from_sklearn`.
+
     References
     ----------
     .. [1] https://maxhalford.github.io/blog/target-encoding/
@@ -169,6 +196,20 @@ class TargetEncoder(Base, InteropMixin):
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
+        if y is None:
+            raise TypeError(
+                f"Input of type {type(y)} is not cudf.Series, "
+                "or pandas.Series"
+                "or numpy.ndarray"
+                "or cupy.ndarray"
+            )
+
+        if len(x) == 0:
+            raise ValueError(
+                "Found array with 0 sample(s) while a minimum of 1 is "
+                "required."
+            )
+
         if self.split_method == "customize" and fold_ids is None:
             raise ValueError(
                 "`fold_ids` is required "
@@ -246,9 +287,17 @@ class TargetEncoder(Base, InteropMixin):
         """
         self._check_is_fitted()
         test = self._data_with_strings_to_cudf_dataframe(x)
+
+        # Check feature dimensions match
+        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
+        if hasattr(self, "n_features_in_") and len(x_cols) != self.n_features_in_:
+            raise ValueError(
+                f"X has {len(x_cols)} features, but TargetEncoder is "
+                f"expecting {self.n_features_in_} features as input."
+            )
+
         if self._is_train_df(test):
             return self.train_encode
-        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
         test = test.merge(self.encode_all, on=x_cols, how="left")
         return self._impute_and_sort(test)
 
@@ -259,6 +308,19 @@ class TargetEncoder(Base, InteropMixin):
         cp.random.seed(self.seed)
         train = self._data_with_strings_to_cudf_dataframe(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
+
+        # Store n_features_in_ and categories_ for sklearn interop
+        self.n_features_in_ = len(x_cols)
+        self._x_cols = x_cols  
+
+        # Extract unique categories for each feature (sorted for consistency)
+        self.categories_ = []
+        for col in x_cols:
+            unique_vals = train[col].unique()
+            # Sort for deterministic ordering
+            unique_vals = unique_vals.sort_values()
+            self.categories_.append(unique_vals.values)
+
         train[self.y_col] = self._make_y_column(y)
 
         self.n_folds = min(self.n_folds, len(train))
@@ -422,9 +484,11 @@ class TargetEncoder(Base, InteropMixin):
         return df_each_fold, df_all
 
     def _check_is_fitted(self):
-        if not self._fitted or self.train is None:
+        # Check if fitted - either via fit() or from_sklearn()
+        # When loaded from sklearn, train may be None but encode_all exists
+        if not self._fitted and not hasattr(self, "encode_all"):
             msg = (
-                "This LabelEncoder instance is not fitted yet. Call 'fit' "
+                "This TargetEncoder instance is not fitted yet. Call 'fit' "
                 "with appropriate arguments before using this estimator."
             )
             raise NotFittedError(msg)
@@ -434,6 +498,9 @@ class TargetEncoder(Base, InteropMixin):
         Return True if the dataframe `df` is the training dataframe, which
         is used in `fit_transform`
         """
+        # If train is None (e.g., loaded from sklearn), we can't compare
+        if self.train is None:
+            return False
         if len(df) != len(self.train):
             return False
         self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
@@ -521,17 +588,112 @@ class TargetEncoder(Base, InteropMixin):
         return params
 
     def _attrs_from_cpu(self, model):
+        from cuml.internals.interop import UnsupportedOnGPU
+
+        categories_gpu = [to_gpu(cat) for cat in model.categories_]
+        n_features = len(model.categories_)
+
+        # Generate column names matching cuML's internal format
+        if n_features == 1:
+            x_cols = [self.x_col]
+        else:
+            x_cols = [f"{self.x_col}_{i}" for i in range(n_features)]
+
+        # Build the encode_all DataFrame
+        if n_features == 1:
+            encode_all = cudf.DataFrame({
+                x_cols[0]: model.categories_[0],
+                self.out_col: model.encodings_[0],
+            })
+        else:
+            # Multi-feature case: sklearn encodes each feature independently
+            # while cuML encodes feature combinations. We approximate by
+            # creating the cartesian product and averaging encodings.
+            from itertools import product
+
+            total_combinations = 1
+            for cats in model.categories_:
+                total_combinations *= len(cats)
+
+            max_combinations = 100_000
+            if total_combinations > max_combinations:
+                raise UnsupportedOnGPU(
+                    f"Converting multi-feature sklearn TargetEncoder would "
+                    f"require {total_combinations:,} category combinations, "
+                    f"exceeding the limit of {max_combinations:,}. Consider "
+                    f"using single-feature TargetEncoder instead."
+                )
+
+            warnings.warn(
+                "Converting multi-feature sklearn TargetEncoder to cuML uses "
+                "an approximation (averaged per-feature encodings). Results "
+                "may differ from both sklearn and native cuML behavior.",
+                UserWarning,
+            )
+
+            all_cats = [list(cat) for cat in model.categories_]
+            all_encs = [list(enc) for enc in model.encodings_]
+
+            # Create cartesian product of all categories
+            rows = []
+            for combo in product(*[range(len(c)) for c in all_cats]):
+                row = {}
+                enc_sum = 0.0
+                for i, idx in enumerate(combo):
+                    row[x_cols[i]] = all_cats[i][idx]
+                    enc_sum += all_encs[i][idx]
+                # Average the encodings for combined categories
+                row[self.out_col] = enc_sum / n_features
+                rows.append(row)
+            encode_all = cudf.DataFrame(rows)
+
         return {
-            "encode_all": to_gpu(model.encodings_),
-            "categories_": to_gpu(model.categories_),
-            "mean": to_gpu(model.target_mean_),
+            "encode_all": encode_all,
+            "categories_": categories_gpu,
+            "_x_cols": x_cols,
+            "mean": float(model.target_mean_),
+            "y_stat_val": float(model.target_mean_),
+            "_fitted": True,
+            "train": None,
+            "train_encode": None,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
+        # Convert categories_ to list of numpy arrays
+        categories_cpu = [to_cpu(cat) for cat in self.categories_]
+
+        n_features = len(self.categories_)
+        if n_features > 1:
+            warnings.warn(
+                "Converting multi-feature cuML TargetEncoder to sklearn uses "
+                "an approximation (averaged combination encodings per feature). "
+                "Results may differ from native sklearn behavior.",
+                UserWarning,
+            )
+
+        # Convert encode_all DataFrame to list of encodings per feature
+        # sklearn expects encodings_[i] to have shape (n_categories_i,)
+        # with encoding values in the same order as categories_[i]
+        encodings_list = []
+        for i, (col, cats) in enumerate(zip(self._x_cols, self.categories_)):
+            feature_encodings = []
+            for cat_val in cats:
+                mask = self.encode_all[col] == cat_val
+                if mask.any():
+                    # For multi-feature, average across all combinations
+                    # containing this category value
+                    enc_val = float(
+                        self.encode_all.loc[mask, self.out_col].mean()
+                    )
+                else:
+                    enc_val = float(self.mean)
+                feature_encodings.append(enc_val)
+            encodings_list.append(np.array(feature_encodings))
+
         return {
-            "encodings_": to_cpu(self.encode_all),
-            "categories_": to_cpu(self.categories_),
-            "target_mean_": to_cpu(self.mean),
+            "encodings_": encodings_list,
+            "categories_": categories_cpu,
+            "target_mean_": float(self.mean),
             **super()._attrs_to_cpu(model),
         }

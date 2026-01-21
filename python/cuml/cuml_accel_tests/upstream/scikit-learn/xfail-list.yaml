@@ -1650,3 +1650,29 @@
   - "sklearn.linear_model.tests.test_logistic::test_liblinear_dual_random_state[42]"
   - "sklearn.linear_model.tests.test_logistic::test_liblinear_with_large_values"
   - "sklearn.svm.tests.test_svm::test_liblinear_set_coef[42]"
+- reason: cuML TargetEncoder does not support complex128 dtype
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_complex_data]"
+- reason: cudf has different object dtype handling than pandas/numpy
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_dtype_object]"
+- reason: cudf DataFrame pickle serialization differs from sklearn internal structures
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle]"
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle(readonly_memmap=True)]"
+- reason: cuML TargetEncoder has different internal data structures than sklearn
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
+- reason: cuML TargetEncoder uses different cross-validation approach affecting sample order
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_methods_sample_order_invariance]"
+  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_methods_subset_invariance]"
+- reason: cuML TargetEncoder fit docstring attributes differ from sklearn conventions
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.utils.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
