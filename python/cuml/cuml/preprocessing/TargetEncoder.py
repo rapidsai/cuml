@@ -13,7 +13,7 @@ import pandas as pd
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (  # UnsupportedOnGPU,
+from cuml.internals.interop import (
     InteropMixin,
     to_cpu,
     to_gpu,
@@ -69,6 +69,22 @@ class TargetEncoder(Base, InteropMixin):
     stat : {'mean','var','median'}, default = 'mean'
         The statistic used in encoding, mean, variance or median of the
         target.
+    multi_feature_mode : {'combination', 'independent'}, default='combination'
+        How to handle multiple input features:
+
+        - ``'combination'``: Encode all feature combinations together
+          (cuML native behavior). Produces a single output column with
+          encodings based on the joint distribution of all features.
+        - ``'independent'``: Encode each feature independently (sklearn
+          behavior). Produces N output columns, one per input feature,
+          each containing encodings based only on that feature's
+          relationship with the target.
+
+        When running under ``cuml.accel``, this is automatically set to
+        ``'independent'`` regardless of the specified value, to ensure
+        compatibility with sklearn's semantics.
+
+        For single-feature input, both modes produce identical results.
 
     Attributes
     ----------
@@ -131,6 +147,7 @@ class TargetEncoder(Base, InteropMixin):
         split_method="interleaved",
         output_type=None,
         stat="mean",
+        multi_feature_mode="combination",
     ):
         super().__init__(output_type=output_type)
         if smooth < 0:
@@ -172,6 +189,7 @@ class TargetEncoder(Base, InteropMixin):
         self.id_col = "__INDEX__"
         self.train = None
         self.stat = stat
+        self.multi_feature_mode = multi_feature_mode
 
     @reflect(reset=True)
     def fit(self, x, y, fold_ids=None):
@@ -298,8 +316,33 @@ class TargetEncoder(Base, InteropMixin):
 
         if self._is_train_df(test):
             return self.train_encode
+
+        # Handle independent mode (per-feature encoding)
+        if getattr(self, "_independent_mode_fitted", False):
+            return self._transform_independent(test, x_cols)
+
         test = test.merge(self.encode_all, on=x_cols, how="left")
         return self._impute_and_sort(test)
+
+    def _transform_independent(self, test, x_cols):
+        """Transform using independent per-feature encodings."""
+        result_cols = []
+        for i, col in enumerate(x_cols):
+            out_col_i = f"{self.out_col}_{i}"
+            encode_all_i = self._encode_all_per_feature[i]
+
+            test = test.merge(
+                encode_all_i.rename(columns={self.out_col: out_col_i}),
+                on=col,
+                how="left",
+            )
+            test[out_col_i] = test[out_col_i].nans_to_nulls()
+            test[out_col_i] = test[out_col_i].fillna(self.y_stat_val)
+            result_cols.append(out_col_i)
+
+        test = test.sort_values(self.id_col)
+        res = test[result_cols].values.copy()
+        return CumlArray(res)
 
     def _fit_transform(self, x, y, fold_ids):
         """
@@ -311,7 +354,7 @@ class TargetEncoder(Base, InteropMixin):
 
         # Store n_features_in_ and categories_ for sklearn interop
         self.n_features_in_ = len(x_cols)
-        self._x_cols = x_cols  
+        self._x_cols = x_cols
 
         # Extract unique categories for each feature (sorted for consistency)
         self.categories_ = []
@@ -320,6 +363,14 @@ class TargetEncoder(Base, InteropMixin):
             # Sort for deterministic ordering
             unique_vals = unique_vals.sort_values()
             self.categories_.append(unique_vals.values)
+
+        # Resolve multi-feature mode (accel overrides to 'independent')
+        resolved_mode = self._resolve_multi_feature_mode()
+        self._resolved_multi_feature_mode = resolved_mode
+
+        # For multi-feature independent mode, encode each feature separately
+        if len(x_cols) > 1 and resolved_mode == "independent":
+            return self._fit_transform_independent(train, x_cols, y, fold_ids)
 
         train[self.y_col] = self._make_y_column(y)
 
@@ -387,6 +438,103 @@ class TargetEncoder(Base, InteropMixin):
         self.encode_all = train.groupby(x_cols).agg({self.y_col: self.stat})
         self.encode_all = _rename_col(self.encode_all, self.out_col)
         return self._impute_and_sort(res), train
+
+    def _fit_transform_independent(self, train, x_cols, y, fold_ids):
+        """
+        Fit-transform with independent per-feature encoding (sklearn-like).
+
+        Each feature is encoded independently based on its relationship with
+        the target, producing N output columns for N input features.
+        """
+        y_values = self._make_y_column(y)
+        train[self.y_col] = y_values
+
+        self.n_folds = min(self.n_folds, len(train))
+        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
+
+        self.mean = train[self.y_col].mean()
+        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
+
+        # Store per-feature encodings (matching sklearn's encodings_ structure)
+        self._encodings_per_feature = []
+        self._encode_all_per_feature = []
+        result_cols = []
+
+        for i, col in enumerate(x_cols):
+            out_col_i = f"{self.out_col}_{i}"
+
+            # Compute encoding for this feature only
+            if self.stat in ["median"]:
+                # Use for-loop approach for median
+                encode_all_i = self._compute_single_feature_encoding_median(
+                    train, col
+                )
+            else:
+                encode_all_i = self._compute_single_feature_encoding(
+                    train, col, out_col_i
+                )
+
+            self._encode_all_per_feature.append(encode_all_i)
+
+            # Extract encodings in category order for sklearn compatibility
+            feature_encodings = []
+            for cat_val in self.categories_[i]:
+                mask = encode_all_i[col] == cat_val
+                if mask.any():
+                    enc_val = float(encode_all_i.loc[mask, self.out_col].iloc[0])
+                else:
+                    enc_val = float(self.mean)
+                feature_encodings.append(enc_val)
+            self._encodings_per_feature.append(np.array(feature_encodings))
+
+            # Merge encoding into train for this feature
+            train = train.merge(
+                encode_all_i.rename(columns={self.out_col: out_col_i}),
+                on=col,
+                how="left",
+            )
+            train[out_col_i] = train[out_col_i].nans_to_nulls()
+            train[out_col_i] = train[out_col_i].fillna(self.y_stat_val)
+            result_cols.append(out_col_i)
+
+        # Create a combined encode_all for transform() compatibility
+        # This stores the per-feature encodings in a format transform() can use
+        self.encode_all = self._encode_all_per_feature
+        self._independent_mode_fitted = True
+
+        # Sort by original index and return results
+        train = train.sort_values(self.id_col)
+        res = train[result_cols].values.copy()
+        return CumlArray(res), train
+
+    def _compute_single_feature_encoding(self, train, col, out_col):
+        """Compute target encoding for a single feature column."""
+        y_col = self.y_col
+
+        # Group by single feature and compute stats
+        df_count = train.groupby(col, as_index=False).agg({y_col: "count"})
+        df_count.columns = [col, f"{y_col}_count"]
+
+        df_sum = train.groupby(col, as_index=False).agg({y_col: "sum"})
+        df_sum.columns = [col, f"{y_col}_sum"]
+
+        df = df_sum.merge(df_count, on=col, how="left")
+
+        # Apply smoothing
+        smooth = self.smooth
+        df[self.out_col] = (df[f"{y_col}_sum"] + smooth * self.mean) / (
+            df[f"{y_col}_count"] + smooth
+        )
+
+        return df[[col, self.out_col]]
+
+    def _compute_single_feature_encoding_median(self, train, col):
+        """Compute median target encoding for a single feature column."""
+        encode_all = train.groupby(col, as_index=False).agg(
+            {self.y_col: self.stat}
+        )
+        encode_all.columns = [col, self.out_col]
+        return encode_all
 
     def _make_y_column(self, y):
         """
@@ -555,6 +703,27 @@ class TargetEncoder(Base, InteropMixin):
         df[self.id_col] = cp.arange(len(x))
         return df.reset_index(drop=True)
 
+    def _resolve_multi_feature_mode(self):
+        """Resolve multi-feature mode, with accel override.
+
+        When cuml.accel is active, always use 'independent' mode for
+        sklearn compatibility, regardless of what the user specified.
+        """
+        if self.multi_feature_mode not in {"combination", "independent"}:
+            raise ValueError(
+                f"multi_feature_mode should be 'combination' or 'independent', "
+                f"got '{self.multi_feature_mode}'."
+            )
+
+        try:
+            from cuml.accel import enabled
+
+            if enabled():
+                return "independent"
+        except ImportError:
+            pass
+        return self.multi_feature_mode
+
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
@@ -563,6 +732,7 @@ class TargetEncoder(Base, InteropMixin):
             "seed",
             "split_method",
             "stat",
+            "multi_feature_mode",
         ]
 
     @classmethod
@@ -588,8 +758,11 @@ class TargetEncoder(Base, InteropMixin):
         return params
 
     def _attrs_from_cpu(self, model):
-        from cuml.internals.interop import UnsupportedOnGPU
+        """Convert sklearn TargetEncoder attributes to cuML format.
 
+        sklearn always uses independent per-feature encoding, so we set up
+        cuML to use independent mode as well for exact compatibility.
+        """
         categories_gpu = [to_gpu(cat) for cat in model.categories_]
         n_features = len(model.categories_)
 
@@ -599,56 +772,30 @@ class TargetEncoder(Base, InteropMixin):
         else:
             x_cols = [f"{self.x_col}_{i}" for i in range(n_features)]
 
-        # Build the encode_all DataFrame
-        if n_features == 1:
-            encode_all = cudf.DataFrame({
-                x_cols[0]: model.categories_[0],
-                self.out_col: model.encodings_[0],
+        # sklearn uses independent encoding, so we always use independent mode
+        # This gives exact compatibility with no approximation
+        encode_all_per_feature = []
+        for i, col in enumerate(x_cols):
+            encode_all_i = cudf.DataFrame({
+                col: model.categories_[i],
+                self.out_col: model.encodings_[i],
             })
+            encode_all_per_feature.append(encode_all_i)
+
+        # For single feature, also set encode_all as DataFrame for compatibility
+        if n_features == 1:
+            encode_all = encode_all_per_feature[0]
+            independent_mode = False
         else:
-            # Multi-feature case: sklearn encodes each feature independently
-            # while cuML encodes feature combinations. We approximate by
-            # creating the cartesian product and averaging encodings.
-            from itertools import product
-
-            total_combinations = 1
-            for cats in model.categories_:
-                total_combinations *= len(cats)
-
-            max_combinations = 100_000
-            if total_combinations > max_combinations:
-                raise UnsupportedOnGPU(
-                    f"Converting multi-feature sklearn TargetEncoder would "
-                    f"require {total_combinations:,} category combinations, "
-                    f"exceeding the limit of {max_combinations:,}. Consider "
-                    f"using single-feature TargetEncoder instead."
-                )
-
-            warnings.warn(
-                "Converting multi-feature sklearn TargetEncoder to cuML uses "
-                "an approximation (averaged per-feature encodings). Results "
-                "may differ from both sklearn and native cuML behavior.",
-                UserWarning,
-            )
-
-            all_cats = [list(cat) for cat in model.categories_]
-            all_encs = [list(enc) for enc in model.encodings_]
-
-            # Create cartesian product of all categories
-            rows = []
-            for combo in product(*[range(len(c)) for c in all_cats]):
-                row = {}
-                enc_sum = 0.0
-                for i, idx in enumerate(combo):
-                    row[x_cols[i]] = all_cats[i][idx]
-                    enc_sum += all_encs[i][idx]
-                # Average the encodings for combined categories
-                row[self.out_col] = enc_sum / n_features
-                rows.append(row)
-            encode_all = cudf.DataFrame(rows)
+            encode_all = encode_all_per_feature
+            independent_mode = True
 
         return {
             "encode_all": encode_all,
+            "_encode_all_per_feature": encode_all_per_feature,
+            "_encodings_per_feature": [to_gpu(enc) for enc in model.encodings_],
+            "_independent_mode_fitted": independent_mode,
+            "_resolved_multi_feature_mode": "independent",
             "categories_": categories_gpu,
             "_x_cols": x_cols,
             "mean": float(model.target_mean_),
@@ -660,36 +807,45 @@ class TargetEncoder(Base, InteropMixin):
         }
 
     def _attrs_to_cpu(self, model):
-        # Convert categories_ to list of numpy arrays
+        """Convert cuML TargetEncoder attributes to sklearn format.
+
+        sklearn expects independent per-feature encodings. If cuML was fitted
+        in independent mode, we have exact encodings. If fitted in combination
+        mode with multiple features, we approximate by averaging.
+        """
         categories_cpu = [to_cpu(cat) for cat in self.categories_]
-
         n_features = len(self.categories_)
-        if n_features > 1:
-            warnings.warn(
-                "Converting multi-feature cuML TargetEncoder to sklearn uses "
-                "an approximation (averaged combination encodings per feature). "
-                "Results may differ from native sklearn behavior.",
-                UserWarning,
-            )
 
-        # Convert encode_all DataFrame to list of encodings per feature
-        # sklearn expects encodings_[i] to have shape (n_categories_i,)
-        # with encoding values in the same order as categories_[i]
-        encodings_list = []
-        for i, (col, cats) in enumerate(zip(self._x_cols, self.categories_)):
-            feature_encodings = []
-            for cat_val in cats:
-                mask = self.encode_all[col] == cat_val
-                if mask.any():
-                    # For multi-feature, average across all combinations
-                    # containing this category value
-                    enc_val = float(
-                        self.encode_all.loc[mask, self.out_col].mean()
-                    )
-                else:
-                    enc_val = float(self.mean)
-                feature_encodings.append(enc_val)
-            encodings_list.append(np.array(feature_encodings))
+        # Use per-feature encodings if available (from independent mode or sklearn)
+        if hasattr(self, "_encodings_per_feature"):
+            encodings_list = [
+                to_cpu(enc) for enc in self._encodings_per_feature
+            ]
+        else:
+            # Extract per-feature encodings from combination-mode encode_all
+            if n_features > 1:
+                warnings.warn(
+                    "Converting multi-feature cuML TargetEncoder (combination "
+                    "mode) to sklearn requires approximation. Consider using "
+                    "multi_feature_mode='independent' for exact conversion.",
+                    UserWarning,
+                )
+
+            encodings_list = []
+            for i, (col, cats) in enumerate(
+                zip(self._x_cols, self.categories_)
+            ):
+                feature_encodings = []
+                for cat_val in cats:
+                    mask = self.encode_all[col] == cat_val
+                    if mask.any():
+                        enc_val = float(
+                            self.encode_all.loc[mask, self.out_col].mean()
+                        )
+                    else:
+                        enc_val = float(self.mean)
+                    feature_encodings.append(enc_val)
+                encodings_list.append(np.array(feature_encodings))
 
         return {
             "encodings_": encodings_list,
