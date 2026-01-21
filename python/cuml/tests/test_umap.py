@@ -1180,7 +1180,7 @@ def test_inverse_transform():
 
     # We expect a significant average overlap.
     mean_overlap = np.mean(overlaps)
-    assert mean_overlap >= 4.0, (
+    assert mean_overlap >= 6.5, (
         f"Average neighborhood overlap too low: {mean_overlap:.2f}. "
         "Reconstructed points do not preserve local structure well."
     )
@@ -1188,7 +1188,7 @@ def test_inverse_transform():
     # Ensure most points have at least some overlap
     overlap_count = np.sum(np.array(overlaps) >= 2)
     overlap_ratio = overlap_count / X.shape[0]
-    assert overlap_ratio >= 0.85, (
+    assert overlap_ratio >= 0.95, (
         f"Only {overlap_ratio:.2%} of points have >= 2 common neighbors. "
         "Neighborhood preservation is poor for too many points."
     )
@@ -1196,7 +1196,7 @@ def test_inverse_transform():
     # 3. Trustworthiness check
     # Check if the high-D reconstruction preserves the neighborhood structure of the low-D embedding
     trust = trustworthiness(embedding_np, inv_np, n_neighbors=10)
-    assert trust > 0.80, (
+    assert trust > 0.95, (
         f"Trustworthiness of reconstruction is too low: {trust:.2f}"
     )
 
@@ -1216,7 +1216,7 @@ def test_inverse_transform():
     mean_dist_ref = np.mean(dists_ref)
 
     # cuML reconstruction should be comparable to reference in terms of distance to training data
-    assert mean_dist_cu < mean_dist_ref * 2.0 + 0.5, (
+    assert mean_dist_cu < mean_dist_ref * 2.0, (
         f"cuML reconstruction quality ({mean_dist_cu:.4f}) is significantly worse "
         f"than reference ({mean_dist_ref:.4f})"
     )
