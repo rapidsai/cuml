@@ -469,24 +469,29 @@ def _format_single_file(xfail_path, args):
                 print(f"  {error}", file=sys.stderr)
             return 1
 
-        # Save changes
-        manager.save(xfail_path)
-        formatted_content = xfail_path.read_text()
-
-        # Check if changes were made
-        content_changed = original_content != formatted_content
-
-        # Report changes
-        changes = []
-        if content_changed:
-            changes.append("formatting applied")
-        if removed_groups > 0:
-            changes.append(f"{removed_groups} empty groups removed")
-
-        if changes:
-            print(f"Formatted {xfail_path}: {', '.join(changes)}")
+        # Save changes (unless dry-run)
+        if args.dry_run:
+            print(f"Would format {xfail_path} (dry-run)")
+            if removed_groups > 0:
+                print(f"  Would remove {removed_groups} empty groups")
         else:
-            print(f"No changes needed for {xfail_path}")
+            manager.save(xfail_path)
+            formatted_content = xfail_path.read_text()
+
+            # Check if changes were made
+            content_changed = original_content != formatted_content
+
+            # Report changes
+            changes = []
+            if content_changed:
+                changes.append("formatting applied")
+            if removed_groups > 0:
+                changes.append(f"{removed_groups} empty groups removed")
+
+            if changes:
+                print(f"Formatted {xfail_path}: {', '.join(changes)}")
+            else:
+                print(f"No changes needed for {xfail_path}")
 
         return 0
 
@@ -558,8 +563,11 @@ def cmd_set(args):
                 print(f"  {error}", file=sys.stderr)
             return 1
 
-        manager.save(xfail_path)
-        print(f"Updated {xfail_path}")
+        if args.dry_run:
+            print(f"Would update {xfail_path} (dry-run)")
+        else:
+            manager.save(xfail_path)
+            print(f"Updated {xfail_path}")
 
         return 0
 
@@ -590,6 +598,12 @@ def main():
     )
     format_parser.add_argument(
         "--cleanup", action="store_true", help="Remove empty groups"
+    )
+    format_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without writing to files",
     )
     format_parser.set_defaults(func=cmd_format)
 
@@ -643,6 +657,12 @@ def main():
         action="store_false",
         dest="run",
         help="Set run=false for the xfail group (skip the test entirely)",
+    )
+    set_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without writing to files",
     )
     set_parser.set_defaults(func=cmd_set)
 
