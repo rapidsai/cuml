@@ -395,6 +395,14 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.build_params.n_clusters = n_clusters
     params.build_params.overlap_factor = overlap_factor
 
+    if n_clusters < 1:
+        raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
+    elif n_clusters > 1 and overlap_factor >= n_clusters:
+        raise ValueError(
+            f"`knn_n_clusters > 1` requires `knn_n_clusters ({n_clusters}) > "
+            f"knn_overlap_factor ({overlap_factor})`"
+        )
+
     # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
     all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
                                        'inner_product']
@@ -417,14 +425,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         termination_threshold = build_kwds.get("nnd_termination_threshold", 0.0001)
         graph_degree = build_kwds.get("nnd_graph_degree", 64)
         intermediate_graph_degree = build_kwds.get("nnd_intermediate_graph_degree", 128)
-
-        if n_clusters < 1:
-            raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
-        elif n_clusters > 1 and overlap_factor >= n_clusters:
-            raise ValueError(
-                f"`knn_n_clusters > 1` requires `knn_n_clusters ({n_clusters}) > "
-                f"knn_overlap_factor ({overlap_factor})`"
-            )
 
         if graph_degree < self._n_neighbors:
             logger.warn(
@@ -651,7 +651,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
           'knn_overlap_factor' < 'knn_n_clusters'.
 
         .. deprecated:: 26.02
-            The `knn_n_clusters` and `knn_overlap_factor` was deprecated in 26.02 and
+            The `nnd_n_clusters` and `nnd_overlap_factor` was deprecated in 26.02 and
             will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
 
     device_ids : list[int], "all", or None, default=None

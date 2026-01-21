@@ -877,7 +877,7 @@ def test_umap_trustworthiness_on_batch_nnd(
         n_neighbors=10,
         min_dist=0.01,
         build_algo=build_algo,
-        build_kwds={"nnd_n_clusters": num_clusters},
+        build_kwds={"knn_n_clusters": num_clusters},
         metric=metric,
         device_ids=device_ids,
     )
@@ -907,9 +907,10 @@ def test_umap_trustworthiness_on_batch_nnd(
         stress_param(50, 8),
     ],
 )
-@pytest.mark.parametrize("num_clusters", [4, 7])
+@pytest.mark.parametrize("num_clusters", [1, 4, 7])
+@pytest.mark.parametrize("do_gpu_input", [False, True])
 def test_umap_fit_transform_batch_brute_force_reproducibility(
-    n_components, random_state, num_clusters
+    n_components, random_state, num_clusters, do_gpu_input
 ):
     n_samples = 8000
     n_features = 200
@@ -917,6 +918,8 @@ def test_umap_fit_transform_batch_brute_force_reproducibility(
     data, labels = make_blobs(
         n_samples=n_samples, n_features=n_features, centers=10, random_state=42
     )
+    if do_gpu_input:
+        data = cp.asarray(data)
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(

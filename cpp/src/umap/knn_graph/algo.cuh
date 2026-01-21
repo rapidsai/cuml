@@ -73,8 +73,7 @@ inline void launcher(const raft::handle_t& handle,
   // Also fall back to brute force build-search if metric is not supported by all_neighbors
   if (inputsA.X != inputsB.X || !metric_supported_by_all_neighbors) {
     RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
-                 "nn_descent does not support transform or metrics other than L2Expanded, "
-                 "L2SqrtExpanded, CosineExpanded, or InnerProduct");
+                 "nn_descent does not support transform (query data differs from training data)");
 
     auto idx = [&]() {
       if (data_on_device) {  // inputsA on device
