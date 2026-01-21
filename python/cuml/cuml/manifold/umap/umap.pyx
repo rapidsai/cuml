@@ -395,6 +395,19 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.build_params.n_clusters = n_clusters
     params.build_params.overlap_factor = overlap_factor
 
+    # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
+    all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
+                                       'inner_product']
+    if (build_algo == "brute_force_knn" and
+            n_clusters > 1 and
+            self.metric.lower() not in all_neighbors_supported_metrics):
+        warnings.warn(
+            f"metric='{self.metric}' is not supported for batched knn build with "
+            f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
+            f"The knn_n_clusters parameter will be ignored and regular brute force knn "
+            f"(without batching) will be used instead."
+        )
+
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
     else:
@@ -465,6 +478,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         passed via the metric_kwds dictionary.
         Note: The 'jaccard' distance metric is only supported for sparse
         inputs.
+        Note: If build_algo=`brute_force_knn` and `knn_n_clusters > 1`, the metric
+        must be one of ['l2', 'sqeuclidean', 'euclidean', 'cosine', 'inner_product'].
     metric_kwds: dict (optional, default=None)
         Metric argument
     n_epochs: int (optional, default None)

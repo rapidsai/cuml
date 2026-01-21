@@ -62,10 +62,19 @@ inline void launcher(const raft::handle_t& handle,
   auto distances_view =
     raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
 
+  // Check if the metric is supported by all_neighbors API
+  auto metric = static_cast<cuvs::distance::DistanceType>(params->metric);
+  bool metric_supported_by_all_neighbors = metric == cuvs::distance::DistanceType::L2Expanded ||
+                                           metric == cuvs::distance::DistanceType::L2SqrtExpanded ||
+                                           metric == cuvs::distance::DistanceType::CosineExpanded ||
+                                           metric == cuvs::distance::DistanceType::InnerProduct;
+
   // Transform: inputsA (original data) != inputsB (data to transform)
-  if (inputsA.X != inputsB.X) {
+  // Also fall back to brute force build-search if metric is not supported by all_neighbors
+  if (inputsA.X != inputsB.X || !metric_supported_by_all_neighbors) {
     RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
-                 "nn_descent does not support transform (inputsA.n != inputsB.n)");
+                 "nn_descent does not support transform or metrics other than L2Expanded, "
+                 "L2SqrtExpanded, CosineExpanded, or InnerProduct");
 
     auto idx = [&]() {
       if (data_on_device) {  // inputsA on device
