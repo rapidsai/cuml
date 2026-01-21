@@ -220,7 +220,8 @@ class XfailManager:
         4. Adds the test to a group with the new metadata
 
         Args:
-            test_ids: List of test IDs to modify
+            test_ids: Test IDs to modify in pytest node ID format
+                (e.g., "sklearn.tests.test_base::test_clone[sparse-csr]")
             reason: New reason (if provided)
             condition: New condition (if provided)
             marker: New marker (if provided)
