@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -19,6 +19,7 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/tuple>
 #include <thrust/execution_policy.h>
 #include <thrust/transform.h>
 
@@ -606,18 +607,18 @@ class ApproximatePredictTest : public ::testing::TestWithParam<ApproximatePredic
                                              stream);
 
     auto transform_in =
-      thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
-                                                   mutual_reachability_coo.cols(),
-                                                   mutual_reachability_coo.vals()));
+      thrust::make_zip_iterator(cuda::std::make_tuple(mutual_reachability_coo.rows(),
+                                                      mutual_reachability_coo.cols(),
+                                                      mutual_reachability_coo.vals()));
 
     thrust::transform(exec_policy,
                       transform_in,
                       transform_in + mutual_reachability_coo.nnz,
                       mutual_reachability_coo.vals(),
-                      [=] __device__(const thrust::tuple<IdxT, IdxT, T>& tup) {
-                        return thrust::get<0>(tup) == thrust::get<1>(tup)
+                      [=] __device__(const cuda::std::tuple<IdxT, IdxT, T>& tup) {
+                        return cuda::std::get<0>(tup) == cuda::std::get<1>(tup)
                                  ? std::numeric_limits<T>::max()
-                                 : thrust::get<2>(tup);
+                                 : cuda::std::get<2>(tup);
                       });
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
@@ -808,18 +809,18 @@ class MembershipVectorTest : public ::testing::TestWithParam<MembershipVectorInp
                                              stream);
 
     auto transform_in =
-      thrust::make_zip_iterator(thrust::make_tuple(mutual_reachability_coo.rows(),
-                                                   mutual_reachability_coo.cols(),
-                                                   mutual_reachability_coo.vals()));
+      thrust::make_zip_iterator(cuda::std::make_tuple(mutual_reachability_coo.rows(),
+                                                      mutual_reachability_coo.cols(),
+                                                      mutual_reachability_coo.vals()));
 
     thrust::transform(exec_policy,
                       transform_in,
                       transform_in + mutual_reachability_coo.nnz,
                       mutual_reachability_coo.vals(),
-                      [=] __device__(const thrust::tuple<IdxT, IdxT, T>& tup) {
-                        return thrust::get<0>(tup) == thrust::get<1>(tup)
+                      [=] __device__(const cuda::std::tuple<IdxT, IdxT, T>& tup) {
+                        return cuda::std::get<0>(tup) == cuda::std::get<1>(tup)
                                  ? std::numeric_limits<T>::max()
-                                 : thrust::get<2>(tup);
+                                 : cuda::std::get<2>(tup);
                       });
 
     transformLabels(handle, labels.data(), label_map.data(), params.n_row);
