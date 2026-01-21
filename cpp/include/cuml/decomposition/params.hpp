@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -70,7 +70,7 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 typedef paramsTSVDTemplate<> paramsTSVD;
 typedef paramsPCATemplate<> paramsPCA;
 
-enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI, QR };
+enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI };
 
 typedef paramsPCATemplate<mg_solver> paramsPCAMG;
 typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;

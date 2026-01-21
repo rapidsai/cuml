@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import ast
@@ -61,7 +61,9 @@ def run_cell_with_profiler(source, namespace, profiler):
         # into non-interactive/interactive bits.
         blocks = []
         if head := tree.body[:-1]:
-            blocks.append(compile(ast.Module(head), filename, "exec"))
+            blocks.append(
+                compile(ast.Module(head, type_ignores=[]), filename, "exec")
+            )
         blocks.append(
             compile(ast.Interactive([tree.body[-1]]), filename, "single")
         )
@@ -84,12 +86,15 @@ def run_cell_with_profiler(source, namespace, profiler):
 
 
 def load_ipython_extension(ip):
-    from IPython.core.magic import (
-        Magics,
-        cell_magic,
-        magics_class,
-        output_can_be_silenced,
-    )
+    from IPython.core.magic import Magics, cell_magic, magics_class
+
+    try:
+        # Small UX nicety, added in IPython 8.10
+        from IPython.core.magic import output_can_be_silenced
+    except ImportError:
+        # Fallback to a no-op for earlier versions
+        def output_can_be_silenced(f):
+            return f
 
     @magics_class
     class CumlAccelMagics(Magics):

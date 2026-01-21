@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -21,7 +21,7 @@ from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
-from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.optional cimport nullopt, optional
 from pylibraft.common.cpp.mdspan cimport (
@@ -54,9 +54,9 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
     cdef void transform(
         const device_resources &handle,
         params config,
-        device_vector_view[int, int] rows,
-        device_vector_view[int, int] cols,
-        device_vector_view[float, int] vals,
+        device_vector_view[int, int64_t] rows,
+        device_vector_view[int, int64_t] cols,
+        device_vector_view[float, int64_t] vals,
         device_matrix_view[float, int, col_major] embedding) except +
 
 
@@ -142,7 +142,7 @@ def spectral_embedding(A,
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
     cdef int* affinity_cols_ptr = NULL
-    cdef int affinity_nnz = 0
+    cdef int64_t affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
         A = input_to_cupy_array(
@@ -238,9 +238,9 @@ def spectral_embedding(A,
             transform(
                 handle_[0],
                 config,
-                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
-                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
-                make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view[float, int64_t](affinity_data_ptr, affinity_nnz),
                 make_device_matrix_view[float, int, col_major](
                     eigenvectors_ptr, n_samples, n_components,
                 )
