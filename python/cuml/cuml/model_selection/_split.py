@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 
 import cudf
 import cupy as cp
-import numpy as np
 from numba import cuda as numba_cuda
 from sklearn.model_selection import (
     train_test_split as sklearn_train_test_split,
@@ -152,13 +151,13 @@ def train_test_split(
                 f"{[a.shape[0] for a in arrays]}"
             )
 
-    # Normalize random_state for sklearn (extract seed from RandomState objects)
-    sklearn_random_state = random_state
-    if isinstance(random_state, cp.random.RandomState):
-        # CuPy RandomState - extract underlying state as int
-        sklearn_random_state = int(check_random_seed(random_state))
-    elif isinstance(random_state, np.random.RandomState):
-        sklearn_random_state = int(check_random_seed(random_state))
+    # CuPy RandomState isn't supported by sklearn, so extract an int seed.
+    # int, None, and np.random.RandomState are all accepted by sklearn as-is.
+    sklearn_random_state = (
+        int(check_random_seed(random_state))
+        if isinstance(random_state, cp.random.RandomState)
+        else random_state
+    )
 
     # Convert stratify to numpy, other arrays types are not supported by scikit-learn
     if stratify is not None:
