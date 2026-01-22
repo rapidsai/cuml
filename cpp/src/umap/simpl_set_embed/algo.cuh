@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,6 +20,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+#include <cuda/std/tuple>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/discard_iterator.h>
@@ -27,7 +28,6 @@
 #include <thrust/reduce.h>
 #include <thrust/shuffle.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <thrust/tuple.h>
 
 #include <curand.h>
 #include <math.h>
@@ -275,10 +275,10 @@ void optimize_layout(T* head_embedding,
     // distributed across threads, rather than being processed by consecutive threads that are
     // scheduled together. This approach relies on the GPU's inability to physically schedule all
     // nnz edges at once.
-    auto first =
-      thrust::make_zip_iterator(thrust::make_tuple(thrust::device_pointer_cast(head),
-                                                   thrust::device_pointer_cast(tail),
-                                                   thrust::device_pointer_cast(epochs_per_sample)));
+    auto first = thrust::make_zip_iterator(
+      cuda::std::make_tuple(thrust::device_pointer_cast(head),
+                            thrust::device_pointer_cast(tail),
+                            thrust::device_pointer_cast(epochs_per_sample)));
 
     thrust::default_random_engine rng(params->random_state);
     thrust::shuffle(first, first + nnz, rng);
