@@ -88,6 +88,13 @@ def train_test_split(
         ...     X, y, test_size=0.2, random_state=42
         ... )
 
+    Notes
+    -----
+    .. versionchanged:: 26.02
+        Output types now consistently match input types. Previously, pandas
+        inputs were converted to cudf outputs. Now pandas inputs return pandas
+        outputs, cudf inputs return cudf outputs.
+
     """
     if len(arrays) == 0:
         raise ValueError("At least one array required as input")
