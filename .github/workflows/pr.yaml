@@ -29,6 +29,7 @@ jobs:
       - wheel-build-libcuml
       - wheel-build-cuml
       - wheel-tests-cuml
+      - wheel-tests-cuml-nightly-dependencies-versions
       - wheel-tests-cuml-dask
       - devcontainer
     secrets: inherit
@@ -260,6 +261,23 @@ jobs:
       build_type: pull-request
       script: ci/test_wheel.sh
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+  wheel-tests-cuml-nightly-dependencies-versions:
+    needs: [wheel-build-cuml, changed-files]
+    secrets: inherit
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    with:
+      build_type: pull-request
+      script: ci/test_wheel.sh
+      continue-on-error: true
+      # Select one amd64 entry with highest CUDA/Python versions and set DEPENDENCIES to "nightly"
+      matrix_filter: '
+        map(select(.ARCH == "amd64"))
+        | map(select(.DEPENDENCIES == "latest"))
+        | max_by([.CUDA_VER, .PY_VER] | map(split(".") | map(tonumber)))
+        | .DEPENDENCIES = "nightly"
+        | [.]
+      '
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
