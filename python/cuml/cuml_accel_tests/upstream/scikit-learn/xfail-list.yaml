@@ -827,29 +827,29 @@
 - reason: cuML TargetEncoder does not support complex128 dtype
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_complex_data]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_complex_data]"
 - reason: cuML TargetEncoder fit docstring attributes differ from sklearn conventions
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
 - reason: cuML TargetEncoder has different internal data structures than sklearn
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
 - reason: cuML TargetEncoder uses different cross-validation approach affecting sample order
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_methods_sample_order_invariance]"
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_methods_subset_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_methods_subset_invariance]"
 - reason: cudf DataFrame pickle serialization differs from sklearn internal structures
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle(readonly_memmap=True)]"
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle]"
 - reason: cudf has different object dtype handling than pandas/numpy
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.utils.tests.test_common::test_estimators[TargetEncoder()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_dtype_object]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
