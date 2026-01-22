@@ -13,11 +13,7 @@ import pandas as pd
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.outputs import reflect
 
 
@@ -308,7 +304,10 @@ class TargetEncoder(Base, InteropMixin):
 
         # Check feature dimensions match
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
-        if hasattr(self, "n_features_in_") and len(x_cols) != self.n_features_in_:
+        if (
+            hasattr(self, "n_features_in_")
+            and len(x_cols) != self.n_features_in_
+        ):
             raise ValueError(
                 f"X has {len(x_cols)} features, but TargetEncoder is "
                 f"expecting {self.n_features_in_} features as input."
@@ -481,7 +480,9 @@ class TargetEncoder(Base, InteropMixin):
             for cat_val in self.categories_[i]:
                 mask = encode_all_i[col] == cat_val
                 if mask.any():
-                    enc_val = float(encode_all_i.loc[mask, self.out_col].iloc[0])
+                    enc_val = float(
+                        encode_all_i.loc[mask, self.out_col].iloc[0]
+                    )
                 else:
                     enc_val = float(self.mean)
                 feature_encodings.append(enc_val)
@@ -776,10 +777,12 @@ class TargetEncoder(Base, InteropMixin):
         # This gives exact compatibility with no approximation
         encode_all_per_feature = []
         for i, col in enumerate(x_cols):
-            encode_all_i = cudf.DataFrame({
-                col: model.categories_[i],
-                self.out_col: model.encodings_[i],
-            })
+            encode_all_i = cudf.DataFrame(
+                {
+                    col: model.categories_[i],
+                    self.out_col: model.encodings_[i],
+                }
+            )
             encode_all_per_feature.append(encode_all_i)
 
         # For single feature, also set encode_all as DataFrame for compatibility
@@ -793,7 +796,9 @@ class TargetEncoder(Base, InteropMixin):
         return {
             "encode_all": encode_all,
             "_encode_all_per_feature": encode_all_per_feature,
-            "_encodings_per_feature": [to_gpu(enc) for enc in model.encodings_],
+            "_encodings_per_feature": [
+                to_gpu(enc) for enc in model.encodings_
+            ],
             "_independent_mode_fitted": independent_mode,
             "_resolved_multi_feature_mode": "independent",
             "categories_": categories_gpu,
