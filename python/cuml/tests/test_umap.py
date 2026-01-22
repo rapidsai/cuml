@@ -936,6 +936,10 @@ def test_umap_fit_transform_batch_brute_force_reproducibility(
     state = copy.deepcopy(random_state)
     cuml_embedding2 = get_embedding(n_components, state)
 
+    if do_gpu_input:
+        cuml_embedding1 = cuml_embedding1.get()
+        cuml_embedding2 = cuml_embedding2.get()
+
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
 
