@@ -42,7 +42,6 @@
 #include <thrust/remove.h>
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <thrust/tuple.h>
 
 #include <memory>
 #include <type_traits>

@@ -28,7 +28,6 @@
 #include <thrust/reduce.h>
 #include <thrust/shuffle.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <thrust/tuple.h>
 
 #include <curand.h>
 #include <math.h>
