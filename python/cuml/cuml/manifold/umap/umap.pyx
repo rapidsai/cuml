@@ -1487,6 +1487,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
+        X_shape="(n_samples, n_components)",
         return_values={
             "name": "X_new",
             "type": "dense",
@@ -1498,16 +1499,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
     def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
-
-        Parameters
-        ----------
-        X : array, shape (n_samples, n_components)
-            New points to be inverse transformed.
-
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_features)
-            Generated data points in data space.
         """
         if not hasattr(self, "embedding_") or self.embedding_ is None:
             raise NotFittedError(
