@@ -126,6 +126,10 @@ def train_test_split(
             arrays = (X, y)
         elif isinstance(y, str):
             # User passed: train_test_split(df, y="colname")
+            if not hasattr(X, "drop"):
+                raise TypeError(
+                    "X must be a DataFrame when y is a column name string"
+                )
             X = arrays[0]
             X, y = X.drop(y, axis=1), X[y]
             arrays = (X, y)
