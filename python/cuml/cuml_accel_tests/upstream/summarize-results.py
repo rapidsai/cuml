@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 """Summarize test results from a JUnit XML report file."""
@@ -78,41 +78,40 @@ def parse_args():
         help="Output format (default: summary)",
     )
     parser.add_argument(
-        "--update-xfail-list",
-        type=Path,
-        help="Path to existing xfail list to update",
-    )
-    parser.add_argument(
-        "-i",
-        "--in-place",
-        action="store_true",
-        help="Update the xfail list file in place",
-    )
-    parser.add_argument(
-        "--xpassed",
-        choices=["keep", "remove", "mark-flaky"],
-        default="keep",
-        help="How to handle XPASS tests (default: keep)",
-    )
-    parser.add_argument(
         "--limit",
         type=int,
         help="Limit output to first N entries (default: no limit)",
     )
+    parser.add_argument(
+        "--test-id-prefix",
+        type=str,
+        help="Prefix to add to test IDs (e.g., 'sklearn.')",
+    )
+    parser.add_argument(
+        "-k",
+        "--filter",
+        type=str,
+        dest="filter_pattern",
+        help="Filter tests by ID pattern (substring match, case-insensitive)",
+    )
     args = parser.parse_args()
+
+    # Load config if provided
+    config = load_config(args.config) if args.config is not None else {}
 
     # Handle fail-below threshold logic:
     # 1. Use command line value if provided
     # 2. Use config value if no command line value
     # 3. Use default of 0.0 if neither is provided
     if args.fail_below is None:
-        if args.config is not None:
-            config = load_config(args.config)
-            args.fail_below = config.get("threshold", {}).get(
-                "fail_below", 0.0
-            )
-        else:
-            args.fail_below = 0.0
+        args.fail_below = config.get("threshold", {}).get("fail_below", 0.0)
+
+    # Handle test-id-prefix logic:
+    # 1. Use command line value if provided
+    # 2. Use config value if no command line value
+    # 3. Use empty string if neither is provided
+    if args.test_id_prefix is None:
+        args.test_id_prefix = config.get("test_id_prefix", "")
 
     return args
 
@@ -123,132 +122,29 @@ def validate_threshold(threshold):
         raise ValueError("Threshold must be between 0 and 100")
 
 
-def load_existing_xfail_list(path):
-    """Load existing xfail list from file."""
-    if not path.exists():
-        return []
-    with open(path) as f:
-        return yaml.safe_load(f) or []
-
-
-def update_xfail_list(existing_list, test_results, xpassed_action="keep"):
-    """Update existing xfail list based on test results.
+def matches_filter(test_id, pattern):
+    """Check if test ID matches the filter pattern (case-insensitive substring).
 
     Args:
-        existing_list: List of existing xfail groups
-        test_results: Dict containing test results by test ID
-        xpassed_action: How to handle XPASS tests
-            ("keep", "remove", or "mark-flaky")
+        test_id: The test ID to check
+        pattern: The filter pattern (substring match, case-insensitive)
 
     Returns:
-        Updated xfail list
+        True if pattern is None or test_id contains pattern
     """
-    # Convert existing list to dict for easier lookup
-    existing_by_id = {}
-    for group in existing_list:
-        for test_id in group.get("tests", []):
-            existing_by_id[QuoteTestID(test_id)] = group
-
-    updated_groups = {}
-
-    # First process existing groups
-    for group in existing_list:
-        reason = group["reason"]
-        strict = group.get("strict", True)
-        tests = group.get("tests", [])
-        condition = group.get("condition", None)
-        marker = group.get("marker", None)
-
-        # Track which tests from this group are still relevant
-        relevant_tests = []
-
-        for test_id in tests:
-            test_id = QuoteTestID(test_id)
-            if test_id in test_results:
-                result = test_results[test_id]
-                if result["status"] in ("fail", "xfail"):
-                    # Keep failing tests
-                    relevant_tests.append(test_id)
-                elif result["status"] == "xpass":
-                    if xpassed_action == "keep":
-                        # Keep all xpassed tests
-                        relevant_tests.append(test_id)
-                    elif xpassed_action == "mark-flaky" and strict:
-                        # Move strict xpassed tests to flaky group instead of
-                        # modifying their existing group
-                        flaky_reason = "Test is flaky with cuml.accel"
-                        if flaky_reason not in updated_groups:
-                            updated_groups[flaky_reason] = OrderedDict(
-                                [
-                                    ("reason", flaky_reason),
-                                    ("strict", False),
-                                    ("tests", []),
-                                ]
-                            )
-                            if condition is not None:
-                                updated_groups[flaky_reason]["condition"] = (
-                                    condition
-                                )
-                            if marker is not None:
-                                updated_groups[flaky_reason]["marker"] = marker
-                        updated_groups[flaky_reason]["tests"].append(test_id)
-                    # For "remove", we don't add xpassed tests at all
-                elif not strict:
-                    # Always keep non-strict tests
-                    relevant_tests.append(test_id)
-            else:
-                # Test not in results - keep it to be safe
-                relevant_tests.append(test_id)
-
-        if relevant_tests:
-            if reason not in updated_groups:
-                updated_groups[reason] = OrderedDict(
-                    [
-                        ("reason", reason),
-                        ("strict", strict),
-                        ("tests", []),
-                    ]
-                )
-                if condition is not None:
-                    updated_groups[reason]["condition"] = condition
-                if marker is not None:
-                    updated_groups[reason]["marker"] = marker
-            updated_groups[reason]["tests"].extend(relevant_tests)
-
-    # Then add any new failing tests
-    for test_id, result in test_results.items():
-        if test_id not in existing_by_id and result["status"] in (
-            "fail",
-            "xfail",
-        ):
-            # Create a new group for this test
-            reason = "Test fails with cuml.accel"
-            if reason not in updated_groups:
-                updated_groups[reason] = OrderedDict(
-                    [
-                        ("reason", reason),
-                        ("strict", True),
-                        ("tests", []),
-                    ]
-                )
-            updated_groups[reason]["tests"].append(test_id)
-
-    # Convert back to list and sort
-    final_groups = []
-    for group in sorted(updated_groups.values(), key=lambda x: x["reason"]):
-        group["tests"] = sorted(group["tests"])
-        final_groups.append(group)
-    return final_groups
+    if pattern is None:
+        return True
+    return pattern.lower() in test_id.lower()
 
 
-def get_test_results(testsuite):
+def get_test_results(testsuite, prefix: str = ""):
     """Extract test results from testsuite.
 
     Returns dict mapping test IDs to their results.
     """
     results = {}
     for testcase in testsuite.findall(".//testcase"):
-        test_id = QuoteTestID(get_test_id(testcase))
+        test_id = QuoteTestID(get_test_id(testcase, prefix))
 
         failure = testcase.find("failure")
         error = testcase.find("error")
@@ -317,18 +213,26 @@ def format_table(rows, col_sep="  "):
     return formatted_rows
 
 
-def get_test_id(testcase) -> str:
+def get_test_id(testcase, prefix: str = "") -> str:
     classname = testcase.get("classname", "")
     name = testcase.get("name")
-    return f"{classname}::{name}" if classname else name
+    base_id = f"{classname}::{name}" if classname else name
+    # Add prefix if provided and not already present
+    if prefix and not base_id.startswith(prefix):
+        return f"{prefix}{base_id}"
+    return base_id
 
 
-def format_traceback_output(testsuite, limit=None):
+def format_traceback_output(
+    testsuite, limit=None, prefix: str = "", filter_pattern=None
+):
     """Format test results showing tracebacks of failed tests.
 
     Args:
         testsuite: XML testsuite element containing test results
         limit: Optional limit on number of entries to show
+        prefix: Prefix to add to test IDs
+        filter_pattern: Optional pattern to filter test IDs
 
     Returns:
         List of formatted strings containing test results and tracebacks
@@ -347,7 +251,11 @@ def format_traceback_output(testsuite, limit=None):
         error = testcase.find("error")
 
         if failure is not None or error is not None:
-            test_id = get_test_id(testcase)
+            test_id = get_test_id(testcase, prefix)
+
+            # Apply filter
+            if not matches_filter(test_id, filter_pattern):
+                continue
 
             msg = ""
             details = ""
@@ -364,7 +272,7 @@ def format_traceback_output(testsuite, limit=None):
             elif msg == "xfail":
                 continue  # Skip xfailed tests
 
-            output.append(f"\nTest: {test_id}")
+            output.append(f'\nTest: "{test_id}"')
             output.append("-" * 80)
             if msg:
                 output.append(f"Error: {msg}")
@@ -451,60 +359,43 @@ def main():
     pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
 
     if args.format == "traceback":
-        output = format_traceback_output(testsuite, args.limit)
+        output = format_traceback_output(
+            testsuite, args.limit, args.test_id_prefix, args.filter_pattern
+        )
         print("\n".join(output))
         return
 
-    if args.format == "xfail_list" or args.update_xfail_list:
+    if args.format == "xfail_list":
         # Get test results
-        test_results = get_test_results(testsuite)
+        test_results = get_test_results(testsuite, args.test_id_prefix)
 
-        if args.update_xfail_list:
-            if not args.update_xfail_list.exists():
-                print(f"Error: Xfail list not found: {args.update_xfail_list}")
-                sys.exit(1)
-            # Update existing xfail list
-            existing_list = load_existing_xfail_list(args.update_xfail_list)
-            xfail_list = update_xfail_list(
-                existing_list, test_results, args.xpassed
-            )
-            # Write to file if in-place, otherwise print
-            setup_yaml()
-            if args.in_place:
-                with open(args.update_xfail_list, "w") as f:
-                    yaml.dump(
-                        xfail_list, f, sort_keys=False, width=float("inf")
-                    )
-                print(f"Updated {args.update_xfail_list}")
-            else:
-                print(
-                    yaml.dump(xfail_list, sort_keys=False, width=float("inf"))
-                )
-        else:
-            # Generate new xfail list
-            xfail_list = []
-            count = 0
-            for test_id, result in test_results.items():
-                if args.limit is not None and count >= args.limit:
-                    break
-                if result["status"] in ("fail", "xfail"):
-                    if not xfail_list:
-                        xfail_list.append(
-                            OrderedDict(
-                                [
-                                    ("reason", "Test fails with cuml.accel"),
-                                    ("strict", True),
-                                    ("tests", []),
-                                ]
-                            )
+        # Generate xfail list output
+        xfail_list = []
+        count = 0
+        for test_id, result in test_results.items():
+            # Apply filter first
+            if not matches_filter(test_id, args.filter_pattern):
+                continue
+            if args.limit is not None and count >= args.limit:
+                break
+            if result["status"] in ("fail", "xfail"):
+                if not xfail_list:
+                    xfail_list.append(
+                        OrderedDict(
+                            [
+                                ("reason", "Test fails with cuml.accel"),
+                                ("strict", True),
+                                ("tests", []),
+                            ]
                         )
-                    xfail_list[0]["tests"].append(test_id)
-                    count += 1
-            if xfail_list:
-                xfail_list[0]["tests"].sort()
-            # Print to stdout
-            setup_yaml()
-            print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))
+                    )
+                xfail_list[0]["tests"].append(test_id)
+                count += 1
+        if xfail_list:
+            xfail_list[0]["tests"].sort()
+        # Print to stdout
+        setup_yaml()
+        print(yaml.dump(xfail_list, sort_keys=False, width=float("inf")))
         return
 
     # Print summary
@@ -535,7 +426,10 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
-                test_id = get_test_id(testcase)
+                test_id = get_test_id(testcase, args.test_id_prefix)
+                # Apply filter
+                if not matches_filter(test_id, args.filter_pattern):
+                    continue
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
@@ -544,9 +438,9 @@ def main():
                 if "XPASS" in msg:
                     continue  # Skip xpassed tests in failure list
                 elif msg == "xfail":
-                    print(f"  {test_id} (xfail)")
+                    print(f'  "{test_id}" (xfail)')
                 else:
-                    print(f"  {test_id}")
+                    print(f'  "{test_id}"')
                 count += 1
 
     # List strict xpasses in verbose mode
@@ -560,14 +454,17 @@ def main():
             failure = testcase.find("failure")
             error = testcase.find("error")
             if failure is not None or error is not None:
+                test_id = get_test_id(testcase, args.test_id_prefix)
+                # Apply filter
+                if not matches_filter(test_id, args.filter_pattern):
+                    continue
                 msg = ""
                 if failure is not None and failure.get("message") is not None:
                     msg = failure.get("message")
                 elif error is not None and error.get("message") is not None:
                     msg = error.get("message")
                 if "XPASS(strict)" in msg:
-                    test_id = get_test_id(testcase)
-                    print(f"  {test_id}")
+                    print(f'  "{test_id}"')
                     count += 1
 
     # Check threshold

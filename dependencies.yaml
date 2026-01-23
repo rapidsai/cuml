@@ -454,16 +454,31 @@ dependencies:
           - *cmake_ver
   test_python:
     specific:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         matrices:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
+              - ipython==7.32.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
+              - ipython==8.37.0
+          - matrix: {dependencies: "nightly"}
+            packages:
+              # Pre-release specifier tells pip to accept dev/alpha/beta versions
+              - scikit-learn>=1.5.0a0
           - matrix:
+            packages:
+              - *scikit_learn
+              - ipython>=7.32.0
+      - output_types: requirements
+        matrices:
+          - matrix: {dependencies: "nightly"}
+            packages:
+              - --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+          - matrix:  # fallback for non-nightly dependencies
             packages:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -484,7 +499,6 @@ dependencies:
           - pytest-cov
           - pytest-xdist
           - seaborn
-          - *scikit_learn
           - statsmodels
           - umap-learn==0.5.7
           - pynndescent

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,6 +30,7 @@
 
 #include <rmm/device_buffer.hpp>
 
+#include <cuda/std/tuple>
 #include <cuda_runtime.h>
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -41,7 +42,6 @@
 #include <thrust/remove.h>
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <thrust/tuple.h>
 
 #include <memory>
 #include <type_traits>
@@ -123,16 +123,16 @@ void trim_graph(const raft::handle_t& handle, raft::sparse::COO<value_t>& graph,
   value_t threshold = get_threshold(handle, graph, n_epochs);
 
   auto zipped_begin =
-    thrust::make_zip_iterator(thrust::make_tuple(graph.rows(), graph.cols(), graph.vals()));
+    thrust::make_zip_iterator(cuda::std::make_tuple(graph.rows(), graph.cols(), graph.vals()));
   auto zipped_end = zipped_begin + graph.nnz;
 
   using row_type   = typename std::remove_pointer<decltype(graph.rows())>::type;
   using col_type   = typename std::remove_pointer<decltype(graph.cols())>::type;
-  using tuple_type = thrust::tuple<row_type, col_type, value_t>;
+  using tuple_type = cuda::std::tuple<row_type, col_type, value_t>;
 
   auto new_end = thrust::remove_if(
     exec, zipped_begin, zipped_end, [threshold] __host__ __device__(const tuple_type& t) {
-      return thrust::get<2>(t) < threshold;
+      return cuda::std::get<2>(t) < threshold;
     });
 
   auto new_nnz = static_cast<decltype(graph.nnz)>(thrust::distance(zipped_begin, new_end));

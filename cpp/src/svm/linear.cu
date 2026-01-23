@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -27,12 +27,12 @@
 
 #include <cuda/functional>
 #include <cuda/std/functional>
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/tuple.h>
 
 #include <cublas_v2.h>
 #include <omp.h>
@@ -322,8 +322,8 @@ int fit(const raft::handle_t& handle,
   }
   RAFT_CUDA_TRY(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
   if (probScale != nullptr) {
-    thrust::device_ptr<thrust::tuple<T, T>> p((thrust::tuple<T, T>*)ps1);
-    thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, thrust::make_tuple(T(1), T(0)));
+    thrust::device_ptr<cuda::std::tuple<T, T>> p((cuda::std::tuple<T, T>*)ps1);
+    thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, cuda::std::make_tuple(T(1), T(0)));
   }
 
   // one-vs-rest logic goes over each class
