@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from itertools import batched
-
 import cudf
 import cupy as cp
 import numpy as np
@@ -814,7 +812,7 @@ def test_variadic_input_type_preservation(arrays):
     assert len(result) == len(arrays) * 2
 
     # Check sizes and types of each output pair
-    for input_arr, (train, test) in zip(arrays, batched(result, 2)):
+    for input_arr, train, test in zip(arrays, result[::2], result[1::2]):
         expected_type = type(input_arr)
 
         assert isinstance(train, expected_type)
