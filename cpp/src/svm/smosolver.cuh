@@ -216,7 +216,8 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
     n_iter,
     diff_prev);
 
-  Results<math_t, MatrixViewType> res(handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType);
+  Results<math_t, MatrixViewType> res(
+    handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType, is_precomputed);
   res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, support_matrix, b);
 
   ReleaseBuffers();

@@ -54,6 +54,8 @@ class Results {
    * @param n_rows number of training vectors
    * @param n_cols number of features
    * @param C penalty parameter
+   * @param is_precomputed if true, input is a precomputed kernel matrix;
+   *   support_vectors_ will be empty since prediction uses the input kernel directly
    */
   Results(const raft::handle_t& handle,
           MatrixViewType matrix,
@@ -61,7 +63,8 @@ class Results {
           int n_cols,
           const math_t* y,
           const math_t* C,
-          SvmType svmType)
+          SvmType svmType,
+          bool is_precomputed = false)
     : rmm_alloc(rmm::mr::get_current_device_resource_ref()),
       stream(handle.get_stream()),
       handle(handle),
@@ -71,6 +74,7 @@ class Results {
       y(y),
       C(C),
       svmType(svmType),
+      is_precomputed(is_precomputed),
       n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
       cub_storage(0, stream),
       d_num_selected(stream),
@@ -133,11 +137,19 @@ class Results {
    * @param [in] idx indices of support vectors, size [n_support]
    * @param [in] n_support number of support vectors
    * @return pointer to a newly allocated device buffer that stores the support
-   *   vectors, size [n_suppor*n_cols]
+   *   vectors, size [n_support*n_cols]. For precomputed kernels, returns an
+   *   empty storage since support_vectors_ is not meaningful (prediction uses
+   *   the input kernel matrix directly).
    */
   SupportStorage<math_t> CollectSupportVectorMatrix(const int* idx, int n_support)
   {
     SupportStorage<math_t> support_matrix;
+
+    // For precomputed kernels, skip storing support vectors.
+    // The prediction path extracts values directly from the input kernel matrix,
+    // so storing K[support, :] would be wasted memory.
+    if (is_precomputed) { return support_matrix; }
+
     // allow ~1GB dense support matrix
     if (isDenseType<MatrixViewType>() ||
         ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
@@ -300,6 +312,7 @@ class Results {
   const math_t* y;        //!< labels
   const math_t* C;        //!< penalty parameter
   SvmType svmType;        //!< SVM problem type: SVC or SVR
+  bool is_precomputed;    //!< if true, input is precomputed kernel matrix
   int n_train;            //!< number of training vectors (including duplicates for SVR)
 
   const int TPB = 256;  // threads per block
