@@ -30,9 +30,12 @@ class SVR(SVMBase, RegressorMixin):
         Penalty parameter C
     kernel : string (default='rbf')
         Specifies the kernel function. Possible options: 'linear', 'poly',
-        'rbf', 'sigmoid', 'precomputed'. For 'precomputed', the input X
-        should be the precomputed kernel matrix (n_samples x n_samples)
-        during fit, and (n_samples_test x n_samples_train) during predict.
+        'rbf', 'sigmoid', 'precomputed'. When using 'precomputed', X is
+        expected to be a precomputed kernel matrix of shape
+        (n_samples, n_samples) at fit time, and (n_samples_test,
+        n_samples_train) at predict time. A valid kernel matrix should be
+        symmetric and positive semi-definite; cuML does not validate these
+        properties.
     degree : int (default=3)
         Degree of polynomial kernel function.
     gamma : float or string (default = 'scale')
