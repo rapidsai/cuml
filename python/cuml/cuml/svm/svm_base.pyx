@@ -333,6 +333,10 @@ class SVMBase(Base,
     def coef_(self):
         if self.kernel != "linear":
             raise AttributeError("coef_ is only available for linear kernels")
+        # Handle the no-support-vectors case: return zeros with correct shape
+        if self.n_support_ == 0:
+            n_features = self.shape_fit_[1]
+            return CumlArray.zeros((1, n_features), dtype=self.dual_coef_.dtype)
         dual_coef = self.dual_coef_.to_output("cupy")
         support_vectors = self.support_vectors_.to_output("cupy")
         return CumlArray(data=dual_coef @ support_vectors)
@@ -534,7 +538,11 @@ class SVMBase(Base,
         assert self.support_vectors_.dtype == X.dtype
         assert self.dual_coef_.dtype == X.dtype
         assert self.intercept_.dtype == X.dtype
-        assert X.shape[1] == self.support_vectors_.shape[1]
+        # For precomputed kernels, X columns = training samples; otherwise X columns = features
+        if self.kernel == "precomputed":
+            assert X.shape[1] == self.shape_fit_[0]
+        else:
+            assert X.shape[1] == self.shape_fit_[1]
 
         support_vectors = self.support_vectors_
 
@@ -555,11 +563,14 @@ class SVMBase(Base,
         )
 
         # Setup SvmModel of proper type
+        # Use shape_fit_[1] for n_cols to handle the no-support-vectors case correctly
+        # (support_vectors.shape[1] would be 0 when there are no support vectors)
+        cdef int n_cols_fit = self.shape_fit_[1]
         cdef lib.SvmModel[float] model_f
         cdef lib.SvmModel[double] model_d
         if is_float32:
             model_f.n_support = self.support_.shape[0]
-            model_f.n_cols = support_vectors.shape[1]
+            model_f.n_cols = n_cols_fit
             model_f.b = self.intercept_.item()
             model_f.dual_coefs = <float*><uintptr_t>self.dual_coef_.ptr
             model_f.support_idx = <int*><uintptr_t>self.support_.ptr
@@ -569,7 +580,7 @@ class SVMBase(Base,
             model_f.support_matrix.data = <float*>support_data_ptr
         else:
             model_d.n_support = self.support_.shape[0]
-            model_d.n_cols = support_vectors.shape[1]
+            model_d.n_cols = n_cols_fit
             model_d.b = self.intercept_.item()
             model_d.dual_coefs = <double*><uintptr_t>self.dual_coef_.ptr
             model_d.support_idx = <int*><uintptr_t>self.support_.ptr

@@ -243,7 +243,7 @@ class SVR(SVMBase, RegressorMixin):
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.support_vectors_.shape[1],
+                check_cols=self.shape_fit_[1],  # Number of features
             ).array
 
         return self._predict(X)
