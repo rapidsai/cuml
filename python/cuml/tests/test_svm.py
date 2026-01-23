@@ -919,3 +919,87 @@ def test_svr_precomputed_kernel_validation():
     cuml_reg = cu_svm.SVR(kernel="precomputed")
     with pytest.raises(ValueError, match="square"):
         cuml_reg.fit(cp.asarray(K_nonsquare), cp.asarray(y))
+
+
+@pytest.mark.parametrize("n_classes", [3, 4])
+@pytest.mark.parametrize("kernel_func", ["linear", "rbf"])
+def test_svc_precomputed_multiclass_ovr(n_classes, kernel_func):
+    """Test SVC with precomputed kernel for multiclass using OneVsRest.
+
+    OneVsRest uses all samples for each binary classifier (one class vs rest),
+    so the kernel matrix is NOT subsetted and remains square. This works with
+    precomputed kernels, unlike OneVsOne which subsets to class pairs.
+    """
+    X, y = make_blobs(
+        n_samples=100, n_features=10, centers=n_classes, random_state=42
+    )
+    X = X.astype(np.float64)
+    y = y.astype(np.int32)
+
+    # Compute kernel matrix
+    if kernel_func == "linear":
+        K = X @ X.T
+    else:  # rbf
+        gamma = 0.1
+        sq_dists = (
+            np.sum(X**2, axis=1, keepdims=True)
+            + np.sum(X**2, axis=1)
+            - 2 * X @ X.T
+        )
+        K = np.exp(-gamma * sq_dists)
+
+    # Convert to cupy
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # Fit sklearn with OvR
+    sklearn_clf = svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovr"
+    )
+    sklearn_clf.fit(K, y)
+    sklearn_preds = sklearn_clf.predict(K)
+    sklearn_accuracy = np.mean(sklearn_preds == y)
+
+    # Fit cuML with OvR (uses OneVsRestClassifier which doesn't subset samples)
+    cuml_clf = cu_svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovr"
+    )
+    cuml_clf.fit(K_cp, y_cp)
+    cuml_preds = cp.asnumpy(cuml_clf.predict(K_cp))
+    cuml_accuracy = np.mean(cuml_preds == y)
+
+    # Both should achieve high accuracy on well-separated data
+    assert sklearn_accuracy > 0.9, (
+        f"sklearn accuracy too low: {sklearn_accuracy}"
+    )
+    assert cuml_accuracy > 0.9, f"cuML accuracy too low: {cuml_accuracy}"
+
+    # Predictions should match
+    assert np.array_equal(sklearn_preds, cuml_preds), (
+        f"Predictions don't match for {n_classes}-class {kernel_func} kernel. "
+        f"sklearn acc: {sklearn_accuracy}, cuML acc: {cuml_accuracy}"
+    )
+
+
+def test_svc_precomputed_multiclass_ovo_fails():
+    """Test that precomputed kernel with OvO multiclass fails as expected.
+
+    OneVsOne subsets samples to class pairs, resulting in non-square kernel
+    matrices which are invalid for precomputed kernels.
+    """
+    X, y = make_blobs(n_samples=90, n_features=5, centers=3, random_state=42)
+    X = X.astype(np.float64)
+    y = y.astype(np.int32)
+
+    # Compute linear kernel matrix
+    K = X @ X.T
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # OvO with precomputed kernel should fail because OneVsOneClassifier
+    # subsets rows but not columns, resulting in non-square matrices
+    cuml_clf = cu_svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovo"
+    )
+    with pytest.raises(ValueError, match="square"):
+        cuml_clf.fit(K_cp, y_cp)
