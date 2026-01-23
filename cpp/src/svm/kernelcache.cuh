@@ -710,7 +710,7 @@ class KernelCache {
         // Input matrix is column-major: K[row, col] = K[row + col * n_rows]
         // Output tile_new is column-major: tile_new[i, j] = tile_new[i + j * batch_size]
         if constexpr (isDenseType<MatrixViewType>()) {
-          math_t* matrix_data = getDenseData(matrix);
+          const math_t* matrix_data = getDenseData(matrix);
           thrust::counting_iterator<int> iter(0);
           int n_elems     = batch_size * n_uncached;
           int matrix_rows = n_rows;  // Copy member to local for lambda capture

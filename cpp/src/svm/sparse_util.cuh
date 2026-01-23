@@ -397,15 +397,15 @@ constexpr bool isDenseType()
 }
 
 /**
- * @brief Get raw data pointer from a dense matrix view
+ * @brief Get raw data pointer from a dense matrix view (read-only access)
  *
  * @param [in] matrix dense matrix view
- * @return pointer to the underlying data
+ * @return const pointer to the underlying data
  */
 template <typename math_t>
-math_t* getDenseData(raft::device_matrix_view<math_t, int, raft::layout_stride> matrix)
+const math_t* getDenseData(raft::device_matrix_view<math_t, int, raft::layout_stride> matrix)
 {
-  return const_cast<math_t*>(matrix.data_handle());
+  return matrix.data_handle();
 }
 
 /**

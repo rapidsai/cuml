@@ -267,9 +267,9 @@ void svcPredictX(const raft::handle_t& handle,
       // For precomputed kernels, matrix contains K[test, train] of shape (n_rows, n_cols)
       // where n_cols = n_train. We need to extract K[test, support_indices].
       if (model.n_support > 0) {
-        math_t* matrix_data = getDenseData(matrix);
-        int* support_idx    = model.support_idx;
-        int n_support       = model.n_support;
+        const math_t* matrix_data = getDenseData(matrix);
+        int* support_idx          = model.support_idx;
+        int n_support             = model.n_support;
 
         // Process in batches
         for (int i = 0; i < n_rows; i += n_batch) {
