@@ -91,10 +91,14 @@ def train_test_split(
     Notes
     -----
     .. versionchanged:: 26.02
+        The names and the order of the optional keyword arguments was changed to
+        match the scikit-learn equivalent function. The ``y`` parameter was
+        deprecated (see above).
+
+    .. versionchanged:: 26.02
         Output types now consistently match input types. Previously, pandas
         inputs were converted to cudf outputs. Now pandas inputs return pandas
         outputs, cudf inputs return cudf outputs.
-
     """
     if len(arrays) == 0:
         raise ValueError("At least one array required as input")
