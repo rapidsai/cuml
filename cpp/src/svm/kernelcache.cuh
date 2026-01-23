@@ -51,28 +51,23 @@ namespace {  // unnamed namespace to avoid multiple definition error
  * @param [out] dst destination matrix, size [n_rows_src x n_cols_dst]
  * @param [in] src source matrix, size [n_rows_src x n_cols_src]
  * @param [in] n_rows_src number of rows in source matrix
- * @param [in] n_cols_src number of columns in source matrix
  * @param [in] col_indices column indices to extract, size [n_cols_dst]
  * @param [in] n_cols_dst number of columns to extract
  */
 template <typename math_t>
-CUML_KERNEL void extractColumnsKernel(math_t* dst,
-                                      const math_t* src,
-                                      int n_rows_src,
-                                      int n_cols_src,
-                                      const int* col_indices,
-                                      int n_cols_dst)
+CUML_KERNEL void extractColumnsKernel(
+  math_t* dst, const math_t* src, int n_rows_src, const int* col_indices, int n_cols_dst)
 {
-  int tid   = threadIdx.x + blockIdx.x * blockDim.x;
-  int total = n_rows_src * n_cols_dst;
+  int64_t tid   = static_cast<int64_t>(threadIdx.x) + static_cast<int64_t>(blockIdx.x) * blockDim.x;
+  int64_t total = static_cast<int64_t>(n_rows_src) * n_cols_dst;
   if (tid < total) {
-    int row     = tid % n_rows_src;
-    int col     = tid / n_rows_src;
+    int64_t row = tid % n_rows_src;
+    int64_t col = tid / n_rows_src;
     int src_col = col_indices[col];
     // Both source and destination are column-major:
     // src[row, col] = src[row + col * n_rows_src]
     // dst[row, col] = dst[row + col * n_rows_src] = dst[tid]
-    dst[tid] = src[row + src_col * n_rows_src];
+    dst[tid] = src[row + static_cast<int64_t>(src_col) * n_rows_src];
   }
 }
 
@@ -80,7 +75,6 @@ template <typename math_t>
 void extractColumnsForPrecomputed(math_t* dst,
                                   const math_t* src,
                                   int n_rows_src,
-                                  int n_cols_src,
                                   const int* col_indices,
                                   int n_cols_dst,
                                   cudaStream_t stream)
@@ -89,7 +83,7 @@ void extractColumnsForPrecomputed(math_t* dst,
   int TPB      = 256;
   int n_blocks = raft::ceildiv(total, TPB);
   extractColumnsKernel<math_t>
-    <<<n_blocks, TPB, 0, stream>>>(dst, src, n_rows_src, n_cols_src, col_indices, n_cols_dst);
+    <<<n_blocks, TPB, 0, stream>>>(dst, src, n_rows_src, col_indices, n_cols_dst);
 }
 
 /**
@@ -568,7 +562,7 @@ class KernelCache {
       // We need to extract columns ws to get K[ws, ws]
       // Since n_cols == n_rows for precomputed, we extract columns using ws_idx_mod
       extractColumnsForPrecomputed(
-        kernel_tile.data(), x_ws_dense.data(), n_ws, n_cols, ws_idx_mod.data(), n_ws, stream);
+        kernel_tile.data(), x_ws_dense.data(), n_ws, ws_idx_mod.data(), n_ws, stream);
     } else {
       // extract dot array for RBF
       if (kernel_type == cuvs::distance::kernels::KernelType::RBF) {
