@@ -113,9 +113,16 @@ cdef class _SVMModel:
         intercept = CumlArray.full(1, b, dtype=dtype)
 
         if nnz == -1:
-            support_vectors = CumlArray(
-                data=self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
-            )
+            # For precomputed kernels, data_ptr is null (0) and support_vectors
+            # should be empty, consistent with sklearn's behavior
+            if data_ptr == 0:
+                support_vectors = CumlArray(
+                    data=cp.empty(shape=(0, 0), dtype=dtype, order="F")
+                )
+            else:
+                support_vectors = CumlArray(
+                    data=self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
+                )
         else:
             indptr = self._ptr_as_cupy(indptr_ptr, (n_support + 1,), np.int32)
             indices = self._ptr_as_cupy(indices_ptr, (nnz,), np.int32)

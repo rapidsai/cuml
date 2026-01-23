@@ -134,7 +134,9 @@ class SVC(SVMBase, ClassifierMixin):
     support_ : int, shape = (n_support)
         Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
-        Device array of support vectors
+        Device array of support vectors. For kernel='precomputed', this
+        attribute is empty (shape (0, 0)) since the original feature vectors
+        are not available.
     dual_coef_ : float, shape = (1, n_support)
         Device array of coefficients for support vectors
     intercept_ : float
