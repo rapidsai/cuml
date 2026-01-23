@@ -2,16 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from itertools import batched
 
 import cudf
 import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import example, given
+from hypothesis import strategies as st
 from numba import cuda
 
 from cuml.datasets import make_classification
 from cuml.model_selection import train_test_split
+from cuml.testing.strategies import cuml_array_inputs
 
 test_seeds = ["int", "cupy", "numpy"]
 
@@ -776,3 +780,49 @@ def test_shuffle_false_preserves_order():
     # First 80 should be in train, last 20 in test
     cp.testing.assert_array_equal(X_train.flatten(), cp.arange(80))
     cp.testing.assert_array_equal(X_test.flatten(), cp.arange(80, 100))
+
+
+def test_zero_arrays_raises():
+    """Test that train_test_split with 0 arrays raises ValueError."""
+    with pytest.raises(ValueError, match="At least one array required"):
+        train_test_split()
+
+
+@example(arrays=[cp.arange(100).reshape(100, 1)])
+@example(arrays=[cp.arange(100).reshape(100, 1), cudf.Series(range(100))])
+@given(
+    arrays=st.lists(
+        cuml_array_inputs(
+            dtypes=st.just(np.float32),
+            shapes=st.just((100,)),
+        ),
+        min_size=1,
+        max_size=5,
+    )
+)
+def test_variadic_input_type_preservation(arrays):
+    """Test train_test_split with variable array inputs of mixed types."""
+
+    n_samples = len(arrays[0])
+    test_size = 0.2
+    train_samples = int(n_samples * (1 - test_size))
+    test_samples = n_samples - train_samples
+
+    result = train_test_split(*arrays, test_size=test_size, shuffle=False)
+
+    # Check number of outputs (2 per input array)
+    assert len(result) == len(arrays) * 2
+
+    # Check sizes and types of each output pair
+    for input_arr, (train, test) in zip(arrays, batched(result, 2)):
+        expected_type = type(input_arr)
+
+        assert isinstance(train, expected_type)
+        assert isinstance(test, expected_type)
+
+        if hasattr(train, "shape"):
+            assert train.shape[0] == train_samples
+            assert test.shape[0] == test_samples
+        else:
+            assert len(train) == train_samples
+            assert len(test) == test_samples
