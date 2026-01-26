@@ -75,11 +75,6 @@ class TargetEncoder(Base, InteropMixin):
           behavior). Produces N output columns, one per input feature,
           each containing encodings based only on that feature's
           relationship with the target.
-
-        When running under ``cuml.accel``, this is automatically set to
-        ``'independent'`` regardless of the specified value, to ensure
-        compatibility with sklearn's semantics.
-
         For single-feature input, both modes produce identical results.
 
     Attributes
@@ -344,9 +339,6 @@ class TargetEncoder(Base, InteropMixin):
         return CumlArray(res)
 
     def _fit_transform(self, x, y, fold_ids):
-        """
-        Core function of target encoding
-        """
         cp.random.seed(self.seed)
         train = self._data_with_strings_to_cudf_dataframe(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
@@ -363,24 +355,35 @@ class TargetEncoder(Base, InteropMixin):
             unique_vals = unique_vals.sort_values()
             self.categories_.append(unique_vals.values)
 
-        # Resolve multi-feature mode (accel overrides to 'independent')
-        resolved_mode = self._resolve_multi_feature_mode()
-        self._resolved_multi_feature_mode = resolved_mode
+        if self.multi_feature_mode not in {"combination", "independent"}:
+            raise ValueError(
+                f"multi_feature_mode should be 'combination' or 'independent', "
+                f"got '{self.multi_feature_mode}'."
+            )
 
-        # For multi-feature independent mode, encode each feature separately
-        if len(x_cols) > 1 and resolved_mode == "independent":
+        # Delegate to appropriate method based on mode and stat
+        if len(x_cols) > 1 and self.multi_feature_mode == "independent":
             return self._fit_transform_independent(train, x_cols, y, fold_ids)
+        elif self.stat == "median":
+            return self._fit_transform_median(train, x_cols, y, fold_ids)
+        else:
+            return self._fit_transform_combination(train, x_cols, y, fold_ids)
 
+    def _fit_transform_combination(self, train, x_cols, y, fold_ids):
+        """
+        Fit-transform with combination encoding (cuML native behavior).
+
+        Encodes all feature combinations together, producing a single output
+        column with encodings based on the joint distribution of all features.
+        """
         train[self.y_col] = self._make_y_column(y)
 
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
 
         self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
-        if self.stat in ["median"]:
-            return self._fit_transform_for_loop(train, x_cols)
-
         self.mean = train[self.y_col].mean()
+
         if self.stat == "var":
             y_cols = [self.y_col, self.y_col2]
             train[self.y_col2] = self._make_y_column(y * y)
@@ -396,11 +399,8 @@ class TargetEncoder(Base, InteropMixin):
             train, x_cols, op="sum", y_cols=y_cols
         )
 
-        """
-        Note:
-            encode_each_fold is used to encode train data.
-            encode_all is used to encode test data.
-        """
+        # encode_each_fold is used to encode train data
+        # encode_all is used to encode test data
         cols = [self.fold_col] + x_cols
         encode_each_fold = self._compute_output(
             y_sum_each_fold,
@@ -419,7 +419,21 @@ class TargetEncoder(Base, InteropMixin):
         del encode_each_fold
         return self._impute_and_sort(train), train
 
-    def _fit_transform_for_loop(self, train, x_cols):
+    def _fit_transform_median(self, train, x_cols, y, fold_ids):
+        """
+        Fit-transform with median stat using a for-loop approach.
+
+        Median requires computing the statistic per fold separately,
+        which cannot be vectorized like mean/var.
+        """
+        train[self.y_col] = self._make_y_column(y)
+
+        self.n_folds = min(self.n_folds, len(train))
+        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
+
+        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
+        self.mean = train[self.y_col].mean()
+
         def _rename_col(df, col):
             df.columns = [col]
             return df.reset_index()
@@ -454,7 +468,6 @@ class TargetEncoder(Base, InteropMixin):
         self.mean = train[self.y_col].mean()
         self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
 
-        # Store per-feature encodings (matching sklearn's encodings_ structure)
         self._encodings_per_feature = []
         self._encode_all_per_feature = []
         result_cols = []
@@ -462,7 +475,6 @@ class TargetEncoder(Base, InteropMixin):
         for i, col in enumerate(x_cols):
             out_col_i = f"{self.out_col}_{i}"
 
-            # Compute encoding for this feature only
             if self.stat in ["median"]:
                 # Use for-loop approach for median
                 encode_all_i = self._compute_single_feature_encoding_median(
@@ -704,27 +716,6 @@ class TargetEncoder(Base, InteropMixin):
         df[self.id_col] = cp.arange(len(x))
         return df.reset_index(drop=True)
 
-    def _resolve_multi_feature_mode(self):
-        """Resolve multi-feature mode, with accel override.
-
-        When cuml.accel is active, always use 'independent' mode for
-        sklearn compatibility, regardless of what the user specified.
-        """
-        if self.multi_feature_mode not in {"combination", "independent"}:
-            raise ValueError(
-                f"multi_feature_mode should be 'combination' or 'independent', "
-                f"got '{self.multi_feature_mode}'."
-            )
-
-        try:
-            from cuml.accel import enabled
-
-            if enabled():
-                return "independent"
-        except ImportError:
-            pass
-        return self.multi_feature_mode
-
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
@@ -738,12 +729,14 @@ class TargetEncoder(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        # Use independent mode when converting from sklearn to match sklearn semantics
         params = {
             "n_folds": model.cv,
             "seed": 42 if model.random_state is None else model.random_state,
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
+            "multi_feature_mode": "independent",
         }
         return params
 
@@ -800,7 +793,6 @@ class TargetEncoder(Base, InteropMixin):
                 to_gpu(enc) for enc in model.encodings_
             ],
             "_independent_mode_fitted": independent_mode,
-            "_resolved_multi_feature_mode": "independent",
             "categories_": categories_gpu,
             "_x_cols": x_cols,
             "mean": float(model.target_mean_),
@@ -815,8 +807,8 @@ class TargetEncoder(Base, InteropMixin):
         """Convert cuML TargetEncoder attributes to sklearn format.
 
         sklearn expects independent per-feature encodings. If cuML was fitted
-        in independent mode, we have exact encodings. If fitted in combination
-        mode with multiple features, we approximate by averaging.
+        in independent mode, we have exact encodings. Multi-feature combination
+        mode cannot be converted to sklearn.
         """
         categories_cpu = [to_cpu(cat) for cat in self.categories_]
         n_features = len(self.categories_)
@@ -826,31 +818,28 @@ class TargetEncoder(Base, InteropMixin):
             encodings_list = [
                 to_cpu(enc) for enc in self._encodings_per_feature
             ]
+        elif n_features == 1:
+            # Single feature: extract encodings directly (exact conversion)
+            col = self._x_cols[0]
+            cats = self.categories_[0]
+            feature_encodings = []
+            for cat_val in cats:
+                mask = self.encode_all[col] == cat_val
+                if mask.any():
+                    enc_val = float(
+                        self.encode_all.loc[mask, self.out_col].iloc[0]
+                    )
+                else:
+                    enc_val = float(self.mean)
+                feature_encodings.append(enc_val)
+            encodings_list = [np.array(feature_encodings)]
         else:
-            # Extract per-feature encodings from combination-mode encode_all
-            if n_features > 1:
-                warnings.warn(
-                    "Converting multi-feature cuML TargetEncoder (combination "
-                    "mode) to sklearn requires approximation. Consider using "
-                    "multi_feature_mode='independent' for exact conversion.",
-                    UserWarning,
-                )
-
-            encodings_list = []
-            for i, (col, cats) in enumerate(
-                zip(self._x_cols, self.categories_)
-            ):
-                feature_encodings = []
-                for cat_val in cats:
-                    mask = self.encode_all[col] == cat_val
-                    if mask.any():
-                        enc_val = float(
-                            self.encode_all.loc[mask, self.out_col].mean()
-                        )
-                    else:
-                        enc_val = float(self.mean)
-                    feature_encodings.append(enc_val)
-                encodings_list.append(np.array(feature_encodings))
+            # Multi-feature combination mode cannot be converted to sklearn
+            raise ValueError(
+                "Cannot convert multi-feature cuML TargetEncoder fitted with "
+                "multi_feature_mode='combination' to sklearn. Use "
+                "multi_feature_mode='independent' for sklearn compatibility."
+            )
 
         return {
             "encodings_": encodings_list,
