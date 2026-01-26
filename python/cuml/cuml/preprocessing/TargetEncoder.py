@@ -75,6 +75,7 @@ class TargetEncoder(Base, InteropMixin):
           behavior). Produces N output columns, one per input feature,
           each containing encodings based only on that feature's
           relationship with the target.
+
         For single-feature input, both modes produce identical results.
 
     Attributes
@@ -183,13 +184,13 @@ class TargetEncoder(Base, InteropMixin):
         self.multi_feature_mode = multi_feature_mode
 
     @reflect(reset=True)
-    def fit(self, x, y, fold_ids=None):
+    def fit(self, X, y, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
 
         Parameters
         ----------
-        x : cudf.Series or cudf.DataFrame or cupy.ndarray
+        X : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
@@ -213,7 +214,7 @@ class TargetEncoder(Base, InteropMixin):
                 "or cupy.ndarray"
             )
 
-        if len(x) == 0:
+        if len(X) == 0:
             raise ValueError(
                 "Found array with 0 sample(s) while a minimum of 1 is "
                 "required."
@@ -231,21 +232,21 @@ class TargetEncoder(Base, InteropMixin):
                 "split_method is set to 'customize'"
                 "since `fold_ids` are provided."
             )
-        if fold_ids is not None and len(fold_ids) != len(x):
+        if fold_ids is not None and len(fold_ids) != len(X):
             raise ValueError(
                 f"`fold_ids` length {len(fold_ids)}"
                 "is different from input data length"
-                f"{len(x)}"
+                f"{len(X)}"
             )
 
-        res, train = self._fit_transform(x, y, fold_ids=fold_ids)
+        res, train = self._fit_transform(X, y, fold_ids=fold_ids)
         self.train_encode = res
         self.train = train
         self._fitted = True
         return self
 
     @reflect
-    def fit_transform(self, x, y, fold_ids=None) -> CumlArray:
+    def fit_transform(self, X, y, fold_ids=None) -> CumlArray:
         """
         Simultaneously fit and transform an input
 
@@ -254,7 +255,7 @@ class TargetEncoder(Base, InteropMixin):
 
         Parameters
         ----------
-        x : cudf.Series or cudf.DataFrame or cupy.ndarray
+        X : cudf.Series or cudf.DataFrame or cupy.ndarray
            categories to be encoded. It's elements may or may
            not be unique
         y : cudf.Series or cupy.ndarray
@@ -271,11 +272,11 @@ class TargetEncoder(Base, InteropMixin):
             The ordinally encoded input series
 
         """
-        self.fit(x, y, fold_ids=fold_ids)
+        self.fit(X, y, fold_ids=fold_ids)
         return self.train_encode
 
     @reflect
-    def transform(self, x) -> CumlArray:
+    def transform(self, X) -> CumlArray:
         """
         Transform an input into its categorical keys.
 
@@ -284,7 +285,7 @@ class TargetEncoder(Base, InteropMixin):
 
         Parameters
         ----------
-        x : cudf.Series
+        X : cudf.Series
             Input keys to be transformed. Its values doesn't have to
             match the categories given to `fit`
 
@@ -295,7 +296,7 @@ class TargetEncoder(Base, InteropMixin):
 
         """
         self._check_is_fitted()
-        test = self._data_with_strings_to_cudf_dataframe(x)
+        test = self._data_with_strings_to_cudf_dataframe(X)
 
         # Check feature dimensions match
         x_cols = [i for i in test.columns.tolist() if i != self.id_col]
