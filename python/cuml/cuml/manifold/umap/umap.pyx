@@ -1575,7 +1575,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
-        params.initial_alpha = self.learning_rate / 4.0
 
         handle = get_handle(model=self, device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

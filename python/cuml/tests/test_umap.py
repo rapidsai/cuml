@@ -17,7 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import KDTree, NearestNeighbors
 
 import cuml
 from cuml.internals import GraphBasedDimRedCallback
@@ -1131,8 +1131,6 @@ def test_umap_sigmas_rhos():
 
 def test_inverse_transform():
     """Test cuML UMAP inverse_transform produces valid output."""
-    from sklearn.neighbors import KDTree
-
     X, _ = make_blobs(n_samples=200, n_features=10, centers=4, random_state=42)
     X = X.astype(np.float32)
 
