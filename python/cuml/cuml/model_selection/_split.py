@@ -1,416 +1,204 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union
 
 import cudf
 import cupy as cp
-import numpy as np
+from numba import cuda as numba_cuda
+from sklearn.model_selection import (
+    train_test_split as sklearn_train_test_split,
+)
 
 from cuml.common import input_to_cuml_array
-from cuml.internals.array import CumlArray, array_to_memory_order
-from cuml.internals.input_utils import (
-    determine_array_type,
-    determine_df_obj_type,
-)
-from cuml.internals.output_utils import output_to_df_obj_like
+from cuml.internals.input_utils import input_to_host_array
 from cuml.internals.utils import check_random_seed
 
 
-def _compute_stratify_split_indices(
-    indices: cp.ndarray,
-    stratify: CumlArray,
-    n_train: int,
-    n_test: int,
-    random_state: cp.random.RandomState,
-) -> Tuple[cp.ndarray]:
-    """
-    Compute the indices for stratified split based on stratify keys.
-    Based on scikit-learn stratified split implementation.
-
-    Parameters
-    ----------
-    indices: cupy array
-        Indices used to shuffle input data
-    stratify: CumlArray
-        Keys used for stratification
-    n_train: Number of samples in train set
-    n_test: number of samples in test set
-    random_state: cupy RandomState
-        Random state used for shuffling stratify keys
-
-    Returns
-    -------
-    train_indices, test_indices:
-        Indices of inputs from which train and test sets are gathered
-    """
-
-    if indices.ndim != 1:
-        raise ValueError(
-            "Expected one one dimension for indices, but found array"
-            "with shape = %d" % (indices.shape)
-        )
-
-    if stratify.ndim != 1:
-        raise ValueError(
-            "Expected one one dimension for stratify, but found array"
-            "with shape = %d" % (stratify.shape)
-        )
-
-    # Converting to cupy array removes the need to add an if-else block
-    # for startify column
-
-    classes, stratify_indices = cp.unique(stratify, return_inverse=True)
-
-    n_classes = classes.shape[0]
-    class_counts = cp.bincount(stratify_indices)
-    if cp.min(class_counts) < 2:
-        raise ValueError(
-            "The least populated class in y has only 1"
-            " member, which is too few. The minimum"
-            " number of groups for any class cannot"
-            " be less than 2."
-        )
-
-    if n_train < n_classes:
-        raise ValueError(
-            "The train_size = %d should be greater or "
-            "equal to the number of classes = %d" % (n_train, n_classes)
-        )
-
-    # List of length n_classes. Each element contains indices of that class.
-    class_indices: List[cp.ndarray] = cp.split(
-        cp.argsort(stratify_indices), cp.cumsum(class_counts)[:-1].tolist()
-    )
-
-    # Break ties
-    n_i = _approximate_mode(class_counts, n_train, random_state)
-    class_counts_remaining = class_counts - n_i
-    t_i = _approximate_mode(class_counts_remaining, n_test, random_state)
-
-    train_indices_partials = []
-    test_indices_partials = []
-    for i in range(n_classes):
-        permutation = random_state.permutation(class_counts[i].item())
-        perm_indices_class_i = class_indices[i].take(permutation)
-
-        train_indices_partials.append(perm_indices_class_i[: n_i[i]])
-        test_indices_partials.append(
-            perm_indices_class_i[n_i[i] : n_i[i] + t_i[i]]
-        )
-
-    train_indices = cp.concatenate(train_indices_partials, axis=0)
-    test_indices = cp.concatenate(test_indices_partials, axis=0)
-
-    return indices[train_indices], indices[test_indices]
-
-
-def _approximate_mode(class_counts, n_draws, rng):
-    """
-    CuPy implementataiton based on scikit-learn approximate_mode method.
-    https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py#L984
-
-    It is the mostly likely outcome of drawing n_draws many
-    samples from the population given by class_counts.
-
-    Parameters
-    ----------
-    class_counts : ndarray of int
-        Population per class.
-    n_draws : int
-        Number of draws (samples to draw) from the overall population.
-    rng : random state
-        Used to break ties.
-
-    Returns
-    -------
-    sampled_classes : cupy array of int
-        Number of samples drawn from each class.
-        np.sum(sampled_classes) == n_draws
-    """
-    # this computes a bad approximation to the mode of the
-    # multivariate hypergeometric given by class_counts and n_draws
-    continuous = n_draws * class_counts / class_counts.sum()
-    # floored means we don't overshoot n_samples, but probably undershoot
-    floored = cp.floor(continuous)
-    # we add samples according to how much "left over" probability
-    # they had, until we arrive at n_samples
-    need_to_add = int(n_draws - floored.sum())
-    if need_to_add > 0:
-        remainder = continuous - floored
-        values = cp.sort(cp.unique(remainder))[::-1]
-        # add according to remainder, but break ties
-        # randomly to avoid biases
-        for value in values:
-            (inds,) = cp.where(remainder == value)
-            # if we need_to_add less than what's in inds
-            # we draw randomly from them.
-            # if we need to add more, we add them all and
-            # go to the next value
-            add_now = min(len(inds), need_to_add)
-            inds = rng.choice(inds, size=add_now, replace=False)
-            floored[inds] += 1
-            need_to_add -= add_now
-            if need_to_add == 0:
-                break
-    return floored.astype(int)
-
-
 def train_test_split(
-    X,
-    y=None,
-    test_size: Optional[Union[float, int]] = None,
-    train_size: Optional[Union[float, int]] = None,
-    shuffle: bool = True,
-    random_state: Optional[
-        Union[int, cp.random.RandomState, np.random.RandomState]
-    ] = None,
+    *arrays,
+    y="deprecated",
+    test_size=None,
+    train_size=None,
+    random_state=None,
+    shuffle=True,
     stratify=None,
 ):
     """
-    Partitions device data into four collated objects, mimicking
-    Scikit-learn's `train_test_split
-    <https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html>`_.
+    Split arrays or matrices into random train and test subsets.
 
     Parameters
     ----------
-    X : cudf.DataFrame or cuda_array_interface compliant device array
-        Data to split, has shape (n_samples, n_features)
-    y : str, cudf.Series or cuda_array_interface compliant device array
-        Set of labels for the data, either a series of shape (n_samples) or
-        the string label of a column in X (if it is a cuDF DataFrame)
-        containing the labels
-    train_size : float or int, optional
-        If float, represents the proportion [0, 1] of the data
-        to be assigned to the training set. If an int, represents the number
-        of instances to be assigned to the training set. Defaults to 0.8
-    shuffle : bool, optional
-        Whether or not to shuffle inputs before splitting
-    random_state : int, CuPy RandomState or NumPy RandomState optional
-        If shuffle is true, seeds the generator. Unseeded by default
+    *arrays : sequence of indexables with same length / shape[0]
+        Allowed inputs are cudf DataFrames/Series, cupy arrays, numba device
+        arrays, numpy arrays, pandas DataFrames/Series, or any array-like
+        objects with a shape attribute.
 
-    stratify: cudf.Series or cuda_array_interface compliant device array,
-            optional parameter. When passed, the input is split using this
-            as column to startify on. Default=None
+    y : str, default="deprecated"
+        The name of the column that contains the target variable.
+
+        .. deprecated:: 26.02
+            The ``y`` parameter is deprecated and will be removed in 26.04.
+            Extract the column manually:
+            ``X, y = df.drop('col', axis=1), df['col']``
+
+    test_size : float or int, default=None
+        If float, should be between 0.0 and 1.0 and represent the proportion
+        of the dataset to include in the test split. If int, represents the
+        absolute number of test samples. If None, the value is set to the
+        complement of the train size. If train_size is also None, it will
+        be set to 0.25.
+
+    train_size : float or int, default=None
+        If float, should be between 0.0 and 1.0 and represent the
+        proportion of the dataset to include in the train split. If
+        int, represents the absolute number of train samples. If None,
+        the value is automatically set to the complement of the test size.
+
+    random_state : int, default=None
+        Controls the shuffling applied to the data before applying the split.
+        Pass an int for reproducible output across multiple function calls.
+
+    shuffle : bool, default=True
+        Whether or not to shuffle the data before splitting.
+
+    stratify : array-like, default=None
+        If not None, data is split in a stratified fashion, using this as
+        the class labels.
+
+    Returns
+    -------
+    splitting : list, length=2 * len(arrays)
+        List containing train-test split of inputs. Output types match
+        input types (cudf inputs return cudf outputs, cupy inputs return
+        cupy outputs, etc.)
 
     Examples
     --------
     .. code-block:: python
 
-        >>> import cudf
+        >>> import cupy as cp
         >>> from cuml.model_selection import train_test_split
-        >>> # Generate some sample data
-        >>> df = cudf.DataFrame({'x': range(10),
-        ...                      'y': [0, 1] * 5})
-        >>> print(f'Original data: {df.shape[0]} elements')
-        Original data: 10 elements
-        >>> # Suppose we want an 80/20 split
-        >>> X_train, X_test, y_train, y_test = train_test_split(df, 'y',
-        ...                                                     train_size=0.8)
-        >>> print(f'X_train: {X_train.shape[0]} elements')
-        X_train: 8 elements
-        >>> print(f'X_test: {X_test.shape[0]} elements')
-        X_test: 2 elements
-        >>> print(f'y_train: {y_train.shape[0]} elements')
-        y_train: 8 elements
-        >>> print(f'y_test: {y_test.shape[0]} elements')
-        y_test: 2 elements
+        >>> X = cp.arange(10).reshape((5, 2))
+        >>> y = cp.array([0, 0, 1, 1, 1])
+        >>> X_train, X_test, y_train, y_test = train_test_split(
+        ...     X, y, test_size=0.2, random_state=42
+        ... )
 
-        >>> # Alternatively, if our labels are stored separately
-        >>> labels = df['y']
-        >>> df = df.drop(['y'], axis=1)
-        >>> # we can also do
-        >>> X_train, X_test, y_train, y_test = train_test_split(df, labels,
-        ...                                                     train_size=0.8)
+    Notes
+    -----
+    .. versionchanged:: 26.02
+        The names and the order of the optional keyword arguments was changed to
+        match the scikit-learn equivalent function. The ``y`` parameter was
+        deprecated (see above).
 
-    Returns
-    -------
-
-    X_train, X_test, y_train, y_test : cudf.DataFrame or array-like objects
-        Partitioned dataframes if X and y were cuDF objects. If `y` was
-        provided as a column name, the column was dropped from `X`.
-        Partitioned numba device arrays if X and y were Numba device arrays.
-        Partitioned CuPy arrays for any other input.
-
+    .. versionchanged:: 26.02
+        Output types now consistently match input types. Previously, pandas
+        inputs were converted to cudf outputs. Now pandas inputs return pandas
+        outputs, cudf inputs return cudf outputs.
     """
-    if isinstance(y, str):
-        # Use the column with name `str` as y
-        if isinstance(X, cudf.DataFrame):
-            name = y
-            y = X[name]
-            X = X.drop(name, axis=1)
-        else:
-            raise TypeError(
-                "X needs to be a cuDF Dataframe when y is a \
-                             string"
-            )
+    if len(arrays) == 0:
+        raise ValueError("At least one array required as input")
 
-    all_numeric = True
-    if isinstance(X, cudf.DataFrame):
-        all_numeric = all(
-            cudf.api.types.is_numeric_dtype(X[col]) for col in X.columns
+    # Handle deprecated y parameter usage
+    # Case 1: y passed as keyword: train_test_split(df, y=...)
+    # Case 2: column name passed as second positional arg: train_test_split(df, "col")
+    y_is_column_name_positional = len(arrays) == 2 and isinstance(
+        arrays[1], str
+    )
+    # Use isinstance check to avoid ambiguous truth value with array-like y
+    y_was_passed = not (isinstance(y, str) and y == "deprecated")
+
+    if y_was_passed or y_is_column_name_positional:
+        warnings.warn(
+            "The explicit 'y' parameter is deprecated and will be "
+            "removed in 26.04. Extract the column manually: "
+            "X, y = df.drop('col', axis=1), df['col']",
+            FutureWarning,
+            stacklevel=2,
         )
 
-    if all_numeric:
-        x_order = array_to_memory_order(X)
-        X_arr, X_row, *_ = input_to_cuml_array(X, order=x_order)
-    else:
-        x_order = "F"
-        X_arr, X_row = X, X.shape[0]
-    if y is not None:
-        y_order = array_to_memory_order(y)
-        y_arr, y_row, *_ = input_to_cuml_array(y, order=y_order)
-        if X_row != y_row:
-            raise ValueError(
-                "X and y must have the same first dimension"
-                f"(found {X_row} and {y_row})"
-            )
-
-    if isinstance(train_size, float):
-        if not 0 <= train_size <= 1:
-            raise ValueError(
-                "proportion train_size should be between"
-                f"0 and 1 (found {train_size})"
-            )
-
-    if isinstance(train_size, int):
-        if not 0 <= train_size <= X_row:
-            raise ValueError(
-                "Number of instances train_size should be between 0 and the"
-                f"first dimension of X (found {train_size})"
-            )
-
-    if isinstance(test_size, float):
-        if not 0 <= test_size <= 1:
-            raise ValueError(
-                "proportion test_size should be between"
-                f"0 and 1 (found {train_size})"
-            )
-
-    if isinstance(test_size, int):
-        if not 0 <= test_size <= X_row:
-            raise ValueError(
-                "Number of instances test_size should be between 0 and the"
-                f"first dimension of X (found {test_size})"
-            )
-
-    # Determining sizes of splits
-    if isinstance(train_size, float):
-        train_size = int(X_row * train_size)
-
-    if test_size is None:
-        if train_size is None:
-            train_size = int(X_row * 0.75)
-
-        test_size = X_row - train_size
-
-    if isinstance(test_size, float):
-        test_size = int(X_row * test_size)
-        if train_size is None:
-            train_size = X_row - test_size
-
-    elif isinstance(test_size, int):
-        if train_size is None:
-            train_size = X_row - test_size
-
-    # Compute training set and test set indices
-    if shuffle:
-        idxs = cp.arange(X_row)
-
-        # Compute shuffle indices
-        if random_state is None or isinstance(random_state, int):
-            random_state = cp.random.RandomState(seed=random_state)
-
-        elif isinstance(random_state, np.random.RandomState):
-            random_state = cp.random.RandomState(
-                seed=random_state.get_state()[1]
-            )
-
-        elif not isinstance(random_state, cp.random.RandomState):
-            raise TypeError(
-                "`random_state` must be an int, NumPy RandomState \
-                             or CuPy RandomState."
-            )
-
-        random_state.shuffle(idxs)
-
-        if stratify is not None:
-            stratify, *_ = input_to_cuml_array(stratify)
-            stratify = stratify[idxs]
-
-            (
-                train_indices,
-                test_indices,
-            ) = _compute_stratify_split_indices(
-                idxs,
-                stratify,
-                train_size,
-                test_size,
-                random_state,
-            )
-
+        if y_is_column_name_positional:
+            # User passed: train_test_split(df, "colname")
+            X = arrays[0]
+            col_name = arrays[1]
+            X, y = X.drop(col_name, axis=1), X[col_name]
+            arrays = (X, y)
+        elif isinstance(y, str):
+            # User passed: train_test_split(df, y="colname")
+            X = arrays[0]
+            if not hasattr(X, "drop"):
+                raise TypeError(
+                    "X must be a DataFrame when y is a column name string"
+                )
+            X, y = X.drop(y, axis=1), X[y]
+            arrays = (X, y)
         else:
-            train_indices = idxs[:train_size]
-            test_indices = idxs[-1 * test_size :]
-    else:
-        train_indices = range(0, train_size)
-        test_indices = range(-1 * test_size, 0)
+            # User passed: train_test_split(X, y=array)
+            if len(arrays) > 1:
+                raise ValueError(
+                    "Cannot use deprecated 'y' parameter with multiple "
+                    "positional arrays. Pass all arrays as positional "
+                    "arguments instead: train_test_split(X, y, ...)"
+                )
+            arrays = (arrays[0], y)
 
-    if all_numeric:
-        # Gather from indices
-        X_train = X_arr[train_indices]
-        X_test = X_arr[test_indices]
-        if y is not None:
-            y_train = y_arr[train_indices]
-            y_test = y_arr[test_indices]
+    # Validate arrays have consistent first dimension
+    n_samples = arrays[0].shape[0]
+    for i, arr in enumerate(arrays[1:], 1):
+        if arr.shape[0] != n_samples:
+            raise ValueError(
+                f"Found input variables with inconsistent numbers of samples: "
+                f"{[a.shape[0] for a in arrays]}"
+            )
 
-        # Coerce output to original input type
-        x_type = determine_df_obj_type(X) or determine_array_type(X)
-        if y is not None:
-            y_type = determine_df_obj_type(y) or determine_array_type(y)
+    # CuPy RandomState isn't supported by sklearn, so extract an int seed.
+    # int, None, and np.random.RandomState are all accepted by sklearn as-is.
+    sklearn_random_state = (
+        int(check_random_seed(random_state))
+        if isinstance(random_state, cp.random.RandomState)
+        else random_state
+    )
 
-        def _process_df_objs(
-            df, df_type, df_train, df_test, train_indices, test_indices
-        ):
-            if df_type in {"series", "dataframe"}:
-                df_train = output_to_df_obj_like(df_train, df, df_type)
-                df_test = output_to_df_obj_like(df_test, df, df_type)
+    # Convert stratify to numpy, other arrays types are not supported by scikit-learn
+    if stratify is not None:
+        stratify = input_to_host_array(stratify).array
 
-                if determine_array_type(df.index) == "pandas":
-                    if isinstance(train_indices, cp.ndarray):
-                        train_indices = train_indices.get()
-                    if isinstance(test_indices, cp.ndarray):
-                        test_indices = test_indices.get()
+    # Check for numba device arrays, scikit-learn can't handle them directly
+    original_types = []
+    converted_arrays = []
+    for arr in arrays:
+        if numba_cuda.devicearray.is_cuda_ndarray(arr):
+            original_types.append("numba")
+            converted_arrays.append(cp.asarray(arr))
+        else:
+            original_types.append(None)
+            converted_arrays.append(arr)
 
-                df_train.index = df.index[train_indices]
-                df_test.index = df.index[test_indices]
+    results = sklearn_train_test_split(
+        *converted_arrays,
+        test_size=test_size,
+        train_size=train_size,
+        random_state=sklearn_random_state,
+        shuffle=shuffle,
+        stratify=stratify,
+    )
+
+    # Convert numba arrays back to numba device arrays
+    # There are two results for each original array.
+    final_results = []
+    for i, orig_type in enumerate(original_types):
+        for n in (0, 1):
+            result = results[i * 2 + n]
+            if orig_type == "numba":
+                final_results.append(numba_cuda.as_cuda_array(result))
             else:
-                df_train = df_train.to_output(df_type)
-                df_test = df_test.to_output(df_type)
-            return df_train, df_test
+                final_results.append(result)
 
-        X_train, X_test = _process_df_objs(
-            X, x_type, X_train, X_test, train_indices, test_indices
-        )
-        if y is not None:
-            y_train, y_test = _process_df_objs(
-                y, y_type, y_train, y_test, train_indices, test_indices
-            )
-
-    else:
-        X_train = X_arr.iloc[train_indices]
-        X_test = X_arr.iloc[test_indices]
-        if y is not None:
-            y_train = y_arr[train_indices]
-            y_test = y_arr[test_indices]
-
-    if y is not None:
-        return X_train, X_test, y_train, y_test
-    else:
-        return X_train, X_test
+    return final_results
 
 
 class _KFoldBase(ABC):
