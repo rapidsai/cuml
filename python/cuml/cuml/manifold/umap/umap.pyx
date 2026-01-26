@@ -1570,6 +1570,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t rows_ptr = rows_gpu.data.ptr
         cdef uintptr_t cols_ptr = cols_gpu.data.ptr
         cdef uintptr_t vals_ptr = vals_gpu.data.ptr
+
+        # Check that sigmas and rhos are available (set during fit on dense data)
+        if self._sigmas is None or self._rhos is None:
+            raise ValueError(
+                "inverse_transform requires sigmas and rhos arrays from fit. "
+                "These may be missing if the model was loaded from a CPU UMAP "
+                "model that did not have them, or if the model was not fitted."
+            )
         cdef uintptr_t sigmas_ptr = self._sigmas.ptr
         cdef uintptr_t rhos_ptr = self._rhos.ptr
 
