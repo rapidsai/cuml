@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import ctypes
@@ -36,6 +36,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
+from rmm.librmm.per_device_resource cimport get_current_device_resource
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 cimport cuml.manifold.umap.lib as lib
@@ -350,11 +351,14 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
-    if self.init in _INITS:
+    if is_array_like(self.init):
+        params.init = 2
+    elif self.init in _INITS:
         params.init = _INITS[self.init]
     else:
         raise ValueError(
-            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
+            f"Expected `init` to be an array or one of {list(_INITS)}, "
+            f"got {self.init!r}"
         )
 
     if self.target_metric in _TARGET_METRICS:
@@ -370,26 +374,57 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             <lib.GraphBasedDimRedCallback*><uintptr_t>self.callback.get_native_callback()
         )
 
+    build_kwds = self.build_kwds or {}
+    if "nnd_n_clusters" in build_kwds:
+        warnings.warn(
+            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
+            "`knn_n_clusters` in 26.04."
+        )
+        n_clusters = build_kwds.get("nnd_n_clusters", 1)
+    else:
+        n_clusters = build_kwds.get("knn_n_clusters", 1)
+    if "nnd_overlap_factor" in build_kwds:
+        warnings.warn(
+            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
+            "`knn_overlap_factor` in 26.04."
+        )
+        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
+    else:
+        overlap_factor = build_kwds.get("knn_overlap_factor", 2)
+
+    params.build_params.n_clusters = n_clusters
+    params.build_params.overlap_factor = overlap_factor
+
+    if n_clusters < 1:
+        raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
+    elif n_clusters > 1 and overlap_factor >= n_clusters:
+        raise ValueError(
+            f"`knn_n_clusters > 1` requires `knn_n_clusters ({n_clusters}) > "
+            f"knn_overlap_factor ({overlap_factor})`"
+        )
+
+    # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
+    all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
+                                       'inner_product']
+    if (build_algo == "brute_force_knn" and
+            n_clusters > 1 and
+            self.metric.lower() not in all_neighbors_supported_metrics):
+        warnings.warn(
+            f"metric='{self.metric}' is not supported for batched knn build with "
+            f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
+            f"The knn_n_clusters parameter will be ignored and regular brute force knn "
+            f"(without batching) will be used instead."
+        )
+
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
     else:
         params.build_algo = lib.graph_build_algo.NN_DESCENT
 
-        build_kwds = self.build_kwds or {}
-        n_clusters = build_kwds.get("nnd_n_clusters", 1)
-        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
         max_iterations = build_kwds.get("nnd_max_iterations", 20)
         termination_threshold = build_kwds.get("nnd_termination_threshold", 0.0001)
         graph_degree = build_kwds.get("nnd_graph_degree", 64)
         intermediate_graph_degree = build_kwds.get("nnd_intermediate_graph_degree", 128)
-
-        if n_clusters < 1:
-            raise ValueError(f"Expected `nnd_n_clusters >= 1`, got {n_clusters}")
-        elif n_clusters > 1 and overlap_factor >= n_clusters:
-            raise ValueError(
-                f"`nnd_n_clusters > 1` requires `nnd_n_clusters ({n_clusters}) > "
-                f"nnd_overlap_factor ({overlap_factor})`"
-            )
 
         if graph_degree < self._n_neighbors:
             logger.warn(
@@ -406,8 +441,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             )
             intermediate_graph_degree = graph_degree
 
-        params.build_params.n_clusters = n_clusters
-        params.build_params.overlap_factor = overlap_factor
         params.build_params.nnd.max_iterations = max_iterations
         params.build_params.nnd.termination_threshold = termination_threshold
         params.build_params.nnd.graph_degree = graph_degree
@@ -445,6 +478,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         passed via the metric_kwds dictionary.
         Note: The 'jaccard' distance metric is only supported for sparse
         inputs.
+        Note: If build_algo=`brute_force_knn` and `knn_n_clusters > 1`, the metric
+        must be one of ['l2', 'sqeuclidean', 'euclidean', 'cosine', 'inner_product'].
     metric_kwds: dict (optional, default=None)
         Metric argument
     n_epochs: int (optional, default None)
@@ -459,6 +494,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
         * 'random': assign initial embedding positions at random.
+        * An array-like with initial embedding positions.
 
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
@@ -586,36 +622,41 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to
           better convergence but longer runtime.
 
-        - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`,
+        - `knn_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `knn_n_clusters > 1`,
           UMAP can process data larger than device memory.
 
-        - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
-          Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
+        - `knn_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `knn_n_clusters > 1`. Must be < 'knn_n_clusters'.
 
         Hints:
 
         - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
 
-        - The ratio `nnd_overlap_factor / nnd_n_clusters` impacts memory usage.
-          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data`
+        - The ratio `knn_overlap_factor / knn_n_clusters` impacts memory usage.
+          Approximately `(knn_overlap_factor / knn_n_clusters) * num_rows_in_entire_data`
           rows will be loaded onto device memory at once.  E.g., 2/20 uses less device
           memory than 2/10.
 
-        - Larger `nnd_overlap_factor` results in better accuracy of the final knn graph.
+        - Larger `knn_overlap_factor` results in better accuracy of the final knn graph.
           E.g. While using similar amount of device memory,
-          `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
+          `(knn_overlap_factor / knn_n_clusters)` = 4/20 will have better accuracy
           than 2/10 at the cost of performance.
 
-        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...)
+        - Start with `knn_overlap_factor = 2` and gradually increase (2->3->4 ...)
           for better accuracy.
 
-        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
-          memory usage. This is independent from nnd_overlap_factor as long as
-          'nnd_overlap_factor' < 'nnd_n_clusters'.
+        - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
+          memory usage. This is independent from knn_overlap_factor as long as
+          'knn_overlap_factor' < 'knn_n_clusters'.
+
+        .. deprecated:: 26.02
+            The `nnd_n_clusters` and `nnd_overlap_factor` was deprecated in 26.02 and
+            will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
+
     device_ids : list[int], "all", or None, default=None
         The device IDs to use during fitting (only used when
-        `build_algo=nn_descent` and `nnd_n_clusters > 1`). May be a list of
+        `build_algo=nn_descent` and `knn_n_clusters > 1`). May be a list of
         ids, ``"all"`` (to use all available devices), or ``None`` (to fit
         using a single GPU only). Default is None.
 
@@ -682,7 +723,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not (isinstance(model.init, str) and model.init in _INITS):
+        if not ((isinstance(model.init, str) and model.init in _INITS) or
+                is_array_like(model.init)):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -732,6 +774,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if (precomputed_knn := self.precomputed_knn) is None:
             precomputed_knn = (None, None, None)
 
+        init = self.init
+        if is_array_like(init):
+            init = cp.asnumpy(init)
+
         return {
             "n_neighbors": self.n_neighbors,
             "n_components": self.n_components,
@@ -746,7 +792,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "repulsion_strength": self.repulsion_strength,
             "negative_sample_rate": self.negative_sample_rate,
             "transform_queue_size": self.transform_queue_size,
-            "init": self.init,
+            "init": init,
             "a": self.a,
             "b": self.b,
             "target_n_neighbors": self.target_n_neighbors,
@@ -955,7 +1001,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 convert_to_mem_type=(
                     MemoryType.host
-                    if params.build_algo == lib.graph_build_algo.NN_DESCENT
+                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or
+                    (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+                        and params.build_params.n_clusters > 1)
                     else mem_type
                 )
             ).array
@@ -997,6 +1045,27 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
+        handle_ = <handle_t*> <size_t> handle.getHandle()
+
+        if is_array_like(self.init):
+            init_m = input_to_cuml_array(
+                self.init,
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=np.float32,
+                convert_to_mem_type=False,
+                check_rows=n_rows,
+                check_cols=self.n_components,
+            ).array
+
+            embeddings_buffer.reset(
+                new device_buffer(
+                    <const void*><uintptr_t>init_m.ptr,
+                    init_m.size,
+                    handle_.get_stream(),
+                    get_current_device_resource()
+                )
+            )
 
         with nogil:
             if X_is_sparse:
