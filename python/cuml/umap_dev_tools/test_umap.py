@@ -525,14 +525,14 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     mod_trust = 0.05
     mod_cont = 0.05
     mod_corr = 0.15
-    mod_rel_kl = 0.35  # Increased for per-edge average KL
+    mod_rel_kl = 0.35
     mod_rmse = 0.12
 
     # Severe thresholds: clearly unacceptable degradations
     sev_trust = 0.10
     sev_cont = 0.10
     sev_corr = 0.30
-    sev_rel_kl = 0.70  # Increased for per-edge average KL
+    sev_rel_kl = 0.70
     sev_rmse = 0.20
 
     # Compute deficits (positive means cuML is worse than reference)
@@ -1039,14 +1039,14 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
     mod_trust = 0.08
     mod_cont = 0.08
     mod_corr = 0.20
-    mod_rel_kl = 0.50  # Increased for per-edge average KL
+    mod_rel_kl = 0.50
     mod_rmse = 0.15
 
     # Severe thresholds
     sev_trust = 0.15
     sev_cont = 0.15
     sev_corr = 0.40
-    sev_rel_kl = 1.00  # Increased for per-edge average KL
+    sev_rel_kl = 1.00
     sev_rmse = 0.30
 
     # Compute deficits (positive means cuML is worse than reference)

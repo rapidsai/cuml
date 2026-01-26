@@ -39,10 +39,7 @@ import cuml.datasets
 
 # cuML implementation
 from cuml.manifold import SpectralEmbedding
-from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
-from cuml.manifold.umap import (
-    simplicial_set_embedding as cu_simplicial_set_embedding,
-)
+from cuml.manifold.umap import fuzzy_simplicial_set, simplicial_set_embedding
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
@@ -511,7 +508,7 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     )
 
     # Build fuzzy simplicial set using cuML
-    cu_graph_gpu = cu_fuzzy_simplicial_set(
+    cu_graph_gpu = fuzzy_simplicial_set(
         X_cp,
         n_neighbors=k,
         random_state=42,
@@ -550,7 +547,7 @@ def test_simplicial_set_embedding_hypothesis(dataset, params):
     ref_emb = ref_res[0]
 
     # cuML embedding (GPU)
-    cu_emb = cu_simplicial_set_embedding(
+    cu_emb = simplicial_set_embedding(
         X_cp,
         graph=cu_graph_gpu,
         n_components=params["n_components"],
@@ -783,7 +780,7 @@ def test_spectral_init_hypothesis(dataset, params):
     )
 
     # Build fuzzy simplicial set using cuML (needed for spectral layout)
-    cu_graph_gpu = cu_fuzzy_simplicial_set(
+    cu_graph_gpu = fuzzy_simplicial_set(
         X_cp,
         n_neighbors=n_neighbors,
         random_state=random_state,
@@ -1062,7 +1059,7 @@ def test_fuzzy_simplicial_set_hypothesis(dataset, params):
     ref_graph = csr_matrix(ref_graph)
 
     # cuML fuzzy graph (GPU)
-    cu_graph_gpu = cu_fuzzy_simplicial_set(
+    cu_graph_gpu = fuzzy_simplicial_set(
         X_cp,
         n_neighbors=n_neighbors,
         random_state=random_state,

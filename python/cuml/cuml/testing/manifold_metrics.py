@@ -4,6 +4,7 @@
 
 import typing as t
 
+import cudf
 import cupy as cp
 import numpy as np
 from cuvs.common import MultiGpuResources
@@ -17,7 +18,6 @@ from sklearn.neighbors import NearestNeighbors
 
 # Try to import cuGraph for GPU-accelerated shortest path computation
 try:
-    import cudf
     import cugraph
 
     HAS_CUGRAPH = True
@@ -28,7 +28,7 @@ except ImportError:
 from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
 
 # cuML implementation
-from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import fuzzy_simplicial_set
 from cuml.metrics import trustworthiness
 
 
@@ -674,7 +674,7 @@ def compute_simplicial_set_embedding_metrics(
     metrics["demap"] = float(pe)
 
     # 3) Fuzzy Simplicial Sets KL divergences (GPU)
-    hg = cu_fuzzy_simplicial_set(
+    hg = fuzzy_simplicial_set(
         X_cp,
         n_neighbors=k,
         random_state=42,
@@ -682,7 +682,7 @@ def compute_simplicial_set_embedding_metrics(
         knn_indices=cp.asarray(hd_inds_np),
         knn_dists=cp.asarray(hd_dists_np),
     )
-    lg = cu_fuzzy_simplicial_set(
+    lg = fuzzy_simplicial_set(
         Y_cp,
         n_neighbors=k,
         random_state=42,
