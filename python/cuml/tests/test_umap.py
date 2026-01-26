@@ -992,8 +992,16 @@ def test_umap_small_fit_large_transform():
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
-def test_umap_outliers(n_neighbors, n_components):
-    n_rows = 50_000
+@pytest.mark.parametrize("random_state", [None, 42])
+def test_umap_outliers(n_neighbors, n_components, random_state):
+    if random_state is None:
+        n_rows = 50_000
+        build_algo = "nn_descent"
+        init = "spectral"
+    else:
+        n_rows = 100_000
+        build_algo = "brute_force_knn"
+        init = "random"
 
     # This dataset was specifically chosen because UMAP produces outliers
     # on this dataset before the outlier fix.
@@ -1001,10 +1009,11 @@ def test_umap_outliers(n_neighbors, n_components):
     data = data.astype(np.float32)
 
     gpu_umap = cuUMAP(
-        build_algo="nn_descent",
-        init="spectral",
+        build_algo=build_algo,
+        init=init,
         n_neighbors=n_neighbors,
         n_components=n_components,
+        random_state=random_state,
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 
@@ -1012,7 +1021,10 @@ def test_umap_outliers(n_neighbors, n_components):
     # and comparing the max and min values of the resulting embedding. However, running CPU UMAP
     # with this data size using spectral initialization is too slow to run repetitively in CI.
     # Instead, we hardwire a locally determined threshold for this dataset.
-    threshold = 50.0
+    if random_state is None:
+        threshold = 50.0
+    else:
+        threshold = 25.0
 
     assert np.all(
         (gpu_umap_embeddings >= -threshold)
