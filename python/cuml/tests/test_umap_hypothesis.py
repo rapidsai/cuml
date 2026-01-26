@@ -707,7 +707,7 @@ def evaluate_spectral_quality(
     return should_fail, fail_reason, metrics_dict
 
 
-@pytest.mark.skip
+@pytest.mark.skip  # see https://github.com/rapidsai/cuml/issues/7713
 @pytest.mark.slow
 @settings(
     max_examples=5,  # Random testing across dataset types
