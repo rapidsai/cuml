@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,10 +7,13 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from hypothesis import example, given
+from hypothesis import strategies as st
 from numba import cuda
 
 from cuml.datasets import make_classification
 from cuml.model_selection import train_test_split
+from cuml.testing.strategies import cuml_array_inputs
 
 test_seeds = ["int", "cupy", "numpy"]
 
@@ -85,6 +88,8 @@ def test_split_dataframe_array(y_type):
 
 
 def test_split_column():
+    """Test deprecated y=str column extraction (suppress FutureWarning)."""
+    y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
     data = cudf.DataFrame(
         {
             "x": range(100),
@@ -93,10 +98,10 @@ def test_split_column():
     )
     train_size = 0.8
 
+    # No warning when passing a series for y
     X_train, X_test, y_train, y_test = train_test_split(
-        data, "y", train_size=train_size
+        data, y, train_size=train_size
     )
-
     assert (
         len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
     )
@@ -105,6 +110,62 @@ def test_split_column():
         == len(y_test)
         == pytest.approx((1 - train_size) * len(data))
     )
+    # Column "y" is not removed because we passed a series for y
+    assert "y" in X_train.columns
+    assert isinstance(y_train, cudf.Series)
+
+    warning_message = "The explicit 'y' parameter is deprecated"
+
+    # Pass a series for y using keyword argument
+    with pytest.warns(FutureWarning, match=warning_message):
+        X_train, X_test, y_train, y_test = train_test_split(
+            data, y=y, train_size=train_size
+        )
+    assert (
+        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
+    )
+    assert (
+        len(X_test)
+        == len(y_test)
+        == pytest.approx((1 - train_size) * len(data))
+    )
+    # Column "y" is not removed because we passed a series for y
+    assert "y" in X_train.columns
+    assert isinstance(y_train, cudf.Series)
+
+    # Pass a column name for y by position
+    with pytest.warns(FutureWarning, match=warning_message):
+        X_train, X_test, y_train, y_test = train_test_split(
+            data, "y", train_size=train_size
+        )
+    assert (
+        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
+    )
+    assert (
+        len(X_test)
+        == len(y_test)
+        == pytest.approx((1 - train_size) * len(data))
+    )
+    # Column "y" is removed because we passed a column name for y
+    assert "y" not in X_train.columns
+    assert isinstance(y_train, cudf.Series)
+
+    # Pass a column name for y using keyword argument
+    with pytest.warns(FutureWarning, match=warning_message):
+        X_train, X_test, y_train, y_test = train_test_split(
+            data, y="y", train_size=train_size
+        )
+    assert (
+        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
+    )
+    assert (
+        len(X_test)
+        == len(y_test)
+        == pytest.approx((1 - train_size) * len(data))
+    )
+    # Column "y" is removed because we passed a column name for y
+    assert "y" not in X_train.columns
+    assert isinstance(y_train, cudf.Series)
 
     X_reconstructed = cudf.concat([X_train, X_test]).sort_values(by=["x"])
     y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
@@ -174,10 +235,11 @@ def test_random_state(seed_type):
         ),
     ],
 )
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
 @pytest.mark.parametrize("shuffle", [True, False])
-def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
+def test_array_split(X, y, convert_to_type, sizes, shuffle):
+    test_size, train_size = sizes
+
     backend_name, array_constructor = convert_to_type
 
     X = array_constructor(X)
@@ -204,16 +266,23 @@ def test_array_split(X, y, convert_to_type, test_size, train_size, shuffle):
         assert cuda.devicearray.is_cuda_ndarray(y_train)
         assert cuda.devicearray.is_cuda_ndarray(y_test)
 
-    if backend_name in ["cudf", "pandas"]:
-        expected_type = (
-            cudf.DataFrame
-            if type(X) in [cudf.DataFrame, pd.DataFrame]
-            else cudf.Series
-        )
-        assert isinstance(X_train, expected_type)
-        assert isinstance(X_test, expected_type)
-        assert isinstance(y_train, expected_type)
-        assert isinstance(y_test, expected_type)
+    if backend_name == "cudf":
+        # cudf input should produce cudf output
+        expected_x_type = cudf.DataFrame if X.ndim > 1 else cudf.Series
+        expected_y_type = cudf.DataFrame if y.ndim > 1 else cudf.Series
+        assert isinstance(X_train, expected_x_type)
+        assert isinstance(X_test, expected_x_type)
+        assert isinstance(y_train, expected_y_type)
+        assert isinstance(y_test, expected_y_type)
+
+    if backend_name == "pandas":
+        # pandas input should produce pandas output (preserves input type)
+        expected_x_type = pd.DataFrame if X.ndim > 1 else pd.Series
+        expected_y_type = pd.DataFrame if y.ndim > 1 else pd.Series
+        assert isinstance(X_train, expected_x_type)
+        assert isinstance(X_test, expected_x_type)
+        assert isinstance(y_train, expected_y_type)
+        assert isinstance(y_test, expected_y_type)
 
     if train_size is not None:
         assert X_train.shape[0] == X.shape[0] * train_size
@@ -257,10 +326,11 @@ def test_default_values():
     assert y_test.shape[0] == y.shape[0] * 0.25
 
 
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
 @pytest.mark.parametrize("shuffle", [True, False])
-def test_split_df_single_argument(test_size, train_size, shuffle):
+def test_split_df_single_argument(sizes, shuffle):
+    test_size, train_size = sizes
+
     X = cudf.DataFrame({"x": range(50)})
     X_train, X_test = train_test_split(
         X,
@@ -280,12 +350,10 @@ def test_split_df_single_argument(test_size, train_size, shuffle):
     "X",
     [np.arange(-100, 0), np.zeros((100, 10)) + np.arange(100).reshape(100, 1)],
 )
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
 @pytest.mark.parametrize("shuffle", [True, False])
-def test_split_array_single_argument(
-    X, convert_to_type, test_size, train_size, shuffle
-):
+def test_split_array_single_argument(X, convert_to_type, sizes, shuffle):
+    test_size, train_size = sizes
     backend_name, array_constructor = convert_to_type
 
     X = array_constructor(X)
@@ -306,12 +374,15 @@ def test_split_array_single_argument(
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if backend_name in ["cudf", "pandas"]:
-        expected_type = (
-            cudf.DataFrame
-            if type(X) in [cudf.DataFrame, pd.DataFrame]
-            else cudf.Series
-        )
+    if backend_name == "cudf":
+        # cudf input should produce cudf output
+        expected_type = cudf.DataFrame if X.ndim > 1 else cudf.Series
+        assert isinstance(X_train, expected_type)
+        assert isinstance(X_test, expected_type)
+
+    if backend_name == "pandas":
+        # pandas input should produce pandas output (preserves input type)
+        expected_type = pd.DataFrame if X.ndim > 1 else pd.Series
         assert isinstance(X_train, expected_type)
         assert isinstance(X_test, expected_type)
 
@@ -330,9 +401,10 @@ def test_split_array_single_argument(
         assert X_rec == X
 
 
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
-def test_stratified_split(convert_to_type, test_size, train_size):
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
+def test_stratified_split(convert_to_type, sizes):
+    test_size, train_size = sizes
+
     backend_name, array_constructor = convert_to_type
 
     # For more tolerance and reliable estimates
@@ -369,12 +441,15 @@ def test_stratified_split(convert_to_type, test_size, train_size):
         assert cuda.devicearray.is_cuda_ndarray(X_train)
         assert cuda.devicearray.is_cuda_ndarray(X_test)
 
-    if backend_name in ["cudf", "pandas"]:
-        expected_type = (
-            cudf.DataFrame
-            if type(X) in [cudf.DataFrame, pd.DataFrame]
-            else cudf.Series
-        )
+    if backend_name == "cudf":
+        # cudf input should produce cudf output
+        expected_type = cudf.DataFrame if X.ndim > 1 else cudf.Series
+        assert isinstance(X_train, expected_type)
+        assert isinstance(X_test, expected_type)
+
+    if backend_name == "pandas":
+        # pandas input should produce pandas output (preserves input type)
+        expected_type = pd.DataFrame if X.ndim > 1 else pd.Series
         assert isinstance(X_train, expected_type)
         assert isinstance(X_test, expected_type)
 
@@ -419,9 +494,10 @@ def test_stratified_random_seed(seed_type):
     assert not monotonic_inc(X_train)
 
 
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
-def test_stratify_retain_index(test_size, train_size):
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
+def test_stratify_retain_index(sizes):
+    test_size, train_size = sizes
+
     X = cudf.DataFrame({"x": range(10)})
     y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
 
@@ -474,9 +550,10 @@ def test_stratified_binary_classification():
     cp.testing.assert_array_equal(train_counts + test_counts, y_counts)
 
 
-@pytest.mark.parametrize("test_size", [0.2, 0.4, None])
-@pytest.mark.parametrize("train_size", [0.6, 0.8, None])
-def test_stratify_any_input(test_size, train_size):
+@pytest.mark.parametrize("sizes", [(0.6, 0.4), (0.8, 0.2), (None, 0.25)])
+def test_stratify_any_input(sizes):
+    test_size, train_size = sizes
+
     X = cudf.DataFrame({"x": range(10)})
     X["test_col"] = cudf.Series([10, 0, 0, 10, 10, 10, 0, 0, 10, 10])
     y = cudf.Series(([0] * (10 // 2)) + ([1] * (10 // 2)))
@@ -498,3 +575,252 @@ def test_stratify_any_input(test_size, train_size):
 
     elif test_size is not None:
         assert X_test.shape[0] == (int)(X.shape[0] * test_size)
+
+
+# =============================================================================
+# Regression tests for sklearn shim refactoring
+# =============================================================================
+
+
+def test_sklearn_signature_keyword_args():
+    """Test that sklearn-style keyword arguments work correctly."""
+    X = cp.random.rand(100, 10).astype(cp.float32)
+    y = cp.random.randint(0, 2, 100)
+
+    # Test with sklearn parameter order (random_state before shuffle)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y,
+        test_size=0.2,
+        train_size=None,
+        random_state=42,
+        shuffle=True,
+        stratify=None,
+    )
+
+    assert X_train.shape[0] == 80
+    assert X_test.shape[0] == 20
+
+
+def test_multiple_arrays_same_split():
+    """Verify that multiple arrays are split consistently."""
+    X = cp.random.rand(100, 10).astype(cp.float32)
+    y = cp.random.randint(0, 2, 100)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42
+    )
+
+    # Verify sizes match
+    assert X_train.shape[0] == y_train.shape[0]
+    assert X_test.shape[0] == y_test.shape[0]
+    assert X_train.shape[0] + X_test.shape[0] == 100
+
+
+def test_no_data_loss_cupy():
+    """Verify no data is lost during split with cupy arrays."""
+    X = cp.arange(100).reshape(100, 1)
+    y = cp.arange(100)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, shuffle=False
+    )
+
+    # Combine and sort to check all values are preserved
+    X_combined = cp.sort(cp.concatenate([X_train.flatten(), X_test.flatten()]))
+    y_combined = cp.sort(cp.concatenate([y_train, y_test]))
+
+    cp.testing.assert_array_equal(X_combined, cp.arange(100))
+    cp.testing.assert_array_equal(y_combined, cp.arange(100))
+
+
+def test_no_data_loss_cudf():
+    """Verify no data is lost during split with cudf DataFrames."""
+    df = cudf.DataFrame({"a": range(100), "b": range(100, 200)})
+    y = cudf.Series(range(100))
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        df, y, test_size=0.2, shuffle=False
+    )
+
+    # Combine and verify all values present
+    X_combined = cudf.concat([X_train, X_test]).sort_values("a")
+    assert len(X_combined) == 100
+    assert X_combined["a"].to_numpy().tolist() == list(range(100))
+
+
+def test_integer_sizes():
+    """Test with integer train_size and test_size."""
+    X = cp.random.rand(100, 5)
+
+    X_train, X_test = train_test_split(X, train_size=70, test_size=30)
+
+    assert X_train.shape[0] == 70
+    assert X_test.shape[0] == 30
+
+
+def test_y_string_column_deprecation_warning():
+    """Test that using y as column name string emits deprecation warning."""
+    import warnings
+
+    df = cudf.DataFrame({"x": range(100), "y": [0, 1] * 50})
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        X_train, X_test, y_train, y_test = train_test_split(
+            df, "y", train_size=0.8
+        )
+        # Check that a FutureWarning was raised
+        assert len(w) >= 1
+        assert any(
+            issubclass(warning.category, FutureWarning) for warning in w
+        )
+        assert any(
+            "deprecated" in str(warning.message).lower() for warning in w
+        )
+
+
+def test_y_string_column_still_works():
+    """Test that y=str still works despite deprecation."""
+    import warnings
+
+    df = cudf.DataFrame({"x": range(100), "target": [0, 1] * 50})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        X_train, X_test, y_train, y_test = train_test_split(
+            df, "target", train_size=0.8
+        )
+
+    # Verify it still works correctly
+    assert len(X_train) == 80
+    assert len(y_train) == 80
+    assert "target" not in X_train.columns
+    assert "x" in X_train.columns
+
+
+def test_single_array_split():
+    """Test splitting a single array without y."""
+    X = cp.random.rand(100, 10)
+
+    X_train, X_test = train_test_split(X, test_size=0.2)
+
+    assert X_train.shape[0] == 80
+    assert X_test.shape[0] == 20
+
+
+def test_empty_stratify_class_error():
+    """Test that stratification with insufficient samples raises error."""
+    X = cp.random.rand(5, 2)
+    y = cp.array([0, 0, 0, 0, 1])  # Only 1 sample of class 1
+
+    with pytest.raises(ValueError):
+        train_test_split(X, y, stratify=y, test_size=0.4)
+
+
+def test_reproducibility_with_seed():
+    """Test that same seed produces same results."""
+    X = cp.random.rand(100, 10)
+    y = cp.random.randint(0, 2, 100)
+
+    X_train1, X_test1, y_train1, y_test1 = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    X_train2, X_test2, y_train2, y_test2 = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    cp.testing.assert_array_equal(X_train1, X_train2)
+    cp.testing.assert_array_equal(X_test1, X_test2)
+    cp.testing.assert_array_equal(y_train1, y_train2)
+    cp.testing.assert_array_equal(y_test1, y_test2)
+
+
+def test_different_seeds_different_results():
+    """Test that different seeds produce different results."""
+    X = cp.random.rand(100, 10)
+    y = cp.random.randint(0, 2, 100)
+
+    X_train1, _, _, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train2, _, _, _ = train_test_split(X, y, test_size=0.2, random_state=43)
+
+    # Results should be different (with high probability)
+    assert not cp.allclose(X_train1, X_train2)
+
+
+@pytest.mark.parametrize("backend", ["cudf", "pandas"])
+def test_dataframe_column_preservation(backend):
+    """Test that DataFrame column names and types are preserved."""
+    if backend == "cudf":
+        df = cudf.DataFrame({"col_a": range(100), "col_b": range(100, 200)})
+        expected_type = cudf.DataFrame
+    else:
+        df = pd.DataFrame({"col_a": range(100), "col_b": range(100, 200)})
+        expected_type = pd.DataFrame
+
+    train, test = train_test_split(df, test_size=0.2)
+
+    # Check column names are preserved
+    assert list(train.columns) == ["col_a", "col_b"]
+    assert list(test.columns) == ["col_a", "col_b"]
+
+    # Check return type matches input type
+    assert isinstance(train, expected_type)
+    assert isinstance(test, expected_type)
+
+
+def test_shuffle_false_preserves_order():
+    """Test that shuffle=False preserves data order."""
+    X = cp.arange(100).reshape(100, 1)
+
+    X_train, X_test = train_test_split(X, test_size=0.2, shuffle=False)
+
+    # First 80 should be in train, last 20 in test
+    cp.testing.assert_array_equal(X_train.flatten(), cp.arange(80))
+    cp.testing.assert_array_equal(X_test.flatten(), cp.arange(80, 100))
+
+
+def test_zero_arrays_raises():
+    """Test that train_test_split with 0 arrays raises ValueError."""
+    with pytest.raises(ValueError, match="At least one array required"):
+        train_test_split()
+
+
+@example(arrays=[cp.arange(100).reshape(100, 1)])
+@example(arrays=[cp.arange(100).reshape(100, 1), cudf.Series(range(100))])
+@given(
+    arrays=st.lists(
+        cuml_array_inputs(
+            dtypes=st.just(np.float32),
+            shapes=st.just((100,)),
+        ),
+        min_size=1,
+        max_size=5,
+    )
+)
+def test_variadic_input_type_preservation(arrays):
+    """Test train_test_split with variable array inputs of mixed types."""
+
+    n_samples = len(arrays[0])
+    test_size = 0.2
+    train_samples = int(n_samples * (1 - test_size))
+    test_samples = n_samples - train_samples
+
+    result = train_test_split(*arrays, test_size=test_size, shuffle=False)
+
+    # Check number of outputs (2 per input array)
+    assert len(result) == len(arrays) * 2
+
+    # Check sizes and types of each output pair
+    for input_arr, train, test in zip(arrays, result[::2], result[1::2]):
+        expected_type = type(input_arr)
+
+        assert isinstance(train, expected_type)
+        assert isinstance(test, expected_type)
+
+        if hasattr(train, "shape"):
+            assert train.shape[0] == train_samples
+            assert test.shape[0] == test_samples
+        else:
+            assert len(train) == train_samples
+            assert len(test) == test_samples

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -121,7 +121,9 @@ inline void _fit(const raft::handle_t& handle,
                  float* knn_dists,
                  UMAPParams* params,
                  std::unique_ptr<rmm::device_buffer>& embeddings,
-                 raft::host_coo_matrix<float, int, int, uint64_t>& graph)
+                 raft::host_coo_matrix<float, int, int, uint64_t>& graph,
+                 float* sigmas = nullptr,
+                 float* rhos   = nullptr)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
     CUML_LOG_DEBUG("Calling UMAP::fit() with precomputed KNN");
@@ -139,7 +141,7 @@ inline void _fit(const raft::handle_t& handle,
                      float,
                      manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
                      nnz_t,
-                     TPB_X>(handle, inputs, params, embeddings, graph);
+                     TPB_X>(handle, inputs, params, embeddings, graph, sigmas, rhos);
     }
 
   } else {
@@ -150,7 +152,7 @@ inline void _fit(const raft::handle_t& handle,
           handle, inputs, params, embeddings, graph);
     } else {
       UMAPAlgo::_fit<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, nnz_t, TPB_X>(
-        handle, inputs, params, embeddings, graph);
+        handle, inputs, params, embeddings, graph, sigmas, rhos);
     }
   }
 }
@@ -254,6 +256,49 @@ inline void _transform_sparse(const raft::handle_t& handle,
   UMAPAlgo::
     _transform<knn_indices_sparse_t, float, manifold_sparse_inputs_t<int, float>, nnz_t, TPB_X>(
       handle, inputs, orig_x_inputs, embedding, embedding_n, params, transformed);
+}
+
+template <typename nnz_t>
+inline void _inverse_transform(const raft::handle_t& handle,
+                               float* inv_transformed,
+                               int n,
+                               int n_features,
+                               float* orig_X,
+                               int orig_n,
+                               int* graph_rows,
+                               int* graph_cols,
+                               float* graph_vals,
+                               int nnz,
+                               float* sigmas,
+                               float* rhos,
+                               UMAPParams* params,
+                               int n_epochs)
+{
+  cudaStream_t stream = handle.get_stream();
+
+  // Compute epochs_per_sample from graph weights
+  rmm::device_uvector<float> epochs_per_sample(nnz, stream);
+  UMAPAlgo::SimplSetEmbed::Algo::make_epochs_per_sample<float, int, nnz_t>(
+    graph_vals, nnz, n_epochs, epochs_per_sample.data(), stream);
+
+  // Run inverse optimization
+  UMAPAlgo::SimplSetEmbed::Algo::optimize_layout_inverse<float, nnz_t, TPB_X>(
+    inv_transformed,
+    n,
+    orig_X,
+    orig_n,
+    graph_rows,
+    graph_cols,
+    graph_vals,
+    sigmas,
+    rhos,
+    nnz,
+    epochs_per_sample.data(),
+    params->repulsion_strength,
+    params,
+    n_epochs,
+    n_features,
+    stream);
 }
 
 }  // namespace UMAP
