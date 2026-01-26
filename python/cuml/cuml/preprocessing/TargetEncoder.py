@@ -243,6 +243,13 @@ class TargetEncoder(Base, InteropMixin):
         self.train_encode = res
         self.train = train
         self._fitted = True
+
+        # Set _n_features_out for sklearn compatibility (get_feature_names_out)
+        if getattr(self, "_independent_mode_fitted", False):
+            self._n_features_out = self.n_features_in_
+        else:
+            self._n_features_out = 1
+
         return self
 
     @reflect
@@ -796,6 +803,8 @@ class TargetEncoder(Base, InteropMixin):
             "_independent_mode_fitted": independent_mode,
             "categories_": categories_gpu,
             "_x_cols": x_cols,
+            "n_features_in_": n_features,
+            "_n_features_out": n_features,  # sklearn always uses independent mode
             "mean": float(model.target_mean_),
             "y_stat_val": float(model.target_mean_),
             "_fitted": True,
