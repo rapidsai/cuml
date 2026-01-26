@@ -361,7 +361,13 @@ class TargetEncoder(Base, InteropMixin):
             unique_vals = train[col].unique()
             # Sort for deterministic ordering
             unique_vals = unique_vals.sort_values()
-            self.categories_.append(unique_vals.values)
+            # Use to_numpy() for string columns since .values fails on strings
+            # (cupy doesn't support object dtype)
+            try:
+                self.categories_.append(unique_vals.values)
+            except TypeError:
+                # String column - use numpy array instead of cupy
+                self.categories_.append(unique_vals.to_numpy())
 
         if self.multi_feature_mode not in {"combination", "independent"}:
             raise ValueError(

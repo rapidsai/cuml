@@ -7,7 +7,6 @@ import numpy as np
 
 import cuml.preprocessing
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = ("TargetEncoder",)
 
@@ -15,20 +14,16 @@ __all__ = ("TargetEncoder",)
 class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 
-    def _gpu_fit(self, X, y, **kwargs):
-        # cupy doesn't support object dtype (strings), fall back to CPU
-        if hasattr(X, "dtype") and X.dtype == np.object_:
-            raise UnsupportedOnGPU("TargetEncoder with object dtype")
-        return self._gpu.fit(X, y, **kwargs)
+    def _gpu_get_feature_names_out(self, input_features=None):
+        """Return feature names for output features.
 
-    def _gpu_fit_transform(self, X, y, **kwargs):
-        # cupy doesn't support object dtype (strings), fall back to CPU
-        if hasattr(X, "dtype") and X.dtype == np.object_:
-            raise UnsupportedOnGPU("TargetEncoder with object dtype")
-        return self._gpu.fit_transform(X, y, **kwargs)
-
-    def _gpu_transform(self, X):
-        # cupy doesn't support object dtype (strings), fall back to CPU
-        if hasattr(X, "dtype") and X.dtype == np.object_:
-            raise UnsupportedOnGPU("TargetEncoder with object dtype")
-        return self._gpu.transform(X)
+        sklearn's TargetEncoder returns input feature names (one output per input).
+        For cuML in combination mode, we return a single column name.
+        """
+        n_features_out = getattr(self._gpu, "_n_features_out", 1)
+        if input_features is not None:
+            return np.asarray(input_features[:n_features_out], dtype=object)
+        # Generate default names like sklearn does
+        return np.array(
+            [f"targetencoder{i}" for i in range(n_features_out)], dtype=object
+        )
