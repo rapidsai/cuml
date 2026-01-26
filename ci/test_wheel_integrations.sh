@@ -30,6 +30,7 @@ rapids-pip-retry install \
 # Step 2: Install BERTopic
 rapids-logger "Installing BERTopic"
 rapids-pip-retry install bertopic
+rapids-pip-retry install requests # TODO remove once sentence-transformers#3617 is fixed
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"

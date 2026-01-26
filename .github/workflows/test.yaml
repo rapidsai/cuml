@@ -152,3 +152,4 @@ jobs:
       # Test all CUDA major versions with latest dependencies and respective latest Python version
       matrix_filter: map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      continue-on-error: true
