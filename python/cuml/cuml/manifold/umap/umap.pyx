@@ -4,15 +4,18 @@
 #
 import ctypes
 import warnings
+from collections import deque
 
 import cupy as cp
 import cupyx.scipy.sparse
 import joblib
 import numpy as np
 import scipy.sparse
+import scipy.spatial
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect
@@ -88,6 +91,188 @@ def find_ab_params(spread=1.0, min_dist=0.1):
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, _ = curve_fit(curve, xv, yv)
     return params[0], params[1]
+
+
+def _breadth_first_search(adjmat, start, min_vertices):
+    """Perform breadth-first search on an adjacency matrix.
+
+    Parameters
+    ----------
+    adjmat : scipy.sparse.csr_matrix
+        The adjacency matrix to search.
+    start : int
+        The starting vertex index.
+    min_vertices : int
+        Minimum number of vertices to explore.
+
+    Returns
+    -------
+    explored : np.ndarray
+        Array of explored vertex indices.
+    """
+    explored = []
+    queue = deque([start])
+    levels = {start: 0}
+    max_level = float('inf')
+    visited = {start}
+
+    while queue:
+        node = queue.popleft()
+        explored.append(node)
+        if max_level == float('inf') and len(explored) > min_vertices:
+            max_level = max(levels.values())
+
+        if levels[node] + 1 < max_level:
+            neighbors = adjmat[node].indices
+            for neighbour in neighbors:
+                if neighbour not in visited:
+                    queue.append(neighbour)
+                    visited.add(neighbour)
+                    levels[neighbour] = levels[node] + 1
+
+    return np.array(explored)
+
+
+def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
+    """Compute neighborhoods for inverse transform using Delaunay triangulation.
+
+    This is inherently CPU-bound as it uses scipy's Delaunay triangulation
+    and BFS which are sequential algorithms.
+
+    Parameters
+    ----------
+    embedding_np : np.ndarray
+        The embedding coordinates (n_embedding, n_components).
+    X_np : np.ndarray
+        Points to inverse transform (n_samples, n_components).
+    min_vertices : int
+        Minimum number of neighbors to find per point.
+
+    Returns
+    -------
+    neighborhoods : list of np.ndarray
+        Variable-length neighbor indices for each sample.
+    """
+    n_embedding = embedding_np.shape[0]
+
+    # Build Delaunay triangulation
+    deltri = scipy.spatial.Delaunay(
+        embedding_np, incremental=True, qhull_options="QJ"
+    )
+
+    # Find starting vertices (first vertex of simplex containing each point)
+    simplex_indices = deltri.find_simplex(X_np)
+    out_of_hull_mask = simplex_indices == -1
+    if np.any(out_of_hull_mask):
+        n_outside = out_of_hull_mask.sum()
+        raise ValueError(
+            f"{n_outside} point(s) are outside the convex hull of the embedding "
+            "and cannot be inverse transformed. Ensure all points to inverse "
+            "transform lie within the range of the original embedding."
+        )
+    start_vertices = deltri.simplices[simplex_indices][:, 0]
+
+    # Build adjacency matrix from simplices
+    simplices = deltri.simplices
+    valid_mask = simplices < n_embedding
+    rows_list, cols_list = [], []
+    for i in range(simplices.shape[0]):
+        valid_verts = simplices[i][valid_mask[i]]
+        for v in valid_verts:
+            rows_list.extend([v] * len(valid_verts))
+            cols_list.extend(valid_verts)
+
+    adjmat = scipy.sparse.csr_matrix(
+        (np.ones(len(rows_list), dtype=np.int32),
+         (np.array(rows_list), np.array(cols_list))),
+        shape=(n_embedding, n_embedding)
+    )
+
+    # BFS from each starting vertex
+    return [
+        _breadth_first_search(adjmat, v, min_vertices=min_vertices)
+        for v in start_vertices
+    ]
+
+
+def _build_inverse_graph(X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, a, b):
+    """Build inverse transform graph and compute initial points on GPU.
+
+    Parameters
+    ----------
+    X_np : np.ndarray
+        Points to inverse transform (n_samples, n_components).
+    embedding_np : np.ndarray
+        Embedding coordinates (n_embedding, n_components).
+    raw_data_np : np.ndarray
+        Original training data (n_orig, n_features).
+    neighborhoods : list of np.ndarray
+        Variable-length neighbor indices for each sample.
+    min_vertices : int
+        Number of closest neighbors to use per sample.
+    a, b : float
+        UMAP curve parameters.
+
+    Returns
+    -------
+    inv_transformed : cp.ndarray
+        Initial inverse transformed points (n_samples, n_features).
+    rows, cols, weights : cp.ndarray
+        COO graph arrays (on GPU).
+    raw_data_gpu : cp.ndarray
+        Original training data on GPU (n_orig, n_features).
+    """
+    n_samples = X_np.shape[0]
+
+    # Pad neighborhoods to uniform length for GPU processing
+    hood_lengths = np.array([len(h) for h in neighborhoods], dtype=np.int32)
+    max_hood_len = int(hood_lengths.max())
+    hoods_padded = np.zeros((n_samples, max_hood_len), dtype=np.int32)
+    for i, hood in enumerate(neighborhoods):
+        hoods_padded[i, :len(hood)] = hood
+
+    # Transfer to GPU (raw_data with C-contiguous layout for CUDA kernels)
+    X_gpu = cp.asarray(X_np, dtype=cp.float32)
+    embedding_gpu = cp.asarray(embedding_np, dtype=cp.float32)
+    raw_data_gpu = cp.asarray(raw_data_np, dtype=cp.float32, order="C")
+    hoods_gpu = cp.asarray(hoods_padded, dtype=cp.int32)
+    lengths_gpu = cp.asarray(hood_lengths, dtype=cp.int32)
+
+    # Gather neighbor embeddings: (n_samples, max_hood_len, n_components)
+    neighbor_embs = embedding_gpu[hoods_gpu]
+
+    # Compute distances: (n_samples, max_hood_len)
+    diffs = X_gpu[:, None, :] - neighbor_embs
+    dists = cp.linalg.norm(diffs, axis=2)
+
+    # Mask invalid entries with infinity
+    valid_mask = cp.arange(max_hood_len)[None, :] < lengths_gpu[:, None]
+    dists = cp.where(valid_mask, dists, cp.inf)
+
+    # Get top-k closest indices
+    order = cp.argsort(dists, axis=1)[:, :min_vertices]
+
+    # Gather indices and distances
+    row_idx = cp.arange(n_samples, dtype=cp.int32)[:, None]
+    indices = hoods_gpu[row_idx, order]
+    distances = dists[row_idx, order]
+
+    # Compute membership strengths
+    weights_2d = 1.0 / (1.0 + a * distances ** (2 * b))
+
+    # Build COO graph
+    rows = cp.repeat(cp.arange(n_samples, dtype=cp.int32), min_vertices)
+    cols = indices.ravel()
+    weights = weights_2d.ravel().astype(cp.float32)
+
+    # Initialize via L1-normalized weighted average
+    weights_norm = weights_2d / weights_2d.sum(axis=1, keepdims=True)
+    neighbor_data = raw_data_gpu[indices]  # (n_samples, min_vertices, n_features)
+    inv_transformed = cp.sum(
+        weights_norm[:, :, None] * neighbor_data, axis=1
+    ).astype(cp.float32)
+
+    return inv_transformed, rows, cols, weights, raw_data_gpu
 
 
 cdef class RaftCOO:
@@ -686,6 +871,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
        <https://arxiv.org/abs/2008.00325>`_
     """
     embedding_ = CumlArrayDescriptor(order="C")
+    _sigmas = CumlArrayDescriptor(order="C")
+    _rhos = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "umap.UMAP"
 
@@ -808,7 +995,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             raw_data = to_gpu(model._raw_data)
 
-        return {
+        attrs = {
             "embedding_": to_gpu(model.embedding_, order="C"),
             "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
@@ -820,6 +1007,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
+
+        # Transfer _sigmas and _rhos if available (needed for inverse_transform)
+        if hasattr(model, "_sigmas") and model._sigmas is not None:
+            attrs["_sigmas"] = to_gpu(model._sigmas)
+        if hasattr(model, "_rhos") and model._rhos is not None:
+            attrs["_rhos"] = to_gpu(model._rhos)
+
+        return attrs
 
     def _attrs_to_cpu(self, model):
         from umap.umap_ import DISCONNECTION_DISTANCES
@@ -837,7 +1032,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
             knn_indices = to_cpu(knn_indices)
 
-        return {
+        attrs = {
             "embedding_": to_cpu(self.embedding_),
             "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
@@ -864,6 +1059,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "_knn_search_index": None,
             **super()._attrs_to_cpu(model),
         }
+
+        # Transfer _sigmas and _rhos if available (needed for inverse_transform)
+        if hasattr(self, "_sigmas") and self._sigmas is not None:
+            attrs["_sigmas"] = to_cpu(self._sigmas)
+        if hasattr(self, "_rhos") and self._rhos is not None:
+            attrs["_rhos"] = to_cpu(self._rhos)
+
+        return attrs
 
     def _sync_attrs_to_cpu(self, model):
         super()._sync_attrs_to_cpu(model)
@@ -1067,6 +1270,19 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 )
             )
 
+        # Allocate device arrays for sigmas and rhos (needed for inverse_transform)
+        # Note: fit_sparse in C++ doesn't output sigmas/rhos yet.
+        cdef uintptr_t sigmas_ptr = 0
+        cdef uintptr_t rhos_ptr = 0
+        if not X_is_sparse:
+            sigmas_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
+            rhos_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
+            sigmas_ptr = sigmas_arr.ptr
+            rhos_ptr = rhos_arr.ptr
+        else:
+            sigmas_arr = None
+            rhos_arr = None
+
         with nogil:
             if X_is_sparse:
                 lib.fit_sparse(
@@ -1096,6 +1312,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     &params,
                     embeddings_buffer,
                     fss_graph,
+                    <float*> sigmas_ptr,
+                    <float*> rhos_ptr,
                 )
         handle.sync()
 
@@ -1115,6 +1333,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
+        self._sigmas = sigmas_arr
+        self._rhos = rhos_arr
 
         if self.hash_input:
             self._input_hash = _joblib_hash(X_m.to_output("numpy"))
@@ -1302,6 +1522,120 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         handle.sync()
 
         return out
+
+    @generate_docstring(
+        convert_dtype_cast="np.float32",
+        X_shape="(n_samples, n_components)",
+        return_values={
+            "name": "X_new",
+            "type": "dense",
+            "description": "Generated data points in data space.",
+            "shape": "(n_samples, n_features)"
+        }
+    )
+    @reflect
+    def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
+        """Transform X in the existing embedded space back into the input
+        data space and return that transformed output.
+        """
+        if not hasattr(self, "embedding_") or self.embedding_ is None:
+            raise NotFittedError(
+                "This UMAP instance is not fitted yet. Call 'fit' with "
+                "appropriate arguments before using 'inverse_transform'."
+            )
+        if self._sparse_data:
+            raise ValueError("Inverse transform not available for sparse input.")
+        if self.n_components >= 8:
+            warnings.warn(
+                "Inverse transform works best with low dimensional embeddings."
+                " Results may be poor, or this approach to inverse transform"
+                " may fail altogether! If you need a high dimensional latent"
+                " space and inverse transform operations consider using an"
+                " autoencoder."
+            )
+
+        X = input_to_cuml_array(
+            X,
+            order="C",
+            check_dtype=np.float32,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        ).array
+        index = X.index
+
+        n_samples = X.shape[0]
+        if X.shape[1] != self.n_components:
+            raise ValueError(
+                f"X has {X.shape[1]} components, but UMAP is expecting "
+                f"{self.n_components} components as input"
+            )
+
+        # Get numpy arrays for preprocessing
+        embedding_np = self.embedding_.to_output("numpy")
+        X_np = X.to_output("numpy")
+        raw_data_np = self._raw_data.to_output("numpy")
+
+        # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
+        # Cap neighborhood size to prevent explosion for high-dimensional data.
+        # We use 3x n_neighbors as an upper bound since that's the scale at which
+        # the manifold was learned. This avoids creating excessively dense graphs
+        # when n_features >> n_neighbors (e.g., 10000 features).
+        max_neighbors = 3 * self._n_neighbors
+        min_vertices = min(raw_data_np.shape[1], raw_data_np.shape[0], max_neighbors)
+        neighborhoods = _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices)
+
+        # Phase 2: Build graph and initial points (GPU-accelerated)
+        inv_transformed_gpu, rows_gpu, cols_gpu, vals_gpu, raw_data_gpu = _build_inverse_graph(
+            X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, self._a, self._b
+        )
+
+        # Phase 3: CUDA optimization (call C++)
+        cdef int n_epochs_inv
+        if self.n_epochs is None:
+            n_epochs_inv = 100 if n_samples <= 10000 else 30
+        else:
+            n_epochs_inv = int(self.n_epochs // 3)
+
+        # Ensure C-contiguous layout for CUDA kernels
+        inv_transformed_gpu = cp.ascontiguousarray(inv_transformed_gpu)
+
+        cdef int c_n_samples = n_samples
+        cdef int c_n_features = raw_data_np.shape[1]
+        cdef int c_orig_n = raw_data_np.shape[0]
+        cdef int c_nnz = vals_gpu.shape[0]
+
+        cdef uintptr_t inv_ptr = inv_transformed_gpu.data.ptr
+        cdef uintptr_t raw_ptr = raw_data_gpu.data.ptr
+        cdef uintptr_t rows_ptr = rows_gpu.data.ptr
+        cdef uintptr_t cols_ptr = cols_gpu.data.ptr
+        cdef uintptr_t vals_ptr = vals_gpu.data.ptr
+
+        # Check that sigmas and rhos are available (set during fit on dense data)
+        if self._sigmas is None or self._rhos is None:
+            raise ValueError(
+                "inverse_transform requires sigmas and rhos arrays from fit. "
+                "These may be missing if the model was loaded from a CPU UMAP "
+                "model that did not have them, or if the model was not fitted."
+            )
+        cdef uintptr_t sigmas_ptr = self._sigmas.ptr
+        cdef uintptr_t rhos_ptr = self._rhos.ptr
+
+        cdef lib.UMAPParams params
+        init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
+
+        handle = get_handle(model=self, device_ids=self.device_ids)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+        lib.inverse_transform(
+            handle_[0],
+            <float*>inv_ptr, c_n_samples, c_n_features,
+            <float*>raw_ptr, c_orig_n,
+            <int*>rows_ptr, <int*>cols_ptr, <float*>vals_ptr, c_nnz,
+            <float*>sigmas_ptr, <float*>rhos_ptr,
+            &params, n_epochs_inv
+        )
+        handle.sync()
+
+        return CumlArray(data=inv_transformed_gpu, order="C", index=index)
 
 
 def fuzzy_simplicial_set(

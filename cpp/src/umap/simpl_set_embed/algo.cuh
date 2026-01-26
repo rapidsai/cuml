@@ -6,6 +6,7 @@
 #pragma once
 
 #include "optimize_batch_kernel.cuh"
+#include "optimize_inverse_kernel.cuh"
 
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
