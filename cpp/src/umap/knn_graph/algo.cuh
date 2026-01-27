@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -25,8 +25,6 @@
 #include <cuvs/neighbors/all_neighbors.hpp>
 #include <cuvs/neighbors/brute_force.hpp>
 #include <stdint.h>
-
-#include <iostream>
 
 namespace UMAPAlgo {
 namespace kNNGraph {
@@ -59,7 +57,24 @@ inline void launcher(const raft::handle_t& handle,
   RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, inputsA.X));
   bool data_on_device = attr.type == cudaMemoryTypeDevice;
 
-  if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
+  auto indices_view =
+    raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
+  auto distances_view =
+    raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
+
+  // Check if the metric is supported by all_neighbors API
+  auto metric = static_cast<cuvs::distance::DistanceType>(params->metric);
+  bool metric_supported_by_all_neighbors = metric == cuvs::distance::DistanceType::L2Expanded ||
+                                           metric == cuvs::distance::DistanceType::L2SqrtExpanded ||
+                                           metric == cuvs::distance::DistanceType::CosineExpanded ||
+                                           metric == cuvs::distance::DistanceType::InnerProduct;
+
+  // Transform: inputsA (original data) != inputsB (data to transform)
+  // Also fall back to brute force build-search if metric is not supported by all_neighbors
+  if (inputsA.X != inputsB.X || !metric_supported_by_all_neighbors) {
+    RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+                 "nn_descent does not support transform (query data differs from training data)");
+
     auto idx = [&]() {
       if (data_on_device) {  // inputsA on device
         return cuvs::neighbors::brute_force::build(
@@ -77,37 +92,42 @@ inline void launcher(const raft::handle_t& handle,
       handle,
       idx,
       raft::make_device_matrix_view<const float, int64_t>(inputsB.X, inputsB.n, inputsB.d),
-      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors),
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors));
-  } else {  // nn_descent
-    RAFT_EXPECTS(
-      static_cast<size_t>(n_neighbors) <= params->build_params.nn_descent_params.graph_degree,
-      "n_neighbors should be smaller than the graph degree computed by nn descent");
-    RAFT_EXPECTS(
-      params->build_params.nn_descent_params.graph_degree <=
-        params->build_params.nn_descent_params.intermediate_graph_degree,
-      "graph_degree should be smaller than intermediate_graph_degree computed by nn descent");
-
+      indices_view,
+      distances_view);
+    return;
+  } else {
+    // Fit: inputsA == inputsB (self KNN graph), use all_neighbors::build
     auto all_neighbors_params           = cuvs::neighbors::all_neighbors::all_neighbors_params{};
     all_neighbors_params.overlap_factor = params->build_params.overlap_factor;
     all_neighbors_params.n_clusters     = params->build_params.n_clusters;
     all_neighbors_params.metric         = static_cast<cuvs::distance::DistanceType>(params->metric);
 
-    auto nn_descent_params =
-      cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
-    nn_descent_params.graph_degree = params->build_params.nn_descent_params.graph_degree;
-    nn_descent_params.intermediate_graph_degree =
-      params->build_params.nn_descent_params.intermediate_graph_degree;
-    nn_descent_params.max_iterations = params->build_params.nn_descent_params.max_iterations;
-    nn_descent_params.termination_threshold =
-      params->build_params.nn_descent_params.termination_threshold;
-    nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(params->metric);
-    all_neighbors_params.graph_build_params = nn_descent_params;
+    if (params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN) {
+      auto brute_force_params =
+        cuvs::neighbors::all_neighbors::graph_build_params::brute_force_params{};
+      brute_force_params.build_params = {static_cast<cuvs::distance::DistanceType>(params->metric),
+                                         params->p};
+      all_neighbors_params.graph_build_params = brute_force_params;
+    } else {
+      RAFT_EXPECTS(
+        static_cast<size_t>(n_neighbors) <= params->build_params.nn_descent_params.graph_degree,
+        "n_neighbors should be smaller than the graph degree computed by nn descent");
+      RAFT_EXPECTS(
+        params->build_params.nn_descent_params.graph_degree <=
+          params->build_params.nn_descent_params.intermediate_graph_degree,
+        "graph_degree should be smaller than intermediate_graph_degree computed by nn descent");
 
-    auto indices_view =
-      raft::make_device_matrix_view<int64_t, int64_t>(out.knn_indices, inputsB.n, n_neighbors);
-    auto distances_view =
-      raft::make_device_matrix_view<float, int64_t>(out.knn_dists, inputsB.n, n_neighbors);
+      auto nn_descent_params =
+        cuvs::neighbors::all_neighbors::graph_build_params::nn_descent_params{};
+      nn_descent_params.graph_degree = params->build_params.nn_descent_params.graph_degree;
+      nn_descent_params.intermediate_graph_degree =
+        params->build_params.nn_descent_params.intermediate_graph_degree;
+      nn_descent_params.max_iterations = params->build_params.nn_descent_params.max_iterations;
+      nn_descent_params.termination_threshold =
+        params->build_params.nn_descent_params.termination_threshold;
+      nn_descent_params.metric = static_cast<cuvs::distance::DistanceType>(params->metric);
+      all_neighbors_params.graph_build_params = nn_descent_params;
+    }
 
     if (data_on_device) {  // inputsA on device
       cuvs::neighbors::all_neighbors::build(

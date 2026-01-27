@@ -6,7 +6,6 @@
   - "umap.tests.test_composite_models::test_contrastive_trustworthiness_on_iris"
   - "umap.tests.test_spectral::test_tsw_spectral_init"
   - "umap.tests.test_umap_on_iris::test_precomputed_knn_on_iris"
-  - "umap.tests.test_umap_on_iris::test_umap_inverse_transform_on_iris"
   - "umap.tests.test_umap_on_iris::test_umap_transform_on_iris_modified_dtype"
   - "umap.tests.test_umap_ops::test_bad_transform_data"
   - "umap.tests.test_umap_ops::test_disconnected_data[False-hellinger-1]"
