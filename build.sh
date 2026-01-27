@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # cuml build script
@@ -265,9 +265,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p "${LIBCUML_BUILD_DIR}"
-    cd "${LIBCUML_BUILD_DIR}"
-
     cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -284,7 +281,8 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}" \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           "${CUML_EXTRA_CMAKE_ARGS[@]}" \
-          ..
+          -S "${REPODIR}"/cpp \
+          -B "${LIBCUML_BUILD_DIR}"
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
@@ -295,7 +293,6 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
         "${CACHE_TOOL}" --zero-stats
     fi
 
-    cd "${LIBCUML_BUILD_DIR}"
     if [ -n "${INSTALL_TARGET}" ]; then
       cmake --build "${LIBCUML_BUILD_DIR}" -j"${PARALLEL_LEVEL}" --target ${INSTALL_TARGET} "${VERBOSE_FLAG}"
     else
@@ -346,7 +343,6 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
 fi
 
 if (! hasArg --configure-only) && hasArg cppdocs; then
-    cd "${LIBCUML_BUILD_DIR}"
     cmake --build "${LIBCUML_BUILD_DIR}" --target docs_cuml
 fi
 

@@ -117,6 +117,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
@@ -126,6 +127,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
@@ -465,10 +467,21 @@ dependencies:
             packages:
               - scikit-learn==1.7.2
               - ipython==8.37.0
+          - matrix: {dependencies: "nightly"}
+            packages:
+              # Pre-release specifier tells pip to accept dev/alpha/beta versions
+              - scikit-learn>=1.5.0a0
           - matrix:
             packages:
               - *scikit_learn
               - ipython>=7.32.0
+      - output_types: requirements
+        matrices:
+          - matrix: {dependencies: "nightly"}
+            packages:
+              - --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+          - matrix:  # fallback for non-nightly dependencies
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -610,6 +623,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
+          # Nightly dependencies with pre-release specifiers
+          - matrix:
+              cuda: "12.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda12x>=13.6.0a0
+          - matrix:
+              cuda: "13.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
@@ -618,6 +647,14 @@ dependencies:
           - matrix:
             packages:
               - cupy-cuda13x>=13.6.0
+      - output_types: requirements
+        matrices:
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - --find-links=https://pip.cupy.dev/pre
+          - matrix:
+            packages:
   depends_on_rapids_dask_dependency:
     common:
       - output_types: [conda, pyproject, requirements]

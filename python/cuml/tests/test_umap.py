@@ -413,7 +413,10 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
         )
         return reducer.fit_transform(data, convert_dtype=True)
 
@@ -466,7 +469,10 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
         )
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
@@ -861,16 +867,17 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 @pytest.mark.parametrize("device_ids", [None, "all"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, device_ids
+    num_clusters, fit_then_transform, metric, device_ids, build_algo
 ):
     digits = datasets.load_digits()
 
     cuml_model = cuUMAP(
         n_neighbors=10,
         min_dist=0.01,
-        build_algo="nn_descent",
-        build_kwds={"nnd_n_clusters": num_clusters},
+        build_algo=build_algo,
+        build_kwds={"knn_n_clusters": num_clusters},
         metric=metric,
         device_ids=device_ids,
     )
@@ -888,6 +895,55 @@ def test_umap_trustworthiness_on_batch_nnd(
     )
 
     assert cuml_trust > 0.9
+
+
+@pytest.mark.parametrize(
+    "n_components,random_state",
+    [
+        unit_param(2, 8),
+        unit_param(2, np.random.RandomState(42)),
+        unit_param(21, np.random.RandomState(42)),
+        unit_param(25, 8),
+        stress_param(50, 8),
+    ],
+)
+@pytest.mark.parametrize("num_clusters", [1, 4, 7])
+@pytest.mark.parametrize("do_gpu_input", [False, True])
+def test_umap_fit_transform_batch_brute_force_reproducibility(
+    n_components, random_state, num_clusters, do_gpu_input
+):
+    n_samples = 8000
+    n_features = 200
+
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
+    if do_gpu_input:
+        data = cp.asarray(data)
+
+    def get_embedding(n_components, random_state):
+        reducer = cuUMAP(
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
+            build_kwds={"knn_n_clusters": num_clusters},
+        )
+        return reducer.fit_transform(data, convert_dtype=True)
+
+    state = copy.deepcopy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.deepcopy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
+
+    if do_gpu_input:
+        cuml_embedding1 = cuml_embedding1.get()
+        cuml_embedding2 = cuml_embedding2.get()
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
+    np.testing.assert_array_equal(cuml_embedding1, cuml_embedding2)
 
 
 def test_callback():
