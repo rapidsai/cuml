@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -412,6 +412,7 @@ class SVMBase(Base,
             warnings.warn(
                 (
                     "Passing `TotalIters` to `max_iter` was deprecated in 26.02 "
+                    # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                     "and will be removed in 26.04. `max_iter` now always places a "
                     "limit on total iterations, please pass an integer directly "
                     "instead of wrapping with `TotalIters`."
