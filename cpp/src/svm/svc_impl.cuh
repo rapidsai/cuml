@@ -40,6 +40,86 @@
 namespace ML {
 namespace SVM {
 
+/**
+ * @brief Compute decision function values for a batch: y_batch = K @ dual_coefs
+ *
+ * @param[in] handle       cuML handle
+ * @param[in] K            Kernel matrix (batch_size x n_support or n_support x batch_size if
+ * transposed)
+ * @param[in] dual_coefs   Dual coefficients (size n_support)
+ * @param[in] batch_size   Number of samples in the batch
+ * @param[in] n_support    Number of support vectors
+ * @param[in] transpose    Whether K is transposed (n_support x batch_size instead of batch_size x
+ * n_support)
+ * @param[out] y_batch     Output decision values for the batch (size batch_size)
+ * @param[in] stream       CUDA stream
+ */
+template <typename math_t>
+void computeBatchDecisionFunction(const raft::handle_t& handle,
+                                  const math_t* K,
+                                  const math_t* dual_coefs,
+                                  int batch_size,
+                                  int n_support,
+                                  bool transpose,
+                                  math_t* y_batch,
+                                  cudaStream_t stream)
+{
+  math_t one  = 1;
+  math_t null = 0;
+  raft::linalg::gemv(handle,
+                     transpose,
+                     transpose ? n_support : batch_size,
+                     transpose ? batch_size : n_support,
+                     &one,
+                     K,
+                     transpose ? n_support : batch_size,
+                     dual_coefs,
+                     1,
+                     &null,
+                     y_batch,
+                     1,
+                     stream);
+}
+
+/**
+ * @brief Apply bias and convert to class labels or decision function values.
+ *
+ * Computes: preds = (y + b) for decision function, or class labels based on sign(y + b)
+ *
+ * @param[in] handle      cuML handle
+ * @param[in] y           Decision function values before bias (size n_rows)
+ * @param[in] n_rows      Number of samples
+ * @param[in] b           Bias term
+ * @param[in] labels      Class labels (size 2, used only if predict_class=true)
+ * @param[in] predict_class Whether to output class labels (true) or decision values (false)
+ * @param[out] preds      Output predictions (size n_rows)
+ * @param[in] stream      CUDA stream
+ */
+template <typename math_t>
+void applyPrediction(const raft::handle_t& handle,
+                     const math_t* y,
+                     int n_rows,
+                     math_t b,
+                     const math_t* labels,
+                     bool predict_class,
+                     math_t* preds,
+                     cudaStream_t stream)
+{
+  if (predict_class) {
+    // Look up the label based on the value of the decision function: f(x) = sign(y(x) + b)
+    raft::linalg::unaryOp(
+      preds,
+      y,
+      n_rows,
+      [labels, b] __device__(math_t val) { return val + b < 0 ? labels[0] : labels[1]; },
+      stream);
+  } else {
+    // Calculate the value of the decision function: f(x) = y(x) + b
+    raft::linalg::unaryOp(preds, y, n_rows, [b] __device__(math_t val) { return val + b; }, stream);
+  }
+  handle.sync_stream(stream);
+}
+
 template <typename math_t, typename MatrixViewType>
 int svcFitX(const raft::handle_t& handle,
             MatrixViewType matrix,
@@ -75,12 +155,16 @@ int svcFitX(const raft::handle_t& handle,
   raft::label::getOvrlabels(
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
-  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
-    cuvs::distance::kernels::KernelFactory<math_t>::create(kernel_params.to_cuvs());
-  SmoSolver<math_t> smo(handle_impl,
-                        param,
-                        static_cast<cuvs::distance::kernels::KernelType>(kernel_params.kernel),
-                        kernel);
+  bool is_precomputed = kernel_params.kernel == ML::matrix::KernelType::PRECOMPUTED;
+
+  // For precomputed kernels, we don't need to create a cuvs kernel
+  cuvs::distance::kernels::GramMatrixBase<math_t>* kernel = nullptr;
+  cuvs::distance::kernels::KernelParams cuvs_params       = kernel_params.to_cuvs();
+  if (!is_precomputed) {
+    kernel = cuvs::distance::kernels::KernelFactory<math_t>::create(cuvs_params);
+  }
+
+  SmoSolver<math_t> smo(handle_impl, param, cuvs_params.kernel, kernel, is_precomputed);
   smo.Solve(matrix,
             n_rows,
             n_cols,
@@ -95,7 +179,7 @@ int svcFitX(const raft::handle_t& handle,
             param.max_outer_iter);
   model.n_cols = n_cols;
   handle_impl.sync_stream(stream);
-  delete kernel;
+  if (kernel != nullptr) { delete kernel; }
   return smo.GetNIter();
 }
 
@@ -148,7 +232,13 @@ void svcPredictX(const raft::handle_t& handle,
                  math_t buffer_size,
                  bool predict_class)
 {
-  ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
+  bool is_precomputed = kernel_params.kernel == ML::matrix::KernelType::PRECOMPUTED;
+
+  // For precomputed kernels, n_cols is the number of training samples
+  // (since input is K[test, train] of shape n_rows x n_train)
+  if (!is_precomputed) {
+    ASSERT(n_cols == model.n_cols, "Parameter n_cols: shall be the same that was used for fitting");
+  }
   // We might want to query the available memory before selecting the batch size.
   // We will need n_batch * n_support floats for the kernel matrix K.
   int n_batch = n_rows;
@@ -166,6 +256,62 @@ void svcPredictX(const raft::handle_t& handle,
   rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
     RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+  }
+
+  // Handle precomputed kernel prediction separately
+  if (is_precomputed) {
+    // Precomputed kernels only work with dense input
+    if constexpr (!isDenseType<MatrixViewType>()) {
+      ASSERT(false, "Precomputed kernels are not supported for sparse input");
+    } else {
+      // For precomputed kernels, matrix contains K[test, train] of shape (n_rows, n_cols)
+      // where n_cols = n_train. We need to extract K[test, support_indices].
+      if (model.n_support > 0) {
+        const math_t* matrix_data = getDenseData(matrix);
+        int* support_idx          = model.support_idx;
+        int n_support             = model.n_support;
+
+        // Process in batches
+        for (int i = 0; i < n_rows; i += n_batch) {
+          int batch_size = std::min(n_batch, n_rows - i);
+          int n_elems    = batch_size * n_support;
+
+          // Extract columns: K[row, col] = matrix[src_row, support_idx[col]]
+          // Input matrix is column-major (F-contiguous): matrix[row, col] = matrix[row + col *
+          // n_rows] Output K must also be column-major for gemv: K[row, col] = K[row + col *
+          // batch_size]
+          thrust::counting_iterator<int> iter(0);
+          thrust::transform(
+            thrust::cuda::par.on(stream),
+            iter,
+            iter + n_elems,
+            K.data(),
+            [matrix_data, support_idx, n_rows, batch_start = i, batch_size] __device__(int tid) {
+              int row     = tid % batch_size;  // Column-major: row changes fast
+              int col     = tid / batch_size;
+              int src_col = support_idx[col];
+              int src_row = batch_start + row;
+              // Column-major: matrix[row, col] = matrix[row + col * n_rows]
+              return matrix_data[src_row + src_col * n_rows];
+            });
+
+          // Compute y = K @ dual_coefs
+          computeBatchDecisionFunction(handle_impl,
+                                       K.data(),
+                                       model.dual_coefs,
+                                       batch_size,
+                                       n_support,
+                                       false,
+                                       y.data() + i,
+                                       stream);
+        }
+      }
+
+      // Apply prediction (class labels or decision function)
+      applyPrediction(
+        handle_impl, y.data(), n_rows, model.b, model.unique_labels, predict_class, preds, stream);
+      return;
+    }
   }
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel =
@@ -266,41 +412,20 @@ void svcPredictX(const raft::handle_t& handle,
                l2_input2);
     }
 
-    math_t one  = 1;
-    math_t null = 0;
-    raft::linalg::gemv(handle_impl,
-                       transpose_kernel,
-                       transpose_kernel ? model.n_support : n_batch,
-                       transpose_kernel ? n_batch : model.n_support,
-                       &one,
-                       K.data(),
-                       transpose_kernel ? model.n_support : n_batch,
-                       model.dual_coefs,
-                       1,
-                       &null,
-                       y.data() + i,
-                       1,
-                       stream);
+    computeBatchDecisionFunction(handle_impl,
+                                 K.data(),
+                                 model.dual_coefs,
+                                 n_batch,
+                                 model.n_support,
+                                 transpose_kernel,
+                                 y.data() + i,
+                                 stream);
 
   }  // end of loop
 
-  math_t* labels = model.unique_labels;
-  math_t b       = model.b;
-  if (predict_class) {
-    // Look up the label based on the value of the decision function:
-    // f(x) = sign(y(x) + b)
-    raft::linalg::unaryOp(
-      preds,
-      y.data(),
-      n_rows,
-      [labels, b] __device__(math_t y) { return y + b < 0 ? labels[0] : labels[1]; },
-      stream);
-  } else {
-    // Calculate the value of the decision function: f(x) = y(x) + b
-    raft::linalg::unaryOp(
-      preds, y.data(), n_rows, [b] __device__(math_t y) { return y + b; }, stream);
-  }
-  handle_impl.sync_stream(stream);
+  // Apply prediction (class labels or decision function)
+  applyPrediction(
+    handle_impl, y.data(), n_rows, model.b, model.unique_labels, predict_class, preds, stream);
   delete kernel;
 }
 

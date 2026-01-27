@@ -454,17 +454,21 @@ dependencies:
           - *cmake_ver
   test_python:
     specific:
-      - output_types: [conda, requirements]
+      - output_types: [conda, requirements, pyproject]
         matrices:
           # Package versions to user for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
+              - ipython==7.32.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
+              - ipython==8.37.0
           - matrix:
             packages:
+              - *scikit_learn
+              - ipython>=7.32.0
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -484,7 +488,6 @@ dependencies:
           - pytest-cov
           - pytest-xdist
           - seaborn
-          - *scikit_learn
           - statsmodels
           - umap-learn==0.5.7
           - pynndescent
@@ -763,18 +766,24 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.22.1,<0.23.0
+        - &numba_cuda numba-cuda>=0.22.1,<0.23.0
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
               - numba-cuda[cu12]>=0.22.1,<0.23.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
             packages:
               - numba-cuda[cu13]>=0.22.1,<0.23.0
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
+          - matrix:
+            packages:
+              - *numba_cuda
   depends_on_pylibraft:
     common:
       - output_types: conda

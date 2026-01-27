@@ -17,7 +17,7 @@ from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
-from sklearn.neighbors import NearestNeighbors
+from sklearn.neighbors import KDTree, NearestNeighbors
 
 import cuml
 from cuml.internals import GraphBasedDimRedCallback
@@ -413,7 +413,10 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
         )
         return reducer.fit_transform(data, convert_dtype=True)
 
@@ -466,7 +469,10 @@ def test_umap_transform_reproducibility(n_components, random_state):
 
     def get_embedding(n_components, random_state):
         reducer = cuUMAP(
-            init="random", n_components=n_components, random_state=random_state
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
         )
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
@@ -861,16 +867,17 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
 @pytest.mark.parametrize("fit_then_transform", [False, True])
 @pytest.mark.parametrize("metric", ["l2", "sqeuclidean", "cosine"])
 @pytest.mark.parametrize("device_ids", [None, "all"])
+@pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 def test_umap_trustworthiness_on_batch_nnd(
-    num_clusters, fit_then_transform, metric, device_ids
+    num_clusters, fit_then_transform, metric, device_ids, build_algo
 ):
     digits = datasets.load_digits()
 
     cuml_model = cuUMAP(
         n_neighbors=10,
         min_dist=0.01,
-        build_algo="nn_descent",
-        build_kwds={"nnd_n_clusters": num_clusters},
+        build_algo=build_algo,
+        build_kwds={"knn_n_clusters": num_clusters},
         metric=metric,
         device_ids=device_ids,
     )
@@ -888,6 +895,55 @@ def test_umap_trustworthiness_on_batch_nnd(
     )
 
     assert cuml_trust > 0.9
+
+
+@pytest.mark.parametrize(
+    "n_components,random_state",
+    [
+        unit_param(2, 8),
+        unit_param(2, np.random.RandomState(42)),
+        unit_param(21, np.random.RandomState(42)),
+        unit_param(25, 8),
+        stress_param(50, 8),
+    ],
+)
+@pytest.mark.parametrize("num_clusters", [1, 4, 7])
+@pytest.mark.parametrize("do_gpu_input", [False, True])
+def test_umap_fit_transform_batch_brute_force_reproducibility(
+    n_components, random_state, num_clusters, do_gpu_input
+):
+    n_samples = 8000
+    n_features = 200
+
+    data, labels = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
+    if do_gpu_input:
+        data = cp.asarray(data)
+
+    def get_embedding(n_components, random_state):
+        reducer = cuUMAP(
+            init="random",
+            n_components=n_components,
+            random_state=random_state,
+            build_algo="brute_force_knn",
+            build_kwds={"knn_n_clusters": num_clusters},
+        )
+        return reducer.fit_transform(data, convert_dtype=True)
+
+    state = copy.deepcopy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.deepcopy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
+
+    if do_gpu_input:
+        cuml_embedding1 = cuml_embedding1.get()
+        cuml_embedding2 = cuml_embedding2.get()
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
+    np.testing.assert_array_equal(cuml_embedding1, cuml_embedding2)
 
 
 def test_callback():
@@ -936,8 +992,16 @@ def test_umap_small_fit_large_transform():
 
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
-def test_umap_outliers(n_neighbors, n_components):
-    n_rows = 50_000
+@pytest.mark.parametrize("random_state", [None, 42])
+def test_umap_outliers(n_neighbors, n_components, random_state):
+    if random_state is None:
+        n_rows = 50_000
+        build_algo = "nn_descent"
+        init = "spectral"
+    else:
+        n_rows = 100_000
+        build_algo = "brute_force_knn"
+        init = "random"
 
     # This dataset was specifically chosen because UMAP produces outliers
     # on this dataset before the outlier fix.
@@ -945,10 +1009,11 @@ def test_umap_outliers(n_neighbors, n_components):
     data = data.astype(np.float32)
 
     gpu_umap = cuUMAP(
-        build_algo="nn_descent",
-        init="spectral",
+        build_algo=build_algo,
+        init=init,
         n_neighbors=n_neighbors,
         n_components=n_components,
+        random_state=random_state,
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 
@@ -956,7 +1021,10 @@ def test_umap_outliers(n_neighbors, n_components):
     # and comparing the max and min values of the resulting embedding. However, running CPU UMAP
     # with this data size using spectral initialization is too slow to run repetitively in CI.
     # Instead, we hardwire a locally determined threshold for this dataset.
-    threshold = 50.0
+    if random_state is None:
+        threshold = 50.0
+    else:
+        threshold = 25.0
 
     assert np.all(
         (gpu_umap_embeddings >= -threshold)
@@ -1039,3 +1107,237 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
     )
     with pytest.raises(ValueError, match=".*fewer neighbors.*"):
         model.fit(data)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+def test_umap_custom_init(input_type):
+    n_samples = 500
+    n_features = 20
+    n_components = 2
+
+    data, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=5, random_state=42
+    )
+    data = data.astype(np.float32)
+
+    # Custom initial positions
+    init_pos = (
+        np.random.RandomState(42)
+        .randn(n_samples, n_components)
+        .astype(np.float32)
+    )
+
+    if input_type == "cupy":
+        init_pos = cp.array(init_pos)
+
+    model = cuUMAP(
+        n_neighbors=10,
+        init=init_pos,
+        n_epochs=0,
+        learning_rate=0,
+        random_state=42,
+    )
+
+    # Should return the init_pos since learning_rate=0
+    embedding = model.fit_transform(data)
+
+    assert array_equal(embedding, init_pos)
+
+
+def test_umap_custom_init_errors():
+    n_samples = 100
+    data, _ = make_blobs(n_samples=n_samples, n_features=10, random_state=42)
+    data = data.astype(np.float32)
+
+    # Wrong number of samples
+    init_wrong_samples = np.zeros((n_samples + 1, 2), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_samples)
+    with pytest.raises(ValueError, match=".*rows.*"):
+        model.fit(data)
+
+    # Wrong number of components
+    init_wrong_components = np.zeros((n_samples, 3), dtype=np.float32)
+    model = cuUMAP(init=init_wrong_components, n_components=2)
+    with pytest.raises(ValueError, match=".*columns.*"):
+        model.fit(data)
+
+
+def test_umap_sigmas_rhos():
+    """Test that sigmas and rhos are correctly produced and valid."""
+    n_samples = 200
+    n_features = 10
+    n_neighbors = 15
+    X, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, random_state=42
+    )
+    X = X.astype(np.float32)
+
+    # Compute KNN once to use for both implementations
+    # This ensures both cuML and umap-learn use identical neighbors
+    knn = NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean")
+    knn.fit(X)
+    knn_dists, knn_indices = knn.kneighbors(X)
+
+    # Test Dense with precomputed KNN
+    cu_model = cuUMAP(n_neighbors=n_neighbors, random_state=42)
+    cu_model.fit(X, knn_graph=(knn_indices, knn_dists))
+
+    # Compare with umap-learn using the same precomputed KNN
+    ref_model = umap.UMAP(
+        n_neighbors=n_neighbors,
+        random_state=42,
+        precomputed_knn=(knn_indices, knn_dists),
+    )
+    ref_model.fit(X)
+
+    # With identical KNN inputs, sigmas and rhos should match closely
+    np.testing.assert_allclose(cu_model._rhos, ref_model._rhos, atol=1e-3)
+
+    # Sigmas are more sensitive to numerical differences
+    np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
+
+
+def test_inverse_transform():
+    """Test cuML UMAP inverse_transform produces valid output."""
+    X, _ = make_blobs(n_samples=200, n_features=10, centers=4, random_state=42)
+    X = X.astype(np.float32)
+
+    random_state = 42
+    umap_model = cuUMAP(
+        n_neighbors=15, n_components=2, random_state=random_state
+    )
+    embedding = umap_model.fit_transform(X)
+
+    def to_np(arr):
+        return cp.asnumpy(arr) if hasattr(arr, "get") else np.asarray(arr)
+
+    embedding_np = to_np(embedding)
+
+    # Inverse transform the entire embedding
+    inv = umap_model.inverse_transform(embedding_np)
+    inv_np = to_np(inv)
+
+    # 1. Basic checks
+    assert inv_np.shape == (X.shape[0], X.shape[1])
+    assert np.all(np.isfinite(inv_np))
+
+    # 2. Neighborhood preservation check (KDTree check like upstream)
+    # Reconstructed high-D points should have similar neighbors as their low-D counterparts
+    highd_tree = KDTree(X)
+    lowd_tree = KDTree(embedding_np)
+
+    overlaps = []
+    for i in range(X.shape[0]):
+        # Find neighbors in low-D space for the original point
+        query_point_low = embedding_np[i : i + 1]
+        near_indices_low = lowd_tree.query(
+            query_point_low, k=10, return_distance=False
+        )[0]
+
+        # Find neighbors of reconstructed point in high-D space
+        query_point_high = inv_np[i : i + 1]
+        near_indices_high = highd_tree.query(
+            query_point_high, k=15, return_distance=False
+        )[0]
+
+        # Check for intersection of neighborhoods
+        intersection = np.intersect1d(near_indices_low, near_indices_high)
+        overlaps.append(intersection.shape[0])
+
+    # We expect a significant average overlap.
+    mean_overlap = np.mean(overlaps)
+    assert mean_overlap >= 6.5, (
+        f"Average neighborhood overlap too low: {mean_overlap:.2f}. "
+        "Reconstructed points do not preserve local structure well."
+    )
+
+    # Ensure most points have at least some overlap
+    overlap_count = np.sum(np.array(overlaps) >= 2)
+    overlap_ratio = overlap_count / X.shape[0]
+    assert overlap_ratio >= 0.95, (
+        f"Only {overlap_ratio:.2%} of points have >= 2 common neighbors. "
+        "Neighborhood preservation is poor for too many points."
+    )
+
+    # 3. Trustworthiness check
+    # Check if the high-D reconstruction preserves the neighborhood structure of the low-D embedding
+    trust = trustworthiness(embedding_np, inv_np, n_neighbors=10)
+    assert trust > 0.95, (
+        f"Trustworthiness of reconstruction is too low: {trust:.2f}"
+    )
+
+    # 4. Comparison to Reference implementation quality
+    ref_model = umap.UMAP(
+        n_neighbors=15, n_components=2, random_state=random_state
+    )
+    ref_model.fit(X)
+    ref_inv = ref_model.inverse_transform(embedding_np)
+    ref_inv_np = to_np(ref_inv)
+
+    nn = NearestNeighbors(n_neighbors=1).fit(X)
+    dists_cu, _ = nn.kneighbors(inv_np)
+    dists_ref, _ = nn.kneighbors(ref_inv_np)
+
+    mean_dist_cu = np.mean(dists_cu)
+    mean_dist_ref = np.mean(dists_ref)
+
+    # cuML reconstruction should be comparable to reference in terms of distance to training data
+    assert mean_dist_cu < mean_dist_ref * 2.0, (
+        f"cuML reconstruction quality ({mean_dist_cu:.4f}) is significantly worse "
+        f"than reference ({mean_dist_ref:.4f})"
+    )
+
+
+def test_inverse_transform_sparse_error():
+    """Test that inverse_transform raises error for sparse input data."""
+    # Create sparse data
+    X_sparse = scipy_sparse.random(
+        100, 20, density=0.3, format="csr", random_state=42
+    )
+    X_sparse = X_sparse.astype(np.float32)
+
+    # Fit UMAP on sparse data
+    umap_model = cuUMAP(
+        n_neighbors=10,
+        n_components=2,
+        random_state=42,
+        verbose=False,
+    )
+    umap_model.fit(X_sparse)
+
+    # inverse_transform should raise ValueError for sparse input
+    embedding = umap_model.embedding_
+    embedding_np = (
+        cp.asnumpy(embedding)
+        if isinstance(embedding, cp.ndarray)
+        else np.asarray(embedding)
+    )
+
+    with pytest.raises(ValueError, match="sparse"):
+        umap_model.inverse_transform(embedding_np[:10])
+
+
+def test_inverse_transform_dimension_mismatch():
+    """Test that inverse_transform raises error for wrong embedding dimension."""
+    X, _ = make_blobs(
+        n_samples=100,
+        n_features=10,
+        centers=3,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+
+    # Fit UMAP with 2 components
+    umap_model = cuUMAP(
+        n_neighbors=10,
+        n_components=2,
+        random_state=42,
+        verbose=False,
+    )
+    umap_model.fit(X)
+
+    # Try to inverse_transform with wrong number of components
+    wrong_embedding = np.random.rand(10, 3).astype(np.float32)
+
+    with pytest.raises(ValueError, match="components"):
+        umap_model.inverse_transform(wrong_embedding)

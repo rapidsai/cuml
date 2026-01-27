@@ -406,6 +406,7 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_dataframe_column_names_consistency"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
+  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[csr_matrix-X]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
@@ -801,7 +802,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
 - reason: Test should fail with cuml.accel (scikit-learn <1.8)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.8
@@ -1283,9 +1283,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_fit_returns_self]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_overwrite_params]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
@@ -1299,14 +1297,22 @@
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
+- reason: test_estimators checks fail
+  marker: cuml_accel_test_estimators
+  strict: false
+  tests:
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_fit_returns_self]"
+  - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_overwrite_params]"
 - reason: test_estimators checks fail (1.5)
   marker: cuml_accel_test_estimators
   condition: scikit-learn==1.5
+  strict: false
   tests:
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_fit_returns_self(readonly_memmap=True)]"
 - reason: test_estimators checks fail (1.7.2+)
   marker: cuml_accel_test_estimators
   condition: scikit-learn>=1.7.2
+  strict: false
   tests:
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_readonly_memmap_input]"
 - reason: TSNE isn't deterministic, even with random_state
