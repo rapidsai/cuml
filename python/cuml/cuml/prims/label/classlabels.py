@@ -41,9 +41,13 @@ def make_monotonic(labels, classes=None, copy=False):
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
 
+    # Preserve original dtype for output consistency
+    output_dtype = labels.dtype
+
     if classes is None:
         # Derive classes from labels and get inverse mapping directly
         classes, mapped_labels = cp.unique(labels, return_inverse=True)
+        mapped_labels = mapped_labels.astype(output_dtype, copy=False)
         if not copy:
             labels[:] = mapped_labels
             mapped_labels = labels
@@ -69,7 +73,7 @@ def make_monotonic(labels, classes=None, copy=False):
         # Map valid labels to their indices in original classes
         mapped_labels = cp.where(
             valid, sort_indices[indices_safe], len(classes)
-        )
+        ).astype(output_dtype, copy=False)
 
         if not copy:
             labels[:] = mapped_labels
