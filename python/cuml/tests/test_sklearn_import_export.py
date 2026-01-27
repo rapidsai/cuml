@@ -961,9 +961,14 @@ def test_target_encoder(random_state):
 
     assert_roundtrip_consistency(original, roundtrip_model)
 
-    original_output = original.transform(X)
-    sklearn_output = sklearn_model.transform(X)
-    roundtrip_output = roundtrip_model.transform(X)
+    # Use separate test data (not training data) because cuML returns
+    # CV-based encodings for training data while sklearn returns global encodings
+    X_test = np.array([["cat"], ["bird"], ["dog"], ["cat"]])
+    original_output = original.transform(X_test)
+    sklearn_output = sklearn_model.transform(X_test)
+    roundtrip_output = roundtrip_model.transform(X_test)
 
-    assert array_equal(original_output, sklearn_output)
+    # sklearn returns 2D (n_samples, n_features), cuML returns 1D for single feature
+    sklearn_output_flat = sklearn_output.ravel()
+    assert array_equal(original_output, sklearn_output_flat)
     assert array_equal(original_output, roundtrip_output)

@@ -215,6 +215,7 @@ class TargetEncoder(Base, InteropMixin):
         self.train = None
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
+        self._fitted = False
 
     @reflect(reset=True)
     def fit(self, X, y, *, fold_ids=None):
@@ -391,16 +392,30 @@ class TargetEncoder(Base, InteropMixin):
         # Extract unique categories for each feature (sorted for consistency)
         self.categories_ = []
         for col in x_cols:
-            unique_vals = train[col].unique()
-            # Sort for deterministic ordering
-            unique_vals = unique_vals.sort_values()
-            # Use to_numpy() for string columns since .values fails on strings
-            # (cupy doesn't support object dtype)
+            # Handle string columns specially - cudf.unique() fails on object dtype
+            # because it tries to return .values which cupy doesn't support
             try:
-                self.categories_.append(unique_vals.values)
+                unique_vals = train[col].unique()
             except TypeError:
-                # String column - use numpy array instead of cupy
-                self.categories_.append(unique_vals.to_numpy())
+                # String column in cudf - get unique values via drop_duplicates
+                unique_vals = train[col].drop_duplicates().sort_values().to_numpy()
+                self.categories_.append(unique_vals)
+                continue
+
+            # Handle both cudf Series and numpy arrays (cudf.pandas compatibility)
+            if hasattr(unique_vals, "sort_values"):
+                # cudf Series - use sort_values()
+                unique_vals = unique_vals.sort_values()
+                # Use to_numpy() for string columns since .values fails on strings
+                # (cupy doesn't support object dtype)
+                try:
+                    self.categories_.append(unique_vals.values)
+                except TypeError:
+                    # String column - use numpy array instead of cupy
+                    self.categories_.append(unique_vals.to_numpy())
+            else:
+                # numpy/cupy array - use np.sort()
+                self.categories_.append(np.sort(unique_vals))
 
         if self.multi_feature_mode not in {"combination", "independent"}:
             raise ValueError(
