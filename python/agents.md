@@ -17,9 +17,7 @@
 ## CRITICAL Issues (Always Comment)
 
 ### Scikit-learn Compatibility
-- Breaking changes to fit/predict/transform/score signatures
-- Parameter names or defaults differing from scikit-learn without justification
-- Missing required attributes after fit (`n_features_in_`, `feature_names_in_`, `coef_`, etc.)
+- Function and parameter names or defaults differing from scikit-learn without justification
 - Different behavior for edge cases (empty arrays, single sample) vs scikit-learn without justification
 - Arbitrary violations of common estimator guidelines, especially critical ones like constructor state validation
 - **Initializing fitted attributes in `__init__`** (e.g., `self.coef_ = None`) - only parameters should be set in constructor
@@ -53,8 +51,6 @@
 
 ### Input Validation
 - Missing dimension checks (n_samples, n_features)
-- Missing type validation for parameters
-- Missing bounds checking for hyperparameters
 - Not handling edge cases (empty datasets, single sample)
 
 ### Test Quality
@@ -260,12 +256,11 @@ def __init__(self, ...):
 
 **Red flags**:
 - Missing fit/predict/transform methods for estimators
-- Parameter names differing from scikit-learn without justification
-- Missing attributes after fit (`n_features_in_`, `feature_names_in_`)
+- Function or parameter names differing from scikit-learn without justification
 - Different default parameter values from scikit-learn
 - Different behavior for edge cases (empty arrays, single sample)
 
-**Example bug**: Estimator missing `n_features_in_` attribute, breaking sklearn compatibility checks
+**Example bug**: Scikit-learn estimator has a max_iter parameter and cuML has a max_iters parameters which conceptually refer to the same thing.
 
 ### 4. Missing Input Validation
 **Pattern**: Not validating inputs before processing
@@ -273,7 +268,6 @@ def __init__(self, ...):
 **Red flags**:
 - No check for fitted state before predict/transform
 - No dimension validation between fit and predict
-- No bounds checking on hyperparameters
 - No handling of edge cases (empty input, single sample)
 
 **Example bug**: predict() called before fit(), causing cryptic CUDA error instead of clear message
