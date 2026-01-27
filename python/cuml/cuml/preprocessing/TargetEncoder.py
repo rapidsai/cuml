@@ -174,7 +174,9 @@ class TargetEncoder(Base, InteropMixin):
         stat="mean",
         multi_feature_mode="combination",
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(
+            handle=handle, verbose=verbose, output_type=output_type
+        )
         if smooth < 0:
             raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -398,7 +400,9 @@ class TargetEncoder(Base, InteropMixin):
                 unique_vals = train[col].unique()
             except TypeError:
                 # String column in cudf - get unique values via drop_duplicates
-                unique_vals = train[col].drop_duplicates().sort_values().to_numpy()
+                unique_vals = (
+                    train[col].drop_duplicates().sort_values().to_numpy()
+                )
                 self.categories_.append(unique_vals)
                 continue
 
