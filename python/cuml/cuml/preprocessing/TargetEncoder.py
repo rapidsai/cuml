@@ -56,6 +56,16 @@ class TargetEncoder(Base, InteropMixin):
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
         in `fit()` or `fit_transform()` functions.
+    handle : cuml.Handle or None, default=None
+
+        .. deprecated:: 26.02
+            The `handle` argument was deprecated in 26.02 and will be removed
+            in 26.04. There's no need to pass in a handle, cuml now manages
+            this resource automatically.
+
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -105,6 +115,26 @@ class TargetEncoder(Base, InteropMixin):
         :meth:`fit` or :meth:`fit_transform`. Set to ``None`` if the
         encoder was loaded from a sklearn model via :meth:`from_sklearn`.
 
+    Notes
+    -----
+    **sklearn Conversion Limitations**
+
+    When converting between cuML and sklearn via :meth:`as_sklearn` and
+    :meth:`from_sklearn`, be aware of the following semantic differences:
+
+    - **Training data behavior**: cuML's :meth:`transform` returns
+      cross-validated (regularized) encodings when called on training data
+      to prevent data leakage. sklearn's ``transform`` always returns global
+      mean encodings regardless of whether the input is training or test data.
+      After roundtrip conversion, the cuML model will return global encodings
+      for all data since the training data reference is not preserved.
+
+    - **Multi-feature encoding**: cuML's default ``multi_feature_mode='combination'``
+      encodes feature combinations jointly, while sklearn always encodes features
+      independently. Multi-feature models fitted with ``'combination'`` mode
+      cannot be converted to sklearn; use ``multi_feature_mode='independent'``
+      for sklearn compatibility.
+
     References
     ----------
     .. [1] https://maxhalford.github.io/blog/target-encoding/
@@ -119,7 +149,7 @@ class TargetEncoder(Base, InteropMixin):
     ...                    'label': [1, 0, 1, 1]})
     >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
-    >>> encoder = TargetEncoder()
+    >>> encoder = TargetEncoder(output_type='numpy')
     >>> train_encoded = encoder.fit_transform(train.category, train.label)
     >>> test_encoded = encoder.transform(test.category)
     >>> print(train_encoded)
@@ -133,15 +163,18 @@ class TargetEncoder(Base, InteropMixin):
 
     def __init__(
         self,
+        *,
         n_folds=4,
         smooth=0,
         seed=42,
         split_method="interleaved",
+        handle=None,
+        verbose=False,
         output_type=None,
         stat="mean",
         multi_feature_mode="combination",
     ):
-        super().__init__(output_type=output_type)
+        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
         if smooth < 0:
             raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -184,7 +217,7 @@ class TargetEncoder(Base, InteropMixin):
         self.multi_feature_mode = multi_feature_mode
 
     @reflect(reset=True)
-    def fit(self, X, y, fold_ids=None):
+    def fit(self, X, y, *, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
 
@@ -253,7 +286,7 @@ class TargetEncoder(Base, InteropMixin):
         return self
 
     @reflect
-    def fit_transform(self, X, y, fold_ids=None) -> CumlArray:
+    def fit_transform(self, X, y, *, fold_ids=None) -> CumlArray:
         """
         Simultaneously fit and transform an input
 
@@ -750,7 +783,9 @@ class TargetEncoder(Base, InteropMixin):
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
-            "multi_feature_mode": "independent",
+            # Don't force multi_feature_mode here - for single-feature both
+            # modes are equivalent, and for multi-feature the fitted attribute
+            # _independent_mode_fitted controls transform behavior
         }
         return params
 
@@ -771,14 +806,19 @@ class TargetEncoder(Base, InteropMixin):
         sklearn always uses independent per-feature encoding, so we set up
         cuML to use independent mode as well for exact compatibility.
         """
-        categories_gpu = [to_gpu(cat) for cat in model.categories_]
+        # Handle string categories (object dtype) - keep as numpy arrays
+        # since cupy doesn't support object dtype
+        categories_gpu = []
+        for cat in model.categories_:
+            if cat.dtype == np.object_:
+                categories_gpu.append(cat)  # Keep as numpy array
+            else:
+                categories_gpu.append(to_gpu(cat))
         n_features = len(model.categories_)
 
         # Generate column names matching cuML's internal format
-        if n_features == 1:
-            x_cols = [self.x_col]
-        else:
-            x_cols = [f"{self.x_col}_{i}" for i in range(n_features)]
+        # Always use indexed format to match _data_with_strings_to_cudf_dataframe
+        x_cols = [f"{self.x_col}_{i}" for i in range(n_features)]
 
         # sklearn uses independent encoding, so we always use independent mode
         # This gives exact compatibility with no approximation
@@ -826,7 +866,11 @@ class TargetEncoder(Base, InteropMixin):
         in independent mode, we have exact encodings. Multi-feature combination
         mode cannot be converted to sklearn.
         """
-        categories_cpu = [to_cpu(cat) for cat in self.categories_]
+        # Handle categories that may already be numpy arrays (from string columns)
+        categories_cpu = [
+            cat if isinstance(cat, np.ndarray) else to_cpu(cat)
+            for cat in self.categories_
+        ]
         n_features = len(self.categories_)
 
         # Use per-feature encodings if available (from independent mode or sklearn)
@@ -861,5 +905,8 @@ class TargetEncoder(Base, InteropMixin):
             "encodings_": encodings_list,
             "categories_": categories_cpu,
             "target_mean_": float(self.mean),
+            # sklearn internal attributes needed for transform
+            "_infrequent_enabled": False,
+            "target_type_": "continuous",  # cuML only supports continuous targets
             **super()._attrs_to_cpu(model),
         }
