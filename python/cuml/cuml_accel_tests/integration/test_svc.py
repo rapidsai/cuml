@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -69,3 +69,33 @@ def test_conditional_methods():
     # Ensure these methods aren't forwarded CPU attributes
     assert svc.predict_proba is not svc._cpu.predict_proba
     assert svc.predict_log_proba is not svc._cpu.predict_log_proba
+
+
+def test_svc_precomputed(binary):
+    """Test SVC with precomputed kernel matrix."""
+    X, y = binary
+    # Compute linear kernel matrix
+    K = X @ X.T
+    svc = SVC(kernel="precomputed").fit(K, y)
+    assert svc.score(K, y) > 0.5
+
+
+def test_svc_precomputed_train_test():
+    """Test SVC precomputed kernel with separate train/test sets."""
+    X, y = make_classification(
+        n_samples=150,
+        n_features=10,
+        n_classes=2,
+        n_informative=5,
+        random_state=42,
+    )
+    X_train, X_test = X[:100], X[100:]
+    y_train, y_test = y[:100], y[100:]
+
+    # Compute kernel matrices
+    K_train = X_train @ X_train.T
+    K_test = X_test @ X_train.T
+
+    svc = SVC(kernel="precomputed").fit(K_train, y_train)
+    accuracy = accuracy_score(y_test, svc.predict(K_test))
+    assert accuracy > 0.5
