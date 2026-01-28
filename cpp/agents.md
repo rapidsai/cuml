@@ -79,12 +79,10 @@
 
 ### Test Quality
 - Missing validation of numerical correctness
-- Missing edge case coverage (empty inputs, single element, extreme values)
 - **Using external datasets** (tests must not depend on external resources; use synthetic data or bundled datasets)
 
 ## MEDIUM Issues (Comment Selectively)
 
-- Edge cases not handled (empty inputs, single element)
 - Missing input validation (negative dimensions, null pointers)
 - Deprecated CUDA API usage
 - **Unclear data format in function parameters** (ambiguous row-major or column-major)
@@ -286,7 +284,6 @@ cudaStreamCreate(&per_device_stream);
 - [ ] Are grid/block dimensions validated?
 
 ### When Reviewing Multi-GPU Operations
-- [ ] Is there explicit `cudaStreamCreate` for each device?
 - [ ] Is stream lifecycle clearly documented?
 - [ ] Are independent GPU operations using dedicated streams?
 - [ ] Is `cudaSetDevice` called before device-specific operations?
