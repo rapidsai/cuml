@@ -58,7 +58,6 @@ def _check_unsupported_inputs(X, y, cpu_model):
         )
 
 
-
 class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 

@@ -840,6 +840,17 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
+- reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_smooth_zero"
 - reason: cuML TargetEncoder uses different cross-validation approach producing different encodings
   marker: cuml_accel_bugs
   tests:
@@ -851,17 +862,6 @@
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-True]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-False]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
-- reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_smooth_zero"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-True]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-False]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-True]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-False]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6

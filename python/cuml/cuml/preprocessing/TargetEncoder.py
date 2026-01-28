@@ -16,7 +16,6 @@ from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.outputs import reflect
 
-
 # Module-level flag to ensure deprecation warning only fires once per process
 _COMBINATION_MODE_1D_WARNING_SHOWN = False
 
@@ -683,12 +682,8 @@ class TargetEncoder(Base, InteropMixin):
         # Handle string/object dtype targets (binary classification)
         # Convert string labels to 0/1 like sklearn does
         # Check for object dtype OR Unicode/byte string dtypes (U, S kinds)
-        is_string_dtype = (
-            hasattr(y_vals, "dtype")
-            and (
-                y_vals.dtype == np.object_
-                or y_vals.dtype.kind in ("U", "S")
-            )
+        is_string_dtype = hasattr(y_vals, "dtype") and (
+            y_vals.dtype == np.object_ or y_vals.dtype.kind in ("U", "S")
         )
         if is_string_dtype:
             unique_vals = np.unique(y_vals)
@@ -714,7 +709,9 @@ class TargetEncoder(Base, InteropMixin):
             try:
                 y_arr = np.asarray(y_vals)
                 unique_y = np.unique(y_arr)
-                if len(unique_y) <= 2 and np.issubdtype(y_arr.dtype, np.integer):
+                if len(unique_y) <= 2 and np.issubdtype(
+                    y_arr.dtype, np.integer
+                ):
                     self.target_type_ = "binary"
                 else:
                     self.target_type_ = "continuous"
@@ -838,10 +835,9 @@ class TargetEncoder(Base, InteropMixin):
         # Reshape to 2D (n_samples, 1) for sklearn compatibility when:
         # - multi_feature_mode="independent" is set (by cuml.accel or user)
         # - _independent_mode_fitted is True (multi-feature independent mode)
-        sklearn_compat = (
-            getattr(self, "multi_feature_mode", "combination") == "independent"
-            or getattr(self, "_independent_mode_fitted", False)
-        )
+        sklearn_compat = getattr(
+            self, "multi_feature_mode", "combination"
+        ) == "independent" or getattr(self, "_independent_mode_fitted", False)
         if sklearn_compat:
             res = res.reshape(-1, 1)
         else:
@@ -890,7 +886,10 @@ class TargetEncoder(Base, InteropMixin):
                     df[self.x_col] = x
                 else:
                     df = cudf.DataFrame(
-                        x, columns=[f"{self.x_col}_{i}" for i in range(x.shape[1])]
+                        x,
+                        columns=[
+                            f"{self.x_col}_{i}" for i in range(x.shape[1])
+                        ],
                     )
         elif isinstance(x, pd.DataFrame):
             df = cudf.from_pandas(x)
