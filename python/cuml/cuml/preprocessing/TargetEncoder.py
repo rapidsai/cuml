@@ -17,6 +17,10 @@ from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.outputs import reflect
 
 
+# Module-level flag to ensure deprecation warning only fires once per process
+_COMBINATION_MODE_1D_WARNING_SHOWN = False
+
+
 def get_stat_func(stat):
     def func(ds):
         if hasattr(ds, stat):
@@ -468,7 +472,9 @@ class TargetEncoder(Base, InteropMixin):
         Encodes all feature combinations together, producing a single output
         column with encodings based on the joint distribution of all features.
         """
-        train[self.y_col] = self._make_y_column(y)
+        y_values = self._make_y_column(y)
+        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
+        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
 
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
@@ -518,7 +524,9 @@ class TargetEncoder(Base, InteropMixin):
         Median requires computing the statistic per fold separately,
         which cannot be vectorized like mean/var.
         """
-        train[self.y_col] = self._make_y_column(y)
+        y_values = self._make_y_column(y)
+        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
+        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
 
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
@@ -552,7 +560,8 @@ class TargetEncoder(Base, InteropMixin):
         the target, producing N output columns for N input features.
         """
         y_values = self._make_y_column(y)
-        train[self.y_col] = y_values
+        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
+        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
 
         self.n_folds = min(self.n_folds, len(train))
         train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
@@ -659,28 +668,58 @@ class TargetEncoder(Base, InteropMixin):
                 raise ValueError(
                     f"Input of shape {y.shape} is not a 1-D array."
                 )
+        elif isinstance(y, list):
+            # Convert Python lists to numpy arrays
+            y_vals = np.asarray(y)
         else:
             raise TypeError(
                 f"Input of type {type(y)} is not cudf.Series, "
                 "or pandas.Series"
                 "or numpy.ndarray"
                 "or cupy.ndarray"
+                "or list"
             )
 
         # Handle string/object dtype targets (binary classification)
         # Convert string labels to 0/1 like sklearn does
-        if hasattr(y_vals, "dtype") and y_vals.dtype == np.object_:
+        # Check for object dtype OR Unicode/byte string dtypes (U, S kinds)
+        is_string_dtype = (
+            hasattr(y_vals, "dtype")
+            and (
+                y_vals.dtype == np.object_
+                or y_vals.dtype.kind in ("U", "S")
+            )
+        )
+        if is_string_dtype:
             unique_vals = np.unique(y_vals)
             if len(unique_vals) == 2:
                 # Binary classification - convert to 0/1
                 self._target_classes_ = unique_vals
+                self.target_type_ = "binary"
                 y_vals = (y_vals == unique_vals[1]).astype(np.float64)
+            elif len(unique_vals) == 1:
+                # Constant target - treat as 0
+                self._target_classes_ = unique_vals
+                self.target_type_ = "binary"
+                y_vals = np.zeros(len(y_vals), dtype=np.float64)
             else:
                 raise ValueError(
                     f"Target encoding with string labels only supports binary "
                     f"classification (2 classes), but found {len(unique_vals)} "
                     f"classes: {unique_vals}"
                 )
+        else:
+            # Detect target type for numeric y
+            # Check if binary (only 0 and 1, or only 2 unique integer values)
+            try:
+                y_arr = np.asarray(y_vals)
+                unique_y = np.unique(y_arr)
+                if len(unique_y) <= 2 and np.issubdtype(y_arr.dtype, np.integer):
+                    self.target_type_ = "binary"
+                else:
+                    self.target_type_ = "continuous"
+            except Exception:
+                self.target_type_ = "continuous"
 
         return y_vals
 
@@ -791,25 +830,33 @@ class TargetEncoder(Base, InteropMixin):
         Returns 2D array (n_samples, 1) when in independent mode (sklearn
         compatibility), otherwise returns 1D array (cuML native behavior).
         """
-        import warnings
 
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
-        # Reshape to 2D (n_samples, 1) only for sklearn compatibility
-        # (independent mode is set by cuml.accel and from_sklearn)
-        if getattr(self, "_independent_mode_fitted", False):
+        # Reshape to 2D (n_samples, 1) for sklearn compatibility when:
+        # - multi_feature_mode="independent" is set (by cuml.accel or user)
+        # - _independent_mode_fitted is True (multi-feature independent mode)
+        sklearn_compat = (
+            getattr(self, "multi_feature_mode", "combination") == "independent"
+            or getattr(self, "_independent_mode_fitted", False)
+        )
+        if sklearn_compat:
             res = res.reshape(-1, 1)
         else:
-            # Deprecation warning for 1D output in combination mode
-            warnings.warn(
-                "TargetEncoder currently returns 1D output for combination mode "
-                "(multi_feature_mode='combination'). In version 26.04, the output "
-                "will change to 2D (n_samples, n_output_features) for consistency "
-                "with sklearn. Use .ravel() if you need 1D output.",
-                FutureWarning,
-            )
+            # Deprecation warning for 1D output in combination mode (once per process)
+            global _COMBINATION_MODE_1D_WARNING_SHOWN
+            if not _COMBINATION_MODE_1D_WARNING_SHOWN:
+                warnings.warn(
+                    "TargetEncoder currently returns 1D output for combination mode "
+                    "(multi_feature_mode='combination'). In version 26.04, the output "
+                    "will change to 2D (n_samples, n_output_features) for consistency "
+                    "with sklearn. Use .ravel() if you need 1D output.",
+                    FutureWarning,
+                    stacklevel=4,
+                )
+                _COMBINATION_MODE_1D_WARNING_SHOWN = True
         return CumlArray(res)
 
     def _data_with_strings_to_cudf_dataframe(self, x):
@@ -826,13 +873,25 @@ class TargetEncoder(Base, InteropMixin):
         elif isinstance(x, cudf.Series):
             df = x.to_frame().copy()
         elif isinstance(x, cp.ndarray) or isinstance(x, np.ndarray):
-            df = cudf.DataFrame()
-            if len(x.shape) == 1:
-                df[self.x_col] = x
+            # For string/object arrays, use pandas as intermediate
+            # (cudf.DataFrame doesn't handle numpy string arrays well)
+            if x.dtype.kind in ("U", "S", "O"):
+                if len(x.shape) == 1:
+                    cols = [self.x_col]
+                    x_2d = x.reshape(-1, 1)
+                else:
+                    cols = [f"{self.x_col}_{i}" for i in range(x.shape[1])]
+                    x_2d = x
+                df = cudf.from_pandas(pd.DataFrame(x_2d, columns=cols))
             else:
-                df = cudf.DataFrame(
-                    x, columns=[f"{self.x_col}_{i}" for i in range(x.shape[1])]
-                )
+                # Numeric arrays - direct conversion works
+                df = cudf.DataFrame()
+                if len(x.shape) == 1:
+                    df[self.x_col] = x
+                else:
+                    df = cudf.DataFrame(
+                        x, columns=[f"{self.x_col}_{i}" for i in range(x.shape[1])]
+                    )
         elif isinstance(x, pd.DataFrame):
             df = cudf.from_pandas(x)
         elif isinstance(x, pd.Series):
@@ -860,9 +919,21 @@ class TargetEncoder(Base, InteropMixin):
     @classmethod
     def _params_from_cpu(cls, model):
         """Convert sklearn TargetEncoder hyperparameters to cuML format."""
+        # Handle random_state - RandomState objects trigger CPU fallback
+        # in the accel wrapper, so here we only handle int/None
+        random_state = model.random_state
+        if random_state is None:
+            seed = 42
+        elif isinstance(random_state, int):
+            seed = random_state
+        else:
+            # For RandomState objects, use a default seed
+            # (the accel wrapper will fall back to CPU anyway)
+            seed = 42
+
         params = {
             "n_folds": model.cv,
-            "seed": 42 if model.random_state is None else model.random_state,
+            "seed": seed,
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
@@ -998,6 +1069,6 @@ class TargetEncoder(Base, InteropMixin):
             "target_mean_": float(self.mean),
             # sklearn internal attributes needed for transform
             "_infrequent_enabled": False,
-            "target_type_": "continuous",  # cuML only supports continuous targets
+            "target_type_": getattr(self, "target_type_", "continuous"),
             **super()._attrs_to_cpu(model),
         }

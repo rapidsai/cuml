@@ -8,6 +8,11 @@ import pandas
 import pytest
 
 from cuml.preprocessing.TargetEncoder import TargetEncoder
+
+# Filter the combination mode deprecation warning for all tests in this module
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
+)
 from cuml.testing.utils import array_equal
 
 

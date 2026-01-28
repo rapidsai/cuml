@@ -937,6 +937,9 @@ def test_linear_svc(random_state):
     assert sk_score > 0.7
 
 
+@pytest.mark.filterwarnings(
+    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
+)
 def test_target_encoder(random_state):
     # Create simple categorical data
     X = np.array(

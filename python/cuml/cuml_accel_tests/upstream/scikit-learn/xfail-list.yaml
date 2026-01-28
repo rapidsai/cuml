@@ -824,25 +824,6 @@
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
-- reason: cuML TargetEncoder accepts 1D arrays as single-feature input (sklearn requires 2D)
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_fit1d]"
-- reason: cuML TargetEncoder does not support complex128 dtype
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_complex_data]"
-- reason: cuML TargetEncoder doesn't emit sklearn's regression target warning
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.preprocessing.tests.test_target_encoder::test_use_regression_target"
-- reason: cuML TargetEncoder doesn't support list input types
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y0-Found input variables with inconsistent]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y0-feature_names0]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y1-feature_names1]"
-  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y2-feature_names2]"
 - reason: cuML TargetEncoder fit docstring attributes differ from sklearn conventions
   marker: cuml_accel_bugs
   tests:
@@ -855,16 +836,10 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_fit2d_predict1d]"
 - reason: cuML TargetEncoder has different internal data structures than sklearn
   marker: cuml_accel_bugs
   tests:
   - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
-- reason: cuML TargetEncoder uses different cross-validation approach affecting sample order
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_methods_sample_order_invariance]"
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_methods_subset_invariance]"
 - reason: cuML TargetEncoder uses different cross-validation approach producing different encodings
   marker: cuml_accel_bugs
   tests:
@@ -876,11 +851,17 @@
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-True]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-False]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
-- reason: cudf DataFrame pickle serialization differs from sklearn internal structures
+- reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_smooth_zero"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-False]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
