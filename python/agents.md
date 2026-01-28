@@ -111,19 +111,26 @@ Before commenting, ask:
 
 ## Examples to Follow
 
-**CRITICAL** (model state not reset):
+**CRITICAL** (incorrect array order passed to C++ layer):
 ```
-CRITICAL: Model parameters not reset between fit calls
+CRITICAL: Array passed with wrong memory order to C++ function
 
-Issue: Previous model state leaks into new training
-Why: fit() doesn't reset internal state, causing incorrect training
-Impact: Non-reproducible results
+Issue: fit() passes C-order array to C++ expecting F-order
+Why: Incorrectly overriding default F-order with C-order
+Impact: Incorrect results, potential segfaults
+
+Example bug in estimator:
+def fit(self, X, y=None):
+    X_m, *_ = input_to_cuml_array(X, order='C')  # Wrong: C++ expects F-order
+    cdef uintptr_t X_ptr = X_m.ptr
+    # C++ receives row-major but expects column-major
+    self._cpp_fit(X_ptr, X_m.shape[0], X_m.shape[1])
 
 Suggested fix:
 def fit(self, X, y=None):
-    # Reset model state before training
-    self._reset_state()
-    # ... rest of fit logic
+    X_m, *_ = input_to_cuml_array(X)  # Correct: uses F-order default
+    cdef uintptr_t X_ptr = X_m.ptr
+    self._cpp_fit(X_ptr, X_m.shape[0], X_m.shape[1])
 ```
 
 **HIGH** (missing input validation):
@@ -208,7 +215,6 @@ def __init__(self, ...):
 **Model State Management**:
 - fit/predict/transform must maintain consistent state
 - fit() should reset all learned attributes
-- Use `_reset_state()` pattern for clearing model state
 - Don't carry over state from previous fit() calls
 
 **Error Messages**:
