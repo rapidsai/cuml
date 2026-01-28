@@ -135,6 +135,28 @@ class TargetEncoder(Base, InteropMixin):
       cannot be converted to sklearn; use ``multi_feature_mode='independent'``
       for sklearn compatibility.
 
+    **Cross-Validation Differences**
+
+    cuML and sklearn use different cross-validation fold assignment strategies
+    during ``fit_transform``. Both are valid target encoding implementations,
+    but they produce different encoded values for the same input:
+
+    - **sklearn**: Uses ``KFold``/``StratifiedKFold`` with specific sample-to-fold
+      assignments based on ``random_state``.
+    - **cuML**: Uses configurable ``split_method`` (``'interleaved'``, ``'random'``,
+      ``'continuous'``, or ``'customize'``) with different fold assignment logic.
+
+    Because samples are assigned to different folds, the leave-fold-out encoding
+    for each sample is computed from different data subsets. For example::
+
+        # Same data, same random_state, different encoded values:
+        # sklearn fit_transform: [0.52, 0.48, 0.51, 0.49, ...]
+        # cuML fit_transform:    [0.50, 0.51, 0.49, 0.52, ...]
+
+    This difference only affects ``fit_transform`` on training data. The
+    ``transform`` method on test data produces equivalent results since it
+    uses global statistics computed from all training samples.
+
     References
     ----------
     .. [1] https://maxhalford.github.io/blog/target-encoding/
@@ -143,6 +165,8 @@ class TargetEncoder(Base, InteropMixin):
     --------
     Converting a categorical implementation to a numerical one
 
+    >>> import warnings
+    >>> warnings.filterwarnings('ignore', category=FutureWarning)
     >>> from cudf import DataFrame, Series
     >>> from cuml.preprocessing import TargetEncoder
     >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
@@ -243,11 +267,9 @@ class TargetEncoder(Base, InteropMixin):
             A fitted instance of itself to allow method chaining
         """
         if y is None:
-            raise TypeError(
-                f"Input of type {type(y)} is not cudf.Series, "
-                "or pandas.Series"
-                "or numpy.ndarray"
-                "or cupy.ndarray"
+            raise ValueError(
+                "This TargetEncoder estimator requires y to be passed, "
+                "but the target y is None."
             )
 
         if len(X) == 0:
@@ -390,6 +412,10 @@ class TargetEncoder(Base, InteropMixin):
         # Store n_features_in_ and categories_ for sklearn interop
         self.n_features_in_ = len(x_cols)
         self._x_cols = x_cols
+
+        # Set feature_names_in_ if input has column names (DataFrame)
+        if hasattr(x, "columns"):
+            self.feature_names_in_ = np.asarray(x.columns, dtype=object)
 
         # Extract unique categories for each feature (sorted for consistency)
         self.categories_ = []
@@ -617,15 +643,18 @@ class TargetEncoder(Base, InteropMixin):
 
     def _make_y_column(self, y):
         """
-        Create a target column given y
+        Create a target column given y.
+
+        Handles binary classification targets with string labels by converting
+        them to 0/1 (matching sklearn's behavior).
         """
         if isinstance(y, cudf.Series) or isinstance(y, pd.Series):
-            return y.values
+            y_vals = y.values
         elif isinstance(y, cp.ndarray) or isinstance(y, np.ndarray):
             if len(y.shape) == 1:
-                return y
+                y_vals = y
             elif y.shape[1] == 1:
-                return y[:, 0]
+                y_vals = y[:, 0]
             else:
                 raise ValueError(
                     f"Input of shape {y.shape} is not a 1-D array."
@@ -637,6 +666,23 @@ class TargetEncoder(Base, InteropMixin):
                 "or numpy.ndarray"
                 "or cupy.ndarray"
             )
+
+        # Handle string/object dtype targets (binary classification)
+        # Convert string labels to 0/1 like sklearn does
+        if hasattr(y_vals, "dtype") and y_vals.dtype == np.object_:
+            unique_vals = np.unique(y_vals)
+            if len(unique_vals) == 2:
+                # Binary classification - convert to 0/1
+                self._target_classes_ = unique_vals
+                y_vals = (y_vals == unique_vals[1]).astype(np.float64)
+            else:
+                raise ValueError(
+                    f"Target encoding with string labels only supports binary "
+                    f"classification (2 classes), but found {len(unique_vals)} "
+                    f"classes: {unique_vals}"
+                )
+
+        return y_vals
 
     def _make_fold_column(self, len_train, fold_ids):
         """
@@ -740,12 +786,30 @@ class TargetEncoder(Base, InteropMixin):
 
     def _impute_and_sort(self, df):
         """
-        Impute and sort the result encoding in the same row order as input
+        Impute and sort the result encoding in the same row order as input.
+
+        Returns 2D array (n_samples, 1) when in independent mode (sklearn
+        compatibility), otherwise returns 1D array (cuML native behavior).
         """
+        import warnings
+
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
+        # Reshape to 2D (n_samples, 1) only for sklearn compatibility
+        # (independent mode is set by cuml.accel and from_sklearn)
+        if getattr(self, "_independent_mode_fitted", False):
+            res = res.reshape(-1, 1)
+        else:
+            # Deprecation warning for 1D output in combination mode
+            warnings.warn(
+                "TargetEncoder currently returns 1D output for combination mode "
+                "(multi_feature_mode='combination'). In version 26.04, the output "
+                "will change to 2D (n_samples, n_output_features) for consistency "
+                "with sklearn. Use .ravel() if you need 1D output.",
+                FutureWarning,
+            )
         return CumlArray(res)
 
     def _data_with_strings_to_cudf_dataframe(self, x):
@@ -795,16 +859,13 @@ class TargetEncoder(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        # Use independent mode when converting from sklearn to match sklearn semantics
+        """Convert sklearn TargetEncoder hyperparameters to cuML format."""
         params = {
             "n_folds": model.cv,
             "seed": 42 if model.random_state is None else model.random_state,
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
-            # Don't force multi_feature_mode here - for single-feature both
-            # modes are equivalent, and for multi-feature the fitted attribute
-            # _independent_mode_fitted controls transform behavior
         }
         return params
 
@@ -885,18 +946,29 @@ class TargetEncoder(Base, InteropMixin):
         in independent mode, we have exact encodings. Multi-feature combination
         mode cannot be converted to sklearn.
         """
-        # Handle categories that may already be numpy arrays (from string columns)
-        categories_cpu = [
-            cat if isinstance(cat, np.ndarray) else to_cpu(cat)
-            for cat in self.categories_
-        ]
+        # Handle categories that may be numpy arrays, cupy arrays, or CumlArrays
+        categories_cpu = []
+        for cat in self.categories_:
+            if isinstance(cat, np.ndarray):
+                categories_cpu.append(cat)
+            elif isinstance(cat, cp.ndarray):
+                # cupy array - convert to numpy directly
+                categories_cpu.append(cp.asnumpy(cat))
+            else:
+                # CumlArray or other - use to_cpu
+                categories_cpu.append(to_cpu(cat))
         n_features = len(self.categories_)
 
         # Use per-feature encodings if available (from independent mode or sklearn)
         if hasattr(self, "_encodings_per_feature"):
-            encodings_list = [
-                to_cpu(enc) for enc in self._encodings_per_feature
-            ]
+            encodings_list = []
+            for enc in self._encodings_per_feature:
+                if isinstance(enc, np.ndarray):
+                    encodings_list.append(enc)
+                elif isinstance(enc, cp.ndarray):
+                    encodings_list.append(cp.asnumpy(enc))
+                else:
+                    encodings_list.append(to_cpu(enc))
         elif n_features == 1:
             # Single feature: extract encodings directly (exact conversion)
             col = self._x_cols[0]

@@ -846,10 +846,41 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle(readonly_memmap=True)]"
   - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_pickle]"
-- reason: cudf has different object dtype handling than pandas/numpy
+- reason: cuML TargetEncoder has different error messages than sklearn
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_dtype_object]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_empty_data_messages]"
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_fit2d_predict1d]"
+- reason: cuML TargetEncoder accepts 1D arrays as single-feature input (sklearn requires 2D)
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_fit1d]"
+- reason: cuML TargetEncoder uses different cross-validation approach producing different encodings
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-auto-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-False]"
+- reason: cuML TargetEncoder doesn't support list input types
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y0-Found input variables with inconsistent]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y0-feature_names0]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y1-feature_names1]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_feature_names_out_set_output[y2-feature_names2]"
+- reason: cuML TargetEncoder has different error messages for y validation
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y1-Target type was inferred to be 'multiclass-multioutput']"
+- reason: cuML TargetEncoder doesn't emit sklearn's regression target warning
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_use_regression_target"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6

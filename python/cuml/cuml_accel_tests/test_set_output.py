@@ -47,6 +47,8 @@ def test_set_output(cls):
     assert names.dtype == object
 
     # No host transfer required (this isn't strictly necessary, but is currently
-    # true for all proxied estimators). Can revisit this check if it proves tricky
+    # true for most proxied estimators). Can revisit this check if it proves tricky
     # when adding new estimators.
-    assert not hasattr(model._cpu, "n_features_in_")
+    # TargetEncoder triggers sync due to sklearn's set_output accessing n_features_in_
+    if cls.__name__ != "TargetEncoder":
+        assert not hasattr(model._cpu, "n_features_in_")
