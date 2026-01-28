@@ -12,6 +12,7 @@ CMakeLists.txt @rapidsai/cuml-cmake-codeowners
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
 /ci/                     @rapidsai/ci-codeowners
+/.coderabbit.yaml        @rapidsai/ci-codeowners
 
 #packaging code owners
 /.pre-commit-config.yaml @rapidsai/packaging-codeowners
