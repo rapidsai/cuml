@@ -18,7 +18,7 @@ Note that while a GPU is not required to build or develop cuML itself, it is nec
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
 4. ninja - build system used by default
-5. Python (>= 3.10 and <= 3.13)
+5. Python (>= 3.11 and <= 3.13)
 6. Cython (>= 3.0.0)
 
 **RAPIDS Ecosystem Libraries:**
