@@ -73,6 +73,8 @@ jobs:
           - '!notebooks/**'
           - '!python/**'
           - '!thirdparty/LICENSES/**'
+          - '!**/*/agents.md'
+          - '!.coderabbit.yaml'
         test_notebooks:
           - '**'
           - '!.devcontainer/**'
@@ -81,6 +83,8 @@ jobs:
           - '!README.md'
           - '!ci/release/update-version.sh'
           - '!thirdparty/LICENSES/**'
+          - '!**/*/agents.md'
+          - '!.coderabbit.yaml'
         test_python:
           - '**'
           - '!.devcontainer/**'
@@ -92,6 +96,8 @@ jobs:
           - '!img/**'
           - '!notebooks/**'
           - '!thirdparty/LICENSES/**'
+          - '!**/*/agents.md'
+          - '!.coderabbit.yaml'
   checks:
     secrets: inherit
     needs: telemetry-setup
