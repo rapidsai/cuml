@@ -64,7 +64,7 @@
 - **New estimator not added to sklearn compatibility tests** (add to `test_sklearn_compatibility.py` estimator list)
 
 ### Security
-- Unsafe deserialization of model files (pickle)
+- Unsafe deserialization of model files (using `pickle.load` or `pickle.loads`)
 - Insufficient error handling exposing internal details
 - Missing bounds checking allowing resource exhaustion
 

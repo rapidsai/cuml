@@ -4,7 +4,7 @@
 
 **Target**: Sub-3% false positive rate. Be direct, concise, minimal.
 
-**Context**: cuML C++ layer provides GPU-accelerated ML algorithm implementations using CUDA, with dependencies on RAFT, RMM, and thrust.
+**Context**: cuML C++ layer provides GPU-accelerated ML algorithm implementations using CUDA, with dependencies on RAFT, RMM, cuVS, libcudacxx, thrust, and CUB.
 
 ## IGNORE These Issues
 
@@ -36,7 +36,7 @@
 ### Resource Management
 - GPU memory leaks (device allocations, managed memory, pinned memory)
 - CUDA stream/event leaks or improper cleanup
-- Missing RAII or proper cleanup in exception paths
+- Missing RAII or proper cleanup. Including in exception paths.
 - Resource exhaustion (GPU memory)
 
 ### API Breaking Changes
@@ -74,8 +74,8 @@
 ### Design & Architecture
 - Hard-coded GPU device IDs or resource limits
 - Inappropriate use of exceptions in performance-critical paths
-- Significant code duplication (3+ occurrences) in kernel logic
-- Reinventing functionality already available in RAFT, thrust, RMM, or cuVS
+- Significant code duplication (3+ occurrences). Including in kernel logic.
+- Reinventing functionality already available in RAFT, RMM, cuVS, libcudacxx, thrust, or CUB
 
 ### Test Quality
 - Missing validation of numerical correctness
@@ -275,10 +275,13 @@ cudaStreamCreate(&per_device_stream);
 ## Code Review Checklists
 
 ### When Reviewing CUDA Kernels
-- [ ] Are CUDA errors checked after kernel launch?
+- [ ] Are CUDA errors checked after kernel launch (with peek)?
 - [ ] Is shared memory usage within limits and avoiding bank conflicts?
-- [ ] Are thread synchronization points (`__syncthreads`) correct?
+- [ ] Is shared memory used when clearly possible?
+- [ ] Is thread synchronization done correctly? Are any __syncthreads call unnecessary, misplaced or missing?
 - [ ] Is memory access coalesced?
+- [ ] Is memory aligned?
+- [ ] Is there serial work inside of a thread?
 - [ ] Are warp divergence issues minimized?
 - [ ] Are grid/block dimensions validated?
 
