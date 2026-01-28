@@ -406,6 +406,7 @@
   - "sklearn.utils.tests.test_estimator_checks::test_check_dataframe_column_names_consistency"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
+  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[asarray-X]"
   - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[csr_matrix-X]"
 - reason: Test should fail with cuml.accel (scikit-learn 1.5)
@@ -801,7 +802,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
-  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_pairwise"
 - reason: Test should fail with cuml.accel (scikit-learn <1.8)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.8

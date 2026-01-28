@@ -803,18 +803,24 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.24.0
+        - &numba_cuda numba-cuda>=0.22.1
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - numba-cuda[cu12]>=0.24.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+              - numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
           - matrix:
             packages:
-              - numba-cuda[cu13]>=0.24.0
+              - *numba_cuda
   depends_on_pylibraft:
     common:
       - output_types: conda

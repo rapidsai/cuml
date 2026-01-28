@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -17,7 +17,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.prims.label.classlabels import make_monotonic
 
 _binarize = cp.ElementwiseKernel(
     "T x, float32 threshold",
@@ -213,7 +213,7 @@ class _BaseNB(Base, ClassifierMixin):
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self.classes_)
+        y_hat = self.classes_[indices]
         y_hat = CumlArray(data=y_hat, index=index)
         return y_hat
 
@@ -444,7 +444,9 @@ class GaussianNB(_BaseNB):
 
         if first_call:
             if _classes is not None:
-                check_labels(Y, _classes.to_output("cupy"))
+                # Validate that y labels are in _classes
+                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
+                    raise ValueError("Labels contain values not in classes")
                 self.classes_ = _classes
             else:
                 self.classes_ = label_classes
@@ -890,7 +892,9 @@ class _BaseDiscreteNB(_BaseNB):
 
         if first_call:
             if _classes is not None:
-                check_labels(Y, _classes.to_output("cupy"))
+                # Validate that y labels are in _classes
+                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
+                    raise ValueError("Labels contain values not in classes")
                 self.classes_ = _classes
             else:
                 self.classes_ = label_classes
@@ -899,7 +903,9 @@ class _BaseDiscreteNB(_BaseNB):
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_, X.dtype)
         else:
-            check_labels(Y, self.classes_)
+            # Validate that y labels are in self.classes_
+            if not bool(cp.all(cp.isin(y, cp.asarray(self.classes_)))):
+                raise ValueError("Labels contain values not in classes")
 
         if cupyx.scipy.sparse.isspmatrix(X):
             # X is assumed to be a COO here
