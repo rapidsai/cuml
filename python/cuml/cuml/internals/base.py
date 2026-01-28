@@ -42,6 +42,7 @@ class DeprecatedHandleDescriptor:
                 suffix = ""
             warnings.warn(
                 f"The `handle` argument to `{type(obj).__name__}` was deprecated "
+                # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                 f"in 26.02 and will be removed in 26.04. There is no need to "
                 f"manually specify a `handle`, cuml now manages this resource "
                 f"for you automatically.{suffix}",
@@ -75,6 +76,7 @@ def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
         warnings.warn(
             (
                 "The `handle` argument was deprecated in 26.02 and will be "
+                # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                 "removed in 26.04. There is no need to manually specify a "
                 "`handle`, cuml manages this resource for you automatically."
             ),
