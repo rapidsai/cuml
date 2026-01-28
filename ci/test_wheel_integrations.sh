@@ -24,21 +24,15 @@ set +e
 rapids-logger "===== Testing BERTopic Integration ====="
 
 # Step 1: Install cuML wheels first (two-step workaround for issue #7374)
-#
-# '--extra-index-url pypi.nvidia.com' can be removed when 'cuvs' and
-# its dependencies are available from pypi.org
 rapids-logger "Installing cuML wheels"
 rapids-pip-retry install \
-  --extra-index-url 'https://pypi.nvidia.com' \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "${CUML_WHEELHOUSE}"/cuml*.whl
 
 # Step 2: Install BERTopic
 rapids-logger "Installing BERTopic"
-# TODO: remove 'requests' once sentence-transformers#3617 is fixed
-rapids-pip-retry install \
-    bertopic \
-    requests
+rapids-pip-retry install bertopic
+rapids-pip-retry install requests # TODO remove once sentence-transformers#3617 is fixed
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"

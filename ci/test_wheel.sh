@@ -19,11 +19,7 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 rapids-generate-pip-constraints test_python ./constraints.txt
 
 # Install just minimal dependencies first
-#
-# '--extra-index-url pypi.nvidia.com' can be removed when 'cuvs' and
-# its dependencies are available from pypi.org
 rapids-pip-retry install \
-  --extra-index-url 'https://pypi.nvidia.com' \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "${CUML_WHEELHOUSE}"/cuml*.whl \
   --constraint ./constraints.txt \
@@ -38,11 +34,8 @@ python -c "import cuml"
 #   * echo to expand wildcard before adding `[test,experimental]` requires for pip
 #   * need to provide --constraint="${PIP_CONSTRAINT}" because that environment variable is
 #     ignored if any other --constraint are passed via the CLI
-#   * '--extra-index-url pypi.nvidia.com' can be removed when 'cuvs' and
-#     its dependencies are available from pypi.org
 #
 rapids-pip-retry install \
-  --extra-index-url 'https://pypi.nvidia.com' \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[test]" \
   --constraint ./constraints.txt \

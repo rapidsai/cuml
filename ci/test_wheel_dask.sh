@@ -23,11 +23,8 @@ rapids-generate-pip-constraints test_python ./constraints.txt
 #   * echo to expand wildcard before adding `[...]` extras for pip
 #   * need to provide --constraint="${PIP_CONSTRAINT}" because that environment variable is
 #     ignored if any other --constraint are passed via the CLI
-#   * '--extra-index-url pypi.nvidia.com' can be removed when 'cuvs' and
-#     its dependencies are available from pypi.org
 #
 rapids-pip-retry install \
-  --extra-index-url 'https://pypi.nvidia.com' \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[dask,test,test-dask]" \
   --constraint ./constraints.txt \
