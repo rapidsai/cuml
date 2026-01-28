@@ -214,7 +214,7 @@ def test_linear_regression(random_state):
 
 
 # Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. Will be fixed in sklearn 1.6.0+
+# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
 @pytest.mark.filterwarnings(
     "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
 )

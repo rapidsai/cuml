@@ -360,7 +360,7 @@ def test_logistic_regression_unscaled(dtype, l1_ratio, C):
 
 
 # Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. Will be fixed in sklearn 1.6.0+
+# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
 @pytest.mark.filterwarnings(
     "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
 )
@@ -576,7 +576,7 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
 
 
 # Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. Will be fixed in sklearn 1.6.0+
+# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
 @pytest.mark.filterwarnings(
     "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
 )
@@ -770,7 +770,7 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     class_weight_option=None,
 )
 # Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. Will be fixed in sklearn 1.6.0+
+# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
 @pytest.mark.filterwarnings(
     "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
 )
