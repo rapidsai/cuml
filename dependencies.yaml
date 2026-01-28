@@ -470,7 +470,7 @@ dependencies:
           - matrix:
             packages:
               - *scikit_learn
-              - ipython>=7.32.0
+              - ipython>=8.4.0
       - output_types: requirements
         matrices:
           - matrix: {dependencies: "nightly"}

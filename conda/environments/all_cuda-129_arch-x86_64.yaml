@@ -29,7 +29,7 @@ dependencies:
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython
-- ipython>=7.32.0
+- ipython>=8.4.0
 - joblib>=0.11
 - libcublas-dev
 - libcufft-dev
