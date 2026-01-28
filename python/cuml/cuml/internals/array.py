@@ -990,6 +990,7 @@ class CumlArray:
             raise NotImplementedError(
                 "Sparse inputs are not currently supported for this method"
             )
+
         if convert_to_mem_type is not False:
             convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
         if convert_to_dtype:
@@ -1053,6 +1054,11 @@ class CumlArray:
             # we accept lists and tuples in accel mode
             X = np.asarray(X)
             deepcopy = False
+
+        # Check for complex dtype, placed after DataFrame/Series conversion
+        # to numpy/cupy
+        if np.issubdtype(X.dtype, np.complexfloating):
+            raise ValueError(f"Complex data not supported\n{X}")
 
         requested_order = (order, None)[fail_on_order]
         arr = cls(X, index=index, order=requested_order, validate=False)
