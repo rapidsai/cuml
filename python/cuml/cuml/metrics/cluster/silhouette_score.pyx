@@ -98,7 +98,7 @@ def _silhouette_coeff(
     n_labels = unique_labels.shape[0]
 
     mono_labels, _, _, _ = input_to_cuml_array(
-        inverse.astype(np.int32),
+        inverse,
         order='C',
         convert_to_dtype=np.int32
     )
