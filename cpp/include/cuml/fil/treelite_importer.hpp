@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -360,17 +360,19 @@ struct treelite_importer {
       if (tl_model.leaf_vector_shape[1] > 1) {  // vector-leaf
         ASSERT(tl_model.leaf_vector_shape[1] == int(tl_model.num_class[0]),
                "Vector leaf must be equal to num_class = %d",
-               tl_model.num_class[0]);
+               static_cast<int>(tl_model.num_class[0]));
         auto tree_count = num_trees(tl_model);
         for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
-          ASSERT(tl_model.class_id[tree_id] == -1, "Tree %d has invalid class assignment", tree_id);
+          ASSERT(tl_model.class_id[tree_id] == -1,
+                 "Tree %d has invalid class assignment",
+                 static_cast<int>(tree_id));
         }
       } else {  // grove-per-class
         auto tree_count = num_trees(tl_model);
         for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
           ASSERT(tl_model.class_id[tree_id] == int(tree_id % tl_model.num_class[0]),
                  "Tree %d has invalid class assignment",
-                 tree_id);
+                 static_cast<int>(tree_id));
         }
       }
     }
