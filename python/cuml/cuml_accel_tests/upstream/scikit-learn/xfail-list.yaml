@@ -824,6 +824,44 @@
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
+- reason: cuML TargetEncoder fit docstring attributes differ from sklearn conventions
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
+- reason: cuML TargetEncoder has different error messages for y validation
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y1-Target type was inferred to be 'multiclass-multioutput']"
+- reason: cuML TargetEncoder has different error messages than sklearn
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_empty_data_messages]"
+- reason: cuML TargetEncoder has different internal data structures than sklearn
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
+- reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-str-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_smooth_zero"
+- reason: cuML TargetEncoder uses different cross-validation approach producing different encodings
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-auto-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-auto-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-True]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-False]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
