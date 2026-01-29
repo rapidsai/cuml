@@ -169,6 +169,15 @@ if(all_algo OR isolationforest_algo OR randomforest_algo)
   ConfigureTest(PREFIX SG NAME RANDOM_SPLIT_TEST sg/random_split_test.cu ML_INCLUDE)
 endif()
 
+if(all_algo OR isolationforest_algo)
+  ConfigureTest(
+    PREFIX SG
+    NAME ISOLATION_FOREST_TEST sg/isolation_forest_test.cu ML_INCLUDE
+    GPUS 1
+    PERCENT 100
+  )
+endif()
+
 # todo: separate solvers better
 if(all_algo OR solvers_algo)
   ConfigureTest(PREFIX SG NAME CD_TEST sg/cd_test.cu ML_INCLUDE)

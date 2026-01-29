@@ -162,7 +162,7 @@ void build_treelite_forest(TreeliteModelHandle* model,
  *
  * @param[in] handle raft::handle_t
  * @param[in] forest Trained Isolation Forest model
- * @param[in] input Test data (n_rows x n_cols). Device pointer.
+ * @param[in] input Test data (n_rows x n_cols) in row-major format. Device pointer.
  * @param[in] n_rows Number of test samples
  * @param[in] n_cols Number of features
  * @param[out] scores Anomaly scores for each sample (n_rows). Device pointer.
@@ -191,7 +191,7 @@ void score_samples(const raft::handle_t& handle,
  *
  * @param[in] handle raft::handle_t
  * @param[in] forest Trained Isolation Forest model
- * @param[in] input Test data (n_rows x n_cols). Device pointer.
+ * @param[in] input Test data (n_rows x n_cols) in row-major format. Device pointer.
  * @param[in] n_rows Number of test samples
  * @param[in] n_cols Number of features
  * @param[out] predictions Predictions for each sample: 1=anomaly, -1=normal. Device pointer.

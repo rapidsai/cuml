@@ -223,6 +223,8 @@ class IsolationForest {
    * The path length is the depth at which a sample reaches a leaf node.
    * For external nodes (leaves) at depth d with n samples, we add c(n) to account
    * for the expected additional depth if the tree were fully grown.
+   *
+   * @param[in] input Test data in row-major format (each sample's features are contiguous).
    */
   void compute_path_lengths(const raft::handle_t& handle,
                             const IsolationForestModel<T>* model,
