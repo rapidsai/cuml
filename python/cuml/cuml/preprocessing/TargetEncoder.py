@@ -1006,6 +1006,7 @@ class TargetEncoder(Base, InteropMixin):
             "_fitted": True,
             "train": None,
             "train_encode": None,
+            "target_type_": getattr(model, "target_type_", "continuous"),
             **super()._attrs_from_cpu(model),
         }
 
