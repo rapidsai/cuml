@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -363,7 +363,8 @@ struct treelite_importer {
                static_cast<int>(tl_model.num_class[0]));
         auto tree_count = num_trees(tl_model);
         for (decltype(tree_count) tree_id = 0; tree_id < tree_count; ++tree_id) {
-          ASSERT(tl_model.class_id[tree_id] == -1, "Tree %d has invalid class assignment",
+          ASSERT(tl_model.class_id[tree_id] == -1,
+                 "Tree %d has invalid class assignment",
                  static_cast<int>(tree_id));
         }
       } else {  // grove-per-class
