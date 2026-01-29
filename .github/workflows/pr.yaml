@@ -61,37 +61,146 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@main
     with:
       files_yaml: |
+        build_docs:
+          - '**'
+          - '!.devcontainer/**'
+          - '!.git-blame-ignore-revs'
+          - '!.github/CODEOWNERS'
+          - '!.github/ISSUE_TEMPLATE/**'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/labeler.yml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/new-issues-to-triage-projects.yml'
+          - '!.github/workflows/pr_assign_author.yml'
+          - '!.github/workflows/pr_issue_status_automation.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.pre-commit-config.yaml'
+          - '!ci/build_wheel*.sh'
+          - '!ci/check_style.sh'
+          - '!ci/release/update-version.sh'
+          - '!ci/test_notebooks.sh'
+          - '!ci/test_python*.sh'
+          - '!ci/test_wheel*.sh'
+          - '!codecov.yml'
         test_cpp:
           - '**'
           - '!.devcontainer/**'
+          - '!.git-blame-ignore-revs'
+          - '!.github/CODEOWNERS'
+          - '!.github/ISSUE_TEMPLATE/**'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/labeler.yml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/new-issues-to-triage-projects.yml'
+          - '!.github/workflows/pr_assign_author.yml'
+          - '!.github/workflows/pr_issue_status_automation.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
+          - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!ci/build_docs.sh'
+          - '!ci/build_python.sh'
+          - '!ci/build_wheel*.sh'
+          - '!ci/check_style.sh'
+          - '!ci/notebooks/**'
           - '!ci/release/update-version.sh'
+          - '!ci/test_notebooks.sh'
+          - '!ci/test_python*.sh'
+          - '!ci/test_wheel*.sh'
           - '!docs/**'
           - '!img/**'
           - '!notebooks/**'
           - '!python/**'
           - '!thirdparty/LICENSES/**'
+          - '!wiki/**'
         test_notebooks:
           - '**'
           - '!.devcontainer/**'
+          - '!.git-blame-ignore-revs'
+          - '!.github/CODEOWNERS'
+          - '!.github/ISSUE_TEMPLATE/**'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/labeler.yml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/new-issues-to-triage-projects.yml'
+          - '!.github/workflows/pr_assign_author.yml'
+          - '!.github/workflows/pr_issue_status_automation.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
+          - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
           - '!thirdparty/LICENSES/**'
-        test_python:
+          - '!wiki/**'
+        test_python_conda:
           - '**'
           - '!.devcontainer/**'
+          - '!.git-blame-ignore-revs'
+          - '!.github/CODEOWNERS'
+          - '!.github/ISSUE_TEMPLATE/**'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/labeler.yml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/new-issues-to-triage-projects.yml'
+          - '!.github/workflows/pr_assign_author.yml'
+          - '!.github/workflows/pr_issue_status_automation.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
+          - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!ci/build_wheel*.sh'
+          - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
+          - '!ci/run_clang_tidy.sh'
+          - '!ci/run_ctests.sh'
+          - '!ci/test_wheel*.sh'
+          - '!ci/validate_wheel.sh'
           - '!docs/**'
           - '!img/**'
           - '!notebooks/**'
           - '!thirdparty/LICENSES/**'
+          - '!wiki/**'
+        test_python_wheels:
+          - '**'
+          - '!.devcontainer/**'
+          - '!.git-blame-ignore-revs'
+          - '!.github/CODEOWNERS'
+          - '!.github/ISSUE_TEMPLATE/**'
+          - '!.github/copy-pr-bot.yaml'
+          - '!.github/labeler.yml'
+          - '!.github/ops-bot.yaml'
+          - '!.github/release.yml'
+          - '!.github/workflows/new-issues-to-triage-projects.yml'
+          - '!.github/workflows/pr_assign_author.yml'
+          - '!.github/workflows/pr_issue_status_automation.yml'
+          - '!.github/workflows/trigger-breaking-change-alert.yaml'
+          - '!.pre-commit-config.yaml'
+          - '!BUILD.md'
+          - '!CONTRIBUTING.md'
+          - '!README.md'
+          - '!ci/build_cpp.sh'
+          - '!ci/build_python.sh'
+          - '!ci/check_style.sh'
+          - '!ci/notebooks/**'
+          - '!ci/release/update-version.sh'
+          - '!ci/run_clang_tidy.sh'
+          - '!ci/run_tests.sh'
+          - '!ci/test_cpp.sh'
+          - '!ci/test_notebooks.sh'
+          - '!ci/test_python*.sh'
+          - '!docs/**'
+          - '!img/**'
+          - '!notebooks/**'
+          - '!thirdparty/LICENSES/**'
+          - '!wiki/**'
   checks:
     secrets: inherit
     needs: telemetry-setup
@@ -145,7 +254,7 @@ jobs:
     needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
@@ -154,7 +263,7 @@ jobs:
     needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       # Select the amd64 entry with the highest CUDA and Python version
       matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
@@ -165,7 +274,7 @@ jobs:
     needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
@@ -174,7 +283,7 @@ jobs:
     needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
@@ -196,7 +305,7 @@ jobs:
     needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_cuml_accel_upstream.sh"
@@ -215,9 +324,10 @@ jobs:
       container_image: "rapidsai/ci-conda:26.04-latest"
       script: "ci/test_notebooks.sh"
   docs-build:
-    needs: conda-python-build
+    needs: [conda-python-build, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
     with:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
@@ -255,7 +365,7 @@ jobs:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
@@ -264,7 +374,7 @@ jobs:
     needs: [wheel-build-cuml, changed-files]
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
