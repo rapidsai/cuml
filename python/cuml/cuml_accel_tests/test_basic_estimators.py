@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 from sklearn.cluster import DBSCAN, KMeans
@@ -17,6 +17,7 @@ from sklearn.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
+from sklearn.preprocessing import TargetEncoder
 
 
 def test_kmeans():
@@ -125,3 +126,35 @@ def test_k_neighbors_regressor():
         for metric in ["euclidean", "manhattan"]:
             knr = KNeighborsRegressor().fit(X, y)
             knr.predict(X)
+
+
+def test_target_encoder():
+    import numpy as np
+
+    X = np.array(
+        [
+            ["cat", "small"],
+            ["dog", "medium"],
+            ["cat", "large"],
+            ["dog", "small"],
+            ["cat", "medium"],
+            ["dog", "large"],
+            ["cat", "small"],
+            ["dog", "medium"],
+        ]
+    )
+
+    y = np.array([1.0, 2.5, 1.5, 3.0, 1.2, 2.8, 1.1, 2.6])
+
+    encoder = TargetEncoder()
+    X_encoded = encoder.fit_transform(X, y)
+
+    assert X_encoded.shape == X.shape
+
+    X_new = np.array([["cat", "small"], ["dog", "large"], ["cat", "medium"]])
+    X_new_encoded = encoder.transform(X_new)
+    assert X_new_encoded.shape == X_new.shape
+
+    encoder_smooth = TargetEncoder(smooth="auto")
+    X_encoded_smooth = encoder_smooth.fit_transform(X, y)
+    assert X_encoded_smooth.shape == X.shape

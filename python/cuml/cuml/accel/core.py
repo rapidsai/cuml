@@ -85,6 +85,7 @@ ACCELERATED_MODULES = [
     "sklearn.linear_model",
     "sklearn.manifold",
     "sklearn.neighbors",
+    "sklearn.preprocessing",
     "sklearn.svm",
     "umap",
 ]
