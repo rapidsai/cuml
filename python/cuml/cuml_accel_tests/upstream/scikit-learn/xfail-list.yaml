@@ -1145,11 +1145,16 @@
   - "sklearn.ensemble.tests.test_forest::test_forest_regressor_oob[True-X0-y0-0.7-array-RandomForestRegressor]"
 - reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
   marker: cuml_accel_scipy_1_16
-  condition: scikit-learn>=1.6
+  condition: scikit-learn>=1.5
   strict: false
   tests:
   - "sklearn.linear_model._glm.tests.test_glm::test_linalg_warning_with_newton_solver[42]"
   - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_path_convergence_fail"
+- reason: These tests sometimes fail due to new deprecation warnings in SciPy 1.16
+  marker: cuml_accel_scipy_1_16
+  condition: scikit-learn>=1.6
+  strict: false
+  tests:
   - "sklearn.linear_model.tests.test_logistic::test_newton_cholesky_fallback_to_lbfgs[42]"
 - reason: SVC input handling and validation
   marker: cuml_accel_svc_estimator_checks
