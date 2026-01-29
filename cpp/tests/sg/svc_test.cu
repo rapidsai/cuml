@@ -189,6 +189,7 @@ class KernelCacheTest : public ::testing::Test {
   {
     switch (params.kernel) {
       case KernelType::LINEAR: break;
+      case KernelType::PRECOMPUTED: break;  // No transformation needed
       case KernelType::POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;

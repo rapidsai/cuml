@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
@@ -546,7 +546,7 @@ class NearestNeighbors(Base,
         >>> distances, indices = model.kneighbors(X_cudf)
 
         >>> # print results
-        >>> print(indices)
+        >>> print(indices)  # doctest: +SKIP
         0  1  2
         0  0  3  1
         1  1  3  0

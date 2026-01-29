@@ -59,6 +59,8 @@ filterwarnings = [
   "ignore:Tensorflow not installed.*:ImportWarning:umap",
   # From sklearn estimator checks
   "ignore:Estimator .* does not inherit from.*:UserWarning",
+  # TargetEncoder combination mode deprecation (will change to 2D output in 26.04)
+  "ignore:TargetEncoder currently returns 1D output:FutureWarning",
   # From numba - GPU under-utilization warnings in tests with small data
   "ignore::numba.core.errors.NumbaPerformanceWarning",
   # numba-cuda makes use of deprecated cuda.core.experimental apis
@@ -84,7 +86,7 @@ dependencies = [
     "cupy-cuda13x>=13.6.0",
     "joblib>=0.11",
     "libcuml==26.4.*,>=0.0.0a0",
-    "numba-cuda[cu13]>=0.22.1,<0.23.0",
+    "numba-cuda>=0.22.1,<0.23.0",
     "numba>=0.60.0,<0.62.0",
     "numpy>=1.23,<3.0",
     "packaging",
