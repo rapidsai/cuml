@@ -365,6 +365,8 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/decisiontree/batched-levelalgo/kernels/mse-float.cu
               src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
               src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()
