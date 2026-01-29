@@ -7,6 +7,8 @@ set -euo pipefail
 package_dir=$1
 wheel_dir_relative_path=$2
 
+RAPIDS_CUDA_MAJOR="${RAPIDS_CUDA_VERSION%%.*}"
+
 cd "${package_dir}"
 
 rapids-logger "validate packages with 'pydistcheck'"
