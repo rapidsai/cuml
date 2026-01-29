@@ -213,6 +213,11 @@ def test_linear_regression(random_state):
     assert_estimator_roundtrip(original, SkLinearRegression, X, y)
 
 
+# Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
+# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
+@pytest.mark.filterwarnings(
+    "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
+)
 def test_logistic_regression(random_state):
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
