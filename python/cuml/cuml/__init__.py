@@ -93,7 +93,6 @@ def __getattr__(name):
         from pylibraft.common import Handle
 
         warnings.warn(
-            # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
             "cuml.Handle was deprecated in 26.02 and will be removed in 26.04. "
             "There is no need to manually specify a `handle`, cuml now manages "
             "this resource for you automatically.",

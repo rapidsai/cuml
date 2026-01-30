@@ -563,7 +563,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     if "nnd_n_clusters" in build_kwds:
         warnings.warn(
             "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
-            # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
             "`knn_n_clusters` in 26.04."
         )
         n_clusters = build_kwds.get("nnd_n_clusters", 1)
@@ -572,7 +571,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     if "nnd_overlap_factor" in build_kwds:
         warnings.warn(
             "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
-            # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
             "`knn_overlap_factor` in 26.04."
         )
         overlap_factor = build_kwds.get("nnd_overlap_factor", 2)

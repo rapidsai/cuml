@@ -115,7 +115,6 @@ def train_test_split(
     if y_was_passed or y_is_column_name_positional:
         warnings.warn(
             "The explicit 'y' parameter is deprecated and will be "
-            # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
             "removed in 26.04. Extract the column manually: "
             "X, y = df.drop('col', axis=1), df['col']",
             FutureWarning,

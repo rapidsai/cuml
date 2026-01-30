@@ -844,15 +844,16 @@ class TargetEncoder(Base, InteropMixin):
             # Deprecation warning for 1D output in combination mode (once per process)
             global _COMBINATION_MODE_1D_WARNING_SHOWN
             if not _COMBINATION_MODE_1D_WARNING_SHOWN:
+                # rapids-pre-commit-hooks: disable[verify-hardcoded-version]
                 warnings.warn(
                     "TargetEncoder currently returns 1D output for combination mode "
-                    # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                     "(multi_feature_mode='combination'). In version 26.04, the output "
                     "will change to 2D (n_samples, n_output_features) for consistency "
                     "with sklearn. Use .ravel() if you need 1D output.",
                     FutureWarning,
                     stacklevel=4,
                 )
+                # rapids-pre-commit-hooks: enable[verify-hardcoded-version]
                 _COMBINATION_MODE_1D_WARNING_SHOWN = True
         return CumlArray(res)
 
