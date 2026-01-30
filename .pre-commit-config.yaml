@@ -164,6 +164,12 @@ repos:
         - id: verify-alpha-spec
         - id: verify-codeowners
           args: [--fix, --project-prefix=cuml]
+        - id: verify-pyproject-license
+          # ignore the top-level pyproject.toml, which doesn't
+          # have or need a [project] table
+          exclude: |
+            (?x)
+              ^pyproject[.]toml$
         - id: verify-hardcoded-version
     - repo: https://github.com/rapidsai/dependency-file-generator
       rev: v1.20.0
