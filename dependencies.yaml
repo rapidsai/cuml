@@ -426,10 +426,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.10"
-            packages:
-              - python=3.10
-          - matrix:
               py: "3.11"
             packages:
               - python=3.11
@@ -443,7 +439,7 @@ dependencies:
               - python=3.13
           - matrix:
             packages:
-              - python>=3.10,<3.14
+              - python>=3.11,<3.14
   test_libcuml:
     common:
       - output_types: conda
@@ -462,11 +458,11 @@ dependencies:
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
-              - ipython==7.32.0
+              - ipython==8.4.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
-              - ipython==8.37.0
+              - ipython==8.10.0
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
@@ -474,7 +470,7 @@ dependencies:
           - matrix:
             packages:
               - *scikit_learn
-              - ipython>=7.32.0
+              - ipython>=8.4.0
       - output_types: requirements
         matrices:
           - matrix: {dependencies: "nightly"}
