@@ -846,6 +846,7 @@ class TargetEncoder(Base, InteropMixin):
             if not _COMBINATION_MODE_1D_WARNING_SHOWN:
                 warnings.warn(
                     "TargetEncoder currently returns 1D output for combination mode "
+                    # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                     "(multi_feature_mode='combination'). In version 26.04, the output "
                     "will change to 2D (n_samples, n_output_features) for consistency "
                     "with sklearn. Use .ravel() if you need 1D output.",
