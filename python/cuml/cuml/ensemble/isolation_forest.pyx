@@ -240,6 +240,20 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
     The transformation is: sklearn_score = -(paper_score - 0.5)
 
+    **Implementation Differences from sklearn:**
+
+    This GPU implementation uses quantile-based discrete split thresholds for
+    efficiency, whereas sklearn uses continuous random thresholds. To mitigate
+    potential issues with tied values in features, small random jitter is
+    automatically added to the training data. This approach works well for most
+    datasets but may show reduced performance on datasets where:
+
+    - Anomalies are tightly clustered rather than scattered
+    - Many features have few unique values or many tied values
+
+    For best results, ensure your data has continuous features and anomalies
+    that are scattered outliers rather than dense clusters.
+
     For additional docs, see `scikit-learn's IsolationForest
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html>`_.
     """
@@ -384,8 +398,14 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
         cdef int n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
+        cdef uintptr_t X_ptr = X_m.ptr
         self.n_features_in_ = n_cols
         self._dtype = X_m.dtype
+
+        # NOTE: Jitter is NOT needed for the fast builder because it picks true
+        # random thresholds between min/max values (not quantile bins). The fast
+        # builder naturally handles duplicate values. Jitter was only needed for
+        # the generic RF-based builder which uses quantile-based binning.
 
         # Compute max_samples
         cdef int actual_max_samples
@@ -434,7 +454,6 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
-        cdef uintptr_t X_ptr = X_m.ptr
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
 
