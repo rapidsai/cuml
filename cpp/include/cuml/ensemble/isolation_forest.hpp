@@ -152,13 +152,21 @@ void build_treelite_forest(TreeliteModelHandle* model,
 /**
  * @brief Compute anomaly scores for input samples.
  *
+ * Uses the **original paper convention** (Liu et al. 2008):
+ *
  * Score formula: s(x, n) = 2^(-E[h(x)] / c(n))
  * where:
  *   - h(x) is the path length to isolate sample x
  *   - E[h(x)] is the average path length across all trees
- *   - c(n) is the normalization factor
+ *   - c(n) is the normalization factor for average path length in BST
  *
- * Scores close to 1 indicate anomalies, scores close to 0.5 indicate normal points.
+ * Score interpretation (original paper):
+ *   - s ≈ 1.0: Anomaly (short path, easy to isolate)
+ *   - s ≈ 0.5: Normal (average path length)
+ *   - s ≈ 0.0: Very normal (long path, hard to isolate)
+ *
+ * @note sklearn uses an inverted convention where more negative = more anomalous.
+ *       The Python wrapper transforms these scores for sklearn compatibility.
  *
  * @param[in] handle raft::handle_t
  * @param[in] forest Trained Isolation Forest model
