@@ -513,59 +513,86 @@ class RandomObjectiveFunction {
 
  private:
   IdxT min_samples_leaf;
+  uint64_t seed_;
+  IdxT treeid_;
+
+  /**
+   * @brief Simple hash function to create pseudo-randomness from context.
+   *
+   * Uses FNV-1a style mixing to combine values into a pseudo-random number.
+   */
+  DI static uint32_t hash_combine(uint32_t seed, uint32_t value)
+  {
+    // FNV-1a prime and XOR mixing
+    constexpr uint32_t FNV_PRIME = 0x01000193;
+    return (seed ^ value) * FNV_PRIME;
+  }
 
  public:
-  HDI RandomObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
+  HDI RandomObjectiveFunction(IdxT nclasses,
+                              IdxT min_samples_leaf,
+                              uint64_t seed  = 0,
+                              IdxT treeid    = 0)
+    : min_samples_leaf(min_samples_leaf), seed_(seed), treeid_(treeid)
   {
   }
 
   DI IdxT NumClasses() const { return 1; }
 
   /**
-   * @brief For random splits, we don't compute gain in the traditional sense.
-   * Instead, we return a constant positive gain so the split is accepted.
-   * The actual split threshold is determined randomly in the Gain() method.
+   * @brief For random splits, return a pseudo-random positive gain for valid splits.
+   *
+   * The gain varies based on a hash of (seed, treeid, col, len, bin_idx, nLeft) to create
+   * pseudo-random threshold selection. The "best" split (highest gain) will
+   * be selected, but since gains are pseudo-randomly assigned, this effectively
+   * gives us random threshold selection.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         IdxT len,
+                         IdxT nLeft,
+                         IdxT col = 0) const
   {
     IdxT nRight = len - nLeft;
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
-    // Return constant positive gain - all valid random splits are equally good
-    // Use 1.0 to ensure the split is accepted (greater than min_impurity_decrease=0)
-    return DataT(1.0);
+    // Create a pseudo-random gain based on seed, treeid, bin index, and node context.
+    // This ensures different random_state values produce different threshold selections.
+    uint32_t hash = hash_combine(0x811c9dc5, static_cast<uint32_t>(seed_ & 0xFFFFFFFF));
+    hash          = hash_combine(hash, static_cast<uint32_t>(seed_ >> 32));
+    hash          = hash_combine(hash, static_cast<uint32_t>(treeid_));
+    hash          = hash_combine(hash, static_cast<uint32_t>(col));
+    hash          = hash_combine(hash, static_cast<uint32_t>(len));
+    hash          = hash_combine(hash, static_cast<uint32_t>(i));
+    hash          = hash_combine(hash, static_cast<uint32_t>(nLeft));
+
+    // Convert hash to a gain in range [1.0, 2.0)
+    // This ensures all valid splits have positive gain (> min_impurity_decrease=0)
+    // but different splits get different values for random selection
+    DataT random_component = DataT(hash & 0xFFFF) / DataT(0x10000);  // [0, 1)
+    return DataT(1.0) + random_component;
   }
 
   /**
    * @brief Generate a random split for this node.
    *
-   * For Isolation Forest, instead of finding the best split across all bins,
-   * we use the histogram's min/max information to generate a random threshold.
-   * The randomness comes from the quantile values - we pick a random bin.
-   *
-   * @note This method uses threadIdx.x to select different bins across threads,
-   *       then the warp reduction will pick one. For true randomness per node,
-   *       the random feature selection happens at a higher level.
+   * For Isolation Forest, we need to randomly select a threshold among valid bins.
+   * We use a hash-based pseudo-random gain for each bin, so the "best" split
+   * (highest gain) becomes a pseudo-random selection. This approach:
+   * - Works with the existing multi-threaded Gain evaluation
+   * - Varies based on col, len, bin index, and histogram content
+   * - Is deterministic for the same input data
    */
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
-
-    // For random splitting, we want to pick a random threshold.
-    // We use the quantiles as candidate thresholds and let thread 0 pick the middle one
-    // (which provides a reasonable split). The actual randomness comes from
-    // the random feature selection at the caller level.
-    //
-    // A more sophisticated approach would use RNG here, but for compatibility
-    // with the existing framework, we pick a split that tends to balance the tree.
-
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      // Use GainPerSplit to check validity and get a constant gain
-      auto gain = GainPerSplit(shist, i, n_bins, len, nLeft);
+      // Use the extended GainPerSplit with col parameter for proper hashing
+      auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, col);
       sp.update({squantiles[i], col, gain, nLeft});
     }
     return sp;

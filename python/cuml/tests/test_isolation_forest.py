@@ -369,9 +369,13 @@ def test_similar_results_to_sklearn(blobs_data):
 
 
 def test_same_random_state_same_results(blobs_data):
-    """Same random_state should produce identical results."""
-    clf1 = cuIsolationForest(n_estimators=20, random_state=42)
-    clf2 = cuIsolationForest(n_estimators=20, random_state=42)
+    """Same random_state should produce identical results.
+
+    Note: n_streams=1 is required for deterministic behavior.
+    With n_streams > 1, trees are built in parallel and results may vary.
+    """
+    clf1 = cuIsolationForest(n_estimators=20, random_state=42, n_streams=1)
+    clf2 = cuIsolationForest(n_estimators=20, random_state=42, n_streams=1)
 
     clf1.fit(blobs_data)
     clf2.fit(blobs_data)
@@ -386,9 +390,13 @@ def test_same_random_state_same_results(blobs_data):
 
 
 def test_different_random_state_different_results(blobs_data):
-    """Different random_state should produce different results."""
-    clf1 = cuIsolationForest(n_estimators=20, random_state=42)
-    clf2 = cuIsolationForest(n_estimators=20, random_state=123)
+    """Different random_state should produce different results.
+
+    Note: n_streams=1 is required for deterministic behavior.
+    With n_streams > 1, trees are built in parallel and results may vary.
+    """
+    clf1 = cuIsolationForest(n_estimators=20, random_state=42, n_streams=1)
+    clf2 = cuIsolationForest(n_estimators=20, random_state=123, n_streams=1)
 
     clf1.fit(blobs_data)
     clf2.fit(blobs_data)

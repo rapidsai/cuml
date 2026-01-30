@@ -181,8 +181,13 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the bootstrapping of the samples and
         the sampling of the features. Pass an int for reproducible results.
+        Note: Reproducibility is only guaranteed when ``n_streams=1``.
+        With multiple streams, trees are built in parallel and execution
+        order may vary.
     n_streams : int, default=4
-        Number of CUDA streams for parallel tree building.
+        Number of CUDA streams for parallel tree building. Higher values
+        improve performance but require ``n_streams=1`` for reproducible
+        results with a fixed ``random_state``.
     max_batch_size : int, default=4096
         Maximum number of nodes processed per batch during tree building.
     contamination : float or "auto", default="auto"
