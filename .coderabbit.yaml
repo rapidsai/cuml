@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "^main$"
+      - "^release/.*"
+      - "^hotfix/.*"
+    ignore_usernames: ["rapids-bot", "GPUtester", "nv-automation-bot", "copy-pr-bot"]
+  tools:
+    markdownlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    gitleaks:
+      enabled: true
+  sequence_diagrams: false
+  collapse_walkthrough: true
+
+  # Reduce noise from status messages
+  request_changes_workflow: false
+  review_status: false
+
+  # Path-specific review instructions
+  # Note: Detailed C++/CUDA and Python review guidelines are in cpp/agents.md and python/agents.md
+  path_instructions:
+    - path: "docs/**/*"
+      instructions: |
+        For documentation changes, focus on:
+        - Accuracy: Verify code examples compile and run correctly
+        - Completeness: Check if API changes (parameters, return values, errors) are documented
+        - Clarity: Flag confusing explanations, missing prerequisites, or unclear examples
+        - Consistency: Version numbers, parameter types, and terminology match code
+        - Missing docs: If PR changes public APIs without updating docs, flag as HIGH priority
+
+    - path: "cpp/include/cuml/**/*"
+      instructions: |
+        For public C++ API headers, additionally check:
+        - Doxygen documentation for all public functions/classes
+        - API changes flagged for docs/ updates
+        - Breaking changes require deprecation warnings and migration guide updates
+
+    - path: "notebooks/**/*"
+      instructions: |
+        For example notebooks:
+        - Verify code examples match current API (parameter names, return types)
+        - Ensure scikit-learn comparison examples are accurate
+        - Flag outdated imports or deprecated API usage
+
+    - path: "ci/**/*"
+      instructions: |
+        For CI/build scripts:
+        - Check for proper conda environment handling
+        - Verify GPU availability checks before tests
+        - Check for proper error handling and meaningful error messages
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    filePatterns:
+      - "cpp/agents.md"
+      - "python/agents.md"
+      - "CONTRIBUTING.md"
+      - "wiki/cpp/DEVELOPER_GUIDE.md"
+      - "wiki/python/DEVELOPER_GUIDE.md"
+      - "wiki/python/ESTIMATOR_GUIDE.md"
