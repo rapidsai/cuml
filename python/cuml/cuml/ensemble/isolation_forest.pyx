@@ -34,7 +34,7 @@ from cuml.internals.logger cimport level_enum
 
 
 # C++ declarations from isolation_forest.hpp
-cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML":
+cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
 
     cdef struct IF_params:
         int n_estimators
