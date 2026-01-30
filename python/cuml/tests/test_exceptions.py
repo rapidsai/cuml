@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -24,7 +24,7 @@ from cuml.neighbors import (  # noqa: F401
     NearestNeighbors,
 )
 
-# Currently only certain estimators raise a NotImplementedError
+# Estimators that raise TypeError when given sparse input (they don't support sparse)
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
     "DBSCAN": lambda: DBSCAN(eps=1.0),
@@ -44,7 +44,7 @@ def test_sparse_not_implemented_exception(estimator_name):
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError, match="sparse"):
         if isinstance(
             estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)
         ):
