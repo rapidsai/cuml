@@ -17,25 +17,19 @@ namespace ML {
  * @brief Isolation Forest hyperparameters
  */
 struct IF_params {
-  int n_estimators = 100;      ///< Number of isolation trees
-  int max_samples = 256;       ///< Samples per tree (default 256)
-  int max_depth = -1;          ///< Max depth (-1 = auto: ceil(log2(max_samples)))
-  float max_features = 1.0f;   ///< Fraction of features per tree
-  bool bootstrap = false;      ///< Sample with replacement
-  uint64_t seed = 0;           ///< Random seed
-  int n_streams = 4;           ///< Parallel GPU streams (unused in fast builder)
-  int max_batch_size = 4096;   ///< Batch size (unused in fast builder)
+  int n_estimators = 100;   ///< Number of isolation trees
+  int max_samples = 256;    ///< Samples per tree (default 256)
+  int max_depth = -1;       ///< Max depth (-1 = auto: ceil(log2(max_samples)))
+  uint64_t seed = 0;        ///< Random seed
 };
 
-/**
- * @brief Trained Isolation Forest model
- */
+/** @brief Trained Isolation Forest model */
 template <class T>
 struct IsolationForestModel {
-  IF_params params;
-  int n_features = 0;
-  int n_samples_per_tree = 0;
-  T c_normalization = 0;
+  IF_params params;            ///< Hyperparameters used for training
+  int n_features = 0;          ///< Number of features in training data
+  int n_samples_per_tree = 0;  ///< Samples used per tree (for c(n) calculation)
+  T c_normalization = 0;       ///< Precomputed c(n) normalization constant
   void* fast_trees = nullptr;  ///< Device memory for trees (IFTree<T>*)
 };
 
@@ -48,7 +42,14 @@ T compute_c_normalization(int n);
 
 /**
  * @brief Fit an Isolation Forest model.
- * @param input Column-major training data [n_rows x n_cols]
+ *
+ * @param[in]  handle    RAFT handle for GPU resources
+ * @param[out] forest    Model to populate with trained trees
+ * @param[in]  input     Training data, column-major [n_rows × n_cols], device pointer
+ * @param[in]  n_rows    Number of training samples
+ * @param[in]  n_cols    Number of features
+ * @param[in]  params    Hyperparameters (n_estimators, max_samples, max_depth, seed)
+ * @param[in]  verbosity Logging level
  */
 void fit(const raft::handle_t& handle,
          IsolationForestF* forest,
@@ -67,8 +68,20 @@ void fit(const raft::handle_t& handle,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 /**
- * @brief Compute anomaly scores (original paper convention: higher = more anomalous).
- * @param input Row-major test data [n_rows x n_cols]
+ * @brief Compute anomaly scores.
+ *
+ * Returns scores following the original paper convention (Liu et al. 2008):
+ * - Score ≈ 1.0: anomaly (isolated quickly)
+ * - Score ≈ 0.5: normal (average isolation depth)
+ * - Score ≈ 0.0: very normal (hard to isolate)
+ *
+ * @param[in]  handle    RAFT handle for GPU resources
+ * @param[in]  forest    Trained Isolation Forest model
+ * @param[in]  input     Test data, row-major [n_rows × n_cols], device pointer
+ * @param[in]  n_rows    Number of test samples
+ * @param[in]  n_cols    Number of features (must match training)
+ * @param[out] scores    Anomaly scores [n_rows], device pointer
+ * @param[in]  verbosity Logging level
  */
 void score_samples(const raft::handle_t& handle,
                    const IsolationForestF* forest,
@@ -87,8 +100,16 @@ void score_samples(const raft::handle_t& handle,
                    rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 /**
- * @brief Predict anomaly labels (1=anomaly, -1=normal).
- * @param input Row-major test data [n_rows x n_cols]
+ * @brief Predict anomaly labels.
+ *
+ * @param[in]  handle      RAFT handle for GPU resources
+ * @param[in]  forest      Trained Isolation Forest model
+ * @param[in]  input       Test data, row-major [n_rows × n_cols], device pointer
+ * @param[in]  n_rows      Number of test samples
+ * @param[in]  n_cols      Number of features (must match training)
+ * @param[out] predictions Labels [n_rows]: 1 = anomaly, -1 = normal, device pointer
+ * @param[in]  threshold   Score threshold (default 0.5, higher = more anomalies)
+ * @param[in]  verbosity   Logging level
  */
 void predict(const raft::handle_t& handle,
              const IsolationForestF* forest,

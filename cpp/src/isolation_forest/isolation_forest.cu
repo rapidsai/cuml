@@ -136,23 +136,4 @@ void predict(const raft::handle_t& handle,
   handle.sync_stream(stream);
 }
 
-template <class T>
-void build_treelite_forest(TreeliteModelHandle* model,
-                           const IsolationForestModel<T>* forest,
-                           int n_features)
-{
-  // TODO: Implement treelite export for FIL inference
-  // This will require setting up the proper leaf output format
-  // for anomaly scoring
-  ASSERT(false, "Treelite export not yet implemented for IsolationForest");
-}
-
-// Explicit template instantiations
-template void build_treelite_forest<float>(TreeliteModelHandle* model,
-                                           const IsolationForestModel<float>* forest,
-                                           int n_features);
-template void build_treelite_forest<double>(TreeliteModelHandle* model,
-                                            const IsolationForestModel<double>* forest,
-                                            int n_features);
-
 }  // namespace ML

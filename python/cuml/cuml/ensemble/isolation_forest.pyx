@@ -40,11 +40,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         int n_estimators
         int max_samples
         int max_depth
-        float max_features
-        bool bootstrap
         uint64_t seed
-        int n_streams
-        int max_batch_size
 
     # C++ struct declaration with default constructor
     cdef cppclass IsolationForestModel[T]:
@@ -423,15 +419,6 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         else:
             actual_max_depth = self.max_depth
 
-        # Compute max_features as float fraction
-        cdef float max_features_frac
-        if isinstance(self.max_features, float):
-            max_features_frac = self.max_features
-        elif isinstance(self.max_features, int):
-            max_features_frac = self.max_features / n_cols
-        else:
-            max_features_frac = 1.0
-
         # Get random seed
         cdef uint64_t seed = (
             0 if self.random_state is None
@@ -443,11 +430,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         params.n_estimators = self.n_estimators
         params.max_samples = actual_max_samples
         params.max_depth = actual_max_depth
-        params.max_features = max_features_frac
-        params.bootstrap = self.bootstrap
         params.seed = seed
-        params.n_streams = self.n_streams
-        params.max_batch_size = self.max_batch_size
 
         # Get handle and verbosity
         handle = get_handle(model=self, n_streams=self.n_streams)
