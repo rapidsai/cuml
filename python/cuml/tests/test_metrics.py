@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -257,6 +257,7 @@ def test_accuracy_score_errors():
 
 
 dataset_names = ["noisy_circles", "noisy_moons", "aniso", "blobs", "varied"]
+
 
 @pytest.mark.parametrize("name", dataset_names)
 @pytest.mark.parametrize(
@@ -1502,8 +1503,7 @@ def test_sparse_pairwise_distances_exceptions():
 
 
 @pytest.mark.parametrize(
-    "metric", 
-    list(PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+    "metric", list(PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 )
 @pytest.mark.parametrize(
     "matrix_size,density",
