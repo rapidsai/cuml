@@ -180,7 +180,7 @@ __device__ void build_tree_iterative_local(
 template <typename T>
 __global__ void build_isolation_trees_kernel(
     const T* __restrict__ data,         // Full dataset [n_rows x n_cols] column-major
-    int n_rows,
+    size_t n_rows,                       // Use size_t to support large datasets (>2B elements)
     int n_cols,
     int n_trees,
     int max_samples,
@@ -204,7 +204,9 @@ __global__ void build_isolation_trees_kernel(
   // Thread 0 generates random sample indices
   if (threadIdx.x == 0) {
     for (int i = 0; i < max_samples; i++) {
-      sample_indices[i] = curand(&rng_state) % n_rows;
+      // Use 64-bit random for proper sampling from large datasets
+      uint64_t rand64 = (static_cast<uint64_t>(curand(&rng_state)) << 32) | curand(&rng_state);
+      sample_indices[i] = static_cast<int>(rand64 % n_rows);
     }
   }
   __syncthreads();
@@ -215,9 +217,10 @@ __global__ void build_isolation_trees_kernel(
   // is just different index math during this already-required copy.
   int tid = threadIdx.x;
   for (int s = 0; s < max_samples; s++) {
-    int src_row = sample_indices[s];
+    size_t src_row = static_cast<size_t>(sample_indices[s]);
     for (int f = tid; f < n_cols; f += blockDim.x) {
-      local_data[s * n_cols + f] = data[src_row + f * n_rows];
+      // Use size_t for index to avoid overflow with large datasets
+      local_data[s * n_cols + f] = data[src_row + static_cast<size_t>(f) * n_rows];
     }
   }
   __syncthreads();
@@ -274,7 +277,8 @@ __global__ void compute_path_lengths_kernel(
   int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (sample_idx >= n_samples) return;
   
-  const T* sample = data + sample_idx * n_cols;
+  // Use size_t for pointer arithmetic to avoid overflow with large datasets
+  const T* sample = data + static_cast<size_t>(sample_idx) * n_cols;
   
   T total_path = T(0);
   for (int t = 0; t < n_trees; t++) {
@@ -294,7 +298,7 @@ template <typename T>
 void build_isolation_forest(
     const raft::handle_t& handle,
     const T* data,              // [n_rows x n_cols] column-major
-    int n_rows,
+    size_t n_rows,              // Use size_t to support large datasets
     int n_cols,
     int n_trees,
     int max_samples,

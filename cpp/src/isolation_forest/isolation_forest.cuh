@@ -84,7 +84,7 @@ class IsolationForest {
     RAFT_CUDA_TRY(cudaMalloc(&model->fast_trees, trees_size));
     
     IsolationTree::build_isolation_forest(
-        handle, input, n_rows, n_cols,
+        handle, input, static_cast<size_t>(n_rows), n_cols,
         params.n_estimators, n_sampled_rows, max_depth,
         params.seed,
         static_cast<IsolationTree::IFTree<T>*>(model->fast_trees));
