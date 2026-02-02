@@ -74,11 +74,11 @@ class TargetEncoder(ProxyBase):
         self._gpu.multi_feature_mode = "independent"
         result = self._gpu.fit(X, y, **kwargs)
 
-        # Sync sklearn-expected attributes to the proxy
+        # Sync sklearn-expected attributes directly to the CPU model.
         if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
+            self._cpu.feature_names_in_ = self._gpu.feature_names_in_
         if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
+            self._cpu.n_features_in_ = self._gpu.n_features_in_
 
         return result
 
@@ -95,13 +95,20 @@ class TargetEncoder(ProxyBase):
         self._gpu.multi_feature_mode = "independent"
         result = self._gpu.fit_transform(X, y, **kwargs)
 
-        # Sync sklearn-expected attributes to the proxy
+        # Sync sklearn-expected attributes directly to the CPU model.
         if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
+            self._cpu.feature_names_in_ = self._gpu.feature_names_in_
         if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
+            self._cpu.n_features_in_ = self._gpu.n_features_in_
 
         return result
+
+    def _gpu_transform(self, X):
+        from sklearn.utils.validation import validate_data
+
+        # Perform sklearn's feature name validation using the CPU model.
+        validate_data(self._cpu, X=X, reset=False, skip_check_array=True)
+        return self._gpu.transform(X)
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.
