@@ -165,10 +165,6 @@ if(all_algo OR randomforest_algo)
   )
 endif()
 
-if(all_algo OR isolationforest_algo OR randomforest_algo)
-  ConfigureTest(PREFIX SG NAME RANDOM_SPLIT_TEST sg/random_split_test.cu ML_INCLUDE)
-endif()
-
 if(all_algo OR isolationforest_algo)
   ConfigureTest(
     PREFIX SG

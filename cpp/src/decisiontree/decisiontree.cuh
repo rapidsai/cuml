@@ -340,22 +340,6 @@ class DecisionTree {
                                                                             unique_labels,
                                                                             quantiles)
         .train();
-    } else if (std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::RANDOM) {
-      // RANDOM criterion for Isolation Forest: uses random splits without impurity optimization
-      return Builder<RandomObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                   s,
-                                                                   treeid,
-                                                                   seed,
-                                                                   params,
-                                                                   data,
-                                                                   labels,
-                                                                   nrows,
-                                                                   ncols,
-                                                                   row_ids,
-                                                                   unique_labels,
-                                                                   quantiles)
-        .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
     }

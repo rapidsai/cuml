@@ -14,7 +14,6 @@ enum CRITERION {
   POISSON,
   GAMMA,
   INVERSE_GAUSSIAN,
-  RANDOM,  // For Isolation Forest: random splits without impurity optimization
   CRITERION_END,
 };
 
