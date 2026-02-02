@@ -13,8 +13,8 @@ select = [
     "distro-too-large-compressed",
 ]
 
-# detect when package size grows significantly
-max_allowed_size_compressed = '75MB'
+# PyPI hard limit is 1GiB, but try to keep this as small as possible
+max_allowed_size_compressed = '15Mi'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native --import-mode=append"
@@ -86,7 +86,7 @@ dependencies = [
     "cupy-cuda13x>=13.6.0",
     "joblib>=0.11",
     "libcuml==26.4.*,>=0.0.0a0",
-    "numba-cuda>=0.22.1,<0.23.0",
+    "numba-cuda>=0.22.1",
     "numba>=0.60.0,<0.62.0",
     "numpy>=1.23,<3.0",
     "packaging",
