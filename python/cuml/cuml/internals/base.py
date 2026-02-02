@@ -21,35 +21,6 @@ from cuml.internals.mixins import TagsMixin
 _THREAD_STATE = threading.local()
 
 
-class DeprecatedHandleDescriptor:
-    """A descriptor to ease deprecating the `handle` parameter."""
-
-    def __set__(self, obj, value):
-        # Only warn if set to non-None on *non-multiGPU classes*
-        if value is not None and not type(obj).__name__.endswith("MG"):
-            params = obj._get_param_names() if isinstance(obj, Base) else []
-            if "n_streams" in params:
-                suffix = (
-                    " To configure the number of streams used, please use the "
-                    "`n_streams` parameter instead."
-                )
-            elif "device_ids" in params:
-                suffix = (
-                    " To configure multi-device execution, please use the "
-                    "`device_ids` parameter instead."
-                )
-            else:
-                suffix = ""
-            warnings.warn(
-                f"The `handle` argument to `{type(obj).__name__}` was deprecated "
-                f"in 26.02 and will be removed in 26.04. There is no need to "
-                f"manually specify a `handle`, cuml now manages this resource "
-                f"for you automatically.{suffix}",
-                FutureWarning,
-            )
-        obj.__dict__["handle"] = value
-
-
 def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
     """Get a `pylibraft.common.Handle`.
 
@@ -171,8 +142,6 @@ class Base(TagsMixin):
                 return cp.ones(len(X), dtype="int32")
     """
 
-    handle = DeprecatedHandleDescriptor()
-
     def __init__(
         self,
         *,
@@ -180,7 +149,9 @@ class Base(TagsMixin):
         verbose=False,
         output_type=None,
     ):
-        self.handle = handle
+        # TODO: remove once finished porting
+        if handle is not None:
+            self.handle = handle
         self.verbose = verbose
         self.output_type = output_type
         self._input_type = None

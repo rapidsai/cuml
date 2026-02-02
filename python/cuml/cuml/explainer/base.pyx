@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -15,7 +15,7 @@ from cuml.explainer.common import (
     model_func_call,
     output_list_shap_values,
 )
-from cuml.internals.base import DeprecatedHandleDescriptor, get_handle
+from cuml.internals.base import get_handle
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 
 from libc.stdint cimport uintptr_t
@@ -81,7 +81,6 @@ class SHAPBase():
         For compatibility with SHAP's graphing libraries, specify `numpy`.
 
     """
-    handle = DeprecatedHandleDescriptor()
 
     def __init__(self,
                  *,
