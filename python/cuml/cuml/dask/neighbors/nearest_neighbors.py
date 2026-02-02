@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -146,12 +146,8 @@ class NearestNeighbors(BaseEstimator):
             ):
                 n_neighbors = self.kwargs["n_neighbors"]
             else:
-                try:
-                    from cuml.neighbors.nearest_neighbors_mg import (
-                        NearestNeighborsMG as cumlNN,
-                    )
-                except ImportError:
-                    raise_mg_import_exception()
+                from cuml.neighbors import NearestNeighbors as cumlNN
+
                 n_neighbors = cumlNN().n_neighbors
 
         return n_neighbors
