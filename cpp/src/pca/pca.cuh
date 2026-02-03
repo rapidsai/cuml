@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,9 +10,13 @@
 #include <raft/core/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
+#include <raft/matrix/init.cuh>
+// #include <raft/matrix/matrix.cuh>
+#include <raft/matrix/ratio.cuh>
+#include <raft/matrix/sqrt.cuh>
 #include <raft/stats/cov.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
@@ -41,22 +45,29 @@ void truncCompExpVars(const raft::handle_t& handle,
 
   calEig<math_t, enum_solver>(
     handle, in, components_all.data(), explained_var_all.data(), prms, stream);
-  raft::matrix::truncZeroOrigin(
-    components_all.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
+  raft::matrix::trunc_zero_origin(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
+      components_all.data(), prms.n_cols, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols));
   raft::matrix::ratio(
-    handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(explained_var_all.data(),
-                                prms.n_cols,
-                                explained_var,
-                                prms.n_components,
-                                std::size_t(1),
-                                stream);
-  raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
-                                prms.n_cols,
-                                explained_var_ratio,
-                                prms.n_components,
-                                std::size_t(1),
-                                stream);
+    handle,
+    raft::make_device_vector_view<const math_t, std::size_t>(explained_var_all.data(), prms.n_cols),
+    raft::make_device_vector_view<math_t, std::size_t>(explained_var_ratio_all.data(),
+                                                       prms.n_cols));
+  raft::matrix::trunc_zero_origin(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
+      explained_var_all.data(), prms.n_cols, std::size_t(1)),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      explained_var, prms.n_components, std::size_t(1)));
+  raft::matrix::trunc_zero_origin(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
+      explained_var_ratio_all.data(), prms.n_cols, std::size_t(1)),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      explained_var_ratio, prms.n_components, std::size_t(1)));
 
   // Compute the scalar noise_vars defined as (pseudocode)
   // (n_components < min(n_cols, n_rows)) ? explained_var_all[n_components:].mean() : 0
@@ -68,7 +79,10 @@ void truncCompExpVars(const raft::handle_t& handle,
                             false,
                             stream);
   } else {
-    raft::matrix::setValue(noise_vars, noise_vars, math_t{0}, 1, stream);
+    raft::matrix::fill(
+      handle,
+      raft::make_device_vector_view<math_t, std::size_t>(noise_vars, std::size_t(1)),
+      math_t{0});
   }
 }
 
@@ -123,7 +137,14 @@ void pcaFit(const raft::handle_t& handle,
     handle, cov.data(), components, explained_var, explained_var_ratio, noise_vars, prms, stream);
 
   math_t scalar = (prms.n_rows - 1);
-  raft::matrix::seqRoot(explained_var, singular_vals, scalar, n_components, stream, true);
+  raft::matrix::weighted_sqrt(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
+      explained_var, std::size_t(1), n_components),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+      singular_vals, std::size_t(1), n_components),
+    raft::make_host_scalar_view(&scalar),
+    true);
 
   raft::stats::meanAdd<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);
 
@@ -238,8 +259,11 @@ void pcaInverseTransform(const raft::handle_t& handle,
                                  scalar,
                                  prms.n_cols * prms.n_components,
                                  stream);
-    raft::matrix::matrixVectorBinaryMultSkipZero<true, true>(
-      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, stream);
+    raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle,
+      raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+        components_copy.data(), prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const math_t, std::size_t>(singular_vals, prms.n_components));
   }
 
   tsvdInverseTransform(handle, trans_input, components_copy.data(), input, prms, stream);
@@ -297,8 +321,11 @@ void pcaTransform(const raft::handle_t& handle,
                                  scalar,
                                  prms.n_cols * prms.n_components,
                                  stream);
-    raft::matrix::matrixVectorBinaryDivSkipZero<true, true>(
-      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, stream);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle,
+      raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+        components_copy.data(), prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const math_t, std::size_t>(singular_vals, prms.n_components));
   }
 
   raft::stats::meanCenter<false, true>(input, input, mu, prms.n_cols, prms.n_rows, stream);

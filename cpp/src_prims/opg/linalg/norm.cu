@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,7 @@
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/sqrt.cuh>
 #include <raft/stats/sum.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -71,7 +70,14 @@ void colNorm2_impl(const raft::handle_t& handle,
 {
   colNorm2NoSeq_impl(handle, out, in, inDesc, streams, n_streams);
 
-  raft::matrix::seqRoot(out.ptr, out.ptr, T(1), inDesc.N, streams[0], false);
+  T scalar = T(1);
+  raft::matrix::weighted_sqrt(handle,
+                              raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
+                                out.ptr, std::size_t(1), inDesc.N),
+                              raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+                                out.ptr, std::size_t(1), inDesc.N),
+                              raft::make_host_scalar_view(&scalar),
+                              false);
 }
 
 void colNorm2(const raft::handle_t& handle,

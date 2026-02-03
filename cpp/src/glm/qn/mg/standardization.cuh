@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,10 +12,10 @@
 #include <raft/core/operators.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/divide.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.hpp>
 #include <raft/sparse/op/row_op.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
@@ -354,8 +354,10 @@ struct Standardizer {
     SimpleDenseMat<T> Gweights;
     col_slice(G, Gweights, 0, D);
 
-    raft::matrix::matrixVectorBinaryMult<false, true>(
-      Gweights.data, std_inv.data, Gweights.m, D, stream);
+    raft::linalg::binary_mult<raft::Apply::ALONG_ROWS>(
+      handle,
+      raft::make_device_matrix_view<T, int, raft::col_major>(Gweights.data, Gweights.m, D),
+      raft::make_device_vector_view<const T, int>(std_inv.data, D));
 
     if (has_bias) {
       SimpleVec<T> Gbias;

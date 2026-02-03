@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,9 @@
 
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/linalg/matrix_vector.cuh>
+#include <raft/matrix/reverse.cuh>
+#include <raft/matrix/sqrt.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -44,12 +45,21 @@ void svdEig_impl(const raft::handle_t& handle,
 
   raft::linalg::eigDC(handle, cov.ptr, ADesc.N, ADesc.N, V, S, streams[0]);
 
-  raft::matrix::colReverse(V, ADesc.N, ADesc.N, streams[0]);
-  raft::matrix::rowReverse(S, ADesc.N, (size_t)1, streams[0]);
+  raft::matrix::col_reverse(
+    handle, raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, ADesc.N, ADesc.N));
+  raft::matrix::row_reverse(
+    handle,
+    raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, ADesc.N, std::size_t(1)));
 
   T alpha = T(1);
   T beta  = T(0);
-  raft::matrix::seqRoot(S, S, alpha, ADesc.N, streams[0], true);
+  raft::matrix::weighted_sqrt(
+    handle,
+    raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
+      S, std::size_t(1), ADesc.N),
+    raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, std::size_t(1), ADesc.N),
+    raft::make_host_scalar_view(&alpha),
+    true);
 
   if (gen_left_vec) {
     std::vector<Matrix::RankSizePair*> partsToRanks = ADesc.blocksOwnedBy(comm.get_rank());
@@ -67,8 +77,11 @@ void svdEig_impl(const raft::handle_t& handle,
                          alpha,
                          beta,
                          streams[i]);
-      raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-        U[i]->ptr, S, partsToRanks[i]->size, ADesc.N, streams[i]);
+      raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+        handle,
+        raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+          U[i]->ptr, partsToRanks[i]->size, ADesc.N),
+        raft::make_device_vector_view<const T, std::size_t>(S, ADesc.N));
     }
 
     // Wait for every partition to be completed

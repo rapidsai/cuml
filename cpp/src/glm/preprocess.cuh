@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/meanvar.cuh>

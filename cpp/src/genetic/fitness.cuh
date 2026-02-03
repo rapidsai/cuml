@@ -1,14 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
@@ -310,7 +310,7 @@ void rootMeanSquareError(const raft::handle_t& h,
   meanSquareError(h, n_samples, n_progs, Y, Y_pred, W, out);
 
   // Take sqrt on all entries
-  raft::matrix::seqRoot(out, n_progs, stream);
+  raft::linalg::sqrt(out, out, n_progs, stream);
 }
 
 template <typename math_t = float>
