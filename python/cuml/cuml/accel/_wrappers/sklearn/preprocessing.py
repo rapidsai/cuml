@@ -9,7 +9,21 @@ import cuml.preprocessing
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("TargetEncoder",)
+__all__ = ("StandardScaler", "TargetEncoder")
+
+
+class StandardScaler(ProxyBase):
+    _gpu_class = cuml.preprocessing.StandardScaler
+
+    def _gpu_fit(self, X, y=None, **kwargs):
+        if "sample_weight" in kwargs:
+            raise UnsupportedOnGPU("sample_weight parameter not supported")
+        return self._gpu.fit(X, y, **kwargs)
+
+    def _gpu_fit_transform(self, X, y=None, **kwargs):
+        if "sample_weight" in kwargs:
+            raise UnsupportedOnGPU("sample_weight parameter not supported")
+        return self._gpu.fit_transform(X, y, **kwargs)
 
 
 def _check_unsupported_inputs(X, y, cpu_model):

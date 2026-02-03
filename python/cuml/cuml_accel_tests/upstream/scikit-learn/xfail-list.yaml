@@ -915,6 +915,7 @@
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
+  - "sklearn.preprocessing.tests.test_data::test_one_to_one_features_pandas[StandardScaler]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[ElasticNet()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[KMeans()]"
@@ -933,6 +934,7 @@
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SVR()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[SpectralEmbedding()]"
+  - "sklearn.tests.test_common::test_pandas_column_name_consistency[StandardScaler()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TSNE()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[TruncatedSVD()]"
 - reason: Test is flaky with cuml.accel

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -250,7 +250,18 @@ def check_array(
     hasshape = hasattr(array, "shape")
     if ensure_2d and hasshape:
         if len(array.shape) != 2:
-            raise ValueError("Not 2D")
+            if len(array.shape) == 1:
+                raise ValueError(
+                    f"Expected 2D array, got 1D array instead:\narray={array!r}.\n"
+                    "Reshape your data either using array.reshape(-1, 1) if "
+                    "your data has a single feature or array.reshape(1, -1) "
+                    "if it contains a single sample."
+                )
+            else:
+                raise ValueError(
+                    f"Expected 2D array, got {len(array.shape)}D array instead:\n"
+                    f"array shape: {array.shape}.\n"
+                )
 
     if not allow_nd and hasshape:
         if len(array.shape) > 2:

@@ -5,7 +5,7 @@
 # SPDX-FileCopyrightText: Eric Martin <eric@ericmart.in>
 # SPDX-FileCopyrightText: Giorgio Patrini <giorgio.patrini@anu.edu.au>
 # SPDX-FileCopyrightText: Eric Chang <ericchang2017@u.northwestern.edu>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -40,6 +40,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
     StatelessTagMixin,
 )
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array import CumlArray
@@ -519,6 +520,7 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 class StandardScaler(TransformerMixin,
                      BaseEstimator,
+                     InteropMixin,
                      AllowNaNTagMixin,
                      SparseInputTagMixin):
     """Standardize features by removing the mean and scaling to unit variance
@@ -657,6 +659,48 @@ class StandardScaler(TransformerMixin,
             "with_std",
             "copy"
         ]
+
+    # InteropMixin requirements
+    _cpu_class_path = "sklearn.preprocessing.StandardScaler"
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        """Convert sklearn StandardScaler hyperparameters to cuML format."""
+        return {
+            "copy": model.copy,
+            "with_mean": model.with_mean,
+            "with_std": model.with_std,
+        }
+
+    def _params_to_cpu(self):
+        """Convert cuML StandardScaler hyperparameters to sklearn format."""
+        return {
+            "copy": self.copy,
+            "with_mean": self.with_mean,
+            "with_std": self.with_std,
+        }
+
+    def _attrs_from_cpu(self, model):
+        """Convert sklearn StandardScaler fitted attributes to cuML format."""
+        attrs = {
+            "mean_": to_gpu(mean) if (mean := getattr(model, "mean_", None)) is not None else None,
+            "var_": to_gpu(var) if (var := getattr(model, "var_", None)) is not None else None,
+            "scale_": to_gpu(scale) if (scale := getattr(model, "scale_", None)) is not None else None,
+            "n_samples_seen_": getattr(model, "n_samples_seen_", None),
+        }
+        return {**attrs, **super()._attrs_from_cpu(model)}
+
+    def _attrs_to_cpu(self, model):
+        """Convert cuML StandardScaler fitted attributes to sklearn format."""
+        n = getattr(self, "n_samples_seen_", None)
+        attrs = {
+            "mean_": to_cpu(mean) if (mean := getattr(self, "mean_", None)) is not None else None,
+            "var_": to_cpu(var) if (var := getattr(self, "var_", None)) is not None else None,
+            "scale_": to_cpu(scale) if (scale := getattr(self, "scale_", None)) is not None else None,
+            # n_samples_seen_ can be int or array
+            "n_samples_seen_": int(n) if n is not None and cpu_np.isscalar(n) else (to_cpu(n) if n is not None else None),
+        }
+        return {**attrs, **super()._attrs_to_cpu(model)}
 
     @reflect(reset=True)
     def fit(self, X, y=None) -> "StandardScaler":
