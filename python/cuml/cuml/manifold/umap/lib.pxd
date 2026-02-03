@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from libc.stdint cimport int64_t, uint64_t
+from libc.stdint cimport int64_t, uint32_t, uint64_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from pylibraft.common.handle cimport handle_t
@@ -11,6 +11,19 @@ from rmm.librmm.device_buffer cimport device_buffer
 
 from cuml.internals.logger cimport level_enum
 from cuml.metrics.distance_type cimport DistanceType
+
+
+# Forward declaration for CAGRA index type
+cdef extern from "cuvs/neighbors/cagra.hpp" namespace "cuvs::neighbors::cagra" nogil:
+    cdef cppclass index[T, IdxT]:
+        size_t size()
+        uint32_t dim()
+        uint32_t graph_degree()
+
+
+# Type alias for the CAGRA index used in UMAP
+cdef extern from "cuml/manifold/umap.hpp" namespace "ML" nogil:
+    ctypedef index[float, uint32_t] cagra_index_t
 
 
 cdef extern from "cuml/manifold/umapparams.h" namespace "ML::UMAPParams" nogil:
@@ -125,7 +138,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              unique_ptr[device_buffer] & embeddings,
              HostCOO & graph,
              float * sigmas,
-             float * rhos) except +
+             float * rhos,
+             unique_ptr[cagra_index_t] * cagra_index) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -150,7 +164,8 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                    float * embedding,
                    int embedding_n,
                    UMAPParams * params,
-                   float * out) except +
+                   float * out,
+                   cagra_index_t * cagra_index) except +
 
     void transform_sparse(handle_t &handle,
                           int *indptr,

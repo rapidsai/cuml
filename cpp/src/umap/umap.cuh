@@ -122,8 +122,9 @@ inline void _fit(const raft::handle_t& handle,
                  UMAPParams* params,
                  std::unique_ptr<rmm::device_buffer>& embeddings,
                  raft::host_coo_matrix<float, int, int, uint64_t>& graph,
-                 float* sigmas = nullptr,
-                 float* rhos   = nullptr)
+                 float* sigmas                               = nullptr,
+                 float* rhos                                 = nullptr,
+                 std::unique_ptr<cagra_index_t>* cagra_index = nullptr)
 {
   if (knn_indices != nullptr && knn_dists != nullptr) {
     CUML_LOG_DEBUG("Calling UMAP::fit() with precomputed KNN");
@@ -135,7 +136,7 @@ inline void _fit(const raft::handle_t& handle,
                                 float,
                                 manifold_precomputed_knn_inputs_t<knn_indices_dense_t, float>,
                                 nnz_t,
-                                TPB_X>(handle, inputs, params, embeddings, graph);
+                                TPB_X>(handle, inputs, params, embeddings, graph, sigmas, rhos);
     } else {
       UMAPAlgo::_fit<knn_indices_dense_t,
                      float,
@@ -144,15 +145,21 @@ inline void _fit(const raft::handle_t& handle,
                      TPB_X>(handle, inputs, params, embeddings, graph, sigmas, rhos);
     }
 
+    // Build CAGRA index for precomputed KNN case (we have X and knn_indices available here)
+    if (cagra_index != nullptr) {
+      *cagra_index = UMAPAlgo::CagraUtils::build_cagra_index<knn_indices_dense_t, float>(
+        handle, knn_indices, n, params->n_neighbors, X, d, params->metric, handle.get_stream());
+    }
+
   } else {
     manifold_dense_inputs_t<float> inputs(X, y, n, d);
     if (y != nullptr) {
       UMAPAlgo::
         _fit_supervised<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, nnz_t, TPB_X>(
-          handle, inputs, params, embeddings, graph);
+          handle, inputs, params, embeddings, graph, sigmas, rhos, cagra_index);
     } else {
       UMAPAlgo::_fit<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, nnz_t, TPB_X>(
-        handle, inputs, params, embeddings, graph, sigmas, rhos);
+        handle, inputs, params, embeddings, graph, sigmas, rhos, cagra_index);
     }
   }
 }
@@ -218,14 +225,18 @@ inline void _transform(const raft::handle_t& handle,
                        float* embedding,
                        int embedding_n,
                        UMAPParams* params,
-                       float* transformed)
+                       float* transformed,
+                       cagra_index_t* cagra_index = nullptr)
 {
-  RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
-               "build algo nn_descent not supported for transform()");
+  // If no CAGRA index provided, require brute force KNN
+  if (cagra_index == nullptr) {
+    RAFT_EXPECTS(params->build_algo == ML::UMAPParams::graph_build_algo::BRUTE_FORCE_KNN,
+                 "build algo nn_descent not supported for transform() without CAGRA index");
+  }
   manifold_dense_inputs_t<float> inputs(X, nullptr, n, d);
   manifold_dense_inputs_t<float> orig_inputs(orig_X, nullptr, orig_n, d);
   UMAPAlgo::_transform<knn_indices_dense_t, float, manifold_dense_inputs_t<float>, nnz_t, TPB_X>(
-    handle, inputs, orig_inputs, embedding, embedding_n, params, transformed);
+    handle, inputs, orig_inputs, embedding, embedding_n, params, transformed, cagra_index);
 }
 
 template <typename nnz_t>

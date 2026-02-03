@@ -334,6 +334,17 @@ cdef class RaftCOO:
         return self.ptr.get()
 
 
+cdef class CagraIndex:
+    """A wrapper around a `cuvs::neighbors::cagra::index<float, uint32_t>`"""
+    cdef unique_ptr[lib.cagra_index_t] ptr
+
+    def __dealloc__(self):
+        self.ptr.reset(NULL)
+
+    cdef inline lib.cagra_index_t* get(self) noexcept nogil:
+        return self.ptr.get()
+
+
 cdef copy_raft_host_coo_to_scipy_coo(lib.HostCOO &coo):
     """Copy a `raft::host_coo_matrix` to a `scipy.sparse.coo_matrix`"""
     nnz = coo.get_nnz()
@@ -651,6 +662,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         result in more global views of the manifold, while smaller
         values result in more local data being preserved. In general
         values should be in the range 2 to 100.
+    fast_transform: bool (optional, default False)
+        If True, builds a CAGRA index from the KNN graph after fitting.
+        The CAGRA index enables fast approximate nearest neighbor search
+        for efficient transform operations on new data.
+        Note: This requires the cuVS library to be available and only
+        works with dense input data.
     n_components: int (optional, default 2)
         The dimension of the space to embed into. This defaults to 2 to
         provide easy visualization, but can reasonably be set to any
@@ -876,6 +893,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     _cpu_class_path = "umap.UMAP"
 
+    @property
+    def cagra_index(self):
+        """The CAGRA index built from the KNN graph (None if not available)."""
+        return self._cagra_index
+
     @classmethod
     def _get_param_names(cls):
         return [
@@ -905,6 +927,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "precomputed_knn",
             "build_algo",
             "build_kwds",
+            "fast_transform",
             "device_ids",
         ]
 
@@ -1101,6 +1124,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         callback=None,
         build_algo="auto",
         build_kwds=None,
+        fast_transform=False,
         device_ids=None,
         handle=None,
         verbose=False,
@@ -1133,7 +1157,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.callback = callback
         self.build_algo = build_algo
         self.build_kwds = build_kwds
+        self.fast_transform = fast_transform
         self.device_ids = device_ids
+        self._cagra_index = None
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
@@ -1283,6 +1309,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             sigmas_arr = None
             rhos_arr = None
 
+        # Allocate CAGRA index output if requested (only for dense data)
+        cdef unique_ptr[lib.cagra_index_t] cagra_index_ptr
+        cdef unique_ptr[lib.cagra_index_t]* cagra_index_out = NULL
+        if self.fast_transform and not X_is_sparse:
+            cagra_index_out = &cagra_index_ptr
+
         with nogil:
             if X_is_sparse:
                 lib.fit_sparse(
@@ -1314,8 +1346,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     fss_graph,
                     <float*> sigmas_ptr,
                     <float*> rhos_ptr,
+                    cagra_index_out,
                 )
         handle.sync()
+
+        # Wrap and store CAGRA index if it was built
+        if cagra_index_ptr.get() != NULL:
+            cagra_wrapper = CagraIndex()
+            cagra_wrapper.ptr = move(cagra_index_ptr)
+            self._cagra_index = cagra_wrapper
+        elif self.fast_transform and X_is_sparse:
+            logger.warn("fast_transform is not supported for sparse data")
 
         buffer = DeviceBuffer.c_from_unique_ptr(move(embeddings_buffer))
         embedding = cp.ndarray(
@@ -1486,6 +1527,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         handle = get_handle(model=self, device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
+        # Get CAGRA index pointer if available (only for dense data)
+        cdef lib.cagra_index_t* cagra_ptr = NULL
+        cdef CagraIndex cagra_wrapper = self._cagra_index
+        if cagra_wrapper is not None and not X_is_sparse:
+            cagra_ptr = cagra_wrapper.get()
+
         with nogil:
             if X_is_sparse:
                 lib.transform_sparse(
@@ -1517,7 +1564,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     <float*> embedding_ptr,
                     orig_n_rows,
                     &params,
-                    <float*> out_ptr
+                    <float*> out_ptr,
+                    cagra_ptr
                 )
         handle.sync()
 
