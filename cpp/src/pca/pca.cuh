@@ -51,11 +51,11 @@ void truncCompExpVars(const raft::handle_t& handle,
       components_all.data(), prms.n_cols, prms.n_cols),
     raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
       components, prms.n_components, prms.n_cols));
-  raft::matrix::ratio(
-    handle,
-    raft::make_device_vector_view<const math_t, std::size_t>(explained_var_all.data(), prms.n_cols),
-    raft::make_device_vector_view<math_t, std::size_t>(explained_var_ratio_all.data(),
-                                                       prms.n_cols));
+  raft::matrix::ratio(handle,
+                      raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
+                        explained_var_all.data(), prms.n_cols, std::size_t(1)),
+                      raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+                        explained_var_ratio_all.data(), prms.n_cols, std::size_t(1)));
   raft::matrix::trunc_zero_origin(
     handle,
     raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
