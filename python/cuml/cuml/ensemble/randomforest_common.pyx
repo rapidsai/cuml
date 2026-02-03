@@ -188,9 +188,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "random_state",
             "n_streams",
             "oob_score",
-            "handle",
-            "verbose",
-            "output_type",
         ]
 
     @classmethod

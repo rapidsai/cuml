@@ -1343,9 +1343,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         return [
             *super()._get_param_names(),
             "treelite_model",
-            "handle",
-            "output_type",
-            "verbose",
             "is_classifier",
             "layout",
             "default_chunk_size",
