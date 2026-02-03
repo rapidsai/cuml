@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import itertools
@@ -139,7 +139,6 @@ cdef class ForestInference_impl():
 
     def __cinit__(
         self,
-        raft_handle,
         tl_model_bytes,
         *,
         layout='depth_first',
@@ -150,7 +149,7 @@ cdef class ForestInference_impl():
     ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
-        self.raft_handle = raft_handle
+        self.raft_handle = get_handle()
         self.raft_proto_handle = raft_proto_handle_t(
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
@@ -424,13 +423,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         LightGBM, cuML, Scikit-Learn, or any other forest model framework
         so long as it can be loaded into a treelite.Model object (See
         https://treelite.readthedocs.io/en/latest/treelite-api.html).
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -607,7 +599,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         self,
         *,
         treelite_model=None,
-        handle=None,
         output_type=None,
         verbose=False,
         is_classifier=False,
@@ -617,9 +608,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         precision='single',
         device_id=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.is_classifier = is_classifier
         self.default_chunk_size = default_chunk_size
         self.align_bytes = align_bytes
@@ -656,7 +645,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             else:
                 raise ValueError("treelite_model should be either treelite.Model or bytes")
             impl = ForestInference_impl(
-                get_handle(model=self),
                 treelite_model_bytes,
                 layout=self.layout,
                 align_bytes=self.align_bytes,
@@ -720,7 +708,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         align_bytes=None,
         layout='depth_first',
         device_id=0,
-        handle=None
     ):
         """Load a model into FIL from a serialized model file.
 
@@ -769,12 +756,6 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : cuml.Handle or None, default=None
-
-            .. deprecated:: 26.02
-                The `handle` argument was deprecated in 26.02 and will be removed
-                in 26.04. There's no need to pass in a handle, cuml now manages
-                this resource automatically.
         """
         if model_type is None:
             extension = pathlib.Path(path).suffix
@@ -802,7 +783,6 @@ class ForestInference(Base, CMajorInputTagMixin):
             raise ValueError(f"Unknown model type: {model_type}")
         return cls(
             treelite_model=tl_model,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
@@ -815,19 +795,19 @@ class ForestInference(Base, CMajorInputTagMixin):
 
     @classmethod
     def load_from_sklearn(
-            cls,
-            skl_model,
-            *,
-            is_classifier=False,
-            precision='single',
-            model_type=None,
-            output_type=None,
-            verbose=False,
-            default_chunk_size=None,
-            align_bytes=None,
-            layout='depth_first',
-            device_id=0,
-            handle=None):
+        cls,
+        skl_model,
+        *,
+        is_classifier=False,
+        precision='single',
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout='depth_first',
+        device_id=0,
+    ):
         """Load a Scikit-Learn forest model to FIL
 
         Parameters
@@ -882,17 +862,10 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : cuml.Handle or None, default=None
-
-            .. deprecated:: 26.02
-                The `handle` argument was deprecated in 26.02 and will be removed
-                in 26.04. There's no need to pass in a handle, cuml now manages
-                this resource automatically.
         """
         tl_model = treelite.sklearn.import_model(skl_model)
         result = cls(
             treelite_model=tl_model,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,
@@ -906,19 +879,19 @@ class ForestInference(Base, CMajorInputTagMixin):
 
     @classmethod
     def load_from_treelite_model(
-            cls,
-            tl_model,
-            *,
-            is_classifier=False,
-            precision='single',
-            model_type=None,
-            output_type=None,
-            verbose=False,
-            default_chunk_size=None,
-            align_bytes=None,
-            layout='depth_first',
-            device_id=0,
-            handle=None):
+        cls,
+        tl_model,
+        *,
+        is_classifier=False,
+        precision='single',
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout='depth_first',
+        device_id=0,
+    ):
         """Load a Treelite model to FIL
 
         Parameters
@@ -973,16 +946,9 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id : int, default=0
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
-        handle : cuml.Handle or None, default=None
-
-            .. deprecated:: 26.02
-                The `handle` argument was deprecated in 26.02 and will be removed
-                in 26.04. There's no need to pass in a handle, cuml now manages
-                this resource automatically.
         """
         return cls(
             treelite_model=tl_model,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
             is_classifier=is_classifier,

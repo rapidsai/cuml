@@ -772,14 +772,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically. To configure multi-device execution,
-            please use the `device_ids` parameter instead.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1102,11 +1094,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         build_algo="auto",
         build_kwds=None,
         device_ids=None,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
@@ -1244,7 +1235,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             knn_indices = knn_dists = None
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
@@ -1483,7 +1474,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         with nogil:
@@ -1622,7 +1613,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         lib.inverse_transform(

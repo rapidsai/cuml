@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
@@ -58,12 +58,9 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         eps=0.1,
         random_state=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
-        super().__init__(
-            output_type=output_type, handle=handle, verbose=verbose
-        )
+        super().__init__(output_type=output_type, verbose=verbose)
         self.n_components = n_components
         self.eps = eps
         self.random_state = random_state
@@ -201,13 +198,6 @@ class GaussianRandomProjection(_BaseRandomProjection):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -316,13 +306,6 @@ class SparseRandomProjection(_BaseRandomProjection):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -369,14 +352,12 @@ class SparseRandomProjection(_BaseRandomProjection):
         dense_output=False,
         random_state=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             n_components=n_components,
             eps=eps,
             random_state=random_state,
-            handle=handle,
             verbose=verbose,
             output_type=output_type,
         )

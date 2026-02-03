@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -14,7 +14,7 @@ from cuml.common.classification import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, get_handle
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -74,14 +74,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         Number of parallel streams used for fitting.
     multi_class : {'ovr'}, default='ovr'
         Multiclass classification strategy. Currently only 'ovr' is supported.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically. To configure the number of streams
-            used please use the `n_streams` parameter instead.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -227,13 +219,10 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         lbfgs_memory=5,
         n_streams=1,
         multi_class="ovr",
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.penalty = penalty
         self.loss = loss
@@ -273,11 +262,11 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         )
 
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
-            get_handle(model=self, n_streams=self.n_streams),
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
             sample_weight=sample_weight,
             n_classes=len(classes),
+            n_streams=self.n_streams,
             probability=self.probability,
             loss=self.loss,
             penalty=self.penalty,
@@ -355,9 +344,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             order="C",
         ).array
         return cuml.svm.linear.compute_probabilities(
-            get_handle(model=self, n_streams=self.n_streams),
             scores,
             self.prob_scale_,
+            n_streams=self.n_streams,
         )
 
     @generate_docstring(

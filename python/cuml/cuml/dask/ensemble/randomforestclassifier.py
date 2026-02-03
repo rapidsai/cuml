@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -50,13 +50,6 @@ class RandomForestClassifier(
     ----------
     n_estimators : int (default = 100)
                    total number of trees in the forest (not per-worker)
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     split_criterion : int or string (default = ``0`` (``'gini'``))
         The criterion used to split nodes.\n
          * ``0`` or ``'gini'`` for gini impurity

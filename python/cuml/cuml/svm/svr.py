@@ -19,13 +19,6 @@ class SVR(SVMBase, RegressorMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')

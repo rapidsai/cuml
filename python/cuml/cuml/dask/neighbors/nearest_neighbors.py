@@ -31,17 +31,9 @@ class NearestNeighbors(BaseEstimator):
         of this value will vary for different layouts and index to query
         ratios, but it will require `batch_size * n_features * 4` bytes of
         additional memory on each worker hosting index partitions.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-
     """
 
     def __init__(self, *, client=None, streams_per_handle=0, **kwargs):
@@ -77,14 +69,12 @@ class NearestNeighbors(BaseEstimator):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.neighbors.nearest_neighbors_mg import (
-                NearestNeighborsMG as cumlNN,
-            )
+            from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
         except ImportError:
             raise_mg_import_exception()
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return cumlNN(handle=handle, **kwargs)
+        return NearestNeighborsMG(handle=handle, **kwargs)
 
     @staticmethod
     def _func_kneighbors(

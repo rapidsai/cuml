@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -246,8 +246,9 @@ def nan_euclidean_distances(
 
 
 @reflect
-def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                       convert_dtype=True, metric_arg=2, **kwds):
+def pairwise_distances(
+    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -325,10 +326,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     """
 
     if is_sparse(X):
-        return sparse_pairwise_distances(X, Y, metric, handle,
-                                         convert_dtype, **kwds)
+        return sparse_pairwise_distances(X, Y, metric, convert_dtype, **kwds)
 
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if metric in ['nan_euclidean']:
@@ -437,8 +437,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
 
 
 @reflect
-def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                              convert_dtype=True, metric_arg=2, **kwds):
+def sparse_pairwise_distances(
+    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -520,7 +521,7 @@ def sparse_pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         array([[3.],
             [2.]])
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
     if (not is_sparse(X)) or (Y is not None and not is_sparse(Y)):
         raise ValueError("Input matrices are not sparse.")

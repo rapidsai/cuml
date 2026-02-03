@@ -5,7 +5,6 @@
 import inspect
 import os
 import threading
-import warnings
 
 import pylibraft.common.handle
 
@@ -21,18 +20,11 @@ from cuml.internals.mixins import TagsMixin
 _THREAD_STATE = threading.local()
 
 
-def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
+def get_handle(*, n_streams=0, device_ids=None):
     """Get a `pylibraft.common.Handle`.
 
     Parameters
     ----------
-    handle : pylibraft.common.Handle or None, optional
-        A `handle` argument to a function. Will raise a nice deprecation
-        warning and return if provided. Will be removed once the deprecation of
-        `handle` arguments is complete.
-    model : cuml.Base or None, optional
-        A model to extract the handle from (if one is configured). Will be removed
-        once the deprecation of `handle` arguments is complete.
     n_streams : int, default=0
         The number of streams to use for a backing stream pool. If non-zero
         a temporary `Handle` with a pool that size will be created. Otherwise
@@ -42,21 +34,6 @@ def get_handle(*, handle=None, model=None, n_streams=0, device_ids=None):
         enabling multi-device execution. May be a list of device IDs, or
         ``"all"`` to use all available devices.
     """
-    if handle is not None:
-        warnings.warn(
-            (
-                "The `handle` argument was deprecated in 26.02 and will be "
-                "removed in 26.04. There is no need to manually specify a "
-                "`handle`, cuml manages this resource for you automatically."
-            ),
-            FutureWarning,
-        )
-        return handle
-
-    if model is not None and model.handle is not None:
-        # Deprecation of model.handle is handled separately by the descriptor
-        return model.handle
-
     if n_streams == 0 and device_ids is None:
         if not hasattr(_THREAD_STATE, "handle"):
             _THREAD_STATE.handle = pylibraft.common.handle.Handle()
@@ -90,13 +67,6 @@ class Base(TagsMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -120,11 +90,10 @@ class Base(TagsMixin):
                 self,
                 *,
                 param=123,
-                handle=None,
                 verbose=False,
                 output_type=None,
             ):
-                super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+                super().__init__(verbose=verbose, output_type=output_type)
                 self.param = param
 
             @classmethod
@@ -145,13 +114,9 @@ class Base(TagsMixin):
     def __init__(
         self,
         *,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        # TODO: remove once finished porting
-        if handle is not None:
-            self.handle = handle
         self.verbose = verbose
         self.output_type = output_type
         self._input_type = None
@@ -197,7 +162,7 @@ class Base(TagsMixin):
         extra set of parameters that it in-turn owns. This is to simplify the
         implementation of `get_params` and `set_params` methods.
         """
-        return ["handle", "verbose", "output_type"]
+        return ["verbose", "output_type"]
 
     def get_params(self, deep=True):
         """

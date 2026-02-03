@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
-import warnings
 
 import numpy as np
 import numpydoc.docscrape
@@ -95,8 +94,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
-        if param.name == "output_mem_type":
-            continue  # TODO(wphicks): Add this to all algos
         # Ensure the base param exists in the derived
         assert param.name in klass_sig.parameters
 
@@ -123,14 +120,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
             found = " ".join(found_doc.desc)
             expected = " ".join(base_item_doc.desc)
 
-            if name == "handle":
-                # Handle may have a trailing suffix, class dependent
-                assert found.startswith(expected), (
-                    f"Docstring mismatch for {name}"
-                )
-            else:
-                # Exact match
-                assert found == expected, f"Docstring mismatch for {name}"
+            assert found == expected, f"Docstring mismatch for {name}"
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
@@ -164,8 +154,6 @@ def test_base_children__get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in _get_param_names
         for name, param in sig.parameters.items():
-            if param.name == "output_mem_type":
-                continue  # TODO(wphicks): Add this to all algos
             if (
                 param.kind == inspect.Parameter.VAR_KEYWORD
                 or param.kind == inspect.Parameter.VAR_POSITIONAL
@@ -288,68 +276,9 @@ def test_common_signatures(cls, method):
         assert param.name not in {"X", "y", "sample_weight"}
 
 
-@pytest.mark.parametrize(
-    "cls",
-    [
-        cls
-        for cls in all_base_children.values()
-        if not (
-            "Base" in cls.__name__
-            or cls.__name__.endswith("MG")
-            or cls.__module__.startswith("cuml.tsa")
-            or cls.__name__ in ["ColumnTransformer"]
-        )
-    ],
-)
-def test_handle_deprecated(cls):
-    if cls.__name__ in ("OneVsRestClassifier", "OneVsOneClassifier"):
-
-        def create(handle=None):
-            return cls(cuml.SVC(), handle=handle)
-    else:
-        create = cls
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        # No warning by default
-        model = create()
-    assert get_handle(model=model) is get_handle()
-
-    handle = pylibraft.common.handle.Handle()
-    with pytest.warns(FutureWarning, match="handle") as rec:
-        model = create(handle=handle)
-
-    assert get_handle(model=model) is handle
-
-    if cls in (cuml.UMAP, cuml.HDBSCAN):
-        assert "device_ids" in str(rec[0].message)
-    elif cls in (
-        cuml.LinearSVC,
-        cuml.RandomForestClassifier,
-        cuml.RandomForestRegressor,
-    ):
-        assert "n_streams" in str(rec[0].message)
-
-
-def test_cuml_handle_deprecated():
-    with pytest.warns(FutureWarning, match="cuml.Handle"):
-        assert cuml.Handle is pylibraft.common.handle.Handle
-
-
 def test_get_handle():
     # Threadlocal is cached
     assert get_handle() is get_handle()
-
-    # Handle arg warns and returns
-    handle = pylibraft.common.handle.Handle()
-    with pytest.warns(FutureWarning, match="handle"):
-        res = get_handle(handle=handle)
-    assert res is handle
-
-    # Handle arg takes precedence
-    with pytest.warns(FutureWarning, match="handle"):
-        res = get_handle(handle=handle, n_streams=4)
-    assert res is handle
 
     # n_streams doesn't use the threadlocal handle
     res = get_handle(n_streams=4)
@@ -364,12 +293,6 @@ def test_get_handle_device_ids():
 
     # None uses default handle
     assert get_handle(device_ids=None) is get_handle()
-
-    # Handle arg takes precedence
-    handle = pylibraft.common.handle.Handle()
-    with pytest.warns(FutureWarning, match="handle"):
-        res = get_handle(handle=handle, device_ids="all")
-    assert res is handle
 
     with pytest.raises(ValueError, match="n_streams"):
         # Can't mix n_streams and device_ids
