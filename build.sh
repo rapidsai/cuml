@@ -366,7 +366,7 @@ if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs
     SKBUILD_EXTRA_CMAKE_ARGS=${SKBUILD_EXTRA_CMAKE_ARGS// /;}
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${REPODIR}"/python/cuml
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${CUML_EXTRA_PYTHON_ARGS[@]}" "${REPODIR}"/python/cuml
 
     if hasArg pydocs; then
         cd "${REPODIR}"/docs
