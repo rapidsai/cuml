@@ -595,7 +595,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        # "check_no_attributes_set_in_init": "GaussianRandomProjection sets attributes during init",
         "check_fit_score_takes_y": "GaussianRandomProjection raises ValueError with small datasets",
         "check_estimators_overwrite_params": "GaussianRandomProjection raises ValueError with small datasets",
         "check_estimators_fit_returns_self": "GaussianRandomProjection raises ValueError with small datasets",
@@ -618,7 +617,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
         "check_transformer_general": "GaussianRandomProjection raises ValueError with small datasets",
         "check_transformer_general(readonly_memmap=True)": "GaussianRandomProjection raises ValueError with small datasets",
-        # "check_parameters_default_constructible": "GaussianRandomProjection parameters are mutated on init",
         "check_dict_unchanged": "GaussianRandomProjection raises ValueError with small datasets",
         "check_fit_idempotent": "GaussianRandomProjection raises ValueError with small datasets",
         "check_fit_check_is_fitted": "GaussianRandomProjection raises ValueError with small datasets",
