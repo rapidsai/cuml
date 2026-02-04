@@ -686,7 +686,7 @@ class StandardScaler(TransformerMixin,
             "mean_": to_gpu(mean) if (mean := getattr(model, "mean_", None)) is not None else None,
             "var_": to_gpu(var) if (var := getattr(model, "var_", None)) is not None else None,
             "scale_": to_gpu(scale) if (scale := getattr(model, "scale_", None)) is not None else None,
-            "n_samples_seen_": getattr(model, "n_samples_seen_", None),
+            "n_samples_seen_": to_gpu(nss) if (nss := getattr(model, "n_samples_seen_", None)) is not None else None,
         }
         return {**attrs, **super()._attrs_from_cpu(model)}
 
