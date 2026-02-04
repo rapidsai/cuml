@@ -25,6 +25,10 @@ class StandardScaler(ProxyBase):
             raise UnsupportedOnGPU("sample_weight parameter not supported")
         return self._gpu.fit_transform(X, y, **kwargs)
 
+    def _gpu_partial_fit(self, X, y=None, **kwargs):
+        """partial_fit not supported on GPU - always fall back to CPU."""
+        raise UnsupportedOnGPU("partial_fit not supported on GPU")
+
 
 def _check_unsupported_inputs(X, y, cpu_model):
     """Check if inputs are supported on GPU.
