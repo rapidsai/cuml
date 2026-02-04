@@ -692,13 +692,12 @@ class StandardScaler(TransformerMixin,
 
     def _attrs_to_cpu(self, model):
         """Convert cuML StandardScaler fitted attributes to sklearn format."""
-        n = getattr(self, "n_samples_seen_", None)
+
         attrs = {
             "mean_": to_cpu(mean) if (mean := getattr(self, "mean_", None)) is not None else None,
             "var_": to_cpu(var) if (var := getattr(self, "var_", None)) is not None else None,
             "scale_": to_cpu(scale) if (scale := getattr(self, "scale_", None)) is not None else None,
-            # n_samples_seen_ can be int or array
-            "n_samples_seen_": int(n) if n is not None and cpu_np.isscalar(n) else (to_cpu(n) if n is not None else None),
+            "n_samples_seen_": None if (nss := getattr(self, "n_samples_seen_", None)) is None else cpu_np.int64(nss) if cpu_np.isscalar(nss) else to_cpu(nss),
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
