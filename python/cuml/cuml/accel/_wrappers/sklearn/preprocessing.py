@@ -104,10 +104,16 @@ class TargetEncoder(ProxyBase):
         return result
 
     def _gpu_transform(self, X):
-        from sklearn.utils.validation import validate_data
-
         # Perform sklearn's feature name validation using the CPU model.
-        validate_data(self._cpu, X=X, reset=False, skip_check_array=True)
+        # reset=False: only validate feature names/count against fit()
+        # dtype=None: skip dtype validation (TargetEncoder accepts categorical data)
+        try:
+            from sklearn.utils.validation import validate_data
+
+            validate_data(self._cpu, X=X, reset=False, skip_check_array=True)
+        except ImportError:
+            # sklearn 1.5.* and earlier: use the method on the estimator
+            self._cpu._validate_data(X=X, reset=False, dtype=None)
         return self._gpu.transform(X)
 
     def _gpu_get_feature_names_out(self, input_features=None):
