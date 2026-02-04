@@ -133,3 +133,4 @@ jobs:
       date: ${{ inputs.date }}
       package-name: cuml
       package-type: python
+      publish-wheel-search-key: cuml_wheel_python_abi3
