@@ -1,8 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-import warnings
-
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
@@ -137,19 +134,6 @@ cdef class _SVMModel:
         return support, support_vectors, dual_coef, intercept
 
 
-class TotalIters(int):
-    """Indicates the maximum number of total iterations the solver may run.
-
-    .. deprecated:: 26.02
-
-        TotalIters was deprecated in 26.02 and will be removed in 26.04.
-        The `max_iter` parameter now always places a limit on total iterations,
-        wrapping with `TotalIters` is no longer necessary.
-    """
-    def __repr__(self):
-        return f"TotalIters({int(self)})"
-
-
 class SVMBase(Base,
               InteropMixin,
               FMajorInputTagMixin,
@@ -200,11 +184,6 @@ class SVMBase(Base,
         }
 
     def _params_to_cpu(self):
-        if isinstance(self.max_iter, TotalIters):
-            max_iter = int(self.max_iter)
-        else:
-            max_iter = self.max_iter
-
         return {
             "kernel": self.kernel,
             "degree": self.degree,
@@ -213,7 +192,7 @@ class SVMBase(Base,
             "tol": self.tol,
             "C": self.C,
             "cache_size": self.cache_size,
-            "max_iter": max_iter,
+            "max_iter": self.max_iter,
             "epsilon": self.epsilon,
         }
 
@@ -418,21 +397,8 @@ class SVMBase(Base,
         param.verbosity = self._verbose_level
         param.epsilon = self.epsilon
         param.svmType = lib.SvmType.C_SVC if is_classifier else lib.SvmType.EPSILON_SVR
-
         param.max_outer_iter = -1
-        if isinstance(self.max_iter, TotalIters):
-            warnings.warn(
-                (
-                    "Passing `TotalIters` to `max_iter` was deprecated in 26.02 "
-                    "and will be removed in 26.04. `max_iter` now always places a "
-                    "limit on total iterations, please pass an integer directly "
-                    "instead of wrapping with `TotalIters`."
-                ),
-                FutureWarning,
-            )
-            param.max_iter = int(self.max_iter)
-        else:
-            param.max_iter = self.max_iter
+        param.max_iter = self.max_iter
 
         handle = get_handle(model=self)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -679,7 +645,3 @@ class SVMBase(Base,
         handle.sync()
 
         return out
-
-
-# Add TotalIters to the SVC/SVR class for easier access
-SVMBase.TotalIters = TotalIters
