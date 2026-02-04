@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,7 +11,7 @@ from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.prims.label import make_monotonic
 
 
 @cuml.internals.reflect
@@ -34,7 +34,8 @@ def label_binarize(
     classes = cp.asarray(classes, dtype=classes.dtype)
     labels = cp.asarray(y, dtype=y.dtype)
 
-    if not check_labels(labels, classes):
+    # Check that all labels are in classes
+    if not bool(cp.all(cp.isin(labels, classes))):
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, labels.shape[0], 1, dtype=y.dtype)
@@ -264,7 +265,7 @@ class LabelBinarizer(Base):
                 y.dtype
             )
 
-        return CumlArray(data=invert_labels(y_mapped, self.classes_))
+        return CumlArray(data=self.classes_[y_mapped])
 
     @classmethod
     def _get_param_names(cls):

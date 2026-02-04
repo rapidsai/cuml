@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
@@ -9,6 +9,11 @@ import pytest
 
 from cuml.preprocessing.TargetEncoder import TargetEncoder
 from cuml.testing.utils import array_equal
+
+# Filter the combination mode deprecation warning for all tests in this module
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
+)
 
 
 def test_targetencoder_fit_transform():
@@ -150,7 +155,7 @@ def test_targetencoder_pandas():
     answer = np.array([0.75, 0.5, 1.0, 0.75])
     assert array_equal(test_encoded, answer)
     print(type(test_encoded))
-    assert isinstance(test_encoded, np.ndarray)
+    assert isinstance(test_encoded, pandas.Series)
 
 
 def test_targetencoder_numpy():

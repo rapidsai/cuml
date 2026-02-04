@@ -13,8 +13,8 @@ select = [
     "distro-too-large-compressed",
 ]
 
-# detect when package size grows significantly
-max_allowed_size_compressed = '75MB'
+# PyPI hard limit is 1GiB, but try to keep this as small as possible
+max_allowed_size_compressed = '15Mi'
 
 [tool.pytest.ini_options]
 addopts = "--tb=native --import-mode=append"
@@ -59,6 +59,8 @@ filterwarnings = [
   "ignore:Tensorflow not installed.*:ImportWarning:umap",
   # From sklearn estimator checks
   "ignore:Estimator .* does not inherit from.*:UserWarning",
+  # TargetEncoder combination mode deprecation (will change to 2D output in 26.04)
+  "ignore:TargetEncoder currently returns 1D output:FutureWarning",
   # From numba - GPU under-utilization warnings in tests with small data
   "ignore::numba.core.errors.NumbaPerformanceWarning",
   # numba-cuda makes use of deprecated cuda.core.experimental apis
@@ -76,7 +78,7 @@ authors = [
     { name = "NVIDIA Corporation" },
 ]
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "cuda-python>=13.0.1,<14.0",
     "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14",
@@ -84,7 +86,7 @@ dependencies = [
     "cupy-cuda13x>=13.6.0",
     "joblib>=0.11",
     "libcuml==26.4.*,>=0.0.0a0",
-    "numba-cuda>=0.22.1,<0.23.0",
+    "numba-cuda>=0.22.1",
     "numba>=0.60.0,<0.62.0",
     "numpy>=1.23,<3.0",
     "packaging",
@@ -98,7 +100,6 @@ dependencies = [
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
@@ -109,7 +110,7 @@ test = [
     "cython>=3.0.0,<3.2.0",
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",
-    "ipython>=7.32.0",
+    "ipython>=8.4.0",
     "nltk",
     "numpydoc<1.9",
     "nvidia-ml-py>=12",
@@ -142,7 +143,7 @@ Documentation = "https://docs.rapids.ai/api/cuml/stable/"
 
 [tool.black]
 line-length = 79
-target-version = ["py310"]
+target-version = ["py311"]
 include = '\.py?$'
 force-exclude = '''
 _stop_words\.py |
