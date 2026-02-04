@@ -476,7 +476,7 @@ class NearestNeighbors(Base,
         Distance metric to use. Supported metrics include: 'l1', 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
         'minkowski', 'lp', 'chebyshev', 'linf', 'jensenshannon', 'cosine',
-        'braycurtis', 'jaccard', 'hellinger', correlation', 'inner_product'. 
+        'braycurtis', 'jaccard', 'hellinger', 'correlation', 'inner_product'.
         The ``'ivfflat'`` and ``'ivfpq'``
         algorithms only support: 'euclidean', 'l2', 'sqeuclidean', 'cosine',
         'correlation', 'inner_product', whereas the ``'rbc'`` algorithm only
