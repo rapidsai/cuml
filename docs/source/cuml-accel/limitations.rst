@@ -402,6 +402,14 @@ Additional notes:
 sklearn.preprocessing
 ---------------------
 
+StandardScaler
+^^^^^^^^^^^^^^
+
+``StandardScaler`` will fall back to CPU in the following cases:
+
+- If ``partial_fit`` is called (incremental learning not supported on GPU).
+- If ``X`` has object or complex dtype (``complex64``, ``complex128``).
+
 TargetEncoder
 ^^^^^^^^^^^^^
 
