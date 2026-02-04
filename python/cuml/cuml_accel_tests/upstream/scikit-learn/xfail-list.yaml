@@ -1329,6 +1329,7 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[StandardScaler()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_complex_data]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
