@@ -86,7 +86,7 @@ class ExponentialSmoothing(Base):
 
     * Cannot pass trend component or damped trend component
     * this version can take additional parameters `eps`,
-      `start_periods`, `ts_num`, and `handle`
+      `start_periods`, and `ts_num`
     * Score returns SSE rather than gradient logL
       https://github.com/rapidsai/cuml/issues/876
     * This version provides get_level(), get_trend(), get_season()

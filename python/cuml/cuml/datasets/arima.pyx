@@ -78,7 +78,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Whether to include a constant trend mu in the simulated ARIMA process
     random_state: int, RandomState instance or None (default)
         Seed for the random number generator for dataset creation.
-    dtype: string or numpy dtype (default: 'single')
+    dtype: string or numpy dtype (default: 'double')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'
 

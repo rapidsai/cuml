@@ -106,8 +106,6 @@ def fit(
 
     Parameters
     ----------
-    handle : pylibraft.common.Handle
-        The handle to use.
     X : CumlArray, shape = (n_samples, n_features)
         Training vectors
     y : CumlArray, shape = (n_samples,)

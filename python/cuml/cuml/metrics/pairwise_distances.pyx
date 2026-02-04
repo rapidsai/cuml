@@ -326,7 +326,14 @@ def pairwise_distances(
     """
 
     if is_sparse(X):
-        return sparse_pairwise_distances(X, Y, metric, convert_dtype, **kwds)
+        return sparse_pairwise_distances(
+            X,
+            Y,
+            metric=metric,
+            convert_dtype=convert_dtype,
+            metric_arg=metric_arg,
+            **kwds
+        )
 
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
