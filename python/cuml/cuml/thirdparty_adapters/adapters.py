@@ -227,6 +227,18 @@ def check_array(
     array_converted : object
         The converted and validated array.
     """
+    # Convert list-like inputs to numpy arrays early for compatibility with cuml.accel
+    # This ensures downstream functions can safely access .dtype and other array attributes
+    from cuml.accel import enabled as cuml_accel_enabled
+
+    if (
+        cuml_accel_enabled()
+        and not isinstance(array, (np.ndarray, pd.DataFrame, cudf.DataFrame))
+        and not (cpu_sparse.issparse(array) or gpu_sparse.issparse(array))
+    ):
+        # Check if it's array-like (list, tuple, etc.) by checking for common sequence methods
+        if hasattr(array, "__len__") and hasattr(array, "__getitem__"):
+            array = np.asarray(array)
 
     if dtype == "numeric":
         dtype = numeric_types

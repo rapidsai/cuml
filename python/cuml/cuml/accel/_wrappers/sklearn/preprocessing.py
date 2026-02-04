@@ -4,6 +4,7 @@
 #
 
 import numpy as np
+from scipy import sparse as sp_sparse
 
 import cuml.preprocessing
 from cuml.accel.estimator_proxy import ProxyBase
@@ -24,6 +25,20 @@ class StandardScaler(ProxyBase):
                 raise UnsupportedOnGPU("Complex data types not supported")
             if X.dtype == np.object_:
                 raise UnsupportedOnGPU("Object dtype not supported")
+        # Check for sparse matrices with unsupported properties
+        if sp_sparse.issparse(X):
+            # cupy sparse doesn't support int64 dtype
+            if X.dtype == np.int64:
+                raise UnsupportedOnGPU(
+                    "Sparse matrices with int64 dtype not supported on GPU "
+                    "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
+                )
+            # cuML only supports CSR/CSC formats, not COO, DOK, LIL, etc.
+            if X.format not in ("csr", "csc"):
+                raise UnsupportedOnGPU(
+                    f"Sparse matrix format '{X.format}' not supported on GPU "
+                    "(only CSR and CSC formats are supported)"
+                )
         return self._gpu.fit(X, y, **kwargs)
 
     def _gpu_fit_transform(self, X, y=None, **kwargs):
@@ -35,6 +50,20 @@ class StandardScaler(ProxyBase):
                 raise UnsupportedOnGPU("Complex data types not supported")
             if X.dtype == np.object_:
                 raise UnsupportedOnGPU("Object dtype not supported")
+        # Check for sparse matrices with unsupported properties
+        if sp_sparse.issparse(X):
+            # cupy sparse doesn't support int64 dtype
+            if X.dtype == np.int64:
+                raise UnsupportedOnGPU(
+                    "Sparse matrices with int64 dtype not supported on GPU "
+                    "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
+                )
+            # cuML only supports CSR/CSC formats, not COO, DOK, LIL, etc.
+            if X.format not in ("csr", "csc"):
+                raise UnsupportedOnGPU(
+                    f"Sparse matrix format '{X.format}' not supported on GPU "
+                    "(only CSR and CSC formats are supported)"
+                )
         return self._gpu.fit_transform(X, y, **kwargs)
 
     def _gpu_partial_fit(self, X, y=None, **kwargs):
