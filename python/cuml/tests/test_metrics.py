@@ -203,7 +203,13 @@ def test_accuracy_score(
         if kind == "cupy":
             return cp.array(x, dtype=dtype)
         elif kind == "cudf":
-            return cudf.Series(x).astype(dtype)
+            s = cudf.Series(x)
+            # cudf no longer accepts "str" as a valid dtype argument to astype().
+            # When input is already string data, cudf.Series() creates the
+            # correct string dtype automatically.
+            if dtype == "str":
+                return s
+            return s.astype(dtype)
         else:
             return x
 
