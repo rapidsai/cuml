@@ -871,7 +871,6 @@
   marker: cuml_accel_bugs_feature_names
   tests:
   - "sklearn.compose.tests.test_column_transformer::test_column_transformer_column_renaming[pandas]"
-  - "sklearn.tests.test_pipeline::test_n_features_in_pipeline"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
@@ -1391,10 +1390,6 @@
   marker: gpu_limitations
   tests:
   - "sklearn.preprocessing.tests.test_data::test_scaler_2d_arrays"
-  - "sklearn.preprocessing.tests.test_data::test_scaler_int[csc_array]"
-  - "sklearn.preprocessing.tests.test_data::test_scaler_int[csc_matrix]"
-  - "sklearn.preprocessing.tests.test_data::test_scaler_int[csr_array]"
-  - "sklearn.preprocessing.tests.test_data::test_scaler_int[csr_matrix]"
 - reason: cuML StandardScaler lacks numerical stability handling for near-constant features
   marker: numerical_stability
   tests:
@@ -1545,8 +1540,6 @@
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
   - "sklearn.tests.test_calibration::test_calibration_default_estimator"
   - "sklearn.tests.test_calibration::test_calibration_inconsistent_prefit_n_features_in"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_complex_data]"
