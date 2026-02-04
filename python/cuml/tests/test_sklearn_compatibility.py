@@ -699,7 +699,7 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_empty_data_messages": "GaussianRandomProjection does not handle empty data",
         "check_pipeline_consistency": "GaussianRandomProjection raises ValueError with small datasets",
         "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
-        "check_estimator_sparse_tag": "GaussianRandomProjection raises ValueError with small datasets",
+        "check_estimator_sparse_tag": "GaussianRandomProjection raises ValueError with small datasets even though it supports sparse inputs",
         "check_estimator_sparse_array": "GaussianRandomProjection does not handle sparse arrays gracefully",
         "check_estimator_sparse_matrix": "GaussianRandomProjection does not handle sparse matrices gracefully",
         "check_estimators_pickle": "GaussianRandomProjection raises ValueError with small datasets",
