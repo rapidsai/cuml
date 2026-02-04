@@ -18,11 +18,15 @@ class StandardScaler(ProxyBase):
     def _gpu_fit(self, X, y=None, **kwargs):
         if "sample_weight" in kwargs:
             raise UnsupportedOnGPU("sample_weight parameter not supported")
+        if hasattr(X, "dtype") and np.issubdtype(X.dtype, np.complexfloating):
+            raise UnsupportedOnGPU("Complex data types not supported")
         return self._gpu.fit(X, y, **kwargs)
 
     def _gpu_fit_transform(self, X, y=None, **kwargs):
         if "sample_weight" in kwargs:
             raise UnsupportedOnGPU("sample_weight parameter not supported")
+        if hasattr(X, "dtype") and np.issubdtype(X.dtype, np.complexfloating):
+            raise UnsupportedOnGPU("Complex data types not supported")
         return self._gpu.fit_transform(X, y, **kwargs)
 
     def _gpu_partial_fit(self, X, y=None, **kwargs):
