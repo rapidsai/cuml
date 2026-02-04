@@ -49,7 +49,7 @@ Jupyter/IPython
 ~~~~~~~~~~~~~~~
 
 The same functionality is available in Jupyter notebooks or IPython by
-executing the following cell magic at the top (before other imports):
+executing the following line magic at the top (before other imports):
 
 .. code-block::
 
