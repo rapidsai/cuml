@@ -915,6 +915,7 @@
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
+  - "sklearn.compose.tests.test_column_transformer::test_column_transformer_column_renaming[pandas]"
   - "sklearn.preprocessing.tests.test_data::test_one_to_one_features_pandas[StandardScaler]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[DBSCAN()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[ElasticNet()]"
