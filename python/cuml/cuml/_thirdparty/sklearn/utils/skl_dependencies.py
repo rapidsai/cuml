@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Gael Varoquaux <gael.varoquaux@normalesup.org>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -71,7 +71,7 @@ class BaseEstimator(Base):
                 )
             if n_features != self.n_features_in_:
                 raise ValueError(
-                    'X has {} features, but this {} is expecting {} features '
+                    'X has {} features, but {} is expecting {} features '
                     'as input.'.format(n_features, self.__class__.__name__,
                                        self.n_features_in_)
                 )
