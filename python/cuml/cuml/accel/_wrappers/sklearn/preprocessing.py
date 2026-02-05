@@ -22,12 +22,16 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
     if "sample_weight" in kwargs:
         raise UnsupportedOnGPU("sample_weight parameter not supported")
 
-    # Reject complex and object dtypes
+    # Reject complex, object, and float16 dtypes
     if hasattr(X, "dtype"):
         if np.issubdtype(X.dtype, np.complexfloating):
             raise UnsupportedOnGPU("Complex data types not supported")
         if X.dtype == np.object_:
             raise UnsupportedOnGPU("Object dtype not supported")
+        if X.dtype == np.float16:
+            raise UnsupportedOnGPU(
+                "float16 dtype not supported on GPU (output would not preserve dtype)"
+            )
 
     # Check for sparse matrices with unsupported properties
     if sp_sparse.issparse(X):
