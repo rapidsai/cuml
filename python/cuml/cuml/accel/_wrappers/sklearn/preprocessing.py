@@ -56,15 +56,18 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
 class StandardScaler(ProxyBase):
     _gpu_class = cuml.preprocessing.StandardScaler
 
-    def _gpu_fit(self, X, y=None, **kwargs):
+    def _gpu_fit(self, X, y=None, sample_weight=None):
+        kwargs = (
+            {} if sample_weight is None else {"sample_weight": sample_weight}
+        )
         _check_standardscaler_unsupported_inputs(X, **kwargs)
-        return self._gpu.fit(X, y, **kwargs)
+        return self._gpu.fit(X, y)
 
-    def _gpu_fit_transform(self, X, y=None, **kwargs):
-        _check_standardscaler_unsupported_inputs(X, **kwargs)
-        return self._gpu.fit_transform(X, y, **kwargs)
+    def _gpu_fit_transform(self, X, y=None, **fit_params):
+        _check_standardscaler_unsupported_inputs(X, **fit_params)
+        return self._gpu.fit_transform(X, y, **fit_params)
 
-    def _gpu_partial_fit(self, X, y=None, **kwargs):
+    def _gpu_partial_fit(self, X, y=None, sample_weight=None):
         """partial_fit not supported on GPU - always fall back to CPU."""
         raise UnsupportedOnGPU("partial_fit not supported on GPU")
 
