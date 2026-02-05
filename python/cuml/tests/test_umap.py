@@ -1341,3 +1341,61 @@ def test_inverse_transform_dimension_mismatch():
 
     with pytest.raises(ValueError, match="components"):
         umap_model.inverse_transform(wrong_embedding)
+
+
+@pytest.mark.parametrize(
+    "mode", ["unsupervised", "supervised", "precomputed_knn"]
+)
+def test_fast_transform(mode):
+    """Test fast_transform builds CAGRA index and maintains trustworthiness."""
+    n_neighbors = 15
+    n_samples = 1000
+    n_features = 128
+
+    X, y = make_blobs(
+        n_samples=n_samples,
+        n_features=n_features,
+        centers=10,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    selection = np.random.RandomState(42).choice(
+        [True, False], n_samples, replace=True, p=[0.8, 0.2]
+    )
+    train_data = X[selection]
+    train_labels = y[selection]
+    test_data = X[~selection]
+
+    precomputed_knn = None
+    if mode == "precomputed_knn":
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(train_data)
+        distances, indices = nn.kneighbors(train_data, return_distance=True)
+        precomputed_knn = (indices, distances)
+
+    fitter = cuUMAP(
+        n_neighbors=n_neighbors,
+        init="random",
+        n_epochs=500,
+        min_dist=0.01,
+        random_state=42,
+        fast_transform=True,
+        metric="sqeuclidean",
+        precomputed_knn=precomputed_knn,
+    )
+
+    if mode == "supervised":
+        fitter.fit(train_data, y=train_labels, convert_dtype=True)
+    else:
+        fitter.fit(train_data, convert_dtype=True)
+
+    assert fitter.cagra_index is not None
+
+    embedding = fitter.transform(test_data, convert_dtype=True)
+
+    assert not np.isnan(embedding).any()
+
+    trust = trustworthiness(test_data, embedding, n_neighbors=10)
+    assert trust >= 0.75
