@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -306,9 +306,7 @@ def _test_default_n_neighbors(dask_client, request):
     from sklearn.datasets import make_blobs
 
     from cuml.dask.neighbors import NearestNeighbors as daskNN
-    from cuml.neighbors.nearest_neighbors_mg import (
-        NearestNeighborsMG as cumlNN,
-    )
+    from cuml.neighbors import NearestNeighbors as cumlNN
 
     n_samples = _scale_rows(client, n_samples)
 

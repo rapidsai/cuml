@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -22,7 +22,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                    const int upper_class_range) except +
 
 
-def cython_entropy(clustering, base=None, handle=None) -> float:
+def cython_entropy(clustering, base=None) -> float:
     """
     Computes the entropy of a distribution for given probability values.
 
@@ -35,19 +35,13 @@ def cython_entropy(clustering, base=None, handle=None) -> float:
         probability for tail, the clustering could be [0, 0, 1].
     base: float, optional
         The logarithmic base to use, defaults to e (natural logarithm).
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
     S : float
         The calculated entropy.
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     clustering, n_rows, _, _ = input_to_cupy_array(

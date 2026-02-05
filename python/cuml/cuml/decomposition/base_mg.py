@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -10,6 +10,10 @@ from cuml.internals import run_in_internal_context
 
 
 class BaseDecompositionMG:
+    def __init__(self, *, handle, **kwargs):
+        self.handle = handle
+        super().__init__(**kwargs)
+
     @run_in_internal_context
     def fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
         """

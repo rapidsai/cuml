@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -24,7 +24,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
         int n) except +
 
 
-def kl_divergence(P, Q, handle=None, convert_dtype=True):
+def kl_divergence(P, Q, convert_dtype=True):
     """
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
@@ -44,13 +44,6 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     convert_dtype : bool, optional (default = True)
         When set to True, the method will, convert P and
         Q to be the same data type: float32. This
@@ -61,7 +54,7 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
     float
         The KL Divergence value
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     P_m, n_features_p, _, dtype_p = \

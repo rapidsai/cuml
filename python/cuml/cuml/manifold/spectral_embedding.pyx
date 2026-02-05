@@ -61,15 +61,16 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
 
 
 @reflect
-def spectral_embedding(A,
-                       *,
-                       int n_components=8,
-                       affinity="nearest_neighbors",
-                       random_state=None,
-                       n_neighbors=None,
-                       norm_laplacian=True,
-                       drop_first=True,
-                       handle=None):
+def spectral_embedding(
+    A,
+    *,
+    int n_components=8,
+    affinity="nearest_neighbors",
+    random_state=None,
+    n_neighbors=None,
+    norm_laplacian=True,
+    drop_first=True,
+):
     """Project the sample on the first eigenvectors of the graph Laplacian.
 
     The adjacency matrix is used to compute a normalized graph Laplacian
@@ -110,12 +111,6 @@ def spectral_embedding(A,
         should be True as the first eigenvector should be constant vector for
         connected graph, but for spectral clustering, this should be kept as
         False to retain the first eigenvector.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -137,8 +132,6 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-    handle = get_handle(handle=handle)
-
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
     cdef int* affinity_cols_ptr = NULL
@@ -231,6 +224,7 @@ def spectral_embedding(A,
     )
     cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
     cdef bool precomputed = affinity == "precomputed"
+    handle = get_handle()
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     with nogil:
@@ -256,6 +250,7 @@ def spectral_embedding(A,
                     eigenvectors_ptr, n_samples, n_components,
                 )
             )
+    handle.sync()
 
     return eigenvectors
 
@@ -285,13 +280,6 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     n_neighbors : int or None, default=2
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -328,10 +316,16 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
     embedding_ = CumlArrayDescriptor(order="F")
 
-    def __init__(self, n_components=2, affinity="nearest_neighbors",
-                 random_state=None, n_neighbors=None,
-                 handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        n_components=2,
+        affinity="nearest_neighbors",
+        random_state=None,
+        n_neighbors=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.affinity = affinity
         self.random_state = random_state
@@ -440,7 +434,6 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
             affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors_,
-            handle=self.handle,
         )
 
         return self

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -75,13 +75,6 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors)
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -163,14 +156,11 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors)
         self,
         *,
         weights="uniform",
-        handle=None,
         verbose=False,
         output_type=None,
         **kwargs,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type, **kwargs
-        )
+        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
@@ -246,7 +236,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors)
             y_ptr = <float*><uintptr_t>col.ptr
             y_vec.push_back(y_ptr)
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)

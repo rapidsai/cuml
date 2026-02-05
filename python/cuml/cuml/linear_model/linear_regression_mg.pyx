@@ -1,9 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-from cuml.internals import get_handle, run_in_internal_context
+from cuml.internals import run_in_internal_context
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model.linear_regression import Algo, LinearRegression
 
@@ -46,8 +46,7 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
         )
         cdef float float_intercept
         cdef double double_intercept
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
 
@@ -76,4 +75,4 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
 
             self.intercept_ = double_intercept
 
-        handle.sync()
+        self.handle.sync()

@@ -1,10 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
 from cuml.internals.array import CumlArray
+from cuml.internals.base import get_handle
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -82,12 +83,12 @@ def _check_array(name, arr, dtype=None, shape=None, order=None):
 
 
 def fit(
-    handle,
     X,
     y,
     sample_weight,
     *,
     n_classes=None,
+    n_streams=0,
     probability=False,
     penalty,
     loss,
@@ -105,8 +106,6 @@ def fit(
 
     Parameters
     ----------
-    handle : pylibraft.common.Handle
-        The handle to use.
     X : CumlArray, shape = (n_samples, n_features)
         Training vectors
     y : CumlArray, shape = (n_samples,)
@@ -115,13 +114,15 @@ def fit(
         Sample weights
     n_classes : int or None, default=None
         The number of classes, or None if fitting a regression problem.
+    n_streams : int, default=0
+        The number of streams to use when fitting classes.
     probability : bool, default=False
         When fitting an SVC, whether to also fit probability scales to enable
         `predict_proba`.
     **kwargs
-        Remaining common hyperparameters for SVR/SVR, see their docstrings for
-        details. These are required keyword-only to ensure they're properly
-        plumbed through at all callsites.
+        Remaining common hyperparameters for LinearSVC/LinearSVR, see their
+        docstrings for details. These are required keyword-only to ensure
+        they're properly plumbed through at all callsites.
 
     Returns
     -------
@@ -218,6 +219,7 @@ def fit(
     else:
         prob_scale = None
 
+    handle = get_handle(n_streams=n_streams)
     cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
     cdef bool is_float32 = X.dtype == np.float32
     cdef int n_classes_or_0 = 0 if n_classes is None else n_classes
@@ -276,17 +278,17 @@ def fit(
     return coef, intercept, n_iter, prob_scale
 
 
-def compute_probabilities(handle, scores, prob_scale):
+def compute_probabilities(scores, prob_scale, n_streams):
     """Compute probabilities from decision function scores.
 
     Parameters
     ----------
-    handle : pylibraft.common.Handle
-        The handle to use.
     scores : CumlArray, shape = (n_samples, n_classes)
         The decision function scores.
     prob_scale : CumlArray, shape = (n_classes, 2)
         The probability scaling factors.
+    n_streams : int
+        The number of streams to use.
 
     Returns
     -------
@@ -306,6 +308,7 @@ def compute_probabilities(handle, scores, prob_scale):
     # Allocate outputs
     out = CumlArray.empty((n_rows, n_classes), dtype=scores.dtype, order="C")
 
+    handle = get_handle(n_streams=n_streams)
     cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
     cdef bool is_float32 = scores.dtype == np.float32
     cdef uintptr_t scores_ptr = scores.ptr

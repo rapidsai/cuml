@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -151,13 +151,6 @@ class DBSCAN(Base,
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same
         neighborhood.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
@@ -289,7 +282,6 @@ class DBSCAN(Base,
         self,
         *,
         eps=0.5,
-        handle=None,
         min_samples=5,
         metric='euclidean',
         algorithm='brute',
@@ -298,7 +290,7 @@ class DBSCAN(Base,
         output_type=None,
         calc_core_sample_indices=True,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
@@ -398,7 +390,8 @@ class DBSCAN(Base,
         cdef uintptr_t core_sample_indices_ptr = (
             0 if core_sample_indices is None else core_sample_indices.ptr
         )
-        handle = get_handle(model=self)
+        # XXX: multi-gpu uses handle attribute to manage comms
+        handle = self.handle if multi_gpu else get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool X_f32 = X.dtype == np.float32
         cdef bool labels_i32 = labels.dtype == np.int32
