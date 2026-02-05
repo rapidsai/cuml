@@ -20,9 +20,9 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libcuvs==26.2.*,>=0.0.0a0
-- libraft-headers==26.2.*,>=0.0.0a0
-- librmm==26.2.*,>=0.0.0a0
+- libcuvs==26.2.*
+- libraft-headers==26.2.*
+- librmm==26.2.*
 - llvm-openmp==20.1.4
 - ninja
 - sysroot_linux-64==2.28
