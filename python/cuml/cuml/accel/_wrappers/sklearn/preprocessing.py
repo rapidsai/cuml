@@ -14,73 +14,54 @@ from cuml.internals.interop import UnsupportedOnGPU
 __all__ = ("StandardScaler", "TargetEncoder")
 
 
+def _check_standardscaler_unsupported_inputs(X, **kwargs):
+    """Check if inputs are supported by cuML's StandardScaler on GPU.
+
+    Raises UnsupportedOnGPU for unsupported cases to trigger CPU fallback.
+    """
+    if "sample_weight" in kwargs:
+        raise UnsupportedOnGPU("sample_weight parameter not supported")
+
+    # Reject complex and object dtypes
+    if hasattr(X, "dtype"):
+        if np.issubdtype(X.dtype, np.complexfloating):
+            raise UnsupportedOnGPU("Complex data types not supported")
+        if X.dtype == np.object_:
+            raise UnsupportedOnGPU("Object dtype not supported")
+
+    # Check for sparse matrices with unsupported properties
+    if sp_sparse.issparse(X):
+        # cupy sparse doesn't support int64 dtype
+        if X.dtype == np.int64:
+            raise UnsupportedOnGPU(
+                "Sparse matrices with int64 dtype not supported on GPU "
+                "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
+            )
+        # cuML's StandardScaler algorithm only supports CSR/CSC formats.
+        if X.format not in ("csr", "csc"):
+            raise UnsupportedOnGPU(
+                f"Sparse matrix format '{X.format}' not supported on GPU "
+                "(only CSR and CSC formats are supported)"
+            )
+    elif cupy_sparse.issparse(X):
+        # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
+        # cuML's StandardScaler algorithm only supports CSR/CSC formats.
+        if X.format not in ("csr", "csc"):
+            raise UnsupportedOnGPU(
+                f"CuPy sparse matrix format '{X.format}' not supported "
+                "(only CSR and CSC formats are supported)"
+            )
+
+
 class StandardScaler(ProxyBase):
     _gpu_class = cuml.preprocessing.StandardScaler
 
     def _gpu_fit(self, X, y=None, **kwargs):
-        if "sample_weight" in kwargs:
-            raise UnsupportedOnGPU("sample_weight parameter not supported")
-        # Reject complex and object dtypes
-        if hasattr(X, "dtype"):
-            if np.issubdtype(X.dtype, np.complexfloating):
-                raise UnsupportedOnGPU("Complex data types not supported")
-            if X.dtype == np.object_:
-                raise UnsupportedOnGPU("Object dtype not supported")
-        # Check for sparse matrices with unsupported properties
-        if sp_sparse.issparse(X):
-            # cupy sparse doesn't support int64 dtype
-            if X.dtype == np.int64:
-                raise UnsupportedOnGPU(
-                    "Sparse matrices with int64 dtype not supported on GPU "
-                    "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
-                )
-            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-            if X.format not in ("csr", "csc"):
-                raise UnsupportedOnGPU(
-                    f"Sparse matrix format '{X.format}' not supported on GPU "
-                    "(only CSR and CSC formats are supported)"
-                )
-        elif cupy_sparse.issparse(X):
-            # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
-            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-            if X.format not in ("csr", "csc"):
-                raise UnsupportedOnGPU(
-                    f"CuPy sparse matrix format '{X.format}' not supported "
-                    "(only CSR and CSC formats are supported)"
-                )
+        _check_standardscaler_unsupported_inputs(X, **kwargs)
         return self._gpu.fit(X, y, **kwargs)
 
     def _gpu_fit_transform(self, X, y=None, **kwargs):
-        if "sample_weight" in kwargs:
-            raise UnsupportedOnGPU("sample_weight parameter not supported")
-        # Reject complex and object dtypes
-        if hasattr(X, "dtype"):
-            if np.issubdtype(X.dtype, np.complexfloating):
-                raise UnsupportedOnGPU("Complex data types not supported")
-            if X.dtype == np.object_:
-                raise UnsupportedOnGPU("Object dtype not supported")
-        # Check for sparse matrices with unsupported properties
-        if sp_sparse.issparse(X):
-            # cupy sparse doesn't support int64 dtype
-            if X.dtype == np.int64:
-                raise UnsupportedOnGPU(
-                    "Sparse matrices with int64 dtype not supported on GPU "
-                    "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
-                )
-            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-            if X.format not in ("csr", "csc"):
-                raise UnsupportedOnGPU(
-                    f"Sparse matrix format '{X.format}' not supported on GPU "
-                    "(only CSR and CSC formats are supported)"
-                )
-        elif cupy_sparse.issparse(X):
-            # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
-            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-            if X.format not in ("csr", "csc"):
-                raise UnsupportedOnGPU(
-                    f"CuPy sparse matrix format '{X.format}' not supported "
-                    "(only CSR and CSC formats are supported)"
-                )
+        _check_standardscaler_unsupported_inputs(X, **kwargs)
         return self._gpu.fit_transform(X, y, **kwargs)
 
     def _gpu_partial_fit(self, X, y=None, **kwargs):
