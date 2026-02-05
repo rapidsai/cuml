@@ -725,7 +725,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         or are different. Furthermore, if semi-supervised is required
         target values of -1 will be treated as unlabelled under the
         'categorical' metric. If the target array takes continuous values
-        (e.g. for a regression problem) then metric of 'euclidean' or 'l2' 
+        (e.g. for a regression problem) then metric of 'euclidean' or 'l2'
         is probably more appropriate.
     target_weight: float (optional, default=0.5)
         Weighting factor between data topology and target topology. A
