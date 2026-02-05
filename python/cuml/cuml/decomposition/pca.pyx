@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -168,13 +168,6 @@ class PCA(Base,
     copy : boolean (default = True)
         If True, then copies data then removes mean from data. False might
         cause data to be overwritten with its mean centered version.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
@@ -327,11 +320,19 @@ class PCA(Base,
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, copy=True, handle=None, iterated_power=15,
-                 n_components=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False,
-                 output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        *,
+        copy=True,
+        iterated_power=15,
+        n_components=None,
+        svd_solver='auto',
+        tol=1e-7,
+        verbose=False,
+        whiten=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -396,7 +397,7 @@ class PCA(Base,
         cdef uintptr_t mean_ptr = mean.ptr
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
@@ -565,7 +566,7 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* h_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
@@ -659,7 +660,7 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:

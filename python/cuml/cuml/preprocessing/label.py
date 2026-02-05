@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,7 +11,7 @@ from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.prims.label import make_monotonic
 
 
 @cuml.internals.reflect
@@ -34,7 +34,8 @@ def label_binarize(
     classes = cp.asarray(classes, dtype=classes.dtype)
     labels = cp.asarray(y, dtype=y.dtype)
 
-    if not check_labels(labels, classes):
+    # Check that all labels are in classes
+    if not bool(cp.all(cp.isin(labels, classes))):
         raise ValueError("Unseen classes encountered in input")
 
     row_ind = cp.arange(0, labels.shape[0], 1, dtype=y.dtype)
@@ -78,13 +79,6 @@ class LabelBinarizer(Base):
         label to be used as the positive binary label
     sparse_output : bool (default=False)
         whether to return sparse arrays for transformed output
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -139,13 +133,10 @@ class LabelBinarizer(Base):
         neg_label=0,
         pos_label=1,
         sparse_output=False,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         if neg_label >= pos_label:
             raise ValueError(
@@ -264,7 +255,7 @@ class LabelBinarizer(Base):
                 y.dtype
             )
 
-        return CumlArray(data=invert_labels(y_mapped, self.classes_))
+        return CumlArray(data=self.classes_[y_mapped])
 
     @classmethod
     def _get_param_names(cls):

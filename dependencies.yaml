@@ -117,6 +117,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
@@ -126,6 +127,7 @@ files:
     includes:
       - cuda_version
       - depends_on_cuml
+      - depends_on_cupy
       - depends_on_libcuml
       - py_version
       - test_python
@@ -327,11 +329,6 @@ dependencies:
           - rich
           - &scikit_learn scikit-learn>=1.5
           - *treelite
-      - output_types: requirements
-        packages:
-          # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
-          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
   cuda_version:
     specific:
       - output_types: conda
@@ -424,10 +421,6 @@ dependencies:
       - output_types: conda
         matrices:
           - matrix:
-              py: "3.10"
-            packages:
-              - python=3.10
-          - matrix:
               py: "3.11"
             packages:
               - python=3.11
@@ -441,7 +434,7 @@ dependencies:
               - python=3.13
           - matrix:
             packages:
-              - python>=3.10,<3.14
+              - python>=3.11,<3.14
   test_libcuml:
     common:
       - output_types: conda
@@ -456,15 +449,14 @@ dependencies:
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
-          # Package versions to user for the "oldest-dep" CI run
+          # Package versions to use for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
-              - ipython==7.32.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
-              - ipython==8.37.0
+              - ipython==8.10.0
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
@@ -473,6 +465,22 @@ dependencies:
             packages:
               - *scikit_learn
               - ipython>=7.32.0
+      # ipython for "oldest" is split: conda uses 8.x (7.x has no Python 3.11+ packages),
+      # pip uses 7.34.0 from PyPI (which supports Python 3.11+)
+      - output_types: [conda]
+        matrices:
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - ipython=8
+          - matrix:
+            packages:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - ipython==7.34.0
+          - matrix:
+            packages:
       - output_types: requirements
         matrices:
           - matrix: {dependencies: "nightly"}
@@ -587,7 +595,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -621,6 +628,22 @@ dependencies:
     specific:
       - output_types: [requirements, pyproject]
         matrices:
+          # Nightly dependencies with pre-release specifiers
+          - matrix:
+              cuda: "12.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda12x>=13.6.0a0
+          - matrix:
+              cuda: "13.*"
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - cupy-cuda13x>=13.6.0a0
+          # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
@@ -629,6 +652,14 @@ dependencies:
           - matrix:
             packages:
               - cupy-cuda13x>=13.6.0
+      - output_types: requirements
+        matrices:
+          - matrix:
+              dependencies: "nightly"
+            packages:
+              - --find-links=https://pip.cupy.dev/pre
+          - matrix:
+            packages:
   depends_on_rapids_dask_dependency:
     common:
       - output_types: [conda, pyproject, requirements]
@@ -637,7 +668,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
   depends_on_dask_cuda:
     common:
@@ -647,7 +677,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -673,7 +702,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -699,7 +727,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -728,7 +755,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -757,7 +783,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -777,18 +802,24 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - numba-cuda>=0.22.1,<0.23.0
+        - &numba_cuda numba-cuda>=0.22.1
     specific:
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
               cuda: "12.*"
+              cuda_suffixed: "true"
             packages:
-              - numba-cuda[cu12]>=0.22.1,<0.23.0
-          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+              - numba-cuda[cu12]>=0.22.1
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - numba-cuda[cu13]>=0.22.1
+          # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
           - matrix:
             packages:
-              - numba-cuda[cu13]>=0.22.1,<0.23.0
+              - *numba_cuda
   depends_on_pylibraft:
     common:
       - output_types: conda
@@ -797,7 +828,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -823,7 +853,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]
@@ -859,7 +888,6 @@ dependencies:
       - output_types: requirements
         packages:
           # pip recognizes the index as a global option for the requirements.txt file
-          - --extra-index-url=https://pypi.nvidia.com
           - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
     specific:
       - output_types: [requirements, pyproject]

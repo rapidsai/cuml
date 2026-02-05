@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -41,13 +41,6 @@ class IncrementalPCA(PCA):
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     n_components : int or None, (default=None)
         Number of components to keep. If `n_components` is ``None``,
         then `n_components` is set to :py:`min(n_samples, n_features)`.
@@ -184,7 +177,6 @@ class IncrementalPCA(PCA):
     def __init__(
         self,
         *,
-        handle=None,
         n_components=None,
         whiten=False,
         copy=True,
@@ -193,7 +185,6 @@ class IncrementalPCA(PCA):
         output_type=None,
     ):
         super().__init__(
-            handle=handle,
             n_components=n_components,
             whiten=whiten,
             copy=copy,

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -15,7 +15,7 @@ from cuml.explainer.common import (
     model_func_call,
     output_list_shap_values,
 )
-from cuml.internals.base import DeprecatedHandleDescriptor, get_handle
+from cuml.internals.base import get_handle
 from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
 
 from libc.stdint cimport uintptr_t
@@ -64,13 +64,6 @@ class SHAPBase():
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
@@ -79,9 +72,7 @@ class SHAPBase():
         If not specified, the explainer will try to see if model is gpu based,
         if so it will be set to `cupy`, otherwise it will be set to `numpy`.
         For compatibility with SHAP's graphing libraries, specify `numpy`.
-
     """
-    handle = DeprecatedHandleDescriptor()
 
     def __init__(self,
                  *,
@@ -93,7 +84,6 @@ class SHAPBase():
                  verbose=False,
                  random_state=None,
                  is_gpu_model=None,
-                 handle=None,
                  dtype=np.float32,
                  output_type=None):
 
@@ -108,8 +98,6 @@ class SHAPBase():
             self.time_performance = True
         else:
             self.time_performance = False
-
-        self.handle = handle
 
         if order is None:
             self.order = get_tag_from_model_func(func=model,
@@ -338,7 +326,7 @@ class SHAPBase():
             order=self.masker.order
         )
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, masked_ptr
 

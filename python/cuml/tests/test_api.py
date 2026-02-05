@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -88,18 +88,15 @@ tags_mixins = {
 
 
 class dummy_regressor_estimator(Base, cumix.RegressorMixin):
-    def __init__(self, *, handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle)
+    pass
 
 
 class dummy_classifier_estimator(Base, cumix.ClassifierMixin):
-    def __init__(self, *, handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle)
+    pass
 
 
 class dummy_cluster_estimator(Base, cumix.ClusterMixin):
-    def __init__(self, *, handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle)
+    pass
 
 
 class dummy_class_with_tags(

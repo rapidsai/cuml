@@ -43,7 +43,7 @@ dependencies:
 - nbsphinx
 - ninja
 - nltk
-- numba-cuda>=0.22.1,<0.23.0
+- numba-cuda>=0.22.1
 - numba>=0.60.0,<0.62.0
 - numpy>=1.23,<3.0
 - numpydoc
@@ -59,7 +59,7 @@ dependencies:
 - pytest-cov
 - pytest-xdist
 - pytest<9.0
-- python>=3.10,<3.14
+- python>=3.11,<3.14
 - pyyaml
 - raft-dask==26.4.*,>=0.0.0a0
 - rapids-build-backend>=0.4.0,<0.5.0

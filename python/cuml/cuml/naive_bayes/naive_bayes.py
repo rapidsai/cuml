@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -17,7 +17,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
+from cuml.prims.label.classlabels import make_monotonic
 
 _binarize = cp.ElementwiseKernel(
     "T x, float32 threshold",
@@ -213,7 +213,7 @@ class _BaseNB(Base, ClassifierMixin):
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
 
-        y_hat = invert_labels(indices, classes=self.classes_)
+        y_hat = self.classes_[indices]
         y_hat = CumlArray(data=y_hat, index=index)
         return y_hat
 
@@ -318,13 +318,6 @@ class GaussianNB(_BaseNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -351,12 +344,9 @@ class GaussianNB(_BaseNB):
         priors=None,
         var_smoothing=1e-9,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.priors = priors
         self.var_smoothing = var_smoothing
 
@@ -444,7 +434,9 @@ class GaussianNB(_BaseNB):
 
         if first_call:
             if _classes is not None:
-                check_labels(Y, _classes.to_output("cupy"))
+                # Validate that y labels are in _classes
+                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
+                    raise ValueError("Labels contain values not in classes")
                 self.classes_ = _classes
             else:
                 self.classes_ = label_classes
@@ -715,12 +707,9 @@ class _BaseDiscreteNB(_BaseNB):
         fit_prior=True,
         class_prior=None,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(
-            verbose=verbose, handle=handle, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.class_prior = class_prior
         self.alpha = alpha
         self.fit_prior = fit_prior
@@ -890,7 +879,9 @@ class _BaseDiscreteNB(_BaseNB):
 
         if first_call:
             if _classes is not None:
-                check_labels(Y, _classes.to_output("cupy"))
+                # Validate that y labels are in _classes
+                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
+                    raise ValueError("Labels contain values not in classes")
                 self.classes_ = _classes
             else:
                 self.classes_ = label_classes
@@ -899,7 +890,9 @@ class _BaseDiscreteNB(_BaseNB):
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_, X.dtype)
         else:
-            check_labels(Y, self.classes_)
+            # Validate that y labels are in self.classes_
+            if not bool(cp.all(cp.isin(y, cp.asarray(self.classes_)))):
+                raise ValueError("Labels contain values not in classes")
 
         if cupyx.scipy.sparse.isspmatrix(X):
             # X is assumed to be a COO here
@@ -1047,13 +1040,6 @@ class MultinomialNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1145,13 +1131,6 @@ class BernoulliNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1205,14 +1184,12 @@ class BernoulliNB(_BaseDiscreteNB):
         fit_prior=True,
         class_prior=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )
@@ -1312,13 +1289,6 @@ class ComplementNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1368,14 +1338,12 @@ class ComplementNB(_BaseDiscreteNB):
         class_prior=None,
         norm=False,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )
@@ -1467,13 +1435,6 @@ class CategoricalNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1521,14 +1482,12 @@ class CategoricalNB(_BaseDiscreteNB):
         fit_prior=True,
         class_prior=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )

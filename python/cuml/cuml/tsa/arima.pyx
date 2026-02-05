@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from typing import Dict, Mapping, Optional, Tuple, Union
@@ -174,13 +174,6 @@ class ARIMA(Base):
         Note: that forecasts are always for the original series, whereas
         statsmodels computes forecasts for the differenced series when
         simple_differencing is True.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -293,15 +286,12 @@ class ARIMA(Base):
                  exog=None,
                  fit_intercept=True,
                  simple_differencing=True,
-                 handle=None,
                  verbose=False,
                  output_type=None,
                  convert_dtype=True):
 
         # Initialize base class
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
 
         # Check validity of the ARIMA order and seasonal order
@@ -390,7 +380,7 @@ class ARIMA(Base):
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef uintptr_t d_exog_ptr
         cdef uintptr_t d_exog_diff_ptr
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef ARIMAOrder cpp_order_diff = self.order
 
@@ -437,7 +427,7 @@ class ARIMA(Base):
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
@@ -665,7 +655,7 @@ class ARIMA(Base):
             raise ValueError("A value was given for `exog` but only in-sample"
                              " predictions were requested")
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         predict_size = end - start
 
@@ -816,7 +806,7 @@ class ARIMA(Base):
         cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
         if order.n_exog:
             d_exog_ptr = self.d_exog.ptr
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call C++ function
@@ -973,7 +963,7 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
@@ -1051,7 +1041,7 @@ class ARIMA(Base):
         if order.n_exog:
             d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
@@ -1080,7 +1070,7 @@ class ARIMA(Base):
         # as it uses the device parameter arrays and not a host vector.
         # Also, it always uses the MLE method, trans=False and truncate=0
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef vector[double] vec_loglike
@@ -1131,7 +1121,7 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self._create_arrays()
@@ -1161,7 +1151,7 @@ class ARIMA(Base):
             Packed parameter array, grouped by series.
             Shape: (n_params * batch_size,)
         """
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         cdef ARIMAOrder order = self.order
@@ -1196,7 +1186,7 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         N = self.complexity
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 

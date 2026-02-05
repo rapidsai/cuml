@@ -301,11 +301,13 @@ def test_generate_nsamples_weights():
     # are generated correctly
     for i, s in enumerate(samples):
         assert s in [5, 6]
-        assert w[i * 2] == cuml.explainer.kernel_shap._shapley_kernel(
-            20, int(s)
+        assert np.isclose(
+            float(w[i * 2]),
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s)),
         )
-        assert w[i * 2 + 1] == cuml.explainer.kernel_shap._shapley_kernel(
-            20, int(s)
+        assert np.isclose(
+            float(w[i * 2 + 1]),
+            cuml.explainer.kernel_shap._shapley_kernel(20, int(s)),
         )
 
 
