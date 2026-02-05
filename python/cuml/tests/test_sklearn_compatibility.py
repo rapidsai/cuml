@@ -48,7 +48,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     KMeans: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "KMeans does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "KMeans raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KMeans does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "KMeans does not handle non-array sample weights",
         "check_sample_weights_list": "KMeans does not handle list sample weights",
@@ -67,7 +66,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     KernelRidge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "KernelRidge does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "KernelRidge raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KernelRidge does not check n_features_in consistency",
         "check_sample_weights_pandas_series": "KernelRidge does not handle pandas Series sample weights",
         "check_sample_weights_not_an_array": "KernelRidge does not handle non-array sample weights",
@@ -92,7 +90,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "LogisticRegression does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "LogisticRegression raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LogisticRegression does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LogisticRegression does not handle non-array sample weights",
         "check_sample_weights_list": "LogisticRegression does not handle list sample weights",
@@ -117,7 +114,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "LinearRegression does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "LinearRegression raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearRegression does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LinearRegression does not handle non-array sample weights",
         "check_sample_weights_list": "LinearRegression does not handle list sample weights",
@@ -142,7 +138,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     Ridge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "Ridge does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "Ridge raises errors in init or set_params",
         "check_n_features_in_after_fitting": "Ridge does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "Ridge does not handle non-array sample weights",
         "check_sample_weights_list": "Ridge does not handle list sample weights",
@@ -250,7 +245,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     NearestNeighbors: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "NearestNeighbors sets attributes during init",
-        "check_do_not_raise_errors_in_init_or_set_params": "NearestNeighbors raises errors in init or set_params",
         "check_complex_data": "NearestNeighbors does not handle complex data",
         "check_dtype_object": "NearestNeighbors does not handle object dtype",
         "check_estimators_empty_data_messages": "NearestNeighbors does not handle empty data",
@@ -260,7 +254,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "LinearSVC does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "LinearSVC raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearSVC does not check n_features_in consistency",
         "check_estimators_dtypes": "LinearSVC does not handle dtypes properly",
         "check_sample_weights_not_an_array": "LinearSVC does not handle non-array sample weights",
@@ -292,7 +285,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     LinearSVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "LinearSVR does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "LinearSVR raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LinearSVR does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LinearSVR does not handle non-array sample weights",
         "check_sample_weights_list": "LinearSVR does not handle list sample weights",
@@ -317,7 +309,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     SVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "SVC does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "SVC raises errors in init or set_params",
         "check_n_features_in_after_fitting": "SVC does not check n_features_in consistency",
         "check_estimators_dtypes": "SVC does not handle dtypes properly",
         "check_sample_weights_not_an_array": "SVC does not handle non-array sample weights",
@@ -348,7 +339,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     SVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "SVR does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "SVR raises errors in init or set_params",
         "check_n_features_in_after_fitting": "SVR does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "SVR does not handle non-array sample weights",
         "check_sample_weights_list": "SVR does not handle list sample weights",
@@ -369,7 +359,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     PCA: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "PCA raises errors in init or set_params",
         "check_n_features_in_after_fitting": "PCA does not check n_features_in consistency",
         "check_complex_data": "PCA does not handle complex data",
         "check_dtype_object": "PCA does not handle object dtype",
@@ -383,7 +372,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     IncrementalPCA: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "IncrementalPCA raises errors in init or set_params",
         "check_n_features_in_after_fitting": "IncrementalPCA does not check n_features_in consistency",
         "check_complex_data": "IncrementalPCA does not handle complex data",
         "check_dtype_object": "IncrementalPCA does not handle object dtype",
@@ -394,7 +382,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     TruncatedSVD: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "TruncatedSVD raises errors in init or set_params",
         "check_n_features_in_after_fitting": "TruncatedSVD does not check n_features_in consistency",
         "check_complex_data": "TruncatedSVD does not handle complex data",
         "check_dtype_object": "TruncatedSVD does not handle object dtype",
@@ -412,7 +399,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "TSNE raises errors in init or set_params",
         "check_complex_data": "TSNE does not handle complex data",
         "check_dtype_object": "TSNE does not handle object dtype",
         "check_estimators_empty_data_messages": "TSNE does not handle empty data",
@@ -426,7 +412,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     UMAP: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "UMAP raises errors in init or set_params",
         "check_complex_data": "UMAP does not handle complex data",
         "check_dtype_object": "UMAP does not handle object dtype",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
@@ -437,7 +422,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "Lasso does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "Lasso raises errors in init or set_params",
         "check_n_features_in_after_fitting": "Lasso does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "Lasso does not handle non-array sample weights",
         "check_sample_weights_list": "Lasso does not handle list sample weights",
@@ -461,7 +445,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "ElasticNet does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "ElasticNet raises errors in init or set_params",
         "check_n_features_in_after_fitting": "ElasticNet does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "ElasticNet does not handle non-array sample weights",
         "check_sample_weights_list": "ElasticNet does not handle list sample weights",
@@ -484,7 +467,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KernelDensity raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KernelDensity does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "KernelDensity does not handle non-array sample weights",
         "check_sample_weights_list": "KernelDensity does not handle list sample weights",
@@ -499,7 +481,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "LedoitWolf raises errors in init or set_params",
         "check_n_features_in_after_fitting": "LedoitWolf does not check n_features_in consistency",
         "check_complex_data": "LedoitWolf does not handle complex data",
         "check_dtype_object": "LedoitWolf does not handle object dtype",
@@ -511,7 +492,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "DBSCAN raises errors in init or set_params",
         "check_sample_weights_not_an_array": "DBSCAN does not handle non-array sample weights",
         "check_sample_weights_list": "DBSCAN does not handle list sample weights",
         "check_all_zero_sample_weights_error": "DBSCAN does not validate all-zero sample weights",
@@ -566,7 +546,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "GaussianNB does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "GaussianNB raises errors in init or set_params",
         "check_n_features_in_after_fitting": "GaussianNB does not check n_features_in consistency",
         "check_estimators_dtypes": "GaussianNB does not handle dtypes properly",
         "check_sample_weights_pandas_series": "GaussianNB does not handle pandas Series sample weights",
@@ -599,7 +578,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_overwrite_params": "GaussianRandomProjection raises ValueError with small datasets",
         "check_estimators_fit_returns_self": "GaussianRandomProjection raises ValueError with small datasets",
         "check_readonly_memmap_input": "GaussianRandomProjection raises ValueError with small datasets",
-        "check_do_not_raise_errors_in_init_or_set_params": "GaussianRandomProjection raises ValueError on invalid output_type",
         "check_n_features_in_after_fitting": "GaussianRandomProjection raises ValueError with small datasets",
         "check_positive_only_tag_during_fit": "GaussianRandomProjection raises ValueError with small datasets",
         "check_estimators_dtypes": "GaussianRandomProjection raises ValueError with small datasets",
@@ -629,7 +607,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_overwrite_params": "SparseRandomProjection raises ValueError with small datasets",
         "check_estimators_fit_returns_self": "SparseRandomProjection raises ValueError with small datasets",
         "check_readonly_memmap_input": "SparseRandomProjection raises ValueError with small datasets",
-        "check_do_not_raise_errors_in_init_or_set_params": "SparseRandomProjection raises ValueError on invalid output_type",
         "check_n_features_in_after_fitting": "SparseRandomProjection raises ValueError with small datasets",
         "check_positive_only_tag_during_fit": "SparseRandomProjection raises ValueError with small datasets",
         "check_estimators_dtypes": "SparseRandomProjection raises ValueError with small datasets",
@@ -656,7 +633,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     BernoulliNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "BernoulliNB does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "BernoulliNB raises errors in init or set_params",
         "check_n_features_in_after_fitting": "BernoulliNB does not check n_features_in consistency",
         "check_estimators_dtypes": "BernoulliNB expects specific dtypes, not bool",
         "check_sample_weights_pandas_series": "BernoulliNB does not handle pandas Series sample weights",
@@ -688,7 +664,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_fit_returns_self": "ComplementNB fit does not return self for certain data types",
         "check_readonly_memmap_input": "ComplementNB does not handle readonly memmap input",
         "check_estimators_unfitted": "ComplementNB does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "ComplementNB raises errors in init or set_params",
         "check_n_features_in_after_fitting": "ComplementNB does not check n_features_in consistency",
         "check_positive_only_tag_during_fit": "ComplementNB does not validate positive-only requirement",
         "check_estimators_dtypes": "ComplementNB expects specific dtypes, not bool",
@@ -724,7 +699,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_estimators_fit_returns_self": "CategoricalNB fit does not return self for certain data types",
         "check_readonly_memmap_input": "CategoricalNB does not handle readonly memmap input",
         "check_estimators_unfitted": "CategoricalNB does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "CategoricalNB raises errors in init or set_params",
         "check_n_features_in_after_fitting": "CategoricalNB does not check n_features_in consistency",
         "check_positive_only_tag_during_fit": "CategoricalNB does not validate positive-only requirement",
         "check_estimators_dtypes": "CategoricalNB expects specific dtypes, not bool",
@@ -754,7 +728,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     MultinomialNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_estimators_unfitted": "MultinomialNB does not raise NotFittedError before fit",
-        "check_do_not_raise_errors_in_init_or_set_params": "MultinomialNB raises errors in init or set_params",
         "check_n_features_in_after_fitting": "MultinomialNB does not check n_features_in consistency",
         "check_estimators_dtypes": "MultinomialNB does not handle all dtypes properly",
         "check_sample_weights_pandas_series": "MultinomialNB does not handle pandas Series sample weights",

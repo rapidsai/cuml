@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -44,3 +44,6 @@ sccache --stop-server >/dev/null 2>&1 || true
 # remove build_cache directory to avoid uploading the entire source tree
 # tracked in https://github.com/prefix-dev/rattler-build/issues/1424
 rm -rf "$RAPIDS_CONDA_BLD_OUTPUT_DIR"/build_cache
+
+RAPIDS_PACKAGE_NAME="$(rapids-package-name conda_python cuml --stable --cuda)"
+export RAPIDS_PACKAGE_NAME
