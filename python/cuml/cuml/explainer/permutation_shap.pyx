@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import time
@@ -103,13 +103,6 @@ class PermutationExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
@@ -162,7 +155,6 @@ class PermutationExplainer(SHAPBase):
                  data,
                  masker_type='independent',
                  link='identity',
-                 handle=None,
                  is_gpu_model=None,
                  random_state=None,
                  dtype=np.float32,
@@ -175,7 +167,6 @@ class PermutationExplainer(SHAPBase):
             link=link,
             verbose=verbose,
             is_gpu_model=is_gpu_model,
-            handle=handle,
             dtype=dtype,
             output_type=output_type
         )
@@ -233,7 +224,7 @@ class PermutationExplainer(SHAPBase):
         total_timer = time.time()
         inds = cp.arange(self.ncols, dtype=cp.int32)
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, ds_ptr, shap_ptr, y_hat_ptr
         cdef uintptr_t ds_ptr_f32

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -64,13 +64,6 @@ class TruncatedSVD(
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -175,6 +168,6 @@ class TruncatedSVD(
     @staticmethod
     @mnmg_import
     def _create_tsvd(handle, datatype, **kwargs):
-        from cuml.decomposition.tsvd_mg import TSVDMG as cumlTSVD
+        from cuml.decomposition.tsvd_mg import TSVDMG
 
-        return cumlTSVD(handle=handle, output_type=datatype, **kwargs)
+        return TSVDMG(handle=handle, output_type=datatype, **kwargs)

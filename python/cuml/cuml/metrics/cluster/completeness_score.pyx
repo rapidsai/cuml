@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.internals import get_handle
@@ -16,7 +16,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                               const int upper_class_range) except +
 
 
-def cython_completeness_score(labels_true, labels_pred, handle=None) -> float:
+def cython_completeness_score(labels_true, labels_pred) -> float:
     """
     Completeness metric of a cluster labeling given a ground truth.
 
@@ -44,12 +44,6 @@ def cython_completeness_score(labels_true, labels_pred, handle=None) -> float:
         The ground truth labels (ints) of the test dataset.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -57,7 +51,7 @@ def cython_completeness_score(labels_true, labels_pred, handle=None) -> float:
       The completeness of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly complete labeling.
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,

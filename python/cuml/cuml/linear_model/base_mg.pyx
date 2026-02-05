@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -16,7 +16,11 @@ from libc.stdint cimport uintptr_t
 from cuml.common.opg_data_utils_mg cimport *
 
 
-class MGFitMixin(object):
+class MGFitMixin:
+    def __init__(self, *, handle, **kwargs):
+        self.handle = handle
+        super().__init__(**kwargs)
+
     @run_in_internal_context
     def fit(
         self,

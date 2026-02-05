@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
@@ -76,13 +76,6 @@ class KNeighborsClassifier(ClassifierMixin,
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -164,14 +157,11 @@ class KNeighborsClassifier(ClassifierMixin,
         self,
         *,
         weights="uniform",
-        handle=None,
         verbose=False,
         output_type=None,
         **kwargs,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type, **kwargs
-        )
+        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
@@ -253,7 +243,7 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
@@ -333,7 +323,7 @@ class KNeighborsClassifier(ClassifierMixin,
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
         cdef size_t n_samples_fit = self._y.shape[0]

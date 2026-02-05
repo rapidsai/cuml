@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -39,13 +39,6 @@ class KNeighborsClassifier(NearestNeighbors):
         of this value will vary for different layouts and index to query
         ratios, but it will require `batch_size * n_features * 4` bytes of
         additional memory on each worker hosting index partitions.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -118,13 +111,13 @@ class KNeighborsClassifier(NearestNeighbors):
     def _func_create_model(sessionId, **kwargs):
         try:
             from cuml.neighbors.kneighbors_classifier_mg import (
-                KNeighborsClassifierMG as cumlKNN,
+                KNeighborsClassifierMG,
             )
         except ImportError:
             raise_mg_import_exception()
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return cumlKNN(handle=handle, **kwargs)
+        return KNeighborsClassifierMG(handle=handle, **kwargs)
 
     @staticmethod
     def _func_predict(

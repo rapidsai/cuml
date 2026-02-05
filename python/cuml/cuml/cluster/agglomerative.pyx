@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -80,13 +80,6 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         Indirectly influences the number of neighbors to use when
         ``connectivity="knn"``, with ``n_neighbors = log(n_samples) + c``. The
         default of 15 should suffice for most problems.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -133,11 +126,10 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         connectivity="knn",
         linkage="single",
         c=15,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_clusters = n_clusters
         self.metric = metric
@@ -194,7 +186,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         labels = CumlArray.empty(n_rows, dtype="int32", order="C")
         children = CumlArray.empty((n_rows - 1, 2), dtype="int32", order="C")
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int c = self.c
         cdef float* X_ptr = <float*><uintptr_t>X.ptr

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -35,9 +35,14 @@ def _get_array_ptr(obj):
     return obj.device_ctypes_pointer.value
 
 
-def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean',
-                    convert_dtype=True, batch_size=512) -> float:
+def trustworthiness(
+    X,
+    X_embedded,
+    n_neighbors=5,
+    metric='euclidean',
+    convert_dtype=True,
+    batch_size=512,
+) -> float:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -94,7 +99,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                               else None))
     d_X_embedded_ptr = X_m2.ptr
 
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     if metric == 'euclidean':

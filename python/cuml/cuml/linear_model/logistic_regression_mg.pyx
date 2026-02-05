@@ -1,10 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
 
-from cuml.internals import get_handle, run_in_internal_context
+from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.linear_model import LogisticRegression
 from cuml.linear_model.base_mg import MGFitMixin
@@ -146,8 +146,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
     @run_in_internal_context
     def _fit(self, X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Determine the number of classes in y
         if self.dtype == np.float32:
@@ -312,7 +311,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                             &n_iter,
                         )
 
-        handle.sync()
+        self.handle.sync()
 
         # Postprocess coef into coef_ and intercept_
         coef_cp = coef.to_output("cupy")

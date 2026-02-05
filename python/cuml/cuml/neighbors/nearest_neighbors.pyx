@@ -264,7 +264,7 @@ cdef class RBCIndex:
         raise TypeError("Instances of RBCIndex aren't pickleable")
 
     @staticmethod
-    def build(handle, X, metric):
+    def build(X, metric):
         """Build a new RBC index."""
         if X.shape[1] > 3:
             raise ValueError(
@@ -272,6 +272,7 @@ cdef class RBCIndex:
             )
         cdef RBCIndex self = RBCIndex.__new__(RBCIndex)
 
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef int64_t n_rows = X.shape[0]
@@ -290,7 +291,7 @@ cdef class RBCIndex:
         handle.sync()
         return self
 
-    def kneighbors(RBCIndex self, handle, X, uint32_t n_neighbors):
+    def kneighbors(RBCIndex self, X, uint32_t n_neighbors):
         """Query the index for the k nearest neighbors."""
         distances = CumlArray.zeros(
             (X.shape[0], n_neighbors),
@@ -304,6 +305,7 @@ cdef class RBCIndex:
             order="C",
             index=X.index,
         )
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef uint32_t n_rows = X.shape[0]
@@ -357,7 +359,7 @@ cdef class ApproxIndex:
         out.n_bits = params["n_bits"]
 
     @staticmethod
-    def build(handle, X, metric, algorithm, params=None, float p=2):
+    def build(X, metric, algorithm, params=None, float p=2):
         """Build a new approx index."""
         cdef ApproxIndex self = ApproxIndex.__new__(ApproxIndex)
 
@@ -374,6 +376,7 @@ cdef class ApproxIndex:
         else:
             raise ValueError("algorithm must be one of {'ivfflat', 'ivfpq'}")
 
+        handle = get_handle()
         cdef DistanceType distance_type = _metric_to_distance_type(metric)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
@@ -396,7 +399,7 @@ cdef class ApproxIndex:
 
         return self
 
-    def kneighbors(ApproxIndex self, handle, X, int n_neighbors):
+    def kneighbors(ApproxIndex self, X, int n_neighbors):
         """Query the index for the k nearest neighbors."""
         distances = CumlArray.zeros(
             (X.shape[0], n_neighbors),
@@ -411,6 +414,7 @@ cdef class ApproxIndex:
             index=X.index,
         )
 
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
         cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
@@ -447,13 +451,6 @@ class NearestNeighbors(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     algorithm : string (default='auto')
         The query algorithm to use. Valid options are:
 
@@ -651,7 +648,6 @@ class NearestNeighbors(Base,
         *,
         n_neighbors=5,
         verbose=False,
-        handle=None,
         algorithm="auto",
         metric="euclidean",
         p=2,
@@ -660,7 +656,7 @@ class NearestNeighbors(Base,
         n_jobs=None,  # Ignored, here for sklearn API compatibility
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_neighbors = n_neighbors
         self.metric = metric
         self.metric_params = metric_params
@@ -685,14 +681,10 @@ class NearestNeighbors(Base,
             # recreate them on load.
             with using_output_type("cuml"):
                 X = getattr(self, "_fit_X", None)
-            handle = get_handle(model=self)
             if fit_method == "rbc":
-                self._index = RBCIndex.build(
-                    handle, X, self.effective_metric_,
-                )
+                self._index = RBCIndex.build(X, self.effective_metric_)
             else:
                 self._index = ApproxIndex.build(
-                    handle,
                     X,
                     self.effective_metric_,
                     fit_method,
@@ -752,7 +744,6 @@ class NearestNeighbors(Base,
 
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
-                get_handle(model=self),
                 self._fit_X,
                 self.effective_metric_,
                 self._fit_method,
@@ -760,9 +751,7 @@ class NearestNeighbors(Base,
                 p=self.p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(
-                get_handle(model=self), self._fit_X, self.effective_metric_
-            )
+            self._index = RBCIndex.build(self._fit_X, self.effective_metric_)
 
         return self
 
@@ -885,10 +874,8 @@ class NearestNeighbors(Base,
             )
             use_index = False
 
-        handle = get_handle(model=self)
-
         if use_index:
-            return self._index.kneighbors(handle, X_m, n_neighbors)
+            return self._index.kneighbors(X_m, n_neighbors)
 
         distances = CumlArray.zeros(
             (X_m.shape[0], n_neighbors), dtype=np.float32, order="C", index=X_m.index,
@@ -897,6 +884,7 @@ class NearestNeighbors(Base,
             (X_m.shape[0], n_neighbors), dtype=np.int64, order="C", index=X_m.index,
         )
 
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef vector[float*] inputs
         cdef vector[int] sizes
@@ -1004,7 +992,7 @@ class NearestNeighbors(Base,
         cdef int* indices_ptr = <int *><uintptr_t>indices.ptr
         cdef float* distances_ptr = <float *><uintptr_t>distances.ptr
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         with nogil:
             brute_force_knn(
@@ -1114,9 +1102,17 @@ class NearestNeighbors(Base,
 
 
 @reflect
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
-                     handle=None, algorithm="brute", metric="euclidean", p=2,
-                     include_self=False, metric_params=None):
+def kneighbors_graph(
+    X=None,
+    n_neighbors=5,
+    mode='connectivity',
+    verbose=False,
+    algorithm="brute",
+    metric="euclidean",
+    p=2,
+    include_self=False,
+    metric_params=None,
+):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -1139,13 +1135,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are:
@@ -1194,7 +1183,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     model = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,
-        handle=handle,
         algorithm=algorithm,
         metric=metric,
         p=p,

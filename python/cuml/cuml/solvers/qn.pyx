@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -131,7 +131,6 @@ def fit_qn(
     bool penalty_normalized=True,
     init_coef=None,
     level_enum verbose=level_enum.warn,
-    handle=None,
 ):
     """Fit a linear model using a Quasi-newton method.
 
@@ -163,8 +162,7 @@ def fit_qn(
     objective : float
         The value of the objective function.
     """
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
 
     cdef bool sparse_X = is_sparse(X)
     cdef int n_rows, n_cols
@@ -420,13 +418,6 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -506,12 +497,11 @@ class QN(Base):
         linesearch_max_iter=50,
         lbfgs_memory=5,
         verbose=False,
-        handle=None,
         output_type=None,
         warm_start=False,
         penalty_normalized=True,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.loss = loss
         self.fit_intercept = fit_intercept
@@ -563,7 +553,6 @@ class QN(Base):
             penalty_normalized=self.penalty_normalized,
             init_coef=init_coef,
             verbose=self._verbose_level,
-            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
