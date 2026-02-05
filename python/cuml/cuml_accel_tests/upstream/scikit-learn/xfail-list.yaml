@@ -26,7 +26,6 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.tests.test_pipeline::test_feature_union_feature_names_in_"
-  - "sklearn.utils.tests.test_estimator_checks::test_estimator_with_set_output"
 - reason: Search CV sample weight equivalence differs with cuml.accel in sklearn 1.7.2
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.7.2
@@ -871,6 +870,11 @@
   marker: cuml_accel_bugs_feature_names
   tests:
   - "sklearn.compose.tests.test_column_transformer::test_column_transformer_column_renaming[pandas]"
+- reason: Feature name preservation and metadata handling in cuml.accel StandardScaler needs comprehensive fixes
+  marker: cuml_accel_bugs_sklearn16plus
+  condition: scikit-learn>=1.6
+  tests:
+  - "sklearn.utils.tests.test_estimator_checks::test_estimator_with_set_output"
 - reason: cuml raises a different error if X doesn't have expected n features
   marker: cuml_accel_check_n_features_in
   condition: scikit-learn<1.6
