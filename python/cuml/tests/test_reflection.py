@@ -102,17 +102,6 @@ def returns_array_one_arg(n):
     return cp.ones(n)
 
 
-def test_deprecated_memory_utils():
-    for name in ["set_global_output_type", "using_output_type"]:
-        with pytest.warns(FutureWarning, match=name):
-            func = getattr(cuml.internals.memory_utils, name)
-        assert func is getattr(cuml, name)
-
-    # Unknown attributes error
-    with pytest.raises(AttributeError, match="not_a_real_attr"):
-        cuml.internals.memory_utils.not_a_real_attr
-
-
 def test_set_global_output_type():
     gs = GlobalSettings()
     assert gs.output_type is None
