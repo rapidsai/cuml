@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -16,7 +16,7 @@ from cuml.common.classification import (
 )
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base, get_handle
+from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -92,13 +92,6 @@ class LogisticRegression(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -258,12 +251,9 @@ class LogisticRegression(
         lbfgs_memory=5,
         penalty_normalized=True,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.penalty = penalty
         self.tol = tol
         self.C = C
@@ -341,7 +331,6 @@ class LogisticRegression(
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
             verbose=self._verbose_level,
-            handle=get_handle(model=self),
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
         )

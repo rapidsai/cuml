@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
@@ -303,13 +303,6 @@ class KMeans(Base,
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
@@ -489,7 +482,6 @@ class KMeans(Base,
     def __init__(
         self,
         *,
-        handle=None,
         n_clusters=8,
         max_iter=300,
         tol=1e-4,
@@ -501,7 +493,7 @@ class KMeans(Base,
         max_samples_per_batch=1<<15,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.tol = tol
@@ -582,7 +574,8 @@ class KMeans(Base,
                 )
 
         # Prepare for libcuml call
-        handle = get_handle(model=self)
+        # XXX: multi-gpu uses handle attribute to manage comms
+        handle = self.handle if self._multi_gpu else get_handle()
         cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
@@ -662,7 +655,7 @@ class KMeans(Base,
                 check_cols=1,
             )
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
@@ -722,7 +715,7 @@ class KMeans(Base,
         cdef uintptr_t centers_ptr = self.cluster_centers_.ptr
         cdef uintptr_t out_ptr = out.ptr
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)

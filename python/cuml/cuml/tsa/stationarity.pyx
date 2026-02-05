@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
@@ -32,8 +32,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
 
 
 @reflect
-def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
-              handle=None, convert_dtype=True) -> CumlArray:
+def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> CumlArray:
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -52,12 +51,6 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         Seasonal period if D > 0
     pval_threshold : float
         The p-value threshold above which a series is considered stationary.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -71,7 +64,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
                             check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     results = CumlArray.empty(batch_size, dtype=bool)

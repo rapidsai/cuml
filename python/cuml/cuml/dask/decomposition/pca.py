@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -77,13 +77,6 @@ class PCA(
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -100,7 +93,6 @@ class PCA(
         Whitening allows each component to have unit variance and removes
         multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
-
 
     Attributes
     ----------
@@ -215,6 +207,6 @@ class PCA(
     @staticmethod
     @mnmg_import
     def _create_pca(handle, datatype, **kwargs):
-        from cuml.decomposition.pca_mg import PCAMG as cumlPCA
+        from cuml.decomposition.pca_mg import PCAMG
 
-        return cumlPCA(handle=handle, output_type=datatype, **kwargs)
+        return PCAMG(handle=handle, output_type=datatype, **kwargs)

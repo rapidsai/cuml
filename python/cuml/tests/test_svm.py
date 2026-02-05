@@ -613,12 +613,6 @@ def test_max_iter_n_iter(classifier):
     model = cls(max_iter=5).fit(X, y)
     assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 
-    # Using TotalIters results in the same behavior, but warns
-    model = cls(max_iter=cls.TotalIters(5))
-    with pytest.warns(FutureWarning, match="TotalIters"):
-        model.fit(X, y)
-    assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
-
 
 def test_svc_multiclass_n_iter():
     X, y = make_classification(random_state=42, n_classes=3, n_informative=4)
