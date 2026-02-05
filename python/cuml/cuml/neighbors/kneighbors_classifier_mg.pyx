@@ -1,11 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
 
 from cuml.common import input_to_cuml_array
-from cuml.internals import get_handle, logger, reflect
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -49,9 +49,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    def __init__(self, **kwargs):
-        super(KNeighborsClassifierMG, self).__init__(**kwargs)
-
     @reflect(array=None)
     def predict(
         self,
@@ -135,8 +132,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             out_result_local_parts.push_back(new intData_t(
                 <int*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
 
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         is_verbose = logger.should_log_for(logger.level_enum.debug)
         knn_classify(
@@ -160,7 +156,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <bool>is_verbose
         )
 
-        handle.sync()
+        self.handle.sync()
 
         # Release memory
         type(self).free_mem(input)
@@ -249,8 +245,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                 probas_local_parts.at(query_idx).push_back(<float*><uintptr_t>
                                                            p_cai.ptr)
 
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
@@ -274,7 +269,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-        handle.sync()
+        self.handle.sync()
 
         # Release memory
         type(self).free_mem(input)

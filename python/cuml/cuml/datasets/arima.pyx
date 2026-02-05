@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from random import randint
@@ -53,8 +53,7 @@ inp_to_dtype = {
 @reflect(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
-               random_state=None, dtype='double',
-               handle=None):
+               random_state=None, dtype='double'):
     """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
 
@@ -79,15 +78,9 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Whether to include a constant trend mu in the simulated ARIMA process
     random_state: int, RandomState instance or None (default)
         Seed for the random number generator for dataset creation.
-    dtype: string or numpy dtype (default: 'single')
+    dtype: string or numpy dtype (default: 'double')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -111,7 +104,7 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     else:
         dtype = inp_to_dtype[dtype]
 
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')

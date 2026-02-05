@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -86,7 +86,7 @@ class ExponentialSmoothing(Base):
 
     * Cannot pass trend component or damped trend component
     * this version can take additional parameters `eps`,
-      `start_periods`, `ts_num`, and `handle`
+      `start_periods`, and `ts_num`
     * Score returns SSE rather than gradient logL
       https://github.com/rapidsai/cuml/issues/876
     * This version provides get_level(), get_trend(), get_season()
@@ -140,13 +140,6 @@ class ExponentialSmoothing(Base):
     eps : np.number > 0 (default=2.24e-3)
         The accuracy to which gradient descent should achieve.
         Note that changing this value may affect the forecasted results.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -167,12 +160,10 @@ class ExponentialSmoothing(Base):
 
     def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
-                 ts_num=1, eps=2.24e-3, handle=None,
+                 ts_num=1, eps=2.24e-3,
                  verbose=False, output_type=None):
 
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         # Total number of Time Series for forecasting
         if not isinstance(ts_num, int):
@@ -298,7 +289,7 @@ class ExponentialSmoothing(Base):
                     <int*> &season_coef_offset,
                     <int*> &error_len)
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
@@ -370,7 +361,7 @@ class ExponentialSmoothing(Base):
 
         """
         cdef uintptr_t forecast_ptr, level_ptr, trend_ptr, season_ptr
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         if not isinstance(h, int) or (not isinstance(index, int) and index is not None):

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import warnings
 
@@ -347,13 +347,6 @@ class TSNE(Base,
         the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
         should match the metric used to train the TSNE embeedings.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -537,10 +530,9 @@ class TSNE(Base,
         square_distances=True,
         precomputed_knn=None,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
@@ -643,7 +635,7 @@ class TSNE(Base,
         cdef uintptr_t embed_ptr = embedding.ptr
 
         # Execute fit
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef float kl_divergence = 0
         cdef int n_iter = 0

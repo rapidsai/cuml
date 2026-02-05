@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import enum
@@ -167,13 +167,6 @@ class LinearRegression(Base,
             memory usage. This represents a change in behavior from previous
             versions. With `copy_X=False` a copy might still be created if
             necessary.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -264,12 +257,10 @@ class LinearRegression(Base,
         algorithm="auto",
         fit_intercept=True,
         copy_X=True,
-        handle=None,
         verbose=False,
         output_type=None
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
-
+        super().__init__(verbose=verbose, output_type=output_type)
         self.algorithm = algorithm
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
@@ -371,7 +362,7 @@ class LinearRegression(Base,
         cdef float intercept_f32
         cdef double intercept_f64
         # Always use 2 streams to expose concurrency in the eig computation
-        handle = get_handle(model=self, n_streams=2)
+        handle = get_handle(n_streams=2)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool fit_intercept = self.fit_intercept
 
