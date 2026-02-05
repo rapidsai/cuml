@@ -410,6 +410,7 @@ StandardScaler
 - If ``partial_fit`` is called (incremental learning not supported on GPU).
 - If ``sample_weight`` is provided (weighted statistics not supported on GPU).
 - If ``X`` has object or complex dtype (``complex64``, ``complex128``).
+- If ``X`` is a sparse matrix with integer dtype or in a format other than CSR or CSC.
 
 TargetEncoder
 ^^^^^^^^^^^^^

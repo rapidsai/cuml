@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupyx.scipy.sparse as cupy_sparse
 import numpy as np
 from scipy import sparse as sp_sparse
 
@@ -33,10 +34,18 @@ class StandardScaler(ProxyBase):
                     "Sparse matrices with int64 dtype not supported on GPU "
                     "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
                 )
-            # cuML only supports CSR/CSC formats, not COO, DOK, LIL, etc.
+            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
             if X.format not in ("csr", "csc"):
                 raise UnsupportedOnGPU(
                     f"Sparse matrix format '{X.format}' not supported on GPU "
+                    "(only CSR and CSC formats are supported)"
+                )
+        elif cupy_sparse.issparse(X):
+            # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
+            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
+            if X.format not in ("csr", "csc"):
+                raise UnsupportedOnGPU(
+                    f"CuPy sparse matrix format '{X.format}' not supported "
                     "(only CSR and CSC formats are supported)"
                 )
         return self._gpu.fit(X, y, **kwargs)
@@ -58,10 +67,18 @@ class StandardScaler(ProxyBase):
                     "Sparse matrices with int64 dtype not supported on GPU "
                     "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
                 )
-            # cuML only supports CSR/CSC formats, not COO, DOK, LIL, etc.
+            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
             if X.format not in ("csr", "csc"):
                 raise UnsupportedOnGPU(
                     f"Sparse matrix format '{X.format}' not supported on GPU "
+                    "(only CSR and CSC formats are supported)"
+                )
+        elif cupy_sparse.issparse(X):
+            # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
+            # cuML's StandardScaler algorithm only supports CSR/CSC formats.
+            if X.format not in ("csr", "csc"):
+                raise UnsupportedOnGPU(
+                    f"CuPy sparse matrix format '{X.format}' not supported "
                     "(only CSR and CSC formats are supported)"
                 )
         return self._gpu.fit_transform(X, y, **kwargs)
