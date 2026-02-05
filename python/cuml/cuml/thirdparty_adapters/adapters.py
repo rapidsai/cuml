@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as cpu_sparse
 
+from cuml.accel import enabled as cuml_accel_enabled
 from cuml.internals.input_utils import input_to_cupy_array
 
 numeric_types = [
@@ -229,12 +230,21 @@ def check_array(
     """
     # Convert list-like inputs to numpy arrays early for compatibility with cuml.accel
     # This ensures downstream functions can safely access .dtype and other array attributes
-    from cuml.accel import enabled as cuml_accel_enabled
-
     if (
         cuml_accel_enabled()
-        and not isinstance(array, (np.ndarray, pd.DataFrame, cudf.DataFrame))
+        and not isinstance(
+            array,
+            (
+                np.ndarray,
+                pd.DataFrame,
+                cudf.DataFrame,
+                pd.Series,
+                cudf.Series,
+                cp.ndarray,
+            ),
+        )
         and not (cpu_sparse.issparse(array) or gpu_sparse.issparse(array))
+        and not hasattr(array, "__cuda_array_interface__")
     ):
         # Check if it's array-like (list, tuple, etc.) by checking for common sequence methods
         if hasattr(array, "__len__") and hasattr(array, "__getitem__"):
