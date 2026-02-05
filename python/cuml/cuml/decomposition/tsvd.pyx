@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -142,13 +142,6 @@ class TruncatedSVD(Base,
         Full uses a eigendecomposition of the covariance matrix then discards
         components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
@@ -267,10 +260,18 @@ class TruncatedSVD(Base,
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, algorithm='full', handle=None, n_components=1,
-                 n_iter=15, random_state=None, tol=1e-7,
-                 verbose=False, output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        *,
+        algorithm='full',
+        n_components=1,
+        n_iter=15,
+        random_state=None,
+        tol=1e-7,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components
         self.n_iter = n_iter
@@ -349,7 +350,7 @@ class TruncatedSVD(Base,
         cdef uintptr_t singular_values_ptr = singular_values.ptr
         cdef uintptr_t out_ptr = out.ptr
         cdef bool use_float32 = dtype == np.float32
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Perform fit
@@ -420,7 +421,7 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
@@ -473,7 +474,7 @@ class TruncatedSVD(Base,
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:

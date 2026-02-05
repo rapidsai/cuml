@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Gael Varoquaux <gael.varoquaux@normalesup.org>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -34,15 +34,9 @@ class BaseEstimator(Base):
         orig_init = cls.__init__
 
         def init(self, *args, **kwargs):
-            handle = kwargs['handle'] if 'handle' in kwargs else None
-            verbose = kwargs['verbose'] if 'verbose' in kwargs else False
-            output_type = kwargs['output_type'] if 'output_type' in kwargs \
-                else None
-            Base.__init__(self, handle=handle, verbose=verbose,
-                          output_type=output_type)
-            for param in ['handle', 'verbose', 'output_type']:
-                if param in kwargs:
-                    del kwargs[param]
+            verbose = kwargs.pop("verbose", False)
+            output_type = kwargs.pop("output_type", None)
+            Base.__init__(self, verbose=verbose, output_type=output_type)
             orig_init(self, *args, **kwargs)
 
         cls.__init__ = init

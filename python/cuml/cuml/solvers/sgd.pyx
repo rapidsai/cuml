@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
@@ -115,7 +115,6 @@ def fit_sgd(
     double power_t=0.5,
     int batch_size=32,
     int n_iter_no_change=5,
-    handle=None,
 ):
     """Fit a linear model using stochastic gradient descent.
 
@@ -184,8 +183,7 @@ def fit_sgd(
     coef = CumlArray.zeros(n_cols, dtype=X.dtype)
 
     # Perform fit
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef uintptr_t X_ptr = X.ptr
     cdef uintptr_t y_ptr = y.ptr
@@ -326,13 +324,6 @@ class SGD(Base, FMajorInputTagMixin):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         The number of epochs to train without any improvement in the model
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -381,11 +372,10 @@ class SGD(Base, FMajorInputTagMixin):
         power_t=0.5,
         batch_size=32,
         n_iter_no_change=5,
-        handle=None,
         output_type=None,
         verbose=False,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -424,7 +414,6 @@ class SGD(Base, FMajorInputTagMixin):
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -454,7 +443,7 @@ class SGD(Base, FMajorInputTagMixin):
 
         preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int loss_code = _LOSSES[self.loss]
         cdef bool use_f32 = self.coef_.dtype == np.float32

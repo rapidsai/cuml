@@ -55,13 +55,6 @@ class SVC(SVMBase, ClassifierMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
@@ -261,7 +254,6 @@ class SVC(SVMBase, ClassifierMixin):
     def __init__(
         self,
         *,
-        handle=None,
         C=1.0,
         kernel="rbf",
         degree=3,
@@ -279,7 +271,6 @@ class SVC(SVMBase, ClassifierMixin):
         decision_function_shape="ovo",
     ):
         super().__init__(
-            handle=handle,
             C=C,
             kernel=kernel,
             degree=degree,
@@ -343,7 +334,6 @@ class SVC(SVMBase, ClassifierMixin):
             )
         self._multiclass = multiclass_cls(
             estimator=SVC(**params),
-            handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
         )
