@@ -68,6 +68,3 @@ rapids-pip-retry wheel \
 
 sccache --show-adv-stats
 sccache --stop-server >/dev/null 2>&1 || true
-
-RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python cuml --stable --cuda)"
-export RAPIDS_PACKAGE_NAME
