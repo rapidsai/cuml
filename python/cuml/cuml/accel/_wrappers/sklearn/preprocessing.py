@@ -20,40 +20,37 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
     Raises UnsupportedOnGPU for unsupported cases to trigger CPU fallback.
     """
     if "sample_weight" in kwargs:
-        raise UnsupportedOnGPU("sample_weight parameter not supported")
+        raise UnsupportedOnGPU("sample_weight is not supported")
 
     # Reject complex, object, and float16 dtypes
     if hasattr(X, "dtype"):
         if np.issubdtype(X.dtype, np.complexfloating):
-            raise UnsupportedOnGPU("Complex data types not supported")
+            raise UnsupportedOnGPU("complex dtype is not supported")
         if X.dtype == np.object_:
-            raise UnsupportedOnGPU("Object dtype not supported")
+            raise UnsupportedOnGPU("object dtype is not supported")
         if X.dtype == np.float16:
-            raise UnsupportedOnGPU(
-                "float16 dtype not supported on GPU (output would not preserve dtype)"
-            )
+            raise UnsupportedOnGPU("float16 dtype is not supported")
 
     # Check for sparse matrices with unsupported properties
     if sp_sparse.issparse(X):
-        # cupy sparse doesn't support int64 dtype
-        if X.dtype == np.int64:
+        if np.issubdtype(X.dtype, np.integer):
             raise UnsupportedOnGPU(
-                "Sparse matrices with int64 dtype not supported on GPU "
-                "(cupy sparse only supports float32, float64, complex64, complex128, bool)"
+                "sparse matrix with integer dtype is not supported"
             )
         # cuML's StandardScaler algorithm only supports CSR/CSC formats.
         if X.format not in ("csr", "csc"):
             raise UnsupportedOnGPU(
-                f"Sparse matrix format '{X.format}' not supported on GPU "
-                "(only CSR and CSC formats are supported)"
+                f"sparse matrix format '{X.format}' is not supported"
             )
     elif cupy_sparse.issparse(X):
-        # Check CuPy sparse matrices (not caught by scipy.sparse.issparse)
+        if np.issubdtype(X.dtype, np.integer):
+            raise UnsupportedOnGPU(
+                "sparse matrix with integer dtype is not supported"
+            )
         # cuML's StandardScaler algorithm only supports CSR/CSC formats.
         if X.format not in ("csr", "csc"):
             raise UnsupportedOnGPU(
-                f"CuPy sparse matrix format '{X.format}' not supported "
-                "(only CSR and CSC formats are supported)"
+                f"sparse matrix format '{X.format}' is not supported"
             )
 
 
