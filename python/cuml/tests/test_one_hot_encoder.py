@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import math
 
@@ -26,7 +26,7 @@ def _from_df_to_cupy(df):
                 df[col] = [ord(c) for c in df[col]]
             else:
                 df[col] = [
-                    ord(c) if c is not None else c for c in df[col].values_host
+                    ord(c) if c is not None else c for c in df[col].to_numpy()
                 ]
     return cp.array(from_df_to_numpy(df))
 
