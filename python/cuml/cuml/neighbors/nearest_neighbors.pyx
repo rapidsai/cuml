@@ -470,9 +470,18 @@ class NearestNeighbors(Base,
           partial information allowing faster distances calculations
 
     metric : string (default='euclidean').
-        Distance metric to use. Supported distances are ['l1, 'cityblock',
-        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+        Distance metric to use. Supported metrics include: 'l1', 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'lp', 'chebyshev', 'linf', 'jensenshannon', 'cosine',
+        'braycurtis', 'jaccard', 'hellinger', 'correlation', 'inner_product'.
+        The ``'ivfflat'`` and ``'ivfpq'``
+        algorithms only support: 'euclidean', 'l2', 'sqeuclidean', 'cosine',
+        'correlation', 'inner_product', whereas the ``'rbc'`` algorithm only
+        supports 'euclidean', 'l2', and 'haversine' (≤3 dimensions only).
+        For sparse inputs, only the ``'brute'`` algorithm is supported, with
+        metrics: 'l1', 'cityblock', 'taxicab', 'manhattan', 'euclidean', 'l2',
+        'canberra', 'minkowski', 'lp', 'chebyshev', 'linf', 'cosine',
+        'inner_product', 'jaccard', 'hellinger'.
     p : float (default=2)
         Parameter for the Minkowski metric. When p = 1, this is equivalent to
         manhattan distance (l1), and euclidean distance (l2) for p = 2. For
