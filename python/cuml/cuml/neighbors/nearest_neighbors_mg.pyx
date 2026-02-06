@@ -1,12 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
 
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg import _build_part_inputs
-from cuml.internals import get_handle, logger, reflect
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
 
@@ -50,9 +50,10 @@ class NearestNeighborsMG(NearestNeighbors):
     The end-user API for multi-node multi-GPU NearestNeighbors is
     `cuml.dask.neighbors.NearestNeighbors`
     """
-    def __init__(self, *, batch_size=2000000, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, handle, batch_size=2000000, **kwargs):
+        self.handle = handle
         self.batch_size = batch_size
+        super().__init__(**kwargs)
 
     @reflect(array=None)
     def kneighbors(
@@ -106,8 +107,7 @@ class NearestNeighborsMG(NearestNeighbors):
         # Build indices and distances outputs for native code interfacing
         result = type(self).alloc_local_output(local_query_rows, self.n_neighbors)
 
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
 
         # Launch distributed operations
@@ -127,7 +127,7 @@ class NearestNeighborsMG(NearestNeighbors):
             <size_t>self.batch_size,
             <bool>is_verbose
         )
-        handle.sync()
+        self.handle.sync()
 
         # Release memory
         type(self).free_mem(input, result)

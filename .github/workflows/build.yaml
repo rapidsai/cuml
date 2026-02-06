@@ -69,6 +69,8 @@ jobs:
       script: ci/build_python.sh
       sha: ${{ inputs.sha }}
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a conda package for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   upload-conda:
     needs: [cpp-build, python-build]
     secrets: inherit
@@ -118,6 +120,8 @@ jobs:
       package-name: cuml
       package-type: python
       sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
+      # Build a wheel for each CUDA x ARCH x minimum supported Python version
+      matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-cuml:
     needs: wheel-build-cuml
     secrets: inherit
@@ -129,3 +133,4 @@ jobs:
       date: ${{ inputs.date }}
       package-name: cuml
       package-type: python
+      publish-wheel-search-key: cuml_wheel_python_abi3

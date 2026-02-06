@@ -41,7 +41,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nog
 
 def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
-        convert_dtype=True, handle=None):
+        convert_dtype=True):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients.
 
@@ -65,14 +65,8 @@ def _silhouette_coeff(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if chunksize is None:
@@ -140,12 +134,12 @@ def _silhouette_coeff(
 
 
 def cython_silhouette_score(
-        X,
-        labels,
-        metric='euclidean',
-        chunksize=None,
-        convert_dtype=True,
-        handle=None):
+    X,
+    labels,
+    metric='euclidean',
+    chunksize=None,
+    convert_dtype=True,
+):
     """Calculate the mean silhouette coefficient for the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
@@ -170,27 +164,21 @@ def cython_silhouette_score(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
     """
 
     return _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric,
-        convert_dtype=convert_dtype, handle=handle
+        convert_dtype=convert_dtype
     )
 
 
 def cython_silhouette_samples(
-        X,
-        labels,
-        metric='euclidean',
-        chunksize=None,
-        convert_dtype=True,
-        handle=None):
+    X,
+    labels,
+    metric='euclidean',
+    chunksize=None,
+    convert_dtype=True,
+):
     """Calculate the silhouette coefficient for each sample in the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
@@ -215,19 +203,13 @@ def cython_silhouette_samples(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
     """
 
     sil_scores = cp.empty((X.shape[0],), dtype=X.dtype)
 
     _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric, sil_scores=sil_scores,
-        convert_dtype=convert_dtype, handle=handle
+        convert_dtype=convert_dtype
     )
 
     return sil_scores
