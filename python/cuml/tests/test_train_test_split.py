@@ -65,7 +65,7 @@ def test_split_dataframe(train_size, shuffle):
     y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
 
     assert all(X_reconstructed.reset_index(drop=True) == X)
-    out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
+    out = y_reconstructed.reset_index(drop=True).to_numpy() == y.to_numpy()
     assert all(out)
 
 
