@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,3 +12,7 @@ class KMeansMG(KMeans):
     """
 
     _multi_gpu = True
+
+    def __init__(self, *, handle, **kwargs):
+        self.handle = handle
+        super().__init__(**kwargs)

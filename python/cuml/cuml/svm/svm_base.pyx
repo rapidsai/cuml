@@ -291,11 +291,10 @@ class SVMBase(Base,
         cache_size=1024.0,
         max_iter=-1,
         nochange_steps=1000,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.C = C
         self.kernel = kernel
         self.degree = degree
@@ -400,7 +399,7 @@ class SVMBase(Base,
         param.max_outer_iter = -1
         param.max_iter = self.max_iter
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int n_rows, n_cols, X_nnz
         n_rows, n_cols = X.shape
@@ -581,7 +580,7 @@ class SVMBase(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef double cache_size = self.cache_size
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call predict

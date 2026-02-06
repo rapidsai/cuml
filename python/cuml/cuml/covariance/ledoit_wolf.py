@@ -114,12 +114,6 @@ class LedoitWolf(Base, InteropMixin):
         Size of blocks into which the covariance matrix will be split
         during its Ledoit-Wolf estimation. This is purely a memory
         optimization and does not affect results.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -225,15 +219,10 @@ class LedoitWolf(Base, InteropMixin):
         store_precision=True,
         assume_centered=False,
         block_size=1000,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type,
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.store_precision = store_precision
         self.assume_centered = assume_centered
         self.block_size = block_size

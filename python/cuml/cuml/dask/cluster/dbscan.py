@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -68,11 +68,11 @@ class DBSCAN(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     @mnmg_import
     def _func_fit(out_dtype):
         def _func(sessionId, data, **kwargs):
-            from cuml.cluster.dbscan_mg import DBSCANMG as cumlDBSCAN
+            from cuml.cluster.dbscan_mg import DBSCANMG
 
             handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
-            return cumlDBSCAN(handle=handle, **kwargs).fit(
+            return DBSCANMG(handle=handle, **kwargs).fit(
                 data, out_dtype=out_dtype
             )
 
