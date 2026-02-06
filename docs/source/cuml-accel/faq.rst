@@ -68,6 +68,7 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.neighbors.KNeighborsClassifier``
     * ``sklearn.neighbors.KNeighborsRegressor``
     * ``sklearn.neighbors.KernelDensity``
+    * ``sklearn.preprocessing.StandardScaler``
     * ``sklearn.preprocessing.TargetEncoder``
     * ``sklearn.svm.SVC``
     * ``sklearn.svm.SVR``
