@@ -473,7 +473,7 @@ def from_df_to_numpy(df):
     if isinstance(df, pd.DataFrame):
         return list(zip(*[df[feature] for feature in df.columns]))
     else:
-        return list(zip(*[df[feature].values_host for feature in df.columns]))
+        return list(zip(*[df[feature].to_numpy() for feature in df.columns]))
 
 
 def compare_svm(

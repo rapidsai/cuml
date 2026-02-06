@@ -536,7 +536,7 @@ class OneHotEncoder(BaseEncoder):
         feature_names = []
         for i in range(len(cats)):
             names = [
-                input_features[i] + "_" + str(t) for t in cats[i].values_host
+                input_features[i] + "_" + str(t) for t in cats[i].to_numpy()
             ]
             if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
                 names.pop(self.drop_idx_[i])
