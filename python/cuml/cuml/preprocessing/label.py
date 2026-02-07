@@ -79,13 +79,6 @@ class LabelBinarizer(Base):
         label to be used as the positive binary label
     sparse_output : bool (default=False)
         whether to return sparse arrays for transformed output
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -140,13 +133,10 @@ class LabelBinarizer(Base):
         neg_label=0,
         pos_label=1,
         sparse_output=False,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         if neg_label >= pos_label:
             raise ValueError(

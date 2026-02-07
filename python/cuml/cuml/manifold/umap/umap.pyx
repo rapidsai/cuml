@@ -560,25 +560,8 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         )
 
     build_kwds = self.build_kwds or {}
-    if "nnd_n_clusters" in build_kwds:
-        warnings.warn(
-            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
-            "`knn_n_clusters` in 26.04."
-        )
-        n_clusters = build_kwds.get("nnd_n_clusters", 1)
-    else:
-        n_clusters = build_kwds.get("knn_n_clusters", 1)
-    if "nnd_overlap_factor" in build_kwds:
-        warnings.warn(
-            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
-            "`knn_overlap_factor` in 26.04."
-        )
-        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
-    else:
-        overlap_factor = build_kwds.get("knn_overlap_factor", 2)
-
-    params.build_params.n_clusters = n_clusters
-    params.build_params.overlap_factor = overlap_factor
+    n_clusters = build_kwds.get("knn_n_clusters", 1)
+    overlap_factor = build_kwds.get("knn_overlap_factor", 2)
 
     if n_clusters < 1:
         raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
@@ -588,18 +571,23 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"knn_overlap_factor ({overlap_factor})`"
         )
 
-    # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
-    all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
-                                       'inner_product']
-    if (build_algo == "brute_force_knn" and
-            n_clusters > 1 and
-            self.metric.lower() not in all_neighbors_supported_metrics):
+    all_neighbors_supported_metrics = [
+        'l2', 'euclidean', 'sqeuclidean', 'cosine', 'inner_product'
+    ]
+    if (
+        build_algo == "brute_force_knn" and
+        n_clusters > 1 and
+        self.metric.lower() not in all_neighbors_supported_metrics
+    ):
         warnings.warn(
             f"metric='{self.metric}' is not supported for batched knn build with "
             f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
             f"The knn_n_clusters parameter will be ignored and regular brute force knn "
             f"(without batching) will be used instead."
         )
+
+    params.build_params.n_clusters = n_clusters
+    params.build_params.overlap_factor = overlap_factor
 
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
@@ -772,14 +760,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically. To configure multi-device execution,
-            please use the `device_ids` parameter instead.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -834,10 +814,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
           memory usage. This is independent from knn_overlap_factor as long as
           'knn_overlap_factor' < 'knn_n_clusters'.
-
-        .. deprecated:: 26.02
-            The `nnd_n_clusters` and `nnd_overlap_factor` was deprecated in 26.02 and
-            will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
 
     device_ids : list[int], "all", or None, default=None
         The device IDs to use during fitting (only used when
@@ -1102,11 +1078,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         build_algo="auto",
         build_kwds=None,
         device_ids=None,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
@@ -1244,7 +1219,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             knn_indices = knn_dists = None
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
@@ -1483,7 +1458,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         with nogil:
@@ -1622,7 +1597,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         lib.inverse_transform(

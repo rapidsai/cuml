@@ -318,13 +318,6 @@ class GaussianNB(_BaseNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -351,12 +344,9 @@ class GaussianNB(_BaseNB):
         priors=None,
         var_smoothing=1e-9,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.priors = priors
         self.var_smoothing = var_smoothing
 
@@ -717,12 +707,9 @@ class _BaseDiscreteNB(_BaseNB):
         fit_prior=True,
         class_prior=None,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(
-            verbose=verbose, handle=handle, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.class_prior = class_prior
         self.alpha = alpha
         self.fit_prior = fit_prior
@@ -1053,13 +1040,6 @@ class MultinomialNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1151,13 +1131,6 @@ class BernoulliNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1211,14 +1184,12 @@ class BernoulliNB(_BaseDiscreteNB):
         fit_prior=True,
         class_prior=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )
@@ -1318,13 +1289,6 @@ class ComplementNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1374,14 +1338,12 @@ class ComplementNB(_BaseDiscreteNB):
         class_prior=None,
         norm=False,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )
@@ -1473,13 +1435,6 @@ class CategoricalNB(_BaseDiscreteNB):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -1527,14 +1482,12 @@ class CategoricalNB(_BaseDiscreteNB):
         fit_prior=True,
         class_prior=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
         super().__init__(
             alpha=alpha,
             fit_prior=fit_prior,
             class_prior=class_prior,
-            handle=handle,
             output_type=output_type,
             verbose=verbose,
         )

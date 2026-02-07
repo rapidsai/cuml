@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
@@ -188,9 +188,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "random_state",
             "n_streams",
             "oob_score",
-            "handle",
-            "verbose",
-            "output_type",
         ]
 
     @classmethod
@@ -324,11 +321,10 @@ class BaseRandomForestModel(Base, InteropMixin):
         criterion=None,
         n_streams=4,
         oob_score=False,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.split_criterion = split_criterion
         self.n_estimators = n_estimators
@@ -397,19 +393,15 @@ class BaseRandomForestModel(Base, InteropMixin):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        with warnings.catch_warnings():
-            # Ignore potential handle deprecation warning
-            warnings.simplefilter("ignore", category=FutureWarning)
-            return ForestInference(
-                handle=self.handle,
-                verbose=self.verbose,
-                output_type=self.output_type,
-                treelite_model=self._treelite_model_bytes,
-                is_classifier=(self._estimator_type == "classifier"),
-                layout=layout,
-                default_chunk_size=default_chunk_size,
-                align_bytes=align_bytes,
-            )
+        return ForestInference(
+            verbose=self.verbose,
+            output_type=self.output_type,
+            treelite_model=self._treelite_model_bytes,
+            is_classifier=(self._estimator_type == "classifier"),
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
 
     def _fit_forest(self, X, y):
         cdef bool is_classifier = self._estimator_type == "classifier"
@@ -477,7 +469,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
 
         cdef TreeliteModelHandle tl_handle
-        handle = get_handle(model=self, n_streams=self.n_streams)
+        handle = get_handle(n_streams=self.n_streams)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block

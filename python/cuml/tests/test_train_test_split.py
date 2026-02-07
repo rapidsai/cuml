@@ -65,7 +65,7 @@ def test_split_dataframe(train_size, shuffle):
     y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
 
     assert all(X_reconstructed.reset_index(drop=True) == X)
-    out = y_reconstructed.reset_index(drop=True).values_host == y.values_host
+    out = y_reconstructed.reset_index(drop=True).to_numpy() == y.to_numpy()
     assert all(out)
 
 
@@ -85,95 +85,6 @@ def test_split_dataframe_array(y_type):
         assert isinstance(X_test, cudf.DataFrame)
         assert isinstance(y_train, cudf.Series)
         assert isinstance(y_test, cudf.Series)
-
-
-def test_split_column():
-    """Test deprecated y=str column extraction (suppress FutureWarning)."""
-    y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
-    data = cudf.DataFrame(
-        {
-            "x": range(100),
-            "y": ([0] * (100 // 2)) + ([1] * (100 // 2)),
-        }
-    )
-    train_size = 0.8
-
-    # No warning when passing a series for y
-    X_train, X_test, y_train, y_test = train_test_split(
-        data, y, train_size=train_size
-    )
-    assert (
-        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
-    )
-    assert (
-        len(X_test)
-        == len(y_test)
-        == pytest.approx((1 - train_size) * len(data))
-    )
-    # Column "y" is not removed because we passed a series for y
-    assert "y" in X_train.columns
-    assert isinstance(y_train, cudf.Series)
-
-    warning_message = "The explicit 'y' parameter is deprecated"
-
-    # Pass a series for y using keyword argument
-    with pytest.warns(FutureWarning, match=warning_message):
-        X_train, X_test, y_train, y_test = train_test_split(
-            data, y=y, train_size=train_size
-        )
-    assert (
-        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
-    )
-    assert (
-        len(X_test)
-        == len(y_test)
-        == pytest.approx((1 - train_size) * len(data))
-    )
-    # Column "y" is not removed because we passed a series for y
-    assert "y" in X_train.columns
-    assert isinstance(y_train, cudf.Series)
-
-    # Pass a column name for y by position
-    with pytest.warns(FutureWarning, match=warning_message):
-        X_train, X_test, y_train, y_test = train_test_split(
-            data, "y", train_size=train_size
-        )
-    assert (
-        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
-    )
-    assert (
-        len(X_test)
-        == len(y_test)
-        == pytest.approx((1 - train_size) * len(data))
-    )
-    # Column "y" is removed because we passed a column name for y
-    assert "y" not in X_train.columns
-    assert isinstance(y_train, cudf.Series)
-
-    # Pass a column name for y using keyword argument
-    with pytest.warns(FutureWarning, match=warning_message):
-        X_train, X_test, y_train, y_test = train_test_split(
-            data, y="y", train_size=train_size
-        )
-    assert (
-        len(X_train) == len(y_train) == pytest.approx(train_size * len(data))
-    )
-    assert (
-        len(X_test)
-        == len(y_test)
-        == pytest.approx((1 - train_size) * len(data))
-    )
-    # Column "y" is removed because we passed a column name for y
-    assert "y" not in X_train.columns
-    assert isinstance(y_train, cudf.Series)
-
-    X_reconstructed = cudf.concat([X_train, X_test]).sort_values(by=["x"])
-    y_reconstructed = cudf.concat([y_train, y_test]).sort_values()
-
-    assert all(
-        data
-        == X_reconstructed.assign(y=y_reconstructed).reset_index(drop=True)
-    )
 
 
 def test_split_size_mismatch():
@@ -657,46 +568,6 @@ def test_integer_sizes():
 
     assert X_train.shape[0] == 70
     assert X_test.shape[0] == 30
-
-
-def test_y_string_column_deprecation_warning():
-    """Test that using y as column name string emits deprecation warning."""
-    import warnings
-
-    df = cudf.DataFrame({"x": range(100), "y": [0, 1] * 50})
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        X_train, X_test, y_train, y_test = train_test_split(
-            df, "y", train_size=0.8
-        )
-        # Check that a FutureWarning was raised
-        assert len(w) >= 1
-        assert any(
-            issubclass(warning.category, FutureWarning) for warning in w
-        )
-        assert any(
-            "deprecated" in str(warning.message).lower() for warning in w
-        )
-
-
-def test_y_string_column_still_works():
-    """Test that y=str still works despite deprecation."""
-    import warnings
-
-    df = cudf.DataFrame({"x": range(100), "target": [0, 1] * 50})
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        X_train, X_test, y_train, y_test = train_test_split(
-            df, "target", train_size=0.8
-        )
-
-    # Verify it still works correctly
-    assert len(X_train) == 80
-    assert len(y_train) == 80
-    assert "target" not in X_train.columns
-    assert "x" in X_train.columns
 
 
 def test_single_array_split():

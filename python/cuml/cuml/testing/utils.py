@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
 from copy import deepcopy
@@ -267,7 +267,7 @@ class ClassEnumerator:
         Those classes will be filtered out from the retrieved models.
     custom_constructors: dictionary of {class_name: lambda}
         Custom constructors to use instead of the default one.
-        ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+        ex: {'LinearSVC': lambda: cuml.LinearSVC(n_streams=2)}
     recursive: bool, default=False
         Instructs the class to recursively search submodules when True,
         otherwise only classes in the specified model will be enumerated
@@ -473,7 +473,7 @@ def from_df_to_numpy(df):
     if isinstance(df, pd.DataFrame):
         return list(zip(*[df[feature] for feature in df.columns]))
     else:
-        return list(zip(*[df[feature].values_host for feature in df.columns]))
+        return list(zip(*[df[feature].to_numpy() for feature in df.columns]))
 
 
 def compare_svm(

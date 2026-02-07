@@ -3,7 +3,6 @@
 #
 from __future__ import annotations
 
-import warnings
 from abc import ABC, abstractmethod
 
 import cudf
@@ -20,7 +19,6 @@ from cuml.internals.utils import check_random_seed
 
 def train_test_split(
     *arrays,
-    y="deprecated",
     test_size=None,
     train_size=None,
     random_state=None,
@@ -36,14 +34,6 @@ def train_test_split(
         Allowed inputs are cudf DataFrames/Series, cupy arrays, numba device
         arrays, numpy arrays, pandas DataFrames/Series, or any array-like
         objects with a shape attribute.
-
-    y : str, default="deprecated"
-        The name of the column that contains the target variable.
-
-        .. deprecated:: 26.02
-            The ``y`` parameter is deprecated and will be removed in 26.04.
-            Extract the column manually:
-            ``X, y = df.drop('col', axis=1), df['col']``
 
     test_size : float or int, default=None
         If float, should be between 0.0 and 1.0 and represent the proportion
@@ -87,64 +77,9 @@ def train_test_split(
         >>> X_train, X_test, y_train, y_test = train_test_split(
         ...     X, y, test_size=0.2, random_state=42
         ... )
-
-    Notes
-    -----
-    .. versionchanged:: 26.02
-        The names and the order of the optional keyword arguments was changed to
-        match the scikit-learn equivalent function. The ``y`` parameter was
-        deprecated (see above).
-
-    .. versionchanged:: 26.02
-        Output types now consistently match input types. Previously, pandas
-        inputs were converted to cudf outputs. Now pandas inputs return pandas
-        outputs, cudf inputs return cudf outputs.
     """
     if len(arrays) == 0:
         raise ValueError("At least one array required as input")
-
-    # Handle deprecated y parameter usage
-    # Case 1: y passed as keyword: train_test_split(df, y=...)
-    # Case 2: column name passed as second positional arg: train_test_split(df, "col")
-    y_is_column_name_positional = len(arrays) == 2 and isinstance(
-        arrays[1], str
-    )
-    # Use isinstance check to avoid ambiguous truth value with array-like y
-    y_was_passed = not (isinstance(y, str) and y == "deprecated")
-
-    if y_was_passed or y_is_column_name_positional:
-        warnings.warn(
-            "The explicit 'y' parameter is deprecated and will be "
-            "removed in 26.04. Extract the column manually: "
-            "X, y = df.drop('col', axis=1), df['col']",
-            FutureWarning,
-            stacklevel=2,
-        )
-
-        if y_is_column_name_positional:
-            # User passed: train_test_split(df, "colname")
-            X = arrays[0]
-            col_name = arrays[1]
-            X, y = X.drop(col_name, axis=1), X[col_name]
-            arrays = (X, y)
-        elif isinstance(y, str):
-            # User passed: train_test_split(df, y="colname")
-            X = arrays[0]
-            if not hasattr(X, "drop"):
-                raise TypeError(
-                    "X must be a DataFrame when y is a column name string"
-                )
-            X, y = X.drop(y, axis=1), X[y]
-            arrays = (X, y)
-        else:
-            # User passed: train_test_split(X, y=array)
-            if len(arrays) > 1:
-                raise ValueError(
-                    "Cannot use deprecated 'y' parameter with multiple "
-                    "positional arrays. Pass all arrays as positional "
-                    "arguments instead: train_test_split(X, y, ...)"
-                )
-            arrays = (arrays[0], y)
 
     # Validate arrays have consistent first dimension
     n_samples = arrays[0].shape[0]

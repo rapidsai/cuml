@@ -4,8 +4,6 @@
 
 set -euo pipefail
 
-RAPIDS_INIT_PIP_REMOVE_NVIDIA_INDEX="true"
-export RAPIDS_INIT_PIP_REMOVE_NVIDIA_INDEX
 source rapids-init-pip
 
 package_name="cuml"
@@ -36,8 +34,13 @@ EXCLUDE_ARGS=(
   --exclude "librmm.so"
 )
 
+# TODO: move this variable into `ci-wheel`
+# Format Python limited API version string
+RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+export RAPIDS_PY_API
+
 export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DSINGLEGPU=OFF;-DUSE_LIBCUML_WHEEL=ON"
-./ci/build_wheel.sh "${package_name}" "${package_dir}"
+./ci/build_wheel.sh "${package_name}" "${package_dir}" --stable
 
 # repair wheels and write to the location that artifact-uploading code expects to find them
 python -m auditwheel repair \
@@ -46,3 +49,6 @@ python -m auditwheel repair \
     ${package_dir}/dist/*
 
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
+
+RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python cuml --stable --cuda)"
+export RAPIDS_PACKAGE_NAME

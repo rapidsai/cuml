@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
@@ -118,14 +118,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         estimate provides a way to evaluate the model without requiring a
         separate validation set. The OOB score is computed using R² (coefficient
         of determination).
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically. To configure the number of streams
-            used please use the `n_streams` parameter instead.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -168,7 +160,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         *,
         split_criterion="mse",
         max_features=1.0,
-        handle=None,
         verbose=False,
         output_type=None,
         **kwargs,
@@ -176,7 +167,6 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         super().__init__(
             split_criterion=split_criterion,
             max_features=max_features,
-            handle=handle,
             verbose=verbose,
             output_type=output_type,
             **kwargs,
