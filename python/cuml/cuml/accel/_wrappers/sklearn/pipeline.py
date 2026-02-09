@@ -135,6 +135,24 @@ class Pipeline(_SklearnPipeline, InteropMixin):
                     Xt = transform.transform(Xt)
         return Xt
 
+    def _call_final_estimator(self, method_name, X, **params):
+        """Transform X through steps, call final estimator's method, coerce output."""
+        output_type = GlobalSettings().output_type or "numpy"
+        check_is_fitted(self)
+        if not _routing_enabled():
+            Xt = self._transform_steps(X)
+            with using_output_type("cupy"):
+                result = getattr(self.steps[-1][1], method_name)(Xt, **params)
+        else:
+            routed_params = process_routing(self, method_name, **params)
+            Xt = self._transform_steps(X, routed_params)
+            with using_output_type("cupy"):
+                result = getattr(self.steps[-1][1], method_name)(
+                    Xt,
+                    **getattr(routed_params[self.steps[-1][0]], method_name),
+                )
+        return coerce_arrays(result, output_type)
+
     def fit(self, X, y=None, **params):
         return super().fit(X, y, **params)
 
@@ -167,58 +185,30 @@ class Pipeline(_SklearnPipeline, InteropMixin):
         return coerce_arrays(result, output_type)
 
     def fit_predict(self, X, y=None, **params):
-        self.fit(X, y, **params)
-        return self.predict(X, **params)
+        """Fit transformers, then call fit_predict on the final estimator."""
+        output_type = GlobalSettings().output_type or "numpy"
+        routed_params = self._check_method_params(
+            method="fit_predict", props=params
+        )
+        Xt = self._fit(X, y, routed_params, raw_params=params)
+        params_last_step = routed_params[self.steps[-1][0]]
+        with _print_elapsed_time(
+            "Pipeline", self._log_message(len(self.steps) - 1)
+        ):
+            with using_output_type("cupy"):
+                y_pred = self.steps[-1][1].fit_predict(
+                    Xt, y, **params_last_step.get("fit_predict", {})
+                )
+        return coerce_arrays(y_pred, output_type)
 
     def predict(self, X, **params):
-        output_type = GlobalSettings().output_type or "numpy"
-        check_is_fitted(self)
-        if not _routing_enabled():
-            Xt = self._transform_steps(X)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict(Xt, **params)
-        else:
-            routed_params = process_routing(self, "predict", **params)
-            Xt = self._transform_steps(X, routed_params)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict(
-                    Xt, **routed_params[self.steps[-1][0]].predict
-                )
-        return coerce_arrays(result, output_type)
+        return self._call_final_estimator("predict", X, **params)
 
     def predict_proba(self, X, **params):
-        output_type = GlobalSettings().output_type or "numpy"
-        check_is_fitted(self)
-        if not _routing_enabled():
-            Xt = self._transform_steps(X)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict_proba(Xt, **params)
-        else:
-            routed_params = process_routing(self, "predict_proba", **params)
-            Xt = self._transform_steps(X, routed_params)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict_proba(
-                    Xt, **routed_params[self.steps[-1][0]].predict_proba
-                )
-        return coerce_arrays(result, output_type)
+        return self._call_final_estimator("predict_proba", X, **params)
 
     def predict_log_proba(self, X, **params):
-        output_type = GlobalSettings().output_type or "numpy"
-        check_is_fitted(self)
-        if not _routing_enabled():
-            Xt = self._transform_steps(X)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict_log_proba(Xt, **params)
-        else:
-            routed_params = process_routing(
-                self, "predict_log_proba", **params
-            )
-            Xt = self._transform_steps(X, routed_params)
-            with using_output_type("cupy"):
-                result = self.steps[-1][1].predict_log_proba(
-                    Xt, **routed_params[self.steps[-1][0]].predict_log_proba
-                )
-        return coerce_arrays(result, output_type)
+        return self._call_final_estimator("predict_log_proba", X, **params)
 
     def decision_function(self, X, **params):
         output_type = GlobalSettings().output_type or "numpy"
@@ -249,10 +239,12 @@ class Pipeline(_SklearnPipeline, InteropMixin):
         _raise_for_params(params, self, "transform")
         routed_params = process_routing(self, "transform", **params)
         Xt = self._transform_steps(X, routed_params)
-        with using_output_type("cupy"):
-            Xt = self.steps[-1][1].transform(
-                Xt, **routed_params[self.steps[-1][0]].transform
-            )
+        last_step = self.steps[-1][1]
+        if last_step is not None and last_step != "passthrough":
+            with using_output_type("cupy"):
+                Xt = last_step.transform(
+                    Xt, **routed_params[self.steps[-1][0]].transform
+                )
         return coerce_arrays(Xt, output_type)
 
     def inverse_transform(self, X, **params):
