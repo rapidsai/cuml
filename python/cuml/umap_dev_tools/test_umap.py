@@ -28,14 +28,14 @@ from cuml.manifold.umap import (
 )
 from cuml.testing.manifold_metrics import (
     _build_knn_with_cuvs,
-    _build_knn_with_umap,
     compare_spectral_embeddings,
     compute_fuzzy_js_divergence,
     compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
     compute_simplicial_set_embedding_metrics,
     procrustes_rmse,
 )
+
+from .utils import _build_knn_with_umap, compute_knn_metrics
 
 pytestmark = [pytest.mark.slow]
 

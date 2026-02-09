@@ -11,14 +11,13 @@ from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 from umap.umap_ import spectral_layout
+from utils import _build_knn_with_umap, compute_knn_metrics
 from web_results_generation import generate_web_report
 
 from cuml.manifold.umap import fuzzy_simplicial_set, simplicial_set_embedding
 from cuml.testing.manifold_metrics import (
     _build_knn_with_cuvs,
-    _build_knn_with_umap,
     compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
     compute_simplicial_set_embedding_metrics,
 )
 
