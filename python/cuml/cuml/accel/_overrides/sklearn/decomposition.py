@@ -9,7 +9,7 @@ from packaging.version import Version
 import cuml.decomposition
 from cuml.accel.estimator_proxy import ProxyBase
 
-__all__ = ("PCA", "TruncatedSVD")
+__all__ = ("IncrementalPCA", "PCA", "TruncatedSVD")
 
 # In sklearn 1.5 the sign flipping behavior changed. For sklearn < 1.5 we
 # enable the old behavior.
@@ -42,3 +42,13 @@ class TruncatedSVD(ProxyBase):
         def _gpu_fit_transform(self, X, y=None):
             self._gpu._u_based_sign_flip = True
             return self._gpu.fit_transform(X, y)
+
+
+class IncrementalPCA(ProxyBase):
+    _gpu_class = cuml.decomposition.IncrementalPCA
+
+    def _gpu_fit_transform(self, X, y=None, **fit_params):
+        return self._gpu.fit_transform(X, y)
+
+    def _gpu_partial_fit(self, X, y=None, check_input=True, **fit_params):
+        return self._gpu.partial_fit(X, y, check_input=check_input)
