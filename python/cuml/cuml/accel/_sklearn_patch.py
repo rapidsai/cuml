@@ -1,7 +1,8 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
 from collections import defaultdict
 from operator import itemgetter
 
@@ -39,6 +40,34 @@ def _patched_all_estimators(*args, **kwargs):
     return sorted(set(estimators), key=itemgetter(0))
 
 
+def _construct_instances_for_proxy(init_params, skipped):
+    """Return a _construct_instances implementation that looks up INIT_PARAMS by proxy or _cpu_class."""
+
+    def _construct_instances(Estimator):
+        if Estimator in skipped:
+            msg = f"Can't instantiate estimator {Estimator.__name__}"
+            from sklearn.exceptions import SkipTestWarning
+            from sklearn.utils._testing import SkipTest
+
+            warnings.warn(msg, SkipTestWarning)
+            raise SkipTest(msg)
+        key = (
+            Estimator
+            if Estimator in init_params
+            else getattr(Estimator, "_cpu_class", None)
+        )
+        if key is not None and key in init_params:
+            param_sets = init_params[key]
+            if not isinstance(param_sets, list):
+                param_sets = [param_sets]
+            for params in param_sets:
+                yield Estimator(**params)
+        else:
+            yield Estimator()
+
+    return _construct_instances
+
+
 def apply_sklearn_patches():
     """Apply all sklearn patches necessary for the accelerator testing."""
 
@@ -56,3 +85,17 @@ def apply_sklearn_patches():
     import sklearn.utils
 
     sklearn.utils.all_estimators = _patched_all_estimators
+
+    # Patch _construct_instances so INIT_PARAMS lookup works for proxy classes.
+    # INIT_PARAMS is keyed by the class at import time; all_estimators() yields
+    # proxy classes, so "Estimator in INIT_PARAMS" can be False. Look up by
+    # _cpu_class when the estimator is a proxy so we use the same param sets
+    # (e.g. Pipeline(steps=...) instead of Pipeline()).
+    try:
+        from sklearn.utils._test_common import instance_generator
+    except ImportError:
+        return
+    instance_generator._construct_instances = _construct_instances_for_proxy(
+        instance_generator.INIT_PARAMS,
+        instance_generator.SKIPPED_ESTIMATORS,
+    )
