@@ -246,8 +246,12 @@ def check_array(
         and not (cpu_sparse.issparse(array) or gpu_sparse.issparse(array))
         and not hasattr(array, "__cuda_array_interface__")
     ):
-        # Check if it's array-like (list, tuple, etc.) by checking for common sequence methods
-        if hasattr(array, "__len__") and hasattr(array, "__getitem__"):
+        # Check if it's array-like (just like scikit-learn's check_array)
+        if (
+            hasattr(array, "__len__")
+            or hasattr(array, "shape")
+            or hasattr(array, "__array__")
+        ):
             array = np.asarray(array)
 
     if dtype == "numeric":
