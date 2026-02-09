@@ -19,7 +19,7 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
 
     Raises UnsupportedOnGPU for unsupported cases to trigger CPU fallback.
     """
-    if "sample_weight" in kwargs:
+    if kwargs.get("sample_weight") is not None:
         raise UnsupportedOnGPU("sample_weight is not supported")
 
     # Reject complex, object, and float16 dtypes
@@ -58,9 +58,7 @@ class StandardScaler(ProxyBase):
     _gpu_class = cuml.preprocessing.StandardScaler
 
     def _gpu_fit(self, X, y=None, sample_weight=None):
-        kwargs = (
-            {} if sample_weight is None else {"sample_weight": sample_weight}
-        )
+        kwargs = {"sample_weight": sample_weight}
         _check_standardscaler_unsupported_inputs(X, **kwargs)
         return self._gpu.fit(X, y)
 
