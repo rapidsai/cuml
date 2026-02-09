@@ -171,8 +171,8 @@ class IncrementalPCA(PCA):
         array([0.02693948, 0.0326928 , 0.03818463, 0.03861492])
         >>>
         >>> # Noise Variance:
-    >>> ipca.noise_variance_.item() # doctest: +SKIP
-    0.0037122774558343763
+        >>> ipca.noise_variance_.item() # doctest: +SKIP
+        0.0037122774558343763
     """
 
     _cpu_class_path = "sklearn.decomposition.IncrementalPCA"
