@@ -7,17 +7,20 @@
 from __future__ import annotations
 
 import importlib
+from dataclasses import replace
 from typing import Any
 
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline as _SklearnPipeline
-from sklearn.pipeline import _fit_transform_one
+from sklearn.pipeline import _final_estimator_has, _fit_transform_one
+from sklearn.utils._tags import TransformerTags
 from sklearn.utils._user_interface import _print_elapsed_time
 from sklearn.utils.metadata_routing import (
     _raise_for_params,
     _routing_enabled,
     process_routing,
 )
+from sklearn.utils.metaestimators import available_if
 from sklearn.utils.validation import check_is_fitted, check_memory
 
 from cuml.accel import is_proxy
@@ -222,6 +225,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
     def fit(self, X, y=None, **params):
         return super().fit(X, y, **params)
 
+    @available_if(_SklearnPipeline._can_fit_transform)
     def fit_transform(self, X, y=None, **params):
         output_type = GlobalSettings().output_type or "numpy"
         routed_params = self._check_method_params(
@@ -250,6 +254,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
                     ).transform(Xt, **last_step_params["transform"])
         return coerce_arrays(result, output_type)
 
+    @available_if(_final_estimator_has("fit_predict"))
     def fit_predict(self, X, y=None, **params):
         """Fit transformers, then call fit_predict on the final estimator."""
         output_type = GlobalSettings().output_type or "numpy"
@@ -267,15 +272,19 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
                 )
         return coerce_arrays(y_pred, output_type)
 
+    @available_if(_final_estimator_has("predict"))
     def predict(self, X, **params):
         return self._call_final_estimator("predict", X, **params)
 
+    @available_if(_final_estimator_has("predict_proba"))
     def predict_proba(self, X, **params):
         return self._call_final_estimator("predict_proba", X, **params)
 
+    @available_if(_final_estimator_has("predict_log_proba"))
     def predict_log_proba(self, X, **params):
         return self._call_final_estimator("predict_log_proba", X, **params)
 
+    @available_if(_final_estimator_has("decision_function"))
     def decision_function(self, X, **params):
         output_type = GlobalSettings().output_type or "numpy"
         check_is_fitted(self)
@@ -291,6 +300,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
             )
         return coerce_arrays(result, output_type)
 
+    @available_if(_final_estimator_has("score_samples"))
     def score_samples(self, X):
         output_type = GlobalSettings().output_type or "numpy"
         check_is_fitted(self)
@@ -299,6 +309,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
             result = self.steps[-1][1].score_samples(Xt)
         return coerce_arrays(result, output_type)
 
+    @available_if(_SklearnPipeline._can_transform)
     def transform(self, X, **params):
         output_type = GlobalSettings().output_type or "numpy"
         check_is_fitted(self)
@@ -313,6 +324,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
                 )
         return coerce_arrays(Xt, output_type)
 
+    @available_if(_SklearnPipeline._can_inverse_transform)
     def inverse_transform(self, X, **params):
         output_type = GlobalSettings().output_type or "numpy"
         check_is_fitted(self)
@@ -326,6 +338,7 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
                 )
         return coerce_arrays(X, output_type)
 
+    @available_if(_final_estimator_has("score"))
     def score(self, X, y=None, sample_weight=None, **params):
         check_is_fitted(self)
         if not _routing_enabled():
@@ -357,3 +370,14 @@ class Pipeline(ProxyBase):
     # Access to steps/named_steps must sync fitted state from _gpu so step estimators
     # (and their fitted attributes) are available on _cpu.
     _other_attributes = frozenset({"steps", "named_steps"})
+
+    def __sklearn_tags__(self):
+        # sklearn's Pipeline.__sklearn_tags__() can leave transformer_tags=None
+        # when the last step is not a transformer or steps are not yet set.
+        # Common tests require transformer_tags to be set for any estimator
+        # with transform(). Override __sklearn_tags__ (not just _get_tags)
+        # because get_tags() calls __sklearn_tags__, not _get_tags.
+        tags = self._cpu.__sklearn_tags__()
+        if tags.transformer_tags is None:
+            return replace(tags, transformer_tags=TransformerTags())
+        return tags
