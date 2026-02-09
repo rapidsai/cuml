@@ -271,7 +271,12 @@ class ProxyBase(BaseEstimator):
 
         qualname = f"{self._cpu_class.__name__}.{method}"
 
-        is_fit = method in ("fit", "fit_transform", "fit_predict")
+        is_fit = method in (
+            "fit",
+            "fit_transform",
+            "fit_predict",
+            "partial_fit",
+        )
 
         reason = None
         if is_fit:
