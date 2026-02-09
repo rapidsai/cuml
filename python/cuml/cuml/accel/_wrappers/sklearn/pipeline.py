@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from sklearn.base import clone
@@ -20,18 +21,48 @@ from sklearn.utils.metadata_routing import (
 from sklearn.utils.validation import check_is_fitted, check_memory
 
 from cuml.accel import is_proxy
+from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.interop import InteropMixin
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import coerce_arrays, using_output_type
 
 __all__ = ("Pipeline",)
 
 
-class Pipeline(_SklearnPipeline, InteropMixin):
-    """Pipeline that keeps intermediate data on device during fit/predict/transform.
+def _step_estimator_to_cpu(est):
+    """Return the CPU (sklearn) estimator for a pipeline step (proxy or plain)."""
+    if is_proxy(est):
+        est._sync_attrs_to_cpu()
+        return est._cpu
+    # Non-proxy: already a CPU estimator, fitted in-place by the pipeline
+    return est
 
-    Subclasses sklearn.pipeline.Pipeline and InteropMixin. Intermediate steps
-    output cupy arrays only when the next step is a cuml.accel-wrapped
+
+def _cpu_estimator_to_accel(cpu_est):
+    """Return the accel (proxy) estimator for a CPU step when available."""
+    try:
+        module = importlib.import_module(cpu_est.__class__.__module__)
+    except ModuleNotFoundError:
+        return cpu_est
+    overrides = getattr(module, "_accel_overrides", None)
+    if overrides is None:
+        return cpu_est
+    accel_cls = overrides.get(cpu_est.__class__.__name__)
+    if accel_cls is None:
+        return cpu_est
+    if not hasattr(accel_cls, "_reconstruct_from_cpu"):
+        return cpu_est
+    try:
+        return accel_cls._reconstruct_from_cpu(cpu_est)
+    except (UnsupportedOnGPU, TypeError):
+        return cpu_est
+
+
+class _AccelPipeline(_SklearnPipeline, InteropMixin):
+    """Device-aware Pipeline implementation used as _gpu_class for the accel proxy.
+
+    Keeps intermediate data on device during fit/predict/transform. Intermediate
+    steps output cupy arrays only when the next step is a cuml.accel-wrapped
     estimator; otherwise output is numpy so non-accelerated steps receive
     host arrays. Final outputs are coerced to the user's expected type.
     """
@@ -46,10 +77,45 @@ class Pipeline(_SklearnPipeline, InteropMixin):
         return self.get_params(deep=False)
 
     def _attrs_from_cpu(self, model) -> dict[str, Any]:
-        return super()._attrs_from_cpu(model)
+        out = super()._attrs_from_cpu(model)
+        # Restore steps: convert each CPU step to accel version where possible
+        accel_steps = []
+        for name, cpu_est in model.steps:
+            if cpu_est is None or cpu_est == "passthrough":
+                accel_steps.append((name, cpu_est))
+                continue
+            accel_est = _cpu_estimator_to_accel(cpu_est)
+            accel_steps.append((name, accel_est))
+        out["steps"] = accel_steps
+        return out
 
     def _attrs_to_cpu(self, model) -> dict[str, Any]:
-        return super()._attrs_to_cpu(model)
+        # Only sync steps. sklearn.pipeline.Pipeline has n_features_in_ and
+        # feature_names_in_ as read-only properties (delegate to first step);
+        # do not try to set them or setattr will raise.
+        cpu_steps = []
+        for name, est in self.steps:
+            if est is None or est == "passthrough":
+                cpu_steps.append((name, est))
+                continue
+            cpu_est = _step_estimator_to_cpu(est)
+            cpu_steps.append((name, cpu_est))
+        return {"steps": cpu_steps}
+
+    @classmethod
+    def from_sklearn(cls, model):
+        """Build a device-aware pipeline from a CPU pipeline, converting steps to accel where possible."""
+        if not isinstance(model, cls._get_cpu_class()):
+            raise TypeError(
+                f"Expected instance of {cls._cpu_class_path!r}, got "
+                f"{type(model).__name__!r}"
+            )
+        params = cls._params_from_cpu(model)
+        out = cls(**params)
+        out._sync_attrs_from_cpu(model)
+        if hasattr(out, "output_type"):
+            out.output_type = "numpy"
+        return out
 
     @staticmethod
     def _is_accelerated(estimator) -> bool:
@@ -275,3 +341,19 @@ class Pipeline(_SklearnPipeline, InteropMixin):
         return self.steps[-1][1].score(
             Xt, y, **routed_params[self.steps[-1][0]].score
         )
+
+
+class Pipeline(ProxyBase):
+    """cuml.accel proxy for sklearn.pipeline.Pipeline.
+
+    Keeps intermediate data on device when possible. Subclasses ProxyBase like
+    other accel estimators; the device-aware implementation is _AccelPipeline.
+    """
+
+    _gpu_class = _AccelPipeline
+    # _AccelPipeline is a sklearn Pipeline subclass, not a cuML estimator;
+    # it has no _get_tags()["X_types_gpu"]. Override so ProxyBase does not expect it.
+    _gpu_supports_sparse = False
+    # Access to steps/named_steps must sync fitted state from _gpu so step estimators
+    # (and their fitted attributes) are available on _cpu.
+    _other_attributes = frozenset({"steps", "named_steps"})
