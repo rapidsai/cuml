@@ -17,7 +17,22 @@ from sklearn.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, TargetEncoder
+
+
+def test_pipeline():
+    X, y = make_regression(
+        n_samples=100, n_features=20, noise=0.1, random_state=42
+    )
+    pipe = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("reg", LinearRegression()),
+        ]
+    )
+    pipe.fit(X, y)
+    pipe.predict(X)
 
 
 def test_kmeans():
