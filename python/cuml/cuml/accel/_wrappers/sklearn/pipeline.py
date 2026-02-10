@@ -389,6 +389,10 @@ class Pipeline(ProxyBase):
     def fit_transform(self, X, y=None, **params):
         return self._call_method("fit_transform", X, y, **params)
 
+    @available_if(_cpu_has("fit_predict"))
+    def fit_predict(self, X, y=None, **params):
+        return self._call_method("fit_predict", X, y, **params)
+
     def __sklearn_tags__(self):
         # sklearn's Pipeline.__sklearn_tags__() can leave transformer_tags=None
         # when the last step is not a transformer or steps are not yet set.
