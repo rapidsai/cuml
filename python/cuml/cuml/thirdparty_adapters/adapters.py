@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as cpu_sparse
 
+from cuml.accel import enabled as cuml_accel_enabled
 from cuml.internals.input_utils import input_to_cupy_array
 
 numeric_types = [
@@ -227,6 +228,31 @@ def check_array(
     array_converted : object
         The converted and validated array.
     """
+    # Convert list-like inputs to numpy arrays early for compatibility with cuml.accel
+    # This ensures downstream functions can safely access .dtype and other array attributes
+    if (
+        cuml_accel_enabled()
+        and not isinstance(
+            array,
+            (
+                np.ndarray,
+                pd.DataFrame,
+                cudf.DataFrame,
+                pd.Series,
+                cudf.Series,
+                cp.ndarray,
+            ),
+        )
+        and not (cpu_sparse.issparse(array) or gpu_sparse.issparse(array))
+        and not hasattr(array, "__cuda_array_interface__")
+    ):
+        # Check if it's array-like (just like scikit-learn's check_array)
+        if (
+            hasattr(array, "__len__")
+            or hasattr(array, "shape")
+            or hasattr(array, "__array__")
+        ):
+            array = np.asarray(array)
 
     if dtype == "numeric":
         dtype = numeric_types
@@ -250,7 +276,18 @@ def check_array(
     hasshape = hasattr(array, "shape")
     if ensure_2d and hasshape:
         if len(array.shape) != 2:
-            raise ValueError("Not 2D")
+            if len(array.shape) == 1:
+                raise ValueError(
+                    f"Expected 2D array, got 1D array instead:\narray={array!r}.\n"
+                    "Reshape your data either using array.reshape(-1, 1) if "
+                    "your data has a single feature or array.reshape(1, -1) "
+                    "if it contains a single sample."
+                )
+            else:
+                raise ValueError(
+                    f"Expected 2D array, got {len(array.shape)}D array instead:\n"
+                    f"array shape: {array.shape}.\n"
+                )
 
     if not allow_nd and hasshape:
         if len(array.shape) > 2:
