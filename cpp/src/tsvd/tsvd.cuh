@@ -119,13 +119,15 @@ void calEig(const raft::handle_t& handle,
   } else {
     raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
   }
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, stream);
 
-  raft::matrix::col_reverse(handle,
+  raft::matrix::col_reverse(handle_stream_zero,
                             raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
                               components, prms.n_cols, prms.n_cols));
   raft::linalg::transpose(components, prms.n_cols, stream);
 
-  raft::matrix::row_reverse(handle,
+  raft::matrix::row_reverse(handle_stream_zero,
                             raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
                               explained_var, prms.n_cols, std::size_t(1)));
 }

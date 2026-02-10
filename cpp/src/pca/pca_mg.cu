@@ -60,7 +60,9 @@ void fit_impl(raft::handle_t& handle,
     handle, cov.ptr, components, explained_var, explained_var_ratio, noise_vars, prms, streams[0]);
 
   T scalar = (prms.n_rows - 1);
-  raft::matrix::weighted_sqrt(handle,
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+  raft::matrix::weighted_sqrt(handle_stream_zero,
                               raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
                                 explained_var, std::size_t(1), prms.n_components),
                               raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
@@ -180,8 +182,10 @@ void transform_impl(raft::handle_t& handle,
     T scalar = T(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
       components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
     raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
-      handle,
+      handle_stream_zero,
       raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
         components, prms.n_cols, prms.n_components),
       raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
@@ -214,8 +218,10 @@ void transform_impl(raft::handle_t& handle,
   }
 
   if (prms.whiten) {
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
     raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
-      handle,
+      handle_stream_zero,
       raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
         components, prms.n_cols, prms.n_components),
       raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
@@ -311,8 +317,10 @@ void inverse_transform_impl(raft::handle_t& handle,
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
       components, components, scalar, prms.n_rows * prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
     raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
-      handle,
+      handle_stream_zero,
       raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
         components, prms.n_rows, prms.n_components),
       raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
@@ -342,8 +350,10 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   if (prms.whiten) {
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
     raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
-      handle,
+      handle_stream_zero,
       raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
         components, prms.n_rows, prms.n_components),
       raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));

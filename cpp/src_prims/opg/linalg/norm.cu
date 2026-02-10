@@ -71,7 +71,9 @@ void colNorm2_impl(const raft::handle_t& handle,
   colNorm2NoSeq_impl(handle, out, in, inDesc, streams, n_streams);
 
   T scalar = T(1);
-  raft::matrix::weighted_sqrt(handle,
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+  raft::matrix::weighted_sqrt(handle_stream_zero,
                               raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
                                 out.ptr, std::size_t(1), inDesc.N),
                               raft::make_device_matrix_view<T, std::size_t, raft::row_major>(

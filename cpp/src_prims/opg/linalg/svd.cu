@@ -50,10 +50,13 @@ void svdEig_impl(const raft::handle_t& handle,
   // raft::matrix::colReverse(V, ADesc.N, ADesc.N, streams[0]);
   // raft::matrix::rowReverse(S, ADesc.N, (size_t)1, streams[0]);
   // raft::resource::set_cuda_stream(handle, streams[0]);
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
   raft::matrix::col_reverse(
-    handle, raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, ADesc.N, ADesc.N));
+    handle_stream_zero,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, ADesc.N, ADesc.N));
   raft::matrix::row_reverse(
-    handle,
+    handle_stream_zero,
     raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, ADesc.N, std::size_t(1)));
 
   T alpha = T(1);

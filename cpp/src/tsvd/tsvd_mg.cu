@@ -54,15 +54,17 @@ void fit_impl(raft::handle_t& handle,
 
   ML::calEig(handle, cov.ptr, components_all.data(), explained_var_all.data(), prms, streams[0]);
 
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
   raft::matrix::trunc_zero_origin(
-    handle,
+    handle_stream_zero,
     raft::make_device_matrix_view<const T, std::size_t, raft::col_major>(
       components_all.data(), prms.n_cols, prms.n_cols),
     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
       components, prms.n_components, prms.n_cols));
 
   T scalar = T(1);
-  raft::matrix::weighted_sqrt(handle,
+  raft::matrix::weighted_sqrt(handle_stream_zero,
                               raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
                                 explained_var_all.data(), std::size_t(1), prms.n_components),
                               raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
