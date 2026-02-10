@@ -364,6 +364,7 @@ class Pipeline(ProxyBase):
     """
 
     _gpu_class = _AccelPipeline
+
     # _AccelPipeline is a sklearn Pipeline subclass, not a cuML estimator;
     # it has no _get_tags()["X_types_gpu"]. Override so ProxyBase does not expect it.
     _gpu_supports_sparse = False
@@ -381,3 +382,11 @@ class Pipeline(ProxyBase):
         if tags.transformer_tags is None:
             return replace(tags, transformer_tags=TransformerTags())
         return tags
+
+    def __getitem__(self, ind):
+        """Return a sub-pipeline or a single estimator; delegate to CPU and wrap slices."""
+        self._sync_attrs_to_cpu()
+        result = self._cpu[ind]
+        if isinstance(result, _SklearnPipeline):
+            return type(self)._reconstruct_from_cpu(result)
+        return result
