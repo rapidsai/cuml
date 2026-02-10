@@ -18,6 +18,7 @@ Primary functions:
 
 CLI Commands:
 - format: Apply consistent formatting and sorting
+- remove: Remove specified tests from the xfail list
 - set: Modify metadata (reason, condition, marker, strict, run) for specified tests
 
 The tool ensures xfail lists remain maintainable and produce clean diffs
@@ -500,6 +501,69 @@ def _format_single_file(xfail_path, args):
         return 1
 
 
+def cmd_remove(args):
+    """Remove specified tests from the xfail list."""
+    xfail_path = Path(args.xfail_list)
+
+    if not xfail_path.exists():
+        print(
+            f"Error: Xfail list file not found: {xfail_path}", file=sys.stderr
+        )
+        return 1
+
+    try:
+        manager = XfailManager(xfail_path)
+
+        removed = []
+        not_found = []
+
+        for test_id in args.test_ids:
+            if manager.remove_test(test_id):
+                removed.append(test_id)
+            else:
+                not_found.append(test_id)
+
+        # Report results
+        if removed:
+            print(f"Removed {len(removed)} test(s):")
+            for test_id in removed:
+                print(f"  {test_id}")
+
+        if not_found:
+            print(f"Not found ({len(not_found)} test(s)):")
+            for test_id in not_found:
+                print(f"  {test_id}")
+
+        if not removed:
+            print("No tests were removed.")
+            return 0
+
+        # Clean up empty groups
+        empty_removed = manager.cleanup_empty_groups()
+        if empty_removed:
+            print(f"Cleaned up {empty_removed} empty group(s).")
+
+        # Validate and save
+        validation_errors = manager.validate_conditions()
+        if validation_errors:
+            print("Validation errors:", file=sys.stderr)
+            for error in validation_errors:
+                print(f"  {error}", file=sys.stderr)
+            return 1
+
+        if args.dry_run:
+            print(f"Would update {xfail_path} (dry-run)")
+        else:
+            manager.save(xfail_path)
+            print(f"Updated {xfail_path}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def cmd_set(args):
     """Set metadata for specified tests in the xfail list."""
     xfail_path = Path(args.xfail_list)
@@ -606,6 +670,29 @@ def main():
         help="Show what would be done without writing to files",
     )
     format_parser.set_defaults(func=cmd_format)
+
+    # Remove command
+    remove_parser = subparsers.add_parser(
+        "remove",
+        help="Remove tests from the xfail list",
+    )
+    remove_parser.add_argument(
+        "xfail_list",
+        help="Xfail list file to modify",
+    )
+    remove_parser.add_argument(
+        "test_ids",
+        nargs="+",
+        metavar="TEST_ID",
+        help="Test IDs to remove",
+    )
+    remove_parser.add_argument(
+        "-n",
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without writing to files",
+    )
+    remove_parser.set_defaults(func=cmd_remove)
 
     # Set command
     set_parser = subparsers.add_parser(
