@@ -1057,7 +1057,7 @@ class CumlArray:
 
         # Check for complex dtype, placed after DataFrame/Series conversion
         # to numpy/cupy
-        if np.issubdtype(X.dtype, np.complexfloating):
+        if hasattr(X, "dtype") and np.issubdtype(X.dtype, np.complexfloating):
             raise ValueError(f"Complex data not supported\n{X}")
 
         requested_order = (order, None)[fail_on_order]
