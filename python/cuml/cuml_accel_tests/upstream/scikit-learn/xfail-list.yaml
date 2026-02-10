@@ -1544,8 +1544,6 @@
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
   - "sklearn.tests.test_calibration::test_calibration_default_estimator"
   - "sklearn.tests.test_calibration::test_calibration_inconsistent_prefit_n_features_in"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
-  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_complex_data]"
@@ -1570,6 +1568,11 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVC()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[LinearSVR()]"
+- reason: LinearSVM
+  strict: false
+  tests:
+  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-isotonic]"
+  - "sklearn.tests.test_calibration::test_calibration_multiclass[1-False-sigmoid]"
 - reason: LinearSVM test expects exact results on small data, which isn't guaranteed
   condition: scikit-learn<1.8
   tests:
