@@ -357,10 +357,21 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
 
 
 def _cpu_has(method_name):
-    """Check if the CPU Pipeline instance supports a conditional method."""
+    """Check that the CPU Pipeline supports a conditional method.
+
+    Uses getattr so that when the method is not available, the CPU pipeline's
+    AttributeError (and its __cause__, e.g. from the final estimator) is
+    re-raised. The proxy's @available_if descriptor then chains from it,
+    giving uniform exception chaining for transform, fit_transform, fit_predict.
+    """
 
     def check(self):
-        return hasattr(self._cpu, method_name)
+        try:
+            getattr(self._cpu, method_name)
+            return True
+        except AttributeError as e:
+            cause = e.__cause__ if e.__cause__ is not None else e
+            raise cause
 
     return check
 
