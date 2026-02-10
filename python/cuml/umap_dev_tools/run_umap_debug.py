@@ -222,7 +222,7 @@ def compare_implementations(X, **umap_params):
     )
 
     avg_knn_recall, mae_knn_dist = compute_knn_metrics(
-        ref_knn_graph, knn_graph, umap_params["n_neighbors"]
+        ref_knn_graph, knn_graph
     )
     kl_sym, jacc, row_l1 = compute_fuzzy_simplicial_set_metrics(
         ref_fuzzy_graph, fuzzy_graph

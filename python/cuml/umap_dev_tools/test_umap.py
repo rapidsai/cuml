@@ -211,7 +211,7 @@ def test_knn(cu_knn_graph_fixture):
 
     # Compute KNN metrics via helper
     avg_recall, mae_dist = compute_knn_metrics(
-        (dists_umap, inds_umap), (dists_cuvs, inds_cuvs), n_neighbors
+        (dists_umap, inds_umap), (dists_cuvs, inds_cuvs)
     )
 
     # Tolerances: stricter for bruteforce, looser for NN-descent approx

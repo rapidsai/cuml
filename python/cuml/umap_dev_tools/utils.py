@@ -15,7 +15,6 @@ from umap.umap_ import nearest_neighbors as umap_nearest_neighbors
 def compute_knn_metrics(
     knn_graph_a,
     knn_graph_b,
-    n_neighbors: int,
 ) -> t.Tuple[float, float]:
     """
     Compute average neighbor recall and mean absolute distance error between two KNN results.
@@ -26,8 +25,6 @@ def compute_knn_metrics(
         Tuple of (distances, indices) for method A, each with shape (n_samples, n_neighbors).
     knn_graph_b : Tuple[np.ndarray, np.ndarray]
         Tuple of (distances, indices) for method B, each with shape (n_samples, n_neighbors).
-    n_neighbors : int
-        Number of neighbors per sample (k).
 
     Returns
     -------
