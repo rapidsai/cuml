@@ -362,7 +362,9 @@ def _cpu_has(method_name):
     Uses getattr so that when the method is not available, the CPU pipeline's
     AttributeError (and its __cause__, e.g. from the final estimator) is
     re-raised. The proxy's @available_if descriptor then chains from it,
-    giving uniform exception chaining for transform, fit_transform, fit_predict.
+    giving uniform exception chaining for all conditional methods (transform,
+    fit_transform, fit_predict, predict, predict_proba, predict_log_proba,
+    decision_function, score_samples, inverse_transform, score).
     """
 
     def check(self):
@@ -403,6 +405,36 @@ class Pipeline(ProxyBase):
     @available_if(_cpu_has("fit_predict"))
     def fit_predict(self, X, y=None, **params):
         return self._call_method("fit_predict", X, y, **params)
+
+    @available_if(_cpu_has("predict"))
+    def predict(self, X, **params):
+        return self._call_method("predict", X, **params)
+
+    @available_if(_cpu_has("predict_proba"))
+    def predict_proba(self, X, **params):
+        return self._call_method("predict_proba", X, **params)
+
+    @available_if(_cpu_has("predict_log_proba"))
+    def predict_log_proba(self, X, **params):
+        return self._call_method("predict_log_proba", X, **params)
+
+    @available_if(_cpu_has("decision_function"))
+    def decision_function(self, X, **params):
+        return self._call_method("decision_function", X, **params)
+
+    @available_if(_cpu_has("score_samples"))
+    def score_samples(self, X):
+        return self._call_method("score_samples", X)
+
+    @available_if(_cpu_has("inverse_transform"))
+    def inverse_transform(self, X, **params):
+        return self._call_method("inverse_transform", X, **params)
+
+    @available_if(_cpu_has("score"))
+    def score(self, X, y=None, sample_weight=None, **params):
+        return self._call_method(
+            "score", X, y, sample_weight=sample_weight, **params
+        )
 
     def __sklearn_tags__(self):
         # sklearn's Pipeline.__sklearn_tags__() can leave transformer_tags=None
