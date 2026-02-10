@@ -356,6 +356,15 @@ class _AccelPipeline(_SklearnPipeline, InteropMixin):
         )
 
 
+def _cpu_has(method_name):
+    """Check if the CPU Pipeline instance supports a conditional method."""
+
+    def check(self):
+        return hasattr(self._cpu, method_name)
+
+    return check
+
+
 class Pipeline(ProxyBase):
     """cuml.accel proxy for sklearn.pipeline.Pipeline.
 
@@ -372,6 +381,14 @@ class Pipeline(ProxyBase):
     # (and their fitted attributes) are available on _cpu.
     _other_attributes = frozenset({"steps", "named_steps"})
 
+    @available_if(_cpu_has("transform"))
+    def transform(self, X, **params):
+        return self._call_method("transform", X, **params)
+
+    @available_if(_cpu_has("fit_transform"))
+    def fit_transform(self, X, y=None, **params):
+        return self._call_method("fit_transform", X, y, **params)
+
     def __sklearn_tags__(self):
         # sklearn's Pipeline.__sklearn_tags__() can leave transformer_tags=None
         # when the last step is not a transformer or steps are not yet set.
@@ -379,7 +396,7 @@ class Pipeline(ProxyBase):
         # with transform(). Override __sklearn_tags__ (not just _get_tags)
         # because get_tags() calls __sklearn_tags__, not _get_tags.
         tags = self._cpu.__sklearn_tags__()
-        if tags.transformer_tags is None:
+        if tags.transformer_tags is None and hasattr(self._cpu, "transform"):
             return replace(tags, transformer_tags=TransformerTags())
         return tags
 
