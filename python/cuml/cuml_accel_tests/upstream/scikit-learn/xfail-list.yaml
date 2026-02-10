@@ -1129,6 +1129,64 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-canberra]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-haversine]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbors_metrics[42-float64-minkowski]"
+- reason: 'Pickle class identity: sklearn.pipeline.Pipeline in sys.modules is cuml.accel proxy; pickle verifies class identity and fails.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[GridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_grid={'logisticregression__C':[0.1,1.0]})-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[GridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_grid={'logisticregression__C':[0.1,1.0]})-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[GridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_grid={'ridge__alpha':[0.1,1.0]})-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[GridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_grid={'ridge__alpha':[0.1,1.0]})-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),min_resources='smallest',param_grid={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),min_resources='smallest',param_grid={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),min_resources='smallest',param_grid={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[HalvingGridSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),min_resources='smallest',param_grid={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[HalvingRandomSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('logisticregression',LogisticRegression())]),param_distributions={'logisticregression__C':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+  - "sklearn.tests.test_common::test_estimators[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_overwrite_params]"
+  - "sklearn.tests.test_common::test_estimators[RandomizedSearchCV(cv=2,error_score='raise',estimator=Pipeline(steps=[('pca',PCA()),('ridge',Ridge())]),param_distributions={'ridge__alpha':[0.1,1.0]},random_state=0)-check_estimators_pickle(readonly_memmap=True)]"
+- reason: 'Pipeline proxy: Ridge regressor should not expose decision_function; proxy makes it appear available.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_regressors_no_decision_function]"
+- reason: 'Pipeline proxy: estimator checks (dtypes, methods_sample_order_invariance, subset_invariance, dict_unchanged, fit_idempotent, fit2d_predict1d) still fail for proxy.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_methods_subset_invariance]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_dict_unchanged]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_dtypes]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_fit2d_predict1d]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_fit_idempotent]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_methods_sample_order_invariance]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_methods_subset_invariance]"
+- reason: 'Pipeline proxy: n_features_in_ is read-only property; check_estimators_pickle sets it on unpickled estimator.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_pickle]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_pickle]"
+- reason: 'Pipeline proxy: transform() does not validate input feature count (n_features_in_) consistency.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_n_features_in_after_fitting]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_n_features_in_after_fitting]"
+- reason: 'Pipeline proxy: unfitted check expects NotFittedError; available_if on CPU raises AttributeError for missing decision_function.'
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_unfitted]"
+- reason: cuML LogisticRegression does not support string dtype class labels (e.g. <U3).
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_classifiers_classes]"
+- reason: cuML TSNE numerical divergence in check_pipeline_consistency.
+  marker: cuml_accel_pipeline
+  tests:
+  - "sklearn.tests.test_common::test_estimators[TSNE(perplexity=2)-check_pipeline_consistency]"
 - reason: ValueError when input data is non-standard type
   marker: cuml_accel_rf_input_validation_non_standard_types
   tests:
