@@ -993,7 +993,10 @@ def test_umap_small_fit_large_transform():
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 @pytest.mark.parametrize("random_state", [None, 42])
-def test_umap_outliers(n_neighbors, n_components, random_state):
+@pytest.mark.parametrize("force_serial_epochs", [True, False])
+def test_umap_outliers(
+    n_neighbors, n_components, random_state, force_serial_epochs
+):
     if random_state is None:
         n_rows = 50_000
         build_algo = "nn_descent"
@@ -1014,6 +1017,7 @@ def test_umap_outliers(n_neighbors, n_components, random_state):
         n_neighbors=n_neighbors,
         n_components=n_components,
         random_state=random_state,
+        force_serial_epochs=force_serial_epochs,
     )
     gpu_umap_embeddings = gpu_umap.fit_transform(data)
 

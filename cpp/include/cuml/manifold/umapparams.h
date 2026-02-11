@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -197,6 +197,8 @@ class UMAPParams {
   float target_weight = 0.5;
 
   uint64_t random_state = 0;
+
+  bool force_serial_epochs = false;
 
   /**
    *  Whether should we use deterministic algorithm.  This should be set to true if

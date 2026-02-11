@@ -532,6 +532,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
+    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -742,6 +743,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may reduce performance but can
+        resolve rare edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -875,6 +882,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric",
             "hash_input",
             "random_state",
+            "force_serial_epochs"
             "callback",
             "metric",
             "metric_kwds",
@@ -930,6 +938,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
+            "force_serial_epochs": model.force_serial_epochs,
             "precomputed_knn": precomputed_knn,
         }
 
@@ -962,6 +971,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_weight": self.target_weight,
             "target_metric": self.target_metric,
             "random_state": self.random_state,
+            "force_serial_epochs": self.force_serial_epochs,
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1073,6 +1083,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
+        force_serial_epochs=False,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
@@ -1104,6 +1115,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
+        self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
@@ -1759,6 +1771,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
+    force_serial_epochs=False,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1806,6 +1819,12 @@ def simplicial_set_embedding(
             * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may reduce performance but can
+        resolve rare edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1854,6 +1873,7 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
+    params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)
