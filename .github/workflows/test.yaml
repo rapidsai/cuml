@@ -40,7 +40,6 @@ jobs:
       date: ${{ inputs.date }}
       script: ci/test_cpp.sh
       sha: ${{ inputs.sha }}
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-tests-singlegpu:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
@@ -50,7 +49,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_singlegpu.sh"
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-tests-dask:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
@@ -60,7 +58,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_dask.sh"
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-python-scikit-learn-accel-tests:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
@@ -70,7 +67,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_scikit_learn_tests.sh"
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       # Add an "intermediate" entry based on the "oldest" entry
       matrix_filter: '(
@@ -96,7 +92,6 @@ jobs:
       script: "ci/test_python_cuml_accel_upstream.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   conda-notebook-tests:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
@@ -108,7 +103,6 @@ jobs:
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
       script: "ci/test_notebooks.sh"
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
@@ -118,7 +112,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-cuml-nightly-dependencies-versions:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
@@ -146,7 +139,6 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_dask.sh
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
   wheel-tests-integrations:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
@@ -158,5 +150,4 @@ jobs:
       script: ci/test_wheel_integrations.sh
       # Test all CUDA major versions with latest dependencies and respective latest Python version
       matrix_filter: map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
-      sccache-dist-token-secret-name: GIST_REPO_READ_ORG_GITHUB_TOKEN
       continue-on-error: true
