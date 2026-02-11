@@ -13,6 +13,7 @@
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>

@@ -14,7 +14,6 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/power.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/matrix/threshold.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
