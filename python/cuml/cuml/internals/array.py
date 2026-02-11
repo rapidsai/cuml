@@ -1007,6 +1007,8 @@ class CumlArray:
             and not check_cols
             and not check_rows
         ):
+            if np.issubdtype(X.dtype, np.complexfloating):
+                raise ValueError(f"Complex data not supported\n{X}")
             if deepcopy:
                 return copy.deepcopy(X)
             else:

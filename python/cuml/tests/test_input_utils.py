@@ -475,3 +475,20 @@ def test_is_array_like_with_lists():
     # Test numpy arrays are always accepted
     assert is_array_like(np.array([1, 2, 3]), accept_lists=True)
     assert is_array_like(np.array([1, 2, 3]), accept_lists=False)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy", "cuml"])
+def test_complex_data_rejected_by_input_to_cuml_array(input_type):
+    """Complex dtype inputs should be rejected regardless of input type."""
+    X_np = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
+
+    if input_type == "numpy":
+        X = X_np
+    elif input_type == "cupy":
+        X = cp.asarray(X_np)
+    elif input_type == "cuml":
+        # CumlArray fast-path: ensure complex data is still rejected
+        X = CumlArray(cp.asarray(X_np))
+
+    with pytest.raises(ValueError, match="Complex data not supported"):
+        input_to_cuml_array(X)
