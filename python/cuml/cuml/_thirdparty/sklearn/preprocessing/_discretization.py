@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Henry Lin <hlin117@gmail.com>
 # SPDX-FileCopyrightText: Tom Dupré la Tour
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 # Original authors from Sckit-Learn:
