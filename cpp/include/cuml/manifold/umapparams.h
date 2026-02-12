@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -197,6 +197,17 @@ class UMAPParams {
   float target_weight = 0.5;
 
   uint64_t random_state = 0;
+
+  /**
+   * If true, optimization epochs will be executed with reduced GPU
+   * parallelism. This is only relevant when random_state is set.
+   * Enable this if you observe outliers in the resulting embeddings
+   * with random_state configured. This may slow the optimization
+   * step by more than 2x, but end-to-end runtime is typically similar
+   * since optimization step is not the bottleneck. Use this to resolve rare
+   * edge cases where the default heuristics do not trigger.
+   */
+  bool force_serial_epochs = false;
 
   /**
    *  Whether should we use deterministic algorithm.  This should be set to true if
