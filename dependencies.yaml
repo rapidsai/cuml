@@ -376,12 +376,12 @@ dependencies:
               cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==12.*
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]==12.*
           - matrix:
               cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]==13.*
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:
@@ -391,7 +391,7 @@ dependencies:
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]>=12,<14
   docs:
     common:
       - output_types: [conda, requirements]

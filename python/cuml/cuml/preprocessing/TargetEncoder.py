@@ -530,7 +530,7 @@ class TargetEncoder(Base, InteropMixin):
         res = []
         unq_vals = train[self.fold_col].unique()
         if not isinstance(unq_vals, (cp.ndarray, np.ndarray)):
-            unq_vals = unq_vals.values_host
+            unq_vals = unq_vals.to_numpy()
         for f in unq_vals:
             mask = train[self.fold_col].values == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
