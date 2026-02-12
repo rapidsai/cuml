@@ -67,11 +67,11 @@ void dist_membership_vector(const raft::handle_t& handle,
   // use the exemplar point indices to obtain the exemplar points as a dense array
   // exemplar_idx indexes into X, which has n_X_rows rows (training data)
   auto X_view =
-    raft::make_device_matrix_view<const value_t, size_t, raft::row_major>(X, n_X_rows, n);
-  auto exemplars_dense_view = raft::make_device_matrix_view<value_t, size_t, raft::row_major>(
+    raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(X, n_X_rows, n);
+  auto exemplars_dense_view = raft::make_device_matrix_view<value_t, value_idx, raft::row_major>(
     exemplars_dense.data(), n_exemplars, n);
-  auto exemplar_idx_view = raft::make_device_vector_view<const size_t, size_t>(
-    reinterpret_cast<const size_t*>(exemplar_idx), n_exemplars);
+  auto exemplar_idx_view =
+    raft::make_device_vector_view<const value_idx, value_idx>((exemplar_idx), n_exemplars);
   raft::matrix::copy_rows(handle, X_view, exemplars_dense_view, exemplar_idx_view);
 
   // compute the number of batches based on the batch size
