@@ -764,8 +764,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         If ``True``, optimization epochs will be executed with reduced GPU
         parallelism. This is only relevant when ``random_state`` is set.
         Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may reduce performance but can
-        resolve rare edge cases where the default heuristics do not trigger.
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -1840,8 +1842,10 @@ def simplicial_set_embedding(
         If ``True``, optimization epochs will be executed with reduced GPU
         parallelism. This is only relevant when ``random_state`` is set.
         Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may reduce performance but can
-        resolve rare edge cases where the default heuristics do not trigger.
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
