@@ -1,8 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
@@ -24,7 +25,7 @@ from cuml.neighbors import (  # noqa: F401
     NearestNeighbors,
 )
 
-# Currently only certain estimators raise a NotImplementedError
+# Estimators that raise TypeError when given sparse input (they don't support sparse)
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
     "DBSCAN": lambda: DBSCAN(eps=1.0),
@@ -44,7 +45,7 @@ def test_sparse_not_implemented_exception(estimator_name):
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError, match="sparse"):
         if isinstance(
             estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)
         ):
@@ -64,3 +65,18 @@ def test_sparse_not_implemented_exception(estimator_name):
             else:
                 # Just in case there's an unexpected type
                 estimator.fit(X_sparse)
+
+
+@pytest.mark.parametrize("array_type", ["numpy", "cupy"])
+def test_complex_data_rejected(array_type):
+    """Complex dtype inputs should raise ValueError with sklearn-compatible message."""
+    # XXX Really we should have a version of the "common tests" from scikit-learn
+    # XXX that use cupy arrays instead of numpy arrays.
+    if array_type == "numpy":
+        X = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
+    else:
+        X = cp.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
+
+    km = KMeans(n_clusters=2)
+    with pytest.raises(ValueError, match="Complex data not supported"):
+        km.fit(X)
