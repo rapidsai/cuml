@@ -766,7 +766,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         Enable this if you observe outliers in the resulting embeddings
         with ``random_state`` configured. This may slow the optimization
         step by more than 2x, but end-to-end runtime is typically similar
-        since optimization is not the bottleneck. Use this to resolve rare
+        since optimization step is not the bottleneck. Use this to resolve rare
         edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
@@ -901,7 +901,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric",
             "hash_input",
             "random_state",
-            "force_serial_epochs"
+            "force_serial_epochs",
             "callback",
             "metric",
             "metric_kwds",
@@ -957,7 +957,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
-            "force_serial_epochs": model.force_serial_epochs,
+            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -990,7 +990,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_weight": self.target_weight,
             "target_metric": self.target_metric,
             "random_state": self.random_state,
-            "force_serial_epochs": self.force_serial_epochs,
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1844,7 +1843,7 @@ def simplicial_set_embedding(
         Enable this if you observe outliers in the resulting embeddings
         with ``random_state`` configured. This may slow the optimization
         step by more than 2x, but end-to-end runtime is typically similar
-        since optimization is not the bottleneck. Use this to resolve rare
+        since optimization step is not the bottleneck. Use this to resolve rare
         edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',

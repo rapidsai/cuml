@@ -198,6 +198,15 @@ class UMAPParams {
 
   uint64_t random_state = 0;
 
+  /**
+   * If true, optimization epochs will be executed with reduced GPU
+   * parallelism. This is only relevant when random_state is set.
+   * Enable this if you observe outliers in the resulting embeddings
+   * with random_state configured. This may slow the optimization
+   * step by more than 2x, but end-to-end runtime is typically similar
+   * since optimization step is not the bottleneck. Use this to resolve rare
+   * edge cases where the default heuristics do not trigger.
+   */
   bool force_serial_epochs = false;
 
   /**
