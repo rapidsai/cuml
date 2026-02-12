@@ -46,6 +46,7 @@ namespace Predict {
 template <typename value_idx, typename value_t>
 void dist_membership_vector(const raft::handle_t& handle,
                             const value_t* X,
+                            size_t n_X_rows,
                             const value_t* query,
                             size_t n_queries,
                             size_t n,
@@ -64,8 +65,9 @@ void dist_membership_vector(const raft::handle_t& handle,
   rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
 
   // use the exemplar point indices to obtain the exemplar points as a dense array
+  // exemplar_idx indexes into X, which has n_X_rows rows (training data)
   auto X_view =
-    raft::make_device_matrix_view<const value_t, size_t, raft::row_major>(X, n_exemplars, n);
+    raft::make_device_matrix_view<const value_t, size_t, raft::row_major>(X, n_X_rows, n);
   auto exemplars_dense_view = raft::make_device_matrix_view<value_t, size_t, raft::row_major>(
     exemplars_dense.data(), n_exemplars, n);
   auto exemplar_idx_view = raft::make_device_vector_view<const size_t, size_t>(
@@ -419,6 +421,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
 
     dist_membership_vector(handle,
                            X,
+                           m,
                            X,
                            m,
                            n,
@@ -530,6 +533,7 @@ void membership_vector(const raft::handle_t& handle,
 
   dist_membership_vector(handle,
                          X,
+                         m,
                          points_to_predict,
                          n_prediction_points,
                          n,
