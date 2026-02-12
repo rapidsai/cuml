@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,20 +11,14 @@ from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
 from umap.umap_ import spectral_layout
-from umap_metrics import (
-    _build_knn_with_cuvs,
-    _build_knn_with_umap,
-    compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
-    compute_simplicial_set_embedding_metrics,
-)
+from utils import _build_knn_with_umap, compute_knn_metrics
 from web_results_generation import generate_web_report
 
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
-from cuml.manifold.simpl_set import (
-    simplicial_set_embedding as cu_simplicial_set_embedding,
+from cuml.manifold.umap import fuzzy_simplicial_set, simplicial_set_embedding
+from cuml.testing.manifold_metrics import (
+    _build_knn_with_cuvs,
+    compute_fuzzy_simplicial_set_metrics,
+    compute_simplicial_set_embedding_metrics,
 )
 
 
@@ -45,11 +39,11 @@ def run_umap_pipeline(X, implementation, **umap_params):
     """
 
     if implementation == "reference":
-        fuzzy_simplicial_set = ref_fuzzy_simplicial_set
-        simplicial_set_embedding = ref_simplicial_set_embedding
+        fss_func = ref_fuzzy_simplicial_set
+        sse_func = ref_simplicial_set_embedding
     elif implementation == "cuml":
-        fuzzy_simplicial_set = cu_fuzzy_simplicial_set
-        simplicial_set_embedding = cu_simplicial_set_embedding
+        fss_func = fuzzy_simplicial_set
+        sse_func = simplicial_set_embedding
     else:
         raise ValueError(f"Invalid implementation: {implementation}")
 
@@ -96,7 +90,7 @@ def run_umap_pipeline(X, implementation, **umap_params):
     # STEP 2: Fuzzy simplicial set construction using pre-computed KNN
     # ------------------------------------------------------------------
     print("  Computing fuzzy simplicial set ...")
-    fuzzy_results = fuzzy_simplicial_set(
+    fuzzy_results = fss_func(
         X,
         n_neighbors=n_neighbors,
         random_state=random_state,
@@ -133,7 +127,7 @@ def run_umap_pipeline(X, implementation, **umap_params):
         )
         """
         # run simplicial_set_embedding for 1 epoch to get spectral initialization
-        spectral_init = simplicial_set_embedding(
+        spectral_init = sse_func(
             X,
             graph=fuzzy_graph,
             n_components=n_components,
@@ -165,7 +159,7 @@ def run_umap_pipeline(X, implementation, **umap_params):
     else:
         additional_params = {}
 
-    embedding_results = simplicial_set_embedding(
+    embedding_results = sse_func(
         X,
         graph=fuzzy_graph,
         n_components=n_components,
@@ -228,7 +222,7 @@ def compare_implementations(X, **umap_params):
     )
 
     avg_knn_recall, mae_knn_dist = compute_knn_metrics(
-        ref_knn_graph, knn_graph, umap_params["n_neighbors"]
+        ref_knn_graph, knn_graph
     )
     kl_sym, jacc, row_l1 = compute_fuzzy_simplicial_set_metrics(
         ref_fuzzy_graph, fuzzy_graph
