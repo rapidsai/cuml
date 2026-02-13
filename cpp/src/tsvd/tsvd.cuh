@@ -343,9 +343,6 @@ void tsvdFit(const raft::handle_t& handle,
   calEig(
     handle, input_cross_mult.data(), components_all.data(), explained_var_all.data(), prms, stream);
 
-  auto orig_stream = handle.get_stream();
-  raft::resource::set_cuda_stream(handle, stream);
-
   raft::matrix::trunc_zero_origin(
     handle,
     raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
@@ -361,8 +358,6 @@ void tsvdFit(const raft::handle_t& handle,
     raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
       singular_vals, std::size_t(1), n_components),
     raft::make_host_scalar_view(&scalar));
-
-  raft::resource::set_cuda_stream(handle, orig_stream);
 
   signFlipComponents(handle,
                      input,
