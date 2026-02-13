@@ -72,7 +72,7 @@ def extract_param_overrides(params_to_sweep):
     """
     import itertools
 
-    if not params_to_sweep or len(params_to_sweep) == 0:
+    if not params_to_sweep:
         return [{}]
 
     # Expand each arg into a list of (key,value) tuples
@@ -80,10 +80,6 @@ def extract_param_overrides(params_to_sweep):
     for p in params_to_sweep:
         key, val_string = p.split("=")
         vals = val_string.split(",")
-
-        if not isinstance(vals, list):
-            vals = [vals]  # Handle single-element sweep cleanly
-
         # use json loads to convert to correct data type
         for idx, val in enumerate(vals):
             try:
@@ -416,6 +412,4 @@ def run_benchmark(args):
 
 
 if __name__ == "__main__":
-    parser = build_parser()
-    args = parser.parse_args()
-    run_benchmark(args)
+    run_benchmark(build_parser().parse_args())

@@ -18,8 +18,7 @@ except ImportError:
 
 def main(argv=None):
     """Parse arguments and run the benchmark. Returns exit code."""
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    args = build_parser().parse_args(argv)
     run_benchmark(args)
     return 0
 

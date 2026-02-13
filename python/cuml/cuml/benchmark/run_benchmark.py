@@ -22,5 +22,4 @@ if _benchmark_dir not in sys.path:
 
 from cli import main
 
-if __name__ == "__main__":
-    sys.exit(main())
+sys.exit(main())
