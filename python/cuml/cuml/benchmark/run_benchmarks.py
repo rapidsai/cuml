@@ -2,22 +2,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Command-line ML benchmark runner
+"""Command-line ML benchmark runner (core logic).
 
-This benchmark runner can operate in two modes:
-1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and
-   scikit-learn (CPU) implementations.
-2. CPU-only mode: When cuML is not installed, benchmarks only CPU
-   implementations (scikit-learn, umap-learn, etc.)
+This module holds the main benchmark logic. Entry points:
+  - Full mode:     python -m cuml.benchmark
+  - Standalone:    python run_benchmark.py  (from this directory)
+  - Direct script: python run_benchmarks.py  (from this directory)
 
-Usage:
-  # Run benchmarks (GPU if cuML installed, CPU otherwise)
-  python run_benchmarks.py --dataset classification LogisticRegression
-
-  # Skip GPU benchmarks (CPU only)
-  python run_benchmarks.py --skip-gpu --dataset classification LogisticRegression
+Modes:
+  1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and
+     scikit-learn (CPU) implementations.
+  2. CPU-only mode: When cuML is not installed, benchmarks only CPU
+     implementations (scikit-learn, umap-learn, etc.).
 """
 
+import argparse
 import json
 import os
 import sys
@@ -135,10 +134,8 @@ def setup_rmm_allocator(allocator_type):
     return True
 
 
-if __name__ == "__main__":
-    import argparse
-    import sys
-
+def build_parser():
+    """Build and return the argument parser for the benchmark CLI."""
     parser = argparse.ArgumentParser(
         prog="run_benchmarks",
         description=r"""
@@ -303,8 +300,11 @@ if __name__ == "__main__":
         default="cuda",
         help="RMM memory resource to use (default: cuda). Ignored if --skip-gpu.",
     )
-    args = parser.parse_args()
+    return parser
 
+
+def run_benchmark(args):
+    """Execute the benchmark run from parsed CLI arguments."""
     if args.skip_gpu and args.skip_cpu:
         raise ValueError(
             "Cannot use both --skip-gpu and --skip-cpu; no benchmarks would run. "
@@ -413,3 +413,9 @@ if __name__ == "__main__":
     if args.csv:
         results_df.to_csv(args.csv)
         print("Saved results to %s" % args.csv)
+
+
+if __name__ == "__main__":
+    parser = build_parser()
+    args = parser.parse_args()
+    run_benchmark(args)
