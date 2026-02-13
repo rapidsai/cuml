@@ -47,10 +47,10 @@ void ridgeSolve(const raft::handle_t& handle,
   T beta  = T(0);
   T thres = T(1e-10);
 
-  auto orig_stream = handle.get_stream();
-  raft::resource::set_cuda_stream(handle, streams[0]);
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
   raft::matrix::zero_small_values(
-    handle,
+    handle_stream_zero,
     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(S, std::size_t(1), UDesc.N),
     thres);
 
@@ -61,16 +61,15 @@ void ridgeSolve(const raft::handle_t& handle,
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
 
   raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
-    handle,
+    handle_stream_zero,
     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(S, std::size_t(1), UDesc.N),
     raft::make_device_vector_view<const T, std::size_t>(S_nnz, UDesc.N),
     true);
 
   raft::linalg::binary_mult<raft::Apply::ALONG_ROWS>(
-    handle,
+    handle_stream_zero,
     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, UDesc.N, UDesc.N),
     raft::make_device_vector_view<const T, std::size_t>(S, UDesc.N));
-  raft::resource::set_cuda_stream(handle, orig_stream);
 
   MLCommon::Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;
