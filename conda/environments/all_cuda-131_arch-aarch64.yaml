@@ -22,6 +22,7 @@ dependencies:
 - dask-cuda==26.4.*,>=0.0.0a0
 - dask-cudf==26.4.*,>=0.0.0a0
 - dask-ml>=2024
+- docstring_parser
 - doxygen=1.9.1
 - gcc_linux-aarch64=14.*
 - graphviz
@@ -46,8 +47,6 @@ dependencies:
 - numba-cuda>=0.22.1
 - numba>=0.60.0,<0.62.0
 - numpy>=1.23,<3.0
-- numpydoc
-- numpydoc<1.9
 - nvidia-ml-py>=12
 - packaging
 - pre-commit
