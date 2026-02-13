@@ -134,7 +134,10 @@ def _gen_data_classification(
         )
         return cudf.DataFrame(X), cudf.Series(y)
 
-    # sklearn needs explicit informative/redundant settings
+    # sklearn needs explicit informative/redundant settings.
+    # Note: GPU path uses cuml_datasets.make_classification (different defaults);
+    # CPU path uses these settings. Slight differences in data generation may
+    # affect cross-backend comparability of benchmark results.
     n_informative = max(2, n_features // 2)
     n_redundant = min(2, n_features - n_informative)
     X, y = sklearn_make_classification(

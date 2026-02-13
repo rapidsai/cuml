@@ -19,26 +19,34 @@ Usage:
 """
 
 import json
-
-# Import benchmark modules - supports both standalone and package execution
 import os
 import sys
+import warnings
 
 import numpy as np
 
-# Add the benchmark directory to path for standalone execution
-_benchmark_dir = os.path.dirname(os.path.abspath(__file__))
-if _benchmark_dir not in sys.path:
-    sys.path.insert(0, _benchmark_dir)
-
-import algorithms  # noqa: E402
-import datagen  # noqa: E402
-import runners  # noqa: E402
-from gpu_check import (  # noqa: E402
-    HAS_CUML,
-    get_status_string,
-    is_gpu_available,
-)
+# Import benchmark modules - supports both package and standalone execution
+# without polluting sys.path on normal package import
+try:
+    from cuml.benchmark import algorithms, datagen, runners
+    from cuml.benchmark.gpu_check import (
+        HAS_CUML,
+        get_status_string,
+        is_gpu_available,
+    )
+except ImportError:
+    # Standalone execution (benchmark/ directory or cuML not installed)
+    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
+    if _benchmark_dir not in sys.path:
+        sys.path.insert(0, _benchmark_dir)
+    import algorithms  # noqa: E402
+    import datagen  # noqa: E402
+    import runners  # noqa: E402
+    from gpu_check import (  # noqa: E402
+        HAS_CUML,
+        get_status_string,
+        is_gpu_available,
+    )
 
 # Conditional RMM import (RMM is a cuML dependency)
 rmm = None
@@ -297,6 +305,12 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    if args.skip_gpu and args.skip_cpu:
+        raise ValueError(
+            "Cannot use both --skip-gpu and --skip-cpu; no benchmarks would run. "
+            "Use --skip-gpu for CPU-only or --skip-cpu for GPU-only."
+        )
+
     # Print status information
     print(f"Benchmark mode: {get_status_string()}")
 
@@ -332,10 +346,10 @@ if __name__ == "__main__":
     if not run_gpu:
         cpu_valid_types = ["numpy", "pandas"]
         if args.input_type not in cpu_valid_types:
-            print(
-                f"Warning: --input-type={args.input_type} not available without GPU."
+            warnings.warn(
+                f"--input-type={args.input_type} not available without GPU. "
+                f"Switching to 'numpy'. Available types: {cpu_valid_types}"
             )
-            print(f"Switching to 'numpy'. Available types: {cpu_valid_types}")
             args.input_type = "numpy"
 
     bench_rows = np.logspace(
