@@ -14,7 +14,6 @@
 #include <raft/linalg/transpose.cuh>
 #include <raft/matrix/copy.cuh>
 #include <raft/matrix/init.cuh>
-// #include <raft/matrix/matrix.cuh>
 #include <raft/matrix/ratio.cuh>
 #include <raft/matrix/sqrt.cuh>
 #include <raft/stats/cov.cuh>

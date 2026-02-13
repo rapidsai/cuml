@@ -47,7 +47,6 @@ void ridgeSolve(const raft::handle_t& handle,
   T beta  = T(0);
   T thres = T(1e-10);
 
-  // raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
   auto orig_stream = handle.get_stream();
   raft::resource::set_cuda_stream(handle, streams[0]);
   raft::matrix::zero_small_values(
@@ -58,14 +57,9 @@ void ridgeSolve(const raft::handle_t& handle,
   rmm::device_uvector<T> S_nnz_vector(UDesc.N, streams[0]);
   S_nnz = S_nnz_vector.data();
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
-  // raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   raft::linalg::powerScalar(S_nnz, S_nnz, T(2), UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
 
-  // raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-  //   S, S_nnz, size_t(1), UDesc.N, streams[0], true);
-
-  // raft::matrix::matrixVectorBinaryMult<false, true>(V, S, UDesc.N, UDesc.N, streams[0]);
   raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
     handle,
     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(S, std::size_t(1), UDesc.N),

@@ -20,7 +20,6 @@
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/sqrt.cuh>
-// #include <raft/matrix/math.hpp>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>

@@ -48,8 +48,6 @@ void svdEig_impl(const raft::handle_t& handle,
 
   raft::linalg::eigDC(handle, cov.ptr, ADesc.N, ADesc.N, V, S, streams[0]);
 
-  // raft::matrix::colReverse(V, ADesc.N, ADesc.N, streams[0]);
-  // raft::matrix::rowReverse(S, ADesc.N, (size_t)1, streams[0]);
   T alpha          = T(1);
   T beta           = T(0);
   auto orig_stream = handle.get_stream();
@@ -60,7 +58,6 @@ void svdEig_impl(const raft::handle_t& handle,
     handle,
     raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, ADesc.N, std::size_t(1)));
 
-  // raft::matrix::seqRoot(S, S, alpha, ADesc.N, streams[0], true);
   raft::matrix::weighted_sqrt(
     handle,
     raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
@@ -86,8 +83,6 @@ void svdEig_impl(const raft::handle_t& handle,
                          alpha,
                          beta,
                          streams[i]);
-      // raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-      // U[i]->ptr, S, partsToRanks[i]->size, ADesc.N, streams[i]);
       auto orig_stream_i = handle.get_stream();
       raft::resource::set_cuda_stream(handle, streams[i]);
       raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
