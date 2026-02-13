@@ -107,7 +107,7 @@ class SpeedupComparisonRunner:
             cu_elapsed = np.min(cuml_timer.timings)
         elif run_cuml and not is_gpu_available():
             if verbose:
-                print(
+                warnings.warn(
                     f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
                 )
 
@@ -134,23 +134,20 @@ class SpeedupComparisonRunner:
                 "not be found. Benchmark will be executed with "
                 "run_cpu=False"
             )
+            warnings.warn(
+                f"Skipping CPU benchmark for {algo_pair.name} (missing CPU library)"
+            )
 
-        # Calculate speedup (handle division by zero)
-        if cu_elapsed > 0:
-            speedup = cpu_elapsed / float(cu_elapsed)
+        # Calculate speedup only when both GPU and CPU runs were executed
+        ran_cuml = run_cuml and is_gpu_available() and algo_pair.has_cuml()
+        ran_cpu = run_cpu and algo_pair.has_cpu()
+        if ran_cuml and ran_cpu:
+            if cu_elapsed > 0:
+                speedup = cpu_elapsed / float(cu_elapsed)
+            else:
+                speedup = float("inf")
         else:
-            if run_cpu:
-                warnings.warn(
-                    "run_cpu argument is set to True but no CPU "
-                    "implementation was provided. It's possible "
-                    "an additional library is needed but one could "
-                    "not be found. Benchmark will be executed with "
-                    "run_cpu=False"
-                )
-
-            cpu_elapsed = 0.0
-
-        speedup = cpu_elapsed / float(cu_elapsed)
+            speedup = float("nan")
         if verbose:
             print(
                 "%s (n_samples=%s, n_features=%s) [cpu=%s, gpu=%s, speedup=%s]"
@@ -316,7 +313,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 )
         elif run_cuml and not is_gpu_available():
             if verbose:
-                print(
+                warnings.warn(
                     f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
                 )
 
@@ -355,11 +352,16 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             # Update n_features
             n_features = data[0].shape[1]
 
-        # Calculate speedup (handle division by zero)
-        if cu_elapsed > 0:
-            speedup = cpu_elapsed / float(cu_elapsed)
+        # Calculate speedup only when both GPU and CPU runs were executed
+        ran_cuml = run_cuml and is_gpu_available() and algo_pair.has_cuml()
+        ran_cpu = run_cpu and algo_pair.has_cpu()
+        if ran_cuml and ran_cpu:
+            if cu_elapsed > 0:
+                speedup = cpu_elapsed / float(cu_elapsed)
+            else:
+                speedup = float("inf")
         else:
-            speedup = 0.0
+            speedup = float("nan")
 
         return dict(
             cuml_time=cu_elapsed,

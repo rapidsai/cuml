@@ -461,7 +461,7 @@ def all_algorithms():
             name="xgboost-classification",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
-            cuml_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook if HAS_CUML else None,
             accuracy_function=metrics.accuracy_score,
         ),
         AlgorithmPair(
