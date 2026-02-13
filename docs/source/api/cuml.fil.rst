@@ -3,7 +3,7 @@ cuml.fil
 
 Forest Inference Library (FIL) for fast inference of tree-based models.
 
-.. currentmodule:: cuml
+.. currentmodule:: cuml.fil
 
 .. autosummary::
    :nosignatures:
