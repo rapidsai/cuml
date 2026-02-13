@@ -7,6 +7,7 @@
 #include <cuml/prims/opg/linalg/mm_aTa.hpp>
 #include <cuml/prims/opg/linalg/svd.hpp>
 
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector.cuh>
@@ -49,18 +50,16 @@ void svdEig_impl(const raft::handle_t& handle,
 
   // raft::matrix::colReverse(V, ADesc.N, ADesc.N, streams[0]);
   // raft::matrix::rowReverse(S, ADesc.N, (size_t)1, streams[0]);
-  // raft::resource::set_cuda_stream(handle, streams[0]);
-  raft::resources handle_stream_zero;
-  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+  T alpha          = T(1);
+  T beta           = T(0);
+  auto orig_stream = handle.get_stream();
+  raft::resource::set_cuda_stream(handle, streams[0]);
   raft::matrix::col_reverse(
-    handle_stream_zero,
-    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, ADesc.N, ADesc.N));
+    handle, raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, ADesc.N, ADesc.N));
   raft::matrix::row_reverse(
-    handle_stream_zero,
+    handle,
     raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, ADesc.N, std::size_t(1)));
 
-  T alpha = T(1);
-  T beta  = T(0);
   // raft::matrix::seqRoot(S, S, alpha, ADesc.N, streams[0], true);
   raft::matrix::weighted_sqrt(
     handle,
@@ -69,6 +68,7 @@ void svdEig_impl(const raft::handle_t& handle,
     raft::make_device_matrix_view<T, std::size_t, raft::row_major>(S, std::size_t(1), ADesc.N),
     raft::make_host_scalar_view(&alpha),
     true);
+  raft::resource::set_cuda_stream(handle, orig_stream);
 
   if (gen_left_vec) {
     std::vector<Matrix::RankSizePair*> partsToRanks = ADesc.blocksOwnedBy(comm.get_rank());
@@ -88,13 +88,14 @@ void svdEig_impl(const raft::handle_t& handle,
                          streams[i]);
       // raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
       // U[i]->ptr, S, partsToRanks[i]->size, ADesc.N, streams[i]);
-      raft::resources handle_local;
-      raft::resource::set_cuda_stream(handle_local, streams[i]);
+      auto orig_stream_i = handle.get_stream();
+      raft::resource::set_cuda_stream(handle, streams[i]);
       raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
-        handle_local,
+        handle,
         raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
           U[i]->ptr, partsToRanks[i]->size, ADesc.N),
         raft::make_device_vector_view<const T, std::size_t>(S, ADesc.N));
+      raft::resource::set_cuda_stream(handle, orig_stream_i);
     }
 
     // Wait for every partition to be completed

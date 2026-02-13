@@ -32,6 +32,7 @@ void matrixVectorBinaryDivSkipZero_impl(std::vector<Matrix::Data<T>*>& data,
   using layout_t       = std::conditional_t<rowMajor, raft::row_major, raft::col_major>;
   constexpr auto apply = bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
 
+  raft::resources handle;
   for (size_t i = 0; i < localBlocks.size(); i++) {
     auto n_rows = static_cast<int>(localBlocks[i]->size);
     auto n_cols = static_cast<int>(dataDesc.N);
@@ -42,8 +43,7 @@ void matrixVectorBinaryDivSkipZero_impl(std::vector<Matrix::Data<T>*>& data,
     auto vec_size = bcastAlongRows ? n_cols : n_rows;
     auto vec_view = raft::make_device_vector_view<const T, int>(vec.ptr, vec_size);
 
-    raft::resources handle;
-    raft::resource::set_cuda_stream(handle, streams[i]);
+    raft::resource::set_cuda_stream(handle, streams[i % n_streams]);
 
     raft::linalg::binary_div_skip_zero<apply>(handle, matrix_view, vec_view, return_zero);
   }
@@ -68,6 +68,7 @@ void matrixVectorBinaryMult_impl(std::vector<Matrix::Data<T>*>& data,
   using layout_t       = std::conditional_t<rowMajor, raft::row_major, raft::col_major>;
   constexpr auto apply = bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
 
+  raft::resources handle;
   for (size_t i = 0; i < localBlocks.size(); i++) {
     auto n_rows = static_cast<int>(localBlocks[i]->size);
     auto n_cols = static_cast<int>(dataDesc.N);
@@ -78,8 +79,7 @@ void matrixVectorBinaryMult_impl(std::vector<Matrix::Data<T>*>& data,
     auto vec_size = bcastAlongRows ? n_cols : n_rows;
     auto vec_view = raft::make_device_vector_view<const T, int>(vec.ptr, vec_size);
 
-    raft::resources handle;
-    raft::resource::set_cuda_stream(handle, streams[i]);
+    raft::resource::set_cuda_stream(handle, streams[i % n_streams]);
 
     raft::linalg::binary_mult<apply>(handle, matrix_view, vec_view);
   }
