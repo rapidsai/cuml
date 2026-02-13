@@ -1,8 +1,7 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
-import warnings
 
 import cudf
 import cupy as cp
@@ -452,105 +451,6 @@ def get_memsize(svc):
     return ms
 
 
-@pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
-@pytest.mark.memleak
-@pytest.mark.parametrize("params", [{"kernel": "rbf", "C": 1, "gamma": 1}])
-@pytest.mark.parametrize(
-    "n_rows", [unit_param(500), quality_param(1000), stress_param(1000)]
-)
-@pytest.mark.parametrize(
-    "n_iter", [unit_param(10), quality_param(100), stress_param(1000)]
-)
-@pytest.mark.parametrize("n_cols", [1000])
-def test_svm_memleak(params, n_rows, n_iter, n_cols, dataset="blobs"):
-    """
-    Test whether there is any memory leak.
-
-    .. note:: small `n_rows`, and `n_cols` values will result in small model
-        size, that will not be measured by get_memory_info.
-
-    """
-    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols)
-    handle = cuml.Handle()
-    # Warmup. Some modules that are used in SVC allocate space on the device
-    # and consume memory. Here we make sure that this allocation is done
-    # before the first call to get_memory_info.
-    tmp = cu_svm.SVC(handle=handle, **params)
-    tmp.fit(X_train, y_train)
-    ms = get_memsize(tmp)
-    print(
-        "Memory consumption of SVC object is {} MiB".format(
-            ms / (1024 * 1024.0)
-        )
-    )
-
-    free_mem = cuda.current_context().get_memory_info()[0]
-
-    # Check first whether the get_memory_info gives us the correct memory
-    # footprint
-    cuSVC = cu_svm.SVC(handle=handle, **params)
-    cuSVC.fit(X_train, y_train)
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    assert delta_mem >= ms
-
-    # Main test loop
-    b_sum = 0
-    for i in range(n_iter):
-        cuSVC = cu_svm.SVC(handle=handle, **params)
-        cuSVC.fit(X_train, y_train)
-        b_sum += cuSVC.intercept_
-        cuSVC.predict(X_train)
-
-    del cuSVC
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print("Delta GPU mem: {} bytes".format(delta_mem))
-    assert delta_mem == 0
-
-
-@pytest.mark.xfail(reason="Need rapidsai/rmm#415 to detect memleak robustly")
-@pytest.mark.memleak
-@pytest.mark.parametrize(
-    "params", [{"kernel": "poly", "degree": 30, "C": 1, "gamma": 1}]
-)
-def test_svm_memleak_on_exception(
-    params, n_rows=1000, n_iter=10, n_cols=1000, dataset="blobs"
-):
-    """
-    Test whether there is any mem leak when we exit training with an exception.
-    The poly kernel with degree=30 will overflow, and triggers the
-    'SMO error: NaN found...' exception.
-    """
-    X_train, y_train = make_blobs(
-        n_samples=n_rows, n_features=n_cols, random_state=137, centers=2
-    )
-    X_train = X_train.astype(np.float32)
-    handle = cuml.Handle()
-
-    # Warmup. Some modules that are used in SVC allocate space on the device
-    # and consume memory. Here we make sure that this allocation is done
-    # before the first call to get_memory_info.
-    tmp = cu_svm.SVC(handle=handle, **params)
-    with pytest.raises(RuntimeError):
-        tmp.fit(X_train, y_train)
-        # SMO error: NaN found during fitting.
-
-    free_mem = cuda.current_context().get_memory_info()[0]
-
-    # Main test loop
-    for i in range(n_iter):
-        cuSVC = cu_svm.SVC(handle=handle, **params)
-        with pytest.raises(RuntimeError):
-            cuSVC.fit(X_train, y_train)
-            # SMO error: NaN found during fitting.
-
-    del cuSVC
-    handle.sync()
-    delta_mem = free_mem - cuda.current_context().get_memory_info()[0]
-    print("Delta GPU mem: {} bytes".format(delta_mem))
-    assert delta_mem == 0
-
-
 def make_regression_dataset(dataset, n_rows, n_cols):
     np.random.seed(137)
     if dataset == "reg1":
@@ -703,32 +603,14 @@ def test_svm_no_support_vectors():
 @pytest.mark.parametrize("classifier", [False, True])
 def test_max_iter_n_iter(classifier):
     if classifier:
-        model = cuml.SVC()
+        cls = cuml.SVC
         X, y = make_classification(random_state=42)
     else:
-        model = cuml.SVR()
+        cls = cuml.SVR
         X, y = make_regression(random_state=42)
 
-    # Check that the default doesn't warn!
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
-        model.fit(X, y)
-    if classifier:
-        assert model.n_iter_.dtype == np.int32 and model.n_iter_.shape == (1,)
-    else:
-        assert isinstance(model.n_iter_, int)
-
-    # Setting to an integer warns, but uses the old limit on max outer iterations
-    model.max_iter = 1
-    with pytest.warns(FutureWarning, match="max_iter"):
-        model.fit(X, y)
-    assert (model.n_iter_.item() if classifier else model.n_iter_) > 1
-
-    # Using TotalIters gets the new behavior without a warning
-    model.max_iter = model.TotalIters(5)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", category=FutureWarning)
-        model.fit(X, y)
+    # max_iter limit is respected
+    model = cls(max_iter=5).fit(X, y)
     assert (model.n_iter_.item() if classifier else model.n_iter_) == 5
 
 
@@ -744,3 +626,374 @@ def test_svc_probability_n_iter():
     model = cuml.SVC(probability=True).fit(X, y)
     assert model.n_iter_.dtype == np.int32
     assert model.n_iter_.shape == (1,)
+
+
+# Tests for kernel='precomputed'
+@pytest.mark.parametrize("kernel_func", ["linear", "rbf"])
+def test_svc_precomputed_kernel(kernel_func):
+    """Test SVC with precomputed kernel matrix matches sklearn."""
+    np.random.seed(42)
+    n_samples, n_features = 100, 10
+
+    # Generate linearly separable data
+    X = np.random.randn(n_samples, n_features).astype(np.float64)
+    y = np.array(
+        [0] * (n_samples // 2) + [1] * (n_samples // 2), dtype=np.int32
+    )
+
+    # Compute kernel matrix
+    if kernel_func == "linear":
+        K = X @ X.T
+    else:  # rbf
+        gamma = 0.1
+        sq_dists = (
+            np.sum(X**2, axis=1, keepdims=True)
+            + np.sum(X**2, axis=1)
+            - 2 * X @ X.T
+        )
+        K = np.exp(-gamma * sq_dists)
+
+    # Convert to cupy
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # Fit sklearn
+    sklearn_clf = svm.SVC(kernel="precomputed", C=1.0)
+    sklearn_clf.fit(K, y)
+    sklearn_preds = sklearn_clf.predict(K)
+
+    # Fit cuML
+    cuml_clf = cu_svm.SVC(kernel="precomputed", C=1.0)
+    cuml_clf.fit(K_cp, y_cp)
+    cuml_preds = cp.asnumpy(cuml_clf.predict(K_cp))
+
+    # Predictions should match
+    assert np.array_equal(sklearn_preds, cuml_preds), (
+        f"Predictions don't match for {kernel_func} kernel"
+    )
+
+
+def test_svc_precomputed_kernel_train_test_split():
+    """Test SVC with precomputed kernel on train/test split."""
+    np.random.seed(42)
+    n_train, n_test, n_features = 80, 20, 5
+
+    # Generate data
+    X_train = np.random.randn(n_train, n_features).astype(np.float32)
+    X_test = np.random.randn(n_test, n_features).astype(np.float32)
+    y_train = np.array(
+        [0] * (n_train // 2) + [1] * (n_train // 2), dtype=np.int32
+    )
+
+    # Compute kernel matrices
+    K_train = X_train @ X_train.T
+    K_test = X_test @ X_train.T
+
+    # Fit and predict with cuML
+    cuml_clf = cu_svm.SVC(kernel="precomputed", C=1.0)
+    cuml_clf.fit(cp.asarray(K_train, order="F"), cp.asarray(y_train))
+    cuml_preds = cp.asnumpy(cuml_clf.predict(cp.asarray(K_test, order="F")))
+
+    # Fit and predict with sklearn
+    sklearn_clf = svm.SVC(kernel="precomputed", C=1.0)
+    sklearn_clf.fit(K_train, y_train)
+    sklearn_preds = sklearn_clf.predict(K_test)
+
+    # Predictions should match
+    assert np.array_equal(sklearn_preds, cuml_preds)
+
+
+def test_svc_precomputed_decision_function():
+    """Test decision_function with precomputed kernel."""
+    np.random.seed(42)
+    n_samples, n_features = 50, 5
+
+    # Generate well-separated data
+    X = np.vstack(
+        [
+            np.random.randn(n_samples // 2, n_features) - 2,
+            np.random.randn(n_samples // 2, n_features) + 2,
+        ]
+    ).astype(np.float32)
+    y = np.array(
+        [0] * (n_samples // 2) + [1] * (n_samples // 2), dtype=np.int32
+    )
+
+    # Compute kernel matrix
+    K = X @ X.T
+
+    # Fit cuML with precomputed
+    cuml_clf = cu_svm.SVC(kernel="precomputed", C=1.0)
+    cuml_clf.fit(cp.asarray(K, order="F"), cp.asarray(y))
+    cuml_decision = cp.asnumpy(
+        cuml_clf.decision_function(cp.asarray(K, order="F"))
+    )
+
+    # Fit cuML with linear kernel (should give same results)
+    cuml_linear = cu_svm.SVC(kernel="linear", C=1.0)
+    cuml_linear.fit(cp.asarray(X, order="F"), cp.asarray(y))
+    linear_decision = cp.asnumpy(
+        cuml_linear.decision_function(cp.asarray(X, order="F"))
+    )
+
+    # Decision functions should be close
+    assert np.allclose(cuml_decision, linear_decision, rtol=1e-3, atol=1e-3), (
+        f"Max diff: {np.max(np.abs(cuml_decision - linear_decision))}"
+    )
+
+
+def test_svc_precomputed_kernel_validation():
+    """Test that precomputed kernel validates input shape."""
+    np.random.seed(42)
+    n_samples = 50
+
+    # Non-square kernel matrix should raise error
+    K_nonsquare = np.random.randn(n_samples, n_samples + 1).astype(np.float32)
+    y = np.array(
+        [0] * (n_samples // 2) + [1] * (n_samples // 2), dtype=np.int32
+    )
+
+    cuml_clf = cu_svm.SVC(kernel="precomputed")
+    with pytest.raises(ValueError, match="square"):
+        cuml_clf.fit(cp.asarray(K_nonsquare), cp.asarray(y))
+
+
+def test_svc_precomputed_vs_linear():
+    """Test that precomputed linear kernel gives same result as kernel='linear'."""
+    np.random.seed(123)
+    n_samples, n_features = 60, 4
+
+    # Generate separable data
+    X = np.vstack(
+        [
+            np.random.randn(n_samples // 2, n_features) - 1.5,
+            np.random.randn(n_samples // 2, n_features) + 1.5,
+        ]
+    ).astype(np.float32)
+    y = np.array(
+        [0] * (n_samples // 2) + [1] * (n_samples // 2), dtype=np.int32
+    )
+
+    # Compute linear kernel
+    K = X @ X.T
+
+    # Fit with linear kernel
+    clf_linear = cu_svm.SVC(kernel="linear", C=1.0)
+    clf_linear.fit(cp.asarray(X, order="F"), cp.asarray(y))
+
+    # Fit with precomputed kernel
+    clf_precomputed = cu_svm.SVC(kernel="precomputed", C=1.0)
+    clf_precomputed.fit(cp.asarray(K, order="F"), cp.asarray(y))
+
+    # Should have same number of support vectors
+    assert clf_linear.n_support_ == clf_precomputed.n_support_
+
+    # Predictions should match
+    preds_linear = cp.asnumpy(clf_linear.predict(cp.asarray(X, order="F")))
+    preds_precomputed = cp.asnumpy(
+        clf_precomputed.predict(cp.asarray(K, order="F"))
+    )
+    assert np.array_equal(preds_linear, preds_precomputed)
+
+
+# Tests for SVR with kernel='precomputed'
+@pytest.mark.parametrize("kernel_func", ["linear", "rbf"])
+def test_svr_precomputed_kernel(kernel_func):
+    """Test SVR with precomputed kernel matrix matches sklearn."""
+    np.random.seed(42)
+    n_samples, n_features = 100, 5
+
+    # Generate regression data
+    X = np.random.randn(n_samples, n_features).astype(np.float64)
+    y = np.sin(X[:, 0]) + 0.1 * np.random.randn(n_samples)
+    y = y.astype(np.float64)
+
+    # Compute kernel matrix
+    if kernel_func == "linear":
+        K = X @ X.T
+    else:  # rbf
+        gamma = 0.1
+        sq_dists = (
+            np.sum(X**2, axis=1, keepdims=True)
+            + np.sum(X**2, axis=1)
+            - 2 * X @ X.T
+        )
+        K = np.exp(-gamma * sq_dists)
+
+    # Convert to cupy
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # Fit sklearn
+    sklearn_reg = svm.SVR(kernel="precomputed", C=1.0, epsilon=0.1)
+    sklearn_reg.fit(K, y)
+    sklearn_preds = sklearn_reg.predict(K)
+
+    # Fit cuML
+    cuml_reg = cu_svm.SVR(kernel="precomputed", C=1.0, epsilon=0.1)
+    cuml_reg.fit(K_cp, y_cp)
+    cuml_preds = cp.asnumpy(cuml_reg.predict(K_cp))
+
+    # Predictions should be close
+    assert np.allclose(sklearn_preds, cuml_preds, rtol=1e-2, atol=1e-2), (
+        f"Max diff: {np.max(np.abs(sklearn_preds - cuml_preds))}"
+    )
+
+
+def test_svr_precomputed_kernel_train_test_split():
+    """Test SVR with precomputed kernel on train/test split."""
+    np.random.seed(42)
+    n_train, n_test, n_features = 80, 20, 5
+
+    # Generate data
+    X_train = np.random.randn(n_train, n_features).astype(np.float32)
+    X_test = np.random.randn(n_test, n_features).astype(np.float32)
+    y_train = np.sin(X_train[:, 0]).astype(np.float32)
+
+    # Compute kernel matrices (linear)
+    K_train = X_train @ X_train.T
+    K_test = X_test @ X_train.T
+
+    # Fit and predict with cuML
+    cuml_reg = cu_svm.SVR(kernel="precomputed", C=1.0, epsilon=0.1)
+    cuml_reg.fit(cp.asarray(K_train, order="F"), cp.asarray(y_train))
+    cuml_preds = cp.asnumpy(cuml_reg.predict(cp.asarray(K_test, order="F")))
+
+    # Fit and predict with sklearn
+    sklearn_reg = svm.SVR(kernel="precomputed", C=1.0, epsilon=0.1)
+    sklearn_reg.fit(K_train, y_train)
+    sklearn_preds = sklearn_reg.predict(K_test)
+
+    # Predictions should be close
+    assert np.allclose(sklearn_preds, cuml_preds, rtol=1e-2, atol=1e-2)
+
+
+def test_svr_precomputed_vs_linear():
+    """Test that precomputed linear kernel gives same result as kernel='linear'."""
+    np.random.seed(123)
+    n_samples, n_features = 60, 4
+
+    # Generate data
+    X = np.random.randn(n_samples, n_features).astype(np.float32)
+    y = (2 * X[:, 0] + X[:, 1] + 0.1 * np.random.randn(n_samples)).astype(
+        np.float32
+    )
+
+    # Compute linear kernel
+    K = X @ X.T
+
+    # Fit with linear kernel
+    reg_linear = cu_svm.SVR(kernel="linear", C=1.0, epsilon=0.1)
+    reg_linear.fit(cp.asarray(X, order="F"), cp.asarray(y))
+
+    # Fit with precomputed kernel
+    reg_precomputed = cu_svm.SVR(kernel="precomputed", C=1.0, epsilon=0.1)
+    reg_precomputed.fit(cp.asarray(K, order="F"), cp.asarray(y))
+
+    # Should have same number of support vectors
+    assert reg_linear.n_support_ == reg_precomputed.n_support_
+
+    # Predictions should be close
+    preds_linear = cp.asnumpy(reg_linear.predict(cp.asarray(X, order="F")))
+    preds_precomputed = cp.asnumpy(
+        reg_precomputed.predict(cp.asarray(K, order="F"))
+    )
+    assert np.allclose(preds_linear, preds_precomputed, rtol=1e-3, atol=1e-3)
+
+
+def test_svr_precomputed_kernel_validation():
+    """Test that precomputed kernel validates input shape."""
+    np.random.seed(42)
+    n_samples = 50
+
+    # Non-square kernel matrix should raise error
+    K_nonsquare = np.random.randn(n_samples, n_samples + 1).astype(np.float32)
+    y = np.random.randn(n_samples).astype(np.float32)
+
+    cuml_reg = cu_svm.SVR(kernel="precomputed")
+    with pytest.raises(ValueError, match="square"):
+        cuml_reg.fit(cp.asarray(K_nonsquare), cp.asarray(y))
+
+
+@pytest.mark.parametrize("n_classes", [3, 4])
+@pytest.mark.parametrize("kernel_func", ["linear", "rbf"])
+def test_svc_precomputed_multiclass_ovr(n_classes, kernel_func):
+    """Test SVC with precomputed kernel for multiclass using OneVsRest.
+
+    OneVsRest uses all samples for each binary classifier (one class vs rest),
+    so the kernel matrix is NOT subsetted and remains square. This works with
+    precomputed kernels, unlike OneVsOne which subsets to class pairs.
+    """
+    X, y = make_blobs(
+        n_samples=100, n_features=10, centers=n_classes, random_state=42
+    )
+    X = X.astype(np.float64)
+    y = y.astype(np.int32)
+
+    # Compute kernel matrix
+    if kernel_func == "linear":
+        K = X @ X.T
+    else:  # rbf
+        gamma = 0.1
+        sq_dists = (
+            np.sum(X**2, axis=1, keepdims=True)
+            + np.sum(X**2, axis=1)
+            - 2 * X @ X.T
+        )
+        K = np.exp(-gamma * sq_dists)
+
+    # Convert to cupy
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # Fit sklearn with OvR
+    sklearn_clf = svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovr"
+    )
+    sklearn_clf.fit(K, y)
+    sklearn_preds = sklearn_clf.predict(K)
+    sklearn_accuracy = np.mean(sklearn_preds == y)
+
+    # Fit cuML with OvR (uses OneVsRestClassifier which doesn't subset samples)
+    cuml_clf = cu_svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovr"
+    )
+    cuml_clf.fit(K_cp, y_cp)
+    cuml_preds = cp.asnumpy(cuml_clf.predict(K_cp))
+    cuml_accuracy = np.mean(cuml_preds == y)
+
+    # Both should achieve high accuracy on well-separated data
+    assert sklearn_accuracy > 0.9, (
+        f"sklearn accuracy too low: {sklearn_accuracy}"
+    )
+    assert cuml_accuracy > 0.9, f"cuML accuracy too low: {cuml_accuracy}"
+
+    # Predictions should match
+    assert np.array_equal(sklearn_preds, cuml_preds), (
+        f"Predictions don't match for {n_classes}-class {kernel_func} kernel. "
+        f"sklearn acc: {sklearn_accuracy}, cuML acc: {cuml_accuracy}"
+    )
+
+
+def test_svc_precomputed_multiclass_ovo_fails():
+    """Test that precomputed kernel with OvO multiclass fails as expected.
+
+    OneVsOne subsets samples to class pairs, resulting in non-square kernel
+    matrices which are invalid for precomputed kernels.
+    """
+    X, y = make_blobs(n_samples=90, n_features=5, centers=3, random_state=42)
+    X = X.astype(np.float64)
+    y = y.astype(np.int32)
+
+    # Compute linear kernel matrix
+    K = X @ X.T
+    K_cp = cp.asarray(K, order="F")
+    y_cp = cp.asarray(y)
+
+    # OvO with precomputed kernel should fail because OneVsOneClassifier
+    # subsets rows but not columns, resulting in non-square matrices
+    cuml_clf = cu_svm.SVC(
+        kernel="precomputed", C=1.0, decision_function_shape="ovo"
+    )
+    with pytest.raises(ValueError, match="square"):
+        cuml_clf.fit(K_cp, y_cp)

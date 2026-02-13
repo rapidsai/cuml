@@ -1,17 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
-from pylibraft.common.handle import Handle
 
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -20,10 +18,12 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
-from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
+from libcpp.optional cimport nullopt, optional
 from pylibraft.common.cpp.mdspan cimport (
     col_major,
     device_matrix_view,
@@ -43,7 +43,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         int n_neighbors
         bool norm_laplacian
         bool drop_first
-        uint64_t seed
+        optional[uint64_t] seed
 
     cdef void transform(
         const device_resources &handle,
@@ -54,22 +54,23 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
     cdef void transform(
         const device_resources &handle,
         params config,
-        device_vector_view[int, int] rows,
-        device_vector_view[int, int] cols,
-        device_vector_view[float, int] vals,
+        device_vector_view[int, int64_t] rows,
+        device_vector_view[int, int64_t] cols,
+        device_vector_view[float, int64_t] vals,
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-@cuml.internals.api_return_array(get_output_type=True)
-def spectral_embedding(A,
-                       *,
-                       int n_components=8,
-                       affinity="nearest_neighbors",
-                       random_state=None,
-                       n_neighbors=None,
-                       norm_laplacian=True,
-                       drop_first=True,
-                       handle=None):
+@reflect
+def spectral_embedding(
+    A,
+    *,
+    int n_components=8,
+    affinity="nearest_neighbors",
+    random_state=None,
+    n_neighbors=None,
+    norm_laplacian=True,
+    drop_first=True,
+):
     """Project the sample on the first eigenvectors of the graph Laplacian.
 
     The adjacency matrix is used to compute a normalized graph Laplacian
@@ -110,13 +111,6 @@ def spectral_embedding(A,
         should be True as the first eigenvector should be constant vector for
         connected graph, but for spectral clustering, this should be kept as
         False to retain the first eigenvector.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
@@ -138,13 +132,10 @@ def spectral_embedding(A,
     >>> embedding.shape
     (100, 2)
     """
-    if handle is None:
-        handle = Handle()
-
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
     cdef int* affinity_cols_ptr = NULL
-    cdef int affinity_nnz = 0
+    cdef int64_t affinity_nnz = 0
 
     if affinity == "nearest_neighbors":
         A = input_to_cupy_array(
@@ -216,7 +207,13 @@ def spectral_embedding(A,
     )
 
     cdef params config
-    config.seed = check_random_seed(random_state)
+    cdef uint64_t seed_value
+    # No seed use nullopt (non-deterministic) or set user seed (deterministic)
+    if random_state is None:
+        config.seed = nullopt
+    else:
+        seed_value = check_random_seed(random_state)
+        config.seed = seed_value
     config.norm_laplacian = norm_laplacian
     config.drop_first = drop_first
     config.n_components = n_components + 1 if drop_first else n_components
@@ -227,6 +224,7 @@ def spectral_embedding(A,
     )
     cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
     cdef bool precomputed = affinity == "precomputed"
+    handle = get_handle()
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     with nogil:
@@ -234,9 +232,9 @@ def spectral_embedding(A,
             transform(
                 handle_[0],
                 config,
-                make_device_vector_view(affinity_rows_ptr, affinity_nnz),
-                make_device_vector_view(affinity_cols_ptr, affinity_nnz),
-                make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_rows_ptr, affinity_nnz),
+                make_device_vector_view[int, int64_t](affinity_cols_ptr, affinity_nnz),
+                make_device_vector_view[float, int64_t](affinity_data_ptr, affinity_nnz),
                 make_device_matrix_view[float, int, col_major](
                     eigenvectors_ptr, n_samples, n_components,
                 )
@@ -252,13 +250,12 @@ def spectral_embedding(A,
                     eigenvectors_ptr, n_samples, n_components,
                 )
             )
+    handle.sync()
 
     return eigenvectors
 
 
-class SpectralEmbedding(Base,
-                        InteropMixin,
-                        CMajorInputTagMixin):
+class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -283,13 +280,6 @@ class SpectralEmbedding(Base,
     n_neighbors : int or None, default=2
         Number of nearest neighbors for nearest_neighbors graph building.
         If None, n_neighbors will be set to max(n_samples/10, 1).
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -326,10 +316,16 @@ class SpectralEmbedding(Base,
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
     embedding_ = CumlArrayDescriptor(order="F")
 
-    def __init__(self, n_components=2, affinity="nearest_neighbors",
-                 random_state=None, n_neighbors=None,
-                 handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        n_components=2,
+        affinity="nearest_neighbors",
+        random_state=None,
+        n_neighbors=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.affinity = affinity
         self.random_state = random_state
@@ -379,6 +375,7 @@ class SpectralEmbedding(Base,
             **super()._attrs_to_cpu(model),
         }
 
+    @reflect
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
@@ -402,6 +399,7 @@ class SpectralEmbedding(Base,
         self.fit(X, y)
         return self.embedding_
 
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 
@@ -436,7 +434,6 @@ class SpectralEmbedding(Base,
             affinity=self.affinity,
             random_state=self.random_state,
             n_neighbors=self.n_neighbors_,
-            handle=self.handle
         )
 
         return self

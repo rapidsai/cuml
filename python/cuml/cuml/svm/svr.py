@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -9,6 +9,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.svm.svm_base import SVMBase
 
 
@@ -18,18 +19,16 @@ class SVR(SVMBase, RegressorMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
         Specifies the kernel function. Possible options: 'linear', 'poly',
-        'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
+        'rbf', 'sigmoid', 'precomputed'. When using 'precomputed', X is
+        expected to be a precomputed kernel matrix of shape
+        (n_samples, n_samples) at fit time, and (n_samples_test,
+        n_samples_train) at predict time. A valid kernel matrix should be
+        symmetric and positive semi-definite; cuML does not validate these
+        properties.
     degree : int (default=3)
         Degree of polynomial kernel function.
     gamma : float or string (default = 'scale')
@@ -57,19 +56,8 @@ class SVR(SVMBase, RegressorMixin):
         The cache_size variable sets an upper limit to the prediction
         buffer as well.
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVR.TotalIters`.
-            For example ``SVR(max_iter=SVR.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVR.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     nochange_steps : int (default = 1000)
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
@@ -93,7 +81,9 @@ class SVR(SVMBase, RegressorMixin):
     support_ : int, shape = [n_support]
         Device array of support vector indices
     support_vectors_ : float, shape [n_support, n_cols]
-        Device array of support vectors
+        Device array of support vectors. For kernel='precomputed', this
+        attribute is empty (shape [0, 0]) since the original feature vectors
+        are not available.
     dual_coef_ : float, shape = [1, n_support]
         Device array of coefficients for support vectors
     intercept_ : int
@@ -145,12 +135,31 @@ class SVR(SVMBase, RegressorMixin):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
 
         """
-        if is_sparse(X):
+        # Handle precomputed kernels
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
+                )
+            X = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                order="F",
+            ).array
+            # Validate that X is square for precomputed kernels
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    f"Precomputed kernel matrix must be square, "
+                    f"got shape ({X.shape[0]}, {X.shape[1]})"
+                )
+        elif is_sparse(X):
             X = SparseCumlArray(
                 X,
                 convert_to_dtype=(
@@ -194,14 +203,32 @@ class SVR(SVMBase, RegressorMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.
 
+        For precomputed kernels, X should be a kernel matrix of shape
+        (n_samples_test, n_samples_train) where n_samples_train is the
+        number of samples used during fit.
+
         """
         dtype = self.support_vectors_.dtype
 
-        if is_sparse(X):
+        # For precomputed kernels, check that columns match training set size
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
+                )
+            X = input_to_cuml_array(
+                X,
+                check_dtype=[dtype],
+                convert_to_dtype=(dtype if convert_dtype else None),
+                order="F",
+                check_cols=self.shape_fit_[0],  # Number of training samples
+            ).array
+        elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
             X = input_to_cuml_array(
@@ -209,7 +236,7 @@ class SVR(SVMBase, RegressorMixin):
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.support_vectors_.shape[1],
+                check_cols=self.shape_fit_[1],  # Number of features
             ).array
 
         return self._predict(X)

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -89,13 +89,6 @@ class TfidfTransformer(Base):
         exactly once. Prevents zero divisions.
     sublinear_tf : bool, default=False
         Apply sublinear tf scaling, i.e. replace tf with 1 + log(tf).
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -121,13 +114,10 @@ class TfidfTransformer(Base):
         use_idf=True,
         smooth_idf=True,
         sublinear_tf=False,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
@@ -171,7 +161,7 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
@@ -188,7 +178,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -240,7 +230,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

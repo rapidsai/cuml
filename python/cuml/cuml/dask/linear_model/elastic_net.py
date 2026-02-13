@@ -1,9 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from cuml.dask.common.base import BaseEstimator, check_deprecated_normalize
+from cuml.dask.common.base import BaseEstimator
 from cuml.dask.solvers import CD
 
 
@@ -35,13 +35,6 @@ class ElasticNet(BaseEstimator):
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
     max_iter : int (default = 1000)
         The maximum number of iterations
     tol : float (default = 1e-3)
@@ -53,13 +46,6 @@ class ElasticNet(BaseEstimator):
         rather than looping over features sequentially by default.
         This (setting to 'random') often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -106,7 +92,6 @@ class ElasticNet(BaseEstimator):
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
 
         """
-        check_deprecated_normalize(self)
         self.solver.fit(X, y)
         return self
 

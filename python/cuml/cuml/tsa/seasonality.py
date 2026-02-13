@@ -1,14 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-
 import numpy as np
 
-import cuml.internals
+from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
-
-# TODO: #2234 and #2235
 
 
 def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
@@ -29,8 +25,8 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
     return results
 
 
-@cuml.internals.api_return_array(input_arg="y", get_output_type=True)
-def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
+@reflect
+def seas_test(y, s, convert_dtype=True) -> CumlArray:
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
@@ -43,13 +39,6 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
         Numba device ndarray, cuda array interface compliant array like CuPy.
     s: integer
         Seasonal period (s > 1)
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
@@ -70,7 +59,6 @@ def seas_test(y, s, handle=None, convert_dtype=True) -> CumlArray:
         check_dtype=[np.float32, np.float64],
     )
 
-    # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
     d_res, *_ = input_to_cuml_array(
         np.array(python_res),

@@ -1,11 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
@@ -31,11 +32,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     ) except +
 
 
-class KNeighborsRegressor(RegressorMixin,
-                          FMajorInputTagMixin,
-                          NearestNeighbors):
+class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors):
     """
-
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
@@ -77,13 +75,6 @@ class KNeighborsRegressor(RegressorMixin,
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -165,17 +156,15 @@ class KNeighborsRegressor(RegressorMixin,
         self,
         *,
         weights="uniform",
-        handle=None,
         verbose=False,
         output_type=None,
         **kwargs,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type, **kwargs
-        )
+        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -202,6 +191,7 @@ class KNeighborsRegressor(RegressorMixin,
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
@@ -246,7 +236,8 @@ class KNeighborsRegressor(RegressorMixin,
             y_ptr = <float*><uintptr_t>col.ptr
             y_vec.push_back(y_ptr)
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)
         weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
@@ -268,6 +259,6 @@ class KNeighborsRegressor(RegressorMixin,
                 weights_ctype
             )
 
-        self.handle.sync()
+        handle.sync()
 
         return out

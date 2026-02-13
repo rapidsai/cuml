@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import dask.array
@@ -41,13 +41,6 @@ class RandomForestRegressor(
     ----------
     n_estimators : int (default = 100)
         total number of trees in the forest (not per-worker)
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     split_criterion : int or string (default = ``2`` (``'mse'``))
         The criterion used to split nodes.\n
          * ``0`` or ``'gini'`` for gini impurity

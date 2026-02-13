@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 
 #include <cub/cub.cuh>
 #include <cuda/functional>
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
@@ -26,7 +27,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -37,15 +37,15 @@ struct TupleComp {
   __host__ __device__ bool operator()(const one& t1, const two& t2)
   {
     // sort first by each parent,
-    if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
-    if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
+    if (cuda::std::get<0>(t1) < cuda::std::get<0>(t2)) return true;
+    if (cuda::std::get<0>(t1) > cuda::std::get<0>(t2)) return false;
 
     // within each parent, sort by each child,
-    if (thrust::get<1>(t1) < thrust::get<1>(t2)) return true;
-    if (thrust::get<1>(t1) > thrust::get<1>(t2)) return false;
+    if (cuda::std::get<1>(t1) < cuda::std::get<1>(t2)) return true;
+    if (cuda::std::get<1>(t1) > cuda::std::get<1>(t2)) return false;
 
     // then sort by value in descending order
-    return thrust::get<2>(t1) < thrust::get<2>(t2);
+    return cuda::std::get<2>(t1) < cuda::std::get<2>(t2);
   }
 };
 
@@ -91,9 +91,9 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(const raft::handle_t&
 
   n_clusters = max_cluster - min_cluster + 1;
 
-  auto sort_keys =
-    thrust::make_zip_iterator(thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
-  auto sort_values = thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
+  auto sort_keys = thrust::make_zip_iterator(
+    cuda::std::make_tuple(parents.begin(), children.begin(), sizes.begin()));
+  auto sort_values = thrust::make_zip_iterator(cuda::std::make_tuple(lambdas.begin()));
 
   thrust::sort_by_key(thrust::cuda::par.on(handle.get_stream()),
                       sort_keys,
@@ -157,45 +157,20 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
   sizes.resize(n_edges, stream);
 
   auto in = thrust::make_zip_iterator(
-    thrust::make_tuple(full_parents, full_children, full_lambdas, full_sizes));
+    cuda::std::make_tuple(full_parents, full_children, full_lambdas, full_sizes));
 
   auto out = thrust::make_zip_iterator(
-    thrust::make_tuple(parents.data(), children.data(), lambdas.data(), sizes.data()));
+    cuda::std::make_tuple(parents.data(), children.data(), lambdas.data(), sizes.data()));
 
   thrust::copy_if(thrust::cuda::par.on(stream),
                   in,
                   in + size,
                   out,
-                  [=] __device__(thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
-                    return thrust::get<3>(tup) != -1;
+                  [=] __device__(cuda::std::tuple<value_idx, value_idx, value_t, value_idx> tup) {
+                    return cuda::std::get<3>(tup) != -1;
                   });
 
-  // TODO: Avoid the copies here by updating kernel
-  rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
-  raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
-  raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
-
-  // find n_clusters
   auto parents_ptr = thrust::device_pointer_cast(parents.data());
-  auto max_parent =
-    *(thrust::max_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges));
-
-  // now invert labels
-  auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto& x) {
-    return x >= n_leaves ? max_parent - x + n_leaves : x;
-  };
-
-  thrust::transform(thrust::cuda::par.on(stream),
-                    parent_child.begin(),
-                    parent_child.end(),
-                    parent_child.begin(),
-                    invert_op);
-
-  raft::label::make_monotonic(
-    parent_child.data(), parent_child.data(), parent_child.size(), stream, true);
-
-  raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
-  raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
 
   auto parents_min_max =
     thrust::minmax_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
@@ -204,9 +179,9 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
 
   n_clusters = max_cluster - min_cluster + 1;
 
-  auto sort_keys =
-    thrust::make_zip_iterator(thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
-  auto sort_values = thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
+  auto sort_keys = thrust::make_zip_iterator(
+    cuda::std::make_tuple(parents.begin(), children.begin(), sizes.begin()));
+  auto sort_values = thrust::make_zip_iterator(cuda::std::make_tuple(lambdas.begin()));
 
   thrust::sort_by_key(
     thrust::cuda::par.on(stream), sort_keys, sort_keys + n_edges, sort_values, TupleComp());

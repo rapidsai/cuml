@@ -1,14 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -49,10 +45,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    def __init__(self, **kwargs):
-        super(KNeighborsRegressorMG, self).__init__(**kwargs)
-
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         index,

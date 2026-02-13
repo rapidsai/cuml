@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -370,6 +370,7 @@ def test_tsne_distance_metrics(metric):
     assert array_equal(sk_trust, cuml_trust, 0.05, with_sign=True)
 
 
+@pytest.mark.xfail(reason="https://github.com/rapidsai/cuml/issues/6682")
 @pytest.mark.parametrize("method", ["fft", "barnes_hut", "exact"])
 @pytest.mark.parametrize(
     "metric", ["l2", "euclidean", "cityblock", "l1", "manhattan", "cosine"]
@@ -432,15 +433,3 @@ def test_tsne_n_iter(algorithm):
     model = TSNE(n_components=2, random_state=42).fit(X)
     assert model.n_iter_ > 0
     assert model.n_iter_ <= model.max_iter
-
-
-def test_tsne_n_iter_deprecated():
-    X, _ = make_blobs(
-        n_samples=1000, n_features=64, centers=5, random_state=42
-    )
-    model = TSNE(n_components=2, random_state=42, n_iter=2)
-    with pytest.warns(FutureWarning, match="n_iter"):
-        model.fit(X)
-
-    assert model.n_iter_ > 0
-    assert model.n_iter_ <= model.n_iter

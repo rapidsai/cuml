@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from libc.stdint cimport int64_t, uint64_t
@@ -63,6 +63,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         MetricType target_metric,
         float target_weight,
         uint64_t random_state,
+        bool force_serial_epochs,
         bool deterministic,
         DistanceType metric,
         float p,
@@ -123,7 +124,9 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
              float * knn_dists,
              UMAPParams * params,
              unique_ptr[device_buffer] & embeddings,
-             HostCOO & graph) except +
+             HostCOO & graph,
+             float * sigmas,
+             float * rhos) except +
 
     void fit_sparse(handle_t &handle,
                     int *indptr,
@@ -191,3 +194,18 @@ cdef extern from "cuml/manifold/umap.hpp" namespace "ML::UMAP" nogil:
                          COO* cgraph_coo,
                          UMAPParams* params,
                          float* embeddings) except +
+
+    void inverse_transform(handle_t &handle,
+                           float* inv_transformed,
+                           int n,
+                           int n_features,
+                           float* orig_X,
+                           int orig_n,
+                           int* graph_rows,
+                           int* graph_cols,
+                           float* graph_vals,
+                           int nnz,
+                           float* sigmas,
+                           float* rhos,
+                           UMAPParams* params,
+                           int n_epochs) except +

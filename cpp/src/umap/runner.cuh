@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,6 +30,7 @@
 
 #include <rmm/device_buffer.hpp>
 
+#include <cuda/std/tuple>
 #include <cuda_runtime.h>
 #include <thrust/count.h>
 #include <thrust/device_ptr.h>
@@ -41,7 +42,6 @@
 #include <thrust/remove.h>
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
-#include <thrust/tuple.h>
 
 #include <memory>
 #include <type_traits>
@@ -123,16 +123,16 @@ void trim_graph(const raft::handle_t& handle, raft::sparse::COO<value_t>& graph,
   value_t threshold = get_threshold(handle, graph, n_epochs);
 
   auto zipped_begin =
-    thrust::make_zip_iterator(thrust::make_tuple(graph.rows(), graph.cols(), graph.vals()));
+    thrust::make_zip_iterator(cuda::std::make_tuple(graph.rows(), graph.cols(), graph.vals()));
   auto zipped_end = zipped_begin + graph.nnz;
 
   using row_type   = typename std::remove_pointer<decltype(graph.rows())>::type;
   using col_type   = typename std::remove_pointer<decltype(graph.cols())>::type;
-  using tuple_type = thrust::tuple<row_type, col_type, value_t>;
+  using tuple_type = cuda::std::tuple<row_type, col_type, value_t>;
 
   auto new_end = thrust::remove_if(
     exec, zipped_begin, zipped_end, [threshold] __host__ __device__(const tuple_type& t) {
-      return thrust::get<2>(t) < threshold;
+      return cuda::std::get<2>(t) < threshold;
     });
 
   auto new_nnz = static_cast<decltype(graph.nnz)>(thrust::distance(zipped_begin, new_end));
@@ -158,7 +158,9 @@ template <typename value_idx, typename value_t, typename umap_inputs, typename n
 void _get_strengths(const raft::handle_t& handle,
                     const umap_inputs& inputs,
                     UMAPParams* params,
-                    raft::sparse::COO<value_t>& strengths)
+                    raft::sparse::COO<value_t>& strengths,
+                    value_t* out_sigmas = nullptr,
+                    value_t* out_rhos   = nullptr)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -188,7 +190,15 @@ void _get_strengths(const raft::handle_t& handle,
   CUML_LOG_DEBUG("Computing fuzzy simplicial set");
   raft::common::nvtx::push_range("umap::simplicial_set");
   FuzzySimplSetImpl::compute_membership_strength<value_t, value_idx, nnz_t, TPB_X>(
-    inputs.n, knn_graph.knn_indices, knn_graph.knn_dists, n_neighbors, strengths, params, stream);
+    inputs.n,
+    knn_graph.knn_indices,
+    knn_graph.knn_dists,
+    n_neighbors,
+    strengths,
+    params,
+    stream,
+    out_sigmas,
+    out_rhos);
   raft::common::nvtx::pop_range();
 }
 
@@ -196,7 +206,9 @@ template <typename value_idx, typename value_t, typename umap_inputs, typename n
 void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
-                raft::sparse::COO<value_t, int>* graph)
+                raft::sparse::COO<value_t, int>* graph,
+                value_t* out_sigmas = nullptr,
+                value_t* out_rhos   = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
@@ -208,7 +220,7 @@ void _get_graph(const raft::handle_t& handle,
   {
     raft::sparse::COO<value_t> strengths(stream);
     _get_strengths<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-      handle, inputs, params, strengths);
+      handle, inputs, params, strengths, out_sigmas, out_rhos);
     FuzzySimplSetImpl::symmetrize<value_t>(strengths, fss_graph, params->set_op_mix_ratio, stream);
   }  // end strengths scope
 
@@ -298,7 +310,9 @@ void _fit(const raft::handle_t& handle,
           const umap_inputs& inputs,
           UMAPParams* params,
           std::unique_ptr<rmm::device_buffer>& embeddings,
-          raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
+          raft::host_coo_matrix<float, int, int, uint64_t>& host_graph,
+          value_t* out_sigmas = nullptr,
+          value_t* out_rhos   = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
@@ -309,7 +323,7 @@ void _fit(const raft::handle_t& handle,
 
   raft::sparse::COO<value_t> graph(stream);
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, &graph);
+    handle, inputs, params, &graph, out_sigmas, out_rhos);
 
   copy_device_graph_to_host(handle, graph, host_graph);
 

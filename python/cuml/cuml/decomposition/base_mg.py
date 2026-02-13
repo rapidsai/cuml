@@ -1,17 +1,20 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
-import cuml.internals
 from cuml.common import input_to_cuml_array
+from cuml.internals import run_in_internal_context
 
 
 class BaseDecompositionMG:
-    @cuml.internals.api_base_return_any_skipall
+    def __init__(self, *, handle, **kwargs):
+        self.handle = handle
+        super().__init__(**kwargs)
+
+    @run_in_internal_context
     def fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
         """
         Fit function for PCA/TSVD MG. This not meant to be used as

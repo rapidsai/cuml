@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -6,8 +6,8 @@ import inspect
 import numpy as np
 import numpydoc.docscrape
 import pandas as pd
+import pylibraft.common.handle
 import pytest
-from pylibraft.common.cuda import Stream
 from sklearn.datasets import (
     make_classification,
     make_multilabel_classification,
@@ -18,31 +18,11 @@ import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
+from cuml.internals import get_handle
 from cuml.testing.datasets import small_classification_dataset
 from cuml.testing.utils import get_all_base_subclasses
 
 all_base_children = get_all_base_subclasses()
-
-
-def test_base_class_usage():
-    # Ensure base class returns the 3 main properties needed by all classes
-    base = cuml.Base()
-    base.handle.sync()
-    base_params = base._get_param_names()
-
-    assert "handle" in base_params
-    assert "verbose" in base_params
-    assert "output_type" in base_params
-
-    del base
-
-
-def test_base_class_usage_with_handle():
-    stream = Stream()
-    handle = cuml.Handle(stream=stream)
-    base = cuml.Base(handle=handle)
-    base.handle.sync()
-    del base
 
 
 @pytest.mark.parametrize("datatype", ["float32", "float64"])
@@ -114,8 +94,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
     klass_doc_params = klass_doc["Parameters"]
 
     for name, param in base_sig.parameters.items():
-        if param.name == "output_mem_type":
-            continue  # TODO(wphicks): Add this to all algos
         # Ensure the base param exists in the derived
         assert param.name in klass_sig.parameters
 
@@ -135,16 +113,14 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
-            if not (
-                found_doc.type.startswith("cuml.Handle")
-                and klass == cuml.manifold.umap.UMAP
-            ):
-                # Ensure the docstring is identical
-                assert found_doc.type == base_item_doc.type, (
-                    "Docstring mismatch for {}".format(name)
-                )
+            assert found_doc.type == base_item_doc.type, (
+                f"Docstring mismatch for {name}"
+            )
 
-                assert " ".join(found_doc.desc) == " ".join(base_item_doc.desc)
+            found = " ".join(found_doc.desc)
+            expected = " ".join(base_item_doc.desc)
+
+            assert found == expected, f"Docstring mismatch for {name}"
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
@@ -178,8 +154,6 @@ def test_base_children__get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in _get_param_names
         for name, param in sig.parameters.items():
-            if param.name == "output_mem_type":
-                continue  # TODO(wphicks): Add this to all algos
             if (
                 param.kind == inspect.Parameter.VAR_KEYWORD
                 or param.kind == inspect.Parameter.VAR_POSITIONAL
@@ -216,6 +190,7 @@ EXCEPTIONS = {
     "LabelBinarizer.fit": ["self", "y"],
     "LabelBinarizer.fit_transform": ["self", "y"],
     "LabelBinarizer.transform": ["self", "y"],
+    "LedoitWolf.score": ["self", "X_test", "y"],
 }
 
 
@@ -299,6 +274,29 @@ def test_common_signatures(cls, method):
             inspect.Parameter.VAR_KEYWORD,
         }
         assert param.name not in {"X", "y", "sample_weight"}
+
+
+def test_get_handle():
+    # Threadlocal is cached
+    assert get_handle() is get_handle()
+
+    # n_streams doesn't use the threadlocal handle
+    res = get_handle(n_streams=4)
+    assert res is not get_handle()
+    assert isinstance(res, pylibraft.common.handle.Handle)
+
+
+def test_get_handle_device_ids():
+    for device_ids in ["all", [0]]:
+        res = get_handle(device_ids=device_ids)
+        assert isinstance(res, pylibraft.common.handle.DeviceResourcesSNMG)
+
+    # None uses default handle
+    assert get_handle(device_ids=None) is get_handle()
+
+    with pytest.raises(ValueError, match="n_streams"):
+        # Can't mix n_streams and device_ids
+        get_handle(n_streams=4, device_ids="all")
 
 
 @pytest.mark.parametrize(

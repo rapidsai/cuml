@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -28,10 +28,7 @@ rapids-pip-retry install \
 # 0 really means "add --no-build-isolation" (ref: https://github.com/pypa/pip/issues/5735)
 export PIP_NO_BUILD_ISOLATION=0
 
-# NOTE: 'libcumlprims_mg.so' is marked as '--exclude' here because auditwheel doesn't detect it,
-#       but it really is intentionally included in 'libcuml' wheels
 EXCLUDE_ARGS=(
-  --exclude "libcumlprims_mg.so"
   --exclude "libraft.so"
   --exclude "libcublas.so.*"
   --exclude "libcublasLt.so.*"

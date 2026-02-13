@@ -1,6 +1,5 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-
 import warnings
 
 import cupy
@@ -8,7 +7,6 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -16,7 +14,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -24,6 +22,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -187,17 +186,7 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     if n_samples < 2:
         raise ValueError("TSNE requires >= 2 samples")
 
-    if self.n_iter != "deprecated":
-        warnings.warn(
-            (
-                "`n_iter` was deprecated in 25.12 and will be removed in 26.02. "
-                "Please use `max_iter` instead."
-            ),
-            FutureWarning,
-        )
-        max_iter = _check_numeric(self, "n_iter", gt=0)
-    else:
-        max_iter = _check_numeric(self, "max_iter", gt=0)
+    max_iter = _check_numeric(self, "max_iter", gt=0)
 
     exaggeration_iter = min(exaggeration_iter, max_iter)
     if n_neighbors > 1023:
@@ -299,13 +288,6 @@ class TSNE(Base,
     n_iter_without_progress : int (default 300)
         Currently unused. When the KL Divergence becomes too small after some
         iterations, terminate t-SNE early.
-    n_iter : int (default 1000)
-
-        .. deprecated:: 25.12
-            ``n_iter`` has been renamed to ``max_iter`` to better match the
-            API of ``sklearn.manifold.TSNE``. ``n_iter`` is deprecated in favor
-            of ``max_iter`` and will be removed in 26.02.
-
     min_grad_norm : float (default 1e-07)
         The minimum gradient norm for when t-SNE will terminate early.
         Used in the 'exact' and 'fft' algorithms. Consider reducing if
@@ -365,13 +347,6 @@ class TSNE(Base,
         the precomputation of the KNN outside of TSNE
         and also allows the use of a custom distance function. This function
         should match the metric used to train the TSNE embeedings.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -437,7 +412,6 @@ class TSNE(Base,
             "learning_rate",
             "max_iter",
             "n_iter_without_progress",
-            "n_iter",
             "min_grad_norm",
             "metric",
             "metric_params",
@@ -540,7 +514,6 @@ class TSNE(Base,
         learning_rate=200.0,
         max_iter=1000,
         n_iter_without_progress=300,
-        n_iter="deprecated",
         min_grad_norm=1e-07,
         metric='euclidean',
         metric_params=None,
@@ -557,10 +530,9 @@ class TSNE(Base,
         square_distances=True,
         precomputed_knn=None,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
@@ -568,7 +540,6 @@ class TSNE(Base,
         self.learning_rate = learning_rate
         self.max_iter = max_iter
         self.n_iter_without_progress = n_iter_without_progress
-        self.n_iter = n_iter
         self.min_grad_norm = min_grad_norm
         self.metric = metric
         self.metric_params = metric_params
@@ -594,6 +565,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -663,7 +635,8 @@ class TSNE(Base,
         cdef uintptr_t embed_ptr = embedding.ptr
 
         # Execute fit
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef float kl_divergence = 0
         cdef int n_iter = 0
 
@@ -697,7 +670,7 @@ class TSNE(Base,
                     &kl_divergence,
                     &n_iter,
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store fitted attributes
         self._kl_divergence_ = kl_divergence
@@ -714,7 +687,7 @@ class TSNE(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.

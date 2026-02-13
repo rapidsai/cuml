@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -7,8 +7,8 @@ import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -16,12 +16,9 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.memory_utils import cuda_ptr
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import (
-    LinearPredictMixin,
-    check_deprecated_normalize,
-)
+from cuml.internals.outputs import reflect
+from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -40,7 +37,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        float *coef,
                        float *intercept,
                        bool fit_intercept,
-                       bool normalize,
                        int algo,
                        float *sample_weight) except +
 
@@ -54,7 +50,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        double *coef,
                        double *intercept,
                        bool fit_intercept,
-                       bool normalize,
                        int algo,
                        double *sample_weight) except +
 
@@ -108,20 +103,6 @@ class Ridge(Base,
     copy_X: bool, default=True
         If True, X will never be mutated. Setting to False may reduce memory
         usage, at the cost of potentially mutating X.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -185,7 +166,6 @@ class Ridge(Base,
             "fit_intercept",
             "solver",
             "copy_X",
-            "normalize",
         ]
 
     @classmethod
@@ -248,17 +228,14 @@ class Ridge(Base,
         fit_intercept=True,
         solver="auto",
         copy_X=True,
-        normalize=False,
-        handle=None,
         output_type=None,
         verbose=False,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.alpha = alpha
         self.fit_intercept = fit_intercept
         self.solver = solver
         self.copy_X = copy_X
-        self.normalize = normalize
 
     def _fit_svd(
         self,
@@ -271,11 +248,6 @@ class Ridge(Base,
         y_is_copy,
     ):
         """Fit a Ridge regression using SVD."""
-        if self.normalize:
-            raise ValueError(
-                "The normalize option is not supported for solver='svd'"
-            )
-
         X = X_m.to_output("cupy")
         y = y_m.to_output("cupy")
         sample_weight = (
@@ -371,14 +343,14 @@ class Ridge(Base,
         cdef float alpha_f32 = alpha
         cdef double alpha_f64 = alpha
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
         cdef uintptr_t coef_ptr = coef.ptr
         cdef uintptr_t sample_weight_ptr = (
             0 if sample_weight_m is None else sample_weight_m.ptr
         )
-        cdef bool normalize = self.normalize
         cdef bool fit_intercept = self.fit_intercept
         cdef bool use_float32 = X_m.dtype == np.float32
 
@@ -395,7 +367,6 @@ class Ridge(Base,
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
-                    normalize,
                     1,
                     <float*>sample_weight_ptr,
                 )
@@ -411,11 +382,10 @@ class Ridge(Base,
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
-                    normalize,
                     1,
                     <double*>sample_weight_ptr,
                 )
-        self.handle.sync()
+        handle.sync()
 
         if self.fit_intercept:
             intercept = intercept_f32 if use_float32 else intercept_f64
@@ -429,12 +399,11 @@ class Ridge(Base,
         return coef, intercept
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """
-        check_deprecated_normalize(self)
-
         X_m, n_rows, n_cols, dtype = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),

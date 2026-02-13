@@ -1,18 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-import cuml.internals
+from cuml.internals import get_handle
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -22,8 +16,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                              const int upper_class_range) except +
 
 
-@cuml.internals.api_return_any()
-def cython_homogeneity_score(labels_true, labels_pred, handle=None) -> float:
+def cython_homogeneity_score(labels_true, labels_pred) -> float:
     """
     Computes the homogeneity metric of a cluster labeling given a ground truth.
 
@@ -51,13 +44,6 @@ def cython_homogeneity_score(labels_true, labels_pred, handle=None) -> float:
         The ground truth labels (ints) of the test dataset.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
@@ -65,7 +51,7 @@ def cython_homogeneity_score(labels_true, labels_pred, handle=None) -> float:
       The homogeneity of the predicted labeling given the ground truth.
       Score between 0.0 and 1.0. 1.0 stands for perfectly homogeneous labeling.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred,

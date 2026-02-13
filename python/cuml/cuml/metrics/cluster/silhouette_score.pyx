@@ -1,23 +1,18 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 
-from libc.stdint cimport uintptr_t
-
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 from cuml.metrics.pairwise_distances import _determine_metric
 
+from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from pylibraft.common.handle import Handle
-
 from cuml.metrics.distance_type cimport DistanceType
-
-from cuml.prims.label.classlabels import check_labels, make_monotonic
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nogil:
@@ -46,7 +41,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nog
 
 def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
-        convert_dtype=True, handle=None):
+        convert_dtype=True):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients.
 
@@ -70,15 +65,8 @@ def _silhouette_coeff(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     if chunksize is None:
@@ -98,19 +86,16 @@ def _silhouette_coeff(
         convert_to_dtype=np.int32
     )
 
-    n_labels = cp.unique(
-        labels.to_output(output_type='cupy', output_dtype='int')
-    ).shape[0]
+    # Use cp.unique with return_inverse to get monotonic labels efficiently
+    labels_cupy = labels.to_output(output_type='cupy', output_dtype='int')
+    unique_labels, inverse = cp.unique(labels_cupy, return_inverse=True)
+    n_labels = unique_labels.shape[0]
 
-    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
-        mono_labels, _ = make_monotonic(labels, copy=True)
-        mono_labels, _, _, _ = input_to_cuml_array(
-            mono_labels,
-            order='C',
-            convert_to_dtype=np.int32
-        )
-    else:
-        mono_labels = labels
+    mono_labels, _, _, _ = input_to_cuml_array(
+        inverse,
+        order='C',
+        convert_to_dtype=np.int32
+    )
 
     cdef uintptr_t scores_ptr
     if sil_scores is None:
@@ -149,12 +134,12 @@ def _silhouette_coeff(
 
 
 def cython_silhouette_score(
-        X,
-        labels,
-        metric='euclidean',
-        chunksize=None,
-        convert_dtype=True,
-        handle=None):
+    X,
+    labels,
+    metric='euclidean',
+    chunksize=None,
+    convert_dtype=True,
+):
     """Calculate the mean silhouette coefficient for the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
@@ -179,28 +164,21 @@ def cython_silhouette_score(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     """
 
     return _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric,
-        convert_dtype=convert_dtype, handle=handle
+        convert_dtype=convert_dtype
     )
 
 
 def cython_silhouette_samples(
-        X,
-        labels,
-        metric='euclidean',
-        chunksize=None,
-        convert_dtype=True,
-        handle=None):
+    X,
+    labels,
+    metric='euclidean',
+    chunksize=None,
+    convert_dtype=True,
+):
     """Calculate the silhouette coefficient for each sample in the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
@@ -225,20 +203,13 @@ def cython_silhouette_samples(
         If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     """
 
     sil_scores = cp.empty((X.shape[0],), dtype=X.dtype)
 
     _silhouette_coeff(
         X, labels, chunksize=chunksize, metric=metric, sil_scores=sil_scores,
-        convert_dtype=convert_dtype, handle=handle
+        convert_dtype=convert_dtype
     )
 
     return sil_scores

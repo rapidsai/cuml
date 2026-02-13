@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -39,13 +39,6 @@ class KNeighborsClassifier(NearestNeighbors):
         of this value will vary for different layouts and index to query
         ratios, but it will require `batch_size * n_features * 4` bytes of
         additional memory on each worker hosting index partitions.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -103,10 +96,8 @@ class KNeighborsClassifier(NearestNeighbors):
                     uniq_labels.append(_y.iloc[:, i].unique())
 
         uniq_labels = da.compute(uniq_labels)[0]
-        if hasattr(uniq_labels[0], "values_host"):  # for cuDF Series
-            uniq_labels = list(map(lambda x: x.values_host, uniq_labels))
-        elif hasattr(uniq_labels[0], "values"):  # for pandas Series
-            uniq_labels = list(map(lambda x: x.values, uniq_labels))
+        if hasattr(uniq_labels[0], "to_numpy"):  # for pandas and cuDF Series
+            uniq_labels = list(map(lambda x: x.to_numpy(), uniq_labels))
         elif isinstance(uniq_labels[0], cp.ndarray):  # for CuPy arrays
             uniq_labels = list(map(lambda x: cp.asnumpy(x), uniq_labels))
         self.uniq_labels = np.sort(np.array(uniq_labels))
@@ -118,13 +109,13 @@ class KNeighborsClassifier(NearestNeighbors):
     def _func_create_model(sessionId, **kwargs):
         try:
             from cuml.neighbors.kneighbors_classifier_mg import (
-                KNeighborsClassifierMG as cumlKNN,
+                KNeighborsClassifierMG,
             )
         except ImportError:
             raise_mg_import_exception()
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return cumlKNN(handle=handle, **kwargs)
+        return KNeighborsClassifierMG(handle=handle, **kwargs)
 
     @staticmethod
     def _func_predict(

@@ -1,22 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-
-# distutils: language = c++
-
 import numpy as np
+
+from cuml.internals import get_handle, reflect
+from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
-
-import cuml.internals
-from cuml.internals.array import CumlArray
-
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.internals.input_utils import input_to_cuml_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
@@ -39,9 +31,8 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         double pval_threshold) except +
 
 
-@cuml.internals.api_return_array(input_arg="y", get_output_type=True)
-def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
-              handle=None, convert_dtype=True) -> CumlArray:
+@reflect
+def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> CumlArray:
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -60,13 +51,6 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         Seasonal period if D > 0
     pval_threshold : float
         The p-value threshold above which a series is considered stationary.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     Returns
     -------
@@ -80,8 +64,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
                             check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
 
-    if handle is None:
-        handle = Handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     results = CumlArray.empty(batch_size, dtype=bool)

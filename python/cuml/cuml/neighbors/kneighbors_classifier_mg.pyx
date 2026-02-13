@@ -1,28 +1,22 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
-from cuml.internals import api_base_return_generic_skipall
+from cuml.common import input_to_cuml_array
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.common import input_to_cuml_array
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
+
+from cuml.common.opg_data_utils_mg cimport *
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
@@ -55,10 +49,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    def __init__(self, **kwargs):
-        super(KNeighborsClassifierMG, self).__init__(**kwargs)
-
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict(
         self,
         index,
@@ -178,7 +169,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return output_cais
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,

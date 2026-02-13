@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -7,7 +7,7 @@ set -euo pipefail
 source rapids-init-pip
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
-CUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="cuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github python)
+CUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-package-name "wheel_python" cuml --stable --cuda "$RAPIDS_CUDA_VERSION")")
 LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
 mkdir -p "${RAPIDS_TESTS_DIR}"
@@ -45,11 +45,22 @@ timeout 20m python -c "
 import warnings
 warnings.filterwarnings('ignore')
 
+import random
 from bertopic import BERTopic
-from sklearn.datasets import fetch_20newsgroups
 
-# Create a small sample dataset
-docs = fetch_20newsgroups(subset='train', categories=['sci.space'])['data'][:100]
+# Generate synthetic documents with topic-like word clusters
+random.seed(42)
+topics = [
+    ['star', 'galaxy', 'planet', 'orbit', 'telescope', 'nasa', 'astronaut'],
+    ['rocket', 'launch', 'satellite', 'mission', 'space', 'shuttle', 'station'],
+    ['moon', 'mars', 'jupiter', 'asteroid', 'comet', 'meteor', 'crater'],
+]
+
+docs = []
+for i in range(100):
+    topic_words = topics[i % len(topics)]
+    doc = ' '.join(random.choices(topic_words, k=random.randint(10, 30)))
+    docs.append(doc)
 
 # Initialize BERTopic with cuML UMAP backend
 # BERTopic will automatically use cuML's UMAP if available

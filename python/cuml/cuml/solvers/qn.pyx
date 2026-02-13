@@ -1,9 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
-from pylibraft.common.handle import Handle
 
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -11,7 +10,8 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.metrics import accuracy_score
 
 from libc.stdint cimport uintptr_t
@@ -131,7 +131,6 @@ def fit_qn(
     bool penalty_normalized=True,
     init_coef=None,
     level_enum verbose=level_enum.warn,
-    handle=None,
 ):
     """Fit a linear model using a Quasi-newton method.
 
@@ -163,8 +162,7 @@ def fit_qn(
     objective : float
         The value of the objective function.
     """
-    if handle is None:
-        handle = Handle()
+    handle = get_handle()
 
     cdef bool sparse_X = is_sparse(X)
     cdef int n_rows, n_cols
@@ -420,13 +418,6 @@ class QN(Base):
     lbfgs_memory: int (default = 5)
         Rank of the lbfgs inverse-Hessian approximation. Method will use
         O(lbfgs_memory * D) memory.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -506,12 +497,11 @@ class QN(Base):
         linesearch_max_iter=50,
         lbfgs_memory=5,
         verbose=False,
-        handle=None,
         output_type=None,
         warm_start=False,
         penalty_normalized=True,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.loss = loss
         self.fit_intercept = fit_intercept
@@ -526,6 +516,7 @@ class QN(Base):
         self.penalty_normalized = penalty_normalized
 
     @generate_docstring(X="dense_sparse")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
@@ -562,7 +553,6 @@ class QN(Base):
             penalty_normalized=self.penalty_normalized,
             init_coef=init_coef,
             verbose=self._verbose_level,
-            handle=self.handle,
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -572,6 +562,7 @@ class QN(Base):
         return self
 
     @generate_docstring(X="dense_sparse")
+    @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """Predicts the y for X."""
         if is_sparse(X):
@@ -605,5 +596,6 @@ class QN(Base):
 
         return CumlArray(data=out, index=out_index)
 
+    @run_in_internal_context
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -81,13 +81,6 @@ class MBSGDClassifier(
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any improvement in the model
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -161,13 +154,10 @@ class MBSGDClassifier(
         power_t=0.5,
         batch_size=32,
         n_iter_no_change=5,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -183,6 +173,7 @@ class MBSGDClassifier(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
@@ -213,7 +204,6 @@ class MBSGDClassifier(
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            handle=self.handle,
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -227,7 +217,7 @@ class MBSGDClassifier(
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
@@ -239,6 +229,6 @@ class MBSGDClassifier(
 
         thresh = 0 if self.loss == "hinge" else 0.5
         indices = (scores > thresh).view(cp.int8)
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(indices, self.classes_, output_type=output_type)

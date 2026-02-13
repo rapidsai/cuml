@@ -307,17 +307,28 @@ def test_cli_mix_cuml_accel_and_cudf_pandas(first, second, tmpdir):
 
 
 @pytest.mark.parametrize(
-    "args, level", [([], "warn"), (["-v"], "info"), (["-vv"], "debug")]
+    "args, env, level",
+    [
+        ([], None, "warn"),
+        (["-v"], None, "info"),
+        (["-vv"], None, "debug"),
+        # CUML_ACCEL_LOG_LEVEL used if no -v flag given
+        ([], {"CUML_ACCEL_LOG_LEVEL": "debug"}, "debug"),
+        # CUML_ACCEL_LOG_LEVEL is case insensitive
+        ([], {"CUML_ACCEL_LOG_LEVEL": "InFo"}, "info"),
+        # -v flag takes precedence over CUML_ACCEL_LOG_LEVEL
+        (["-v"], {"CUML_ACCEL_LOG_LEVEL": "warn"}, "info"),
+    ],
 )
-def test_cli_verbose(args, level):
+def test_cli_verbose(args, env, level):
     script = dedent(
         f"""
         from cuml.accel.core import logger
         level = logger.level.name.lower()
-        assert level == {level!r}
+        assert level == {level!r}, f"Got %r" % level
         """
     )
-    run(["-m", "cuml.accel", *args], stdin=script)
+    run(["-m", "cuml.accel", *args], stdin=script, env=env)
 
 
 @pytest.mark.parametrize("mode", ["script", "module", "cmd", "stdin"])

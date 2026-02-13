@@ -399,6 +399,40 @@ Additional notes:
   implementation in cuml will always be used.
 
 
+sklearn.preprocessing
+---------------------
+
+StandardScaler
+^^^^^^^^^^^^^^
+
+``StandardScaler`` will fall back to CPU in the following cases:
+
+- If ``partial_fit`` is called (incremental learning not supported on GPU).
+- If ``sample_weight`` is provided (weighted statistics not supported on GPU).
+- If ``X`` has object dtype, half precision (``float16``) dtype, or complex dtype (``complex64``, ``complex128``).
+- If ``X`` is a sparse matrix with integer dtype or in a format other than CSR or CSC.
+
+TargetEncoder
+^^^^^^^^^^^^^
+
+``TargetEncoder`` will fall back to CPU in the following cases:
+
+- If ``categories`` is not ``"auto"``.
+- If ``y`` is a multiclass target (sklearn uses one-hot encoding internally).
+- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds work fine).
+- If ``X`` has object dtype with numeric values.
+- If ``y`` has object dtype.
+
+Additional notes:
+
+- cuML and sklearn use different cross-validation fold assignment strategies
+  during ``fit_transform``. Both are valid target encoding implementations, but
+  samples are assigned to different folds, resulting in different leave-fold-out
+  encodings for training data. The ``transform`` method on test data produces
+  equivalent results since it uses global statistics computed from all training
+  samples.
+
+
 sklearn.svm
 -----------
 

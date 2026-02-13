@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
 from copy import deepcopy
@@ -14,10 +14,8 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from pylibraft.common.cuda import Stream
 from sklearn.metrics import brier_score_loss, mean_squared_error
 
-import cuml
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
@@ -245,14 +243,6 @@ def assert_dbscan_equal(ref, actual, X, core_indices, eps):
     # requirement of minimality for core points
 
 
-def get_handle(use_handle, n_streams=0):
-    if not use_handle:
-        return None, None
-    s = Stream()
-    h = cuml.Handle(stream=s, n_streams=n_streams)
-    return h, s
-
-
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -277,7 +267,7 @@ class ClassEnumerator:
         Those classes will be filtered out from the retrieved models.
     custom_constructors: dictionary of {class_name: lambda}
         Custom constructors to use instead of the default one.
-        ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+        ex: {'LinearSVC': lambda: cuml.LinearSVC(n_streams=2)}
     recursive: bool, default=False
         Instructs the class to recursively search submodules when True,
         otherwise only classes in the specified model will be enumerated
@@ -406,22 +396,6 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cuda.to_device(a), cuda.to_device(b), a, b
 
 
-def score_labeling_with_handle(
-    func, ground_truth, predictions, use_handle, dtype=np.int32
-):
-    """Test helper to standardize inputs between sklearn and our prims metrics.
-
-    Using this function we can pass python lists as input of a test just like
-    with sklearn as well as an option to use handle with our metrics.
-    """
-    a = cp.array(ground_truth, dtype=dtype)
-    b = cp.array(predictions, dtype=dtype)
-
-    handle, stream = get_handle(use_handle)
-
-    return func(a, b, handle=handle)
-
-
 def get_number_positional_args(func, default=2):
     # function to return number of positional arguments in func
     if hasattr(func, "__code__"):
@@ -499,7 +473,7 @@ def from_df_to_numpy(df):
     if isinstance(df, pd.DataFrame):
         return list(zip(*[df[feature] for feature in df.columns]))
     else:
-        return list(zip(*[df[feature].values_host for feature in df.columns]))
+        return list(zip(*[df[feature].to_numpy() for feature in df.columns]))
 
 
 def compare_svm(

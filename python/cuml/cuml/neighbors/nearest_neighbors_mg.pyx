@@ -1,29 +1,23 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import typing
 
-import cuml.internals.logger as logger
 from cuml.common import input_to_cuml_array
-from cuml.internals import api_base_return_generic_skipall
+from cuml.common.opg_data_utils_mg import _build_part_inputs
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
-
-from pylibraft.common.handle cimport handle_t
-
-from cuml.common.opg_data_utils_mg cimport *
-
-from cuml.common.opg_data_utils_mg import _build_part_inputs
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
+from pylibraft.common.handle cimport handle_t
+
+from cuml.common.opg_data_utils_mg cimport *
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
@@ -56,11 +50,12 @@ class NearestNeighborsMG(NearestNeighbors):
     The end-user API for multi-node multi-GPU NearestNeighbors is
     `cuml.dask.neighbors.NearestNeighbors`
     """
-    def __init__(self, *, batch_size=2000000, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, handle, batch_size=2000000, **kwargs):
+        self.handle = handle
         self.batch_size = batch_size
+        super().__init__(**kwargs)
 
-    @api_base_return_generic_skipall
+    @reflect(array=None)
     def kneighbors(
         self,
         index,

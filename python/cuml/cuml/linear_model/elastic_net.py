@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -13,10 +13,8 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.linear_model.base import (
-    LinearPredictMixin,
-    check_deprecated_normalize,
-)
+from cuml.internals.outputs import reflect
+from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.cd import fit_coordinate_descent
 from cuml.solvers.qn import fit_qn
 
@@ -64,20 +62,6 @@ class ElasticNet(
         features sequentially by default. This (setting to 'random') often
         leads to significantly faster convergence especially when tol is higher
         than 1e-4.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -144,7 +128,6 @@ class ElasticNet(
             "tol",
             "solver",
             "selection",
-            "normalize",
         ]
 
     @classmethod
@@ -211,14 +194,10 @@ class ElasticNet(
         tol=1e-3,
         solver="cd",
         selection="cyclic",
-        normalize=False,
-        handle=None,
         output_type=None,
         verbose=False,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -227,9 +206,9 @@ class ElasticNet(
         self.tol = tol
         self.solver = solver
         self.selection = selection
-        self.normalize = normalize
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "ElasticNet":
@@ -237,8 +216,6 @@ class ElasticNet(
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         if self.alpha < 0.0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
         if self.selection not in ["cyclic", "random"]:
@@ -249,10 +226,6 @@ class ElasticNet(
             )
 
         if self.solver == "qn":
-            if self.normalize:
-                raise ValueError(
-                    "`normalize=True` is not supported with `solver='qn'"
-                )
             coef, intercept, n_iter, _ = fit_qn(
                 X,
                 y,
@@ -266,7 +239,6 @@ class ElasticNet(
                 tol=self.tol,
                 penalty_normalized=False,
                 verbose=self._verbose_level,
-                handle=self.handle,
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
@@ -279,11 +251,9 @@ class ElasticNet(
                 alpha=self.alpha,
                 fit_intercept=self.fit_intercept,
                 l1_ratio=self.l1_ratio,
-                normalize=self.normalize,
                 shuffle=self.selection == "random",
                 max_iter=self.max_iter,
                 tol=self.tol,
-                handle=self.handle,
             )
         else:
             raise ValueError(f"solver {self.solver} is not supported")

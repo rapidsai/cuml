@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -33,7 +33,7 @@ def _generate_hypercube(samples, dimensions, random_state):
 
 
 @nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
-@cuml.internals.api_return_generic()
+@cuml.internals.reflect(array=None)
 def make_classification(
     n_samples=100,
     n_features=20,
@@ -95,7 +95,7 @@ def make_classification(
         [-0.88968956 -0.914443    0.1302423   0.02924336]
         [-0.8817671  -0.84549576  0.1845096   0.02556021]]
 
-        >>> print(y)
+        >>> print(y)  # doctest: +SKIP
         [1 0 1 1 1 1 1 1 1 0]
 
     Parameters
@@ -202,8 +202,6 @@ def make_classification(
            selection benchmark", 2003.
 
     """
-    cuml.internals.set_api_output_type("cupy")
-
     generator = _create_rs_generator(random_state)
 
     # Count features, clusters and samples

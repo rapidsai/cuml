@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 schema_version: 1
 
@@ -71,7 +71,6 @@ cache:
       - ${{ stdlib("c") }}
     host:
       - cuda-version =${{ cuda_version }}
-      - libcumlprims =${{ minor_version }}
       - libcuvs =${{ minor_version }}
       - libraft-headers =${{ minor_version }}
       - librmm =${{ minor_version }}
@@ -91,7 +90,7 @@ outputs:
     build:
       script:
         content: |
-          cmake --install cpp/build
+          cmake --install cpp/build --component cuml
       dynamic_linking:
         overlinking_behavior: "error"
       prefix_detection:
@@ -107,7 +106,6 @@ outputs:
       host:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.2
-        - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
@@ -125,7 +123,6 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
-        - libcumlprims =${{ minor_version }}
         - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
@@ -143,7 +140,7 @@ outputs:
           - libcusolver
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
       summary: ${{ load_from_file("python/libcuml/pyproject.toml").project.description }}
 
   - package:
@@ -179,5 +176,5 @@ outputs:
           - librmm
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
-      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license.text }}
+      license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
       summary: libcuml test & benchmark executables

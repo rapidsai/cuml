@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -41,14 +41,6 @@ class IncrementalPCA(PCA):
 
     Parameters
     ----------
-
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     n_components : int or None, (default=None)
         Number of components to keep. If `n_components` is ``None``,
         then `n_components` is set to :py:`min(n_samples, n_features)`.
@@ -185,7 +177,6 @@ class IncrementalPCA(PCA):
     def __init__(
         self,
         *,
-        handle=None,
         n_components=None,
         whiten=False,
         copy=True,
@@ -194,7 +185,6 @@ class IncrementalPCA(PCA):
         output_type=None,
     ):
         super().__init__(
-            handle=handle,
             n_components=n_components,
             whiten=whiten,
             copy=copy,
@@ -203,6 +193,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -258,7 +249,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
@@ -400,6 +391,7 @@ class IncrementalPCA(PCA):
 
         return self
 
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.

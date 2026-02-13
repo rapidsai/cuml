@@ -1,8 +1,5 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
-import warnings
-
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
@@ -12,7 +9,7 @@ import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -113,9 +110,16 @@ cdef class _SVMModel:
         intercept = CumlArray.full(1, b, dtype=dtype)
 
         if nnz == -1:
-            support_vectors = CumlArray(
-                data=self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
-            )
+            # For precomputed kernels, data_ptr is null (0) and support_vectors
+            # should be empty, consistent with sklearn's behavior
+            if data_ptr == 0:
+                support_vectors = CumlArray(
+                    data=cp.empty(shape=(0, 0), dtype=dtype, order="F")
+                )
+            else:
+                support_vectors = CumlArray(
+                    data=self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
+                )
         else:
             indptr = self._ptr_as_cupy(indptr_ptr, (n_support + 1,), np.int32)
             indices = self._ptr_as_cupy(indices_ptr, (nnz,), np.int32)
@@ -128,12 +132,6 @@ cdef class _SVMModel:
             )
 
         return support, support_vectors, dual_coef, intercept
-
-
-class TotalIters(int):
-    """Indicates the maximum number of total iterations the solver may run."""
-    def __repr__(self):
-        return f"TotalIters({int(self)})"
 
 
 class SVMBase(Base,
@@ -165,8 +163,8 @@ class SVMBase(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.kernel == "precomputed" or callable(model.kernel):
-            raise UnsupportedOnGPU(f"`kernel={model.kernel!r}` is not supported")
+        if callable(model.kernel):
+            raise UnsupportedOnGPU(f"callable kernel `{model.kernel!r}` is not supported")
 
         if (cache_size := model.cache_size) == 200:
             # XXX: the cache sizes differ between cuml and sklearn, for now we
@@ -181,17 +179,11 @@ class SVMBase(Base,
             "tol": model.tol,
             "C": model.C,
             "cache_size": cache_size,
-            "max_iter": TotalIters(model.max_iter),
+            "max_iter": model.max_iter,
             "epsilon": model.epsilon,
         }
 
     def _params_to_cpu(self):
-        if isinstance(self.max_iter, TotalIters):
-            max_iter = int(self.max_iter)
-        else:
-            # No way to restrict outer iters only in sklearn, just use the default
-            max_iter = -1
-
         return {
             "kernel": self.kernel,
             "degree": self.degree,
@@ -200,7 +192,7 @@ class SVMBase(Base,
             "tol": self.tol,
             "C": self.C,
             "cache_size": self.cache_size,
-            "max_iter": max_iter,
+            "max_iter": self.max_iter,
             "epsilon": self.epsilon,
         }
 
@@ -299,11 +291,10 @@ class SVMBase(Base,
         cache_size=1024.0,
         max_iter=-1,
         nochange_steps=1000,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.C = C
         self.kernel = kernel
         self.degree = degree
@@ -316,10 +307,14 @@ class SVMBase(Base,
         self.nochange_steps = nochange_steps
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def coef_(self):
         if self.kernel != "linear":
             raise AttributeError("coef_ is only available for linear kernels")
+        # Handle the no-support-vectors case: return zeros with correct shape
+        if self.n_support_ == 0:
+            n_features = self.shape_fit_[1]
+            return CumlArray.zeros((1, n_features), dtype=self.dual_coef_.dtype)
         dual_coef = self.dual_coef_.to_output("cupy")
         support_vectors = self.support_vectors_.to_output("cupy")
         return CumlArray(data=dual_coef @ support_vectors)
@@ -350,12 +345,13 @@ class SVMBase(Base,
             "linear": lib.KernelType.LINEAR,
             "poly": lib.KernelType.POLYNOMIAL,
             "rbf": lib.KernelType.RBF,
-            "sigmoid": lib.KernelType.TANH
+            "sigmoid": lib.KernelType.TANH,
+            "precomputed": lib.KernelType.PRECOMPUTED,
         }.get(self.kernel)
         if kernel is None:
             raise ValueError(
-                f"Expected `kernel` to be in [`'linear', 'poly', 'rbf', 'sigmoid'], "
-                f"got {kernel}"
+                f"Expected `kernel` to be in ['linear', 'poly', 'rbf', 'sigmoid', "
+                f"'precomputed'], got {self.kernel}"
             )
         return kernel
 
@@ -400,32 +396,11 @@ class SVMBase(Base,
         param.verbosity = self._verbose_level
         param.epsilon = self.epsilon
         param.svmType = lib.SvmType.C_SVC if is_classifier else lib.SvmType.EPSILON_SVR
+        param.max_outer_iter = -1
+        param.max_iter = self.max_iter
 
-        if isinstance(self.max_iter, TotalIters):
-            param.max_iter = int(self.max_iter)
-            param.max_outer_iter = -1
-        elif self.max_iter == -1:
-            param.max_iter = -1
-            param.max_outer_iter = -1
-        else:
-            name = type(self).__name__
-            warnings.warn(
-                (
-                    "The meaning of `max_iter` will change in version 26.02 from "
-                    "'max outer iterations' to 'max total iterations'.\n\n"
-                    "You may opt into the new behavior now with:\n\n"
-                    f"  {name}(max_iter={name}.TotalIters(max_total_iter), ...)\n\n"
-                    "The number of total iterations run during a fit may be accessed "
-                    "through the `n_iter_` attribute. In 26.02 the `TotalIters` "
-                    "wrapper will be deprecated and `max_iter` will put a limit "
-                    "on total iterations."
-                ),
-                FutureWarning,
-            )
-            param.max_iter = -1
-            param.max_outer_iter = self.max_iter
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int n_rows, n_cols, X_nnz
         n_rows, n_cols = X.shape
         cdef uintptr_t X_ptr, X_data_ptr, y_ptr, sample_weight_ptr
@@ -443,7 +418,7 @@ class SVMBase(Base,
         sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
 
         cdef int n_iter
-        cdef _SVMModel internal = _SVMModel.new(self.handle, is_float32)
+        cdef _SVMModel internal = _SVMModel.new(handle, is_float32)
 
         with nogil:
             if is_sparse:
@@ -502,7 +477,7 @@ class SVMBase(Base,
                         internal.model_d[0],
                         <double*>sample_weight_ptr,
                     )
-        self.handle.sync()
+        handle.sync()
 
         support, support_vectors, dual_coef, intercept = internal.unpack()
 
@@ -528,7 +503,11 @@ class SVMBase(Base,
         assert self.support_vectors_.dtype == X.dtype
         assert self.dual_coef_.dtype == X.dtype
         assert self.intercept_.dtype == X.dtype
-        assert X.shape[1] == self.support_vectors_.shape[1]
+        # For precomputed kernels, X columns = training samples; otherwise X columns = features
+        if self.kernel == "precomputed":
+            assert X.shape[1] == self.shape_fit_[0]
+        else:
+            assert X.shape[1] == self.shape_fit_[1]
 
         support_vectors = self.support_vectors_
 
@@ -549,11 +528,14 @@ class SVMBase(Base,
         )
 
         # Setup SvmModel of proper type
+        # Use shape_fit_[1] for n_cols to handle the no-support-vectors case correctly
+        # (support_vectors.shape[1] would be 0 when there are no support vectors)
+        cdef int n_cols_fit = self.shape_fit_[1]
         cdef lib.SvmModel[float] model_f
         cdef lib.SvmModel[double] model_d
         if is_float32:
             model_f.n_support = self.support_.shape[0]
-            model_f.n_cols = support_vectors.shape[1]
+            model_f.n_cols = n_cols_fit
             model_f.b = self.intercept_.item()
             model_f.dual_coefs = <float*><uintptr_t>self.dual_coef_.ptr
             model_f.support_idx = <int*><uintptr_t>self.support_.ptr
@@ -563,7 +545,7 @@ class SVMBase(Base,
             model_f.support_matrix.data = <float*>support_data_ptr
         else:
             model_d.n_support = self.support_.shape[0]
-            model_d.n_cols = support_vectors.shape[1]
+            model_d.n_cols = n_cols_fit
             model_d.b = self.intercept_.item()
             model_d.dual_coefs = <double*><uintptr_t>self.dual_coef_.ptr
             model_d.support_idx = <int*><uintptr_t>self.support_.ptr
@@ -598,7 +580,8 @@ class SVMBase(Base,
         cdef uintptr_t out_ptr = out.ptr
 
         cdef double cache_size = self.cache_size
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Call predict
         with nogil:
@@ -658,10 +641,6 @@ class SVMBase(Base,
                         <double>cache_size,
                         False,
                     )
-        self.handle.sync()
+        handle.sync()
 
         return out
-
-
-# Add TotalIters to the SVC/SVR class for easier access
-SVMBase.TotalIters = TotalIters

@@ -1,27 +1,27 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import ctypes
 import warnings
+from collections import deque
 
 import cupy as cp
 import cupyx.scipy.sparse
 import joblib
 import numpy as np
 import scipy.sparse
-from pylibraft.common.handle import Handle
+import scipy.spatial
 
-import cuml.accel
-import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.interop import (
     InteropMixin,
@@ -39,6 +39,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
+from rmm.librmm.per_device_resource cimport get_current_device_resource
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 
 cimport cuml.manifold.umap.lib as lib
@@ -90,6 +91,188 @@ def find_ab_params(spread=1.0, min_dist=0.1):
     yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
     params, _ = curve_fit(curve, xv, yv)
     return params[0], params[1]
+
+
+def _breadth_first_search(adjmat, start, min_vertices):
+    """Perform breadth-first search on an adjacency matrix.
+
+    Parameters
+    ----------
+    adjmat : scipy.sparse.csr_matrix
+        The adjacency matrix to search.
+    start : int
+        The starting vertex index.
+    min_vertices : int
+        Minimum number of vertices to explore.
+
+    Returns
+    -------
+    explored : np.ndarray
+        Array of explored vertex indices.
+    """
+    explored = []
+    queue = deque([start])
+    levels = {start: 0}
+    max_level = float('inf')
+    visited = {start}
+
+    while queue:
+        node = queue.popleft()
+        explored.append(node)
+        if max_level == float('inf') and len(explored) > min_vertices:
+            max_level = max(levels.values())
+
+        if levels[node] + 1 < max_level:
+            neighbors = adjmat[node].indices
+            for neighbour in neighbors:
+                if neighbour not in visited:
+                    queue.append(neighbour)
+                    visited.add(neighbour)
+                    levels[neighbour] = levels[node] + 1
+
+    return np.array(explored)
+
+
+def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
+    """Compute neighborhoods for inverse transform using Delaunay triangulation.
+
+    This is inherently CPU-bound as it uses scipy's Delaunay triangulation
+    and BFS which are sequential algorithms.
+
+    Parameters
+    ----------
+    embedding_np : np.ndarray
+        The embedding coordinates (n_embedding, n_components).
+    X_np : np.ndarray
+        Points to inverse transform (n_samples, n_components).
+    min_vertices : int
+        Minimum number of neighbors to find per point.
+
+    Returns
+    -------
+    neighborhoods : list of np.ndarray
+        Variable-length neighbor indices for each sample.
+    """
+    n_embedding = embedding_np.shape[0]
+
+    # Build Delaunay triangulation
+    deltri = scipy.spatial.Delaunay(
+        embedding_np, incremental=True, qhull_options="QJ"
+    )
+
+    # Find starting vertices (first vertex of simplex containing each point)
+    simplex_indices = deltri.find_simplex(X_np)
+    out_of_hull_mask = simplex_indices == -1
+    if np.any(out_of_hull_mask):
+        n_outside = out_of_hull_mask.sum()
+        raise ValueError(
+            f"{n_outside} point(s) are outside the convex hull of the embedding "
+            "and cannot be inverse transformed. Ensure all points to inverse "
+            "transform lie within the range of the original embedding."
+        )
+    start_vertices = deltri.simplices[simplex_indices][:, 0]
+
+    # Build adjacency matrix from simplices
+    simplices = deltri.simplices
+    valid_mask = simplices < n_embedding
+    rows_list, cols_list = [], []
+    for i in range(simplices.shape[0]):
+        valid_verts = simplices[i][valid_mask[i]]
+        for v in valid_verts:
+            rows_list.extend([v] * len(valid_verts))
+            cols_list.extend(valid_verts)
+
+    adjmat = scipy.sparse.csr_matrix(
+        (np.ones(len(rows_list), dtype=np.int32),
+         (np.array(rows_list), np.array(cols_list))),
+        shape=(n_embedding, n_embedding)
+    )
+
+    # BFS from each starting vertex
+    return [
+        _breadth_first_search(adjmat, v, min_vertices=min_vertices)
+        for v in start_vertices
+    ]
+
+
+def _build_inverse_graph(X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, a, b):
+    """Build inverse transform graph and compute initial points on GPU.
+
+    Parameters
+    ----------
+    X_np : np.ndarray
+        Points to inverse transform (n_samples, n_components).
+    embedding_np : np.ndarray
+        Embedding coordinates (n_embedding, n_components).
+    raw_data_np : np.ndarray
+        Original training data (n_orig, n_features).
+    neighborhoods : list of np.ndarray
+        Variable-length neighbor indices for each sample.
+    min_vertices : int
+        Number of closest neighbors to use per sample.
+    a, b : float
+        UMAP curve parameters.
+
+    Returns
+    -------
+    inv_transformed : cp.ndarray
+        Initial inverse transformed points (n_samples, n_features).
+    rows, cols, weights : cp.ndarray
+        COO graph arrays (on GPU).
+    raw_data_gpu : cp.ndarray
+        Original training data on GPU (n_orig, n_features).
+    """
+    n_samples = X_np.shape[0]
+
+    # Pad neighborhoods to uniform length for GPU processing
+    hood_lengths = np.array([len(h) for h in neighborhoods], dtype=np.int32)
+    max_hood_len = int(hood_lengths.max())
+    hoods_padded = np.zeros((n_samples, max_hood_len), dtype=np.int32)
+    for i, hood in enumerate(neighborhoods):
+        hoods_padded[i, :len(hood)] = hood
+
+    # Transfer to GPU (raw_data with C-contiguous layout for CUDA kernels)
+    X_gpu = cp.asarray(X_np, dtype=cp.float32)
+    embedding_gpu = cp.asarray(embedding_np, dtype=cp.float32)
+    raw_data_gpu = cp.asarray(raw_data_np, dtype=cp.float32, order="C")
+    hoods_gpu = cp.asarray(hoods_padded, dtype=cp.int32)
+    lengths_gpu = cp.asarray(hood_lengths, dtype=cp.int32)
+
+    # Gather neighbor embeddings: (n_samples, max_hood_len, n_components)
+    neighbor_embs = embedding_gpu[hoods_gpu]
+
+    # Compute distances: (n_samples, max_hood_len)
+    diffs = X_gpu[:, None, :] - neighbor_embs
+    dists = cp.linalg.norm(diffs, axis=2)
+
+    # Mask invalid entries with infinity
+    valid_mask = cp.arange(max_hood_len)[None, :] < lengths_gpu[:, None]
+    dists = cp.where(valid_mask, dists, cp.inf)
+
+    # Get top-k closest indices
+    order = cp.argsort(dists, axis=1)[:, :min_vertices]
+
+    # Gather indices and distances
+    row_idx = cp.arange(n_samples, dtype=cp.int32)[:, None]
+    indices = hoods_gpu[row_idx, order]
+    distances = dists[row_idx, order]
+
+    # Compute membership strengths
+    weights_2d = 1.0 / (1.0 + a * distances ** (2 * b))
+
+    # Build COO graph
+    rows = cp.repeat(cp.arange(n_samples, dtype=cp.int32), min_vertices)
+    cols = indices.ravel()
+    weights = weights_2d.ravel().astype(cp.float32)
+
+    # Initialize via L1-normalized weighted average
+    weights_norm = weights_2d / weights_2d.sum(axis=1, keepdims=True)
+    neighbor_data = raw_data_gpu[indices]  # (n_samples, min_vertices, n_features)
+    inv_transformed = cp.sum(
+        weights_norm[:, :, None] * neighbor_data, axis=1
+    ).astype(cp.float32)
+
+    return inv_transformed, rows, cols, weights, raw_data_gpu
 
 
 cdef class RaftCOO:
@@ -325,6 +508,10 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             "is unstable"
         )
 
+    if build_algo == "nn_descent" and self.random_state is not None:
+        warnings.warn("build_algo='nn_descent' is not deterministic. Please use "
+                      "build_algo='brute_force_knn' instead with random_state set.")
+
     params.n_neighbors = self._n_neighbors
     params.n_components = self.n_components
     params.n_epochs = self.n_epochs or 0
@@ -345,15 +532,19 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
+    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
-    if self.init in _INITS:
+    if is_array_like(self.init):
+        params.init = 2
+    elif self.init in _INITS:
         params.init = _INITS[self.init]
     else:
         raise ValueError(
-            f"Expected `init` to be one of {list(_INITS)}, got {self.init!r}"
+            f"Expected `init` to be an array or one of {list(_INITS)}, "
+            f"got {self.init!r}"
         )
 
     if self.target_metric in _TARGET_METRICS:
@@ -369,26 +560,45 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             <lib.GraphBasedDimRedCallback*><uintptr_t>self.callback.get_native_callback()
         )
 
+    build_kwds = self.build_kwds or {}
+    n_clusters = build_kwds.get("knn_n_clusters", 1)
+    overlap_factor = build_kwds.get("knn_overlap_factor", 2)
+
+    if n_clusters < 1:
+        raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
+    elif n_clusters > 1 and overlap_factor >= n_clusters:
+        raise ValueError(
+            f"`knn_n_clusters > 1` requires `knn_n_clusters ({n_clusters}) > "
+            f"knn_overlap_factor ({overlap_factor})`"
+        )
+
+    all_neighbors_supported_metrics = [
+        'l2', 'euclidean', 'sqeuclidean', 'cosine', 'inner_product'
+    ]
+    if (
+        build_algo == "brute_force_knn" and
+        n_clusters > 1 and
+        self.metric.lower() not in all_neighbors_supported_metrics
+    ):
+        warnings.warn(
+            f"metric='{self.metric}' is not supported for batched knn build with "
+            f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
+            f"The knn_n_clusters parameter will be ignored and regular brute force knn "
+            f"(without batching) will be used instead."
+        )
+
+    params.build_params.n_clusters = n_clusters
+    params.build_params.overlap_factor = overlap_factor
+
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
     else:
         params.build_algo = lib.graph_build_algo.NN_DESCENT
 
-        build_kwds = self.build_kwds or {}
-        n_clusters = build_kwds.get("nnd_n_clusters", 1)
-        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
         max_iterations = build_kwds.get("nnd_max_iterations", 20)
         termination_threshold = build_kwds.get("nnd_termination_threshold", 0.0001)
         graph_degree = build_kwds.get("nnd_graph_degree", 64)
         intermediate_graph_degree = build_kwds.get("nnd_intermediate_graph_degree", 128)
-
-        if n_clusters < 1:
-            raise ValueError(f"Expected `nnd_n_clusters >= 1`, got {n_clusters}")
-        elif n_clusters > 1 and overlap_factor >= n_clusters:
-            raise ValueError(
-                f"`nnd_n_clusters > 1` requires `nnd_n_clusters ({n_clusters}) > "
-                f"nnd_overlap_factor ({overlap_factor})`"
-            )
 
         if graph_degree < self._n_neighbors:
             logger.warn(
@@ -405,8 +615,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             )
             intermediate_graph_degree = graph_degree
 
-        params.build_params.n_clusters = n_clusters
-        params.build_params.overlap_factor = overlap_factor
         params.build_params.nnd.max_iterations = max_iterations
         params.build_params.nnd.termination_threshold = termination_threshold
         params.build_params.nnd.graph_degree = graph_degree
@@ -444,6 +652,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         passed via the metric_kwds dictionary.
         Note: The 'jaccard' distance metric is only supported for sparse
         inputs.
+        Note: If build_algo=`brute_force_knn` and `knn_n_clusters > 1`, the metric
+        must be one of ['l2', 'sqeuclidean', 'euclidean', 'cosine', 'inner_product'].
     metric_kwds: dict (optional, default=None)
         Metric argument
     n_epochs: int (optional, default None)
@@ -458,6 +668,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
         * 'random': assign initial embedding positions at random.
+        * An array-like with initial embedding positions.
 
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
@@ -505,6 +716,23 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    target_n_neighbors: int (optional, default=-1)
+        The number of nearest neighbors to use to construct the target
+        simplicial set. If set to -1 use the ``n_neighbors`` value.
+    target_metric: string (optional, default='categorical')
+        The metric used to measure distance for a target array when using
+        supervised dimension reduction. By default this is 'categorical'
+        which will measure distance in terms of whether categories match
+        or are different. Furthermore, if semi-supervised is required
+        target values of -1 will be treated as unlabelled under the
+        'categorical' metric. If the target array takes continuous values
+        (e.g. for a regression problem) then metric of 'euclidean' or 'l2'
+        is probably more appropriate.
+    target_weight: float (optional, default=0.5)
+        Weighting factor between data topology and target topology. A
+        value of 0.0 weights predominantly on data, a value of 1.0 places
+        a strong emphasis on target. The default of 0.5 balances the
+        weighting equally between data and target.
     hash_input: bool, optional (default = False)
         UMAP can hash the training input so that exact embeddings
         are returned when transform is called on the same data upon
@@ -524,16 +752,22 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         and also allows the use of a custom distance function. This function
         should match the metric used to train the UMAP embeedings.
     random_state : int, RandomState instance or None, optional (default=None)
-        random_state is the seed used by the random number generator during
-        embedding initialization and during sampling used by the optimizer.
-        Note: Unfortunately, achieving a high amount of parallelism during the
-        optimization stage often comes at the expense of determinism, since
-        many floating-point additions are being made in parallel without a
-        deterministic ordering. This causes slightly different results across
-        training sessions, even when the same seed is used for random number
-        generation. Setting a random_state will enable consistency of trained
-        embeddings, but will do so at the expense of potentially slower
-        training and increased memory usage.
+        Seed used by the random number generator for embedding initialization
+        and optimizer sampling. Setting a random_state enables reproducible
+        embeddings, but at the cost of slower training and increased memory
+        usage. This is because high parallelism during optimization involves
+        non-deterministic floating-point addition ordering.
+
+        Note: Explicitly setting ``build_algo='nn_descent'`` will break
+        reproducibility, as NN Descent produces non-deterministic KNN graphs.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -552,16 +786,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
 
-    handle : cuml.Handle or pylibraft.common.DeviceResourcesSNMG
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
-        Using `pylibraft.common.DeviceResourcesSNMG` as the handle will run batched knn graph
-        building using multiple GPUs. This will only be valid when `build_algo=nn_descent` and
-        `nnd_n_clusters > 1`.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -589,33 +813,39 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - `nnd_termination_threshold` (float, default=0.0001): Stricter threshold leads to
           better convergence but longer runtime.
 
-        - `nnd_n_clusters` (int, default=1): Number of clusters for data partitioning.
-          Higher values reduce memory usage at the cost of accuracy. When `nnd_n_clusters > 1`,
+        - `knn_n_clusters` (int, default=1): Number of clusters for data partitioning.
+          Higher values reduce memory usage at the cost of accuracy. When `knn_n_clusters > 1`,
           UMAP can process data larger than device memory.
 
-        - `nnd_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
-          Valid only when `nnd_n_clusters > 1`. Must be < 'nnd_n_clusters'.
+        - `knn_overlap_factor` (int, default=2): Number of clusters each data point belongs to.
+          Valid only when `knn_n_clusters > 1`. Must be < 'knn_n_clusters'.
 
         Hints:
 
         - Increasing `nnd_graph_degree` and `nnd_max_iterations` may improve accuracy.
 
-        - The ratio `nnd_overlap_factor / nnd_n_clusters` impacts memory usage.
-          Approximately `(nnd_overlap_factor / nnd_n_clusters) * num_rows_in_entire_data`
+        - The ratio `knn_overlap_factor / knn_n_clusters` impacts memory usage.
+          Approximately `(knn_overlap_factor / knn_n_clusters) * num_rows_in_entire_data`
           rows will be loaded onto device memory at once.  E.g., 2/20 uses less device
           memory than 2/10.
 
-        - Larger `nnd_overlap_factor` results in better accuracy of the final knn graph.
+        - Larger `knn_overlap_factor` results in better accuracy of the final knn graph.
           E.g. While using similar amount of device memory,
-          `(nnd_overlap_factor / nnd_n_clusters)` = 4/20 will have better accuracy
+          `(knn_overlap_factor / knn_n_clusters)` = 4/20 will have better accuracy
           than 2/10 at the cost of performance.
 
-        - Start with `nnd_overlap_factor = 2` and gradually increase (2->3->4 ...)
+        - Start with `knn_overlap_factor = 2` and gradually increase (2->3->4 ...)
           for better accuracy.
 
-        - Start with `nnd_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
-          memory usage. This is independent from nnd_overlap_factor as long as
-          'nnd_overlap_factor' < 'nnd_n_clusters'.
+        - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
+          memory usage. This is independent from knn_overlap_factor as long as
+          'knn_overlap_factor' < 'knn_n_clusters'.
+
+    device_ids : list[int], "all", or None, default=None
+        The device IDs to use during fitting (only used when
+        `build_algo=nn_descent` and `knn_n_clusters > 1`). May be a list of
+        ids, ``"all"`` (to use all available devices), or ``None`` (to fit
+        using a single GPU only). Default is None.
 
     Notes
     -----
@@ -643,6 +873,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
        <https://arxiv.org/abs/2008.00325>`_
     """
     embedding_ = CumlArrayDescriptor(order="C")
+    _sigmas = CumlArrayDescriptor(order="C")
+    _rhos = CumlArrayDescriptor(order="C")
 
     _cpu_class_path = "umap.UMAP"
 
@@ -669,17 +901,20 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric",
             "hash_input",
             "random_state",
+            "force_serial_epochs",
             "callback",
             "metric",
             "metric_kwds",
             "precomputed_knn",
             "build_algo",
-            "build_kwds"
+            "build_kwds",
+            "device_ids",
         ]
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not (isinstance(model.init, str) and model.init in _INITS):
+        if not ((isinstance(model.init, str) and model.init in _INITS) or
+                is_array_like(model.init)):
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -722,12 +957,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
+            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
             "precomputed_knn": precomputed_knn,
         }
 
     def _params_to_cpu(self):
         if (precomputed_knn := self.precomputed_knn) is None:
             precomputed_knn = (None, None, None)
+
+        init = self.init
+        if is_array_like(init):
+            init = cp.asnumpy(init)
 
         return {
             "n_neighbors": self.n_neighbors,
@@ -743,7 +983,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "repulsion_strength": self.repulsion_strength,
             "negative_sample_rate": self.negative_sample_rate,
             "transform_queue_size": self.transform_queue_size,
-            "init": self.init,
+            "init": init,
             "a": self.a,
             "b": self.b,
             "target_n_neighbors": self.target_n_neighbors,
@@ -759,7 +999,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             raw_data = to_gpu(model._raw_data)
 
-        return {
+        attrs = {
             "embedding_": to_gpu(model.embedding_, order="C"),
             "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
@@ -771,6 +1011,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "n_features_in_": model._raw_data.shape[1],
             **super()._attrs_from_cpu(model),
         }
+
+        # Transfer _sigmas and _rhos if available (needed for inverse_transform)
+        if hasattr(model, "_sigmas") and model._sigmas is not None:
+            attrs["_sigmas"] = to_gpu(model._sigmas)
+        if hasattr(model, "_rhos") and model._rhos is not None:
+            attrs["_rhos"] = to_gpu(model._rhos)
+
+        return attrs
 
     def _attrs_to_cpu(self, model):
         from umap.umap_ import DISCONNECTION_DISTANCES
@@ -788,7 +1036,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
             knn_indices = to_cpu(knn_indices)
 
-        return {
+        attrs = {
             "embedding_": to_cpu(self.embedding_),
             "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
@@ -815,6 +1063,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "_knn_search_index": None,
             **super()._attrs_to_cpu(model),
         }
+
+        # Transfer _sigmas and _rhos if available (needed for inverse_transform)
+        if hasattr(self, "_sigmas") and self._sigmas is not None:
+            attrs["_sigmas"] = to_cpu(self._sigmas)
+        if hasattr(self, "_rhos") and self._rhos is not None:
+            attrs["_rhos"] = to_cpu(self._rhos)
+
+        return attrs
 
     def _sync_attrs_to_cpu(self, model):
         super()._sync_attrs_to_cpu(model)
@@ -845,15 +1101,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
+        force_serial_epochs=False,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
         build_kwds=None,
-        handle=None,
+        device_ids=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
@@ -876,16 +1133,19 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
+        self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
         self.build_kwds = build_kwds
+        self.device_ids = device_ids
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
         X="dense_sparse",
         skip_parameters_heading=True,
     )
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -926,8 +1186,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
+
+        # Don't coerce to device memory when using a precomputed KNN, so
+        # that X may be dropped earlier if passed on host.
+        mem_type = (
+            MemoryType.device
+            if knn_graph is None and self.precomputed_knn is None
+            else False
+        )
+
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
+            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
@@ -940,8 +1209,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 convert_to_mem_type=(
                     MemoryType.host
-                    if params.build_algo == lib.graph_build_algo.NN_DESCENT
-                    else MemoryType.device
+                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or
+                    (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+                        and params.build_params.n_clusters > 1)
+                    else mem_type
                 )
             ).array
             X_ptr = X_m.ptr
@@ -978,9 +1249,44 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             knn_indices = knn_dists = None
 
-        cdef handle_t * handle_ = <handle_t*> <size_t> self.handle.getHandle()
+        handle = get_handle(device_ids=self.device_ids)
+        cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
+        handle_ = <handle_t*> <size_t> handle.getHandle()
+
+        if is_array_like(self.init):
+            init_m = input_to_cuml_array(
+                self.init,
+                order="C",
+                check_dtype=np.float32,
+                convert_to_dtype=np.float32,
+                convert_to_mem_type=False,
+                check_rows=n_rows,
+                check_cols=self.n_components,
+            ).array
+
+            embeddings_buffer.reset(
+                new device_buffer(
+                    <const void*><uintptr_t>init_m.ptr,
+                    init_m.size,
+                    handle_.get_stream(),
+                    get_current_device_resource()
+                )
+            )
+
+        # Allocate device arrays for sigmas and rhos (needed for inverse_transform)
+        # Note: fit_sparse in C++ doesn't output sigmas/rhos yet.
+        cdef uintptr_t sigmas_ptr = 0
+        cdef uintptr_t rhos_ptr = 0
+        if not X_is_sparse:
+            sigmas_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
+            rhos_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
+            sigmas_ptr = sigmas_arr.ptr
+            rhos_ptr = rhos_arr.ptr
+        else:
+            sigmas_arr = None
+            rhos_arr = None
 
         with nogil:
             if X_is_sparse:
@@ -1011,8 +1317,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     &params,
                     embeddings_buffer,
                     fss_graph,
+                    <float*> sigmas_ptr,
+                    <float*> rhos_ptr,
                 )
-        self.handle.sync()
+        handle.sync()
 
         buffer = DeviceBuffer.c_from_unique_ptr(move(embeddings_buffer))
         embedding = cp.ndarray(
@@ -1030,6 +1338,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
+        self._sigmas = sigmas_arr
+        self._rhos = rhos_arr
 
         if self.hash_input:
             self._input_hash = _joblib_hash(X_m.to_output("numpy"))
@@ -1048,7 +1358,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
-    @cuml.internals.api_base_fit_transform()
+    @reflect
     def fit_transform(
         self, X, y=None, *, convert_dtype=True, knn_graph=None
     ) -> CumlArray:
@@ -1086,6 +1396,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "shape": "(n_samples, n_components)"
         }
     )
+    @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Transform X into the existing embedded space and return that
@@ -1177,7 +1488,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
-        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+        handle = get_handle(device_ids=self.device_ids)
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         with nogil:
             if X_is_sparse:
@@ -1212,9 +1524,123 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     &params,
                     <float*> out_ptr
                 )
-        self.handle.sync()
+        handle.sync()
 
         return out
+
+    @generate_docstring(
+        convert_dtype_cast="np.float32",
+        X_shape="(n_samples, n_components)",
+        return_values={
+            "name": "X_new",
+            "type": "dense",
+            "description": "Generated data points in data space.",
+            "shape": "(n_samples, n_features)"
+        }
+    )
+    @reflect
+    def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
+        """Transform X in the existing embedded space back into the input
+        data space and return that transformed output.
+        """
+        if not hasattr(self, "embedding_") or self.embedding_ is None:
+            raise NotFittedError(
+                "This UMAP instance is not fitted yet. Call 'fit' with "
+                "appropriate arguments before using 'inverse_transform'."
+            )
+        if self._sparse_data:
+            raise ValueError("Inverse transform not available for sparse input.")
+        if self.n_components >= 8:
+            warnings.warn(
+                "Inverse transform works best with low dimensional embeddings."
+                " Results may be poor, or this approach to inverse transform"
+                " may fail altogether! If you need a high dimensional latent"
+                " space and inverse transform operations consider using an"
+                " autoencoder."
+            )
+
+        X = input_to_cuml_array(
+            X,
+            order="C",
+            check_dtype=np.float32,
+            convert_to_dtype=(np.float32 if convert_dtype else None),
+        ).array
+        index = X.index
+
+        n_samples = X.shape[0]
+        if X.shape[1] != self.n_components:
+            raise ValueError(
+                f"X has {X.shape[1]} components, but UMAP is expecting "
+                f"{self.n_components} components as input"
+            )
+
+        # Get numpy arrays for preprocessing
+        embedding_np = self.embedding_.to_output("numpy")
+        X_np = X.to_output("numpy")
+        raw_data_np = self._raw_data.to_output("numpy")
+
+        # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
+        # Cap neighborhood size to prevent explosion for high-dimensional data.
+        # We use 3x n_neighbors as an upper bound since that's the scale at which
+        # the manifold was learned. This avoids creating excessively dense graphs
+        # when n_features >> n_neighbors (e.g., 10000 features).
+        max_neighbors = 3 * self._n_neighbors
+        min_vertices = min(raw_data_np.shape[1], raw_data_np.shape[0], max_neighbors)
+        neighborhoods = _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices)
+
+        # Phase 2: Build graph and initial points (GPU-accelerated)
+        inv_transformed_gpu, rows_gpu, cols_gpu, vals_gpu, raw_data_gpu = _build_inverse_graph(
+            X_np, embedding_np, raw_data_np, neighborhoods, min_vertices, self._a, self._b
+        )
+
+        # Phase 3: CUDA optimization (call C++)
+        cdef int n_epochs_inv
+        if self.n_epochs is None:
+            n_epochs_inv = 100 if n_samples <= 10000 else 30
+        else:
+            n_epochs_inv = int(self.n_epochs // 3)
+
+        # Ensure C-contiguous layout for CUDA kernels
+        inv_transformed_gpu = cp.ascontiguousarray(inv_transformed_gpu)
+
+        cdef int c_n_samples = n_samples
+        cdef int c_n_features = raw_data_np.shape[1]
+        cdef int c_orig_n = raw_data_np.shape[0]
+        cdef int c_nnz = vals_gpu.shape[0]
+
+        cdef uintptr_t inv_ptr = inv_transformed_gpu.data.ptr
+        cdef uintptr_t raw_ptr = raw_data_gpu.data.ptr
+        cdef uintptr_t rows_ptr = rows_gpu.data.ptr
+        cdef uintptr_t cols_ptr = cols_gpu.data.ptr
+        cdef uintptr_t vals_ptr = vals_gpu.data.ptr
+
+        # Check that sigmas and rhos are available (set during fit on dense data)
+        if self._sigmas is None or self._rhos is None:
+            raise ValueError(
+                "inverse_transform requires sigmas and rhos arrays from fit. "
+                "These may be missing if the model was loaded from a CPU UMAP "
+                "model that did not have them, or if the model was not fitted."
+            )
+        cdef uintptr_t sigmas_ptr = self._sigmas.ptr
+        cdef uintptr_t rhos_ptr = self._rhos.ptr
+
+        cdef lib.UMAPParams params
+        init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
+
+        handle = get_handle(device_ids=self.device_ids)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+
+        lib.inverse_transform(
+            handle_[0],
+            <float*>inv_ptr, c_n_samples, c_n_features,
+            <float*>raw_ptr, c_orig_n,
+            <int*>rows_ptr, <int*>cols_ptr, <float*>vals_ptr, c_nnz,
+            <float*>sigmas_ptr, <float*>rhos_ptr,
+            &params, n_epochs_inv
+        )
+        handle.sync()
+
+        return CumlArray(data=inv_transformed_gpu, order="C", index=index)
 
 
 def fuzzy_simplicial_set(
@@ -1334,7 +1760,7 @@ def fuzzy_simplicial_set(
         knn_indices_ptr = 0
         knn_dists_ptr = 0
 
-    handle = Handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef unique_ptr[lib.COO] fss_graph_ptr = lib.get_graph(
         handle_[0],
@@ -1350,7 +1776,7 @@ def fuzzy_simplicial_set(
     return fss_graph.view_cupy_coo()
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@reflect
 def simplicial_set_embedding(
     data,
     graph,
@@ -1363,6 +1789,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
+    force_serial_epochs=False,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1410,6 +1837,14 @@ def simplicial_set_embedding(
             * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1458,6 +1893,7 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
+    params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)
@@ -1498,7 +1934,7 @@ def simplicial_set_embedding(
     if not isinstance(graph, cupyx.scipy.sparse.coo_matrix):
         graph = cupyx.scipy.sparse.coo_matrix(graph)
 
-    handle = Handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef RaftCOO fss_graph = RaftCOO.from_cupy_coo(handle, graph)
     cdef uintptr_t embedding_ptr = embedding.ptr

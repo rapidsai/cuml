@@ -1,237 +1,82 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import math
-import typing
-
 import cupy as cp
 
-import cuml.internals
-from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
-map_kernel_str = r"""
-({0} *x, int x_n, {0} *labels, int n_labels) {
 
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  extern __shared__ {0} label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
-    label_cache[i] = labels[i];
-
-  if(tid >= x_n) return;
-  __syncthreads();
-
-  {0} unmapped_label = x[tid];
-  for(int i = 0; i < n_labels; i++) {
-    if(label_cache[i] == unmapped_label) {
-      x[tid] = i;
-      return;
-    }
-  }
-  x[tid] = n_labels+1;
-}
-"""
-
-
-validate_kernel_str = r"""
-({0} *x, int x_n, {0} *labels, int n_labels, int *out) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  extern __shared__ {0} label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x)
-    label_cache[i] = labels[i];
-
-  if(tid >= x_n) return;
-
-  __syncthreads();
-
-  int unmapped_label = x[tid];
-  bool found = false;
-  for(int i = 0; i < n_labels; i++) {
-    if(label_cache[i] == unmapped_label) {
-      found = true;
-      break;
-    }
-  }
-
-  if(!found) out[0] = 0;
-}
-"""
-
-
-inverse_map_kernel_str = r"""
-({0} *labels, int n_labels, {0} *x, int x_n) {
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-  extern __shared__ {0} label_cache[];
-  for(int i = threadIdx.x; i < n_labels; i+=blockDim.x) {
-    label_cache[i] = labels[i];
-  }
-
-  if(tid >= x_n) return;
-  __syncthreads();
-
-  {0} mapped_label = x[tid];
-  {0} original_label = label_cache[mapped_label];
-
-  x[tid] = original_label;
-}
-"""
-
-
-def _map_kernel(dtype):
-    return cuda_kernel_factory(map_kernel_str, (dtype,), "map_labels_kernel")
-
-
-def _inverse_map_kernel(dtype):
-    return cuda_kernel_factory(
-        inverse_map_kernel_str, (dtype,), "inv_map_labels_kernel"
-    )
-
-
-def _validate_kernel(dtype):
-    return cuda_kernel_factory(
-        validate_kernel_str, (dtype,), "validate_labels_kernel"
-    )
-
-
-@cuml.internals.api_return_generic(input_arg="labels", get_output_type=True)
-def make_monotonic(
-    labels, classes=None, copy=False
-) -> typing.Tuple[CumlArray, CumlArray]:
+def make_monotonic(labels, classes=None, copy=False):
     """
     Takes a set of labels that might not be drawn from the
-    set [0, n-1] and renumbers them to be drawn that
+    set [0, n-1] and renumbers them to be drawn from that
     interval.
 
-    Replaces labels not present in classes by len(classes)+1.
+    Labels not present in classes are mapped to len(classes).
 
     Parameters
     ----------
-
-    labels : array-like of size (n,) labels to convert
-    classes : array-like of size (n_classes,) the unique
-              set of classes in the set of labels
-    copy : boolean if true, a copy will be returned and the
-           operation will not be done in place.
+    labels : array-like of shape (n_samples,)
+        Labels to convert to monotonic indices.
+    classes : array-like of shape (n_classes,), optional
+        The unique set of classes. If None, classes are derived
+        from the unique values in labels.
+    copy : bool, default=False
+        If True, a copy of labels is returned. If False, the
+        operation is performed in-place on device arrays.
 
     Returns
     -------
-
-    mapped_labels : array-like of size (n,)
-    classes : array-like of size (n_classes,)
+    mapped_labels : cupy.ndarray of shape (n_samples,)
+        Labels mapped to indices [0, n_classes-1].
+        Labels not in classes are mapped to n_classes.
+    classes : cupy.ndarray of shape (n_classes,)
+        Unique class labels. These will be sorted if classes is None.
+        If classes is provided, the original order is preserved.
     """
     labels = input_to_cupy_array(labels, deepcopy=copy).array
 
     if labels.ndim != 1:
         raise ValueError("Labels array must be 1D")
+
+    # Preserve original dtype for output consistency
+    output_dtype = labels.dtype
 
     if classes is None:
-        classes = cp.unique(labels)
+        # Derive classes from labels and get inverse mapping directly
+        classes, mapped_labels = cp.unique(labels, return_inverse=True)
+        mapped_labels = mapped_labels.astype(output_dtype, copy=False)
+        if not copy:
+            labels[:] = mapped_labels
+            mapped_labels = labels
     else:
+        # Convert provided classes
         classes = input_to_cupy_array(classes).array
 
-    smem = labels.dtype.itemsize * int(classes.shape[0])
+        # Sort provided classes for binary search, but keep track of
+        # original indices to maintain provided order.
+        sort_indices = cp.argsort(classes)
+        sorted_classes = classes[sort_indices]
 
-    map_labels = _map_kernel(labels.dtype)
-    map_labels(
-        (math.ceil(labels.shape[0] / 32),),
-        (32,),
-        (labels, labels.shape[0], classes, classes.shape[0]),
-        shared_mem=smem,
-    )
+        # Map each label to its index in sorted classes using binary search
+        indices = cp.searchsorted(sorted_classes, labels)
 
-    return labels, classes
-
-
-@cuml.internals.api_return_any()
-def check_labels(labels, classes) -> bool:
-    """
-    Validates that a set of labels is drawn from the unique
-    set of given classes.
-
-    Parameters
-    ----------
-
-    labels : array-like of size (n,) labels to validate
-    classes : array-like of size (n_classes,) the unique
-              set of classes to verify
-
-    Returns
-    -------
-
-    result : boolean
-    """
-
-    labels = input_to_cupy_array(labels, order="K").array
-    classes = input_to_cupy_array(classes, order="K").array
-
-    if labels.dtype != classes.dtype:
-        raise ValueError(
-            "Labels and classes must have same dtype (%s != %s"
-            % (labels.dtype, classes.dtype)
+        # Validate: check if the found position actually matches the label
+        # Out-of-bounds indices are clamped to avoid index errors
+        indices_safe = cp.minimum(indices, len(classes) - 1)
+        valid = (indices < len(classes)) & (
+            sorted_classes[indices_safe] == labels
         )
 
-    if labels.ndim != 1:
-        raise ValueError("Labels array must be 1D")
+        # Map valid labels to their indices in original classes
+        mapped_labels = cp.where(
+            valid, sort_indices[indices_safe], len(classes)
+        ).astype(output_dtype, copy=False)
 
-    valid = cp.array([1])
+        if not copy:
+            labels[:] = mapped_labels
+            mapped_labels = labels
 
-    smem = labels.dtype.itemsize * int(classes.shape[0])
-    validate = _validate_kernel(labels.dtype)
-    validate(
-        (math.ceil(labels.shape[0] / 32),),
-        (32,),
-        (labels, labels.shape[0], classes, classes.shape[0], valid),
-        shared_mem=smem,
-    )
-
-    return valid[0] == 1
-
-
-@cuml.internals.api_return_array(input_arg="labels", get_output_type=True)
-def invert_labels(labels, classes, copy=False) -> CumlArray:
-    """
-    Takes a set of labels that have been mapped to be drawn
-    from a monotonically increasing set and inverts them to
-    back to the original set of classes.
-
-    Parameters
-    ----------
-
-    labels : array-like of size (n,) labels to invert
-    classes : array-like of size (n_classes,) the unique set
-              of classes for inversion. It is assumed that
-              the classes are ordered by their corresponding
-              monotonically increasing label.
-    copy : boolean if true, a copy will be returned and the
-           operation will not be done in place.
-
-    Returns
-    -------
-
-    inverted labels : array-like of size (n,)
-
-    """
-    labels = input_to_cupy_array(labels, deepcopy=copy).array
-    classes = input_to_cupy_array(classes).array
-
-    if labels.dtype != classes.dtype:
-        raise ValueError(
-            "Labels and classes must have same dtype (%s != %s"
-            % (labels.dtype, classes.dtype)
-        )
-    smem = labels.dtype.itemsize * len(classes)
-    inverse_map = _inverse_map_kernel(labels.dtype)
-    inverse_map(
-        (math.ceil(len(labels) / 32),),
-        (32,),
-        (classes, len(classes), labels, len(labels)),
-        shared_mem=smem,
-    )
-
-    return labels
+    return mapped_labels, classes

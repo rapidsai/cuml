@@ -1,15 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import cupy as cp
-from pylibraft.common.handle import Handle
 
-import cuml.internals
 from cuml.common import input_to_cuml_array
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -23,30 +19,24 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-@cuml.internals.api_return_any()
-def adjusted_rand_score(labels_true, labels_pred, handle=None,
-                        convert_dtype=True) -> float:
+def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.
 
     Parameters
     ----------
-        labels_true : Ground truth labels to be used as a reference
+    labels_true : Ground truth labels to be used as a reference
 
-        labels_pred : Array of predicted labels used to evaluate the model
-
-        handle : cuml.Handle
+    labels_pred : Array of predicted labels used to evaluate the model
 
     Returns
     -------
         float
             The adjusted rand index value between -1.0 and 1.0
     """
-    handle = Handle() \
-        if handle is None else handle
-    cdef handle_t* handle_ =\
-        <handle_t*><size_t>handle.getHandle()
+    handle = get_handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \
         input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,

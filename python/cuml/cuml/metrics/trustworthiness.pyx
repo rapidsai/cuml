@@ -1,14 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
 import numpy as np
-from pylibraft.common.handle import Handle
 
-import cuml.internals
+from cuml.internals import get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
@@ -39,10 +35,14 @@ def _get_array_ptr(obj):
     return obj.device_ctypes_pointer.value
 
 
-@cuml.internals.api_return_any()
-def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean',
-                    convert_dtype=True, batch_size=512) -> float:
+def trustworthiness(
+    X,
+    X_embedded,
+    n_neighbors=5,
+    metric='euclidean',
+    convert_dtype=True,
+    batch_size=512,
+) -> float:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -83,8 +83,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     if n_neighbors > X.shape[0]:
         raise ValueError("n_neighbors must be <= the number of rows.")
 
-    handle = Handle() if handle is None else handle
-
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
@@ -101,7 +99,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                               else None))
     d_X_embedded_ptr = X_m2.ptr
 
-    handle = Handle() if handle is None else handle
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     if metric == 'euclidean':

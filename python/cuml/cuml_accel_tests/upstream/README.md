@@ -3,6 +3,8 @@
 This suite provides infrastructure to run and analyze the test suites of
 upstream libraries (scikit-learn, ...) with cuML acceleration support.
 
+Most examples in this README use scikit-learn as a reference, but the instructions apply to all supported upstream test suites.
+
 ## Components
 
 - `run-tests.sh`
@@ -20,10 +22,28 @@ upstream libraries (scikit-learn, ...) with cuML acceleration support.
   Options:
   - `-v, --verbose`          : Display detailed failure information
   - `-f, --fail-below VALUE` : Set a minimum pass rate threshold (0-100)
-  - `--format FORMAT`        : Output format (summary or xfail_list)
-  - `--update-xfail-list PATH` : Path to existing xfail list to update
-  - `-i, --in-place`        : Update the xfail list file in place
-  - `--xpassed ACTION`      : How to handle XPASS tests (keep/remove/mark-flaky)
+  - `--format FORMAT`        : Output format (summary, xfail_list, or traceback)
+  - `--limit N`              : Limit output to first N entries
+  - `--test-id-prefix PREFIX`: Prefix to add to test IDs (e.g., 'sklearn.')
+  - `-k, --filter PATTERN`   : Filter tests by ID pattern (substring match)
+
+- `xfail_manager.py`
+  Tool for managing xfail lists with consistent formatting and batch modifications.
+  Commands:
+  - `format`: Apply consistent formatting and sorting to xfail list files
+  - `set`: Modify metadata (reason, condition, marker, strict, run) for specified tests
+
+  Example usage:
+  ```bash
+  # Format an xfail list
+  ./xfail_manager.py format xfail-list.yaml
+
+  # Set a new reason for specific tests
+  ./xfail_manager.py set xfail-list.yaml "test_foo" "test_bar" --reason "Known issue #123"
+
+  # Mark tests as non-strict (flaky)
+  ./xfail_manager.py set xfail-list.yaml "test_flaky" --no-strict
+  ```
 
 ## Usage
 
@@ -38,10 +58,23 @@ Run tests and save the report:
 ./scikit-learn/run-tests.sh --junitxml=report.xml -n auto
 ```
 
+**Common pytest options:**
+- `-n auto --dist worksteal`: Parallel execution using all CPUs
+- `-k "pattern"`: Run only tests matching pattern
+- `-x`: Stop on first failure
+- `--tb=short`: Shorter tracebacks
+- `--runxfail`: Run xfailed tests to see actual failures
+- `--junitxml=FILE`: Save results to XML file
+
 ### 2. Analyze results
 Generate a summary from the report:
 ```bash
 ./summarize-results.py -v -f 80 report.xml
+```
+
+View tracebacks for specific failures:
+```bash
+./summarize-results.py --format=traceback -k "logistic" report.xml
 ```
 
 ## Xfail List
@@ -56,31 +89,15 @@ The xfail list (`xfail-list.yaml`) is used to mark tests that are expected to fa
 The `run-tests.sh` script automatically uses an `xfail-list.yaml` file if present in the same directory.
 
 ### Generating an Xfail List
-The `summarize-results.py` script provides several ways to manage the xfail list:
-
-1. Generate a new xfail list from test results:
+Generate a new xfail list from test results:
 ```bash
 ./summarize-results.py --format=xfail_list report.xml > xfail-list.yaml
-```
-
-2. Update an existing xfail list (in place):
-```bash
-./summarize-results.py --update-xfail-list=xfail-list.yaml --in-place report.xml
-```
-
-The script handles XPASS tests in three ways (controlled by `--xpassed`):
-- `keep`: Preserve all xpassed tests in the list (default)
-- `remove`: Remove xpassed tests from the list
-- `mark-flaky`: Convert strict xpassed tests to non-strict (flaky)
-
-Example with all options:
-```bash
-./summarize-results.py --update-xfail-list=xfail-list.yaml --in-place --xpassed=mark-flaky report.xml
 ```
 
 ### Format
 The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
 - `reason`: Description of why the tests in this group are expected to fail
+- `marker`: Optional pytest marker name for selecting/filtering tests (e.g., for `-m` flag)
 - `strict`: Whether to enforce xfail (default: true)
 - `tests`: List of test IDs in format "module::test_name"
 - `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
@@ -88,6 +105,7 @@ The xfail list is a YAML file containing groups of tests to mark as xfail. Each 
 Example:
 ```yaml
 - reason: "Known issues with sparse inputs"
+  marker: cuml_accel_sparse_inputs
   strict: true
   tests:
     - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
@@ -116,6 +134,50 @@ Ideally, Each use of `strict: false` should include:
 - A clear explanation of why the test is non-deterministic
 - A plan to fix the underlying issue
 - Regular review to ensure the flag is still necessary
+
+### Modifying an Xfail List
+Use `xfail_manager.py` to modify existing xfail lists.
+
+**Check existing groups first**: Before adding tests, check what reasons and markers already exist to reuse them where appropriate. Tests with matching metadata are automatically merged into the same group.
+
+```bash
+# List existing reasons
+grep "^- reason:" scikit-learn/xfail-list.yaml | sort -u
+
+# List existing markers
+grep "marker:" scikit-learn/xfail-list.yaml | sort -u
+```
+
+**Common operations:**
+```bash
+# Set metadata for specific tests
+./xfail_manager.py set xfail-list.yaml "test_id_1" "test_id_2" --reason "New reason"
+
+# Mark tests as flaky (non-strict)
+./xfail_manager.py set xfail-list.yaml "flaky_test" --no-strict
+
+# Add a condition
+./xfail_manager.py set xfail-list.yaml "test_id" --condition "scikit-learn<1.8"
+```
+
+### Version-Conditional Xfails
+When tests fail only on specific versions of a dependency, use the `--condition` flag to scope the xfail:
+
+```bash
+# Tests that fail only on sklearn 1.8+
+./xfail_manager.py set xfail-list.yaml \
+    "sklearn.test::test_new_api" \
+    --reason "Test uses new sklearn 1.8 API" \
+    --condition "scikit-learn>=1.8"
+
+# Tests that fail only on older sklearn versions
+./xfail_manager.py set xfail-list.yaml \
+    "sklearn.test::test_old_behavior" \
+    --reason "Test expects old sklearn behavior" \
+    --condition "scikit-learn<1.8"
+```
+
+This ensures xfails only apply to the relevant versions, keeping the test suite accurate across different dependency combinations.
 
 ### Handling Unmatched Test IDs
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -15,6 +15,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin
 
 __all__ = ["LinearSVR"]
@@ -57,13 +58,6 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
     lbfgs_memory : int, default=5
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -189,13 +183,10 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         max_iter=1000,
         linesearch_max_iter=100,
         lbfgs_memory=5,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.epsilon = epsilon
         self.penalty = penalty
@@ -209,6 +200,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":
@@ -238,7 +230,6 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             ).array
 
         coef, intercept, n_iter, _ = cuml.svm.linear.fit(
-            self.handle,
             X,
             y,
             sample_weight=sample_weight,

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -15,7 +15,6 @@ import pandas as pd
 from numba import cuda
 from numba.cuda import is_cuda_array as is_numba_array
 
-import cuml.accel
 import cuml.internals.nvtx as nvtx
 from cuml.internals.logger import debug
 from cuml.internals.mem_type import MemoryType, MemoryTypeError
@@ -202,6 +201,9 @@ class CumlArray:
                 self._mem_type = MemoryType.device
             self._owner = data
         else:  # Not a CUDA array object
+            # Local to avoid circular imports
+            import cuml.accel
+
             if hasattr(data, "__array_interface__"):
                 self._array_interface = data.__array_interface__
                 self._mem_type = MemoryType.host
@@ -658,8 +660,10 @@ class CumlArray:
                 )
             except TypeError:
                 raise ValueError("Unsupported dtype for DataFrame")
-
-        return self
+        elif output_type == "cuml":
+            return self
+        else:
+            raise ValueError(f"`output_type={output_type!r}` is not supported")
 
     @nvtx.annotate(
         message="common.CumlArray.host_serialize",
@@ -974,17 +978,19 @@ class CumlArray:
 
         """
         # Local to workaround circular imports
+        import cuml.accel
         from cuml.common.sparse_utils import is_sparse
 
         if is_sparse(X):
             # We don't support coercing sparse arrays to dense via this method.
-            # Raising a NotImplementedError here lets us nicely error
-            # for estimators that don't support sparse arrays without requiring
-            # an additional external check. Otherwise they'd get an opaque error
-            # for code below.
-            raise NotImplementedError(
-                "Sparse inputs are not currently supported for this method"
+            # Raising a TypeError here lets us nicely error for estimators that
+            # don't support sparse arrays without requiring an additional
+            # external check. Using TypeError with "sparse" in the message
+            # satisfies sklearn's check_estimator_sparse_tag check.
+            raise TypeError(
+                "A sparse matrix was passed, but dense data is required. "
             )
+
         if convert_to_mem_type is not False:
             convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
         if convert_to_dtype:
@@ -1001,6 +1007,8 @@ class CumlArray:
             and not check_cols
             and not check_rows
         ):
+            if np.issubdtype(X.dtype, np.complexfloating):
+                raise ValueError(f"Complex data not supported\n{X}")
             if deepcopy:
                 return copy.deepcopy(X)
             else:
@@ -1048,6 +1056,11 @@ class CumlArray:
             # we accept lists and tuples in accel mode
             X = np.asarray(X)
             deepcopy = False
+
+        # Check for complex dtype, placed after DataFrame/Series conversion
+        # to numpy/cupy
+        if hasattr(X, "dtype") and np.issubdtype(X.dtype, np.complexfloating):
+            raise ValueError(f"Complex data not supported\n{X}")
 
         requested_order = (order, None)[fail_on_order]
         arr = cls(X, index=index, order=requested_order, validate=False)
@@ -1223,6 +1236,13 @@ def is_array_contiguous(arr):
         return arr.flags["C_CONTIGUOUS"] or arr.flags["F_CONTIGUOUS"]
     except (AttributeError, KeyError):
         return array_to_memory_order(arr) is not None
+
+
+def cuda_ptr(X):
+    """Returns a pointer to a backing device array, or None if not a device array"""
+    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
+        return interface["data"][0]
+    return None
 
 
 def elements_in_representable_range(arr, dtype):

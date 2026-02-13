@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,8 +16,6 @@
 #include "ws_util.cuh"
 
 #include <raft/core/handle.hpp>
-#include <raft/distance/distance_types.hpp>
-#include <raft/distance/kernels.cuh>
 #include <raft/linalg/detail/cublas_wrappers.hpp>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -107,8 +105,18 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
   WorkingSet<math_t> ws(handle, stream, n_rows, SMO_WS_SIZE, svmType);
   n_ws = ws.GetSize();
   Initialize(&y, sample_weight, n_rows, n_cols);
-  KernelCache<math_t, MatrixViewType> cache(
-    handle, matrix, n_rows, n_cols, n_ws, kernel, kernel_type, cache_size, svmType);
+  KernelCache<math_t, MatrixViewType> cache(handle,
+                                            matrix,
+                                            n_rows,
+                                            n_cols,
+                                            n_ws,
+                                            kernel,
+                                            kernel_type,
+                                            cache_size,
+                                            svmType,
+                                            1 << 30,  // kernel_tile_byte_limit
+                                            1 << 30,  // dense_extract_byte_limit
+                                            is_precomputed);
 
   // Init counters
   max_outer_iter        = GetDefaultMaxIter(n_train, max_outer_iter);
@@ -208,7 +216,8 @@ void SmoSolver<math_t>::Solve(MatrixViewType matrix,
     n_iter,
     diff_prev);
 
-  Results<math_t, MatrixViewType> res(handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType);
+  Results<math_t, MatrixViewType> res(
+    handle, matrix, n_rows, n_cols, y, C_vec.data(), svmType, is_precomputed);
   res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, support_matrix, b);
 
   ReleaseBuffers();

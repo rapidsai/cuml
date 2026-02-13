@@ -122,8 +122,6 @@ def test_libcuml_linkage():
             "libcurand.so.10": "nvidia/cu13/lib",
             # NCCL (in nvidia/nccl/lib)
             "libnccl.so.2": "nvidia/nccl/lib",
-            # cumlprims_mg (in libcuml/lib64)
-            "libcumlprims_mg.so": "libcuml/lib64",
         }
     else:
         expected_libs = {
@@ -137,8 +135,6 @@ def test_libcuml_linkage():
             "libcurand.so.10": "nvidia/curand/lib",
             # NCCL (in nvidia/nccl/lib)
             "libnccl.so.2": "nvidia/nccl/lib",
-            # cumlprims_mg (in libcuml/lib64)
-            "libcumlprims_mg.so": "libcuml/lib64",
         }
 
     failures = []

@@ -1,11 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-import cuml.internals
+from cuml.internals import run_in_internal_context
 from cuml.linear_model import Ridge
-from cuml.linear_model.base import check_deprecated_normalize
 from cuml.linear_model.base_mg import MGFitMixin
 
 from cython.operator cimport dereference as deref
@@ -27,7 +26,6 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
                   float *coef,
                   float *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
@@ -40,16 +38,13 @@ cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg" nog
                   double *coef,
                   double *intercept,
                   bool fit_intercept,
-                  bool normalize,
                   int algo,
                   bool verbose) except +
 
 
 class RidgeMG(MGFitMixin, Ridge):
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def _fit(self, X, y, coef_ptr, input_desc):
-        check_deprecated_normalize(self)
-
         # Validate alpha
         if self.alpha < 0.0:
             raise ValueError(f"alpha must be non-negative, got {self.alpha}")
@@ -89,7 +84,6 @@ class RidgeMG(MGFitMixin, Ridge):
                 <float*><size_t>coef_ptr,
                 <float*>&intercept_f32,
                 <bool>self.fit_intercept,
-                <bool>self.normalize,
                 algo,
                 False)
         else:
@@ -102,7 +96,6 @@ class RidgeMG(MGFitMixin, Ridge):
                 <double*><size_t>coef_ptr,
                 <double*>&intercept_f64,
                 <bool>self.fit_intercept,
-                <bool>self.normalize,
                 algo,
                 False)
 

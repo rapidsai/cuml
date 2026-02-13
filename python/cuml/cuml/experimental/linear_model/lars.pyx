@@ -1,34 +1,24 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 import cupy as cp
 import numpy as np
 
-from cuml.internals import logger
-
-from cuml.internals cimport logger
-
 import cuml.internals
-
-from libc.stdint cimport uintptr_t
-from libcpp cimport nullptr
-
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
-from cuml.linear_model.base import check_deprecated_normalize
 
+from libc.stdint cimport uintptr_t
+from libcpp cimport nullptr
 from pylibraft.common.handle cimport handle_t
+
+from cuml.internals cimport logger
 
 
 cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars" nogil:
@@ -79,13 +69,6 @@ class Lars(Base, RegressorMixin):
     fit_intercept : boolean (default = True)
         If True, Lars tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
-    normalize : boolean, default=False
-
-        .. deprecated:: 25.12
-            ``normalize`` is deprecated and will be removed in 26.02. When
-            needed, please use a ``StandardScaler`` to normalize your data
-            before passing to ``fit``.
-
     copy_X : boolean (default = True)
         The solver permutes the columns of X. Set `copy_X` to True to prevent
         changing the input data.
@@ -100,13 +83,6 @@ class Lars(Base, RegressorMixin):
         The maximum number of coefficients to fit. This gives an upper limit of
         how many features we select for prediction. This number is also an
         upper limit of the number of iterations.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -156,16 +132,20 @@ class Lars(Base, RegressorMixin):
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, *, fit_intercept=True, normalize=False,
-                 handle=None, verbose=False, output_type=None, copy_X=True,
-                 fit_path=True, n_nonzero_coefs=500, eps=None,
-                 precompute='auto'):
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
-
+    def __init__(
+        self,
+        *,
+        fit_intercept=True,
+        verbose=False,
+        output_type=None,
+        copy_X=True,
+        fit_path=True,
+        n_nonzero_coefs=500,
+        eps=None,
+        precompute='auto',
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.fit_intercept = fit_intercept
-        self.normalize = normalize
         self.copy_X = copy_X
         self.eps = eps
         self.fit_path = fit_path
@@ -182,12 +162,6 @@ class Lars(Base, RegressorMixin):
         if self.fit_intercept:
             y_mean = cp.mean(y)
             y = y - y_mean
-            if self.normalize:
-                x_mean = cp.mean(X, axis=0)
-                x_scale = cp.sqrt(cp.var(X, axis=0) *
-                                  self.dtype.type(X.shape[0]))
-                x_scale[x_scale==0] = 1
-                X = (X - x_mean) / x_scale
         return X, y, x_mean, x_scale, y_mean
 
     def _set_intercept(self, x_mean, x_scale, y_mean):
@@ -219,7 +193,8 @@ class Lars(Base, RegressorMixin):
 
     def _fit_cpp(self, X, y, Gram, x_scale, convert_dtype):
         """ Fit lars model using cpp solver"""
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         X_m, _, _, _ = \
             input_to_cuml_array(X,
                                 convert_to_dtype=(np.float32 if convert_dtype
@@ -270,6 +245,7 @@ class Lars(Base, RegressorMixin):
                     <double*> alphas_ptr, &n_active, <double*> Gram_ptr,
                     max_iter, <double*> coef_path_ptr, self._verbose_level,
                     ld_X, ld_G, <double> self.eps)
+        handle.sync()
         self.n_active = n_active
         self.n_iter_ = n_active
 
@@ -285,13 +261,12 @@ class Lars(Base, RegressorMixin):
                 self.beta_ = self.beta_ / x_scale[self.active_]
 
     @generate_docstring(y='dense_anydtype')
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True) -> 'Lars':
         """
         Fit the model with X and y.
 
         """
-        check_deprecated_normalize(self)
-
         self._set_n_features_in(X)
         self._set_output_type(X)
 
@@ -329,14 +304,13 @@ class Lars(Base, RegressorMixin):
 
         self._set_intercept(x_mean, x_scale, y_scale)
 
-        self.handle.sync()
-
         del X_m
         del y_m
         del Gram
 
         return self
 
+    @reflect
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
@@ -364,7 +338,8 @@ class Lars(Base, RegressorMixin):
             X, check_dtype=self.dtype, convert_to_dtype=conv_dtype,
             check_cols=self.n_cols, order='F')
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t X_ptr = X_m.ptr
         cdef int ld_X = n_rows
         cdef uintptr_t beta_ptr = input_to_cuml_array(self.beta_).array.ptr
@@ -386,13 +361,19 @@ class Lars(Base, RegressorMixin):
                         <double> self.intercept_,
                         <double*><uintptr_t> preds.ptr)
 
-        self.handle.sync()
+        handle.sync()
         del X_m
 
         return preds
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + \
-            ['copy_X', 'fit_intercept', 'fit_path', 'n_nonzero_coefs',
-             'normalize', 'precompute', 'eps']
+        return [
+            *super()._get_param_names(),
+            'copy_X',
+            'fit_intercept',
+            'fit_path',
+            'n_nonzero_coefs',
+            'precompute',
+            'eps'
+        ]

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
@@ -10,17 +10,17 @@ import cupyx
 import numpy as np
 import scipy.sparse
 
-import cuml.internals
+import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
-from cuml.internals.memory_utils import using_output_type
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import reflect, using_output_type
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -264,7 +264,7 @@ cdef class RBCIndex:
         raise TypeError("Instances of RBCIndex aren't pickleable")
 
     @staticmethod
-    def build(handle, X, metric):
+    def build(X, metric):
         """Build a new RBC index."""
         if X.shape[1] > 3:
             raise ValueError(
@@ -272,6 +272,7 @@ cdef class RBCIndex:
             )
         cdef RBCIndex self = RBCIndex.__new__(RBCIndex)
 
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef int64_t n_rows = X.shape[0]
@@ -290,7 +291,7 @@ cdef class RBCIndex:
         handle.sync()
         return self
 
-    def kneighbors(RBCIndex self, handle, X, uint32_t n_neighbors):
+    def kneighbors(RBCIndex self, X, uint32_t n_neighbors):
         """Query the index for the k nearest neighbors."""
         distances = CumlArray.zeros(
             (X.shape[0], n_neighbors),
@@ -304,6 +305,7 @@ cdef class RBCIndex:
             order="C",
             index=X.index,
         )
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef uint32_t n_rows = X.shape[0]
@@ -357,7 +359,7 @@ cdef class ApproxIndex:
         out.n_bits = params["n_bits"]
 
     @staticmethod
-    def build(handle, X, metric, algorithm, params=None, float p=2):
+    def build(X, metric, algorithm, params=None, float p=2):
         """Build a new approx index."""
         cdef ApproxIndex self = ApproxIndex.__new__(ApproxIndex)
 
@@ -374,6 +376,7 @@ cdef class ApproxIndex:
         else:
             raise ValueError("algorithm must be one of {'ivfflat', 'ivfpq'}")
 
+        handle = get_handle()
         cdef DistanceType distance_type = _metric_to_distance_type(metric)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
@@ -396,7 +399,7 @@ cdef class ApproxIndex:
 
         return self
 
-    def kneighbors(ApproxIndex self, handle, X, int n_neighbors):
+    def kneighbors(ApproxIndex self, X, int n_neighbors):
         """Query the index for the k nearest neighbors."""
         distances = CumlArray.zeros(
             (X.shape[0], n_neighbors),
@@ -411,6 +414,7 @@ cdef class ApproxIndex:
             index=X.index,
         )
 
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
         cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
@@ -447,13 +451,6 @@ class NearestNeighbors(Base,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     algorithm : string (default='auto')
         The query algorithm to use. Valid options are:
 
@@ -473,9 +470,18 @@ class NearestNeighbors(Base,
           partial information allowing faster distances calculations
 
     metric : string (default='euclidean').
-        Distance metric to use. Supported distances are ['l1, 'cityblock',
-        'taxicab', 'manhattan', 'euclidean', 'l2', 'braycurtis', 'canberra',
-        'minkowski', 'chebyshev', 'jensenshannon', 'cosine', 'correlation']
+        Distance metric to use. Supported metrics include: 'l1', 'cityblock',
+        'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
+        'minkowski', 'lp', 'chebyshev', 'linf', 'jensenshannon', 'cosine',
+        'braycurtis', 'jaccard', 'hellinger', 'correlation', 'inner_product'.
+        The ``'ivfflat'`` and ``'ivfpq'``
+        algorithms only support: 'euclidean', 'l2', 'sqeuclidean', 'cosine',
+        'correlation', 'inner_product', whereas the ``'rbc'`` algorithm only
+        supports 'euclidean', 'l2', and 'haversine' (≤3 dimensions only).
+        For sparse inputs, only the ``'brute'`` algorithm is supported, with
+        metrics: 'l1', 'cityblock', 'taxicab', 'manhattan', 'euclidean', 'l2',
+        'canberra', 'minkowski', 'lp', 'chebyshev', 'linf', 'cosine',
+        'inner_product', 'jaccard', 'hellinger'.
     p : float (default=2)
         Parameter for the Minkowski metric. When p = 1, this is equivalent to
         manhattan distance (l1), and euclidean distance (l2) for p = 2. For
@@ -537,7 +543,7 @@ class NearestNeighbors(Base,
         >>> distances, indices = model.kneighbors(X_cudf)
 
         >>> # print results
-        >>> print(indices)
+        >>> print(indices)  # doctest: +SKIP
         0  1  2
         0  0  3  1
         1  1  3  0
@@ -642,7 +648,6 @@ class NearestNeighbors(Base,
         *,
         n_neighbors=5,
         verbose=False,
-        handle=None,
         algorithm="auto",
         metric="euclidean",
         p=2,
@@ -651,7 +656,7 @@ class NearestNeighbors(Base,
         n_jobs=None,  # Ignored, here for sklearn API compatibility
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_neighbors = n_neighbors
         self.metric = metric
         self.metric_params = metric_params
@@ -677,12 +682,9 @@ class NearestNeighbors(Base,
             with using_output_type("cuml"):
                 X = getattr(self, "_fit_X", None)
             if fit_method == "rbc":
-                self._index = RBCIndex.build(
-                    self.handle, X, self.effective_metric_,
-                )
+                self._index = RBCIndex.build(X, self.effective_metric_)
             else:
                 self._index = ApproxIndex.build(
-                    self.handle,
                     X,
                     self.effective_metric_,
                     fit_method,
@@ -691,6 +693,7 @@ class NearestNeighbors(Base,
                 )
 
     @generate_docstring(X='dense_sparse')
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -741,7 +744,6 @@ class NearestNeighbors(Base,
 
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
-                self.handle,
                 self._fit_X,
                 self.effective_metric_,
                 self._fit_method,
@@ -749,7 +751,7 @@ class NearestNeighbors(Base,
                 p=self.p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(self.handle, self._fit_X, self.effective_metric_)
+            self._index = RBCIndex.build(self._fit_X, self.effective_metric_)
 
         return self
 
@@ -757,6 +759,7 @@ class NearestNeighbors(Base,
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
+    @reflect
     def kneighbors(
         self,
         X=None,
@@ -872,7 +875,7 @@ class NearestNeighbors(Base,
             use_index = False
 
         if use_index:
-            return self._index.kneighbors(self.handle, X_m, n_neighbors)
+            return self._index.kneighbors(X_m, n_neighbors)
 
         distances = CumlArray.zeros(
             (X_m.shape[0], n_neighbors), dtype=np.float32, order="C", index=X_m.index,
@@ -881,7 +884,8 @@ class NearestNeighbors(Base,
             (X_m.shape[0], n_neighbors), dtype=np.int64, order="C", index=X_m.index,
         )
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef vector[float*] inputs
         cdef vector[int] sizes
         inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
@@ -908,7 +912,7 @@ class NearestNeighbors(Base,
                 distance_type,
                 metric_arg
             )
-        self.handle.sync()
+        handle.sync()
 
         if two_pass_precision:
             distances, indices = self._maybe_apply_two_pass_precision(
@@ -988,7 +992,8 @@ class NearestNeighbors(Base,
         cdef int* indices_ptr = <int *><uintptr_t>indices.ptr
         cdef float* distances_ptr = <float *><uintptr_t>distances.ptr
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         with nogil:
             brute_force_knn(
                 handle_[0],
@@ -1012,11 +1017,12 @@ class NearestNeighbors(Base,
                 metric,
                 metric_arg,
             )
-        self.handle.sync()
+        handle.sync()
 
         return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
+    @reflect
     def kneighbors_graph(
         self, X=None, n_neighbors=None, mode='connectivity'
     ) -> SparseCumlArray:
@@ -1095,10 +1101,18 @@ class NearestNeighbors(Base,
         return self.metric_params or {}
 
 
-@cuml.internals.api_return_sparse_array()
-def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
-                     handle=None, algorithm="brute", metric="euclidean", p=2,
-                     include_self=False, metric_params=None):
+@reflect
+def kneighbors_graph(
+    X=None,
+    n_neighbors=5,
+    mode='connectivity',
+    verbose=False,
+    algorithm="brute",
+    metric="euclidean",
+    p=2,
+    include_self=False,
+    metric_params=None,
+):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -1121,14 +1135,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
 
     algorithm : string (default='brute')
         The query algorithm to use. Valid options are:
@@ -1174,29 +1180,22 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-    # Set the default output type to "cupy". This will be ignored if the user
-    # has set `cuml.global_settings.output_type`. Only necessary for array
-    # generation methods that do not take an array as input
-    cuml.internals.set_api_output_type("cupy")
-
-    X = NearestNeighbors(
+    model = NearestNeighbors(
         n_neighbors=n_neighbors,
         verbose=verbose,
-        handle=handle,
         algorithm=algorithm,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=cuml.global_settings.root_cm.output_type
+        output_type="cupy",
     ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'
 
-    with cuml.internals.exit_internal_api():
-        if not include_self:
-            query = None
-        else:
-            query = X._fit_X
+    if not include_self:
+        query = None
+    else:
+        query = model._fit_X
 
-    return X.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)
+    return model.kneighbors_graph(X=query, n_neighbors=n_neighbors, mode=mode)

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,9 +13,20 @@ from sklearn.datasets import make_blobs, make_moons
 from sklearn.preprocessing import StandardScaler
 
 if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
+    # NOTE: Remove this skip when issue
+    # https://github.com/scikit-learn-contrib/hdbscan/issues/689 is resolved,
+    # as it blocks compatibility with scikit-learn >= 1.8.0.dev0.
     pytest.skip(
         "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
     )
+
+# Ignore FutureWarning from third-party hdbscan package calling
+# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
+# parameter. Old versions of hdbscan use a deprecated parameter.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:'force_all_finite' was renamed to "
+    "'ensure_all_finite':FutureWarning:sklearn"
+)
 
 
 @pytest.fixture(scope="module")

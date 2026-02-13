@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # cuml build script
@@ -85,6 +85,13 @@ BUILD_REPORT_INCL_CACHE_STATS=OFF
 # Set defaults for vars that may not have been defined externally
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX:=$LIBCUML_BUILD_DIR/install}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=$(nproc)}
+PYTHON_ARGS_FOR_INSTALL=(
+    -v
+    --no-build-isolation
+    --no-deps
+    --config-settings
+    "rapidsai.disable-cuda=true"
+)
 
 # Default to Ninja if generator is not specified
 export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
@@ -265,9 +272,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
-    mkdir -p "${LIBCUML_BUILD_DIR}"
-    cd "${LIBCUML_BUILD_DIR}"
-
     cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
@@ -284,7 +288,8 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX}" \
           -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           "${CUML_EXTRA_CMAKE_ARGS[@]}" \
-          ..
+          -S "${REPODIR}"/cpp \
+          -B "${LIBCUML_BUILD_DIR}"
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
@@ -295,7 +300,6 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
         "${CACHE_TOOL}" --zero-stats
     fi
 
-    cd "${LIBCUML_BUILD_DIR}"
     if [ -n "${INSTALL_TARGET}" ]; then
       cmake --build "${LIBCUML_BUILD_DIR}" -j"${PARALLEL_LEVEL}" --target ${INSTALL_TARGET} "${VERBOSE_FLAG}"
     else
@@ -346,18 +350,23 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
 fi
 
 if (! hasArg --configure-only) && hasArg cppdocs; then
-    cd "${LIBCUML_BUILD_DIR}"
     cmake --build "${LIBCUML_BUILD_DIR}" --target docs_cuml
 fi
 
 
 # Build and (optionally) install the cuml Python package
 if (! hasArg --configure-only) && (completeBuild || hasArg cuml || hasArg pydocs); then
+    # If `RAPIDS_PY_VERSION` is set, use that as the lower-bound for the stable ABI CPython version
+    if [ -n "${RAPIDS_PY_VERSION}" ]; then
+        RAPIDS_PY_API="cp${RAPIDS_PY_VERSION//./}"
+        PYTHON_ARGS_FOR_INSTALL+=("--config-settings" "skbuild.wheel.py-api=${RAPIDS_PY_API}")
+    fi
+
     # Replace spaces with semicolons in SKBUILD_EXTRA_CMAKE_ARGS
     SKBUILD_EXTRA_CMAKE_ARGS=${SKBUILD_EXTRA_CMAKE_ARGS// /;}
 
     SKBUILD_CMAKE_ARGS="-DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL};${SKBUILD_EXTRA_CMAKE_ARGS}" \
-        python -m pip install --no-build-isolation --no-deps --config-settings rapidsai.disable-cuda=true "${REPODIR}"/python/cuml
+        python -m pip install "${PYTHON_ARGS_FOR_INSTALL[@]}" "${CUML_EXTRA_PYTHON_ARGS[@]}" "${REPODIR}"/python/cuml
 
     if hasArg pydocs; then
         cd "${REPODIR}"/docs

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -92,13 +92,6 @@ class LogisticRegression(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -258,12 +251,9 @@ class LogisticRegression(
         lbfgs_memory=5,
         penalty_normalized=True,
         verbose=False,
-        handle=None,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.penalty = penalty
         self.tol = tol
         self.C = C
@@ -309,7 +299,7 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.api_base_return_any()
+    @cuml.internals.reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LogisticRegression":
@@ -341,7 +331,6 @@ class LogisticRegression(
             tol=self.tol,
             linesearch_max_iter=self.linesearch_max_iter,
             verbose=self._verbose_level,
-            handle=self.handle,
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
         )
@@ -362,7 +351,7 @@ class LogisticRegression(
             "shape": "(n_samples, 1)",
         },
     )
-    @cuml.internals.api_base_return_any_skipall
+    @cuml.internals.run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
@@ -377,7 +366,7 @@ class LogisticRegression(
         else:
             indices = cp.argmax(scores, axis=1)
 
-        with cuml.internals.exit_internal_api():
+        with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(indices, self.classes_, output_type=output_type)
 
@@ -390,6 +379,7 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
+    @cuml.internals.reflect
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
@@ -419,6 +409,7 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
+    @cuml.internals.reflect
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X

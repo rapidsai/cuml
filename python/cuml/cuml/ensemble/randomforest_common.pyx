@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from __future__ import annotations
@@ -11,10 +11,9 @@ from typing import Literal
 import cupy as cp
 import numpy as np
 import treelite.sklearn
-from pylibraft.common.handle import Handle
 
 from cuml.fil.fil import ForestInference
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
@@ -189,9 +188,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             "random_state",
             "n_streams",
             "oob_score",
-            "handle",
-            "verbose",
-            "output_type",
         ]
 
     @classmethod
@@ -325,14 +321,10 @@ class BaseRandomForestModel(Base, InteropMixin):
         criterion=None,
         n_streams=4,
         oob_score=False,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        if handle is None:
-            handle = Handle(n_streams=n_streams)
-
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.split_criterion = split_criterion
         self.n_estimators = n_estimators
@@ -402,7 +394,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             inferencing on the random forest model.
         """
         return ForestInference(
-            handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
             treelite_model=self._treelite_model_bytes,
@@ -478,7 +469,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
 
         cdef TreeliteModelHandle tl_handle
-        cdef handle_t* handle_ = <handle_t*><uintptr_t>self.handle.getHandle()
+        handle = get_handle(n_streams=self.n_streams)
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block
         cdef bool use_oob_score = self.oob_score

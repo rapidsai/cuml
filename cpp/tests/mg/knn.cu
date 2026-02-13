@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -53,7 +53,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
     const auto& comm     = handle.get_comms();
-    const auto allocator = rmm::mr::get_current_device_resource();
+    const auto allocator = rmm::mr::get_current_device_resource_ref();
 
     cudaStream_t stream = handle.get_stream();
 

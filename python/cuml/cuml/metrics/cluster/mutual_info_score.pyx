@@ -1,18 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-# distutils: language = c++
-
-import cuml.internals
+from cuml.internals import get_handle
+from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
-
-from pylibraft.common.handle import Handle
-
-from cuml.metrics.cluster.utils import prepare_cluster_metric_inputs
 
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
@@ -24,8 +18,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                              const int upper_class_range) except +
 
 
-@cuml.internals.api_return_any()
-def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
+def cython_mutual_info_score(labels_true, labels_pred) -> float:
     """
     Computes the Mutual Information between two clusterings.
 
@@ -47,7 +40,6 @@ def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
 
     Parameters
     ----------
-    handle : cuml.Handle
     labels_pred : array-like (device or host) shape = (n_samples,)
         A clustering of the data (ints) into disjoint subsets.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -62,7 +54,7 @@ def cython_mutual_info_score(labels_true, labels_pred, handle=None) -> float:
     float
       Mutual information, a non-negative value
     """
-    handle = Handle() if handle is None else handle
+    handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     (y_true, y_pred, n_rows,

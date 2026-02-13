@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,6 +15,8 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/per_device_resource.hpp>
+#include <rmm/resource_ref.hpp>
 
 #include <cuda/std/functional>
 #include <thrust/device_ptr.h>
@@ -386,12 +388,24 @@ CUML_KERNEL void extractCSRRowsFromCSR(int* indptr_out,  // already holds end po
  * @return true if MatrixViewType is device dense mdspan
  */
 template <typename MatrixViewType>
-bool isDenseType()
+constexpr bool isDenseType()
 {
   return (std::is_same<MatrixViewType,
                        raft::device_matrix_view<float, int, raft::layout_stride>>::value ||
           std::is_same<MatrixViewType,
                        raft::device_matrix_view<double, int, raft::layout_stride>>::value);
+}
+
+/**
+ * @brief Get raw data pointer from a dense matrix view (read-only access)
+ *
+ * @param [in] matrix dense matrix view
+ * @return const pointer to the underlying data
+ */
+template <typename math_t>
+const math_t* getDenseData(raft::device_matrix_view<math_t, int, raft::layout_stride> matrix)
+{
+  return matrix.data_handle();
 }
 
 /**
@@ -800,14 +814,14 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
   math_t* data_in    = matrix_in.get_elements().data();
 
   // allocate indptr
-  auto* rmm_alloc = rmm::mr::get_current_device_resource();
-  *indptr_out     = (int*)rmm_alloc->allocate(stream, (num_indices + 1) * sizeof(int));
+  auto rmm_alloc = rmm::mr::get_current_device_resource_ref();
+  *indptr_out    = (int*)rmm_alloc.allocate(stream, (num_indices + 1) * sizeof(int));
 
   *nnz = computeIndptrForSubset(indptr_in, *indptr_out, row_indices, num_indices, stream);
 
   // allocate indices, data
-  *indices_out = (int*)rmm_alloc->allocate(stream, *nnz * sizeof(int));
-  *data_out    = (math_t*)rmm_alloc->allocate(stream, *nnz * sizeof(math_t));
+  *indices_out = (int*)rmm_alloc.allocate(stream, *nnz * sizeof(int));
+  *data_out    = (math_t*)rmm_alloc.allocate(stream, *nnz * sizeof(math_t));
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);

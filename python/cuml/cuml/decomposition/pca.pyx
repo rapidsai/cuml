@@ -1,8 +1,7 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
@@ -14,7 +13,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -169,13 +168,6 @@ class PCA(Base,
     copy : boolean (default = True)
         If True, then copies data then removes mean from data. False might
         cause data to be overwritten with its mean centered version.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     iterated_power : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but
         slower.
@@ -328,11 +320,19 @@ class PCA(Base,
             **super()._attrs_to_cpu(model),
         }
 
-    def __init__(self, *, copy=True, handle=None, iterated_power=15,
-                 n_components=None, svd_solver='auto',
-                 tol=1e-7, verbose=False, whiten=False,
-                 output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        *,
+        copy=True,
+        iterated_power=15,
+        n_components=None,
+        svd_solver='auto',
+        tol=1e-7,
+        verbose=False,
+        whiten=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -397,7 +397,8 @@ class PCA(Base,
         cdef uintptr_t mean_ptr = mean.ptr
         cdef uintptr_t noise_variance_ptr = noise_variance.ptr
         cdef bool fit_float32 = (X.dtype == np.float32)
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
@@ -428,7 +429,7 @@ class PCA(Base,
                     params,
                     flip_signs_based_on_U
                 )
-        self.handle.sync()
+        handle.sync()
 
         # Store results
         self.components_ = components
@@ -436,7 +437,7 @@ class PCA(Base,
         self.explained_variance_ratio_ = explained_variance_ratio
         self.mean_ = mean
         self.singular_values_ = singular_values
-        self.noise_variance_ = float(noise_variance.to_output("numpy"))
+        self.noise_variance_ = noise_variance.to_output("numpy").item()
 
     def _fit_sparse(self, X):
         covariance, mean, _ = cov(X, X, return_mean=True)
@@ -475,6 +476,7 @@ class PCA(Base,
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -513,7 +515,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.reflect
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
@@ -564,7 +566,8 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* h_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -583,7 +586,7 @@ class PCA(Base,
                                     <double*> mean_ptr,
                                     <double*> X_inv_ptr,
                                     params)
-        self.handle.sync()
+        handle.sync()
 
         return out
 
@@ -592,6 +595,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
+    @cuml.internals.reflect
     def inverse_transform(
         self,
         X,
@@ -656,7 +660,8 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
         cdef uintptr_t mean_ptr = self.mean_.ptr
         cdef bool use_float32 = dtype == np.float32
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         with nogil:
             if use_float32:
@@ -679,7 +684,7 @@ class PCA(Base,
                     <double*> mean_ptr,
                     params
                 )
-        self.handle.sync()
+        handle.sync()
         return out
 
     @generate_docstring(X='dense_sparse',
@@ -687,6 +692,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
+    @cuml.internals.reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Apply dimensionality reduction to X.

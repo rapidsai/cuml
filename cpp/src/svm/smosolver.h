@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -61,12 +61,14 @@ class SmoSolver {
   SmoSolver(const raft::handle_t& handle,
             SvmParameter param,
             cuvs::distance::kernels::KernelType kernel_type,
-            cuvs::distance::kernels::GramMatrixBase<math_t>* kernel)
+            cuvs::distance::kernels::GramMatrixBase<math_t>* kernel,
+            bool is_precomputed = false)
     : handle(handle),
       C(param.C),
       tol(param.tol),
       kernel(kernel),
       kernel_type(kernel_type),
+      is_precomputed(is_precomputed),
       cache_size(param.cache_size),
       nochange_steps(param.nochange_steps),
       epsilon(param.epsilon),
@@ -250,7 +252,8 @@ class SmoSolver {
 
   cuvs::distance::kernels::GramMatrixBase<math_t>* kernel;
   cuvs::distance::kernels::KernelType kernel_type;
-  float cache_size;  //!< size of kernel cache in MiB
+  bool is_precomputed;  //!< if true, input is a precomputed kernel matrix
+  float cache_size;     //!< size of kernel cache in MiB
 
   SvmType svmType;  ///!< Type of the SVM problem to solve
 
@@ -337,10 +340,10 @@ class SmoSolver {
 
   void ReleaseBuffers()
   {
-    alpha.release();
-    delta_alpha.release();
-    f.release();
-    y_label.release();
+    alpha.resize(0, stream);
+    delta_alpha.resize(0, stream);
+    f.resize(0, stream);
+    y_label.resize(0, stream);
   }
 };
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -23,6 +23,7 @@
 #include <rmm/resource_ref.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/std/tuple>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
@@ -30,7 +31,6 @@
 #include <thrust/reduce.h>
 #include <thrust/sequence.h>
 #include <thrust/transform.h>
-#include <thrust/tuple.h>
 
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/distance/grammian.hpp>
@@ -189,6 +189,7 @@ class KernelCacheTest : public ::testing::Test {
   {
     switch (params.kernel) {
       case KernelType::LINEAR: break;
+      case KernelType::PRECOMPUTED: break;  // No transformation needed
       case KernelType::POLYNOMIAL:
         for (int z = 0; z < n_rows * n_ws; z++) {
           math_t val            = params.gamma * tile_host_expected[z] + params.coef0;
@@ -496,7 +497,7 @@ class GetResultsTest : public ::testing::Test {
  protected:
   void FreeDenseSupport()
   {
-    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource();
+    rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
     auto stream                              = this->handle.get_stream();
     rmm_alloc.deallocate(stream, support_matrix.data, n_coefs * n_cols * sizeof(math_t));
     support_matrix.data = nullptr;
@@ -1346,7 +1347,7 @@ struct is_same_functor {
   template <typename Tuple>
   __host__ __device__ int operator()(Tuple t)
   {
-    return thrust::get<0>(t) == thrust::get<1>(t);
+    return cuda::std::get<0>(t) == cuda::std::get<1>(t);
   }
 };
 
@@ -1393,8 +1394,8 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
     thrust::device_ptr<TypeParam> ptr1(y_pred.data());
     thrust::device_ptr<TypeParam> ptr2(y_pred2.data());
     thrust::device_ptr<int> ptr3(is_correct.data());
-    auto first = thrust::make_zip_iterator(thrust::make_tuple(ptr1, ptr2));
-    auto last  = thrust::make_zip_iterator(thrust::make_tuple(ptr1 + n_pred, ptr2 + n_pred));
+    auto first = thrust::make_zip_iterator(cuda::std::make_tuple(ptr1, ptr2));
+    auto last  = thrust::make_zip_iterator(cuda::std::make_tuple(ptr1 + n_pred, ptr2 + n_pred));
     thrust::transform(thrust::cuda::par.on(stream), first, last, ptr3, is_same_functor());
     int n_correct = thrust::reduce(thrust::cuda::par.on(stream), ptr3, ptr3 + n_pred);
 

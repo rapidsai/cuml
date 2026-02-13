@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -70,13 +71,6 @@ class MBSGDRegressor(
         The old learning rate is generally divided by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any improvement in the model
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -148,13 +142,10 @@ class MBSGDRegressor(
         power_t=0.5,
         batch_size=32,
         n_iter_no_change=5,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha
@@ -170,6 +161,7 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
@@ -194,7 +186,6 @@ class MBSGDRegressor(
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            handle=self.handle,
         )
         self.coef_ = coef
         self.intercept_ = intercept

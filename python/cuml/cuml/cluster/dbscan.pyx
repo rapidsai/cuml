@@ -1,16 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cupy as cp
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger
+from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -152,13 +151,6 @@ class DBSCAN(Base,
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same
         neighborhood.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be
         considered as an important core point (including the point itself).
@@ -290,7 +282,6 @@ class DBSCAN(Base,
         self,
         *,
         eps=0.5,
-        handle=None,
         min_samples=5,
         metric='euclidean',
         algorithm='brute',
@@ -299,7 +290,7 @@ class DBSCAN(Base,
         output_type=None,
         calc_core_sample_indices=True,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.eps = eps
         self.min_samples = min_samples
         self.max_mbytes_per_batch = max_mbytes_per_batch
@@ -308,6 +299,7 @@ class DBSCAN(Base,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
+    @reflect(reset=True)
     def fit(
         self,
         X,
@@ -398,7 +390,9 @@ class DBSCAN(Base,
         cdef uintptr_t core_sample_indices_ptr = (
             0 if core_sample_indices is None else core_sample_indices.ptr
         )
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        # XXX: multi-gpu uses handle attribute to manage comms
+        handle = self.handle if multi_gpu else get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool X_f32 = X.dtype == np.float32
         cdef bool labels_i32 = labels.dtype == np.int32
 
@@ -466,7 +460,7 @@ class DBSCAN(Base,
                         algorithm,
                         verbose,
                         multi_gpu)
-        self.handle.sync()
+        handle.sync()
 
         if core_sample_indices is not None:
             # Trim the core_sample_indices array if necessary. In the common case
@@ -497,6 +491,7 @@ class DBSCAN(Base,
                                        'type': 'dense',
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
+    @reflect
     def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

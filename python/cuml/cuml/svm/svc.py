@@ -1,10 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 from cuml.common.classification import (
     decode_labels,
     preprocess_labels,
@@ -23,6 +22,11 @@ from cuml.internals.input_utils import (
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -51,18 +55,16 @@ class SVC(SVMBase, ClassifierMixin):
 
     Parameters
     ----------
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     C : float (default = 1.0)
         Penalty parameter C
     kernel : string (default='rbf')
         Specifies the kernel function. Possible options: 'linear', 'poly',
-        'rbf', 'sigmoid'. Currently precomputed kernels are not supported.
+        'rbf', 'sigmoid', 'precomputed'. When using 'precomputed', X is
+        expected to be a precomputed kernel matrix of shape
+        (n_samples, n_samples) at fit time, and (n_samples_test,
+        n_samples_train) at predict time. A valid kernel matrix should be
+        symmetric and positive semi-definite; cuML does not validate these
+        properties.
     degree : int (default=3)
         Degree of polynomial kernel function.
     gamma : float or string (default = 'scale')
@@ -90,19 +92,8 @@ class SVC(SVMBase, ClassifierMixin):
         string 'balanced' is also accepted, in which case ``class_weight[i] =
         n_samples / (n_classes * n_samples_of_class[i])``
     max_iter : int (default = -1)
-        Limit the number of outer iterations in the solver.
-        If -1 (default) then ``max_iter=100*n_samples``
-
-        .. deprecated::25.12
-
-            In 25.12 max_iter meaning "max outer iterations" was deprecated, in
-            favor of instead meaning "max total iterations". To opt in to the
-            new behavior now, you may pass in an instance of `SVC.TotalIters`.
-            For example ``SVC(max_iter=SVC.TotalIters(1000))`` would limit the
-            solver to a max of 1000 total iterations. In 26.02 the new behavior
-            will become the default and the `SVC.TotalIters` wrapper class will
-            be deprecated.
-
+        Limit the number of total iterations in the solver. Default of -1 for
+        "no limit".
     decision_function_shape : str ('ovo' or 'ovr', default 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -138,7 +129,9 @@ class SVC(SVMBase, ClassifierMixin):
     support_ : int, shape = (n_support)
         Device array of support vector indices
     support_vectors_ : float, shape (n_support, n_cols)
-        Device array of support vectors
+        Device array of support vectors. For kernel='precomputed', this
+        attribute is empty (shape (0, 0)) since the original feature vectors
+        are not available.
     dual_coef_ : float, shape = (1, n_support)
         Device array of coefficients for support vectors
     intercept_ : float
@@ -261,7 +254,6 @@ class SVC(SVMBase, ClassifierMixin):
     def __init__(
         self,
         *,
-        handle=None,
         C=1.0,
         kernel="rbf",
         degree=3,
@@ -279,7 +271,6 @@ class SVC(SVMBase, ClassifierMixin):
         decision_function_shape="ovo",
     ):
         super().__init__(
-            handle=handle,
             C=C,
             kernel=kernel,
             degree=degree,
@@ -298,7 +289,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -313,7 +304,7 @@ class SVC(SVMBase, ClassifierMixin):
         self._support_ = value
 
     @property
-    @cuml.internals.api_base_return_array_skipall
+    @reflect
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -327,7 +318,7 @@ class SVC(SVMBase, ClassifierMixin):
     def intercept_(self, value):
         self._intercept_ = value
 
-    def _fit_multiclass(self, X, y, sample_weight) -> "SVC":
+    def _fit_multiclass(self, X, y, sample_weight):
         if sample_weight is not None:
             warn(
                 "Sample weights are currently ignored for multi class classification"
@@ -343,7 +334,6 @@ class SVC(SVMBase, ClassifierMixin):
             )
         self._multiclass = multiclass_cls(
             estimator=SVC(**params),
-            handle=self.handle,
             verbose=self.verbose,
             output_type=self.output_type,
         )
@@ -380,7 +370,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight) -> "SVC":
+    def _fit_proba(self, X, y, sample_weight):
         from sklearn.calibration import CalibratedClassifierCV
         from sklearn.model_selection import StratifiedKFold
 
@@ -407,7 +397,7 @@ class SVC(SVMBase, ClassifierMixin):
         )
         cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_context():
             cccv.fit(X, y, sample_weight=sample_weight)
 
         cal_clf = cccv.calibrated_classifiers_[0]
@@ -439,6 +429,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -470,7 +461,26 @@ class SVC(SVMBase, ClassifierMixin):
         if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
-        if is_sparse(X):
+        # Handle precomputed kernels
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
+                )
+            X = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                check_rows=y.shape[0],
+                order="F",
+            ).array
+            # Validate that X is square for precomputed kernels
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    f"Precomputed kernel matrix must be square, "
+                    f"got shape ({X.shape[0]}, {X.shape[1]})"
+                )
+        elif is_sparse(X):
             X = SparseCumlArray(
                 X,
                 convert_to_dtype=(
@@ -502,7 +512,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.api_base_return_any_skipall
+    @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -517,7 +527,7 @@ class SVC(SVMBase, ClassifierMixin):
             res = self.decision_function(X, convert_dtype=convert_dtype)
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
-        with cuml.internals.exit_internal_api():
+        with exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
@@ -530,6 +540,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
+    @reflect
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -586,6 +597,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         }
     )
+    @reflect
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -603,9 +615,14 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
+    @reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.
+
+        For precomputed kernels, X should be a kernel matrix of shape
+        (n_samples_test, n_samples_train) where n_samples_train is the
+        number of samples used during fit.
 
         """
         if hasattr(self, "_multiclass"):
@@ -613,7 +630,20 @@ class SVC(SVMBase, ClassifierMixin):
 
         dtype = self.support_vectors_.dtype
 
-        if is_sparse(X):
+        # For precomputed kernels, check that columns match training set size
+        if self.kernel == "precomputed":
+            if is_sparse(X):
+                raise TypeError(
+                    "Sparse precomputed kernels are not supported."
+                )
+            X = input_to_cuml_array(
+                X,
+                check_dtype=[dtype],
+                convert_to_dtype=(dtype if convert_dtype else None),
+                order="F",
+                check_cols=self.shape_fit_[0],  # Number of training samples
+            ).array
+        elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
             X = input_to_cuml_array(
@@ -621,7 +651,7 @@ class SVC(SVMBase, ClassifierMixin):
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.support_vectors_.shape[1],
+                check_cols=self.shape_fit_[1],  # Number of features
             ).array
 
         return self._predict(X)

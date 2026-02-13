@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -14,6 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
@@ -160,13 +161,6 @@ class KernelDensity(Base, InteropMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the
-        CUDA stream that will be used for the model's computations, so
-        users can run different models concurrently in different streams
-        by creating handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -260,17 +254,15 @@ class KernelDensity(Base, InteropMixin):
         metric="euclidean",
         metric_params=None,
         output_type=None,
-        handle=None,
         verbose=False,
     ):
-        super().__init__(
-            verbose=verbose, handle=handle, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.bandwidth = bandwidth
         self.kernel = kernel
         self.metric = metric
         self.metric_params = metric_params
 
+    @reflect(reset=True)
     def fit(
         self, X, y=None, sample_weight=None, *, convert_dtype=True
     ) -> "KernelDensity":
@@ -343,6 +335,7 @@ class KernelDensity(Base, InteropMixin):
 
         return self
 
+    @reflect
     def score_samples(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute the log-likelihood of each sample under the model.
 
@@ -430,6 +423,7 @@ class KernelDensity(Base, InteropMixin):
 
         return log_probabilities
 
+    @run_in_internal_context
     def score(self, X, y=None) -> float:
         """Compute the total log-likelihood under the model.
 
@@ -450,6 +444,7 @@ class KernelDensity(Base, InteropMixin):
         """
         return float(cp.sum(self.score_samples(X).to_output("cupy")))
 
+    @reflect
     def sample(self, n_samples=1, random_state=None) -> CumlArray:
         """Generate random samples from the model.
 

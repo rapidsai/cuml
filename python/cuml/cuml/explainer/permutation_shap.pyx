@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import time
@@ -9,6 +9,7 @@ import numpy as np
 
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
+from cuml.internals import get_handle
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -102,13 +103,6 @@ class PermutationExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : pylibraft.common.handle (default = None)
-        Specifies the handle that holds internal CUDA state for
-        computations in this model, a new one is created if it is None.
-        Most importantly, this specifies the CUDA stream that will be used for
-        the model's computations, so users can run different models
-        concurrently in different streams by creating handles in several
-        streams.
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
@@ -161,7 +155,6 @@ class PermutationExplainer(SHAPBase):
                  data,
                  masker_type='independent',
                  link='identity',
-                 handle=None,
                  is_gpu_model=None,
                  random_state=None,
                  dtype=np.float32,
@@ -174,7 +167,6 @@ class PermutationExplainer(SHAPBase):
             link=link,
             verbose=verbose,
             is_gpu_model=is_gpu_model,
-            handle=handle,
             dtype=dtype,
             output_type=output_type
         )
@@ -232,8 +224,8 @@ class PermutationExplainer(SHAPBase):
         total_timer = time.time()
         inds = cp.arange(self.ncols, dtype=cp.int32)
 
-        cdef handle_t* handle_ = \
-            <handle_t*><size_t>self.handle.getHandle()
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, idx_ptr, ds_ptr, shap_ptr, y_hat_ptr
         cdef uintptr_t ds_ptr_f32
         cdef uintptr_t bg_ptr_f32
@@ -286,7 +278,7 @@ class PermutationExplainer(SHAPBase):
                 # Cast result back to float64
                 self._synth_data[:] = synth_data_f32.astype(cp.float64)
 
-            self.handle.sync()
+            handle.sync()
 
             # evaluate model on combinations
             model_timer = time.time()
@@ -338,7 +330,7 @@ class PermutationExplainer(SHAPBase):
                     # Cast result back to float64
                     shap_values[i][idx] = shap_values_f32.astype(cp.float64)
 
-                self.handle.sync()
+                handle.sync()
 
         for i in range(self.model_dimensions):
             shap_values[i][idx] = shap_values[i][idx] / (2 * npermutations)

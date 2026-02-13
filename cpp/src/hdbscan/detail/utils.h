@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,6 +24,7 @@
 
 #include <cub/cub.cuh>
 #include <cuda/functional>
+#include <cuda/std/tuple>
 #include <thrust/copy.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -33,7 +34,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/tuple.h>
 
 #include <algorithm>
 
@@ -107,9 +107,9 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
   rmm::device_uvector<value_t> cluster_lambdas(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
 
-  auto in = thrust::make_zip_iterator(thrust::make_tuple(parents, children, lambdas, sizes));
+  auto in = thrust::make_zip_iterator(cuda::std::make_tuple(parents, children, lambdas, sizes));
 
-  auto out = thrust::make_zip_iterator(thrust::make_tuple(
+  auto out = thrust::make_zip_iterator(cuda::std::make_tuple(
     cluster_parents.data(), cluster_children.data(), cluster_lambdas.data(), cluster_sizes.data()));
 
   thrust::copy_if(thrust_policy,

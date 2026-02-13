@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -31,17 +31,9 @@ class NearestNeighbors(BaseEstimator):
         of this value will vary for different layouts and index to query
         ratios, but it will require `batch_size * n_features * 4` bytes of
         additional memory on each worker hosting index partitions.
-    handle : cuml.Handle
-        Specifies the cuml.handle that holds internal CUDA state for
-        computations in this model. Most importantly, this specifies the CUDA
-        stream that will be used for the model's computations, so users can
-        run different models concurrently in different streams by creating
-        handles in several streams.
-        If it is None, a new one is created.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-
     """
 
     def __init__(self, *, client=None, streams_per_handle=0, **kwargs):
@@ -77,14 +69,12 @@ class NearestNeighbors(BaseEstimator):
     @staticmethod
     def _func_create_model(sessionId, **kwargs):
         try:
-            from cuml.neighbors.nearest_neighbors_mg import (
-                NearestNeighborsMG as cumlNN,
-            )
+            from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
         except ImportError:
             raise_mg_import_exception()
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
-        return cumlNN(handle=handle, **kwargs)
+        return NearestNeighborsMG(handle=handle, **kwargs)
 
     @staticmethod
     def _func_kneighbors(
@@ -146,12 +136,8 @@ class NearestNeighbors(BaseEstimator):
             ):
                 n_neighbors = self.kwargs["n_neighbors"]
             else:
-                try:
-                    from cuml.neighbors.nearest_neighbors_mg import (
-                        NearestNeighborsMG as cumlNN,
-                    )
-                except ImportError:
-                    raise_mg_import_exception()
+                from cuml.neighbors import NearestNeighbors as cumlNN
+
                 n_neighbors = cumlNN().n_neighbors
 
         return n_neighbors
