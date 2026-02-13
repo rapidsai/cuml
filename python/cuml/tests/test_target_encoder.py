@@ -7,7 +7,7 @@ import numpy as np
 import pandas
 import pytest
 
-from cuml.preprocessing.TargetEncoder import TargetEncoder
+from cuml.preprocessing.targetencoder import TargetEncoder
 from cuml.testing.utils import array_equal
 
 # Filter the combination mode deprecation warning for all tests in this module

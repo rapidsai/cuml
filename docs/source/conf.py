@@ -267,3 +267,13 @@ linkcode_resolve = make_linkcode_resolve(
 # backticks`) to be a python object. See
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-default_role
 default_role = "py:obj"
+
+# rst_prolog is prepended to every RST file. We define the :py: role here so
+# that docstrings using :py:`code` for inline Python-highlighted code render
+# correctly on all pages. This role was previously defined only in the old
+# monolithic api.rst.
+rst_prolog = """
+.. role:: py(code)
+   :language: python
+   :class: highlight
+"""
