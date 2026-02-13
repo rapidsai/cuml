@@ -143,7 +143,7 @@ use.
      - Convert a collection of raw documents to a matrix of TF-IDF features.
      - :mod:`cuml.feature_extraction`
 
-   * - :obj:`~cuml.ForestInference`
+   * - :obj:`~cuml.fil.ForestInference`
      - Forest Inference for fast prediction of tree-based models.
      - :mod:`cuml.fil`
 
