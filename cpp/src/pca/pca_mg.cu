@@ -317,8 +317,6 @@ void inverse_transform_impl(raft::handle_t& handle,
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
       components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
-    // raft::matrix::matrixVectorBinaryMultSkipZero<true, true>(
-    //   components, singular_vals, prms.n_cols, prms.n_components, streams[0]);
     raft::resources handle_stream_zero;
     raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
     raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
