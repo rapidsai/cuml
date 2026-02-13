@@ -86,6 +86,9 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 
   raft::linalg::transpose(
     handle, components_temp.data(), components, prms.n_cols, prms.n_components, stream);
+
+  auto orig_stream = handle.get_stream();
+  raft::resource::set_cuda_stream(handle, stream);
   raft::matrix::weighted_power(
     handle,
     raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
@@ -93,6 +96,7 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
     raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
       explained_vars, std::size_t(1), prms.n_components),
     math_t(1));
+  raft::resource::set_cuda_stream(handle, orig_stream);
   raft::matrix::ratio(handle, explained_vars, explained_var_ratio, prms.n_components, stream);
 }
 
