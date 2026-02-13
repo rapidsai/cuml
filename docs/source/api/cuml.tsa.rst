@@ -12,12 +12,4 @@ Time series analysis algorithms.
 
    ARIMA
    auto_arima.AutoARIMA
-
-.. currentmodule:: cuml
-
-.. autosummary::
-   :nosignatures:
-   :toctree: generated/
-   :template: base.rst
-
    ExponentialSmoothing
