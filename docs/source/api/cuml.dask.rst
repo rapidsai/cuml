@@ -123,14 +123,16 @@ Feature Extraction
 Datasets
 --------
 
-.. automodule:: cuml.dask.datasets.blobs
-   :members:
+.. currentmodule:: cuml.dask.datasets
 
-.. automodule:: cuml.dask.datasets.classification
-   :members:
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+   :template: base.rst
 
-.. automodule:: cuml.dask.datasets.regression
-   :members:
+   make_blobs
+   make_classification
+   make_regression
 
 Solvers
 -------

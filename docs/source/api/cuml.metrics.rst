@@ -24,13 +24,19 @@ Classification and Distance Metrics
 Regression Metrics
 ------------------
 
-.. automodule:: cuml.metrics.regression
-   :members:
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+   :template: base.rst
+
+   mean_absolute_error
+   mean_squared_error
+   mean_squared_log_error
+   median_absolute_error
+   r2_score
 
 Clustering Metrics
 ------------------
-
-.. currentmodule:: cuml.metrics
 
 .. autosummary::
    :nosignatures:
@@ -46,14 +52,15 @@ Clustering Metrics
    cluster.mutual_info_score
    cluster.v_measure_score
 
-Pairwise Distances
-------------------
+Pairwise Distances and Kernels
+------------------------------
 
-.. automodule:: cuml.metrics.pairwise_distances
-   :members:
+.. autosummary::
+   :nosignatures:
+   :toctree: generated/
+   :template: base.rst
 
-Pairwise Kernels
-----------------
-
-.. automodule:: cuml.metrics.pairwise_kernels
-   :members:
+   pairwise_distances
+   sparse_pairwise_distances
+   nan_euclidean_distances
+   pairwise_kernels
