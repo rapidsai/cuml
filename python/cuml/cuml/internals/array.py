@@ -983,13 +983,14 @@ class CumlArray:
 
         if is_sparse(X):
             # We don't support coercing sparse arrays to dense via this method.
-            # Raising a NotImplementedError here lets us nicely error
-            # for estimators that don't support sparse arrays without requiring
-            # an additional external check. Otherwise they'd get an opaque error
-            # for code below.
-            raise NotImplementedError(
-                "Sparse inputs are not currently supported for this method"
+            # Raising a TypeError here lets us nicely error for estimators that
+            # don't support sparse arrays without requiring an additional
+            # external check. Using TypeError with "sparse" in the message
+            # satisfies sklearn's check_estimator_sparse_tag check.
+            raise TypeError(
+                "A sparse matrix was passed, but dense data is required. "
             )
+
         if convert_to_mem_type is not False:
             convert_to_mem_type = MemoryType.from_str(convert_to_mem_type)
         if convert_to_dtype:
@@ -1006,6 +1007,8 @@ class CumlArray:
             and not check_cols
             and not check_rows
         ):
+            if np.issubdtype(X.dtype, np.complexfloating):
+                raise ValueError(f"Complex data not supported\n{X}")
             if deepcopy:
                 return copy.deepcopy(X)
             else:
@@ -1053,6 +1056,11 @@ class CumlArray:
             # we accept lists and tuples in accel mode
             X = np.asarray(X)
             deepcopy = False
+
+        # Check for complex dtype, placed after DataFrame/Series conversion
+        # to numpy/cupy
+        if hasattr(X, "dtype") and np.issubdtype(X.dtype, np.complexfloating):
+            raise ValueError(f"Complex data not supported\n{X}")
 
         requested_order = (order, None)[fail_on_order]
         arr = cls(X, index=index, order=requested_order, validate=False)

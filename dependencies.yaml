@@ -376,12 +376,12 @@ dependencies:
               cuda: "12.*"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==12.*
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]==12.*
           - matrix:
               cuda: "13.*"
               use_cuda_wheels: "true"
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]==13.*
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
           # (e.g. for DLFW and pip devcontainers)
           - matrix:
@@ -391,7 +391,7 @@ dependencies:
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
             packages:
-              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]>=12,<14
+              - cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]>=12,<14
   docs:
     common:
       - output_types: [conda, requirements]
@@ -449,11 +449,10 @@ dependencies:
     specific:
       - output_types: [conda, requirements, pyproject]
         matrices:
-          # Package versions to user for the "oldest-dep" CI run
+          # Package versions to use for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
-              - ipython==8.4.0
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
@@ -465,7 +464,23 @@ dependencies:
           - matrix:
             packages:
               - *scikit_learn
-              - ipython>=8.4.0
+              - ipython>=7.32.0
+      # ipython for "oldest" is split: conda uses 8.x (7.x has no Python 3.11+ packages),
+      # pip uses 7.34.0 from PyPI (which supports Python 3.11+)
+      - output_types: [conda]
+        matrices:
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - ipython=8
+          - matrix:
+            packages:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - ipython==7.34.0
+          - matrix:
+            packages:
       - output_types: requirements
         matrices:
           - matrix: {dependencies: "nightly"}

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -181,25 +181,6 @@ def special_reg(request):
             random_state=123,
         )
     return X, y
-
-
-def test_as_fil_doesnt_warn_handle_deprecated():
-    X, y = make_classification()
-    with pytest.warns(FutureWarning):
-        handle = cuml.Handle(n_streams=4)
-        model = cuml.RandomForestClassifier(
-            handle=handle, n_streams=4, n_bins=32
-        )
-
-    model.fit(X, y)
-
-    # Test that no warning raised
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        fil = model.as_fil()
-
-    # handle was forwarded
-    assert fil.handle is handle
 
 
 def test_default_parameters():

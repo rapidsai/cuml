@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import time
@@ -102,13 +102,6 @@ class KernelExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     dtype : np.float32 or np.float64 (default = np.float32)
         Parameter to specify the precision of data to generate to call the
         model.
@@ -167,7 +160,6 @@ class KernelExplainer(SHAPBase):
                  verbose=False,
                  random_state=None,
                  is_gpu_model=None,
-                 handle=None,
                  dtype=np.float32,
                  output_type=None):
 
@@ -179,7 +171,6 @@ class KernelExplainer(SHAPBase):
             verbose=verbose,
             random_state=random_state,
             is_gpu_model=is_gpu_model,
-            handle=handle,
             dtype=dtype,
             output_type=output_type
         )
@@ -291,7 +282,7 @@ class KernelExplainer(SHAPBase):
         row, _, _, _ = \
             input_to_cupy_array(row, order=self.order)
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t row_ptr, bg_ptr, ds_ptr, x_ptr, smp_ptr
 
@@ -410,7 +401,7 @@ class KernelExplainer(SHAPBase):
                 exp_val_param,
                 fx_param,
                 nonzero_inds=nonzero_inds,
-                handle=self.handle)
+            )
 
             # add back the variable that was removed in the weighted
             # linear regression preprocessing
@@ -592,8 +583,7 @@ def _weighted_linear_regression(X,
                                 weights,
                                 expected_value,
                                 fx,
-                                nonzero_inds=None,
-                                handle=None):
+                                nonzero_inds=None):
     """
     Function performs weighted linear regression, the shap values
     are the coefficients.
@@ -608,9 +598,9 @@ def _weighted_linear_regression(X,
 
         Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
         y = y * cp.sqrt(weights)
-        shap_vals = LinearRegression(fit_intercept=False,
-                                     output_type='cupy',
-                                     handle=handle).fit(Xw, y).coef_
+        shap_vals = LinearRegression(
+            fit_intercept=False, output_type='cupy'
+        ).fit(Xw, y).coef_
 
     else:
         # mathematically the same as above, but we need to use the indexes
@@ -628,9 +618,9 @@ def _weighted_linear_regression(X,
         Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
         y = y * cp.sqrt(weights)
 
-        X_t = LinearRegression(fit_intercept=False,
-                               output_type='cupy',
-                               handle=handle).fit(Xw, y).coef_
+        X_t = LinearRegression(
+            fit_intercept=False, output_type='cupy',
+        ).fit(Xw, y).coef_
 
         shap_vals = cp.zeros(X.shape[1] - 1)
         shap_vals[nonzero_inds[:-1]] = X_t

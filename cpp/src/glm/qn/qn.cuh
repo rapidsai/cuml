@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,7 +16,7 @@
 
 #include <cuml/linear_model/qn.h>
 
-#include <raft/matrix/math.cuh>
+#include <raft/matrix/argmax.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -264,7 +264,10 @@ void qn_predict(
     if (C == 2) {
       P.assign_unary(Z, [] __device__(const T z) { return z > 0.0 ? T(1) : T(0); }, stream);
     } else {
-      raft::matrix::argmax(Z.data, C, X.m, preds, stream);
+      raft::matrix::argmax(handle,
+                           raft::make_device_matrix_view<const T, int, raft::row_major>(
+                             Z.data, static_cast<int>(X.m), C),
+                           raft::make_device_vector_view<T, int>(preds, static_cast<int>(X.m)));
     }
   } else {
     P.copy_async(Z, stream);

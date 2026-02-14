@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -55,16 +55,17 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
 
 
 @cuml.internals.reflect
-def spectral_clustering(X,
-                        *,
-                        int n_clusters=8,
-                        random_state=None,
-                        n_components=None,
-                        n_neighbors=10,
-                        n_init=10,
-                        eigen_tol='auto',
-                        affinity='nearest_neighbors',
-                        handle=None):
+def spectral_clustering(
+    X,
+    *,
+    int n_clusters=8,
+    random_state=None,
+    n_components=None,
+    n_neighbors=10,
+    n_init=10,
+    eigen_tol='auto',
+    affinity='nearest_neighbors',
+):
     """Apply clustering to a projection of the normalized Laplacian.
 
     In practice Spectral Clustering is very useful when the structure of
@@ -109,12 +110,6 @@ def spectral_clustering(X,
          - 'nearest_neighbors' : construct the affinity matrix by computing a
            graph of nearest neighbors.
          - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -136,8 +131,6 @@ def spectral_clustering(X,
     >>> X = np.random.rand(100, 10).astype(np.float32)
     >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
     """
-    handle = get_handle(handle=handle)
-
     cdef float* affinity_data_ptr = NULL
     cdef int* affinity_rows_ptr = NULL
     cdef int* affinity_cols_ptr = NULL
@@ -225,6 +218,7 @@ def spectral_clustering(X,
 
     cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
     cdef bool precomputed = affinity == "precomputed"
+    handle = get_handle()
     cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
 
     try:
@@ -305,13 +299,6 @@ class SpectralClustering(Base):
            graph of nearest neighbors from the input data.
          - 'precomputed' : interpret X as a precomputed affinity matrix,
            where larger values indicate greater similarity between instances.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -365,10 +352,20 @@ class SpectralClustering(Base):
     """
     labels_ = CumlArrayDescriptor()
 
-    def __init__(self, n_clusters=8, *, n_components=None, random_state=None,
-                 n_neighbors=10, n_init=10, eigen_tol='auto', affinity='nearest_neighbors',
-                 handle=None, verbose=False, output_type=None):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+    def __init__(
+        self,
+        n_clusters=8,
+        *,
+        n_components=None,
+        random_state=None,
+        n_neighbors=10,
+        n_init=10,
+        eigen_tol='auto',
+        affinity='nearest_neighbors',
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
         self.n_clusters = n_clusters
         self.n_components = n_components
         self.random_state = random_state
@@ -444,6 +441,5 @@ class SpectralClustering(Base):
             n_init=self.n_init,
             eigen_tol=self.eigen_tol,
             affinity=self.affinity,
-            handle=self.handle
         )
         return self

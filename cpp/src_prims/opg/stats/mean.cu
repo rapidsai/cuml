@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,6 @@
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
 
 #include <rmm/device_uvector.hpp>

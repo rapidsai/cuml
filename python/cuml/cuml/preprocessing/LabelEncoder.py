@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -47,13 +47,6 @@ class LabelEncoder(Base):
         is present during transform (default is to raise). When this parameter
         is set to 'ignore' and an unknown category is encountered during
         transform or inverse transform, the resulting encoding will be null.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -132,14 +125,10 @@ class LabelEncoder(Base):
         self,
         *,
         handle_unknown="error",
-        handle=None,
         verbose=False,
         output_type=None,
     ) -> None:
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
-
+        super().__init__(verbose=verbose, output_type=output_type)
         self.classes_ = None
         self.dtype = None
         self._fitted: bool = False
@@ -279,7 +268,7 @@ class LabelEncoder(Base):
         category_num = len(self.classes_)
         if self.handle_unknown == "error":
             if not isinstance(ord_label, (cp.ndarray, np.ndarray)):
-                ord_label = ord_label.values_host
+                ord_label = ord_label.to_numpy()
             for ordi in ord_label:
                 if ordi < 0 or ordi >= category_num:
                     raise ValueError(

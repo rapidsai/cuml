@@ -532,6 +532,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
+    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -560,25 +561,8 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         )
 
     build_kwds = self.build_kwds or {}
-    if "nnd_n_clusters" in build_kwds:
-        warnings.warn(
-            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
-            "`knn_n_clusters` in 26.04."
-        )
-        n_clusters = build_kwds.get("nnd_n_clusters", 1)
-    else:
-        n_clusters = build_kwds.get("knn_n_clusters", 1)
-    if "nnd_overlap_factor" in build_kwds:
-        warnings.warn(
-            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
-            "`knn_overlap_factor` in 26.04."
-        )
-        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
-    else:
-        overlap_factor = build_kwds.get("knn_overlap_factor", 2)
-
-    params.build_params.n_clusters = n_clusters
-    params.build_params.overlap_factor = overlap_factor
+    n_clusters = build_kwds.get("knn_n_clusters", 1)
+    overlap_factor = build_kwds.get("knn_overlap_factor", 2)
 
     if n_clusters < 1:
         raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
@@ -588,18 +572,23 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"knn_overlap_factor ({overlap_factor})`"
         )
 
-    # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
-    all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
-                                       'inner_product']
-    if (build_algo == "brute_force_knn" and
-            n_clusters > 1 and
-            self.metric.lower() not in all_neighbors_supported_metrics):
+    all_neighbors_supported_metrics = [
+        'l2', 'euclidean', 'sqeuclidean', 'cosine', 'inner_product'
+    ]
+    if (
+        build_algo == "brute_force_knn" and
+        n_clusters > 1 and
+        self.metric.lower() not in all_neighbors_supported_metrics
+    ):
         warnings.warn(
             f"metric='{self.metric}' is not supported for batched knn build with "
             f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
             f"The knn_n_clusters parameter will be ignored and regular brute force knn "
             f"(without batching) will be used instead."
         )
+
+    params.build_params.n_clusters = n_clusters
+    params.build_params.overlap_factor = overlap_factor
 
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
@@ -727,6 +716,23 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         More specific parameters controlling the embedding. If None these
         values are set automatically as determined by ``min_dist`` and
         ``spread``.
+    target_n_neighbors: int (optional, default=-1)
+        The number of nearest neighbors to use to construct the target
+        simplicial set. If set to -1 use the ``n_neighbors`` value.
+    target_metric: string (optional, default='categorical')
+        The metric used to measure distance for a target array when using
+        supervised dimension reduction. By default this is 'categorical'
+        which will measure distance in terms of whether categories match
+        or are different. Furthermore, if semi-supervised is required
+        target values of -1 will be treated as unlabelled under the
+        'categorical' metric. If the target array takes continuous values
+        (e.g. for a regression problem) then metric of 'euclidean' or 'l2'
+        is probably more appropriate.
+    target_weight: float (optional, default=0.5)
+        Weighting factor between data topology and target topology. A
+        value of 0.0 weights predominantly on data, a value of 1.0 places
+        a strong emphasis on target. The default of 0.5 balances the
+        weighting equally between data and target.
     hash_input: bool, optional (default = False)
         UMAP can hash the training input so that exact embeddings
         are returned when transform is called on the same data upon
@@ -754,6 +760,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -771,14 +785,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
                 def on_train_end(self, embeddings):
                     print(embeddings.copy_to_host())
-
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically. To configure multi-device execution,
-            please use the `device_ids` parameter instead.
 
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -834,10 +840,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
           memory usage. This is independent from knn_overlap_factor as long as
           'knn_overlap_factor' < 'knn_n_clusters'.
-
-        .. deprecated:: 26.02
-            The `nnd_n_clusters` and `nnd_overlap_factor` was deprecated in 26.02 and
-            will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
 
     device_ids : list[int], "all", or None, default=None
         The device IDs to use during fitting (only used when
@@ -899,6 +901,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric",
             "hash_input",
             "random_state",
+            "force_serial_epochs",
             "callback",
             "metric",
             "metric_kwds",
@@ -954,6 +957,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
+            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1097,16 +1101,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
+        force_serial_epochs=False,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
         build_kwds=None,
         device_ids=None,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_components = n_components
@@ -1129,6 +1133,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
+        self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
@@ -1244,7 +1249,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         else:
             knn_indices = knn_dists = None
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t * handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef unique_ptr[device_buffer] embeddings_buffer
         cdef lib.HostCOO fss_graph = lib.HostCOO()
@@ -1483,7 +1488,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t out_ptr = out.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         with nogil:
@@ -1622,7 +1627,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
 
-        handle = get_handle(model=self, device_ids=self.device_ids)
+        handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         lib.inverse_transform(
@@ -1784,6 +1789,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
+    force_serial_epochs=False,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1831,6 +1837,14 @@ def simplicial_set_embedding(
             * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1879,6 +1893,7 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
+    params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)

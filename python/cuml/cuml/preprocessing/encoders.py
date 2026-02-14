@@ -48,13 +48,6 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
 
     Parameters
     ----------
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -99,7 +92,6 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
             self._features = X.columns
             self._encoders = {
                 feature: LabelEncoder(
-                    handle=self.handle,
                     verbose=self.verbose,
                     output_type=self.output_type,
                     handle_unknown=self.handle_unknown,
@@ -117,7 +109,6 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
             self._encoders = dict()
             for feature in self._features:
                 le = LabelEncoder(
-                    handle=self.handle,
                     verbose=self.verbose,
                     output_type=self.output_type,
                     handle_unknown=self.handle_unknown,
@@ -202,13 +193,6 @@ class OneHotEncoder(BaseEncoder):
         transform, the resulting one-hot encoded columns for this feature
         will be all zeros. In the inverse transform, an unknown category
         will be denoted as None.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -235,13 +219,10 @@ class OneHotEncoder(BaseEncoder):
         sparse_output=True,
         dtype=np.float32,
         handle_unknown="error",
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         self.categories = categories
         self.sparse_output = sparse_output
         self.dtype = dtype
@@ -555,7 +536,7 @@ class OneHotEncoder(BaseEncoder):
         feature_names = []
         for i in range(len(cats)):
             names = [
-                input_features[i] + "_" + str(t) for t in cats[i].values_host
+                input_features[i] + "_" + str(t) for t in cats[i].to_numpy()
             ]
             if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
                 names.pop(self.drop_idx_[i])
@@ -614,7 +595,6 @@ class OrdinalEncoder(BaseEncoder):
         categories="auto",
         dtype=np.float64,
         handle_unknown="error",
-        handle=None,
         verbose=False,
         output_type=None,
     ) -> None:
@@ -638,13 +618,6 @@ class OrdinalEncoder(BaseEncoder):
             to 'ignore' and an unknown category is encountered during transform, the
             resulting encoded value would be null when output type is cudf
             dataframe.
-        handle : cuml.Handle or None, default=None
-
-            .. deprecated:: 26.02
-                The `handle` argument was deprecated in 26.02 and will be removed
-                in 26.04. There's no need to pass in a handle, cuml now manages
-                this resource automatically.
-
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.  See
             :ref:`verbosity-levels` for more info.
@@ -655,9 +628,7 @@ class OrdinalEncoder(BaseEncoder):
             (`cuml.global_settings.output_type`) will be used. See
             :ref:`output-data-type-configuration` for more info.
         """
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.categories = categories
         self.dtype = dtype

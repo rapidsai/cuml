@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -83,13 +83,6 @@ class Lars(Base, RegressorMixin):
         The maximum number of coefficients to fit. This gives an upper limit of
         how many features we select for prediction. This number is also an
         upper limit of the number of iterations.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -143,7 +136,6 @@ class Lars(Base, RegressorMixin):
         self,
         *,
         fit_intercept=True,
-        handle=None,
         verbose=False,
         output_type=None,
         copy_X=True,
@@ -152,7 +144,7 @@ class Lars(Base, RegressorMixin):
         eps=None,
         precompute='auto',
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
         self.eps = eps
@@ -201,7 +193,7 @@ class Lars(Base, RegressorMixin):
 
     def _fit_cpp(self, X, y, Gram, x_scale, convert_dtype):
         """ Fit lars model using cpp solver"""
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         X_m, _, _, _ = \
             input_to_cuml_array(X,
@@ -346,7 +338,7 @@ class Lars(Base, RegressorMixin):
             X, check_dtype=self.dtype, convert_to_dtype=conv_dtype,
             check_cols=self.n_cols, order='F')
 
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t X_ptr = X_m.ptr
         cdef int ld_X = n_rows

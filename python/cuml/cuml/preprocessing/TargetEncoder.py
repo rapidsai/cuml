@@ -59,13 +59,6 @@ class TargetEncoder(Base, InteropMixin):
         'interleaved': samples are assign to each fold in a round robin way.
         'customize': customize splitting by providing a `fold_ids` array
         in `fit()` or `fit_transform()` functions.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -195,15 +188,12 @@ class TargetEncoder(Base, InteropMixin):
         smooth=0,
         seed=42,
         split_method="interleaved",
-        handle=None,
         verbose=False,
         output_type=None,
         stat="mean",
         multi_feature_mode="combination",
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
         if smooth < 0:
             raise ValueError(f"smooth {smooth} is not zero or positive")
         if n_folds < 0 or not isinstance(n_folds, int):
@@ -540,7 +530,7 @@ class TargetEncoder(Base, InteropMixin):
         res = []
         unq_vals = train[self.fold_col].unique()
         if not isinstance(unq_vals, (cp.ndarray, np.ndarray)):
-            unq_vals = unq_vals.values_host
+            unq_vals = unq_vals.to_numpy()
         for f in unq_vals:
             mask = train[self.fold_col].values == f
             dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})

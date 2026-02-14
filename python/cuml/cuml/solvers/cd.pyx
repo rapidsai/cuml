@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -87,7 +87,6 @@ def fit_coordinate_descent(
     int max_iter=1000,
     double tol=1e-3,
     bool shuffle=True,
-    handle=None,
 ):
     """Fit a linear model using coordinate descent.
 
@@ -114,8 +113,7 @@ def fit_coordinate_descent(
     n_iter : int
         The number of iterations the solver ran for.
     """
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
 
     # Process and validate parameters
     if loss != "squared_loss":
@@ -258,13 +256,6 @@ class CD(Base, FMajorInputTagMixin):
        than looping over features sequentially by default.
        This (setting to 'True') often leads to significantly faster convergence
        especially when tol is higher than 1e-4.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -324,9 +315,9 @@ class CD(Base, FMajorInputTagMixin):
 
     def __init__(self, *, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, max_iter=1000, tol=1e-3, shuffle=True,
-                 handle=None, output_type=None, verbose=False):
+                 output_type=None, verbose=False):
 
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.loss = loss
         self.alpha = alpha
@@ -354,7 +345,6 @@ class CD(Base, FMajorInputTagMixin):
             max_iter=self.max_iter,
             tol=self.tol,
             shuffle=self.shuffle,
-            handle=get_handle(model=self),
         )
         self.coef_ = coef
         self.intercept_ = intercept
@@ -385,7 +375,7 @@ class CD(Base, FMajorInputTagMixin):
         cdef uintptr_t preds_ptr = preds.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef double intercept = self.intercept_
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef bool is_float32 = self.coef_.dtype == np.float32
 

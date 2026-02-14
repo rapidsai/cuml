@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/matrix/argmax.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/op/sort.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -46,6 +46,7 @@ namespace Predict {
 template <typename value_idx, typename value_t>
 void dist_membership_vector(const raft::handle_t& handle,
                             const value_t* X,
+                            size_t n_X_rows,
                             const value_t* query,
                             size_t n_queries,
                             size_t n,
@@ -64,8 +65,14 @@ void dist_membership_vector(const raft::handle_t& handle,
   rmm::device_uvector<value_t> exemplars_dense(n_exemplars * n, stream);
 
   // use the exemplar point indices to obtain the exemplar points as a dense array
-  raft::matrix::copyRows<value_t, value_idx, size_t>(
-    X, n_exemplars, n, exemplars_dense.data(), exemplar_idx, n_exemplars, stream, true);
+  // exemplar_idx indexes into X, which has n_X_rows rows (training data)
+  auto X_view =
+    raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(X, n_X_rows, n);
+  auto exemplars_dense_view = raft::make_device_matrix_view<value_t, value_idx, raft::row_major>(
+    exemplars_dense.data(), n_exemplars, n);
+  auto exemplar_idx_view =
+    raft::make_device_vector_view<const value_idx, value_idx>((exemplar_idx), n_exemplars);
+  raft::matrix::copy_rows(handle, X_view, exemplars_dense_view, exemplar_idx_view);
 
   // compute the number of batches based on the batch size
   value_idx n_batches;
@@ -414,6 +421,7 @@ void all_points_membership_vectors(const raft::handle_t& handle,
 
     dist_membership_vector(handle,
                            X,
+                           m,
                            X,
                            m,
                            n,
@@ -525,6 +533,7 @@ void membership_vector(const raft::handle_t& handle,
 
   dist_membership_vector(handle,
                          X,
+                         m,
                          points_to_predict,
                          n_prediction_points,
                          n,

@@ -1,5 +1,13 @@
+# fallback (overridden by matches later in the file)
+* @rapidsai/ci-codeowners
+
 #cpp code owners
 cpp/               @rapidsai/cuml-cpp-codeowners
+
+# docs
+/CONTRIBUTING.md @rapidsai/cuml-python-codeowners
+/README.md       @rapidsai/cuml-python-codeowners
+/docs/           @rapidsai/cuml-python-codeowners
 
 #python code owners
 python/            @rapidsai/cuml-python-codeowners
@@ -12,6 +20,7 @@ CMakeLists.txt @rapidsai/cuml-cmake-codeowners
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
 /ci/                     @rapidsai/ci-codeowners
+/.coderabbit.yaml        @rapidsai/ci-codeowners
 
 #packaging code owners
 /.pre-commit-config.yaml @rapidsai/packaging-codeowners

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -6,7 +6,7 @@ import numpy as np
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.base import Base, get_handle
+from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -58,13 +58,6 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
     lbfgs_memory : int, default=5
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -190,13 +183,10 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         max_iter=1000,
         linesearch_max_iter=100,
         lbfgs_memory=5,
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(
-            handle=handle, verbose=verbose, output_type=output_type
-        )
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.epsilon = epsilon
         self.penalty = penalty
@@ -240,7 +230,6 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             ).array
 
         coef, intercept, n_iter, _ = cuml.svm.linear.fit(
-            get_handle(model=self),
             X,
             y,
             sample_weight=sample_weight,
