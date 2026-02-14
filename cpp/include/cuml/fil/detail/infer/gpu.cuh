@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -19,6 +19,8 @@
 #include <cuml/fil/detail/specializations/infer_macros.hpp>
 #include <cuml/fil/exceptions.hpp>
 #include <cuml/fil/infer_kind.hpp>
+
+#include <raft/core/error.hpp>
 
 #include <cstddef>
 #include <optional>
@@ -193,6 +195,26 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
     global_workspace = raft_proto::buffer<output_t>{
       output_workspace_size * num_blocks, raft_proto::device_type::gpu, device.value(), stream};
   }
+
+  /**
+   * Throw an error for large inputs that would cause integer overflow.
+   * TODO(hcho3): Support large inputs via streaming
+   **/
+  index_type chunk_size = 32;
+  while (rows_per_block_iteration <= chunk_size / 2 && chunk_size >= 2) {
+    chunk_size /= 2;
+  }
+  index_type task_count = chunk_size * forest.tree_count();
+  index_type num_grove;
+  if (infer_type == infer_kind::default_kind) {
+    num_grove = raft_proto::ceildiv(min(index_type(threads_per_block), task_count), chunk_size);
+  } else {
+    num_grove = 1;
+  }
+  index_type max_num_row = std::numeric_limits<index_type>::max() / (output_count * num_grove) - 3;
+  ASSERT(
+    row_count <= max_num_row, "Input size too large! Input should be at most %u.", max_num_row);
+
   if (rows_per_block_iteration <= 1) {
     infer_kernel<has_categorical_nodes, 1>
       <<<num_blocks, threads_per_block, shared_mem_per_block, stream>>>(forest,

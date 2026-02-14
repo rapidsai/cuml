@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -9,6 +9,8 @@
 #include <cuml/fil/detail/postprocessor.hpp>
 #include <cuml/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/fil/infer_kind.hpp>
+
+#include <raft/core/error.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -98,6 +100,14 @@ void infer_kernel_cpu(forest_t const& forest,
 
   auto output_workspace = std::vector<output_t>(row_count * num_outputs * num_grove, output_t{});
   auto const task_count = num_grove * num_chunk;
+
+  /**
+   * Throw an error for large inputs that would cause integer overflow.
+   * TODO(hcho3): Support large inputs via streaming
+   **/
+  index_type max_num_row = std::numeric_limits<index_type>::max() / (num_outputs * num_grove) - 3;
+  ASSERT(
+    row_count <= max_num_row, "Input size too large! Input should be at most %u.", max_num_row);
 
 #pragma omp parallel num_threads(std::min(index_type(omp_get_max_threads()), task_count))
   {
