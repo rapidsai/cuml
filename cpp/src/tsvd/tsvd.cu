@@ -28,7 +28,7 @@ raft::linalg::paramsTSVD to_raft_params(const paramsTSVD& ml_prms)
 }
 
 template <typename math_t>
-void tsvd_fit_impl(raft::handle_t& handle,
+void tsvd_fit_impl(const raft::handle_t& handle,
                    math_t* input,
                    math_t* components,
                    math_t* singular_vals,
@@ -48,7 +48,7 @@ void tsvd_fit_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void tsvd_fit_transform_impl(raft::handle_t& handle,
+void tsvd_fit_transform_impl(const raft::handle_t& handle,
                              math_t* input,
                              math_t* trans_input,
                              math_t* components,
@@ -75,7 +75,7 @@ void tsvd_fit_transform_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void tsvd_transform_impl(raft::handle_t& handle,
+void tsvd_transform_impl(const raft::handle_t& handle,
                          math_t* input,
                          math_t* components,
                          math_t* trans_input,
@@ -93,7 +93,7 @@ void tsvd_transform_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void tsvd_inverse_transform_impl(raft::handle_t& handle,
+void tsvd_inverse_transform_impl(const raft::handle_t& handle,
                                  math_t* trans_input,
                                  math_t* components,
                                  math_t* input,
@@ -113,7 +113,7 @@ void tsvd_inverse_transform_impl(raft::handle_t& handle,
 
 }  // anonymous namespace
 
-void tsvdFit(raft::handle_t& handle,
+void tsvdFit(const raft::handle_t& handle,
              float* input,
              float* components,
              float* singular_vals,
@@ -123,7 +123,7 @@ void tsvdFit(raft::handle_t& handle,
   tsvd_fit_impl(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
 }
 
-void tsvdFit(raft::handle_t& handle,
+void tsvdFit(const raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
@@ -133,7 +133,7 @@ void tsvdFit(raft::handle_t& handle,
   tsvd_fit_impl(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
 }
 
-void tsvdFitTransform(raft::handle_t& handle,
+void tsvdFitTransform(const raft::handle_t& handle,
                       float* input,
                       float* trans_input,
                       float* components,
@@ -154,7 +154,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                           flip_signs_based_on_U);
 }
 
-void tsvdFitTransform(raft::handle_t& handle,
+void tsvdFitTransform(const raft::handle_t& handle,
                       double* input,
                       double* trans_input,
                       double* components,
@@ -175,7 +175,7 @@ void tsvdFitTransform(raft::handle_t& handle,
                           flip_signs_based_on_U);
 }
 
-void tsvdTransform(raft::handle_t& handle,
+void tsvdTransform(const raft::handle_t& handle,
                    float* input,
                    float* components,
                    float* trans_input,
@@ -184,7 +184,7 @@ void tsvdTransform(raft::handle_t& handle,
   tsvd_transform_impl(handle, input, components, trans_input, prms);
 }
 
-void tsvdTransform(raft::handle_t& handle,
+void tsvdTransform(const raft::handle_t& handle,
                    double* input,
                    double* components,
                    double* trans_input,
@@ -193,7 +193,7 @@ void tsvdTransform(raft::handle_t& handle,
   tsvd_transform_impl(handle, input, components, trans_input, prms);
 }
 
-void tsvdInverseTransform(raft::handle_t& handle,
+void tsvdInverseTransform(const raft::handle_t& handle,
                           float* trans_input,
                           float* components,
                           float* input,
@@ -202,7 +202,7 @@ void tsvdInverseTransform(raft::handle_t& handle,
   tsvd_inverse_transform_impl(handle, trans_input, components, input, prms);
 }
 
-void tsvdInverseTransform(raft::handle_t& handle,
+void tsvdInverseTransform(const raft::handle_t& handle,
                           double* trans_input,
                           double* components,
                           double* input,

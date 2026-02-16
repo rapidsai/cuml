@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/decomposition/params.hpp>
+#include <cuml/decomposition/pca.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
@@ -11,7 +12,6 @@
 #include <raft/util/cudart_utils.hpp>
 
 #include <gtest/gtest.h>
-#include <pca/pca.cuh>
 #include <test_utils.h>
 
 #include <vector>
@@ -106,23 +106,21 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
            mean.data(),
            noise_vars.data(),
            prms,
-           stream);
+           false);
     pcaTransform(handle,
                  data.data(),
                  components.data(),
                  trans_data.data(),
                  singular_vals.data(),
                  mean.data(),
-                 prms,
-                 stream);
+                 prms);
     pcaInverseTransform(handle,
                         trans_data.data(),
                         components.data(),
                         singular_vals.data(),
                         mean.data(),
                         data_back.data(),
-                        prms,
-                        stream);
+                        prms);
   }
 
   void advancedTest()
@@ -161,7 +159,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
                     mean2.data(),
                     noise_vars2.data(),
                     prms,
-                    stream);
+                    false);
 
     pcaInverseTransform(handle,
                         data2_trans.data(),
@@ -169,8 +167,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
                         singular_vals2.data(),
                         mean2.data(),
                         data2_back.data(),
-                        prms,
-                        stream);
+                        prms);
   }
 
  protected:

@@ -32,7 +32,7 @@ raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
 }
 
 template <typename math_t>
-void pca_fit_impl(raft::handle_t& handle,
+void pca_fit_impl(const raft::handle_t& handle,
                   math_t* input,
                   math_t* components,
                   math_t* explained_var,
@@ -60,7 +60,7 @@ void pca_fit_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void pca_fit_transform_impl(raft::handle_t& handle,
+void pca_fit_transform_impl(const raft::handle_t& handle,
                             math_t* input,
                             math_t* trans_input,
                             math_t* components,
@@ -91,7 +91,7 @@ void pca_fit_transform_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void pca_inverse_transform_impl(raft::handle_t& handle,
+void pca_inverse_transform_impl(const raft::handle_t& handle,
                                 math_t* trans_input,
                                 math_t* components,
                                 math_t* singular_vals,
@@ -114,7 +114,7 @@ void pca_inverse_transform_impl(raft::handle_t& handle,
 }
 
 template <typename math_t>
-void pca_transform_impl(raft::handle_t& handle,
+void pca_transform_impl(const raft::handle_t& handle,
                         math_t* input,
                         math_t* components,
                         math_t* trans_input,
@@ -136,7 +136,7 @@ void pca_transform_impl(raft::handle_t& handle,
       trans_input, prms.n_rows, prms.n_components));
 }
 
-void pcaFit(raft::handle_t& handle,
+void pcaFit(const raft::handle_t& handle,
             float* input,
             float* components,
             float* explained_var,
@@ -159,7 +159,7 @@ void pcaFit(raft::handle_t& handle,
                flip_signs_based_on_U);
 }
 
-void pcaFit(raft::handle_t& handle,
+void pcaFit(const raft::handle_t& handle,
             double* input,
             double* components,
             double* explained_var,
@@ -182,7 +182,7 @@ void pcaFit(raft::handle_t& handle,
                flip_signs_based_on_U);
 }
 
-void pcaFitTransform(raft::handle_t& handle,
+void pcaFitTransform(const raft::handle_t& handle,
                      float* input,
                      float* trans_input,
                      float* components,
@@ -207,7 +207,7 @@ void pcaFitTransform(raft::handle_t& handle,
                          flip_signs_based_on_U);
 }
 
-void pcaFitTransform(raft::handle_t& handle,
+void pcaFitTransform(const raft::handle_t& handle,
                      double* input,
                      double* trans_input,
                      double* components,
@@ -232,7 +232,7 @@ void pcaFitTransform(raft::handle_t& handle,
                          flip_signs_based_on_U);
 }
 
-void pcaInverseTransform(raft::handle_t& handle,
+void pcaInverseTransform(const raft::handle_t& handle,
                          float* trans_input,
                          float* components,
                          float* singular_vals,
@@ -243,7 +243,7 @@ void pcaInverseTransform(raft::handle_t& handle,
   pca_inverse_transform_impl(handle, trans_input, components, singular_vals, mu, input, prms);
 }
 
-void pcaInverseTransform(raft::handle_t& handle,
+void pcaInverseTransform(const raft::handle_t& handle,
                          double* trans_input,
                          double* components,
                          double* singular_vals,
@@ -254,7 +254,7 @@ void pcaInverseTransform(raft::handle_t& handle,
   pca_inverse_transform_impl(handle, trans_input, components, singular_vals, mu, input, prms);
 }
 
-void pcaTransform(raft::handle_t& handle,
+void pcaTransform(const raft::handle_t& handle,
                   float* input,
                   float* components,
                   float* trans_input,
@@ -265,7 +265,7 @@ void pcaTransform(raft::handle_t& handle,
   pca_transform_impl(handle, input, components, trans_input, singular_vals, mu, prms);
 }
 
-void pcaTransform(raft::handle_t& handle,
+void pcaTransform(const raft::handle_t& handle,
                   double* input,
                   double* components,
                   double* trans_input,
