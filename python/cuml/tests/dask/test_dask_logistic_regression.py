@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -1009,10 +1009,10 @@ def test_sparse_all_zeroes(
     standardization, fit_intercept, client, X=None, y=None, n_parts=2
 ):
     if X is None:
-        X = np.array([(0, 0), (0, 0), (0, 0), (0, 0)], "float32")
+        X = np.zeros((20, 2), dtype="float32")
 
     if y is None:
-        y = np.array([1.0, 1.0, 0.0, 0.0], "float32")
+        y = np.array([1.0] * 10 + [0.0] * 10, dtype="float32")
 
     unit_tol = 0.001
 

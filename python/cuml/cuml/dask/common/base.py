@@ -1,7 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
 from collections.abc import Iterable
 from functools import wraps
 
@@ -375,6 +376,40 @@ class SyncFitMixinLinearModel(object):
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
 
+        # Filter out workers with no data
+        row_counts = self.client.compute(
+            [
+                self.client.submit(
+                    _total_rows,
+                    parts,
+                    data.multiple,
+                    workers=[w],
+                    pure=False,
+                )
+                for w, parts in data.worker_to_parts.items()
+            ],
+            sync=True,
+        )
+        empty_workers = {
+            w for w, n in zip(data.worker_to_parts, row_counts) if n == 0
+        }
+        if empty_workers:
+            warnings.warn(
+                f"Data was not split among all workers. "
+                f"{len(empty_workers)} worker(s) have no data and "
+                f"will not participate in training. This can happen "
+                f"when there are more workers than data partitions.",
+                UserWarning,
+            )
+            for w in empty_workers:
+                del data.worker_to_parts[w]
+            data.gpu_futures = [
+                (w, f) for w, f in data.gpu_futures if w not in empty_workers
+            ]
+            data.workers = tuple(
+                w for w in data.workers if w not in empty_workers
+            )
+
         comms = Comms(comms_p2p=False)
         comms.init(workers=data.workers)
 
@@ -436,6 +471,12 @@ class SyncFitMixinLinearModel(object):
     @staticmethod
     def _func_fit(f, data, n_rows, n_cols, partsToSizes, rank):
         return f.fit(data, n_rows, n_cols, partsToSizes, rank)
+
+
+def _total_rows(objs, multiple):
+    """Return the total number of rows across a worker's partitions."""
+    get = (lambda x: x[0]) if multiple else (lambda x: x)
+    return sum(get(x).shape[0] for x in objs)
 
 
 def mnmg_import(func):
