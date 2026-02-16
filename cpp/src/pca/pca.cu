@@ -1,15 +1,144 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "pca.cuh"
-
 #include <cuml/decomposition/pca.hpp>
 
+#include <raft/core/device_mdspan.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/linalg/pca.cuh>
 
 namespace ML {
+
+namespace {
+
+/**
+ * @brief Convert ML::paramsPCA to raft::linalg::paramsPCA.
+ * The structs are identical in layout but live in different namespaces with different enum types.
+ */
+raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
+{
+  raft::linalg::paramsPCA prms;
+  prms.n_rows       = ml_prms.n_rows;
+  prms.n_cols       = ml_prms.n_cols;
+  prms.gpu_id       = ml_prms.gpu_id;
+  prms.tol          = ml_prms.tol;
+  prms.n_iterations = ml_prms.n_iterations;
+  prms.verbose      = ml_prms.verbose;
+  prms.n_components = ml_prms.n_components;
+  prms.algorithm    = static_cast<raft::linalg::solver>(static_cast<int>(ml_prms.algorithm));
+  prms.copy         = ml_prms.copy;
+  prms.whiten       = ml_prms.whiten;
+  return prms;
+}
+
+template <typename math_t>
+void pca_fit_impl(raft::handle_t& handle,
+                  math_t* input,
+                  math_t* components,
+                  math_t* explained_var,
+                  math_t* explained_var_ratio,
+                  math_t* singular_vals,
+                  math_t* mu,
+                  math_t* noise_vars,
+                  const paramsPCA& prms,
+                  bool flip_signs_based_on_U)
+{
+  auto raft_prms = to_raft_params(prms);
+  raft::linalg::pca_fit(
+    handle,
+    raft_prms,
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      input, prms.n_rows, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols),
+    raft::make_device_vector_view<math_t, std::size_t>(explained_var, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(explained_var_ratio, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
+    raft::make_device_scalar_view<math_t, std::size_t>(noise_vars),
+    flip_signs_based_on_U);
+}
+
+template <typename math_t>
+void pca_fit_transform_impl(raft::handle_t& handle,
+                            math_t* input,
+                            math_t* trans_input,
+                            math_t* components,
+                            math_t* explained_var,
+                            math_t* explained_var_ratio,
+                            math_t* singular_vals,
+                            math_t* mu,
+                            math_t* noise_vars,
+                            const paramsPCA& prms,
+                            bool flip_signs_based_on_U)
+{
+  auto raft_prms = to_raft_params(prms);
+  raft::linalg::pca_fit_transform(
+    handle,
+    raft_prms,
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      input, prms.n_rows, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      trans_input, prms.n_rows, prms.n_components),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols),
+    raft::make_device_vector_view<math_t, std::size_t>(explained_var, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(explained_var_ratio, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
+    raft::make_device_scalar_view<math_t, std::size_t>(noise_vars),
+    flip_signs_based_on_U);
+}
+
+template <typename math_t>
+void pca_inverse_transform_impl(raft::handle_t& handle,
+                                math_t* trans_input,
+                                math_t* components,
+                                math_t* singular_vals,
+                                math_t* mu,
+                                math_t* input,
+                                const paramsPCA& prms)
+{
+  auto raft_prms = to_raft_params(prms);
+  raft::linalg::pca_inverse_transform(
+    handle,
+    raft_prms,
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      trans_input, prms.n_rows, prms.n_components),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols),
+    raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      input, prms.n_rows, prms.n_cols));
+}
+
+template <typename math_t>
+void pca_transform_impl(raft::handle_t& handle,
+                        math_t* input,
+                        math_t* components,
+                        math_t* trans_input,
+                        math_t* singular_vals,
+                        math_t* mu,
+                        const paramsPCA& prms)
+{
+  auto raft_prms = to_raft_params(prms);
+  raft::linalg::pca_transform(
+    handle,
+    raft_prms,
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      input, prms.n_rows, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols),
+    raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
+    raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      trans_input, prms.n_rows, prms.n_components));
+}
+
+}  // anonymous namespace
 
 void pcaFit(raft::handle_t& handle,
             float* input,
@@ -20,19 +149,18 @@ void pcaFit(raft::handle_t& handle,
             float* mu,
             float* noise_vars,
             const paramsPCA& prms,
-            bool flip_signs_based_on_U = false)
+            bool flip_signs_based_on_U)
 {
-  pcaFit(handle,
-         input,
-         components,
-         explained_var,
-         explained_var_ratio,
-         singular_vals,
-         mu,
-         noise_vars,
-         prms,
-         handle.get_stream(),
-         flip_signs_based_on_U);
+  pca_fit_impl(handle,
+               input,
+               components,
+               explained_var,
+               explained_var_ratio,
+               singular_vals,
+               mu,
+               noise_vars,
+               prms,
+               flip_signs_based_on_U);
 }
 
 void pcaFit(raft::handle_t& handle,
@@ -44,19 +172,18 @@ void pcaFit(raft::handle_t& handle,
             double* mu,
             double* noise_vars,
             const paramsPCA& prms,
-            bool flip_signs_based_on_U = false)
+            bool flip_signs_based_on_U)
 {
-  pcaFit(handle,
-         input,
-         components,
-         explained_var,
-         explained_var_ratio,
-         singular_vals,
-         mu,
-         noise_vars,
-         prms,
-         handle.get_stream(),
-         flip_signs_based_on_U);
+  pca_fit_impl(handle,
+               input,
+               components,
+               explained_var,
+               explained_var_ratio,
+               singular_vals,
+               mu,
+               noise_vars,
+               prms,
+               flip_signs_based_on_U);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -69,20 +196,19 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* mu,
                      float* noise_vars,
                      const paramsPCA& prms,
-                     bool flip_signs_based_on_U = false)
+                     bool flip_signs_based_on_U)
 {
-  pcaFitTransform(handle,
-                  input,
-                  trans_input,
-                  components,
-                  explained_var,
-                  explained_var_ratio,
-                  singular_vals,
-                  mu,
-                  noise_vars,
-                  prms,
-                  handle.get_stream(),
-                  flip_signs_based_on_U);
+  pca_fit_transform_impl(handle,
+                         input,
+                         trans_input,
+                         components,
+                         explained_var,
+                         explained_var_ratio,
+                         singular_vals,
+                         mu,
+                         noise_vars,
+                         prms,
+                         flip_signs_based_on_U);
 }
 
 void pcaFitTransform(raft::handle_t& handle,
@@ -95,20 +221,19 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* mu,
                      double* noise_vars,
                      const paramsPCA& prms,
-                     bool flip_signs_based_on_U = false)
+                     bool flip_signs_based_on_U)
 {
-  pcaFitTransform(handle,
-                  input,
-                  trans_input,
-                  components,
-                  explained_var,
-                  explained_var_ratio,
-                  singular_vals,
-                  mu,
-                  noise_vars,
-                  prms,
-                  handle.get_stream(),
-                  flip_signs_based_on_U);
+  pca_fit_transform_impl(handle,
+                         input,
+                         trans_input,
+                         components,
+                         explained_var,
+                         explained_var_ratio,
+                         singular_vals,
+                         mu,
+                         noise_vars,
+                         prms,
+                         flip_signs_based_on_U);
 }
 
 void pcaInverseTransform(raft::handle_t& handle,
@@ -119,8 +244,7 @@ void pcaInverseTransform(raft::handle_t& handle,
                          float* input,
                          const paramsPCA& prms)
 {
-  pcaInverseTransform(
-    handle, trans_input, components, singular_vals, mu, input, prms, handle.get_stream());
+  pca_inverse_transform_impl(handle, trans_input, components, singular_vals, mu, input, prms);
 }
 
 void pcaInverseTransform(raft::handle_t& handle,
@@ -131,8 +255,7 @@ void pcaInverseTransform(raft::handle_t& handle,
                          double* input,
                          const paramsPCA& prms)
 {
-  pcaInverseTransform(
-    handle, trans_input, components, singular_vals, mu, input, prms, handle.get_stream());
+  pca_inverse_transform_impl(handle, trans_input, components, singular_vals, mu, input, prms);
 }
 
 void pcaTransform(raft::handle_t& handle,
@@ -143,8 +266,7 @@ void pcaTransform(raft::handle_t& handle,
                   float* mu,
                   const paramsPCA& prms)
 {
-  pcaTransform(
-    handle, input, components, trans_input, singular_vals, mu, prms, handle.get_stream());
+  pca_transform_impl(handle, input, components, trans_input, singular_vals, mu, prms);
 }
 
 void pcaTransform(raft::handle_t& handle,
@@ -155,8 +277,7 @@ void pcaTransform(raft::handle_t& handle,
                   double* mu,
                   const paramsPCA& prms)
 {
-  pcaTransform(
-    handle, input, components, trans_input, singular_vals, mu, prms, handle.get_stream());
+  pca_transform_impl(handle, input, components, trans_input, singular_vals, mu, prms);
 }
 
 };  // end namespace ML
