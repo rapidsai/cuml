@@ -406,6 +406,7 @@
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[lil_matrix]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.dbscan-sklearn.cluster.DBSCAN]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.k_means-sklearn.cluster.KMeans]"
+  - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.spectral_clustering-sklearn.cluster.SpectralClustering]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.covariance.ledoit_wolf-sklearn.covariance.LedoitWolf]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_dataframe_column_names_consistency"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
