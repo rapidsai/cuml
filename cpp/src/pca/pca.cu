@@ -11,8 +11,6 @@
 
 namespace ML {
 
-namespace {
-
 /**
  * @brief Convert ML::paramsPCA to raft::linalg::paramsPCA.
  * The structs are identical in layout but live in different namespaces with different enum types.
@@ -137,8 +135,6 @@ void pca_transform_impl(raft::handle_t& handle,
     raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
       trans_input, prms.n_rows, prms.n_components));
 }
-
-}  // anonymous namespace
 
 void pcaFit(raft::handle_t& handle,
             float* input,
