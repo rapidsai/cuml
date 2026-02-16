@@ -500,6 +500,8 @@ dependencies:
           - numpydoc<1.9
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
+          - onnxruntime
+          - skl2onnx
           - pyyaml
           - pytest<9.0
           - pytest-benchmark
