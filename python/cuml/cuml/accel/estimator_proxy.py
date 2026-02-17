@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
@@ -8,7 +8,11 @@ from typing import Any
 
 import sklearn
 from packaging.version import Version
-from sklearn.base import BaseEstimator, ClassNamePrefixFeaturesOutMixin
+from sklearn.base import (
+    BaseEstimator,
+    ClassNamePrefixFeaturesOutMixin,
+    OneToOneFeatureMixin,
+)
 from sklearn.utils._set_output import _wrap_data_with_container
 
 from cuml.accel import profilers
@@ -335,11 +339,15 @@ class ProxyBase(BaseEstimator):
 
     def _gpu_get_feature_names_out(self, input_features=None):
         # In the common case `get_feature_names_out` doesn't require fitted attributes
-        # on the CPU. Here we detect and special case a common mixin, falling back to
+        # on the CPU. Here we detect and special case common mixins, falling back to
         # CPU when necessary. This helps avoid unnecessary device -> host transfers.
         cpu_method = self._cpu_class.get_feature_names_out
         if cpu_method is ClassNamePrefixFeaturesOutMixin.get_feature_names_out:
             # Can run cpu method directly on GPU instance, it only references `_n_features_out`
+            return cpu_method(self._gpu, input_features=input_features)
+        if cpu_method is OneToOneFeatureMixin.get_feature_names_out:
+            # Uses n_features_in_ (and optionally feature_names_in_) on the estimator.
+            # cuML models set n_features_in_ on fit; feature_names_in_ is optional.
             return cpu_method(self._gpu, input_features=input_features)
 
         # Fallback to CPU
