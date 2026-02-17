@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -198,6 +198,28 @@ void rbc_knn_query(const raft::handle_t& handle,
   auto distances_view = raft::make_device_matrix_view<float, int64_t>(out_dists, n_search_items, k);
   cuvs::neighbors::ball_cover::knn_query(
     handle, *rbc_index_ptr, query_view, indices_view, distances_view, k);
+}
+
+void rbc_radius_neighbors_graph(const raft::handle_t& handle,
+                                const std::uintptr_t& rbc_index,
+                                const float* query,
+                                int64_t n_query,
+                                int64_t dim,
+                                float radius,
+                                int64_t* adj_rows,
+                                int64_t* adj_cols,
+                                int64_t nnz)
+{
+  auto index_ptr = reinterpret_cast<cuvs::neighbors::ball_cover::index<int64_t, float>*>(rbc_index);
+
+  cuvs::neighbors::ball_cover::eps_nn(
+    handle,
+    *index_ptr,
+    raft::make_device_vector_view<int64_t, int64_t>(adj_rows, n_query + 1),
+    raft::make_device_vector_view<int64_t, int64_t>(adj_cols, nnz),
+    raft::make_device_vector_view<int64_t, int64_t>(nullptr, 0),
+    raft::make_device_matrix_view<const float, int64_t>(query, n_query, dim),
+    radius);
 }
 
 void rbc_free_index(std::uintptr_t rbc_index)

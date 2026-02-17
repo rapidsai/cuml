@@ -67,6 +67,18 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         float *out_dists
     ) except +
 
+    void rbc_radius_neighbors_graph(
+        const handle_t& handle,
+        const uintptr_t& rbc_index,
+        const float* query,
+        int64_t n_query,
+        int64_t dim,
+        float radius,
+        int64_t *adj_rows,
+        int64_t *adj_cols,
+        int64_t nnz
+    ) except +
+
     void rbc_free_index(
         uintptr_t rbc_index
     ) except +
@@ -254,6 +266,7 @@ cdef DistanceType _metric_to_distance_type(str metric):
 cdef class RBCIndex:
     """An RBC index."""
     cdef uintptr_t index
+    cdef int64_t n_samples
 
     def __dealloc__(self):
         if self.index != 0:
@@ -266,10 +279,6 @@ cdef class RBCIndex:
     @staticmethod
     def build(X, metric):
         """Build a new RBC index."""
-        if X.shape[1] > 3:
-            raise ValueError(
-                "The rbc algorithm is not supported for >3 dimensions currently."
-            )
         cdef RBCIndex self = RBCIndex.__new__(RBCIndex)
 
         handle = get_handle()
@@ -289,10 +298,67 @@ cdef class RBCIndex:
                 distance_type,
             )
         handle.sync()
+        self.n_samples = n_rows
         return self
+
+    def radius_neighbors_graph(
+        RBCIndex self,
+        X,
+        float radius,
+    ):
+        """Query the index for neighbors within a radius"""
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+        cdef int64_t n_query = X.shape[0]
+
+        indptr = cp.empty(n_query + 1, dtype=np.int64)
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef int64_t n_rows = X.shape[0]
+        cdef int64_t n_cols = X.shape[1]
+        cdef int64_t* indptr_ptr = <int64_t*><uintptr_t>indptr.data.ptr
+
+        with nogil:
+            rbc_radius_neighbors_graph(
+                handle_[0],
+                self.index,
+                X_ptr,
+                n_rows,
+                n_cols,
+                radius,
+                indptr_ptr,
+                NULL,
+                0,
+            )
+
+        cdef int64_t nnz = indptr[-1].item()
+        indices = cp.empty(nnz, dtype=np.int64)
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
+
+        with nogil:
+            rbc_radius_neighbors_graph(
+                handle_[0],
+                self.index,
+                X_ptr,
+                n_rows,
+                n_cols,
+                radius,
+                indptr_ptr,
+                indices_ptr,
+                nnz,
+            )
+
+        data = cp.ones(nnz)
+        return cupyx.scipy.sparse.csr_matrix(
+            (data, indices, indptr),
+            shape=(n_rows, self.n_samples),
+        )
 
     def kneighbors(RBCIndex self, X, uint32_t n_neighbors):
         """Query the index for the k nearest neighbors."""
+        if X.shape[1] > 3:
+            raise ValueError(
+                "The rbc algorithm is not supported for >3 dimensions currently."
+            )
         distances = CumlArray.zeros(
             (X.shape[0], n_neighbors),
             dtype=np.float32,
@@ -448,6 +514,9 @@ class NearestNeighbors(Base,
     ----------
     n_neighbors : int (default=5)
         Default number of neighbors to query
+    radius : float (default=1.0)
+        Range of parameter space to use by default for ``radius_neighbors``
+        queries.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -581,6 +650,7 @@ class NearestNeighbors(Base,
         return [
             *super()._get_param_names(),
             "n_neighbors",
+            "radius",
             "algorithm",
             "metric",
             "p",
@@ -599,6 +669,7 @@ class NearestNeighbors(Base,
 
         return {
             "n_neighbors": model.n_neighbors,
+            "radius": model.radius,
             "algorithm": "auto" if model.algorithm == "auto" else "brute",
             "metric": model.metric,
             "p": model.p,
@@ -608,6 +679,7 @@ class NearestNeighbors(Base,
     def _params_to_cpu(self):
         return {
             "n_neighbors": self.n_neighbors,
+            "radius": self.radius,
             "algorithm": "auto" if self.algorithm == "auto" else "brute",
             "metric": self.metric,
             "p": self.p,
@@ -647,6 +719,7 @@ class NearestNeighbors(Base,
         self,
         *,
         n_neighbors=5,
+        radius=1.0,
         verbose=False,
         algorithm="auto",
         metric="euclidean",
@@ -658,6 +731,7 @@ class NearestNeighbors(Base,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
         self.n_neighbors = n_neighbors
+        self.radius = radius
         self.metric = metric
         self.metric_params = metric_params
         self.algo_params = algo_params
@@ -1087,6 +1161,90 @@ class NearestNeighbors(Base,
             (distances, indices, rowptr),
             shape=(n_samples, self.n_samples_fit_)
         )
+
+    @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
+    @reflect
+    def radius_neighbors_graph(self, X=None, radius=None) -> SparseCumlArray:
+        """Compute the (weighted) graph of neighbors within a radius.
+
+        Parameters
+        ----------
+        X : array-like, default=None
+            The query point or points. If not provided, neighbors of each indexed
+            point are returned. In this case, the query point is not considered its
+            own neighbor.
+
+        radius : float, default=None
+            Radius of neighborhoods. The default is the value passed to the
+            constructor.
+
+        Returns
+        -------
+        A : sparse-matrix of shape (n_queries, n_samples_fit)
+            The neighborhood graph, in CSR format.
+
+        Notes
+        -----
+        This method is most efficient when the instance is fit with
+        `algorithm="rbc"`. Other algorithms will build a temporary RBC index
+        per-call, which adds a small overhead.
+
+        Examples
+        --------
+        >>> import cupy as cp
+        >>> from cuml.neighbors import NearestNeighbors
+        >>> X = cp.array([[0], [3], [1]])
+        >>> nn = NearestNeighbors().fit(X)
+        >>> A = nn.radius_neighbors_graph(X, radius=1.5)
+        >>> A.toarray()
+        array([[1., 0., 1.],
+               [0., 1., 0.],
+               [1., 0., 1.]])
+        """
+        if not hasattr(self, "_fit_X"):
+            raise ValueError("This NearestNeighbors instance has not been "
+                             "fitted yet, call 'fit' before using this "
+                             "estimator")
+
+        if isinstance(self._fit_X, SparseCumlArray) or is_sparse(X):
+            raise TypeError("`radius_neighbors_graph` doesn't support sparse inputs")
+
+        if radius is None:
+            radius = self.radius
+
+        if radius <= 0:
+            raise ValueError(f"Expected `radius > 0`, got {radius}")
+
+        if (using_fit_X := (X is None)):
+            X = self._fit_X
+
+        X_m = input_to_cuml_array(
+            X,
+            order="C",
+            check_dtype=np.float32,
+            check_cols=self.n_features_in_,
+            convert_to_dtype=np.float32,
+        ).array
+
+        if hasattr(self, "_index") and isinstance(self._index, RBCIndex):
+            # Already fit with RBC, reuse the index
+            index = self._index
+        else:
+            # Fit with another method, build a temporary index
+            if self.effective_metric_ not in cuml.neighbors.VALID_METRICS["rbc"]:
+                raise ValueError(
+                    f"`radius_neighbors_graph` doesn't support "
+                    f"metric={self.effective_metric_!r}"
+                )
+            index = RBCIndex.build(self._fit_X, self.effective_metric_)
+
+        out = index.radius_neighbors_graph(X_m, radius)
+        if using_fit_X:
+            # When using the training data, the diagonal elements aren't included
+            out.setdiag(np.int64(0))
+            out.eliminate_zeros()
+
+        return out
 
     @property
     def effective_metric_(self):

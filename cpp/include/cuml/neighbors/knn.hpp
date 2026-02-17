@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -70,6 +70,16 @@ void rbc_knn_query(const raft::handle_t& handle,
                    int64_t dim,
                    int64_t* out_inds,
                    float* out_dists);
+
+void rbc_radius_neighbors_graph(const raft::handle_t& handle,
+                                const std::uintptr_t& rbc_index,
+                                const float* query,
+                                int64_t n_query,
+                                int64_t dim,
+                                float radius,
+                                int64_t* adj_rows,
+                                int64_t* adj_cols = nullptr,
+                                int64_t nnz       = 0);
 
 /**
  * @brief Free the RBC index
