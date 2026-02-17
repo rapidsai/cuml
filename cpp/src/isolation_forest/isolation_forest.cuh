@@ -81,13 +81,13 @@ class IsolationForest {
     
     auto stream = handle.get_stream();
     size_t trees_size = params.n_estimators * sizeof(IsolationTree::IFTree<T>);
-    RAFT_CUDA_TRY(cudaMalloc(&model->fast_trees, trees_size));
+    model->fast_trees = rmm::device_buffer(trees_size, stream);
     
     IsolationTree::build_isolation_forest(
         handle, input, static_cast<size_t>(n_rows), n_cols,
         params.n_estimators, n_sampled_rows, max_depth,
         params.seed,
-        static_cast<IsolationTree::IFTree<T>*>(model->fast_trees));
+        static_cast<IsolationTree::IFTree<T>*>(model->fast_trees.data()));
     
     handle.sync_stream();
   }
@@ -103,7 +103,7 @@ class IsolationForest {
     raft::common::nvtx::range fun_scope("IF::compute_path_lengths @isolation_forest.cuh");
     cudaStream_t stream = handle.get_stream();
 
-    auto* fast_trees = static_cast<IsolationTree::IFTree<T>*>(model->fast_trees);
+    auto* fast_trees = static_cast<const IsolationTree::IFTree<T>*>(model->fast_trees.data());
     int threads = 256;
     int blocks = (n_rows + threads - 1) / threads;
     

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cuml/common/logger.hpp>
+#include <rmm/device_buffer.hpp>
 
 namespace raft {
 class handle_t;
@@ -30,7 +31,7 @@ struct IsolationForestModel {
   int n_features = 0;          ///< Number of features in training data
   int n_samples_per_tree = 0;  ///< Samples used per tree (for c(n) calculation)
   T c_normalization = 0;       ///< Precomputed c(n) normalization constant
-  void* fast_trees = nullptr;  ///< Device memory for trees (IFTree<T>*)
+  rmm::device_buffer fast_trees;  ///< Device memory for trees (IFTree<T>*)
 };
 
 typedef IsolationForestModel<float> IsolationForestF;
