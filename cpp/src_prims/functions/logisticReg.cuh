@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,9 +12,9 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -59,8 +59,10 @@ void logisticRegLossGrads(const raft::handle_t& handle,
 
   logisticRegH(handle, input, n_rows, n_cols, coef, labels_pred.data(), math_t(0), stream);
   raft::linalg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
-  raft::matrix::matrixVectorBinaryMult<false, false>(
-    input, labels_pred.data(), n_rows, n_cols, stream);
+  raft::linalg::binary_mult<raft::Apply::ALONG_COLUMNS>(
+    handle,
+    raft::make_device_matrix_view<math_t, int, raft::col_major>(input, n_rows, n_cols),
+    raft::make_device_vector_view<const math_t, int>(labels_pred.data(), n_rows));
 
   raft::stats::mean<false>(grads, input, n_cols, n_rows, false, stream);
 
