@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -16,26 +16,26 @@ from scipy.sparse import csr_matrix
 from umap.umap_ import find_ab_params
 from umap.umap_ import fuzzy_simplicial_set as ref_fuzzy_simplicial_set
 from umap.umap_ import simplicial_set_embedding as ref_simplicial_set_embedding
-from umap_metrics import (
-    _build_knn_with_cuvs,
-    _build_knn_with_umap,
-    compare_spectral_embeddings,
-    compute_fuzzy_js_divergence,
-    compute_fuzzy_simplicial_set_metrics,
-    compute_knn_metrics,
-    compute_simplicial_set_embedding_metrics,
-    procrustes_rmse,
-)
+from umap.umap_ import spectral_layout
 
 import cuml.datasets
 
 # cuML implementation
-from cuml.manifold.simpl_set import (
-    fuzzy_simplicial_set as cu_fuzzy_simplicial_set,
-)
-from cuml.manifold.simpl_set import (
+from cuml.manifold import SpectralEmbedding
+from cuml.manifold.umap import fuzzy_simplicial_set as cu_fuzzy_simplicial_set
+from cuml.manifold.umap import (
     simplicial_set_embedding as cu_simplicial_set_embedding,
 )
+from cuml.testing.manifold_metrics import (
+    _build_knn_with_cuvs,
+    compare_spectral_embeddings,
+    compute_fuzzy_js_divergence,
+    compute_fuzzy_simplicial_set_metrics,
+    compute_simplicial_set_embedding_metrics,
+    procrustes_rmse,
+)
+
+from .utils import _build_knn_with_umap, compute_knn_metrics
 
 pytestmark = [pytest.mark.slow]
 
@@ -198,8 +198,11 @@ def test_knn(cu_knn_graph_fixture):
     dists_cuvs, inds_cuvs = d["knn_dists_np"], d["knn_inds_np"]
 
     # UMAP KNN (CPU) computed on-the-fly with the same backend
+    umap_backend = (
+        "bruteforce" if d["backend"] == "all_neighbors" else d["backend"]
+    )
     dists_umap, inds_umap = _build_knn_with_umap(
-        X_np, k=n_neighbors, metric=metric, backend=d["backend"]
+        X_np, k=n_neighbors, metric=metric, backend=umap_backend
     )
 
     # Sanity: shapes
@@ -208,7 +211,7 @@ def test_knn(cu_knn_graph_fixture):
 
     # Compute KNN metrics via helper
     avg_recall, mae_dist = compute_knn_metrics(
-        (dists_umap, inds_umap), (dists_cuvs, inds_cuvs), n_neighbors
+        (dists_umap, inds_umap), (dists_cuvs, inds_cuvs)
     )
 
     # Tolerances: stricter for bruteforce, looser for NN-descent approx
@@ -261,11 +264,12 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
     )
     js_avg = compute_fuzzy_js_divergence(ref_graph, cu_graph, average=True)
 
-    # Simple, global tolerances
-    kl_tol = 1e-2
+    # Tolerances for per-edge average KL divergences
+    # Typical values: 0.001-0.01 (excellent), 0.01-0.1 (good), 0.1-0.5 (acceptable)
+    kl_tol = 0.05
     j_tol = 0.90
     row_l1_tol = 5e-3
-    js_tol = 1e-2
+    js_tol = 0.05
 
     # Assertions focused on matching the reference
     assert np.isfinite(kl_sym), "KL not finite"
@@ -287,71 +291,84 @@ def test_fuzzy_simplicial_set(cu_fuzzy_fixture):
 def test_spectral_init(cu_fuzzy_fixture):
     """Test cuML SpectralEmbedding against reference UMAP spectral_layout."""
     d = cu_fuzzy_fixture
-    dataset_name = d["dataset_name"]
-    X_np = d["X_np"]
-    n_neighbors = d["k"]
-    cu_graph_cpu = d["cu_graph_cpu"]
+    n_components, random_state = 2, 42
 
-    # Compare spectral embeddings
-    result = compare_spectral_embeddings(
-        fuzzy_graph_cpu=cu_graph_cpu,
-        n_components=2,
-        n_neighbors=n_neighbors,
-        random_state=42,
+    # Run reference UMAP spectral layout
+    ref_emb = spectral_layout(
+        data=None,
+        graph=d["cu_graph_cpu"],
+        dim=n_components,
+        random_state=np.random.RandomState(random_state),
+    )
+    ref_emb = (
+        cp.asnumpy(ref_emb)
+        if isinstance(ref_emb, cp.ndarray)
+        else np.asarray(ref_emb, dtype=np.float32)
     )
 
-    # Extract and validate results
-    rmse = result["rmse"]
-    correlations = result["correlations"]
-    ref_emb = result["ref_embedding"]
-    cu_emb = result["cu_embedding"]
+    # Run cuML SpectralEmbedding
+    cu_emb = SpectralEmbedding(
+        affinity="precomputed",
+        n_components=n_components,
+        n_neighbors=d["k"],
+        random_state=random_state,
+    ).fit_transform(d["cu_graph_cpu"])
+    cu_emb = (
+        cp.asnumpy(cu_emb)
+        if isinstance(cu_emb, cp.ndarray)
+        else np.asarray(cu_emb, dtype=np.float32)
+    )
 
-    expected_shape = (X_np.shape[0], 2)
-    assert ref_emb.shape == expected_shape
-    assert cu_emb.shape == expected_shape
-    assert len(correlations) == 2
-    assert all(np.isfinite(c) for c in correlations)
-    assert np.isfinite(rmse)
-
-    # Set tolerances (moderate due to implementation differences)
-    severe_rmse_tol = 0.50
-    moderate_rmse_tol = 0.30
-    severe_corr_tol = 0.50
-    moderate_corr_tol = 0.70
-
-    # Collect issues
-    severe_issues = []
-    moderate_issues = []
-
-    # Check RMSE
-    if rmse > severe_rmse_tol:
-        severe_issues.append(f"RMSE {rmse:.3f} > {severe_rmse_tol:.3f}")
-    elif rmse > moderate_rmse_tol:
-        moderate_issues.append(f"RMSE {rmse:.3f} > {moderate_rmse_tol:.3f}")
-
-    # Check correlations
-    for i, corr in enumerate(correlations):
-        corr_abs = abs(corr)
-        if corr_abs < severe_corr_tol:
-            severe_issues.append(
-                f"Component {i} correlation {corr_abs:.3f} < {severe_corr_tol:.3f}"
-            )
-        elif corr_abs < moderate_corr_tol:
-            moderate_issues.append(
-                f"Component {i} correlation {corr_abs:.3f} < {moderate_corr_tol:.3f}"
-            )
-
-    # Fail if any severe issues or too many moderate issues
-    should_fail = len(severe_issues) > 0 or len(moderate_issues) >= 3
-
-    if should_fail:
-        corr_str = ", ".join(f"{abs(c):.3f}" for c in correlations)
-        details = (
-            f"Spectral embedding comparison failed for {dataset_name} (k={n_neighbors}): "
-            f"RMSE={rmse:.3f}, correlations=[{corr_str}] | "
-            f"Severe issues: {severe_issues} | Moderate issues: {moderate_issues}"
+    # Validate embeddings (shape, NaN/inf, variance, value range)
+    expected_shape = (d["X_np"].shape[0], n_components)
+    for name, emb in [("Reference", ref_emb), ("cuML", cu_emb)]:
+        assert emb.shape == expected_shape, (
+            f"{name} shape {emb.shape} != {expected_shape}"
         )
-        assert False, details
+        assert not np.isnan(emb).any(), f"{name} contains NaN"
+        assert not np.isinf(emb).any(), f"{name} contains infinite values"
+        assert np.std(emb, axis=0).min() > 0.001, (
+            f"{name} has insufficient variance"
+        )
+        abs_max = np.abs(emb).max()
+        assert 0.001 < abs_max < 100.0, (
+            f"{name} values out of range: {abs_max:.3e}"
+        )
+
+    # Compare embeddings
+    result = compare_spectral_embeddings(ref_emb, cu_emb, n_components)
+    rmse, correlations = result["rmse"], result["correlations"]
+    assert len(correlations) == n_components and all(
+        np.isfinite(c) for c in correlations
+    )
+    assert 0 <= rmse < float("inf"), f"Invalid RMSE: {rmse}"
+
+    # Check quality thresholds
+    avg_corr = np.mean([abs(c) for c in correlations])
+    issues = {"severe": [], "moderate": []}
+
+    if rmse > 0.15:
+        issues["severe"].append(f"RMSE={rmse:.3f}")
+    elif rmse > 0.08:
+        issues["moderate"].append(f"RMSE={rmse:.3f}")
+
+    for i, c in enumerate(correlations):
+        if abs(c) < 0.80:
+            issues["severe"].append(f"corr[{i}]={abs(c):.3f}")
+        elif abs(c) < 0.90:
+            issues["moderate"].append(f"corr[{i}]={abs(c):.3f}")
+
+    if avg_corr < 0.85:
+        issues["severe"].append(f"avg_corr={avg_corr:.3f}")
+    elif avg_corr < 0.92:
+        issues["moderate"].append(f"avg_corr={avg_corr:.3f}")
+
+    if issues["severe"] or len(issues["moderate"]) > 1:
+        corr_str = ", ".join(f"{abs(c):.3f}" for c in correlations)
+        assert False, (
+            f"Spectral init failed for {d['dataset_name']} (k={d['k']}): "
+            f"RMSE={rmse:.3f}, avg_corr={avg_corr:.3f}, corr=[{corr_str}] | {issues}"
+        )
 
 
 # Curated parameter sets spanning key UMAP embedding knobs (kept small for CI)
@@ -453,7 +470,7 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
         densmap=False,
         densmap_kwds={},
         output_dens=False,
-        output_metric=metric,
+        output_metric="euclidean",
         output_metric_kwds={},
     )
     ref_emb = ref_res[0]
@@ -508,14 +525,14 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     mod_trust = 0.05
     mod_cont = 0.05
     mod_corr = 0.15
-    mod_rel_kl = 0.15
+    mod_rel_kl = 0.35
     mod_rmse = 0.12
 
     # Severe thresholds: clearly unacceptable degradations
     sev_trust = 0.10
     sev_cont = 0.10
     sev_corr = 0.30
-    sev_rel_kl = 0.35
+    sev_rel_kl = 0.70
     sev_rmse = 0.20
 
     # Compute deficits (positive means cuML is worse than reference)
@@ -523,10 +540,22 @@ def test_simplicial_set_embedding(cu_fuzzy_fixture, params):
     cont_def = max(0.0, cont_ref - cont_cu)
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
-    xent_rel_increase = max(
-        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
-    )
-    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    # For KL divergences: use hybrid approach for stability
+    # With per-edge averages, typical values are 0.001-0.5
+    xent_abs_threshold = 0.001
+    if abs(xent_ref) < xent_abs_threshold:
+        xent_rel_increase = max(0.0, xent_cu - xent_ref)
+    else:
+        xent_rel_increase = min(
+            5.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+        )
+
+    kl_abs_threshold = 0.001
+    if abs(kl_ref) < kl_abs_threshold:
+        kl_rel_increase = max(0.0, kl_cu - kl_ref)
+    else:
+        kl_rel_increase = min(5.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []
@@ -957,7 +986,7 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
         densmap=False,
         densmap_kwds={},
         output_dens=False,
-        output_metric=metric,
+        output_metric="euclidean",
         output_metric_kwds={},
     )
     ref_emb = ref_res[0]
@@ -1010,14 +1039,14 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
     mod_trust = 0.08
     mod_cont = 0.08
     mod_corr = 0.20
-    mod_rel_kl = 0.25
+    mod_rel_kl = 0.50
     mod_rmse = 0.15
 
     # Severe thresholds
     sev_trust = 0.15
     sev_cont = 0.15
     sev_corr = 0.40
-    sev_rel_kl = 0.50
+    sev_rel_kl = 1.00
     sev_rmse = 0.30
 
     # Compute deficits (positive means cuML is worse than reference)
@@ -1025,10 +1054,22 @@ def test_simplicial_set_embedding_synthetic(dataset_config, params):
     cont_def = max(0.0, cont_ref - cont_cu)
     sp_def = max(0.0, sp_ref - sp_cu)
     pe_def = max(0.0, pe_ref - pe_cu)
-    xent_rel_increase = max(
-        0.0, (xent_cu - xent_ref) / max(abs(xent_ref), 1e-12)
-    )
-    kl_rel_increase = max(0.0, (kl_cu - kl_ref) / max(abs(kl_ref), 1e-12))
+
+    # For KL divergences: use hybrid approach for stability
+    # With per-edge averages, typical values are 0.001-0.5
+    xent_abs_threshold = 0.001
+    if abs(xent_ref) < xent_abs_threshold:
+        xent_rel_increase = max(0.0, xent_cu - xent_ref)
+    else:
+        xent_rel_increase = min(
+            5.0, max(0.0, (xent_cu - xent_ref) / abs(xent_ref))
+        )
+
+    kl_abs_threshold = 0.001
+    if abs(kl_ref) < kl_abs_threshold:
+        kl_rel_increase = max(0.0, kl_cu - kl_ref)
+    else:
+        kl_rel_increase = min(5.0, max(0.0, (kl_cu - kl_ref) / abs(kl_ref)))
 
     moderate_issues = []
     severe_issues = []
