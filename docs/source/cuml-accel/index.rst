@@ -8,7 +8,7 @@ this may result in :doc:`major speedups <benchmarks>`.
 
 .. code-block:: python
 
-    %%load_ext cuml.accel
+    %load_ext cuml.accel
     # Certain operations in common ML libraries (sklearn, umap, hdbscan)
     # are now GPU accelerated
 
@@ -49,11 +49,11 @@ Jupyter/IPython
 ~~~~~~~~~~~~~~~
 
 The same functionality is available in Jupyter notebooks or IPython by
-executing the following cell magic at the top (before other imports):
+executing the following line magic at the top (before other imports):
 
 .. code-block::
 
-   %%load_ext cuml.accel
+   %load_ext cuml.accel
 
 You can see an example of this in :doc:`this example
 <examples/plot_kmeans_digits>`.
