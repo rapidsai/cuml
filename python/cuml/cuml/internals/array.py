@@ -983,12 +983,12 @@ class CumlArray:
 
         if is_sparse(X):
             # We don't support coercing sparse arrays to dense via this method.
-            # Raising a NotImplementedError here lets us nicely error
-            # for estimators that don't support sparse arrays without requiring
-            # an additional external check. Otherwise they'd get an opaque error
-            # for code below.
-            raise NotImplementedError(
-                "Sparse inputs are not currently supported for this method"
+            # Raising a TypeError here lets us nicely error for estimators that
+            # don't support sparse arrays without requiring an additional
+            # external check. Using TypeError with "sparse" in the message
+            # satisfies sklearn's check_estimator_sparse_tag check.
+            raise TypeError(
+                "A sparse matrix was passed, but dense data is required. "
             )
 
         if convert_to_mem_type is not False:
