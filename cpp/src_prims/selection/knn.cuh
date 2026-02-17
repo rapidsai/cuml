@@ -13,7 +13,6 @@
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-#include <cuda/iterator>
 #include <thrust/device_vector.h>
 
 #include <cuvs/distance/distance.hpp>
