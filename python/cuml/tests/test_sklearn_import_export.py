@@ -43,6 +43,7 @@ from cuml.linear_model import (
     Ridge,
 )
 from cuml.manifold import TSNE, SpectralEmbedding
+from cuml.preprocessing import TargetEncoder
 from cuml.testing.utils import array_equal
 
 ###############################################################################
@@ -957,3 +958,43 @@ def test_linear_svc(random_state):
 
     sk_score = sk_model2.score(X, y)
     assert sk_score > 0.7
+
+
+@pytest.mark.filterwarnings(
+    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
+)
+def test_target_encoder(random_state):
+    # Create simple categorical data
+    X = np.array(
+        [
+            ["cat"],
+            ["dog"],
+            ["cat"],
+            ["dog"],
+            ["bird"],
+            ["cat"],
+            ["dog"],
+            ["bird"],
+        ]
+    )
+    y = np.array([1.0, 2.0, 1.5, 2.5, 3.0, 1.2, 2.2, 3.2])
+
+    original = TargetEncoder(n_folds=2, smooth=1.0, split_method="continuous")
+    original.fit(X, y)
+
+    sklearn_model = original.as_sklearn()
+    roundtrip_model = TargetEncoder.from_sklearn(sklearn_model)
+
+    assert_roundtrip_consistency(original, roundtrip_model)
+
+    # Use separate test data (not training data) because cuML returns
+    # CV-based encodings for training data while sklearn returns global encodings
+    X_test = np.array([["cat"], ["bird"], ["dog"], ["cat"]])
+    original_output = original.transform(X_test)
+    sklearn_output = sklearn_model.transform(X_test)
+    roundtrip_output = roundtrip_model.transform(X_test)
+
+    # sklearn returns 2D (n_samples, n_features), cuML returns 1D for single feature
+    sklearn_output_flat = sklearn_output.ravel()
+    assert array_equal(original_output, sklearn_output_flat)
+    assert array_equal(original_output, roundtrip_output)
