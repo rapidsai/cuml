@@ -176,14 +176,8 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         data sampled with replacement. Otherwise, sampling is without replacement.
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the bootstrapping of the samples and
-        the sampling of the features. Pass an int for reproducible results.
-        Note: Reproducibility is only guaranteed when ``n_streams=1``.
-        With multiple streams, trees are built in parallel and execution
-        order may vary.
-    n_streams : int, default=4
-        Number of CUDA streams for parallel tree building. Higher values
-        improve performance but require ``n_streams=1`` for reproducible
-        results with a fixed ``random_state``.
+        the sampling of the features. Pass an int for reproducible results
+        across runs.
     max_batch_size : int, default=4096
         Maximum number of nodes processed per batch during tree building.
     contamination : float or "auto", default="auto"
@@ -191,8 +185,6 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         for the `decision_function` and `predict` methods. If "auto", the
         threshold is set to 0.5 (the theoretical threshold for scoring).
         - If float, the contamination should be in the range (0, 0.5].
-    handle : cuml.Handle, default=None
-        Specifies the cuml.Handle to be used to allocate memory resources.
     verbose : int or boolean, default=False
         Sets logging level.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \\
@@ -265,14 +257,18 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         max_features=1.0,
         bootstrap=False,
         random_state=None,
-        n_streams=4,
         max_batch_size=4096,
         contamination="auto",
-        handle=None,
         verbose=False,
         output_type=None,
     ):
-        super().__init__(handle=handle, verbose=verbose, output_type=output_type)
+        # Initialize internal pointers before Base init so cleanup is safe
+        # even if constructor raises early.
+        self._forest_float = None
+        self._forest_double = None
+        self._dtype = None
+
+        super().__init__(verbose=verbose, output_type=output_type)
 
         self.n_estimators = n_estimators
         self.max_samples = max_samples
@@ -280,14 +276,8 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self.max_features = max_features
         self.bootstrap = bootstrap
         self.random_state = random_state
-        self.n_streams = n_streams
         self.max_batch_size = max_batch_size
         self.contamination = contamination
-
-        # Internal state
-        self._forest_float = None
-        self._forest_double = None
-        self._dtype = None
 
     def __del__(self):
         """Clean up C++ model memory."""
@@ -298,12 +288,12 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         cdef IsolationForestF* f_ptr
         cdef IsolationForestD* d_ptr
 
-        if self._forest_float is not None:
+        if hasattr(self, "_forest_float") and self._forest_float is not None:
             f_ptr = <IsolationForestF*><uintptr_t>self._forest_float
             del f_ptr
             self._forest_float = None
 
-        if self._forest_double is not None:
+        if hasattr(self, "_forest_double") and self._forest_double is not None:
             d_ptr = <IsolationForestD*><uintptr_t>self._forest_double
             del d_ptr
             self._forest_double = None
@@ -318,7 +308,6 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             "max_features",
             "bootstrap",
             "random_state",
-            "n_streams",
             "max_batch_size",
             "contamination",
         ]
@@ -433,7 +422,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         params.seed = seed
 
         # Get handle and verbosity
-        handle = get_handle(model=self, n_streams=self.n_streams)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
@@ -524,7 +513,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         scores = CumlArray.zeros(n_rows, dtype=self._dtype, order="C")
 
         # Get handle and verbosity
-        handle = get_handle(model=self, n_streams=self.n_streams)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
@@ -625,7 +614,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         predictions = CumlArray.zeros(n_rows, dtype=np.int32, order="C")
 
         # Get handle and verbosity
-        handle = get_handle(model=self, n_streams=self.n_streams)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
