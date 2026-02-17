@@ -578,17 +578,19 @@ class TargetEncoder(Base, InteropMixin):
             self._encode_all_per_feature.append(encode_all_i)
 
             # Extract encodings in category order for sklearn compatibility
-            feature_encodings = []
-            for cat_val in self.categories_[i]:
-                mask = encode_all_i[col] == cat_val
-                if mask.any():
-                    enc_val = float(
-                        encode_all_i.loc[mask, self.out_col].iloc[0]
-                    )
-                else:
-                    enc_val = float(self.mean)
-                feature_encodings.append(enc_val)
-            self._encodings_per_feature.append(np.array(feature_encodings))
+            # Use a vectorized merge instead of a Python loop over each
+            # category value, which would be O(n_unique) GPU round-trips.
+            cats_df = cudf.DataFrame({col: self.categories_[i]})
+            merged = cats_df.merge(
+                encode_all_i[[col, self.out_col]], on=col, how="left"
+            )
+            merged[self.out_col] = merged[self.out_col].fillna(self.mean)
+            enc_vals = merged[self.out_col].values
+            if isinstance(enc_vals, cp.ndarray):
+                enc_vals = cp.asnumpy(enc_vals)
+            self._encodings_per_feature.append(
+                np.asarray(enc_vals, dtype=np.float64)
+            )
 
             # Merge encoding into train for this feature
             train = train.merge(

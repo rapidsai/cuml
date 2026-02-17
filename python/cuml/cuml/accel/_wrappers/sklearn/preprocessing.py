@@ -22,7 +22,7 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
     if kwargs.get("sample_weight") is not None:
         raise UnsupportedOnGPU("sample_weight is not supported")
 
-    # Reject complex, object, and float16 dtypes
+    # Reject complex, object, and float16 dtypes for arrays
     if hasattr(X, "dtype"):
         if np.issubdtype(X.dtype, np.complexfloating):
             raise UnsupportedOnGPU("complex dtype is not supported")
@@ -30,6 +30,23 @@ def _check_standardscaler_unsupported_inputs(X, **kwargs):
             raise UnsupportedOnGPU("object dtype is not supported")
         if X.dtype == np.float16:
             raise UnsupportedOnGPU("float16 dtype is not supported")
+
+    # Reject unsupported column dtypes for DataFrames (which have .dtypes
+    # instead of .dtype)
+    if hasattr(X, "dtypes"):
+        for dtype in X.dtypes:
+            if dtype == np.object_:
+                raise UnsupportedOnGPU(
+                    "object dtype columns are not supported"
+                )
+            if np.issubdtype(dtype, np.complexfloating):
+                raise UnsupportedOnGPU(
+                    "complex dtype columns are not supported"
+                )
+            if dtype == np.float16:
+                raise UnsupportedOnGPU(
+                    "float16 dtype columns are not supported"
+                )
 
     # Check for sparse matrices with unsupported properties
     if sp_sparse.issparse(X):
@@ -104,11 +121,10 @@ def _check_unsupported_inputs(X, y, cpu_model):
             "CV fold assignment behavior (use integer seed for GPU)"
         )
 
-    # Check for object dtype X with float values - cudf can't handle this
-    if hasattr(X, "dtype") and X.dtype == np.object_:
-        raise UnsupportedOnGPU(
-            "Object dtype arrays with numeric values not supported on GPU"
-        )
+    # Note: object dtype X arrays (including string arrays) are allowed
+    # through to the GPU path. cuml's TargetEncoder handles them via
+    # _data_with_strings_to_cudf_dataframe, which converts string/object
+    # arrays through cudf.from_pandas() as an intermediate step.
 
     # Check for object dtype y - cudf can't handle float objects
     if hasattr(y, "dtype") and y.dtype == np.object_:
@@ -131,15 +147,7 @@ class TargetEncoder(ProxyBase):
 
         # Ensure independent mode is set for sklearn compatibility
         self._gpu.multi_feature_mode = "independent"
-        result = self._gpu.fit(X, y, **kwargs)
-
-        # Sync sklearn-expected attributes to the proxy
-        if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
-        if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
-
-        return result
+        return self._gpu.fit(X, y, **kwargs)
 
     def _gpu_fit_transform(self, X, y, **kwargs):
         """Fit-transform with independent mode for sklearn compatibility.
@@ -152,15 +160,7 @@ class TargetEncoder(ProxyBase):
 
         # Ensure independent mode is set for sklearn compatibility
         self._gpu.multi_feature_mode = "independent"
-        result = self._gpu.fit_transform(X, y, **kwargs)
-
-        # Sync sklearn-expected attributes to the proxy
-        if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
-        if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
-
-        return result
+        return self._gpu.fit_transform(X, y, **kwargs)
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.
