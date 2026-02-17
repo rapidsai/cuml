@@ -24,6 +24,7 @@ from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
+from libc.stddef cimport size_t
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
@@ -56,7 +57,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         IsolationForestF* forest,
         const float* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         const IF_params& params,
         level_enum verbosity
@@ -66,7 +67,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         IsolationForestD* forest,
         const double* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         const IF_params& params,
         level_enum verbosity
@@ -76,7 +77,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         const IsolationForestF* forest,
         const float* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         float* scores,
         level_enum verbosity
@@ -86,7 +87,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         const IsolationForestD* forest,
         const double* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         double* scores,
         level_enum verbosity
@@ -96,7 +97,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         const IsolationForestF* forest,
         const float* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         int* predictions,
         float threshold,
@@ -107,7 +108,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         const handle_t& handle,
         const IsolationForestD* forest,
         const double* input,
-        int n_rows,
+        size_t n_rows,
         int n_cols,
         int* predictions,
         double threshold,
@@ -381,7 +382,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             order="F",  # Column-major for fit
         ).array
 
-        cdef int n_rows = X_m.shape[0]
+        cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
         cdef uintptr_t X_ptr = X_m.ptr
         self.n_features_in_ = n_cols
@@ -500,7 +501,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             order="C",  # Row-major for inference
         ).array
 
-        cdef int n_rows = X_m.shape[0]
+        cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
 
         if n_cols != self.n_features_in_:
@@ -601,7 +602,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             order="C",  # Row-major for inference
         ).array
 
-        cdef int n_rows = X_m.shape[0]
+        cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
 
         if n_cols != self.n_features_in_:

@@ -18,6 +18,7 @@
 
 #include "isolation_tree_builder.cuh"
 
+#include <climits>
 #include <cmath>
 
 namespace ML {
@@ -39,9 +40,9 @@ class IsolationForest {
  private:
   IF_params params;
 
-  void error_checking(const T* input, int n_rows, int n_cols) const
+  void error_checking(const T* input, size_t n_rows, int n_cols) const
   {
-    ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+    ASSERT((n_rows > 0), "Invalid n_rows %zu", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
     ASSERT(IsolationTree::is_dev_ptr(input), "IF Error: Expected input to be a GPU pointer");
   }
@@ -60,14 +61,14 @@ class IsolationForest {
    */
   void fit(const raft::handle_t& handle,
            const T* input,
-           int n_rows,
+           size_t n_rows,
            int n_cols,
            IsolationForestModel<T>* model)
   {
     raft::common::nvtx::range fun_scope("IsolationForest::fit @isolation_forest.cuh");
     this->error_checking(input, n_rows, n_cols);
     
-    int n_sampled_rows = std::min(params.max_samples, n_rows);
+    int n_sampled_rows = std::min(params.max_samples, static_cast<int>(std::min(n_rows, static_cast<size_t>(INT_MAX))));
     int max_depth = params.max_depth;
     if (max_depth <= 0) {
       max_depth = static_cast<int>(std::ceil(std::log2(static_cast<double>(n_sampled_rows))));
@@ -84,7 +85,7 @@ class IsolationForest {
     model->fast_trees = rmm::device_buffer(trees_size, stream);
     
     IsolationTree::build_isolation_forest(
-        handle, input, static_cast<size_t>(n_rows), n_cols,
+        handle, input, n_rows, n_cols,
         params.n_estimators, n_sampled_rows, max_depth,
         params.seed,
         static_cast<IsolationTree::IFTree<T>*>(model->fast_trees.data()));
@@ -96,7 +97,7 @@ class IsolationForest {
   void compute_path_lengths(const raft::handle_t& handle,
                             const IsolationForestModel<T>* model,
                             const T* input,
-                            int n_rows,
+                            size_t n_rows,
                             int n_cols,
                             T* avg_path_lengths) const
   {
@@ -105,7 +106,7 @@ class IsolationForest {
 
     auto* fast_trees = static_cast<const IsolationTree::IFTree<T>*>(model->fast_trees.data());
     int threads = 256;
-    int blocks = (n_rows + threads - 1) / threads;
+    size_t blocks = (n_rows + threads - 1) / threads;
     
     IsolationTree::compute_path_lengths_kernel<T><<<blocks, threads, 0, stream>>>(
         input, n_rows, n_cols, fast_trees, params.n_estimators, avg_path_lengths);
@@ -118,7 +119,7 @@ class IsolationForest {
   void compute_anomaly_scores(const raft::handle_t& handle,
                               const IsolationForestModel<T>* model,
                               const T* avg_path_lengths,
-                              int n_rows,
+                              size_t n_rows,
                               T* scores) const
   {
     cudaStream_t stream = handle.get_stream();

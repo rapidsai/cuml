@@ -199,14 +199,14 @@ __global__ void build_isolation_trees_kernel(
   T* local_data = subsample_buffer + tree_id * max_samples * n_cols;
   
   extern __shared__ char shared_mem[];
-  int* sample_indices = reinterpret_cast<int*>(shared_mem + sizeof(int) * 4 * MAX_DEPTH * 2);
+  size_t* sample_indices = reinterpret_cast<size_t*>(shared_mem + sizeof(int) * 4 * MAX_DEPTH * 2);
   
   // Thread 0 generates random sample indices
   if (threadIdx.x == 0) {
     for (int i = 0; i < max_samples; i++) {
-      // Use 64-bit random for proper sampling from large datasets
+      // Use 64-bit random for proper sampling from large datasets (>2B rows)
       uint64_t rand64 = (static_cast<uint64_t>(curand(&rng_state)) << 32) | curand(&rng_state);
-      sample_indices[i] = static_cast<int>(rand64 % n_rows);
+      sample_indices[i] = rand64 % n_rows;
     }
   }
   __syncthreads();
@@ -217,9 +217,8 @@ __global__ void build_isolation_trees_kernel(
   // is just different index math during this already-required copy.
   int tid = threadIdx.x;
   for (int s = 0; s < max_samples; s++) {
-    size_t src_row = static_cast<size_t>(sample_indices[s]);
+    size_t src_row = sample_indices[s];
     for (int f = tid; f < n_cols; f += blockDim.x) {
-      // Use size_t for index to avoid overflow with large datasets
       local_data[s * n_cols + f] = data[src_row + static_cast<size_t>(f) * n_rows];
     }
   }
@@ -268,17 +267,16 @@ __device__ T traverse_tree(const IFTree<T>* tree, const T* sample, int n_cols)
 template <typename T>
 __global__ void compute_path_lengths_kernel(
     const T* __restrict__ data,     // [n_samples x n_cols] row-major
-    int n_samples,
+    size_t n_samples,
     int n_cols,
     const IFTree<T>* __restrict__ trees,
     int n_trees,
     T* __restrict__ path_lengths)   // Output: [n_samples]
 {
-  int sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t sample_idx = static_cast<size_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   if (sample_idx >= n_samples) return;
   
-  // Use size_t for pointer arithmetic to avoid overflow with large datasets
-  const T* sample = data + static_cast<size_t>(sample_idx) * n_cols;
+  const T* sample = data + sample_idx * n_cols;
   
   T total_path = T(0);
   for (int t = 0; t < n_trees; t++) {
@@ -313,9 +311,9 @@ void build_isolation_forest(
   size_t subsample_buffer_size = static_cast<size_t>(n_trees) * max_samples * n_cols;
   rmm::device_uvector<T> subsample_buffer(subsample_buffer_size, stream);
   
-  // Shared memory: stack for DFS + sample indices
+  // Shared memory: stack for DFS + sample indices (size_t for >2B row support)
   int stack_size = MAX_DEPTH * 2 * 4 * sizeof(int);
-  int indices_size = max_samples * sizeof(int);
+  int indices_size = max_samples * sizeof(size_t);
   int shared_mem_size = stack_size + indices_size;
   
   build_isolation_trees_kernel<T><<<n_trees, 128, shared_mem_size, stream>>>(

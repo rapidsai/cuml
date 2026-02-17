@@ -47,7 +47,7 @@ T compute_c_normalization(int n);
  * @param[in]  handle    RAFT handle for GPU resources
  * @param[out] forest    Model to populate with trained trees
  * @param[in]  input     Training data, column-major [n_rows × n_cols], device pointer
- * @param[in]  n_rows    Number of training samples
+ * @param[in]  n_rows    Number of training samples (supports >2B rows via size_t)
  * @param[in]  n_cols    Number of features
  * @param[in]  params    Hyperparameters (n_estimators, max_samples, max_depth, seed)
  * @param[in]  verbosity Logging level
@@ -55,7 +55,7 @@ T compute_c_normalization(int n);
 void fit(const raft::handle_t& handle,
          IsolationForestF* forest,
          const float* input,
-         int n_rows,
+         size_t n_rows,
          int n_cols,
          const IF_params& params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
@@ -63,7 +63,7 @@ void fit(const raft::handle_t& handle,
 void fit(const raft::handle_t& handle,
          IsolationForestD* forest,
          const double* input,
-         int n_rows,
+         size_t n_rows,
          int n_cols,
          const IF_params& params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
@@ -79,7 +79,7 @@ void fit(const raft::handle_t& handle,
  * @param[in]  handle    RAFT handle for GPU resources
  * @param[in]  forest    Trained Isolation Forest model
  * @param[in]  input     Test data, row-major [n_rows × n_cols], device pointer
- * @param[in]  n_rows    Number of test samples
+ * @param[in]  n_rows    Number of test samples (supports >2B rows via size_t)
  * @param[in]  n_cols    Number of features (must match training)
  * @param[out] scores    Anomaly scores [n_rows], device pointer
  * @param[in]  verbosity Logging level
@@ -87,7 +87,7 @@ void fit(const raft::handle_t& handle,
 void score_samples(const raft::handle_t& handle,
                    const IsolationForestF* forest,
                    const float* input,
-                   int n_rows,
+                   size_t n_rows,
                    int n_cols,
                    float* scores,
                    rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
@@ -95,7 +95,7 @@ void score_samples(const raft::handle_t& handle,
 void score_samples(const raft::handle_t& handle,
                    const IsolationForestD* forest,
                    const double* input,
-                   int n_rows,
+                   size_t n_rows,
                    int n_cols,
                    double* scores,
                    rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
@@ -115,7 +115,7 @@ void score_samples(const raft::handle_t& handle,
 void predict(const raft::handle_t& handle,
              const IsolationForestF* forest,
              const float* input,
-             int n_rows,
+             size_t n_rows,
              int n_cols,
              int* predictions,
              float threshold = 0.5f,
@@ -124,7 +124,7 @@ void predict(const raft::handle_t& handle,
 void predict(const raft::handle_t& handle,
              const IsolationForestD* forest,
              const double* input,
-             int n_rows,
+             size_t n_rows,
              int n_cols,
              int* predictions,
              double threshold = 0.5,
