@@ -283,7 +283,7 @@ __global__ void compute_path_lengths_kernel(
     total_path += traverse_tree(&trees[t], sample, n_cols);
   }
   
-  path_lengths[sample_idx] = total_path / static_cast<T>(n_trees);
+  path_lengths[sample_idx] = (n_trees > 0) ? total_path / static_cast<T>(n_trees) : T(0);
 }
 
 /**

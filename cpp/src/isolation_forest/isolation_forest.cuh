@@ -44,6 +44,7 @@ class IsolationForest {
   {
     ASSERT((n_rows > 0), "Invalid n_rows %zu", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+    ASSERT((params.n_estimators > 0), "n_estimators must be > 0, got %d", params.n_estimators);
     ASSERT(IsolationTree::is_dev_ptr(input), "IF Error: Expected input to be a GPU pointer");
   }
 
