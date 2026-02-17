@@ -1,10 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
 
-from cuml.internals import get_handle, run_in_internal_context
+from cuml.internals import run_in_internal_context
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -61,8 +61,7 @@ class CDMG(MGFitMixin, CD):
     """
     @run_in_internal_context
     def _fit(self, uintptr_t X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
-        handle = get_handle(model=self)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef bool use_f32 = self.dtype == np.float32
         cdef bool fit_intercept = self.fit_intercept
         cdef int max_iter = self.max_iter
@@ -107,7 +106,7 @@ class CDMG(MGFitMixin, CD):
                     tol,
                     False
                 )
-        handle.sync()
+        self.handle.sync()
 
         self.intercept_ = intercept_f32 if use_f32 else intercept_f64
         self.n_iter_ = n_iter

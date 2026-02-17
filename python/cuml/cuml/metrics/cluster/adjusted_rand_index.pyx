@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -19,8 +19,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-def adjusted_rand_score(labels_true, labels_pred, handle=None,
-                        convert_dtype=True) -> float:
+def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.
@@ -31,19 +30,12 @@ def adjusted_rand_score(labels_true, labels_pred, handle=None,
 
     labels_pred : Array of predicted labels used to evaluate the model
 
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     Returns
     -------
         float
             The adjusted rand index value between -1.0 and 1.0
     """
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     labels_true, n_rows, _, _ = \

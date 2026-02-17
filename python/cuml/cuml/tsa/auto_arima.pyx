@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import itertools
@@ -106,13 +106,6 @@ class AutoARIMA(Base):
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
-
     simple_differencing: bool or int, default=True
         If True, the data is differenced before being passed to the Kalman
         filter. If False, differencing is part of the state-space model.
@@ -166,15 +159,12 @@ class AutoARIMA(Base):
     def __init__(self,
                  endog,
                  *,
-                 handle=None,
                  simple_differencing=True,
                  verbose=False,
                  output_type=None,
                  convert_dtype=True):
         # Initialize base class
-        super().__init__(handle=handle,
-                         verbose=verbose,
-                         output_type=output_type)
+        super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
 
         # Get device array. Float64 only for now.
@@ -190,7 +180,7 @@ class AutoARIMA(Base):
     @run_in_internal_context
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
-        handle = get_handle(model=self)
+        handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Detect missing observations
@@ -381,7 +371,6 @@ class AutoARIMA(Base):
                               order=(p_, d_, q_),
                               seasonal_order=(P_, D_, Q_, s_),
                               fit_intercept=k_,
-                              handle=self.handle,
                               simple_differencing=self.simple_differencing,
                               output_type="cupy")
                 logger.debug("Fitting {} ({})".format(model, method))
@@ -404,10 +393,15 @@ class AutoARIMA(Base):
                     continue
                 p_, q_, P_, Q_, s_, k_ = all_orders[i]
                 self.models.append(
-                    ARIMA(sub_batches[i].to_output("cupy"), order=(p_, d_, q_),
-                          seasonal_order=(P_, D_, Q_, s_), fit_intercept=k_,
-                          handle=self.handle, output_type="cupy",
-                          simple_differencing=self.simple_differencing))
+                    ARIMA(
+                        sub_batches[i].to_output("cupy"),
+                        order=(p_, d_, q_),
+                        seasonal_order=(P_, D_, Q_, s_),
+                        fit_intercept=k_,
+                        output_type="cupy",
+                        simple_differencing=self.simple_differencing
+                    )
+                )
                 id_tracker.append(sub_id[i])
 
             del all_ic, all_orders, ic_matrix, sub_batches, sub_id
@@ -561,7 +555,7 @@ def _parse_sequence(name, seq_in, min_accepted, max_accepted):
         return seq_out
 
 
-def _divide_by_mask(original, mask, batch_id, handle=None):
+def _divide_by_mask(original, mask, batch_id):
     """Divide a given batch into two sub-batches according to a boolean mask
 
     .. note:: in case the mask contains only False or only True, one sub-batch
@@ -575,12 +569,6 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
         Boolean mask: False for the 1st sub-batch and True for the second
     batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -601,8 +589,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     n_obs = original.shape[0]
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     index = CumlArray.empty(batch_size, np.int32)
@@ -686,7 +673,7 @@ def _divide_by_mask(original, mask, batch_id, handle=None):
     return out0, batch0_id, out1, batch1_id
 
 
-def _divide_by_min(original, metrics, batch_id, handle=None):
+def _divide_by_min(original, metrics, batch_id):
     """Divide a given batch into multiple sub-batches according to the values
     of the given metrics, by selecting the minimum value for each member
 
@@ -698,12 +685,6 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
         Matrix of shape (batch_size, n_sub) containing the metrics to minimize
     batch_id : CumlArray (int)
         Integer array to track the id of each member in the initial batch
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -720,8 +701,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     n_sub = metrics.shape[1]
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     batch_buffer = CumlArray.empty(batch_size, np.int32)
@@ -809,7 +789,7 @@ def _divide_by_min(original, metrics, batch_id, handle=None):
     return sub_batches, sub_id
 
 
-def _build_division_map(id_tracker, batch_size, handle=None):
+def _build_division_map(id_tracker, batch_size):
     """Build a map to associate each batch member with a model and index in
     the associated sub-batch
 
@@ -827,8 +807,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     id_to_pos : CumlArray (int)
         Position of each member in the respective sub-batch
     """
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     n_sub = len(id_tracker)
@@ -860,7 +839,7 @@ def _build_division_map(id_tracker, batch_size, handle=None):
     return id_to_model, id_to_pos
 
 
-def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
+def _merge_series(data_in, id_to_sub, id_to_pos, batch_size):
     """Merge multiple sub-batches into one batch according to the maps that
     associate each id in the unique batch to a sub-batch and a position in
     this sub-batch.
@@ -885,8 +864,7 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size, handle=None):
     n_obs = data_in[0].shape[0]
     n_sub = len(data_in)
 
-    if handle is None:
-        handle = get_handle()
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     cdef vector[uintptr_t] in_ptr

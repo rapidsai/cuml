@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import typing
@@ -73,7 +73,6 @@ def make_regression(
     coef=False,
     random_state=None,
     dtype='single',
-    handle=None
 ) -> typing.Union[typing.Tuple[CumlArray, CumlArray],
                   typing.Tuple[CumlArray, CumlArray, CumlArray]]:
     """Generate a random regression problem.
@@ -138,12 +137,6 @@ def make_regression(
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'.
-    handle : cuml.Handle or None, default=None
-
-        .. deprecated:: 26.02
-            The `handle` argument was deprecated in 26.02 and will be removed
-            in 26.04. There's no need to pass in a handle, cuml now manages
-            this resource automatically.
 
     Returns
     -------
@@ -165,7 +158,7 @@ def make_regression(
     if effective_rank is None:
         effective_rank = -1
 
-    handle = get_handle(handle=handle)
+    handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')
