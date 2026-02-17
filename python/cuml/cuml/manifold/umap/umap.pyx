@@ -560,25 +560,8 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         )
 
     build_kwds = self.build_kwds or {}
-    if "nnd_n_clusters" in build_kwds:
-        warnings.warn(
-            "`nnd_n_clusters` was deprecated in 26.02 and will be changed to "
-            "`knn_n_clusters` in 26.04."
-        )
-        n_clusters = build_kwds.get("nnd_n_clusters", 1)
-    else:
-        n_clusters = build_kwds.get("knn_n_clusters", 1)
-    if "nnd_overlap_factor" in build_kwds:
-        warnings.warn(
-            "`nnd_overlap_factor` was deprecated in 26.02 and will be changed to "
-            "`knn_overlap_factor` in 26.04."
-        )
-        overlap_factor = build_kwds.get("nnd_overlap_factor", 2)
-    else:
-        overlap_factor = build_kwds.get("knn_overlap_factor", 2)
-
-    params.build_params.n_clusters = n_clusters
-    params.build_params.overlap_factor = overlap_factor
+    n_clusters = build_kwds.get("knn_n_clusters", 1)
+    overlap_factor = build_kwds.get("knn_overlap_factor", 2)
 
     if n_clusters < 1:
         raise ValueError(f"Expected `knn_n_clusters >= 1`, got {n_clusters}")
@@ -588,18 +571,23 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"knn_overlap_factor ({overlap_factor})`"
         )
 
-    # Supported metrics: L2Expanded, L2SqrtExpanded, CosineExpanded, InnerProduct
-    all_neighbors_supported_metrics = ['l2', 'euclidean', 'sqeuclidean', 'cosine',
-                                       'inner_product']
-    if (build_algo == "brute_force_knn" and
-            n_clusters > 1 and
-            self.metric.lower() not in all_neighbors_supported_metrics):
+    all_neighbors_supported_metrics = [
+        'l2', 'euclidean', 'sqeuclidean', 'cosine', 'inner_product'
+    ]
+    if (
+        build_algo == "brute_force_knn" and
+        n_clusters > 1 and
+        self.metric.lower() not in all_neighbors_supported_metrics
+    ):
         warnings.warn(
             f"metric='{self.metric}' is not supported for batched knn build with "
             f"knn_n_clusters > 1. Supported metrics are: {all_neighbors_supported_metrics}. "
             f"The knn_n_clusters parameter will be ignored and regular brute force knn "
             f"(without batching) will be used instead."
         )
+
+    params.build_params.n_clusters = n_clusters
+    params.build_params.overlap_factor = overlap_factor
 
     if build_algo == "brute_force_knn":
         params.build_algo = lib.graph_build_algo.BRUTE_FORCE_KNN
@@ -834,10 +822,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         - Start with `knn_n_clusters = 4` and increase (4 → 8 → 16...) for less GPU
           memory usage. This is independent from knn_overlap_factor as long as
           'knn_overlap_factor' < 'knn_n_clusters'.
-
-        .. deprecated:: 26.02
-            The `nnd_n_clusters` and `nnd_overlap_factor` was deprecated in 26.02 and
-            will be changed to `knn_n_clusters` and `knn_overlap_factor` in 26.04.
 
     device_ids : list[int], "all", or None, default=None
         The device IDs to use during fitting (only used when
