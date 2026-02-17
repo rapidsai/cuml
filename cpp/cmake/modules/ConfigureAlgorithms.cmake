@@ -44,6 +44,7 @@ else()
 
   if(ensemble_algo)
     set(randomforest_algo ON)
+    set(isolationforest_algo ON)
   endif()
 
   # todo: organize linear model headers better
@@ -104,6 +105,11 @@ else()
     set(decisiontree_algo ON)
     set(LINK_TREELITE ON)
     set(LINK_NVFOREST ON)
+  endif()
+
+  if(isolationforest_algo)
+    set(decisiontree_algo ON)
+    set(LINK_TREELITE ON)
   endif()
 
   if(hierarchicalclustering_algo OR kmeans_algo)

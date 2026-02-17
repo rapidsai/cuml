@@ -6,3 +6,4 @@
 
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
+from cuml.ensemble.isolation_forest import IsolationForest
