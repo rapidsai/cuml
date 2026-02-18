@@ -503,30 +503,27 @@ def sparse_pairwise_distances(
 
     .. code-block:: python
 
+        >>> import cupy as cp
         >>> import cupyx
         >>> from cuml.metrics import sparse_pairwise_distances
 
-        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5, random_state=9)
-        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5, random_state=9)
-        >>> X.todense()
-        array([[0.        , 0.304..., 0.        ],
-            [0.042..., 0.        , 0.104...]])
-        >>> Y.todense()
-        array([[0.        , 0.042..., 0.        ]])
+        >>> X = cupyx.scipy.sparse.csr_matrix(cp.array([[1.0, 2.0, 0.0],
+        ...                                             [0.0, 3.0, 1.0]]))
+        >>> Y = cupyx.scipy.sparse.csr_matrix(cp.array([[1.0, 0.0, 2.0]]))
         >>> # Cosine Pairwise Distance, Single Input:
         >>> sparse_pairwise_distances(X, metric='cosine')
-        array([[ 0.,  1.],
-            [ 1., -0.]])
+        array([[0.   , 0.151...],
+            [0.151..., 0.   ]])
 
         >>> # Squared euclidean Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
-        array([[0.068...],
-            [0.014...]])
+        array([[ 8.],
+            [11.]])
 
         >>> # Canberra Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='canberra')
-        array([[0.752...],
-            [3.      ]])
+        array([[2.   ],
+            [2.333...]])
     """
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
