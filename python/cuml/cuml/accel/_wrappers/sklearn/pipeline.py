@@ -46,6 +46,10 @@ class Pipeline(ProxyBase):
             return replace(tags, transformer_tags=TransformerTags())
         return tags
 
+    def __len__(self):
+        """Return the number of steps in the pipeline (delegate to CPU; step count needs no sync)."""
+        return len(self._cpu)
+
     def __getitem__(self, ind):
         """Return a sub-pipeline or a single estimator; delegate to CPU and wrap slices."""
         self._sync_attrs_to_cpu()

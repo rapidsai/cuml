@@ -163,6 +163,10 @@ class Pipeline(_SklearnPipeline, InteropMixin):
         )
         return using_output_type(output_type)
 
+    def __len__(self):
+        """Return the number of steps in the pipeline (same as sklearn's Pipeline)."""
+        return len(self.steps)
+
     def _fit(self, X, y=None, routed_params=None, raw_params=None):
         """Fit the pipeline except the last step, with per-step output type control."""
         if routed_params is None:
