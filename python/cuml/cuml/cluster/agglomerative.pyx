@@ -4,11 +4,11 @@
 #
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 
@@ -144,9 +144,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         Fit the hierarchical clustering from features.
         """
         # Validate and process inputs
-        X = input_to_cuml_array(
-            X,
-            order="C",
+        X = validate_data(
+            self, X, order="C",
             check_dtype=np.float32,
             convert_to_dtype=(np.float32 if convert_dtype else None),
         ).array

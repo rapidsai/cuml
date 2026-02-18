@@ -15,6 +15,7 @@ from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -598,10 +599,14 @@ class TSNE(Base,
             X_indices_ptr = <uintptr_t>X_m.indices.ptr
             X_nnz = X_m.nnz
         else:
-            X_m, n_samples, n_features, _ = input_to_cuml_array(
-                X, order='F', check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None)
+            X_out = validate_data(
+                self, X,
+                order='F',
+                check_dtype=np.float32,
+                convert_to_dtype=(np.float32 if convert_dtype else False),
             )
+            X_m = X_out.array
+            n_samples, n_features = X_out.n_rows, X_out.n_cols
             X_ptr = X_m.ptr
 
         # Initialize TSNEParams

@@ -17,7 +17,7 @@ from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect, using_output_type
@@ -706,12 +706,12 @@ class NearestNeighbors(Base,
             self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32)
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
-            self._fit_X, _, _, _ = input_to_cuml_array(
-                X,
+            self._fit_X = validate_data(
+                self, X,
                 order='C',
                 check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            )
+                convert_to_dtype=(np.float32 if convert_dtype else False),
+            ).array
 
         self.n_samples_fit_, self.n_features_in_ = self._fit_X.shape
 

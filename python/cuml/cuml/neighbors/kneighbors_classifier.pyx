@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 import cuml
 from cuml.common import input_to_cuml_array
@@ -171,6 +172,12 @@ class KNeighborsClassifier(ClassifierMixin,
         Fit a GPU index for k-nearest neighbors classifier model.
 
         """
+        if y is None:
+            raise ValueError(
+                f"This {self.__class__.__name__} estimator "
+                "requires y to be passed, but the target y is None."
+            )
+
         if self.weights not in ('uniform', 'distance', None) and not callable(self.weights):
             raise ValueError(
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
@@ -205,6 +212,16 @@ class KNeighborsClassifier(ClassifierMixin,
         predict the labels for X
 
         """
+        check_is_fitted(self)
+
+        if hasattr(X, 'ndim') and X.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
         # Get KNN results - always get distances to compute weights
         knn_distances, knn_indices = self.kneighbors(
             X, return_distance=True, convert_dtype=convert_dtype

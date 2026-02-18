@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.internals import GraphBasedDimRedCallback
 from cuml.internals.outputs import (
     exit_internal_context,

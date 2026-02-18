@@ -8,13 +8,14 @@ import cupy as cp
 import numpy as np
 from cupy import linalg
 from cupyx import geterr, lapack, seterr
+from sklearn.utils.validation import check_is_fitted
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -283,23 +284,23 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
+        X_out, y_out = validate_data(
+            self,
+            X,
+            y,
+            convert_to_dtype=(np.float32 if convert_dtype else False),
+            check_dtype=[np.float32, np.float64],
+        )
+        X_m = X_out.array
+        y_m = y_out.array
+
         ravel = False
-        if len(y.shape) == 1:
-            y = y.reshape(-1, 1)
+        if len(y_m.shape) == 1:
+            y_m = CumlArray(data=y_m.to_output("cupy").reshape(-1, 1))
             ravel = True
 
-        X_m = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-        ).array
-
-        y_m = input_to_cuml_array(
-            y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
-        ).array
+        if cp.any(cp.isnan(y_m.to_output("cupy"))):
+            raise ValueError("Input y contains NaN.")
 
         if X.shape[1] < 1:
             raise ValueError("X matrix must have at least a column")
@@ -333,13 +334,15 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         C : array of shape (n_samples,) or (n_samples, n_targets)
             Returns predicted values.
         """
+        check_is_fitted(self)
         dtype = self.X_fit_.dtype
 
-        X_m = input_to_cuml_array(
+        X_m = validate_data(
+            self,
             X,
+            reset=False,
             check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
+            convert_to_dtype=(dtype if convert_dtype else False),
         ).array
 
         K = cp.asarray(self._get_kernel(X_m, self.X_fit_), dtype=dtype)

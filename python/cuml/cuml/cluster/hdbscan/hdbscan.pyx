@@ -10,6 +10,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -933,12 +934,11 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             else:
                 convert_to_mem_type = MemoryType.device
 
-        self._raw_data = input_to_cuml_array(
-            X,
-            order='C',
+        self._raw_data = validate_data(
+            self, X, order='C',
             check_dtype=[np.float32],
             convert_to_dtype=np.float32 if convert_dtype else None,
-            convert_to_mem_type=convert_to_mem_type
+            convert_to_mem_type=convert_to_mem_type,
         )[0]
         self._raw_data_cpu = None
 

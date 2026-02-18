@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,6 +12,7 @@ import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
 import scipy.sparse
+from sklearn.utils._tags import get_tags
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
@@ -275,6 +276,7 @@ def input_to_cuml_array(
     check_rows=False,
     fail_on_order=False,
     force_contiguous=True,
+    ensure_2d=False,
 ):
     """
     Convert input X to CumlArray.
@@ -345,6 +347,16 @@ def input_to_cuml_array(
         A new CumlArray and associated data.
 
     """
+    if ensure_2d:
+        _ndim = getattr(X, "ndim", None)
+        if _ndim is not None and _ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
     arr = CumlArray.from_input(
         X,
         order=order,
@@ -374,6 +386,164 @@ def input_to_cuml_array(
     return cuml_array(array=arr, n_rows=n_rows, n_cols=n_cols, dtype=arr.dtype)
 
 
+_NO_VALIDATION = "no_validation"
+
+
+def validate_data(
+    _estimator,
+    /,
+    X=_NO_VALIDATION,
+    y=_NO_VALIDATION,
+    *,
+    reset=True,
+    ensure_2d=True,
+    accept_sparse=False,
+    validate_separately=False,
+    order="F",
+    check_dtype=False,
+    convert_to_dtype=False,
+    convert_to_mem_type="device",
+    check_cols=False,
+    check_rows=False,
+    force_contiguous=True,
+):
+    """Validate input data and manage ``n_features_in_``.
+
+    Wraps :func:`input_to_cuml_array` with sklearn-compatible validation:
+
+    * Rejects ``y=None`` for supervised estimators (tag-driven).
+    * Enforces 2-D ``X`` by default.
+    * Sets ``n_features_in_`` on fit (``reset=True``) and validates it on
+      predict / transform (``reset=False``).
+
+    Parameters
+    ----------
+    _estimator : cuml.internals.base.Base
+        The estimator instance.  Positional-only.
+    X : array-like or ``"no_validation"``
+        Feature matrix.  ``"no_validation"`` skips X validation.
+    y : array-like, None, or ``"no_validation"``
+        Target array.  ``"no_validation"`` or ``None`` skips y validation.
+        ``None`` is rejected when the estimator's tags indicate that y is
+        required (e.g. classifiers and regressors).
+    reset : bool, default=True
+        If True, set ``n_features_in_`` from X.  If False, validate that X
+        has the expected number of features.
+    ensure_2d : bool, default=True
+        Require X to be 2-D.
+    accept_sparse : bool, default=False
+        If True, sparse X is passed through without conversion (the
+        estimator is responsible for handling it).  The ``ensure_2d`` and
+        ``n_features_in_`` checks are still applied.  If False (default),
+        sparse X is rejected by :func:`input_to_cuml_array` with a
+        ``TypeError``.
+    validate_separately : False or tuple of two dicts, default=False
+        When a ``(X_kwargs, y_kwargs)`` tuple is given, X and y are each
+        validated with their own ``input_to_cuml_array`` keyword arguments.
+        This is the mechanism for passing different dtype / order / shape
+        requirements for X and y.
+    order, check_dtype, convert_to_dtype, check_cols, check_rows,
+    force_contiguous :
+        Forwarded to :func:`input_to_cuml_array` for X (and for y when
+        ``validate_separately`` is False).
+
+    Returns
+    -------
+    out : cuml_array or (cuml_array, cuml_array)
+        Validated X as a ``cuml_array`` namedtuple, or ``(X_out, y_out)``
+        when y is provided.
+    """
+    tags = get_tags(_estimator)
+
+    if y is None and tags.target_tags.required:
+        raise ValueError(
+            f"This {_estimator.__class__.__name__} estimator "
+            "requires y to be passed, but the target y is None."
+        )
+
+    from cuml.common.sparse_utils import is_sparse as _is_sparse
+
+    no_val_X = isinstance(X, str) and X == _NO_VALIDATION
+    no_val_y = y is None or (isinstance(y, str) and y == _NO_VALIDATION)
+    X_is_sparse = not no_val_X and accept_sparse and _is_sparse(X)
+
+    if validate_separately:
+        if no_val_X or no_val_y:
+            raise ValueError(
+                "validate_separately requires both X and y to be provided."
+            )
+        X_kwargs, y_kwargs = validate_separately
+        X_kwargs.setdefault("ensure_2d", ensure_2d)
+        X_out = input_to_cuml_array(X, **X_kwargs)
+        y_kwargs.setdefault("ensure_2d", False)
+        y_kwargs.setdefault("check_rows", X_out.n_rows)
+        y_out = input_to_cuml_array(y, **y_kwargs)
+    else:
+        if not no_val_X:
+            if X_is_sparse:
+                # Sparse pass-through: skip input_to_cuml_array conversion
+                # but still enforce ensure_2d.
+                if ensure_2d:
+                    _ndim = getattr(X, "ndim", None)
+                    if _ndim is not None and _ndim == 1:
+                        raise ValueError(
+                            "Expected 2D array, got 1D array instead.\n"
+                            "Reshape your data either using "
+                            "array.reshape(-1, 1) if your data has a "
+                            "single feature or array.reshape(1, -1) if "
+                            "it contains a single sample."
+                        )
+                n_rows, n_cols = X.shape
+                X_out = cuml_array(
+                    array=X,
+                    n_rows=n_rows,
+                    n_cols=n_cols,
+                    dtype=X.dtype,
+                )
+            else:
+                X_out = input_to_cuml_array(
+                    X,
+                    order=order,
+                    check_dtype=check_dtype,
+                    convert_to_dtype=convert_to_dtype,
+                    convert_to_mem_type=convert_to_mem_type,
+                    check_cols=check_cols,
+                    check_rows=check_rows,
+                    force_contiguous=force_contiguous,
+                    ensure_2d=ensure_2d,
+                )
+
+        if not no_val_y:
+            y_kwargs = dict(
+                ensure_2d=False,
+                force_contiguous=force_contiguous,
+            )
+            if not no_val_X:
+                y_kwargs["check_rows"] = X_out.n_rows
+                # When dtype conversion was requested for X, also convert y
+                # to X's resulting dtype.  This ensures regressors get
+                # matching float dtypes for X and y.
+                if convert_to_dtype and not X_is_sparse:
+                    y_kwargs["convert_to_dtype"] = X_out.dtype
+            y_out = input_to_cuml_array(y, **y_kwargs)
+
+    # n_features_in_ management
+    if not no_val_X and ensure_2d:
+        if reset:
+            _estimator.n_features_in_ = X_out.n_cols
+        elif hasattr(_estimator, "n_features_in_"):
+            if X_out.n_cols != _estimator.n_features_in_:
+                raise ValueError(
+                    f"X has {X_out.n_cols} features, but "
+                    f"{_estimator.__class__.__name__} is expecting "
+                    f"{_estimator.n_features_in_} features as input."
+                )
+
+    if no_val_y:
+        return X_out
+    return X_out, y_out
+
+
 @nvtx.annotate(
     message="common.input_utils.input_to_cupy_array",
     category="utils",
@@ -390,6 +560,7 @@ def input_to_cupy_array(
     fail_on_order=False,
     force_contiguous=True,
     fail_on_null=True,
+    ensure_2d=False,
 ) -> cuml_array:
     """
     Identical to input_to_cuml_array but it returns a cupy array instead of
@@ -415,6 +586,7 @@ def input_to_cupy_array(
         fail_on_order=fail_on_order,
         force_contiguous=force_contiguous,
         convert_to_mem_type=MemoryType.device,
+        ensure_2d=ensure_2d,
     )
 
     return out_data._replace(array=out_data.array.to_output("cupy"))
