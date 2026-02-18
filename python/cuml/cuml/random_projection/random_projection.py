@@ -82,7 +82,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
-        if hasattr(X, "ndim") and X.ndim == 1:
+        if X.ndim == 1:
             raise ValueError(
                 "Expected 2D array, got 1D array instead.\n"
                 "Reshape your data either using array.reshape(-1, 1) if "

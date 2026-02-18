@@ -222,6 +222,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  Non-None y is skipped
+        # here because classifiers accept string labels that
+        # input_to_cuml_array cannot convert; preprocess_labels handles y
+        # conversion below.
         X_m = validate_data(
             self,
             X,
@@ -284,7 +289,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         """
         check_is_fitted(self)
 
-        if hasattr(X, "ndim") and X.ndim == 1:
+        if X.ndim == 1:
             raise ValueError(
                 "Expected 2D array, got 1D array instead.\n"
                 "Reshape your data either using array.reshape(-1, 1) if "

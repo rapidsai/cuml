@@ -348,8 +348,7 @@ def input_to_cuml_array(
 
     """
     if ensure_2d:
-        _ndim = getattr(X, "ndim", None)
-        if _ndim is not None and _ndim == 1:
+        if X.ndim == 1:
             raise ValueError(
                 "Expected 2D array, got 1D array instead.\n"
                 "Reshape your data either using array.reshape(-1, 1) if "
@@ -386,14 +385,11 @@ def input_to_cuml_array(
     return cuml_array(array=arr, n_rows=n_rows, n_cols=n_cols, dtype=arr.dtype)
 
 
-_NO_VALIDATION = "no_validation"
-
-
 def validate_data(
     _estimator,
     /,
-    X=_NO_VALIDATION,
-    y=_NO_VALIDATION,
+    X="no_validation",
+    y="no_validation",
     *,
     reset=True,
     ensure_2d=True,
@@ -463,8 +459,8 @@ def validate_data(
 
     from cuml.common.sparse_utils import is_sparse as _is_sparse
 
-    no_val_X = isinstance(X, str) and X == _NO_VALIDATION
-    no_val_y = y is None or (isinstance(y, str) and y == _NO_VALIDATION)
+    no_val_X = isinstance(X, str) and X == "no_validation"
+    no_val_y = y is None or (isinstance(y, str) and y == "no_validation")
     X_is_sparse = not no_val_X and accept_sparse and _is_sparse(X)
 
     if validate_separately:
@@ -484,8 +480,7 @@ def validate_data(
                 # Sparse pass-through: skip input_to_cuml_array conversion
                 # but still enforce ensure_2d.
                 if ensure_2d:
-                    _ndim = getattr(X, "ndim", None)
-                    if _ndim is not None and _ndim == 1:
+                    if X.ndim == 1:
                         raise ValueError(
                             "Expected 2D array, got 1D array instead.\n"
                             "Reshape your data either using "
