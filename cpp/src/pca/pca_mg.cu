@@ -58,11 +58,11 @@ void fit_impl(raft::handle_t& handle,
 
   MLCommon::Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
-  raft::linalg::paramsPCATemplate<raft::linalg::mg_solver> raft_prms;
+  raft::linalg::paramsPCA raft_prms;
   raft_prms.n_rows       = prms.n_rows;
   raft_prms.n_cols       = prms.n_cols;
   raft_prms.n_components = prms.n_components;
-  raft_prms.algorithm    = static_cast<raft::linalg::mg_solver>(static_cast<int>(prms.algorithm));
+  raft_prms.algorithm    = prms.algorithm;
   raft_prms.tol          = prms.tol;
   raft_prms.n_iterations = prms.n_iterations;
   raft_prms.whiten       = prms.whiten;

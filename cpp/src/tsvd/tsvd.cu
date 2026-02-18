@@ -21,9 +21,8 @@ raft::linalg::paramsTSVD to_raft_params(const paramsTSVD& ml_prms)
   prms.gpu_id       = ml_prms.gpu_id;
   prms.tol          = ml_prms.tol;
   prms.n_iterations = ml_prms.n_iterations;
-  prms.verbose      = ml_prms.verbose;
   prms.n_components = ml_prms.n_components;
-  prms.algorithm    = static_cast<raft::linalg::solver>(static_cast<int>(ml_prms.algorithm));
+  prms.algorithm    = ml_prms.algorithm;
   return prms;
 }
 

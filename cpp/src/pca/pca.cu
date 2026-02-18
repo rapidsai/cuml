@@ -13,7 +13,6 @@ namespace ML {
 
 /**
  * @brief Convert ML::paramsPCA to raft::linalg::paramsPCA.
- * The structs are identical in layout but live in different namespaces with different enum types.
  */
 raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
 {
@@ -23,9 +22,8 @@ raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
   prms.gpu_id       = ml_prms.gpu_id;
   prms.tol          = ml_prms.tol;
   prms.n_iterations = ml_prms.n_iterations;
-  prms.verbose      = ml_prms.verbose;
   prms.n_components = ml_prms.n_components;
-  prms.algorithm    = static_cast<raft::linalg::solver>(static_cast<int>(ml_prms.algorithm));
+  prms.algorithm    = ml_prms.algorithm;
   prms.copy         = ml_prms.copy;
   prms.whiten       = ml_prms.whiten;
   return prms;
