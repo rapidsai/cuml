@@ -11,6 +11,7 @@ from typing import Any
 
 import cupy as cp
 import numpy as np
+from scipy import sparse as scipy_sparse
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline as _SklearnPipeline
 from sklearn.pipeline import _final_estimator_has, _fit_transform_one
@@ -38,6 +39,8 @@ def _to_numpy_if_device(X):
     if hasattr(X, "to_output"):
         return X.to_output("numpy")
     if isinstance(X, np.ndarray):
+        return X
+    if scipy_sparse.issparse(X):
         return X
     return np.asarray(X)
 
