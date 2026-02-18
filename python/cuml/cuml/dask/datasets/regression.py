@@ -161,7 +161,7 @@ def _shuffle(
 def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
     X_ddh = DistributedDataHandler.create(data=X, client=client)
     X_converted = [
-        client.submit(cp.array, X_part, copy=False, order=order, workers=[w])
+        client.submit(cp.array, X_part, copy=None, order=order, workers=[w])
         for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)
     ]
 
