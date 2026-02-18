@@ -7,11 +7,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from functools import wraps
 
 from sklearn.pipeline import Pipeline as _SklearnPipeline
 from sklearn.utils._tags import TransformerTags
-from sklearn.utils.metaestimators import available_if
 
 from cuml._thirdparty.sklearn.preprocessing._pipeline import (
     Pipeline as _AccelPipeline,
@@ -19,28 +17,6 @@ from cuml._thirdparty.sklearn.preprocessing._pipeline import (
 from cuml.accel.estimator_proxy import ProxyBase
 
 __all__ = ("Pipeline", "make_pipeline")
-
-
-def _cpu_has(method_name):
-    """Check that the CPU Pipeline supports a conditional method.
-
-    Uses getattr so that when the method is not available, the CPU pipeline's
-    AttributeError (and its __cause__, e.g. from the final estimator) is
-    re-raised. The proxy's @available_if descriptor then chains from it,
-    giving uniform exception chaining for all conditional methods (transform,
-    fit_transform, fit_predict, predict, predict_proba, predict_log_proba,
-    decision_function, score_samples, inverse_transform, score).
-    """
-
-    def check(self):
-        try:
-            getattr(self._cpu, method_name)
-            return True
-        except AttributeError as e:
-            cause = e.__cause__ if e.__cause__ is not None else e
-            raise cause
-
-    return check
 
 
 class Pipeline(ProxyBase):
@@ -58,68 +34,6 @@ class Pipeline(ProxyBase):
     # Access to steps/named_steps must sync fitted state from _gpu so step estimators
     # (and their fitted attributes) are available on _cpu.
     _other_attributes = frozenset({"steps", "named_steps"})
-
-    # Conditional methods: use @available_if to mirror sklearn Pipeline's
-    # conditional availability, and @wraps to inherit the sklearn docstrings
-    # so numpydoc validation passes.
-
-    @available_if(_cpu_has("transform"))
-    @wraps(_SklearnPipeline.transform, assigned=("__doc__",), updated=())
-    def transform(self, X, **params):
-        return self._call_method("transform", X, **params)
-
-    @available_if(_cpu_has("fit_transform"))
-    @wraps(_SklearnPipeline.fit_transform, assigned=("__doc__",), updated=())
-    def fit_transform(self, X, y=None, **params):
-        return self._call_method("fit_transform", X, y, **params)
-
-    @available_if(_cpu_has("fit_predict"))
-    @wraps(_SklearnPipeline.fit_predict, assigned=("__doc__",), updated=())
-    def fit_predict(self, X, y=None, **params):
-        return self._call_method("fit_predict", X, y, **params)
-
-    @available_if(_cpu_has("predict"))
-    @wraps(_SklearnPipeline.predict, assigned=("__doc__",), updated=())
-    def predict(self, X, **params):
-        return self._call_method("predict", X, **params)
-
-    @available_if(_cpu_has("predict_proba"))
-    @wraps(_SklearnPipeline.predict_proba, assigned=("__doc__",), updated=())
-    def predict_proba(self, X, **params):
-        return self._call_method("predict_proba", X, **params)
-
-    @available_if(_cpu_has("predict_log_proba"))
-    @wraps(
-        _SklearnPipeline.predict_log_proba, assigned=("__doc__",), updated=()
-    )
-    def predict_log_proba(self, X, **params):
-        return self._call_method("predict_log_proba", X, **params)
-
-    @available_if(_cpu_has("decision_function"))
-    @wraps(
-        _SklearnPipeline.decision_function, assigned=("__doc__",), updated=()
-    )
-    def decision_function(self, X, **params):
-        return self._call_method("decision_function", X, **params)
-
-    @available_if(_cpu_has("score_samples"))
-    @wraps(_SklearnPipeline.score_samples, assigned=("__doc__",), updated=())
-    def score_samples(self, X):
-        return self._call_method("score_samples", X)
-
-    @available_if(_cpu_has("inverse_transform"))
-    @wraps(
-        _SklearnPipeline.inverse_transform, assigned=("__doc__",), updated=()
-    )
-    def inverse_transform(self, X, **params):
-        return self._call_method("inverse_transform", X, **params)
-
-    @available_if(_cpu_has("score"))
-    @wraps(_SklearnPipeline.score, assigned=("__doc__",), updated=())
-    def score(self, X, y=None, sample_weight=None, **params):
-        return self._call_method(
-            "score", X, y, sample_weight=sample_weight, **params
-        )
 
     def __sklearn_tags__(self):
         # sklearn's Pipeline.__sklearn_tags__() can leave transformer_tags=None
