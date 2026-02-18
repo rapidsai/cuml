@@ -23,6 +23,8 @@ from sklearn.neighbors import (
 )
 from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
 
+# Which estimators are supported and not is also mentioned in the cuml.accel docs,
+# make sure to update the docs if you make changes here.
 xfail_unsupported = pytest.mark.xfail(
     reason="not supported by skl2onnx", strict=True
 )
