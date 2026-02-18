@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
+import cupy as cp
 import numpy as np
 from sklearn.base import clone
 from sklearn.pipeline import Pipeline as _SklearnPipeline
@@ -32,7 +33,7 @@ def _to_numpy_if_device(X):
     """Convert device array (e.g. CuPy) to numpy for CPU-only consumers."""
     if X is None:
         return X
-    if hasattr(X, "get") and callable(getattr(X, "get")):
+    if isinstance(X, cp.ndarray):
         return X.get()
     if hasattr(X, "to_output"):
         return X.to_output("numpy")
