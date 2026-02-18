@@ -11,3 +11,4 @@ examples in this section is available in the cuML GitHub repository at `examples
    getting_started.ipynb
    profiling.ipynb
    plot_kmeans_digits.ipynb
+   onnx_export.ipynb
