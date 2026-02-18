@@ -407,11 +407,6 @@ def validate_data(
 
     Wraps :func:`input_to_cuml_array` with sklearn-compatible validation:
 
-    * Rejects ``y=None`` for supervised estimators (tag-driven).
-    * Enforces 2-D ``X`` by default.
-    * Sets ``n_features_in_`` on fit (``reset=True``) and validates it on
-      predict / transform (``reset=False``).
-
     Parameters
     ----------
     _estimator : cuml.internals.base.Base
