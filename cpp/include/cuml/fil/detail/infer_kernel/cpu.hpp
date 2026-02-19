@@ -108,8 +108,8 @@ void infer_kernel_cpu(forest_t const& forest,
    **/
   {
     uint64_t max_num_row = static_cast<uint64_t>(std::numeric_limits<index_type>::max()) /
-                             (static_cast<uint64_t>(num_outputs) * num_grove) -
-                           3;
+                           (static_cast<uint64_t>(num_outputs) * num_grove);
+    if (max_num_row >= 3) max_num_row -= 3;
     ASSERT(row_count <= max_num_row,
            "Input size too large! Input should be at most %" PRIu64 ".",
            max_num_row);
