@@ -1189,6 +1189,8 @@ class NearestNeighbors(Base,
         `algorithm="rbc"`. Other algorithms will build a temporary RBC index
         per-call, which adds a small overhead.
 
+        Only euclidean/l2 metrics and dense inputs are currently supported.
+
         Examples
         --------
         >>> import cupy as cp
@@ -1208,6 +1210,12 @@ class NearestNeighbors(Base,
 
         if isinstance(self._fit_X, SparseCumlArray) or is_sparse(X):
             raise TypeError("`radius_neighbors_graph` doesn't support sparse inputs")
+
+        if self.effective_metric_ not in ["l2", "euclidean"]:
+            raise ValueError(
+                f"`radius_neighbors_graph` doesn't support "
+                f"metric={self.effective_metric_!r}"
+            )
 
         if radius is None:
             radius = self.radius
@@ -1231,11 +1239,6 @@ class NearestNeighbors(Base,
             index = self._index
         else:
             # Fit with another method, build a temporary index
-            if self.effective_metric_ not in cuml.neighbors.VALID_METRICS["rbc"]:
-                raise ValueError(
-                    f"`radius_neighbors_graph` doesn't support "
-                    f"metric={self.effective_metric_!r}"
-                )
             index = RBCIndex.build(self._fit_X, self.effective_metric_)
 
         out = index.radius_neighbors_graph(X_m, radius)

@@ -29,7 +29,7 @@ class NearestNeighbors(ProxyBase):
             raise UnsupportedOnGPU("`sort_results=True` is not supported")
         if is_sparse(X):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
-        if self.effective_metric_ not in cuml.neighbors.VALID_METRICS["rbc"]:
+        if self.effective_metric_ not in ["l2", "euclidean"]:
             raise UnsupportedOnGPU(
                 f"metric={self.effective_metric_!r} is not supported"
             )

@@ -206,8 +206,8 @@ void rbc_radius_neighbors_graph(const raft::handle_t& handle,
                                 int64_t n_query,
                                 int64_t dim,
                                 float radius,
-                                int64_t* adj_rows,
-                                int64_t* adj_cols,
+                                int64_t* adj_indptr,
+                                int64_t* adj_indices,
                                 int64_t nnz)
 {
   auto index_ptr = reinterpret_cast<cuvs::neighbors::ball_cover::index<int64_t, float>*>(rbc_index);
@@ -215,8 +215,8 @@ void rbc_radius_neighbors_graph(const raft::handle_t& handle,
   cuvs::neighbors::ball_cover::eps_nn(
     handle,
     *index_ptr,
-    raft::make_device_vector_view<int64_t, int64_t>(adj_rows, n_query + 1),
-    raft::make_device_vector_view<int64_t, int64_t>(adj_cols, nnz),
+    raft::make_device_vector_view<int64_t, int64_t>(adj_indptr, n_query + 1),
+    raft::make_device_vector_view<int64_t, int64_t>(adj_indices, nnz),
     raft::make_device_vector_view<int64_t, int64_t>(nullptr, 0),
     raft::make_device_matrix_view<const float, int64_t>(query, n_query, dim),
     radius);

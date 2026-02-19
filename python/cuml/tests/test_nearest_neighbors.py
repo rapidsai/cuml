@@ -557,11 +557,10 @@ def test_knn_graph_algorithm(algorithm):
         assert ((sk_graph - cu_graph.get()) < 0).sum() == 0
 
 
-@pytest.mark.parametrize("metric", ["euclidean", "haversine"])
 @pytest.mark.parametrize("n_features", [2, 3, 5])
 @pytest.mark.parametrize("radius", [2.5, None])
 @pytest.mark.parametrize("self_query", [True, False])
-def test_radius_neighbors_graph(metric, n_features, radius, self_query):
+def test_radius_neighbors_graph(n_features, radius, self_query):
     X, _ = make_blobs(n_samples=500, n_features=n_features, random_state=42)
     X_train, X_query = X[:400], X[400:]
 
