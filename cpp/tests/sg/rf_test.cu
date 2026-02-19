@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <cuml/common/logger.hpp>
@@ -20,6 +20,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cub/device/device_segmented_reduce.cuh>
+#include <cuda/iterator>
 #include <cuda/std/functional>
 #include <thrust/binary_search.h>
 #include <thrust/copy.h>
@@ -29,7 +30,6 @@
 #include <thrust/functional.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/transform_iterator.h>
 #include <thrust/logical.h>
 #include <thrust/random.h>
 #include <thrust/shuffle.h>
@@ -226,8 +226,8 @@ std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
   if constexpr (std::is_integral_v<LabelT>) {
     // Perform argmax to convert probabilities into class outputs
     auto offsets_it =
-      thrust::make_transform_iterator(thrust::make_counting_iterator(0),
-                                      [=] __device__(int x) -> int { return x * params.n_labels; });
+      cuda::make_transform_iterator(thrust::make_counting_iterator(0),
+                                    [=] __device__(int x) -> int { return x * params.n_labels; });
     using kv_type = cub::KeyValuePair<int, DataT>;
 
     // Compute size of workspace for the segmented reduce operation
