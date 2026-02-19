@@ -22,6 +22,7 @@
 
 #include <raft/core/error.hpp>
 
+#include <cinttypes>
 #include <cstddef>
 #include <optional>
 #include <type_traits>
@@ -200,20 +201,26 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
    * Throw an error for large inputs that would cause integer overflow.
    * TODO(hcho3): Support large inputs via streaming
    **/
-  index_type chunk_size = 32;
-  while (rows_per_block_iteration <= chunk_size / 2 && chunk_size >= 2) {
-    chunk_size /= 2;
+  {
+    uint64_t chunk_size = 32;
+    while (rows_per_block_iteration <= chunk_size / 2 && chunk_size >= 2) {
+      chunk_size /= 2;
+    }
+    uint64_t task_count = chunk_size * forest.tree_count();
+    uint64_t num_grove;
+    if (infer_type == infer_kind::default_kind) {
+      num_grove =
+        raft_proto::ceildiv(min(static_cast<uint64_t>(threads_per_block), task_count), chunk_size);
+    } else {
+      num_grove = 1;
+    }
+    uint64_t max_num_row =
+      static_cast<uint64_t>(std::numeric_limits<index_type>::max()) / (output_count * num_grove) -
+      3;
+    ASSERT(row_count <= max_num_row,
+           "Input size too large! Input should be at most %" PRIu64 ".",
+           max_num_row);
   }
-  index_type task_count = chunk_size * forest.tree_count();
-  index_type num_grove;
-  if (infer_type == infer_kind::default_kind) {
-    num_grove = raft_proto::ceildiv(min(index_type(threads_per_block), task_count), chunk_size);
-  } else {
-    num_grove = 1;
-  }
-  index_type max_num_row = std::numeric_limits<index_type>::max() / (output_count * num_grove) - 3;
-  ASSERT(
-    row_count <= max_num_row, "Input size too large! Input should be at most %u.", max_num_row);
 
   if (rows_per_block_iteration <= 1) {
     infer_kernel<has_categorical_nodes, 1>

@@ -25,6 +25,7 @@
 #endif
 
 #include <algorithm>
+#include <cinttypes>
 #include <cstddef>
 #include <iostream>
 #include <new>
@@ -105,9 +106,14 @@ void infer_kernel_cpu(forest_t const& forest,
    * Throw an error for large inputs that would cause integer overflow.
    * TODO(hcho3): Support large inputs via streaming
    **/
-  index_type max_num_row = std::numeric_limits<index_type>::max() / (num_outputs * num_grove) - 3;
-  ASSERT(
-    row_count <= max_num_row, "Input size too large! Input should be at most %u.", max_num_row);
+  {
+    uint64_t max_num_row = static_cast<uint64_t>(std::numeric_limits<index_type>::max()) /
+                             (static_cast<uint64_t>(num_outputs) * num_grove) -
+                           3;
+    ASSERT(row_count <= max_num_row,
+           "Input size too large! Input should be at most %" PRIu64 ".",
+           max_num_row);
+  }
 
 #pragma omp parallel num_threads(std::min(index_type(omp_get_max_threads()), task_count))
   {
