@@ -16,7 +16,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -49,9 +49,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     ) except +
 
 
-class KNeighborsClassifier(ClassifierMixin,
-                           FMajorInputTagMixin,
-                           NearestNeighbors):
+class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
     """
     K-Nearest Neighbors Classifier is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
