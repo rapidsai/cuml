@@ -1172,13 +1172,29 @@ class NearestNeighbors(NeighborsBase):
     def __init__(
         self,
         *,
+        n_neighbors=5,
         radius=1.0,
+        algorithm="auto",
+        metric="euclidean",
+        p=2,
+        algo_params=None,
+        metric_params=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
         self.radius = radius
-        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
+        super().__init__(
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            metric=metric,
+            p=p,
+            algo_params=algo_params,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            verbose=verbose,
+            output_type=output_type
+        )
 
     @classmethod
     def _get_param_names(cls):
