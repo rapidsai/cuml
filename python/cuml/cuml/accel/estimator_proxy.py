@@ -285,7 +285,22 @@ class ProxyBase(BaseEstimator):
 
         if method in ("transform", "fit_transform"):
             # Ensure transform result is properly wrapped for `set_output`
-            out = _wrap_data_with_container("transform", out, args[0], self)
+            try:
+                out = _wrap_data_with_container(
+                    "transform", out, args[0], self
+                )
+            except TypeError as error:
+                if (
+                    "Implicit conversion to a NumPy array is not allowed."
+                    in str(error)
+                ):
+                    # XXX: We need to fallback to host conversion because the
+                    # transform result needs to be wrapped in a container.
+                    out = _wrap_data_with_container(
+                        "transform", out.get(), args[0], self
+                    )
+                else:
+                    raise error
 
         return self if out is self._gpu else out
 
