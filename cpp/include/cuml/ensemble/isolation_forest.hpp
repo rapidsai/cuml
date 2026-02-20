@@ -8,6 +8,8 @@
 #include <cuml/common/logger.hpp>
 #include <rmm/device_buffer.hpp>
 
+#include <vector>
+
 namespace raft {
 class handle_t;
 }
@@ -36,6 +38,40 @@ struct IsolationForestModel {
 
 typedef IsolationForestModel<float> IsolationForestF;
 typedef IsolationForestModel<double> IsolationForestD;
+
+/**
+ * @brief Compact node representation (matches internal IFNode layout).
+ *
+ * Internal nodes: feature_idx >= 0, threshold is split value
+ * Leaf nodes: feature_idx = -1, threshold stores pre-computed path length
+ */
+struct IFNodeCompact {
+  int feature_idx;
+  float threshold;
+  int left_child;
+  int right_child;
+};
+
+/**
+ * @brief Compact tree data returned by get_compact_trees().
+ * Contains all used nodes concatenated, with per-tree metadata.
+ */
+struct CompactIFForest {
+  std::vector<IFNodeCompact> nodes;   ///< All used nodes, trees concatenated
+  std::vector<int> tree_offsets;      ///< Start index in nodes[] for each tree
+  std::vector<int> tree_n_nodes;      ///< Number of nodes per tree
+  std::vector<int> tree_max_depth;    ///< Max depth per tree
+};
+
+/**
+ * @brief Extract compact tree data from a trained model for export.
+ *
+ * Efficiently copies only the used nodes (~400 KB for 100 trees)
+ * instead of the full padded storage (~200 MB).
+ */
+template <typename T>
+CompactIFForest get_compact_trees(const raft::handle_t& handle,
+                                  const IsolationForestModel<T>* model);
 
 /** @brief Compute c(n) = 2H(n-1) - 2(n-1)/n normalization constant. */
 template <typename T>

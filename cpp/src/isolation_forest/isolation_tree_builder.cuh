@@ -329,5 +329,114 @@ void build_isolation_forest(
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 
+// ── Tree compaction: extract only used nodes for efficient D2H transfer ──────
+
+/**
+ * @brief Extract per-tree metadata (n_nodes, max_depth) from the padded
+ * IFTree structs. One thread per tree.
+ */
+template <typename T>
+__global__ void extract_tree_metadata_kernel(
+    const IFTree<T>* __restrict__ trees,
+    int n_trees,
+    int* __restrict__ n_nodes_out,
+    int* __restrict__ max_depth_out)
+{
+  int t = blockIdx.x * blockDim.x + threadIdx.x;
+  if (t >= n_trees) return;
+  n_nodes_out[t]  = trees[t].n_nodes;
+  max_depth_out[t] = trees[t].max_depth;
+}
+
+/**
+ * @brief Copy each tree's used nodes into a contiguous output buffer.
+ * One block per tree, threads cooperate on the copy.
+ */
+template <typename T>
+__global__ void compact_trees_kernel(
+    const IFTree<T>* __restrict__ trees,
+    int n_trees,
+    const int* __restrict__ offsets,
+    IFNode* __restrict__ compact_nodes)
+{
+  int tree_id = blockIdx.x;
+  if (tree_id >= n_trees) return;
+  int n = trees[tree_id].n_nodes;
+  int off = offsets[tree_id];
+  for (int i = threadIdx.x; i < n; i += blockDim.x) {
+    compact_nodes[off + i] = trees[tree_id].nodes[i];
+  }
+}
+
+/**
+ * @brief Compact an isolation forest from padded IFTree structs into
+ * host-side vectors, minimizing the device-to-host transfer.
+ *
+ * Typical transfer: ~400 KB (100 trees × 255 nodes × 16B) instead of
+ * ~200 MB (100 trees × 131K nodes × 16B).
+ *
+ * @param[in]  handle          RAFT handle
+ * @param[in]  d_trees         Device pointer to padded IFTree<T> array
+ * @param[in]  n_trees         Number of trees
+ * @param[out] h_nodes         All used nodes concatenated (host)
+ * @param[out] h_tree_offsets  Start offset in h_nodes for each tree (host)
+ * @param[out] h_tree_n_nodes  Node count per tree (host)
+ * @param[out] h_tree_max_depth Max depth per tree (host)
+ */
+template <typename T>
+void compact_isolation_forest(
+    const raft::handle_t& handle,
+    const IFTree<T>* d_trees,
+    int n_trees,
+    std::vector<IFNode>& h_nodes,
+    std::vector<int>& h_tree_offsets,
+    std::vector<int>& h_tree_n_nodes,
+    std::vector<int>& h_tree_max_depth)
+{
+  auto stream = handle.get_stream();
+
+  // 1. Extract metadata from padded structs
+  rmm::device_uvector<int> d_n_nodes(n_trees, stream);
+  rmm::device_uvector<int> d_max_depth(n_trees, stream);
+
+  int threads = 128;
+  int blocks  = (n_trees + threads - 1) / threads;
+  extract_tree_metadata_kernel<T><<<blocks, threads, 0, stream>>>(
+      d_trees, n_trees, d_n_nodes.data(), d_max_depth.data());
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  // 2. Copy metadata to host and compute prefix-sum offsets
+  h_tree_n_nodes.resize(n_trees);
+  h_tree_max_depth.resize(n_trees);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(h_tree_n_nodes.data(), d_n_nodes.data(),
+                                  n_trees * sizeof(int), cudaMemcpyDeviceToHost, stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(h_tree_max_depth.data(), d_max_depth.data(),
+                                  n_trees * sizeof(int), cudaMemcpyDeviceToHost, stream));
+  handle.sync_stream(stream);
+
+  h_tree_offsets.resize(n_trees);
+  int total_nodes = 0;
+  for (int t = 0; t < n_trees; ++t) {
+    h_tree_offsets[t] = total_nodes;
+    total_nodes += h_tree_n_nodes[t];
+  }
+
+  // 3. Compact nodes on device using the offsets
+  rmm::device_uvector<int> d_offsets(n_trees, stream);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(d_offsets.data(), h_tree_offsets.data(),
+                                  n_trees * sizeof(int), cudaMemcpyHostToDevice, stream));
+
+  rmm::device_uvector<IFNode> d_compact(total_nodes, stream);
+  compact_trees_kernel<T><<<n_trees, 128, 0, stream>>>(
+      d_trees, n_trees, d_offsets.data(), d_compact.data());
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  // 4. Single compact D2H copy
+  h_nodes.resize(total_nodes);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(h_nodes.data(), d_compact.data(),
+                                  total_nodes * sizeof(IFNode), cudaMemcpyDeviceToHost, stream));
+  handle.sync_stream(stream);
+}
+
 }  // namespace IsolationTree
 }  // namespace ML
