@@ -1611,6 +1611,9 @@
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-random-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-random-exact]"
+- reason: Pipeline precomputed path falls back to CPU while compact path uses GPU, which won't have exact label matches
+  tests:
+  - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_clustering"
 - reason: Ridge doesn't implement n_iter yet
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_n_iter"
@@ -1652,6 +1655,9 @@
 - reason: The sklearn test has the error message accidentally flipped, our message is correct
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
+- reason: cuML SpectralClustering does not emit "not fully connected" UserWarning
+  tests:
+  - "sklearn.cluster.tests.test_spectral::test_affinities[42]"
 - reason: cuML TSNE barnes_hut produces poor quality embeddings with sparse input
   condition: scikit-learn>=1.8
   tests:
