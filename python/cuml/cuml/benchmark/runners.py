@@ -8,11 +8,16 @@ import itertools
 import time
 import warnings
 
+import datagen
 import numpy as np
 import pandas as pd
-from cudf import Series
+from gpu_check import HAS_CUML, is_gpu_available
 
-from cuml.benchmark import datagen
+# Conditional GPU imports
+cudf_Series = None
+
+if HAS_CUML:
+    from cudf import Series as cudf_Series
 
 
 class BenchmarkTimer:
@@ -41,7 +46,10 @@ class BenchmarkTimer:
 
 class SpeedupComparisonRunner:
     """Wrapper to run an algorithm with multiple dataset sizes
-    and compute speedup of cuml relative to sklearn baseline."""
+    and compute speedup of cuml relative to sklearn baseline.
+
+    In CPU-only mode, only runs CPU benchmarks.
+    """
 
     def __init__(
         self,
@@ -68,6 +76,7 @@ class SpeedupComparisonRunner:
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
+        run_cuml=True,
         verbose=False,
     ):
         data = datagen.gen_data(
@@ -79,20 +88,31 @@ class SpeedupComparisonRunner:
             **dataset_param_overrides,
         )
 
-        setup_overrides = algo_pair.setup_cuml(
-            data, **param_overrides, **cuml_param_overrides
-        )
-        cuml_timer = BenchmarkTimer(self.n_reps)
-        for rep in cuml_timer.benchmark_runs():
-            algo_pair.run_cuml(
-                data,
-                **param_overrides,
-                **cuml_param_overrides,
-                **setup_overrides,
-            )
-        cu_elapsed = np.min(cuml_timer.timings)
+        cu_elapsed = 0.0
+        cpu_elapsed = 0.0
 
-        if run_cpu and algo_pair.cpu_class is not None:
+        # Run cuML benchmark if GPU available and algorithm has cuML implementation
+        if run_cuml and is_gpu_available() and algo_pair.has_cuml():
+            setup_overrides = algo_pair.setup_cuml(
+                data, **param_overrides, **cuml_param_overrides
+            )
+            cuml_timer = BenchmarkTimer(self.n_reps)
+            for rep in cuml_timer.benchmark_runs():
+                algo_pair.run_cuml(
+                    data,
+                    **param_overrides,
+                    **cuml_param_overrides,
+                    **setup_overrides,
+                )
+            cu_elapsed = np.min(cuml_timer.timings)
+        elif run_cuml and not is_gpu_available():
+            if verbose:
+                warnings.warn(
+                    f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
+                )
+
+        # Run CPU benchmark
+        if run_cpu and algo_pair.has_cpu():
             setup_overrides = algo_pair.setup_cpu(
                 data, **param_overrides, **cpu_param_overrides
             )
@@ -106,19 +126,28 @@ class SpeedupComparisonRunner:
                     **setup_overrides,
                 )
             cpu_elapsed = np.min(cpu_timer.timings)
+        elif run_cpu and not algo_pair.has_cpu():
+            warnings.warn(
+                "run_cpu argument is set to True but no CPU "
+                "implementation was provided. It's possible "
+                "an additional library is needed but one could "
+                "not be found. Benchmark will be executed with "
+                "run_cpu=False"
+            )
+            warnings.warn(
+                f"Skipping CPU benchmark for {algo_pair.name} (missing CPU library)"
+            )
+
+        # Calculate speedup only when both GPU and CPU runs were executed
+        ran_cuml = run_cuml and is_gpu_available() and algo_pair.has_cuml()
+        ran_cpu = run_cpu and algo_pair.has_cpu()
+        if ran_cuml and ran_cpu:
+            if cu_elapsed > 0:
+                speedup = cpu_elapsed / float(cu_elapsed)
+            else:
+                speedup = float("inf")
         else:
-            if run_cpu:
-                warnings.warn(
-                    "run_cpu argument is set to True but no CPU "
-                    "implementation was provided. It's possible "
-                    "an additional library is needed but one could "
-                    "not be found. Benchmark will be executed with "
-                    "run_cpu=False"
-                )
-
-            cpu_elapsed = 0.0
-
-        speedup = cpu_elapsed / float(cu_elapsed)
+            speedup = float("nan")
         if verbose:
             print(
                 "%s (n_samples=%s, n_features=%s) [cpu=%s, gpu=%s, speedup=%s]"
@@ -162,6 +191,7 @@ class SpeedupComparisonRunner:
         dtype=np.float32,
         *,
         run_cpu=True,
+        run_cuml=True,
         raise_on_error=False,
         verbose=False,
     ):
@@ -180,6 +210,7 @@ class SpeedupComparisonRunner:
                             dataset_param_overrides=dataset_param_overrides,
                             dtype=dtype,
                             run_cpu=run_cpu,
+                            run_cuml=run_cuml,
                             verbose=verbose,
                         )
                     )
@@ -197,7 +228,10 @@ class SpeedupComparisonRunner:
 class AccuracyComparisonRunner(SpeedupComparisonRunner):
     """Wrapper to run an algorithm with multiple dataset sizes
     and compute accuracy and speedup of cuml relative to sklearn
-    baseline."""
+    baseline.
+
+    In CPU-only mode, only runs CPU benchmarks.
+    """
 
     def __init__(
         self,
@@ -224,6 +258,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
         dataset_param_overrides={},
         dtype=np.float32,
         run_cpu=True,
+        run_cuml=True,
         verbose=False,
     ):
         data = datagen.gen_data(
@@ -236,40 +271,54 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             **dataset_param_overrides,
         )
 
-        setup_override = algo_pair.setup_cuml(
-            data, **{**param_overrides, **cuml_param_overrides}
-        )
-
-        cuml_timer = BenchmarkTimer(self.n_reps)
-        for _ in cuml_timer.benchmark_runs():
-            cuml_model = algo_pair.run_cuml(
-                data,
-                **{
-                    **param_overrides,
-                    **cuml_param_overrides,
-                    **setup_override,
-                },
-            )
-        cu_elapsed = np.min(cuml_timer.timings)
-
-        if algo_pair.accuracy_function:
-            if algo_pair.cuml_data_prep_hook is not None:
-                X_test, y_test = algo_pair.cuml_data_prep_hook(data[2:])
-            else:
-                X_test, y_test = data[2:]
-
-            if hasattr(cuml_model, "predict"):
-                y_pred_cuml = cuml_model.predict(X_test)
-            else:
-                y_pred_cuml = cuml_model.transform(X_test)
-            if isinstance(y_pred_cuml, Series):
-                y_pred_cuml = y_pred_cuml.to_numpy()
-            cuml_accuracy = algo_pair.accuracy_function(y_test, y_pred_cuml)
-        else:
-            cuml_accuracy = 0.0
-
+        cu_elapsed = 0.0
+        cuml_accuracy = 0.0
+        cpu_elapsed = 0.0
         cpu_accuracy = 0.0
-        if run_cpu and algo_pair.cpu_class is not None:
+
+        # Run cuML benchmark if GPU available and algorithm has cuML implementation
+        if run_cuml and is_gpu_available() and algo_pair.has_cuml():
+            setup_override = algo_pair.setup_cuml(
+                data, **{**param_overrides, **cuml_param_overrides}
+            )
+
+            cuml_timer = BenchmarkTimer(self.n_reps)
+            for _ in cuml_timer.benchmark_runs():
+                cuml_model = algo_pair.run_cuml(
+                    data,
+                    **{
+                        **param_overrides,
+                        **cuml_param_overrides,
+                        **setup_override,
+                    },
+                )
+            cu_elapsed = np.min(cuml_timer.timings)
+
+            if algo_pair.accuracy_function:
+                if algo_pair.cuml_data_prep_hook is not None:
+                    X_test, y_test = algo_pair.cuml_data_prep_hook(data[2:])
+                else:
+                    X_test, y_test = data[2:]
+
+                if hasattr(cuml_model, "predict"):
+                    y_pred_cuml = cuml_model.predict(X_test)
+                else:
+                    y_pred_cuml = cuml_model.transform(X_test)
+
+                # Handle cudf Series conversion
+                if HAS_CUML and isinstance(y_pred_cuml, cudf_Series):
+                    y_pred_cuml = y_pred_cuml.to_numpy()
+                cuml_accuracy = algo_pair.accuracy_function(
+                    y_test, y_pred_cuml
+                )
+        elif run_cuml and not is_gpu_available():
+            if verbose:
+                warnings.warn(
+                    f"Skipping cuML benchmark for {algo_pair.name} (GPU not available)"
+                )
+
+        # Run CPU benchmark
+        if run_cpu and algo_pair.has_cpu():
             setup_override = algo_pair.setup_cpu(
                 data, **param_overrides, **cpu_param_overrides
             )
@@ -294,8 +343,6 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 cpu_accuracy = algo_pair.accuracy_function(
                     y_test, np.asarray(y_pred_cpu)
                 )
-        else:
-            cpu_elapsed = 0.0
 
         if n_samples == 0:
             # Update n_samples = training samples + testing samples
@@ -305,12 +352,23 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             # Update n_features
             n_features = data[0].shape[1]
 
+        # Calculate speedup only when both GPU and CPU runs were executed
+        ran_cuml = run_cuml and is_gpu_available() and algo_pair.has_cuml()
+        ran_cpu = run_cpu and algo_pair.has_cpu()
+        if ran_cuml and ran_cpu:
+            if cu_elapsed > 0:
+                speedup = cpu_elapsed / float(cu_elapsed)
+            else:
+                speedup = float("inf")
+        else:
+            speedup = float("nan")
+
         return dict(
             cuml_time=cu_elapsed,
             cpu_time=cpu_elapsed,
             cuml_acc=cuml_accuracy,
             cpu_acc=cpu_accuracy,
-            speedup=cpu_elapsed / float(cu_elapsed),
+            speedup=speedup,
             n_samples=n_samples,
             n_features=n_features,
             **param_overrides,
@@ -333,6 +391,7 @@ def run_variations(
     input_type="numpy",
     test_fraction=0.1,
     run_cpu=True,
+    run_cuml=True,
     raise_on_error=False,
     n_reps=1,
 ):
@@ -366,7 +425,15 @@ def run_variations(
       The fraction of data to use for testing.
     run_cpu : boolean
       If True, run the cpu-based algorithm for comparison
+    run_cuml : boolean
+      If True, run the cuml-based algorithm (requires GPU)
     """
+    # Check GPU availability
+    gpu_available = is_gpu_available()
+    if not gpu_available:
+        print("Note: Running in CPU-only mode (GPU not available)")
+        run_cuml = False
+
     print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
         bench_rows,
@@ -398,6 +465,7 @@ def run_variations(
                 dataset_param_overrides=dataset_overrides,
                 dtype=dtype,
                 run_cpu=run_cpu,
+                run_cuml=run_cuml,
                 raise_on_error=raise_on_error,
             )
             for r in results:
