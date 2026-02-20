@@ -307,6 +307,7 @@ class KernelDensity(Base, InteropMixin):
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[cp.float32, cp.float64],
+            ensure_2d=True,
         )
 
         if n_rows < 1:

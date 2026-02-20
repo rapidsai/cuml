@@ -229,6 +229,7 @@ class IncrementalPCA(PCA):
                 order="K",
                 convert_to_dtype=(cp.float32 if convert_dtype else None),
                 check_dtype=[cp.float32, cp.float64],
+                ensure_2d=True,
             )
 
         n_samples, n_features = X.shape

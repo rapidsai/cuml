@@ -14,7 +14,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -486,11 +486,13 @@ class PCA(Base,
             X = cupyx.scipy.sparse.coo_matrix(X)
             n_rows, n_cols = X.shape
         else:
-            X, n_rows, n_cols, _ = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
+            X_out = validate_data(
+                self, X,
+                convert_to_dtype=(np.float32 if convert_dtype else False),
                 check_dtype=[np.float32, np.float64],
             )
+            X = X_out.array
+            n_rows, n_cols = X_out.n_rows, X_out.n_cols
 
         self.n_samples_ = n_rows
 
@@ -637,12 +639,12 @@ class PCA(Base,
     def _transform_dense(self, X, convert_dtype=True):
         dtype = self.components_.dtype
 
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
+        X_out = validate_data(
+            self, X, reset=False,
             check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
+            convert_to_dtype=(dtype if convert_dtype else False),
         )
+        X_m, n_rows, n_cols = X_out.array, X_out.n_rows, X_out.n_cols
 
         out = CumlArray.zeros(
             (n_rows, self.n_components_), dtype=dtype, index=X_m.index

@@ -251,6 +251,7 @@ class LedoitWolf(Base, InteropMixin):
             check_dtype=[np.float32, np.float64],
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
+            ensure_2d=True,
         )
 
         if n_samples == 0:

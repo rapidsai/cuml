@@ -4,13 +4,14 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
+from sklearn.utils.validation import check_is_fitted
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import validate_data
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.utils import check_random_seed
@@ -81,6 +82,14 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
+        if X.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
         n_samples, n_features = X.shape
 
         # Prefer float32, unless `convert_dtype=False` and the input is float64
@@ -119,14 +128,17 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
+        check_is_fitted(self)
         # Coerce X to a cupy array or cupyx sparse matrix
         index = None
         if sp.issparse(X):
             X = cp_sp.csr_matrix(X)
         elif not cp_sp.issparse(X):
-            X_m = input_to_cuml_array(
+            X_m = validate_data(
+                self,
                 X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
+                reset=False,
+                convert_to_dtype=(np.float32 if convert_dtype else False),
                 check_dtype=[np.float32, np.float64],
                 order="K",
             ).array

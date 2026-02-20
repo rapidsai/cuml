@@ -6,11 +6,13 @@ import typing
 
 import numpy as np
 
+from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -517,9 +519,8 @@ class KMeans(Base,
 
         """
         # Process input arrays
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-            X,
-            order="C",
+        X_m, n_rows, n_cols, dtype = validate_data(
+            self, X, order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
         )
@@ -635,12 +636,10 @@ class KMeans(Base,
         """
         dtype = self.cluster_centers_.dtype
 
-        X_m, n_rows, _, _ = input_to_cuml_array(
-            X,
-            order="C",
+        X_m, n_rows, _, _ = validate_data(
+            self, X, reset=False, order="C",
             check_dtype=dtype,
             convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
         )
 
         if sample_weight is None:
@@ -681,6 +680,7 @@ class KMeans(Base,
         Predict the closest cluster each sample in X belongs to.
 
         """
+        check_is_fitted(self)
         labels, _ = self._predict_labels_inertia(X, convert_dtype=convert_dtype)
         return labels
 
@@ -694,14 +694,13 @@ class KMeans(Base,
         Transform X to a cluster-distance space.
 
         """
+        check_is_fitted(self)
         dtype = self.cluster_centers_.dtype
 
-        X_m = input_to_cuml_array(
-            X,
-            order="C",
+        X_m = validate_data(
+            self, X, reset=False, order="C",
             check_dtype=dtype,
             convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.cluster_centers_.shape[1],
         ).array
 
         cdef int64_t n_rows = X_m.shape[0]
