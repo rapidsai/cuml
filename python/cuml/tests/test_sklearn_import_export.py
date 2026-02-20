@@ -32,7 +32,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml.cluster import DBSCAN, KMeans
+from cuml.cluster import DBSCAN, KMeans, SpectralClustering
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.linear_model import (
@@ -191,6 +191,23 @@ def test_dbscan(random_state):
     original.fit(X)
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
+    assert array_equal(original.labels_, roundtrip_model.labels_)
+
+
+def test_spectral_clustering(random_state):
+    X, _ = make_blobs(
+        n_samples=100, n_features=10, centers=3, random_state=random_state
+    )
+    X = X.astype(np.float32)
+    original = SpectralClustering(
+        n_clusters=3,
+        affinity="nearest_neighbors",
+        n_neighbors=10,
+        random_state=random_state,
+    )
+    original.fit(X)
+    sklearn_model = original.as_sklearn()
+    roundtrip_model = SpectralClustering.from_sklearn(sklearn_model)
     assert array_equal(original.labels_, roundtrip_model.labels_)
 
 

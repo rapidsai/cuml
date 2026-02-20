@@ -105,6 +105,18 @@ KMeans
 - If a callable ``init`` is provided.
 - If ``X`` is sparse.
 
+SpectralClustering
+^^^^^^^^^^^^^^^^^^
+
+``SpectralClustering`` will fall back to CPU in the following cases:
+
+- If ``assign_labels`` is not ``"kmeans"``.
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+
 DBSCAN
 ^^^^^^
 

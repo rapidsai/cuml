@@ -14,6 +14,13 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnGPU,
+    to_cpu,
+    to_gpu,
+)
+from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -254,7 +261,10 @@ def spectral_clustering(
     return labels
 
 
-class SpectralClustering(Base):
+class SpectralClustering(Base,
+                         InteropMixin,
+                         ClusterMixin,
+                         CMajorInputTagMixin):
     """Apply spectral clustering from the normalized Laplacian.
 
     In practice spectral clustering is very useful when the structure of
@@ -351,6 +361,54 @@ class SpectralClustering(Base):
       https://www1.icsi.berkeley.edu/~stellayu/publication/doc/2003kwayICCV.pdf
     """
     labels_ = CumlArrayDescriptor()
+
+    _cpu_class_path = "sklearn.cluster.SpectralClustering"
+
+    _SUPPORTED_AFFINITIES = frozenset(("nearest_neighbors", "precomputed"))
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if model.affinity not in cls._SUPPORTED_AFFINITIES:
+            raise UnsupportedOnGPU(
+                f"`affinity={model.affinity!r}` is not supported"
+            )
+        if model.assign_labels != "kmeans":
+            raise UnsupportedOnGPU(
+                f"`assign_labels={model.assign_labels!r}` is not supported"
+            )
+        return {
+            "n_clusters": model.n_clusters,
+            "n_components": model.n_components,
+            "random_state": model.random_state,
+            "n_neighbors": model.n_neighbors,
+            "n_init": model.n_init,
+            "eigen_tol": model.eigen_tol,
+            "affinity": model.affinity,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "n_clusters": self.n_clusters,
+            "n_components": self.n_components,
+            "random_state": self.random_state,
+            "n_neighbors": self.n_neighbors,
+            "n_init": self.n_init,
+            "eigen_tol": self.eigen_tol,
+            "affinity": self.affinity,
+            "assign_labels": "kmeans",
+        }
+
+    def _attrs_from_cpu(self, model):
+        return {
+            "labels_": to_gpu(model.labels_, order="C"),
+            **super()._attrs_from_cpu(model),
+        }
+
+    def _attrs_to_cpu(self, model):
+        return {
+            "labels_": to_cpu(self.labels_, order="C"),
+            **super()._attrs_to_cpu(model),
+        }
 
     def __init__(
         self,

@@ -406,6 +406,7 @@
   - "sklearn.tests.test_multioutput::test_multi_target_sparse_regression[lil_matrix]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.dbscan-sklearn.cluster.DBSCAN]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.k_means-sklearn.cluster.KMeans]"
+  - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.spectral_clustering-sklearn.cluster.SpectralClustering]"
   - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.covariance.ledoit_wolf-sklearn.covariance.LedoitWolf]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_dataframe_column_names_consistency"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
@@ -1610,6 +1611,9 @@
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-random-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-random-exact]"
+- reason: Pipeline precomputed path falls back to CPU while compact path uses GPU, which won't have exact label matches
+  tests:
+  - "sklearn.neighbors.tests.test_neighbors_pipeline::test_spectral_clustering"
 - reason: Ridge doesn't implement n_iter yet
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_n_iter"
@@ -1651,6 +1655,9 @@
 - reason: The sklearn test has the error message accidentally flipped, our message is correct
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
+- reason: cuML SpectralClustering does not emit "not fully connected" UserWarning
+  tests:
+  - "sklearn.cluster.tests.test_spectral::test_affinities[42]"
 - reason: cuML TSNE barnes_hut produces poor quality embeddings with sparse input
   condition: scikit-learn>=1.8
   tests:
