@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tsvd.cuh"
-
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
@@ -16,6 +14,7 @@
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/tsvd.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -52,10 +51,25 @@ void fit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> components_all(len, streams[0]);
   rmm::device_uvector<T> explained_var_all(prms.n_cols, streams[0]);
 
-  ML::calEig(handle, cov.ptr, components_all.data(), explained_var_all.data(), prms, streams[0]);
+  raft::linalg::paramsTSVD raft_prms;
+  raft_prms.n_rows       = prms.n_rows;
+  raft_prms.n_cols       = prms.n_cols;
+  raft_prms.n_components = prms.n_components;
+  raft_prms.algorithm    = prms.algorithm;
+  raft_prms.tol          = prms.tol;
+  raft_prms.n_iterations = prms.n_iterations;
 
   raft::resources handle_stream_zero;
   raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+
+  raft::linalg::cal_eig(
+    handle_stream_zero,
+    raft_prms,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      cov.ptr, prms.n_cols, prms.n_cols),
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components_all.data(), prms.n_cols, prms.n_cols),
+    raft::make_device_vector_view<T, std::size_t>(explained_var_all.data(), prms.n_cols));
   raft::matrix::trunc_zero_origin(
     handle_stream_zero,
     raft::make_device_matrix_view<const T, std::size_t, raft::col_major>(
@@ -83,15 +97,14 @@ void fit_impl(raft::handle_t& handle,
                                      n_streams,
                                      false);
   } else {
-    signFlipComponents(handle,
-                       input_data[0]->ptr,
-                       components,
-                       prms.n_rows,
-                       prms.n_cols,
-                       prms.n_components,
-                       streams[0],
-                       false,
-                       false);
+    raft::linalg::sign_flip_components(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+        input_data[0]->ptr, prms.n_rows, prms.n_cols),
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+        components, prms.n_components, prms.n_cols),
+      false,
+      false);
   }
 }
 
