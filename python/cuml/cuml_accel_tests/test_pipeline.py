@@ -1,10 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupy as cp
 import pytest
 import scipy as sp
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
@@ -22,7 +24,47 @@ from sklearn.neighbors import (
     NearestNeighbors,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
 from umap import UMAP
+
+
+class _PassthroughTransformer(BaseEstimator, TransformerMixin):
+    """Identity transformer; used with _spy_on_transform to inspect pipeline data flow."""
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        return X
+
+    def fit_transform(self, X, y=None):
+        return X
+
+
+def _spy_on_transform(monkeypatch, estimator, received=None):
+    """Patch the estimator's class to record the type of X passed to transform.
+
+    Patches the class so that when the pipeline clones the step, the clone still
+    uses the spy and receives the correct `self`.
+    """
+    if received is None:
+        received = {}
+    cls = type(estimator)
+    orig_transform = cls.transform
+    orig_fit_transform = getattr(cls, "fit_transform", None)
+
+    def spied_transform(self, X, *args, **kwargs):
+        received["X_type"] = type(X)
+        return orig_transform(self, X, *args, **kwargs)
+
+    def spied_fit_transform(self, X, y=None, *args, **kwargs):
+        received["X_type"] = type(X)
+        return orig_fit_transform(self, X, y, *args, **kwargs)
+
+    monkeypatch.setattr(cls, "transform", spied_transform)
+    if orig_fit_transform is not None:
+        monkeypatch.setattr(cls, "fit_transform", spied_fit_transform)
+    return estimator
 
 
 @pytest.fixture
@@ -129,6 +171,42 @@ def test_umap_with_logistic_regression(classification_data):
     # Fit and predict
     pipeline.fit(X_train, y_train)
     pipeline.predict(X_test)
+
+
+def test_pipeline_intermediate_data_stays_on_device(monkeypatch):
+    """Between consecutive accelerated steps, data must stay on GPU (cupy)."""
+    X, y = make_regression(
+        n_samples=100, n_features=20, noise=0.1, random_state=42
+    )
+    received = {}
+    pca = _spy_on_transform(monkeypatch, PCA(n_components=5), received)
+    pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("pca", pca),
+            ("regressor", LinearRegression()),
+        ]
+    )
+    pipeline.fit(X, y)
+    assert received.get("X_type") is cp.ndarray
+
+
+def test_pipeline_non_accelerated_step_receives_numpy(monkeypatch):
+    """Non-accelerated step after an accelerated step should receive numpy."""
+    X, _ = make_regression(
+        n_samples=100, n_features=20, noise=0.1, random_state=42
+    )
+    received = {}
+    check = _spy_on_transform(monkeypatch, _PassthroughTransformer(), received)
+    pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("check", check),
+            ("pca", PCA(n_components=5)),
+        ]
+    )
+    pipeline.fit_transform(X)
+    assert received.get("X_type") is not cp.ndarray
 
 
 def test_automatic_step_naming():

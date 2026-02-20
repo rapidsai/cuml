@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import functools
+import inspect
 from typing import Any
 
 import sklearn
@@ -13,7 +14,9 @@ from sklearn.base import (
     ClassNamePrefixFeaturesOutMixin,
     OneToOneFeatureMixin,
 )
+from sklearn.utils._available_if import _AvailableIfDescriptor
 from sklearn.utils._set_output import _wrap_data_with_container
+from sklearn.utils.metaestimators import available_if
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
@@ -182,9 +185,31 @@ class ProxyBase(BaseEstimator):
 
             return method
 
+        def _make_conditional_method(name, descriptor):
+            def check(self):
+                try:
+                    descriptor._check(self._cpu, owner=type(self._cpu))
+                except AttributeError as e:
+                    cause = e.__cause__ if e.__cause__ is not None else e
+                    raise cause
+                return True
+
+            @available_if(check)
+            @functools.wraps(descriptor.fn)
+            def method(self, *args, **kwargs):
+                return self._call_method(name, *args, **kwargs)
+
+            return method
+
         for name in methods:
             if not hasattr(cls, name):
-                setattr(cls, name, _make_method(name))
+                raw_attr = inspect.getattr_static(cls._cpu_class, name)
+                if isinstance(raw_attr, _AvailableIfDescriptor):
+                    setattr(
+                        cls, name, _make_conditional_method(name, raw_attr)
+                    )
+                else:
+                    setattr(cls, name, _make_method(name))
 
     def _sync_params_to_gpu(self) -> None:
         """Sync hyperparameters to GPU estimator from CPU estimator.
@@ -260,7 +285,22 @@ class ProxyBase(BaseEstimator):
 
         if method in ("transform", "fit_transform"):
             # Ensure transform result is properly wrapped for `set_output`
-            out = _wrap_data_with_container("transform", out, args[0], self)
+            try:
+                out = _wrap_data_with_container(
+                    "transform", out, args[0], self
+                )
+            except TypeError as error:
+                if (
+                    "Implicit conversion to a NumPy array is not allowed."
+                    in str(error)
+                ):
+                    # XXX: We need to fallback to host conversion because the
+                    # transform result needs to be wrapped in a container.
+                    out = _wrap_data_with_container(
+                        "transform", out.get(), args[0], self
+                    )
+                else:
+                    raise error
 
         return self if out is self._gpu else out
 

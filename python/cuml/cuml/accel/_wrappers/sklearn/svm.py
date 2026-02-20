@@ -1,11 +1,7 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
-import functools
-
 import numpy as np
-from sklearn.svm import SVC as _SVC
-from sklearn.utils.metaestimators import available_if
 
 import cuml.svm
 from cuml.accel.estimator_proxy import ProxyBase
@@ -17,14 +13,6 @@ __all__ = (
     "LinearSVC",
     "LinearSVR",
 )
-
-
-def _has_probability(model):
-    if not model.probability:
-        raise AttributeError(
-            "predict_proba is not available when probability=False"
-        )
-    return True
 
 
 class SVC(ProxyBase):
@@ -53,19 +41,6 @@ class SVC(ProxyBase):
     def _gpu_decision_function(self, X):
         # Fixup returned dtype
         return self._gpu.decision_function(X).astype("float64", copy=False)
-
-    # XXX: sklearn wants these methods to only exist if probability=True.
-    # ProxyBase lacks a builtin mechanism to do that, since this is the only
-    # use case so far we manually define them for now.
-    @available_if(_has_probability)
-    @functools.wraps(_SVC.predict_proba)
-    def predict_proba(self, X):
-        return self._call_method("predict_proba", X)
-
-    @available_if(_has_probability)
-    @functools.wraps(_SVC.predict_log_proba)
-    def predict_log_proba(self, X):
-        return self._call_method("predict_log_proba", X)
 
 
 class SVR(ProxyBase):

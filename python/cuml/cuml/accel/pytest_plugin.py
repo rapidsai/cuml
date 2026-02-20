@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -42,6 +42,50 @@ def pytest_load_initial_conftests(early_config, parser, args):
         raise RuntimeError(
             "An existing plugin has already loaded sklearn. Interposing failed."
         )
+
+    # So sklearn test discovery uses INIT_PARAMS for estimators that need
+    # constructor args (e.g. Pipeline(steps=...)). INIT_PARAMS is keyed by
+    # the class at import time. With accel, all_estimators() yields proxy
+    # classes, so "Estimator in INIT_PARAMS" can be False (key was the
+    # pre-patch class). Patch _construct_instances to look up by _cpu_class
+    # when the estimator is a proxy, so we use the same param sets and never
+    # call e.g. Pipeline() with no args.
+    _patch_sklearn_test_construct_instances()
+
+
+def _patch_sklearn_test_construct_instances():
+    """Patch sklearn's _construct_instances so INIT_PARAMS lookup works for proxy classes."""
+    try:
+        from sklearn.utils._test_common import instance_generator
+    except ImportError:
+        return
+
+    init_params = instance_generator.INIT_PARAMS
+    skipped = instance_generator.SKIPPED_ESTIMATORS
+
+    def _construct_instances(Estimator):
+        if Estimator in skipped:
+            msg = f"Can't instantiate estimator {Estimator.__name__}"
+            from sklearn.exceptions import SkipTestWarning
+            from sklearn.utils._testing import SkipTest
+
+            warnings.warn(msg, SkipTestWarning)
+            raise SkipTest(msg)
+        key = (
+            Estimator
+            if Estimator in init_params
+            else getattr(Estimator, "_cpu_class", None)
+        )
+        if key is not None and key in init_params:
+            param_sets = init_params[key]
+            if not isinstance(param_sets, list):
+                param_sets = [param_sets]
+            for params in param_sets:
+                yield Estimator(**params)
+        else:
+            yield Estimator()
+
+    instance_generator._construct_instances = _construct_instances
 
 
 def pytest_addoption(parser):
