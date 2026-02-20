@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from collections.abc import Sequence
@@ -54,7 +54,7 @@ class LabelEncoder(
         >>> # There are two functionally equivalent ways to do this
         >>> le = LabelEncoder()
         >>> le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
-        <cuml.dask.preprocessing.LabelEncoder.LabelEncoder object at 0x...>
+        <cuml.dask.preprocessing.labelencoder.LabelEncoder object at 0x...>
         >>> encoded = le.transform(ddf.cat_col)
         >>> print(encoded.compute())
         0    0

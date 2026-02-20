@@ -60,7 +60,7 @@ from cuml.neighbors.kernel_density import KernelDensity
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing.labelencoder import LabelEncoder
 from cuml.random_projection.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,

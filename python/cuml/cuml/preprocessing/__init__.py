@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml._thirdparty.sklearn.preprocessing import (
@@ -31,8 +31,8 @@ from cuml.model_selection import train_test_split
 from cuml.preprocessing import text
 from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
 from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cuml.preprocessing.TargetEncoder import TargetEncoder
+from cuml.preprocessing.labelencoder import LabelEncoder
+from cuml.preprocessing.targetencoder import TargetEncoder
 
 __all__ = [
     # Classes
