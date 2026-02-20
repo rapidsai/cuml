@@ -9,6 +9,8 @@
  * - Subsamples gathered into contiguous buffer to avoid scattered reads
  * - Tree built iteratively using a stack (no recursion in CUDA)
  * - Random splits: pick random feature, then random threshold in [min, max]
+ * - Leaf nodes store pre-computed path lengths (depth + c(n)) so that
+ *   inference is a simple tree traversal with no per-leaf computation
  */
 
 #pragma once
@@ -31,9 +33,22 @@ constexpr int MAX_DEPTH = 16;  // Supports up to 2^16 = 65536 samples per tree
 constexpr int MAX_NODES = (1 << (MAX_DEPTH + 1)) - 1;  // Complete binary tree nodes
 
 /**
+ * @brief Compute c(n) = 2H(n-1) - 2(n-1)/n, the expected path length in an
+ * unsuccessful BST search (used for adjusting isolation depth at leaves).
+ */
+__device__ __forceinline__ float compute_c_n(int n_samples)
+{
+  if (n_samples <= 1) return 0.0f;
+  if (n_samples == 2) return 1.0f;
+  float n = static_cast<float>(n_samples);
+  return 2.0f * (logf(n - 1.0f) + 0.5772156649f) - 2.0f * (n - 1.0f) / n;
+}
+
+/**
  * @brief Tree node structure.
  * Internal nodes: feature_idx >= 0, threshold is split value
- * Leaf nodes: feature_idx = -1, threshold stores sample count (for c(n) adjustment)
+ * Leaf nodes: feature_idx = -1, threshold stores pre-computed path length
+ *             (depth + c(n_samples)) for direct use by inference
  */
 struct IFNode {
   int feature_idx;
@@ -115,7 +130,8 @@ __device__ void build_tree_iterative_local(
       
       // Stopping condition: max depth or isolated sample
       if (depth >= max_depth || n_node_samples <= 1) {
-        tree->nodes[node_idx] = {-1, static_cast<float>(n_node_samples), -1, -1};
+        float path_length = static_cast<float>(depth) + compute_c_n(n_node_samples);
+        tree->nodes[node_idx] = {-1, path_length, -1, -1};
         continue;
       }
       
@@ -132,7 +148,8 @@ __device__ void build_tree_iterative_local(
       
       // All values identical -> can't split, make leaf
       if (min_val >= max_val) {
-        tree->nodes[node_idx] = {-1, static_cast<float>(n_node_samples), -1, -1};
+        float path_length = static_cast<float>(depth) + compute_c_n(n_node_samples);
+        tree->nodes[node_idx] = {-1, path_length, -1, -1};
         continue;
       }
       
@@ -228,35 +245,25 @@ __global__ void build_isolation_trees_kernel(
 }
 
 /**
- * @brief Traverse tree to compute path length for one sample.
- * 
- * Path length = depth + c(n) adjustment for leaf's remaining samples.
- * c(n) accounts for expected additional depth if tree were fully grown.
+ * @brief Traverse tree to get path length for one sample.
+ *
+ * Leaf nodes store pre-computed path lengths (depth + c(n)), so traversal
+ * simply walks to the leaf and returns the stored value.
  */
 template <typename T>
 __device__ T traverse_tree(const IFTree<T>* tree, const T* sample, int n_cols)
 {
   int node_idx = 0;
-  int depth = 0;
   
   while (true) {
     const IFNode& node = tree->nodes[node_idx];
     
     if (node.feature_idx < 0) {
-      // Leaf: add c(n) for unbuilt subtree
-      int n_samples = static_cast<int>(node.threshold);
-      T c_n = T(0);
-      if (n_samples > 1) {
-        // c(n) = 2*H(n-1) - 2*(n-1)/n, H(k) ≈ ln(k) + γ
-        T n = static_cast<T>(n_samples);
-        c_n = T(2) * (log(n - T(1)) + T(0.5772156649)) - T(2) * (n - T(1)) / n;
-      }
-      return static_cast<T>(depth) + c_n;
+      return static_cast<T>(node.threshold);
     }
     
     T val = sample[node.feature_idx];
     node_idx = (val < static_cast<T>(node.threshold)) ? node.left_child : node.right_child;
-    depth++;
   }
 }
 
