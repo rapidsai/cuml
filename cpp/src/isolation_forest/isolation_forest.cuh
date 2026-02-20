@@ -20,6 +20,7 @@
 
 #include <climits>
 #include <cmath>
+#include <cstring>
 
 namespace ML {
 
@@ -142,5 +143,33 @@ class IsolationForest {
 
 template class IsolationForest<float>;
 template class IsolationForest<double>;
+
+template <typename T>
+CompactIFForest get_compact_trees(const raft::handle_t& handle,
+                                  const IsolationForestModel<T>* model)
+{
+  auto* d_trees = static_cast<const IsolationTree::IFTree<T>*>(model->fast_trees.data());
+  int n_trees   = model->params.n_estimators;
+
+  CompactIFForest result;
+  std::vector<IsolationTree::IFNode> raw_nodes;
+
+  IsolationTree::compact_isolation_forest<T>(
+      handle, d_trees, n_trees,
+      raw_nodes, result.tree_offsets, result.tree_n_nodes, result.tree_max_depth);
+
+  result.nodes.resize(raw_nodes.size());
+  static_assert(sizeof(IFNodeCompact) == sizeof(IsolationTree::IFNode),
+                "IFNodeCompact and IFNode must have identical layout");
+  std::memcpy(result.nodes.data(), raw_nodes.data(),
+              raw_nodes.size() * sizeof(IFNodeCompact));
+
+  return result;
+}
+
+template CompactIFForest get_compact_trees<float>(const raft::handle_t&,
+                                                  const IsolationForestModel<float>*);
+template CompactIFForest get_compact_trees<double>(const raft::handle_t&,
+                                                   const IsolationForestModel<double>*);
 
 }  // namespace ML
