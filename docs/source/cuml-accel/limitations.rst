@@ -83,6 +83,7 @@ Additional notes:
 - The ``HDBSCAN`` in ``cuml`` uses a parallel MST implementation, which means
   the results are not deterministic when there are duplicates in the mutual
   reachability graph.
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 
 sklearn.cluster
@@ -114,6 +115,9 @@ DBSCAN
 - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
 - If ``X`` is sparse.
 
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 sklearn.decomposition
 ---------------------
@@ -304,6 +308,7 @@ Additional notes:
 
 - Even with a ``random_state``, the TSNE implementation used by ``cuml.accel``
   isn't completely deterministic.
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 While the exact numerical output for TSNE may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as
@@ -325,6 +330,10 @@ SpectralEmbedding
 The following fitted attributes are currently not computed:
 
 - ``affinity_matrix_``
+
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 
 sklearn.neighbors
@@ -348,6 +357,8 @@ Additional notes:
 
 - The ``radius_neighbors`` method isn't implemented in cuml and will always
   fall back to CPU.
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 KNeighborsClassifier
 ^^^^^^^^^^^^^^^^^^^^
@@ -454,12 +465,20 @@ SVC
 - If ``y`` is multiclass.
 - If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
 
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
+
 SVR
 ^^^
 
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
+
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 LinearSVC
 ^^^^^^^^^
@@ -510,6 +529,8 @@ Additional notes:
 
 - Parallelism during the optimization stage implies numerical imprecisions,
   which can lead to difference in the results between CPU and GPU in general.
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 While the exact numerical output for UMAP may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as
