@@ -15,6 +15,7 @@ from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.interop import to_cpu, to_gpu
 
 
 class IncrementalPCA(PCA):
@@ -173,6 +174,8 @@ class IncrementalPCA(PCA):
         >>> ipca.noise_variance_.item() # doctest: +SKIP
         0.0037122774558343763
     """
+
+    _cpu_class_path = "sklearn.decomposition.IncrementalPCA"
 
     def __init__(
         self,
@@ -445,6 +448,73 @@ class IncrementalPCA(PCA):
             "copy",
             "batch_size",
         ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {
+            "n_components": model.n_components,
+            "whiten": model.whiten,
+            "copy": model.copy,
+            "batch_size": model.batch_size,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "n_components": self.n_components,
+            "whiten": self.whiten,
+            "copy": self.copy,
+            "batch_size": self.batch_size,
+        }
+
+    def _attrs_from_cpu(self, model):
+        out = {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(
+                model.explained_variance_, order="F"
+            ),
+            "explained_variance_ratio_": to_gpu(
+                model.explained_variance_ratio_, order="F"
+            ),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            "mean_": to_gpu(model.mean_, order="F"),
+            "var_": to_gpu(model.var_, order="F"),
+            "n_components_": model.n_components_,
+            "n_samples_seen_": model.n_samples_seen_,
+            "batch_size_": model.batch_size_,
+            "noise_variance_": model.noise_variance_,
+        }
+        for name in ["n_features_in_", "feature_names_in_"]:
+            try:
+                out[name] = getattr(model, name)
+            except AttributeError:
+                pass
+        return out
+
+    def _attrs_to_cpu(self, model):
+        var_ = self.var_
+        try:
+            var_ = to_cpu(var_)
+        except AttributeError:
+            var_ = cp.asnumpy(var_)
+        out = {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(
+                self.explained_variance_ratio_
+            ),
+            "singular_values_": to_cpu(self.singular_values_),
+            "mean_": to_cpu(self.mean_),
+            "var_": var_,
+            "n_components_": self.n_components_,
+            "n_samples_seen_": self.n_samples_seen_,
+            "batch_size_": self.batch_size_,
+            "noise_variance_": self.noise_variance_,
+        }
+        if (
+            n_features_in_ := getattr(self, "n_features_in_", None)
+        ) is not None:
+            out["n_features_in_"] = n_features_in_
+        return out
 
 
 def _validate_sparse_input(X):
