@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Henry Lin <hlin117@gmail.com>
 # SPDX-FileCopyrightText: Tom Dupré la Tour
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -205,10 +205,6 @@ class KBinsDiscretizer(TransformerMixin,
             elif self.strategy == 'quantile':
                 quantiles = np.linspace(0, 100, n_bins[jj] + 1)
                 bin_edges[jj] = np.asarray(np.percentile(column, quantiles))
-                # Workaround for https://github.com/cupy/cupy/issues/4451
-                # This should be removed as soon as a fix is available in cupy
-                # in order to limit alterations in the included sklearn code
-                bin_edges[jj][-1] = col_max
 
             elif self.strategy == 'kmeans':
                 # Deterministic initialization with uniform spacing
