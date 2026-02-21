@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -9,6 +9,8 @@
 #include <cuml/fil/detail/postprocessor.hpp>
 #include <cuml/fil/detail/raft_proto/ceildiv.hpp>
 #include <cuml/fil/infer_kind.hpp>
+
+#include <raft/core/error.hpp>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -23,6 +25,7 @@
 #endif
 
 #include <algorithm>
+#include <cinttypes>
 #include <cstddef>
 #include <iostream>
 #include <new>
@@ -95,6 +98,21 @@ void infer_kernel_cpu(forest_t const& forest,
   auto const num_tree  = forest.tree_count();
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
+
+  /**
+   * Throw an error for large inputs that would cause integer overflow.
+   * TODO(hcho3): Support large inputs via streaming
+   **/
+  {
+    // Use 64-bit integers for intermediate computations, to avoid overflows
+    // while computing max_num_row.
+    auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
+                       (num_outputs * static_cast<std::uint64_t>(num_grove));
+    if (max_num_row >= 3) { max_num_row -= 3; }
+    ASSERT(row_count <= max_num_row,
+           "Input size too large! Input should be at most %" PRIu64 ".",
+           max_num_row);
+  }
 
   auto output_workspace = std::vector<output_t>(row_count * num_outputs * num_grove, output_t{});
   auto const task_count = num_grove * num_chunk;
