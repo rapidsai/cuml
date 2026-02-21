@@ -724,6 +724,7 @@ def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
 @pytest.mark.parametrize(
     "metric,build_algo,supported",
     [
+        ("dice", "brute_force_knn", True),
         ("l2", "brute_force_knn", True),
         ("euclidean", "brute_force_knn", True),
         ("sqeuclidean", "brute_force_knn", True),
@@ -795,6 +796,7 @@ def test_umap_distance_metrics_fit_transform_trust(
 @pytest.mark.parametrize(
     "metric,supported,umap_learn_supported",
     [
+        ("dice", True, False),
         ("l2", True, False),
         ("euclidean", True, True),
         ("sqeuclidean", True, False),
