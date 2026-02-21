@@ -202,21 +202,24 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
    * TODO(hcho3): Support large inputs via streaming
    **/
   {
-    uint64_t chunk_size = 32;
+    // Use 64-bit integers for intermediate computations, to avoid overflows
+    // while computing max_num_row.
+    auto chunk_size = std::uint64_t{32};
     while (rows_per_block_iteration <= chunk_size / 2 && chunk_size >= 2) {
       chunk_size /= 2;
     }
-    uint64_t task_count = chunk_size * forest.tree_count();
-    uint64_t num_grove;
-    if (infer_type == infer_kind::default_kind) {
-      num_grove =
-        raft_proto::ceildiv(min(static_cast<uint64_t>(threads_per_block), task_count), chunk_size);
-    } else {
-      num_grove = 1;
-    }
-    uint64_t max_num_row =
-      static_cast<uint64_t>(std::numeric_limits<index_type>::max()) / (output_count * num_grove);
-    if (max_num_row >= 3) max_num_row -= 3;
+    auto task_count = chunk_size * forest.tree_count();
+    auto num_grove  = [infer_type, threads_per_block, task_count, chunk_size]() {
+      auto result = std::uint64_t{1};
+      if (infer_type == infer_kind::default_kind) {
+        result = raft_proto::ceildiv(min(static_cast<std::uint64_t>(threads_per_block), task_count),
+                                     chunk_size);
+      }
+      return result;
+    }();
+    auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
+                       (output_count * num_grove);
+    if (max_num_row >= 3) { max_num_row -= 3; }
     ASSERT(row_count <= max_num_row,
            "Input size too large! Input should be at most %" PRIu64 ".",
            max_num_row);

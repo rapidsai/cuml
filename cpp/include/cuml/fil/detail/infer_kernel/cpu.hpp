@@ -107,9 +107,11 @@ void infer_kernel_cpu(forest_t const& forest,
    * TODO(hcho3): Support large inputs via streaming
    **/
   {
-    uint64_t max_num_row = static_cast<uint64_t>(std::numeric_limits<index_type>::max()) /
-                           (static_cast<uint64_t>(num_outputs) * num_grove);
-    if (max_num_row >= 3) max_num_row -= 3;
+    // Use 64-bit integers for intermediate computations, to avoid overflows
+    // while computing max_num_row.
+    auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
+                       (num_outputs * static_cast<std::uint64_t>(num_grove));
+    if (max_num_row >= 3) { max_num_row -= 3; }
     ASSERT(row_count <= max_num_row,
            "Input size too large! Input should be at most %" PRIu64 ".",
            max_num_row);
