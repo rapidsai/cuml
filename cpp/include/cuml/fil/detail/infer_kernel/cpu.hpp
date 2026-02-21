@@ -99,9 +99,6 @@ void infer_kernel_cpu(forest_t const& forest,
   auto const num_grove = raft_proto::ceildiv(num_tree, grove_size);
   auto const num_chunk = raft_proto::ceildiv(row_count, chunk_size);
 
-  auto output_workspace = std::vector<output_t>(row_count * num_outputs * num_grove, output_t{});
-  auto const task_count = num_grove * num_chunk;
-
   /**
    * Throw an error for large inputs that would cause integer overflow.
    * TODO(hcho3): Support large inputs via streaming
@@ -116,6 +113,9 @@ void infer_kernel_cpu(forest_t const& forest,
            "Input size too large! Input should be at most %" PRIu64 ".",
            max_num_row);
   }
+
+  auto output_workspace = std::vector<output_t>(row_count * num_outputs * num_grove, output_t{});
+  auto const task_count = num_grove * num_chunk;
 
 #pragma omp parallel num_threads(std::min(index_type(omp_get_max_threads()), task_count))
   {
