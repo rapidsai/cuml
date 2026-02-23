@@ -468,6 +468,8 @@ SVC
 Additional notes:
 
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
+- Using ``SVC`` in the same process as ``LinearSVC`` under ``cuml.accel`` can
+  cause a segfault.
 
 SVR
 ^^^
@@ -479,6 +481,8 @@ SVR
 Additional notes:
 
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
+- Using ``SVR`` in the same process as ``LinearSVR`` under ``cuml.accel`` can
+  cause a segfault.
 
 LinearSVC
 ^^^^^^^^^
