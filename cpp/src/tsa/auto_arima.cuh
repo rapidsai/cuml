@@ -16,10 +16,10 @@
 
 #include <cub/cub.cuh>
 #include <cuda/iterator>
+#include <cuda/std/functional>
 #include <cuda_runtime.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
-#include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
@@ -77,7 +77,7 @@ inline int divide_by_mask_build_index(const bool* d_mask,
                     d_mask,
                     d_mask + batch_size,
                     inv_mask.data(),
-                    thrust::logical_not<bool>());
+                    cuda::std::logical_not<bool>());
 
   // Cumulative sum of the inverse mask
   rmm::device_uvector<int> index0(batch_size, stream);
