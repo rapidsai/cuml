@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -555,6 +555,56 @@ def test_knn_graph_algorithm(algorithm):
         # neighbors is a subset of the graph found for nearest 20.
         sk_graph = sk_knn.kneighbors_graph(X.get(), 20)
         assert ((sk_graph - cu_graph.get()) < 0).sum() == 0
+
+
+@pytest.mark.parametrize("n_features", [2, 3, 5])
+@pytest.mark.parametrize("radius", [2.5, None])
+@pytest.mark.parametrize("self_query", [True, False])
+def test_radius_neighbors_graph(n_features, radius, self_query):
+    X, _ = make_blobs(n_samples=500, n_features=n_features, random_state=42)
+    X_train, X_query = X[:400], X[400:]
+
+    sk_model = skKNN(radius=1.5).fit(X_train.get())
+    cu_model = cuKNN(radius=1.5).fit(X_train)
+
+    sk_graph = sk_model.radius_neighbors_graph(
+        None if self_query else X_query.get(), radius=radius
+    )
+    cu_graph = cu_model.radius_neighbors_graph(
+        None if self_query else X_query, radius=radius
+    )
+
+    assert cupyx.scipy.sparse.isspmatrix_csr(cu_graph)
+    np.testing.assert_array_equal(
+        sk_graph.toarray(),
+        cu_graph.toarray().get(),
+    )
+
+
+def test_radius_neighbors_graph_errors():
+    X, _ = make_blobs(n_samples=100, random_state=42)
+    X_sparse = cupyx.scipy.sparse.random(
+        100, 5, format="csr", density=0.5, random_state=42
+    )
+
+    # Unsupported sparse inputs
+    model = cuKNN().fit(X)
+    model_sparse = cuKNN().fit(X_sparse)
+
+    with pytest.raises(TypeError, match="doesn't support sparse inputs"):
+        model.radius_neighbors_graph(X_sparse)
+
+    with pytest.raises(TypeError, match="doesn't support sparse inputs"):
+        model_sparse.radius_neighbors_graph(X)
+
+    # Invalid radius
+    with pytest.raises(ValueError, match="Expected `radius > 0`, got -2"):
+        model.radius_neighbors_graph(radius=-2)
+
+    # Unsupported metric
+    model = cuKNN(metric="linf").fit(X)
+    with pytest.raises(ValueError, match="doesn't support metric='linf'"):
+        model.radius_neighbors_graph()
 
 
 @pytest.mark.parametrize(
