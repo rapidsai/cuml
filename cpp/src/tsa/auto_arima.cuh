@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,12 +15,12 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/iterator>
 #include <cuda_runtime.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 #include <thrust/transform.h>
 
@@ -42,8 +42,7 @@ struct BoolToIntFunctor {
 void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size, cudaStream_t stream)
 {
   BoolToIntFunctor conversion_op;
-  thrust::transform_iterator<BoolToIntFunctor, const bool*, thrust::use_default, int> itr(
-    mask, conversion_op);
+  cuda::transform_iterator itr(mask, conversion_op);
 
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
@@ -223,8 +222,7 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
 
   // In the second pass, we compute the cumulative sum of each column of this
   // mask matrix
-  thrust::transform_iterator<which_col, thrust::counting_iterator<int>> t_first(
-    counting, which_col(batch_size));
+  cuda::transform_iterator t_first(counting, which_col(batch_size));
   thrust::inclusive_scan_by_key(
     thrust::cuda::par.on(stream), t_first, t_first + batch_size * n_sub, d_cumul, d_cumul);
 
