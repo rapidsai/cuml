@@ -15,7 +15,11 @@ from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import (
+    input_to_cuml_array,
+    input_to_cupy_array,
+    validate_data,
+)
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
 from cuml.prims.label.classlabels import make_monotonic
@@ -419,12 +423,14 @@ class GaussianNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
+            X, _, _, _ = validate_data(
+                self,
                 X,
+                array_output_type="cupy",
                 order="K",
                 check_dtype=[cp.float32, cp.float64, cp.int32],
-                ensure_2d=True,
-            ).array
+                reset=first_call,
+            )
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -886,12 +892,14 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
+            X, _, _, _ = validate_data(
+                self,
                 X,
+                array_output_type="cupy",
                 order="K",
                 check_dtype=[cp.float32, cp.float64, cp.int32],
-                ensure_2d=True,
-            ).array
+                reset=first_call,
+            )
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64

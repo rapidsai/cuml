@@ -12,7 +12,7 @@ from cupyx.scipy.special import gammainc
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array, validate_data
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
@@ -302,12 +302,13 @@ class KernelDensity(Base, InteropMixin):
         if self.kernel not in VALID_KERNELS:
             raise ValueError(f"kernel={self.kernel!r} is not supported")
 
-        self._X, n_rows, n_cols, _ = input_to_cupy_array(
+        self._X, n_rows, n_cols, _ = validate_data(
+            self,
             X,
+            array_output_type="cupy",
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[cp.float32, cp.float64],
-            ensure_2d=True,
         )
 
         if n_rows < 1:
@@ -356,11 +357,13 @@ class KernelDensity(Base, InteropMixin):
         if not hasattr(self, "_X"):
             raise NotFittedError()
 
-        X = input_to_cuml_array(
+        X = validate_data(
+            self,
             X,
+            reset=False,
+            array_output_type="cupy",
             convert_to_dtype=(self._X.dtype if convert_dtype else None),
             check_dtype=[self._X.dtype],
-            check_cols=self.n_features_in_,
         ).array
         if self.metric_params:
             if len(self.metric_params) != 1:

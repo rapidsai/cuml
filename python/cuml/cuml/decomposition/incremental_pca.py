@@ -14,7 +14,7 @@ from cuml.common import input_to_cuml_array
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array, validate_data
 
 
 class IncrementalPCA(PCA):
@@ -224,12 +224,13 @@ class IncrementalPCA(PCA):
             # is done by PCA, which IncrementalPCA inherits from. PCA's
             # transform and inverse transform convert the output to the
             # required type.
-            X, n_samples, n_features, _ = input_to_cupy_array(
+            X, n_samples, n_features, _ = validate_data(
+                self,
                 X,
+                array_output_type="cupy",
                 order="K",
                 convert_to_dtype=(cp.float32 if convert_dtype else None),
                 check_dtype=[cp.float32, cp.float64],
-                ensure_2d=True,
             )
 
         n_samples, n_features = X.shape

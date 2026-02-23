@@ -360,7 +360,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_n_features_in_after_fitting": "LedoitWolf does not check n_features_in consistency",
         "check_dtype_object": "LedoitWolf does not handle object dtype",
         "check_estimators_empty_data_messages": "LedoitWolf does not handle empty data",
         "check_estimators_nan_inf": "LedoitWolf does not check for NaN and inf",

@@ -385,6 +385,13 @@ def input_to_cuml_array(
     return cuml_array(array=arr, n_rows=n_rows, n_cols=n_cols, dtype=arr.dtype)
 
 
+def _coerce_output(result, output_type):
+    """Convert the .array field of a cuml_array namedtuple."""
+    if output_type == "cuml":
+        return result
+    return result._replace(array=result.array.to_output(output_type))
+
+
 def validate_data(
     _estimator,
     /,
@@ -394,6 +401,7 @@ def validate_data(
     reset=True,
     ensure_2d=True,
     accept_sparse=False,
+    array_output_type="cuml",
     validate_separately=False,
     order="F",
     check_dtype=False,
@@ -406,6 +414,11 @@ def validate_data(
     """Validate input data and manage ``n_features_in_``.
 
     Wraps :func:`input_to_cuml_array` with sklearn-compatible validation:
+
+    * Rejects ``y=None`` for supervised estimators (tag-driven).
+    * Enforces 2-D ``X`` by default.
+    * Sets ``n_features_in_`` on fit (``reset=True``) and validates it on
+      predict / transform (``reset=False``).
 
     Parameters
     ----------
@@ -428,6 +441,10 @@ def validate_data(
         ``n_features_in_`` checks are still applied.  If False (default),
         sparse X is rejected by :func:`input_to_cuml_array` with a
         ``TypeError``.
+    array_output_type : str, default="cuml"
+        The array type for the ``.array`` field of returned namedtuples.
+        ``"cuml"`` returns :class:`CumlArray` (default), ``"cupy"`` returns
+        cupy ndarrays, ``"numpy"`` returns numpy ndarrays.
     validate_separately : False or tuple of two dicts, default=False
         When a ``(X_kwargs, y_kwargs)`` tuple is given, X and y are each
         validated with their own ``input_to_cuml_array`` keyword arguments.
@@ -530,8 +547,11 @@ def validate_data(
                 )
 
     if no_val_y:
-        return X_out
-    return X_out, y_out
+        return _coerce_output(X_out, array_output_type)
+    return (
+        _coerce_output(X_out, array_output_type),
+        _coerce_output(y_out, array_output_type),
+    )
 
 
 @nvtx.annotate(
