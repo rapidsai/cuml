@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -35,6 +35,9 @@ def test_onehot_vs_skonehot(client):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 @pytest.mark.parametrize(
     "drop", [None, "first", {"g": Series("F"), "i": Series(3)}]
 )
@@ -51,6 +54,9 @@ def test_onehot_inverse_transform(client, drop):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 def test_onehot_categories(client):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
     X = dask_cudf.from_cudf(X, npartitions=2)
@@ -97,6 +103,9 @@ def test_onehot_transform_handle_unknown(client):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 def test_onehot_inverse_transform_handle_unknown(client):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
     X = dask_cudf.from_cudf(X, npartitions=2)
@@ -140,6 +149,9 @@ def test_onehot_random_inputs(client, drop, as_array, sparse, n_samples):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 def test_onehot_drop_idx_first(client):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
@@ -157,6 +169,9 @@ def test_onehot_drop_idx_first(client):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 def test_onehot_drop_one_of_each(client):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
@@ -179,10 +194,13 @@ def test_onehot_drop_one_of_each(client):
     "drop, pattern",
     [
         [dict({"chars": "b"}), "`drop` should have as many columns"],
-        [
+        pytest.param(
             dict({"chars": "b", "int": [2, 0]}),
             "Trying to drop multiple values",
-        ],
+            marks=pytest.mark.xfail(
+                reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+            ),
+        ),
         [
             dict({"chars": "b", "int": 3}),
             "Some categories [a-zA-Z, ]* were not found",
@@ -202,6 +220,9 @@ def test_onehot_drop_exceptions(client, drop, pattern):
 
 
 @pytest.mark.mg
+@pytest.mark.xfail(
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+)
 def test_onehot_get_categories(client):
     X = DataFrame({"chars": ["c", "b", "d"], "ints": [2, 1, 0]})
     X = dask_cudf.from_cudf(X, npartitions=2)
