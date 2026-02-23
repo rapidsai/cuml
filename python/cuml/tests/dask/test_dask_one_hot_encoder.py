@@ -36,7 +36,8 @@ def test_onehot_vs_skonehot(client):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 @pytest.mark.parametrize(
     "drop", [None, "first", {"g": Series("F"), "i": Series(3)}]
@@ -55,7 +56,8 @@ def test_onehot_inverse_transform(client, drop):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 def test_onehot_categories(client):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
@@ -104,7 +106,8 @@ def test_onehot_transform_handle_unknown(client):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 def test_onehot_inverse_transform_handle_unknown(client):
     X = DataFrame({"chars": ["a", "b"], "int": [0, 2]})
@@ -150,7 +153,8 @@ def test_onehot_random_inputs(client, drop, as_array, sparse, n_samples):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 def test_onehot_drop_idx_first(client):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
@@ -170,7 +174,8 @@ def test_onehot_drop_idx_first(client):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 def test_onehot_drop_one_of_each(client):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
@@ -198,7 +203,8 @@ def test_onehot_drop_one_of_each(client):
             dict({"chars": "b", "int": [2, 0]}),
             "Trying to drop multiple values",
             marks=pytest.mark.xfail(
-                reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+                reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+                strict=True,
             ),
         ),
         [
@@ -221,7 +227,8 @@ def test_onehot_drop_exceptions(client, drop, pattern):
 
 @pytest.mark.mg
 @pytest.mark.xfail(
-    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826"
+    reason="Dask OneHotEncoder dtype/string issues; see https://github.com/rapidsai/cuml/issues/7826",
+    strict=True,
 )
 def test_onehot_get_categories(client):
     X = DataFrame({"chars": ["c", "b", "d"], "ints": [2, 1, 0]})
