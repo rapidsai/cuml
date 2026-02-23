@@ -143,7 +143,7 @@ void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t
                                              distances + total_nn,
                                              abs_f,
                                              0.0f,
-                                             thrust::maximum<value_t>());
+                                             cuda::maximum<value_t>());
   raft::linalg::scalarMultiply(distances, distances, 1.0f / maxNorm, total_nn, stream);
 }
 
