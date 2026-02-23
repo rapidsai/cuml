@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -23,11 +23,11 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/iterator>
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 
 #include <cmath>
@@ -253,8 +253,7 @@ static void _kpss_test(const DataT* d_y,
 
   // Cumulative sum (inclusive scan with + operator)
   thrust::counting_iterator<IdxT> c_first(0);
-  thrust::transform_iterator<which_col<IdxT>, thrust::counting_iterator<IdxT>> t_first(
-    c_first, which_col<IdxT>(n_obs));
+  cuda::transform_iterator t_first(c_first, which_col<IdxT>(n_obs));
   thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream),
                                 t_first,
                                 t_first + batch_size * n_obs,
