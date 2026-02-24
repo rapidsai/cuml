@@ -63,7 +63,7 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--dataset` | Dataset name: e.g. `blobs`, `classification`, `regression`, `higgs`. Use `--print-datasets` to list all. |
 | `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only). |
 | `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only). |
-| `--csv [FILE]` | Append results to a CSV file. |
+| `--csv [FILE]` | Save results to a CSV file. |
 | `--min-rows`, `--max-rows`, `--num-sizes` | Control sample sizes for scaling benchmarks. |
 | `--input-dimensions` | Feature dimensions to test (e.g. `16 256`). |
 | `--print-algorithms` | List available algorithms and exit. |

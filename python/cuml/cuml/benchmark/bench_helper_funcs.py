@@ -4,14 +4,24 @@
 #
 import os
 import pickle as pickle
+import sys
 from time import perf_counter
 
-import datagen
 import numpy as np
 import pandas as pd
 import sklearn.ensemble as skl_ensemble
-from gpu_check import HAS_CUML
 from sklearn import metrics as sklearn_metrics
+
+# Supports both package and standalone execution
+try:
+    from cuml.benchmark import datagen
+    from cuml.benchmark.gpu_check import HAS_CUML
+except ImportError:
+    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
+    if _benchmark_dir not in sys.path:
+        sys.path.insert(0, _benchmark_dir)
+    import datagen  # noqa: E402
+    from gpu_check import HAS_CUML  # noqa: E402
 
 # Conditional GPU imports
 cudf = None

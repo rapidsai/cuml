@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import os
+import sys
 import tempfile
 import warnings
 from importlib import import_module
@@ -18,18 +20,35 @@ import sklearn.neighbors
 import sklearn.preprocessing
 import sklearn.random_projection
 import sklearn.svm
-from bench_helper_funcs import (
-    _training_data_to_numpy,
-    fit,
-    fit_kneighbors,
-    fit_predict,
-    fit_transform,
-    predict,
-    transform,
-)
-from gpu_check import HAS_CUML
 from sklearn import metrics
 from sklearn.impute import SimpleImputer as skSimpleImputer
+
+# Supports both package and standalone execution
+try:
+    from cuml.benchmark.bench_helper_funcs import (
+        _training_data_to_numpy,
+        fit,
+        fit_kneighbors,
+        fit_predict,
+        fit_transform,
+        predict,
+        transform,
+    )
+    from cuml.benchmark.gpu_check import HAS_CUML
+except ImportError:
+    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
+    if _benchmark_dir not in sys.path:
+        sys.path.insert(0, _benchmark_dir)
+    from bench_helper_funcs import (  # noqa: E402
+        _training_data_to_numpy,
+        fit,
+        fit_kneighbors,
+        fit_predict,
+        fit_transform,
+        predict,
+        transform,
+    )
+    from gpu_check import HAS_CUML  # noqa: E402
 
 # Conditional GPU imports
 cuml = None
