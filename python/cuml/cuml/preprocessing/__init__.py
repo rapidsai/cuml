@@ -29,10 +29,10 @@ from cuml._thirdparty.sklearn.preprocessing import (
 )
 from cuml.model_selection import train_test_split
 from cuml.preprocessing import text
+from cuml.preprocessing._label import LabelEncoder
+from cuml.preprocessing._target_encoder import TargetEncoder
 from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
 from cuml.preprocessing.label import LabelBinarizer, label_binarize
-from cuml.preprocessing.labelencoder import LabelEncoder
-from cuml.preprocessing.targetencoder import TargetEncoder
 
 __all__ = [
     # Classes

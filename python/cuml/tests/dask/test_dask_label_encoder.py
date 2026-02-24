@@ -9,7 +9,7 @@ import pytest
 import cuml
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
-from cuml.dask.preprocessing.labelencoder import LabelEncoder
+from cuml.dask.preprocessing._label import LabelEncoder
 
 
 def _arr_to_similarity_mat(arr):
