@@ -136,18 +136,30 @@ def _check_unsupported_inputs(X, y, cpu_model):
 class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 
+    def _sync_fit_metadata(self):
+        """Sync feature_names_in_ from GPU to CPU estimator.
+
+        Sets directly on self._cpu to avoid the proxy's __setattr__
+        which would clear self._gpu and break subsequent GPU calls.
+        The base InteropMixin._attrs_to_cpu intentionally skips
+        feature_names_in_ (see https://github.com/rapidsai/cuml/issues/6650),
+        but cuml's TargetEncoder sets it properly for DataFrame inputs,
+        so we sync it explicitly here.
+        """
+        if hasattr(self._gpu, "feature_names_in_"):
+            self._cpu.feature_names_in_ = self._gpu.feature_names_in_
+
     def _gpu_fit(self, X, y, **kwargs):
         """Fit with independent mode for sklearn compatibility.
 
         sklearn's TargetEncoder always encodes features independently,
         so we force independent mode when using cuml.accel.
         """
-        # Check for unsupported inputs (triggers CPU fallback)
         _check_unsupported_inputs(X, y, self._cpu)
-
-        # Ensure independent mode is set for sklearn compatibility
         self._gpu.multi_feature_mode = "independent"
-        return self._gpu.fit(X, y, **kwargs)
+        result = self._gpu.fit(X, y, **kwargs)
+        self._sync_fit_metadata()
+        return result
 
     def _gpu_fit_transform(self, X, y, **kwargs):
         """Fit-transform with independent mode for sklearn compatibility.
@@ -155,12 +167,11 @@ class TargetEncoder(ProxyBase):
         sklearn's TargetEncoder always encodes features independently,
         so we force independent mode when using cuml.accel.
         """
-        # Check for unsupported inputs (triggers CPU fallback)
         _check_unsupported_inputs(X, y, self._cpu)
-
-        # Ensure independent mode is set for sklearn compatibility
         self._gpu.multi_feature_mode = "independent"
-        return self._gpu.fit_transform(X, y, **kwargs)
+        result = self._gpu.fit_transform(X, y, **kwargs)
+        self._sync_fit_metadata()
+        return result
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.
