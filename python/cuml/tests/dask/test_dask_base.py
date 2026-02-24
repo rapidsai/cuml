@@ -1,18 +1,27 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
+
+import cudf
 import cupy
+import dask_cudf
 import numpy as np
+import pandas as pd
 import pytest
 from dask_ml.wrappers import ParallelPostFit
 from numpy.testing import assert_equal
+from sklearn.linear_model import LogisticRegression as skLR
 from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml.dask.cluster import KMeans
+from cuml.dask.common import utils as dask_utils
+from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.datasets import make_blobs, make_regression
 from cuml.dask.linear_model import LinearRegression
+from cuml.dask.linear_model import LogisticRegression as cumlLR_dask
 from cuml.dask.naive_bayes.naive_bayes import MultinomialNB
 from cuml.testing.dask.utils import load_text_corpus
 
@@ -161,3 +170,101 @@ def test_getattr(client):
 
     assert nb_model.feature_count_ is not None
     assert isinstance(nb_model.feature_count_, cupy.ndarray)
+
+
+def _make_ddh_with_empty_worker(client):
+    """Build a DDH where one worker holds real data and another holds an
+    empty (0-row) partition.  Requires at least 2 workers."""
+    workers = list(client.scheduler_info()["workers"].keys())
+    if len(workers) < 2:
+        pytest.skip(
+            "Need at least 2 workers to test empty-partition filtering"
+        )
+
+    real = cupy.random.randn(100, 5).astype(np.float32)
+    empty = cupy.empty((0, 5), dtype=np.float32)
+
+    real_f = client.scatter(real, workers=[workers[0]])
+    empty_f = client.scatter(empty, workers=[workers[1]])
+
+    gpu_futures = [(workers[0], real_f), (workers[1], empty_f)]
+    return DistributedDataHandler(
+        gpu_futures=gpu_futures,
+        workers=tuple(workers[:2]),
+        datatype="cupy",
+        multiple=False,
+        client=client,
+    )
+
+
+def test_ddh_warns_on_empty_partitions(client):
+    """_fetch_worker_sizes should warn when a worker has zero rows."""
+    ddh = _make_ddh_with_empty_worker(client)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ddh._fetch_worker_sizes()
+        user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
+        assert len(user_warnings) == 1
+        assert "no data" in str(user_warnings[0].message)
+
+
+def test_ddh_filters_empty_workers(client):
+    """After _fetch_worker_sizes, workers with 0 rows should be removed."""
+    ddh = _make_ddh_with_empty_worker(client)
+    ddh._fetch_worker_sizes()
+
+    assert len(ddh.workers) == 1
+    assert len(ddh.worker_to_parts) == 1
+    assert len(ddh.gpu_futures) == 1
+    for _, (_, total) in ddh._worker_sizes.items():
+        assert total > 0
+
+
+def test_ddh_total_rows_after_filtering(client):
+    """Total rows should reflect only the non-empty worker's data."""
+    ddh = _make_ddh_with_empty_worker(client)
+    ddh._fetch_worker_sizes()
+
+    total = sum(t for _, (_, t) in ddh._worker_sizes.items())
+    assert total == 100
+
+
+def test_logistic_regression_with_empty_partitions(client):
+    """LogisticRegression should train and predict correctly when some
+    partitions are empty (more partitions than data rows)."""
+    workers = list(client.scheduler_info()["workers"].keys())
+    if len(workers) < 2:
+        pytest.skip(
+            "Need at least 2 workers to test empty-partition filtering"
+        )
+
+    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
+    y = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
+
+    n_partitions = len(workers) * 2  # guarantees empty partitions with 4 rows
+
+    X_df = dask_cudf.from_cudf(
+        cudf.DataFrame(pd.DataFrame(X)), npartitions=n_partitions
+    )
+    y_series = dask_cudf.from_cudf(cudf.Series(y), npartitions=n_partitions)
+    X_df, y_series = dask_utils.persist_across_workers(
+        client, [X_df, y_series], workers=workers
+    )
+
+    mg = cumlLR_dask(client=client)
+    mg.fit(X_df, y_series)
+    mg_preds = mg.predict(X_df).compute()
+
+    cpu_lr = skLR()
+    cpu_lr.fit(X, y)
+    cpu_preds = cpu_lr.predict(X)
+
+    np.testing.assert_array_equal(
+        np.array(
+            mg_preds.values_host
+            if hasattr(mg_preds, "values_host")
+            else mg_preds.get()
+        ),
+        cpu_preds,
+    )
