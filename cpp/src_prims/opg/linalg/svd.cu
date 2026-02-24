@@ -11,8 +11,6 @@
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/matrix_vector.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/matrix/reverse.cuh>
 #include <raft/matrix/sqrt.cuh>
 
