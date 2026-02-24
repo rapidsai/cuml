@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -22,7 +22,6 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cuda/functional>
-#include <thrust/functional.h>
 #include <thrust/transform_reduce.h>
 
 #include <cuvs/distance/distance.hpp>
@@ -144,7 +143,7 @@ void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t
                                              distances + total_nn,
                                              abs_f,
                                              0.0f,
-                                             thrust::maximum<value_t>());
+                                             cuda::maximum<value_t>());
   raft::linalg::scalarMultiply(distances, distances, 1.0f / maxNorm, total_nn, stream);
 }
 
