@@ -114,6 +114,9 @@ class DistributedDataHandler:
 
     def _fetch_worker_sizes(self):
         """Fetch per-partition row counts and drop workers with zero rows."""
+        if not self.worker_to_parts:
+            self._worker_sizes = {}
+            return
         parts = [
             (
                 w,
@@ -127,9 +130,9 @@ class DistributedDataHandler:
             )
             for w, p in self.worker_to_parts.items()
         ]
-        wfs, sizes_futures = zip(*parts)
+        wfs, sizes_futures = zip(*parts, strict=True)
         all_sizes = self.client.compute(sizes_futures, sync=True)
-        self._worker_sizes = dict(zip(wfs, all_sizes))
+        self._worker_sizes = dict(zip(wfs, all_sizes, strict=True))
 
         empty_workers = {
             w for w, (_, total) in self._worker_sizes.items() if total == 0
@@ -152,7 +155,7 @@ class DistributedDataHandler:
                 w for w in self.workers if w not in empty_workers
             )
 
-    def calculate_parts_to_sizes(self, comms=None, ranks=None):
+    def calculate_parts_to_sizes(self, comms=None):
         if self.worker_info is None and comms is not None:
             self.calculate_worker_and_rank_info(comms)
 

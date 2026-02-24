@@ -17,7 +17,6 @@ from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml.dask.cluster import KMeans
-from cuml.dask.common import utils as dask_utils
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.datasets import make_blobs, make_regression
 from cuml.dask.linear_model import LinearRegression
@@ -231,25 +230,28 @@ def test_ddh_total_rows_after_filtering(client):
 
 
 def test_logistic_regression_with_empty_partitions(client):
-    """LogisticRegression should train and predict correctly when some
-    partitions are empty (more partitions than data rows)."""
+    """LogisticRegression should train and predict correctly when one
+    worker holds only a zero-row partition."""
     workers = list(client.scheduler_info()["workers"].keys())
     if len(workers) < 2:
         pytest.skip(
             "Need at least 2 workers to test empty-partition filtering"
         )
 
-    X = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
-    y = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
+    X_np = np.array([(1, 2), (1, 3), (2, 1), (3, 1)], np.float32)
+    y_np = np.array([1.0, 1.0, 0.0, 0.0], np.float32)
 
-    n_partitions = len(workers) * 2  # guarantees empty partitions with 4 rows
+    X_cudf = cudf.DataFrame(pd.DataFrame(X_np))
+    y_cudf = cudf.Series(y_np)
 
-    X_df = dask_cudf.from_cudf(
-        cudf.DataFrame(pd.DataFrame(X)), npartitions=n_partitions
-    )
-    y_series = dask_cudf.from_cudf(cudf.Series(y), npartitions=n_partitions)
-    X_df, y_series = dask_utils.persist_across_workers(
-        client, [X_df, y_series], workers=workers
+    X_real_f = client.scatter(X_cudf, workers=[workers[0]])
+    y_real_f = client.scatter(y_cudf, workers=[workers[0]])
+    X_empty_f = client.scatter(X_cudf.iloc[:0], workers=[workers[1]])
+    y_empty_f = client.scatter(y_cudf.iloc[:0], workers=[workers[1]])
+
+    X_df = dask_cudf.from_delayed([X_real_f, X_empty_f], meta=X_cudf.iloc[:0])
+    y_series = dask_cudf.from_delayed(
+        [y_real_f, y_empty_f], meta=y_cudf.iloc[:0]
     )
 
     mg = cumlLR_dask(client=client)
@@ -257,8 +259,8 @@ def test_logistic_regression_with_empty_partitions(client):
     mg_preds = mg.predict(X_df).compute()
 
     cpu_lr = skLR()
-    cpu_lr.fit(X, y)
-    cpu_preds = cpu_lr.predict(X)
+    cpu_lr.fit(X_np, y_np)
+    cpu_preds = cpu_lr.predict(X_np)
 
     np.testing.assert_array_equal(
         np.array(
