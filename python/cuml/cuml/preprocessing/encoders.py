@@ -294,6 +294,9 @@ class OneHotEncoder(BaseEncoder):
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
                 drop_vals = self.drop[feature]
+                # Match the dtype of the drop values to the dtype of the categories
+                # seen during `fit`. In particular if arrow strings and object dtypes
+                # are used, then having a mix means `isin` won't work correctly.
                 if drop_vals.dtype != cats.dtype:
                     drop_vals = drop_vals.astype(cats.dtype)
                 if not drop_vals.isin(cats).all():
