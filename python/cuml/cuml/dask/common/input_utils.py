@@ -154,6 +154,11 @@ class DistributedDataHandler:
             self.workers = tuple(
                 w for w in self.workers if w not in empty_workers
             )
+            if not self.workers:
+                raise ValueError(
+                    "All workers have zero rows after pruning empty "
+                    "partitions. Cannot proceed with an empty dataset."
+                )
 
     def calculate_parts_to_sizes(self, comms=None):
         if self.worker_info is None and comms is not None:
