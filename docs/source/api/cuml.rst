@@ -35,10 +35,10 @@ cuml.common.logger module, and they are:
      - Verbosity level
    * - 0
      - cuml.common.logger.level_enum.off
-     - Disables all log messages
+     - Disables all log messages.
    * - 1
      - cuml.common.logger.level_enum.critical
-     - Enables only critical messages
+     - Enables only critical messages.
    * - 2
      - cuml.common.logger.level_enum.error
      - Enables all messages up to and including errors.
