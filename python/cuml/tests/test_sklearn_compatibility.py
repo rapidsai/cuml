@@ -351,7 +351,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_n_features_in_after_fitting": "KernelDensity does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "KernelDensity does not handle non-array sample weights",
         "check_sample_weights_list": "KernelDensity does not handle list sample weights",
         "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",

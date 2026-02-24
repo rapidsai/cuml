@@ -660,12 +660,13 @@ class SVC(SVMBase, ClassifierMixin):
         elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
-            X = input_to_cuml_array(
+            X = validate_data(
+                self,
                 X,
+                reset=False,
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
             ).array
 
         return self._predict(X)

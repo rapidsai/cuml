@@ -17,7 +17,7 @@ from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array, validate_data
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect, using_output_type
@@ -857,11 +857,10 @@ class NearestNeighbors(Base,
                              "data requires dense input to kneighbors()")
 
         cdef int n_rows, n_cols
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
+        X_m, n_rows, n_cols, _ = validate_data(
+            self, X, reset=False,
             order="C",
             check_dtype=np.float32,
-            check_cols=self.n_features_in_,
             convert_to_dtype=(np.float32 if convert_dtype else False),
         )
 
