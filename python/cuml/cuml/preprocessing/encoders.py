@@ -323,7 +323,7 @@ class OneHotEncoder(BaseEncoder):
 
     def _has_unknown(self, X_cat, encoder_cat):
         """Check if X_cat has categories that are not present in encoder_cat."""
-        if hasattr(encoder_cat, "dtype") and X_cat.dtype != encoder_cat.dtype:
+        if X_cat.dtype != encoder_cat.dtype:
             encoder_cat = encoder_cat.astype(X_cat.dtype)
         return not X_cat.isin(encoder_cat).all()
 
