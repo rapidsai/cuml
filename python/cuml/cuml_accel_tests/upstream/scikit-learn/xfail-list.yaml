@@ -1656,7 +1656,11 @@
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
 - reason: cuML SpectralClustering does not emit "not fully connected" UserWarning
-  condition: scikit-learn>1.5
+  condition: scikit-learn<1.7,>=1.5
+  tests:
+  - "sklearn.cluster.tests.test_spectral::test_affinities"
+- reason: cuML SpectralClustering does not emit "not fully connected" UserWarning
+  condition: scikit-learn>=1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_affinities[42]"
 - reason: cuML TSNE barnes_hut produces poor quality embeddings with sparse input
