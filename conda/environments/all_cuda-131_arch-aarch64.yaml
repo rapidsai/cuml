@@ -49,6 +49,7 @@ dependencies:
 - numpydoc
 - numpydoc<1.9
 - nvidia-ml-py>=12
+- onnxruntime
 - packaging
 - pre-commit
 - pydata-sphinx-theme!=0.14.2
@@ -73,6 +74,7 @@ dependencies:
 - scikit-learn>=1.5
 - scipy>=1.13.0
 - seaborn
+- skl2onnx
 - sphinx
 - sphinx-copybutton
 - sphinx-markdown-tables
