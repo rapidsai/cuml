@@ -4,10 +4,11 @@
 import inspect
 
 import numpy as np
-import numpydoc.docscrape
 import pandas as pd
 import pylibraft.common.handle
 import pytest
+from docstring_parser import DocstringStyle
+from docstring_parser import parse as parse_docstring
 from sklearn.datasets import (
     make_classification,
     make_multilabel_classification,
@@ -74,8 +75,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
     # verbose: r"^[ ]{4}verbose :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
     # handle: r"^[ ]{4}handle :.*\n(^(?![ ]{0,4}(?![ ]{4,})).*(\n))+"
 
-    def get_param_doc(param_doc_obj, name: str):
-        found_doc = next((x for x in param_doc_obj if x.name == name), None)
+    def get_param_doc(param_list, name: str):
+        found_doc = next((x for x in param_list if x.arg_name == name), None)
 
         assert found_doc is not None, "Could not find {} in docstring".format(
             name
@@ -85,13 +86,17 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
     # Load the base class signature, parse the docstring and pull out params
     base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
-    base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
-    base_doc_params = base_doc["Parameters"]
+    base_parsed = parse_docstring(
+        cuml.Base.__doc__ or "", style=DocstringStyle.NUMPYDOC
+    )
+    base_doc_params = base_parsed.params or []
 
     # Load the current class signature, parse the docstring and pull out params
     klass_sig = inspect.signature(klass, follow_wrapped=True)
-    klass_doc = numpydoc.docscrape.NumpyDocString(klass.__doc__ or "")
-    klass_doc_params = klass_doc["Parameters"]
+    klass_parsed = parse_docstring(
+        klass.__doc__ or "", style=DocstringStyle.NUMPYDOC
+    )
+    klass_doc_params = klass_parsed.params or []
 
     for name, param in base_sig.parameters.items():
         # Ensure the base param exists in the derived
@@ -113,12 +118,13 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
             base_item_doc = get_param_doc(base_doc_params, name)
 
-            assert found_doc.type == base_item_doc.type, (
+            assert found_doc.type_name == base_item_doc.type_name, (
                 f"Docstring mismatch for {name}"
             )
 
-            found = " ".join(found_doc.desc)
-            expected = " ".join(base_item_doc.desc)
+            # Normalize whitespace for comparison (content only, not formatting)
+            found = " ".join((found_doc.description or "").split())
+            expected = " ".join((base_item_doc.description or "").split())
 
             assert found == expected, f"Docstring mismatch for {name}"
 
