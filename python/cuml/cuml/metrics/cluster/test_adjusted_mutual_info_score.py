@@ -4,7 +4,7 @@ import pytest
 from sklearn.metrics import adjusted_mutual_info_score as sk_adjusted_mutual_info_score
 
 # Import the cuML implementations we are adding
-from _adjusted_mutual_info_score import adjusted_mutual_info_score
+from ._adjusted_mutual_info_score import adjusted_mutual_info_score
 
 
 def test_adjusted_mutual_info_score():

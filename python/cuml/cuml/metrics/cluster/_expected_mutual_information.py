@@ -1,7 +1,7 @@
 import cupy as cp
 from cuml.metrics.cluster import mutual_info_score
 
-from scipy.special import gammaln
+from cupyx.scipy.special import gammaln
 from math import exp, lgamma
 
 def expected_mutual_information(contingency: cp.ndarray, n_samples: int):

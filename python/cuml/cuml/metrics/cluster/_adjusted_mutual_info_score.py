@@ -1,5 +1,5 @@
 import cupy as cp
-from _expected_mutual_information import expected_mutual_information
+from ._expected_mutual_information import expected_mutual_information
 from scipy import sparse as sp
 from cuml.metrics.cluster import entropy
 from cupyx.scipy import sparse as cp_sparse

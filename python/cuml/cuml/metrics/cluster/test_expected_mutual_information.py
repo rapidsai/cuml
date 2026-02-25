@@ -1,6 +1,6 @@
 import cupy as cp
 import numpy as np
-from _expected_mutual_information import expected_mutual_information
+from ._expected_mutual_information import expected_mutual_information
 from sklearn.metrics.cluster import expected_mutual_information as sk_expected_mutual_information
 from sklearn.metrics.cluster import contingency_matrix
 
