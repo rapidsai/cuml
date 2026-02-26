@@ -464,7 +464,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR knn_algo)
-    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu)
+    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu src/kde/kde.cu)
   endif()
 
   if(all_algo OR hierarchicalclustering_algo)
