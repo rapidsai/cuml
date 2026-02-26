@@ -1,7 +1,7 @@
 import cupy as cp
-from ._expected_mutual_information import expected_mutual_information
+from _expected_mutual_information import expected_mutual_information
 from scipy import sparse as sp
-from cuml.metrics.cluster import entropy
+# from cuml.metrics.cluster import entropy
 from cupyx.scipy import sparse as cp_sparse
 
 def check_clustering(labels_true, labels_pred):
@@ -87,14 +87,15 @@ def _generalized_average(U,V,average_method):
         )
 
 def _entropy(labels):
-    """
-    Calculates the entropy of a set of integer labels using cuML's GPU-accelerated implementation.
-    Used to measure the randomness or uncertainty in cluster/class assignments.
-    """
-    # cuml.metrics.entropy has a strict type requirement as int32
-    if labels.dtype != cp.int32:
-        labels = labels.astype(cp.int32)
-    return entropy(labels)
+    """GPU-accelerated entropy using pure CuPy."""
+    if labels.size == 0:
+        return 0.0
+    _, counts = cp.unique(labels, return_counts=True)
+    probs = counts / labels.size
+    return -cp.sum(probs * cp.log(probs))
+    # if labels.dtype != cp.int32:
+    #     labels = labels.astype(cp.int32)
+    # return entropy(labels)
 
 def raw_mutual_info_score(contingency):
     """
