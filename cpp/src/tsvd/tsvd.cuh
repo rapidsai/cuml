@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,8 +16,11 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/rsvd.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
+#include <raft/matrix/power.cuh>
+#include <raft/matrix/ratio.cuh>
+#include <raft/matrix/reverse.cuh>
+#include <raft/matrix/sqrt.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
@@ -83,7 +86,14 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 
   raft::linalg::transpose(
     handle, components_temp.data(), components, prms.n_cols, prms.n_components, stream);
-  raft::matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components, stream);
+
+  raft::matrix::weighted_power(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
+      singular_vals, std::size_t(1), prms.n_components),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+      explained_vars, std::size_t(1), prms.n_components),
+    math_t(1));
   raft::matrix::ratio(handle, explained_vars, explained_var_ratio, prms.n_components, stream);
 }
 
@@ -110,11 +120,17 @@ void calEig(const raft::handle_t& handle,
   } else {
     raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
   }
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, stream);
 
-  raft::matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
+  raft::matrix::col_reverse(handle_stream_zero,
+                            raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+                              components, prms.n_cols, prms.n_cols));
   raft::linalg::transpose(components, prms.n_cols, stream);
 
-  raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
+  raft::matrix::row_reverse(handle_stream_zero,
+                            raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+                              explained_var, prms.n_cols, std::size_t(1)));
 }
 
 /**
@@ -327,11 +343,21 @@ void tsvdFit(const raft::handle_t& handle,
   calEig(
     handle, input_cross_mult.data(), components_all.data(), explained_var_all.data(), prms, stream);
 
-  raft::matrix::truncZeroOrigin(
-    components_all.data(), prms.n_cols, components, n_components, prms.n_cols, stream);
+  raft::matrix::trunc_zero_origin(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::col_major>(
+      components_all.data(), prms.n_cols, prms.n_cols),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
+      components, n_components, prms.n_cols));
 
   math_t scalar = math_t(1);
-  raft::matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, n_components, stream);
+  raft::matrix::weighted_sqrt(
+    handle,
+    raft::make_device_matrix_view<const math_t, std::size_t, raft::row_major>(
+      explained_var_all.data(), std::size_t(1), n_components),
+    raft::make_device_matrix_view<math_t, std::size_t, raft::row_major>(
+      singular_vals, std::size_t(1), n_components),
+    raft::make_host_scalar_view(&scalar));
 
   signFlipComponents(handle,
                      input,

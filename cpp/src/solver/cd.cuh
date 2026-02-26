@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,13 +18,12 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -179,9 +178,13 @@ int cdFit(const raft::handle_t& handle,
                         sample_weight);
   }
   if (sample_weight != nullptr) {
-    raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult<false, false>(
-      input, sample_weight, n_rows, n_cols, stream);
+    raft::linalg::sqrt(handle,
+                       raft::make_device_vector_view<const math_t, int>(sample_weight, n_rows),
+                       raft::make_device_vector_view<math_t, int>(sample_weight, n_rows));
+    raft::linalg::binary_mult<raft::Apply::ALONG_COLUMNS>(
+      handle,
+      raft::make_device_matrix_view<math_t, int, raft::col_major>(input, n_rows, n_cols),
+      raft::make_device_vector_view<const math_t, int>(sample_weight, n_rows));
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -269,8 +272,10 @@ int cdFit(const raft::handle_t& handle,
   }
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
-      input, sample_weight, n_rows, n_cols, stream);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_COLUMNS>(
+      handle,
+      raft::make_device_matrix_view<math_t, int, raft::col_major>(input, n_rows, n_cols),
+      raft::make_device_vector_view<const math_t, int>(sample_weight, n_rows));
     raft::linalg::map_k(
       labels,
       n_rows,

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -46,7 +46,8 @@ def test_onehot_inverse_transform(client, drop):
     ohe = enc.fit_transform(X)
     inv = enc.inverse_transform(ohe)
     assert_frame_equal(
-        inv.compute().to_pandas().reset_index(drop=True), df.to_pandas()
+        inv.compute().to_pandas().reset_index(drop=True),
+        X.compute().to_pandas().reset_index(drop=True),
     )
 
 
@@ -107,7 +108,8 @@ def test_onehot_inverse_transform_handle_unknown(client):
     enc = enc.fit(X)
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({"chars": [None, "b"], "int": [0, 2]})
-    assert_frame_equal(df.compute().to_pandas(), ref.to_pandas())
+    ref = dask_cudf.from_cudf(ref, npartitions=1).compute().to_pandas()
+    assert_frame_equal(df.compute().to_pandas(), ref)
 
 
 @pytest.mark.mg
@@ -152,7 +154,8 @@ def test_onehot_drop_idx_first(client):
     cp.testing.assert_array_equal(ohe.compute(), ref)
     inv = enc.inverse_transform(ohe)
     assert_frame_equal(
-        inv.compute().to_pandas().reset_index(drop=True), X.to_pandas()
+        inv.compute().to_pandas().reset_index(drop=True),
+        ddf.compute().to_pandas().reset_index(drop=True),
     )
 
 
@@ -170,7 +173,8 @@ def test_onehot_drop_one_of_each(client):
     cp.testing.assert_array_equal(ohe.compute(), ref)
     inv = enc.inverse_transform(ohe)
     assert_frame_equal(
-        inv.compute().to_pandas().reset_index(drop=True), X.to_pandas()
+        inv.compute().to_pandas().reset_index(drop=True),
+        ddf.compute().to_pandas().reset_index(drop=True),
     )
 
 
@@ -211,4 +215,4 @@ def test_onehot_get_categories(client):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
+        np.testing.assert_array_equal(ref[i], cats[i].to_pandas().to_numpy())
