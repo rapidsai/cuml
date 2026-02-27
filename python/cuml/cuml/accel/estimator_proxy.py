@@ -6,7 +6,9 @@ from __future__ import annotations
 import functools
 from typing import Any
 
+import cupy as cp
 import sklearn
+from cupyx.scipy.sparse import issparse as is_cp_sparse
 from packaging.version import Version
 from sklearn.base import (
     BaseEstimator,
@@ -29,6 +31,11 @@ def is_proxy(instance_or_class) -> bool:
     else:
         cls = type(instance_or_class)
     return issubclass(cls, ProxyBase)
+
+
+def ensure_host(x):
+    """Convert any cupy/cupyx.scipy.sparse inputs to their host equivalents"""
+    return x.get() if (isinstance(x, cp.ndarray) or is_cp_sparse(x)) else x
 
 
 class _ReconstructProxy:
@@ -318,6 +325,12 @@ class ProxyBase(BaseEstimator):
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
+        # Ensure the arguments are on host for the CPU fallback. This is _usually_
+        # already True, but in certain cases (a pipeline with optimized data transfer)
+        # we may need to migrate. In those cases the inputs will only ever be
+        # cupy/cupyx.scipy.sparse objects, so that's all we need to handle here.
+        args = [ensure_host(a) for a in args]
+        kwargs = {k: ensure_host(v) for k, v in kwargs.items()}
         with profilers.track_cpu_call(
             qualname, reason=reason or "Estimator not fit on GPU"
         ):

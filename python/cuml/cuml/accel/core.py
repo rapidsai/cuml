@@ -91,6 +91,7 @@ _OVERRIDES = {
 }
 
 _PATCHES = {
+    "sklearn.pipeline",
     "sklearn.utils",
 }
 
