@@ -105,7 +105,7 @@ class ProxyBase(BaseEstimator):
     to the GPU with the rules above. If this method raises a ``UnsupportedOnGPU`` error
     then the proxy will fallback to CPU.
 
-    See the definitions in ``cuml.accel._wrappers.linear_model`` for examples.
+    See the definitions in ``cuml.accel._overrides.linear_model`` for examples.
     """
 
     # A set of attribute names that aren't supported by `cuml.accel`.

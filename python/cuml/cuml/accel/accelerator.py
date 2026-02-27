@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -18,7 +18,7 @@ from typing import Any, Callable, Union
 __all__ = ("Accelerator",)
 
 
-PatchType = Union[
+LazyNamespace = Union[
     Callable[[types.ModuleType], dict[str, Any]],
     dict[str, Any],
     str,
@@ -110,38 +110,43 @@ def wrap_module(
     return out
 
 
-def patch_module(module: AccelModule, patch: PatchType) -> None:
-    """Patch an accelerated module.
+class ModuleTransform:
+    def __init__(
+        self,
+        override: LazyNamespace | None = None,
+        patch: LazyNamespace | None = None,
+    ):
+        self.override = override
+        self.patch = patch
 
-    Parameters
-    ----------
-    module : AccelModule
-        The accelerated module.
-    patch : mapping, callable, or str
-        One of the following:
+    @staticmethod
+    def _load_namespace(
+        module: AccelModule, namespace: LazyNamespace
+    ) -> dict[str, Any]:
+        assert isinstance(module, AccelModule)
+        if callable(namespace):
+            return namespace(module)
+        elif isinstance(namespace, str):
+            new_module = importlib.import_module(namespace)
+            if (names := getattr(new_module, "__all__", None)) is None:
+                raise ValueError(
+                    f"Module `{namespace}` must define `__all__` to specify the names of "
+                    "the attributes to override/patch in the accelerated module"
+                )
+            return {name: getattr(new_module, name) for name in names}
+        else:
+            return namespace
 
-        - A mapping of attributes to override in the accelerated module.
-        - A callable taking the original module and returning a mapping of attributes
-          to override in the accelerated module.
-        - A string name of a module to import containing overrides. All names
-          specified in `__all__` in the module will be used to override attributes in
-          the accelerated module.
-    """
-    assert isinstance(module, AccelModule)
-    if callable(patch):
-        overrides = patch(module)
-    elif isinstance(patch, str):
-        new_module = importlib.import_module(patch)
-        if (names := getattr(new_module, "__all__", None)) is None:
-            raise ValueError(
-                f"Module `{patch}` must define `__all__` to specify the names of "
-                "the attributes to override in the accelerated module"
-            )
-        overrides = {name: getattr(new_module, name) for name in names}
-    else:
-        overrides = patch
+    def apply(self, module: AccelModule) -> None:
+        """Load and apply patches/overrides to an accelerated module."""
+        if self.patch is not None:
+            ns = self._load_namespace(module, self.patch)
+            for k, v in ns.items():
+                setattr(module._accel_module, k, v)
 
-    module._accel_overrides.update(overrides)
+        if self.override is not None:
+            ns = self._load_namespace(module, self.override)
+            module._accel_overrides.update(ns)
 
 
 class AccelLoader(importlib.abc.Loader):
@@ -150,11 +155,11 @@ class AccelLoader(importlib.abc.Loader):
     def __init__(
         self,
         spec: importlib.machinery.ModuleSpec,
-        patch: PatchType,
+        transform: ModuleTransform,
         exclude: Callable[[str], bool] | None = None,
     ) -> None:
         self._spec = spec
-        self._patch = patch
+        self._transform = transform
         self._exclude = exclude
 
     def create_module(
@@ -168,7 +173,7 @@ class AccelLoader(importlib.abc.Loader):
         assert isinstance(module, AccelModule)
         assert self._spec.loader is not None
         self._spec.loader.exec_module(module._accel_module)
-        patch_module(module, self._patch)
+        self._transform.apply(module)
 
 
 class AccelFinder(importlib.abc.MetaPathFinder):
@@ -192,7 +197,7 @@ class AccelFinder(importlib.abc.MetaPathFinder):
         if fullname in self._importing:
             return None
 
-        if (patch := self.accelerator.patches.get(fullname)) is None:
+        if (transform := self.accelerator.transforms.get(fullname)) is None:
             return None
 
         try:
@@ -206,7 +211,7 @@ class AccelFinder(importlib.abc.MetaPathFinder):
 
         spec = importlib.machinery.ModuleSpec(
             name=fullname,
-            loader=AccelLoader(real_spec, patch, self.accelerator.exclude),
+            loader=AccelLoader(real_spec, transform, self.accelerator.exclude),
             origin=real_spec.origin,
             loader_state=real_spec.loader_state,
             is_package=real_spec.submodule_search_locations is not None,
@@ -227,7 +232,7 @@ class Accelerator:
     """
 
     exclude: Callable[[str], bool]
-    patches: dict[str, PatchType]
+    transforms: dict[str, ModuleTransform]
     _lock: RLock
     _installed: bool
 
@@ -239,7 +244,7 @@ class Accelerator:
         else:
             self.exclude = frozenset(exclude or ()).__contains__
 
-        self.patches = {}
+        self.transforms = {}
         self._lock = RLock()
         self._installed = False
 
@@ -257,22 +262,38 @@ class Accelerator:
         # minimizing the changes needed if/when we want to add that feature.
         return self.installed
 
-    def register(self, name: str, patch: PatchType):
-        """Register a new patch for a module.
+    def register(
+        self,
+        name: str,
+        override: LazyNamespace | None = None,
+        patch: LazyNamespace | None = None,
+    ):
+        """Register a new override or patch for a module.
+
+        Overrides are only visible to non-excluded modules, and don't mutate
+        the original module. Patches apply everywhere and do mutate the original
+        module.
+
+        For example, if `sklearn` is in the `exclude` list for the accelerator,
+        an override for `sklearn.linear_models.LinearRegression` won't be
+        visible to consumers within `sklearn` itself (they'll still get the
+        original `LinearRegression`). In contrast, a `patch` will be visible
+        everywhere, and including for consumers within `sklearn` itself.
 
         Parameters
         ----------
         name : str
             The name of the unaccelerated module to patch.
-        patch : mapping, callable, or str
+        override, patch : mapping, callable, or str
             May be one of the following:
 
-            - A mapping of attributes to override in the accelerated module.
+            - A mapping of attributes to override/patch in the accelerated
+              module.
             - A callable taking the original module and returning a mapping of
-              attributes to override in the accelerated module.
-            - A string name of a module to import containing overrides. All names
-              specified in `__all__` in the module will be used to override
-              attributes in the accelerated module.
+              attributes to override/patch in the accelerated module.
+            - A string name of a module to import containing overrides or
+              patches. All names specified in `__all__` in the module will be
+              used to override/patch attributes in the accelerated module.
 
         Examples
         --------
@@ -287,10 +308,10 @@ class Accelerator:
         >>> accel.register("foobar", "fast.foobar")
         """
         assert not self._installed
-        assert name not in self.patches
-        self.patches[name] = patch
+        assert name not in self.transforms
+        self.transforms[name] = ModuleTransform(override=override, patch=patch)
 
-    def _maybe_patch(self, name: str) -> None:
+    def _maybe_transform(self, name: str) -> None:
         if (module := sys.modules.get(name)) is None:
             # Not imported yet, import system will load patch lazily later
             return
@@ -312,14 +333,15 @@ class Accelerator:
         if getattr(parent, child_name, None) is module:
             setattr(parent, child_name, accelerated)
 
-        # 4. Apply the patch
-        patch_module(accelerated, self.patches[name])
+        # 4. Apply module transforms
+        self.transforms[name].apply(accelerated)
 
     def install(self) -> None:
         """Install the accelerator.
 
-        This installs the import hooks to intercept future imports of accelerated modules. It also
-        patches previous imports of these modules in a best-effort approach.
+        This installs the import hooks to intercept future imports of
+        accelerated modules. It also wraps/overrides previous imports of these
+        modules in a best-effort approach.
         """
         with self._lock:
             if self._installed:
@@ -328,8 +350,8 @@ class Accelerator:
             # Install the import hook. This handles patching any modules imported later.
             sys.meta_path.insert(0, AccelFinder(self))
 
-            # Patch any modules that are already imported.
-            for name in self.patches:
-                self._maybe_patch(name)
+            # Wrap any modules that are already imported.
+            for name in self.transforms:
+                self._maybe_transform(name)
 
             self._installed = True
