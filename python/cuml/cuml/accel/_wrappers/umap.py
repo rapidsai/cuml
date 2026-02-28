@@ -5,6 +5,7 @@
 
 import cuml.manifold
 from cuml.accel.estimator_proxy import ProxyBase
+from sklearn.utils.validation import check_array
 
 __all__ = ("UMAP",)
 
@@ -15,17 +16,31 @@ class UMAP(ProxyBase):
     def _gpu_fit(self, X, y=None, force_all_finite=True, **kwargs):
         # **kwargs is here for signature compatibility - umap.UMAP has them,
         # but ignores all but the ones named here.
-        # TODO: cuml.UMAP currently doesn't handle non-finite inputs.
-        # force_alL_finite is in here for _signature_ compatibility
-        # with umap.UMAP, but we don't properly implement it (yet).
+
+        # Validate input to handle non-finite values (NaN, Inf)
+        X = check_array(
+            X, accept_sparse="csr", force_all_finite=force_all_finite
+        )
+
         return self._gpu.fit(X, y=y)
 
     def _gpu_fit_transform(self, X, y=None, force_all_finite=True, **kwargs):
         # **kwargs is here for signature compatibility - umap.UMAP has them,
         # but ignores all but the ones named here.
+
+        # Validate input to handle non-finite values (NaN, Inf)
+        X = check_array(
+            X, accept_sparse="csr", force_all_finite=force_all_finite
+        )
+
         return self._gpu.fit_transform(X, y=y)
 
     def _gpu_transform(self, X, force_all_finite=True):
+        # Validate input during transform
+        X = check_array(
+            X, accept_sparse="csr", force_all_finite=force_all_finite
+        )
+
         return self._gpu.transform(X)
 
     def _gpu_inverse_transform(self, X):
