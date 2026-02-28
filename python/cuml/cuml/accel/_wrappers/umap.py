@@ -5,7 +5,7 @@
 
 import cuml.manifold
 from cuml.accel.estimator_proxy import ProxyBase
-from sklearn.utils.validation import check_array
+from cuml.thirdparty_adapters.adapters import check_array
 
 __all__ = ("UMAP",)
 
