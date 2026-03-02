@@ -327,3 +327,18 @@ def test_pipeline_set_output():
         StandardScaler().set_output(transform="pandas")
     ).fit_transform(X)
     assert isinstance(X2, pd.DataFrame)
+
+
+def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
+    X, y = make_classification(random_state=42, n_classes=2)
+    y = np.array(["a", "b"]).take(y)
+
+    patch_methods(LogisticRegression, "fit", "predict")
+
+    pipeline = make_pipeline(StandardScaler(), LogisticRegression())
+    pipeline.fit(X, y)
+    assert isinstance(LogisticRegression.fit.args[0], cp.ndarray)
+    out = pipeline.predict(X)
+    assert isinstance(LogisticRegression.predict.args[0], cp.ndarray)
+    # User-facing output is always numpy
+    assert isinstance(out, np.ndarray)

@@ -23,6 +23,7 @@ from sklearn.utils._set_output import (
 from cuml.accel import profilers
 from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
+from cuml.internals.outputs import using_output_type
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
@@ -266,14 +267,21 @@ class ProxyBase(BaseEstimator):
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 raise UnsupportedOnGPU("Method is not implemented in cuml")
 
-        out = gpu_func(*args, **kwargs)
+        # Only transform/fit_transform/inverse_transform with default
+        # set_output config may return device arrays (to support optimized
+        # pipeline data transfers). All other methods must return on host.
+        may_return_on_device = (
+            method in ("transform", "fit_transform", "inverse_transform")
+            and _get_output_config("transform", self)["dense"] == "default"
+        )
+        if may_return_on_device:
+            out = gpu_func(*args, **kwargs)
+        else:
+            with using_output_type("numpy"):
+                out = gpu_func(*args, **kwargs)
 
         if method in ("transform", "fit_transform"):
             # Properly wrap output of transform following `set_output` config.
-            # For non-default configuration, we need to ensure the output is
-            # on host before forwarding.
-            if _get_output_config("transform", self)["dense"] != "default":
-                out = ensure_host(out)
             out = _wrap_data_with_container("transform", out, args[0], self)
 
         return self if out is self._gpu else out
