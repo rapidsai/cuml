@@ -15,7 +15,10 @@ from sklearn.base import (
     ClassNamePrefixFeaturesOutMixin,
     OneToOneFeatureMixin,
 )
-from sklearn.utils._set_output import _wrap_data_with_container
+from sklearn.utils._set_output import (
+    _get_output_config,
+    _wrap_data_with_container,
+)
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
@@ -266,7 +269,11 @@ class ProxyBase(BaseEstimator):
         out = gpu_func(*args, **kwargs)
 
         if method in ("transform", "fit_transform"):
-            # Ensure transform result is properly wrapped for `set_output`
+            # Properly wrap output of transform following `set_output` config.
+            # For non-default configuration, we need to ensure the output is
+            # on host before forwarding.
+            if _get_output_config("transform", self)["dense"] != "default":
+                out = ensure_host(out)
             out = _wrap_data_with_container("transform", out, args[0], self)
 
         return self if out is self._gpu else out

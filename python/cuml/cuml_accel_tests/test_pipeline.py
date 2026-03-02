@@ -6,6 +6,7 @@ import types
 
 import cupy as cp
 import numpy as np
+import pandas as pd
 import pytest
 import scipy as sp
 from sklearn.base import BaseEstimator
@@ -318,3 +319,11 @@ def test_pipeline_data_transfer_with_host_fallback(
     assert isinstance(Ridge.predict.args[0], cp.ndarray)
     # User-facing output is always numpy
     assert isinstance(out, np.ndarray)
+
+
+def test_pipeline_set_output():
+    X, _ = make_regression(random_state=42)
+    X2 = make_pipeline(
+        StandardScaler().set_output(transform="pandas")
+    ).fit_transform(X)
+    assert isinstance(X2, pd.DataFrame)
