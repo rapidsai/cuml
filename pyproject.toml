@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 [tool.codespell]
@@ -35,3 +35,5 @@ extend-ignore = [
 "*.pxd" = ["E999", "E225", "E226", "E227"]
 "__init__.py" = ["F401"]
 "cpp/examples/**" = ["F401"]
+# E402: import must follow sys.path.insert() so benchmark cli can be found when run standalone
+"python/cuml/cuml/benchmark/run_benchmark.py" = ["E402"]
