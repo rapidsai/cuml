@@ -25,17 +25,25 @@ GPU arrays directly instead.
 
 import functools
 import os
+import sys
 from urllib.request import urlretrieve
 
 import numpy as np
 import pandas as pd
 import scipy.sparse
 import sklearn.model_selection
-from gpu_check import HAS_CUML, is_gpu_available
 from sklearn.datasets import fetch_covtype, load_svmlight_file
 from sklearn.datasets import make_blobs as sklearn_make_blobs
 from sklearn.datasets import make_classification as sklearn_make_classification
 from sklearn.datasets import make_regression as sklearn_make_regression
+
+# Import guard for gpu_check: package first, then standalone (benchmark dir on sys.path)
+try:
+    from cuml.benchmark.gpu_check import HAS_CUML, is_gpu_available
+except ImportError:
+    if not any("cuml/benchmark" in p for p in sys.path):
+        raise
+    from gpu_check import HAS_CUML, is_gpu_available  # noqa: E402
 
 # Conditional GPU imports
 cudf = None

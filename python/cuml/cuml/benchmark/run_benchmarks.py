@@ -34,9 +34,12 @@ try:
     )
 except ImportError:
     # Standalone execution (benchmark/ directory or cuML not installed)
+    # Add benchmark directory to sys.path
     _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
     if _benchmark_dir not in sys.path:
         sys.path.insert(0, _benchmark_dir)
+    assert any("cuml/benchmark" in p for p in sys.path)
+
     import algorithms  # noqa: E402
     import datagen  # noqa: E402
     import runners  # noqa: E402

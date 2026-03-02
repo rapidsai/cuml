@@ -5,7 +5,6 @@
 """Wrappers to run ML benchmarks"""
 
 import itertools
-import os
 import sys
 import time
 import warnings
@@ -18,9 +17,8 @@ try:
     from cuml.benchmark import datagen
     from cuml.benchmark.gpu_check import HAS_CUML, is_gpu_available
 except ImportError:
-    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
-    if _benchmark_dir not in sys.path:
-        sys.path.insert(0, _benchmark_dir)
+    if not any("cuml/benchmark" in p for p in sys.path):
+        raise
     import datagen  # noqa: E402
     from gpu_check import HAS_CUML, is_gpu_available  # noqa: E402
 

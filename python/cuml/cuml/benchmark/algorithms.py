@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import os
 import sys
 import tempfile
 import warnings
@@ -36,9 +35,8 @@ try:
     )
     from cuml.benchmark.gpu_check import HAS_CUML
 except ImportError:
-    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
-    if _benchmark_dir not in sys.path:
-        sys.path.insert(0, _benchmark_dir)
+    if not any("cuml/benchmark" in p for p in sys.path):
+        raise
     from bench_helper_funcs import (  # noqa: E402
         _training_data_to_numpy,
         fit,
@@ -91,8 +89,8 @@ if HAS_CUML:
     cuml = _cuml
     cuml_metrics = _cuml_metrics
 
-    # Import GPU-specific helper functions
-    from bench_helper_funcs import (
+    # Import GPU-specific helper functions (package path; standalone uses except above)
+    from cuml.benchmark.bench_helper_funcs import (
         _build_cpu_skl_classifier,
         _build_fil_classifier,
         _build_fil_skl_classifier,
