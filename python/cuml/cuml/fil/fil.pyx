@@ -947,6 +947,12 @@ class ForestInference(Base, CMajorInputTagMixin):
             For GPU execution, the device on which to load and execute this
             model. For CPU execution, this value is currently ignored.
         """
+        if tl_model.num_trees < 1:
+            raise ValueError("The Treelite model must have at least one decision tree.")
+
+        if tl_model.num_outputs < 1:
+            raise ValueError("The Treelite model must have at least one output.")
+        # -------------------------------
         return cls(
             treelite_model=tl_model,
             output_type=output_type,
