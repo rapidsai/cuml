@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
-from sklearn.cluster import DBSCAN, KMeans
+from sklearn.cluster import DBSCAN, KMeans, SpectralClustering
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import (
@@ -30,6 +30,15 @@ def test_dbscan():
     X, y_true = make_blobs(n_samples=100, centers=3, random_state=42)
     clf = DBSCAN().fit(X)
     clf.labels_
+
+
+def test_spectral_clustering():
+    X, y_true = make_blobs(n_samples=100, centers=3, random_state=42)
+    X = X.astype("float32")
+    sc = SpectralClustering(
+        n_clusters=3, affinity="nearest_neighbors", random_state=42
+    ).fit(X)
+    sc.labels_
 
 
 def test_pca():
