@@ -6,8 +6,7 @@
 
 This module holds the main benchmark logic. Entry points:
   - Full mode:     python -m cuml.benchmark
-  - Standalone:    python run_benchmark.py  (from this directory)
-  - Direct script: python run_benchmarks.py  (from this directory)
+  - Standalone:    python run_benchmarks.py  (from this directory)
 
 Modes:
   1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and
@@ -411,5 +410,12 @@ def run_benchmark(args):
         print("Saved results to %s" % args.csv)
 
 
+def main(argv=None):
+    """Parse arguments and run the benchmark. Returns exit code."""
+    args = build_parser().parse_args(argv)
+    run_benchmark(args)
+    return 0
+
+
 if __name__ == "__main__":
-    run_benchmark(build_parser().parse_args())
+    sys.exit(main())

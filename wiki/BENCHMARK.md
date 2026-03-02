@@ -3,7 +3,7 @@
 This document describes how to run the cuML benchmark suite. The tools support two execution modes:
 
 - **Full mode**: `python -m cuml.benchmark` — requires cuML and GPU dependencies; runs GPU + CPU benchmarks.
-- **Standalone mode**: `python run_benchmark.py` — works without cuML installed (e.g. from the repo); runs CPU-only benchmarks when cuML is not available.
+- **Standalone mode**: `python run_benchmarks.py` — works without cuML installed (e.g. from the repo); runs CPU-only benchmarks when cuML is not available.
 
 ## Running the benchmarks
 
@@ -23,7 +23,7 @@ From the `python/cuml/cuml/benchmark/` directory, you can run without installing
 
 ```bash
 cd python/cuml/cuml/benchmark/
-python run_benchmark.py --dataset classification LogisticRegression
+python run_benchmarks.py --dataset classification LogisticRegression
 ```
 
 When cuML is not installed, only CPU (e.g. scikit-learn) benchmarks run. The same script works with cuML installed for full GPU+CPU runs.
@@ -34,22 +34,13 @@ The following Python packages are required for standalone mode:
 pip install numpy pandas scikit-learn scipy
 ```
 
-### Legacy script
-
-You can still run the original script directly (same options):
-
-```bash
-cd python/cuml/cuml/benchmark/
-python run_benchmarks.py --dataset classification LogisticRegression
-```
-
 ### CPU-only mode
 
 To run only CPU benchmarks (e.g. when no GPU or to compare CPU implementations only):
 
 ```bash
 python -m cuml.benchmark --skip-gpu --dataset classification LogisticRegression
-# or: python run_benchmark.py --skip-gpu --dataset classification LogisticRegression
+# or: python run_benchmarks.py --skip-gpu --dataset classification LogisticRegression
 ```
 
 ### GPU-only mode

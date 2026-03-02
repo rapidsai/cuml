@@ -6,6 +6,6 @@
 
 import sys
 
-from cuml.benchmark.cli import main
+from cuml.benchmark.run_benchmarks import main
 
 sys.exit(main())
