@@ -25,14 +25,19 @@ HAS_CUML = _check_cuml()
 
 
 def is_gpu_available():
-    """Check if GPU mode is available.
+    """Check if at least one GPU device is visible and usable.
 
     Returns
     -------
     bool
-        True if cuML is available.
+        True if a GPU can be used.
     """
-    return HAS_CUML
+    try:
+        import cupy as cp
+
+        return cp.cuda.runtime.getDeviceCount() > 0
+    except Exception:
+        return False
 
 
 def get_available_input_types():
