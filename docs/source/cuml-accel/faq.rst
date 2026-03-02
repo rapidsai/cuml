@@ -53,6 +53,7 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.cluster.DBSCAN``
     * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
+    * ``sklearn.decomposition.IncrementalPCA``
     * ``sklearn.decomposition.TruncatedSVD``
     * ``sklearn.ensemble.RandomForestClassifier``
     * ``sklearn.ensemble.RandomForestRegressor``
