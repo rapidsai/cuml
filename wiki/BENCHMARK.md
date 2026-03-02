@@ -28,6 +28,12 @@ python run_benchmark.py --dataset classification LogisticRegression
 
 When cuML is not installed, only CPU (e.g. scikit-learn) benchmarks run. The same script works with cuML installed for full GPU+CPU runs.
 
+The following Python packages are required for standalone mode:
+
+```bash
+pip install numpy pandas scikit-learn scipy
+```
+
 ### Legacy script
 
 You can still run the original script directly (same options):
