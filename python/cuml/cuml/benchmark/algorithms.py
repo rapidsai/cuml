@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import functools
 import sys
 import tempfile
 import warnings
@@ -292,6 +293,7 @@ def _numpy_format_hook(data):
     return _training_data_to_numpy(data[0], data[1])
 
 
+@functools.cache
 def all_algorithms():
     """Returns all defined AlgorithmPair objects.
 
