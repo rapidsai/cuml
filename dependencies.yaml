@@ -496,6 +496,17 @@ dependencies:
               - --extra-index-url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
           - matrix:  # fallback for non-nightly dependencies
             packages:
+      # TODO: remove this block once `onnxruntime` has Python 3.14 support (and conda packages built)
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix: {py: "3.14"}
+            packages:
+          - matrix: {py: "3.*"}
+            packages:
+              - *onnxruntime
+              - *skl2onnx
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -508,8 +519,9 @@ dependencies:
           - numpydoc<1.9
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
-          - *onnxruntime
-          - *skl2onnx
+        # TODO: uncomment these two lines once `onnxruntime` has Python 3.14 support (and conda packages built)
+          # - *onnxruntime
+          # - *skl2onnx
           - pyyaml
           - pytest
           - pytest-benchmark
