@@ -293,7 +293,13 @@ class OneHotEncoder(BaseEncoder):
                     ).format(feature)
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
-                if not self.drop[feature].isin(cats).all():
+                drop_vals = self.drop[feature]
+                # Match the dtype of the drop values to the dtype of the categories
+                # seen during `fit`. In particular if arrow strings and object dtypes
+                # are used, then having a mix means `isin` won't work correctly.
+                if drop_vals.dtype != cats.dtype:
+                    drop_vals = drop_vals.astype(cats.dtype)
+                if not drop_vals.isin(cats).all():
                     msg = (
                         "Some categories for feature {} were supposed "
                         "to be dropped, but were not found in the encoder "
@@ -301,7 +307,7 @@ class OneHotEncoder(BaseEncoder):
                     )
                     raise ValueError(msg)
                 cats = cudf.Series(cats)
-                idx = cats.isin(self.drop[feature])
+                idx = cats.isin(drop_vals)
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx
         else:
@@ -317,6 +323,8 @@ class OneHotEncoder(BaseEncoder):
 
     def _has_unknown(self, X_cat, encoder_cat):
         """Check if X_cat has categories that are not present in encoder_cat."""
+        if X_cat.dtype != encoder_cat.dtype:
+            encoder_cat = encoder_cat.astype(X_cat.dtype)
         return not X_cat.isin(encoder_cat).all()
 
     @generate_docstring(y=None)
