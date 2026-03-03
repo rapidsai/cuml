@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
@@ -8,7 +8,7 @@ from sklearn.svm import SVC as _SVC
 from sklearn.utils.metaestimators import available_if
 
 import cuml.svm
-from cuml.accel.estimator_proxy import ProxyBase
+from cuml.accel.estimator_proxy import ProxyBase, ensure_host
 from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = (
@@ -37,7 +37,8 @@ class SVC(ProxyBase):
     )
 
     def _gpu_fit(self, X, y, sample_weight=None):
-        classes, counts = np.unique(np.asanyarray(y), return_counts=True)
+        # XXX With GridSearchCV X can be cupy :-/
+        classes, counts = np.unique(ensure_host(y), return_counts=True)
         if len(classes) > 2:
             raise UnsupportedOnGPU("Multiclass `y` is not supported")
 

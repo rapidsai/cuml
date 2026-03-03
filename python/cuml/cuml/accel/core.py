@@ -91,6 +91,7 @@ _OVERRIDES = {
 }
 
 _PATCHES = {
+    "sklearn.model_selection",
     "sklearn.pipeline",
     "sklearn.utils",
 }
@@ -180,6 +181,19 @@ def install(
     # be automatically enabled in subprocesses
     os.environ.setdefault("CUML_ACCEL_ENABLED", "1")
     os.environ.setdefault("CUML_ACCEL_LOG_LEVEL", log_level)
+
+    # Enable scipy's array API support so scikit-learn's array API support works
+    # Must also update scipy's cached config in case scipy was already imported
+    # before we set this env var.
+    os.environ.setdefault("SCIPY_ARRAY_API", "1")
+    try:
+        # XXX What is the oldest scipy version that we might import
+        # do we need the try-except or do all scipy versions have this?
+        import scipy._lib._array_api as _scipy_array_api
+
+        _scipy_array_api._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = "1"
+    except (ImportError, AttributeError):
+        pass
 
     if not disable_uvm:
         if _is_concurrent_managed_access_supported():

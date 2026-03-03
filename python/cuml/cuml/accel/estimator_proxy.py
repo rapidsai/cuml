@@ -7,6 +7,7 @@ import functools
 from typing import Any
 
 import cupy as cp
+import numpy as np
 import sklearn
 from cupyx.scipy.sparse import issparse as is_cp_sparse
 from packaging.version import Version
@@ -22,6 +23,7 @@ from sklearn.utils._set_output import (
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
 from cuml.internals.outputs import using_output_type
 
@@ -40,6 +42,23 @@ def is_proxy(instance_or_class) -> bool:
 def ensure_host(x):
     """Convert any cupy/cupyx.scipy.sparse inputs to their host equivalents"""
     return x.get() if (isinstance(x, cp.ndarray) or is_cp_sparse(x)) else x
+
+
+def _maybe_to_device(out):
+    """Convert output to cupy when the caller expects device arrays.
+
+    This is needed when cuml.accel patches (Pipeline, GridSearchCV) set
+    output_type to "cupy" to keep data on device. Both the GPU success path
+    and the CPU fallback path must return cupy in that case.
+    """
+    if (
+        GlobalSettings().output_type == "cupy"
+        and isinstance(out, np.ndarray)
+        and out.dtype.kind
+        in "fiu"  # float, int, unsigned -- skip strings/objects
+    ):
+        return cp.asarray(out)
+    return out
 
 
 class _ReconstructProxy:
@@ -325,7 +344,7 @@ class ProxyBase(BaseEstimator):
                 with profilers.track_gpu_call(qualname):
                     out = self._call_gpu_method(method, *args, **kwargs)
                 logger.info(f"`{qualname}` ran on GPU")
-                return out
+                return _maybe_to_device(out)
             except UnsupportedOnGPU as exc:
                 reason = str(exc) or "Method parameters not supported"
                 # Unsupported. If it's a `fit` we need to clear
@@ -351,7 +370,9 @@ class ProxyBase(BaseEstimator):
         ):
             out = getattr(self._cpu, method)(*args, **kwargs)
         logger.info(f"`{qualname}` ran on CPU")
-        return self if out is self._cpu else out
+        if out is self._cpu:
+            return self
+        return _maybe_to_device(out)
 
     ############################################################
     # set_output handling                                      #
