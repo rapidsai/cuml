@@ -15,12 +15,12 @@ from sklearn import metrics as sklearn_metrics
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import datagen
-    from cuml.benchmark.gpu_check import HAS_CUML
+    from cuml.benchmark.gpu_check import is_cuml_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
     import datagen  # noqa: E402
-    from gpu_check import HAS_CUML  # noqa: E402
+    from gpu_check import is_cuml_available  # noqa: E402
 
 # Conditional GPU imports
 cudf = None
@@ -33,7 +33,7 @@ set_fil_device_type = None
 DeviceType = None
 UMAP = None
 
-if HAS_CUML:
+if is_cuml_available():
     import cudf
     import cupy as cp
     from numba import cuda
@@ -111,13 +111,13 @@ def _training_data_to_numpy(X, y):
     if isinstance(X, np.ndarray):
         X_np = X
         y_np = y
-    elif HAS_CUML and isinstance(X, cp.ndarray):
+    elif is_cuml_available() and isinstance(X, cp.ndarray):
         X_np = cp.asnumpy(X)
         y_np = cp.asnumpy(y) if y is not None else None
-    elif HAS_CUML and isinstance(X, cudf.DataFrame):
+    elif is_cuml_available() and isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
         y_np = y.to_numpy() if y is not None else None
-    elif HAS_CUML and cuda.devicearray.is_cuda_ndarray(X):
+    elif is_cuml_available() and cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
         y_np = y.copy_to_host() if y is not None else None
     elif isinstance(X, (pd.DataFrame, pd.Series)):
@@ -133,7 +133,7 @@ def _build_fil_classifier(m, data, args, tmpdir):
 
     Note: This function requires GPU libraries (cuML) to be available.
     """
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "FIL classifier requires GPU libraries (cuML). "
             "Not available in CPU-only mode."
@@ -194,7 +194,7 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
 
     Note: This function requires GPU libraries (cuML) to be available.
     """
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "Optimized FIL classifier requires GPU libraries (cuML). "
             "Not available in CPU-only mode."
@@ -282,7 +282,7 @@ def _build_fil_skl_classifier(m, data, args, tmpdir):
 
     Note: This function requires GPU libraries (cuML) to be available.
     """
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "FIL SKLearn classifier requires GPU libraries (cuML). "
             "Not available in CPU-only mode."
@@ -390,7 +390,7 @@ def _build_gtil_classifier(m, data, args, tmpdir):
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
     # convert the input if necessary
-    if HAS_CUML:
+    if is_cuml_available():
         y_pred1 = (
             y_pred.copy_to_host()
             if cuda.devicearray.is_cuda_ndarray(y_pred)
@@ -416,7 +416,7 @@ def _build_mnmg_umap(m, data, args, tmpdir):
 
     Note: This function requires GPU libraries (cuML) to be available.
     """
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "MNMG UMAP requires GPU libraries (cuML). "
             "Not available in CPU-only mode."

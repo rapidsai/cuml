@@ -28,8 +28,8 @@ import numpy as np
 try:
     from cuml.benchmark import algorithms, datagen, runners
     from cuml.benchmark.gpu_check import (
-        HAS_CUML,
         get_status_string,
+        is_cuml_available,
         is_gpu_available,
     )
 except ImportError:
@@ -44,14 +44,14 @@ except ImportError:
     import datagen  # noqa: E402
     import runners  # noqa: E402
     from gpu_check import (  # noqa: E402
-        HAS_CUML,
         get_status_string,
+        is_cuml_available,
         is_gpu_available,
     )
 
 # Conditional RMM import (RMM is a cuML dependency)
 rmm = None
-if HAS_CUML:
+if is_cuml_available():
     import rmm
 
 PrecisionMap = {

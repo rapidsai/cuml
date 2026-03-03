@@ -9,8 +9,11 @@ allowing the benchmark tools to run in CPU-only mode on systems
 without NVIDIA GPUs or cuML installed.
 """
 
+from functools import lru_cache
 
-def _check_cuml():
+
+@lru_cache(maxsize=1)
+def is_cuml_available():
     """Check if cuML is available and functional."""
     try:
         import cuml  # noqa: F401
@@ -18,10 +21,6 @@ def _check_cuml():
         return True
     except ImportError:
         return False
-
-
-# Check if cuML is available - this implies all GPU dependencies are available
-HAS_CUML = _check_cuml()
 
 
 def is_gpu_available():
@@ -62,7 +61,7 @@ def get_status_string():
     str
         Human-readable status string.
     """
-    if HAS_CUML:
+    if is_cuml_available():
         return "GPU mode (cuML available)"
     else:
         return "CPU-only mode (cuML not installed)"

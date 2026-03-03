@@ -39,11 +39,11 @@ from sklearn.datasets import make_regression as sklearn_make_regression
 
 # Import guard for gpu_check: package first, then standalone (benchmark dir on sys.path)
 try:
-    from cuml.benchmark.gpu_check import HAS_CUML, is_gpu_available
+    from cuml.benchmark.gpu_check import is_cuml_available, is_gpu_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
-    from gpu_check import HAS_CUML, is_gpu_available  # noqa: E402
+    from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
 
 # Conditional GPU imports
 cudf = None
@@ -52,7 +52,7 @@ cuda = None
 cuml_datasets = None
 input_utils = None
 
-if HAS_CUML:
+if is_cuml_available():
     import cudf
     import cupy as cp
     from numba import cuda
@@ -65,7 +65,7 @@ def _gen_data_regression(
     n_samples=int(1e6), n_features=100, random_state=42, dtype=np.float32
 ):
     """Generate regression data using optimal backend."""
-    if is_gpu_available() and HAS_CUML:
+    if is_gpu_available() and is_cuml_available():
         X, y = cuml_datasets.make_regression(
             n_samples=n_samples,
             n_features=n_features,
@@ -92,7 +92,7 @@ def _gen_data_blobs(
     dtype=np.float32,
 ):
     """Generate blob data using optimal backend."""
-    if is_gpu_available() and HAS_CUML:
+    if is_gpu_available() and is_cuml_available():
         X, y = cuml_datasets.make_blobs(
             n_samples=n_samples,
             n_features=n_features,
@@ -113,7 +113,7 @@ def _gen_data_blobs(
 
 def _gen_data_zeros(n_samples=int(1e6), n_features=100, dtype=np.float32):
     """Dummy generator for use in testing - returns all 0s."""
-    if is_gpu_available() and HAS_CUML:
+    if is_gpu_available() and is_cuml_available():
         return (
             cp.zeros((n_samples, n_features), dtype=dtype),
             cp.zeros(n_samples, dtype=dtype),
@@ -132,7 +132,7 @@ def _gen_data_classification(
     dtype=np.float32,
 ):
     """Generate classification data using optimal backend."""
-    if is_gpu_available() and HAS_CUML:
+    if is_gpu_available() and is_cuml_available():
         X, y = cuml_datasets.make_classification(
             n_samples=n_samples,
             n_features=n_features,
@@ -353,11 +353,11 @@ def _convert_to_numpy(data):
         return tuple([_convert_to_numpy(d) for d in data])
     elif isinstance(data, np.ndarray):
         return data
-    elif HAS_CUML and isinstance(data, cp.ndarray):
+    elif is_cuml_available() and isinstance(data, cp.ndarray):
         return cp.asnumpy(data)
-    elif HAS_CUML and isinstance(data, cudf.DataFrame):
+    elif is_cuml_available() and isinstance(data, cudf.DataFrame):
         return data.to_numpy()
-    elif HAS_CUML and isinstance(data, cudf.Series):
+    elif is_cuml_available() and isinstance(data, cudf.Series):
         return data.to_numpy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
@@ -367,7 +367,7 @@ def _convert_to_numpy(data):
 
 def _convert_to_cupy(data):
     """Returns tuple data with all elements converted to cupy ndarrays"""
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "CuPy not available. Cannot convert to cupy format."
         )
@@ -391,7 +391,7 @@ def _convert_to_cupy(data):
 
 def _convert_to_cudf(data):
     """Returns tuple data with all elements converted to cudf DataFrames/Series"""
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "cuDF not available. Cannot convert to cudf format."
         )
@@ -429,7 +429,9 @@ def _convert_to_pandas(data):
         return tuple([_convert_to_pandas(d) for d in data])
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data
-    elif HAS_CUML and isinstance(data, (cudf.DataFrame, cudf.Series)):
+    elif is_cuml_available() and isinstance(
+        data, (cudf.DataFrame, cudf.Series)
+    ):
         return data.to_pandas()
     elif isinstance(data, np.ndarray):
         data = np.squeeze(data)
@@ -437,7 +439,7 @@ def _convert_to_pandas(data):
             return pd.Series(data)
         else:
             return pd.DataFrame(data)
-    elif HAS_CUML and isinstance(data, cp.ndarray):
+    elif is_cuml_available() and isinstance(data, cp.ndarray):
         data = np.squeeze(cp.asnumpy(data))
         if data.ndim == 1:
             return pd.Series(data)
@@ -449,7 +451,7 @@ def _convert_to_pandas(data):
 
 def _convert_to_gpuarray(data, order="F"):
     """Returns tuple data with all elements converted to GPU arrays"""
-    if not HAS_CUML:
+    if not is_cuml_available():
         raise RuntimeError(
             "GPU libraries not available. Cannot convert to gpuarray format."
         )
@@ -497,9 +499,9 @@ def _convert_to_scipy_sparse(data, input_type):
         return tuple([_convert_to_scipy_sparse(d, input_type) for d in data])
     elif isinstance(data, np.ndarray):
         return _sparsify_and_convert(data, input_type)
-    elif HAS_CUML and isinstance(data, cudf.DataFrame):
+    elif is_cuml_available() and isinstance(data, cudf.DataFrame):
         return _sparsify_and_convert(data.to_numpy(), input_type)
-    elif HAS_CUML and isinstance(data, cudf.Series):
+    elif is_cuml_available() and isinstance(data, cudf.Series):
         return _sparsify_and_convert(data.to_numpy(), input_type)
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return _sparsify_and_convert(data.to_numpy(), input_type)
@@ -550,14 +552,14 @@ _gpu_data_converters = {
 def _get_data_converters():
     """Get available data converters based on GPU availability."""
     converters = dict(_cpu_data_converters)
-    if is_gpu_available() and HAS_CUML:
+    if is_gpu_available() and is_cuml_available():
         converters.update(_gpu_data_converters)
     return converters
 
 
 # For backward compatibility
 _data_converters = {**_cpu_data_converters}
-if HAS_CUML:
+if is_cuml_available():
     _data_converters.update(_gpu_data_converters)
 
 
@@ -656,7 +658,7 @@ def gen_data(
             )
 
         # Use cudf if GPU available, otherwise use pandas
-        if is_gpu_available() and HAS_CUML:
+        if is_gpu_available() and is_cuml_available():
             X_df = cudf.DataFrame.from_pandas(
                 X.iloc[0:n_samples, 0:n_features].astype(dtype)
             )

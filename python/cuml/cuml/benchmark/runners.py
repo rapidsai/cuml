@@ -15,17 +15,17 @@ import pandas as pd
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import datagen
-    from cuml.benchmark.gpu_check import HAS_CUML, is_gpu_available
+    from cuml.benchmark.gpu_check import is_cuml_available, is_gpu_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
     import datagen  # noqa: E402
-    from gpu_check import HAS_CUML, is_gpu_available  # noqa: E402
+    from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
 
 # Conditional GPU imports
 cudf_Series = None
 
-if HAS_CUML:
+if is_cuml_available():
     from cudf import Series as cudf_Series
 
 
@@ -315,7 +315,9 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cuml = cuml_model.transform(X_test)
 
                 # Handle cudf Series conversion
-                if HAS_CUML and isinstance(y_pred_cuml, cudf_Series):
+                if is_cuml_available() and isinstance(
+                    y_pred_cuml, cudf_Series
+                ):
                     y_pred_cuml = y_pred_cuml.to_numpy()
                 cuml_accuracy = algo_pair.accuracy_function(
                     y_test, y_pred_cuml

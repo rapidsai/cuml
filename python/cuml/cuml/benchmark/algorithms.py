@@ -33,7 +33,7 @@ try:
         predict,
         transform,
     )
-    from cuml.benchmark.gpu_check import HAS_CUML
+    from cuml.benchmark.gpu_check import is_cuml_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
@@ -46,7 +46,7 @@ except ImportError:
         predict,
         transform,
     )
-    from gpu_check import HAS_CUML  # noqa: E402
+    from gpu_check import is_cuml_available  # noqa: E402
 
 # Conditional GPU imports
 cuml = None
@@ -71,7 +71,7 @@ RobustScaler = sklearn.preprocessing.RobustScaler
 SimpleImputer = skSimpleImputer
 StandardScaler = sklearn.preprocessing.StandardScaler
 
-if HAS_CUML:
+if is_cuml_available():
     import cuml as _cuml
     import cuml.decomposition
     import cuml.metrics as _cuml_metrics
@@ -300,7 +300,7 @@ def all_algorithms():
     be available for CPU-only benchmarking.
     """
     # Get cuML classes and metrics if available
-    if HAS_CUML:
+    if is_cuml_available():
         cuml_KMeans = cuml.cluster.KMeans
         cuml_PCA = cuml.PCA
         cuml_TruncatedSVD = cuml.decomposition.tsvd.TruncatedSVD
@@ -358,7 +358,9 @@ def all_algorithms():
             shared_args=dict(
                 init="k-means++", n_clusters=8, max_iter=300, n_init=1
             ),
-            cuml_args=dict(oversampling_factor=0) if HAS_CUML else {},
+            cuml_args=dict(oversampling_factor=0)
+            if is_cuml_available()
+            else {},
             name="KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
@@ -457,7 +459,9 @@ def all_algorithms():
             name="RandomForestClassifier",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
-            cuml_data_prep_hook=_labels_to_int_hook if HAS_CUML else None,
+            cuml_data_prep_hook=_labels_to_int_hook
+            if is_cuml_available()
+            else None,
             accuracy_function=metrics.accuracy_score,
         ),
         AlgorithmPair(
@@ -478,7 +482,9 @@ def all_algorithms():
             name="xgboost-classification",
             accepts_labels=True,
             cpu_data_prep_hook=_labels_to_int_hook,
-            cuml_data_prep_hook=_labels_to_int_hook if HAS_CUML else None,
+            cuml_data_prep_hook=_labels_to_int_hook
+            if is_cuml_available()
+            else None,
             accuracy_function=metrics.accuracy_score,
         ),
         AlgorithmPair(
@@ -677,7 +683,7 @@ def all_algorithms():
         )
 
     # Add cuML-only algorithm (MBSGDClassifier has no sklearn equivalent)
-    if HAS_CUML:
+    if is_cuml_available():
         algorithms.append(
             AlgorithmPair(
                 None,
@@ -691,7 +697,11 @@ def all_algorithms():
         )
 
     # Add FIL algorithms if treelite and cuML are available
-    if HAS_CUML and treelite is not None and _build_fil_classifier is not None:
+    if (
+        is_cuml_available()
+        and treelite is not None
+        and _build_fil_classifier is not None
+    ):
         algorithms.extend(
             [
                 AlgorithmPair(
@@ -751,7 +761,7 @@ def all_algorithms():
         )
 
     # Add MNMG (multi-node multi-GPU) algorithms if cuML.dask is available
-    if HAS_CUML:
+    if is_cuml_available():
         try:
             import_module("cuml.dask")
         except ImportError:
