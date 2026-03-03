@@ -505,7 +505,7 @@ dependencies:
           - *onnxruntime
           - *skl2onnx
           - pyyaml
-          - pytest<9.0
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
