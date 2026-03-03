@@ -28,6 +28,7 @@
   - "sklearn.tests.test_pipeline::test_feature_union_feature_names_in_"
 - reason: Precomputed kernel validation differs with cupy arrays in GridSearchCV optimization
   marker: cuml_accel_bugs
+  condition: scikit-learn>=1.8
   tests:
   - "sklearn.model_selection.tests.test_search::test_grid_search_precomputed_kernel"
 - reason: Search CV sample weight equivalence differs with cuml.accel in sklearn 1.7.2

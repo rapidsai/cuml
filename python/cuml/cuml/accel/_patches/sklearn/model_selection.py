@@ -15,7 +15,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.outputs import using_output_type
 
-AT_LEAST_SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
+AT_LEAST_SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0")
 
 __all__ = ("GridSearchCV",)
 
@@ -61,7 +61,7 @@ def _patch_fit(cls):
     @functools.wraps(orig_fit)
     def fit(self, X, y=None, **params):
         if (
-            not AT_LEAST_SKLEARN_16
+            not AT_LEAST_SKLEARN_18
             or not is_proxy(self.estimator)
             or scipy.sparse.issparse(X)
         ):
