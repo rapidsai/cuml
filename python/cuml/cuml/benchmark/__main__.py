@@ -8,4 +8,5 @@ import sys
 
 from cuml.benchmark.run_benchmarks import main
 
-sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())
