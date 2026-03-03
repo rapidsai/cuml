@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -40,10 +40,11 @@ struct model_import_error : std::exception {
 struct type_error : std::exception {
   type_error() : type_error("Model cannot be used with given data type") {}
   type_error(char const* msg) : msg_{msg} {}
-  virtual char const* what() const noexcept { return msg_; }
+  type_error(std::string const& msg) : msg_{msg} {}
+  virtual char const* what() const noexcept { return msg_.c_str(); }
 
  private:
-  char const* msg_;
+  std::string msg_;
 };
 
 }  // namespace fil

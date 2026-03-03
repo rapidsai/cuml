@@ -8,6 +8,7 @@
 #include <cuml/fil/detail/index_type.hpp>
 #include <cuml/fil/detail/postprocessor.hpp>
 #include <cuml/fil/detail/raft_proto/ceildiv.hpp>
+#include <cuml/fil/exceptions.hpp>
 #include <cuml/fil/infer_kind.hpp>
 
 #include <raft/core/error.hpp>
@@ -30,6 +31,7 @@
 #include <iostream>
 #include <new>
 #include <numeric>
+#include <string>
 #include <vector>
 
 namespace ML {
@@ -109,9 +111,10 @@ void infer_kernel_cpu(forest_t const& forest,
     auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
                        (num_outputs * static_cast<std::uint64_t>(num_grove));
     if (max_num_row >= 3) { max_num_row -= 3; }
-    ASSERT(row_count <= max_num_row,
-           "Input size too large! Input should be at most %" PRIu64 ".",
-           max_num_row);
+    if (row_count > max_num_row) {
+      throw type_error(std::string("Input size too large! Input should be at most ") +
+                       std::to_string(max_num_row) + ".");
+    }
   }
 
   auto output_workspace = std::vector<output_t>(row_count * num_outputs * num_grove, output_t{});
