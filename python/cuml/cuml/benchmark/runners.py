@@ -35,7 +35,7 @@ class BenchmarkTimer:
 
     .. code-block:: python
 
-        timer = BenchmarkTimer(rep=5)
+        timer = BenchmarkTimer(reps=5)
         for _ in timer.benchmark_runs():
             ... do something ...
         print(np.min(timer.timings))
