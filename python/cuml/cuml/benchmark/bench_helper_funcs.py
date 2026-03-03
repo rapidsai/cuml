@@ -268,13 +268,13 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
                 optimal_chunk_size = chunk_size
                 optimal_layout = layout
 
-        fil_kwargs["layout"] = optimal_layout
+    fil_kwargs["layout"] = optimal_layout
 
-        return OptimizedFilWrapper(
-            m.load(model_path, **fil_kwargs),
-            optimal_chunk_size,
-            infer_type=infer_type,
-        )
+    return OptimizedFilWrapper(
+        m.load(model_path, **fil_kwargs),
+        optimal_chunk_size,
+        infer_type=infer_type,
+    )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
