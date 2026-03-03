@@ -6,8 +6,8 @@
 
 import itertools
 import sys
-import time
 import warnings
+from time import perf_counter
 
 import numpy as np
 import pandas as pd
@@ -47,9 +47,9 @@ class BenchmarkTimer:
 
     def benchmark_runs(self):
         for r in range(self.reps):
-            t0 = time.time()
+            t0 = perf_counter()
             yield r
-            t1 = time.time()
+            t1 = perf_counter()
             self.timings.append(t1 - t0)
 
 
