@@ -18,7 +18,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.internals.utils import check_random_seed
 
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
@@ -60,7 +60,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-@reflect
+@api
 def spectral_embedding(
     A,
     *,
@@ -375,7 +375,7 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
             **super()._attrs_to_cpu(model),
         }
 
-    @reflect
+    @api
     def fit_transform(self, X, y=None) -> CumlArray:
         """Fit the model from data in X and transform X.
 
@@ -399,7 +399,7 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self.fit(X, y)
         return self.embedding_
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 

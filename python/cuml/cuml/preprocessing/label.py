@@ -14,7 +14,7 @@ from cuml.internals.base import Base
 from cuml.prims.label import make_monotonic
 
 
-@cuml.internals.reflect
+@cuml.internals.api
 def label_binarize(
     y, classes, neg_label=0, pos_label=1, sparse_output=False
 ) -> SparseCumlArray:
@@ -157,7 +157,7 @@ class LabelBinarizer(Base):
         self.sparse_output = sparse_output
         self.classes_ = None
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer
@@ -189,7 +189,7 @@ class LabelBinarizer(Base):
 
         return self
 
-    @cuml.internals.reflect
+    @cuml.internals.api
     def fit_transform(self, y) -> SparseCumlArray:
         """
         Fit label binarizer and transform multi-class labels to their
@@ -206,7 +206,7 @@ class LabelBinarizer(Base):
         """
         return self.fit(y).transform(y)
 
-    @cuml.internals.reflect
+    @cuml.internals.api
     def transform(self, y) -> SparseCumlArray:
         """
         Transform multi-class labels to their dummy-encoded representation
@@ -228,7 +228,7 @@ class LabelBinarizer(Base):
             sparse_output=self.sparse_output,
         )
 
-    @cuml.internals.reflect
+    @cuml.internals.api
     def inverse_transform(self, y, *, threshold=None) -> CumlArray:
         """
         Transform binary labels back to original multi-class labels

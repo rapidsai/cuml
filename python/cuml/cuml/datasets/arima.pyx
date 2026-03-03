@@ -6,7 +6,7 @@ from random import randint
 
 import numpy as np
 
-from cuml.internals import get_handle, reflect
+from cuml.internals import api, get_handle
 from cuml.internals.array import CumlArray as cumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -50,7 +50,7 @@ inp_to_dtype = {
 }
 
 
-@reflect(array=None)
+@api(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype='double'):

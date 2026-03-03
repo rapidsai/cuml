@@ -9,7 +9,7 @@ import cuml.internals
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
+from cuml.internals import api, logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
@@ -261,15 +261,12 @@ class Lars(Base, RegressorMixin):
                 self.beta_ = self.beta_ / x_scale[self.active_]
 
     @generate_docstring(y='dense_anydtype')
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, convert_dtype=True) -> 'Lars':
         """
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=[np.float32, np.float64], order='F')
 
@@ -310,7 +307,7 @@ class Lars(Base, RegressorMixin):
 
         return self
 
-    @reflect
+    @api
     def predict(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.

@@ -44,7 +44,7 @@ class MGFitMixin:
         """
 
         self._set_output_type(input_data[0][0])
-        self._set_n_features_in(n_cols)
+        self._set_features(input_data[0][0])
         sparse_input = is_sparse(input_data[0][0])
 
         X_arys = []

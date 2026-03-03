@@ -9,7 +9,7 @@ import cupy as cp
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_context
+from cuml.internals import api
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
@@ -227,7 +227,7 @@ class LedoitWolf(Base, InteropMixin):
         self.assume_centered = assume_centered
         self.block_size = block_size
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
@@ -290,7 +290,7 @@ class LedoitWolf(Base, InteropMixin):
 
         return self
 
-    @reflect
+    @api
     def get_precision(self):
         """Getter for the precision matrix.
 
@@ -306,7 +306,7 @@ class LedoitWolf(Base, InteropMixin):
             precision = cp.linalg.pinv(covariance)
             return precision
 
-    @run_in_internal_context
+    @api
     def score(self, X_test, y=None) -> float:
         """Compute the log-likelihood of X_test under the estimated model.
 
@@ -344,7 +344,7 @@ class LedoitWolf(Base, InteropMixin):
 
         return float(log_likelihood)
 
-    @run_in_internal_context
+    @api
     def error_norm(
         self, comp_cov, norm="frobenius", scaling=True, squared=True
     ):
@@ -394,7 +394,7 @@ class LedoitWolf(Base, InteropMixin):
 
         return float(error)
 
-    @reflect
+    @api
     def mahalanobis(self, X):
         """Compute the squared Mahalanobis distances of given observations.
 

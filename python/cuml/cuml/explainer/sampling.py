@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -13,7 +13,7 @@ from cuml.internals.input_utils import (
 from cuml.preprocessing import SimpleImputer
 
 
-@cuml.internals.reflect
+@cuml.internals.api
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :

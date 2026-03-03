@@ -582,7 +582,7 @@ def test_radius_neighbors_graph(n_features, radius, self_query):
 
 
 def test_radius_neighbors_graph_errors():
-    X, _ = make_blobs(n_samples=100, random_state=42)
+    X, _ = make_blobs(n_samples=100, n_features=5, random_state=42)
     X_sparse = cupyx.scipy.sparse.random(
         100, 5, format="csr", density=0.5, random_state=42
     )

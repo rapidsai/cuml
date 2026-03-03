@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -14,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cupy_array
 
 
-@cuml.internals.reflect
+@cuml.internals.api
 def precision_recall_curve(
     y_true, probs_pred
 ) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:

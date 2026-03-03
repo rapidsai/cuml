@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -71,7 +71,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
 
 
 @nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
-@cuml.internals.reflect(array=None)
+@cuml.internals.api(array=None)
 def make_blobs(
     n_samples=100,
     n_features=2,

@@ -14,7 +14,7 @@ from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_context
+from cuml.internals import api, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -63,16 +63,16 @@ def rand_array(output_type, *, shape=(8, 4), seed=42):
 class DummyEstimator(Base):
     X_ = CumlArrayDescriptor()
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None):
         self.X_ = CumlArray.from_input(X)
         return self
 
-    @reflect
+    @api
     def example(self, X):
         return cp.zeros(3)
 
-    @reflect
+    @api
     def example_no_args(self):
         return cp.zeros(3)
 
@@ -87,17 +87,17 @@ class DummyEstimator(Base):
             assert_output_type(self.X_, "cupy")
 
 
-@reflect
+@api
 def reflects_input(X):
     return X
 
 
-@reflect
+@api
 def returns_array_no_args():
     return cp.ones(3)
 
 
-@reflect(array=None)
+@api(array=None)
 def returns_array_one_arg(n):
     return cp.ones(n)
 
@@ -219,7 +219,7 @@ def test_convert_nested_outputs(construct, output_type):
     cuml.set_global_output_type(output_type)
     x = rand_array("numpy")
 
-    @reflect(array="x")
+    @api(array="x")
     def apply(func, x):
         return func(x, x + 1)
 
@@ -249,7 +249,7 @@ def test_convert_nested_outputs(construct, output_type):
 @pytest.mark.parametrize("sparse_type", ["cupy", "numpy", "cuml"])
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
 def test_convert_sparse_outputs(sparse_type, output_type):
-    @reflect
+    @api
     def make_sparse():
         arr = cupyx.scipy.sparse.random(5, 5, random_state=42)
         if sparse_type == "cupy":
@@ -290,7 +290,7 @@ def test_functions(output_type):
 
 @pytest.mark.parametrize("output_type", [None, "input", "numpy"])
 def test_internal_calls(output_type):
-    @reflect(array="X")
+    @api(array="X")
     def apply(func, X):
         result = func(X)
         # Internal calls return internal types by default

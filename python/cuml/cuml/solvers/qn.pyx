@@ -11,7 +11,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import api
 from cuml.metrics import accuracy_score
 
 from libc.stdint cimport uintptr_t
@@ -516,7 +516,7 @@ class QN(Base):
         self.penalty_normalized = penalty_normalized
 
     @generate_docstring(X="dense_sparse")
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
@@ -562,7 +562,7 @@ class QN(Base):
         return self
 
     @generate_docstring(X="dense_sparse")
-    @reflect
+    @api
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """Predicts the y for X."""
         if is_sparse(X):
@@ -596,6 +596,6 @@ class QN(Base):
 
         return CumlArray(data=out, index=out_index)
 
-    @run_in_internal_context
+    @api
     def score(self, X, y):
         return accuracy_score(y, self.predict(X))

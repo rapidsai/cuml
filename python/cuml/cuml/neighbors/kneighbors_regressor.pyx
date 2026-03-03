@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import get_handle, reflect
+from cuml.internals import api, get_handle
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
@@ -164,7 +164,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -191,7 +191,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
-    @reflect
+    @api
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to

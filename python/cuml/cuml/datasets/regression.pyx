@@ -8,7 +8,7 @@ from random import randint
 import numpy as np
 
 import cuml.internals.nvtx as nvtx
-from cuml.internals import get_handle, reflect
+from cuml.internals import api, get_handle
 from cuml.internals.array import CumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -59,7 +59,7 @@ inp_to_dtype = {
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@reflect(array=None)
+@api(array=None)
 def make_regression(
     n_samples=100,
     n_features=2,

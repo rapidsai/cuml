@@ -23,7 +23,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import api
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -239,7 +239,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.multi_class = multi_class
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
@@ -295,7 +295,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples,)",
         },
     )
-    @run_in_internal_context
+    @api(convert_output=False)
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
         if self.probability:
@@ -323,7 +323,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
-    @reflect
+    @api
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute probabilities of possible outcomes for samples in X.
 
@@ -357,7 +357,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
-    @reflect
+    @api
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """Compute log probabilities of possible outcomes for samples in X.
 

@@ -5,7 +5,7 @@
 import typing
 
 from cuml.common import input_to_cuml_array
-from cuml.internals import logger, reflect
+from cuml.internals import api, logger
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -49,7 +49,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    @reflect(array=None)
+    @api(array=None)
     def predict(
         self,
         index,
@@ -169,7 +169,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return output_cais
 
-    @reflect(array=None)
+    @api(array=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,

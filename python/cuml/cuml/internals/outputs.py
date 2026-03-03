@@ -21,7 +21,6 @@ __all__ = (
     "api",
     "set_global_output_type",
     "using_output_type",
-    "reflect",
     "run_in_internal_context",
     "exit_internal_context",
 )
@@ -240,7 +239,7 @@ def _get_param(sig, name_or_index):
     """Get an `inspect.Parameter` instance by name or index from a
     signature, and validates it's not variadic.
 
-    Used for normalizing `array`/`model` args to `reflect`."""
+    Used for normalizing `array`/`model` args to `api`."""
     if isinstance(name_or_index, str):
         param = sig.parameters[name_or_index]
     else:
@@ -297,7 +296,7 @@ def run_in_internal_context(func):
     attributes will be returned as ``CumlArray`` instances instead of their
     reflected types.
 
-    Unlike `reflect`, functions decorated with this do not participate in the
+    Unlike `api`, functions decorated with this do not participate in the
     reflection system.
     """
 
@@ -337,7 +336,7 @@ def api(
     array=...,
     model=...,
     is_fit=...,
-    check_fit=...,
+    check_fitted=...,
     check_array=...,
     convert_output=True,
 ):
@@ -366,7 +365,7 @@ def api(
       perform some common validation checks (is the estimator fitted, does the
       input X match expectations). In most cases these checks will be enabled
       automatically based on common method names, but may be explicitly
-      enabled/disabled by configuring ``check_fit`` or ``check_array``
+      enabled/disabled by configuring ``check_fitted`` or ``check_array``
       respectively.
 
     Parameters
@@ -389,7 +388,7 @@ def api(
     is_fit : bool, default=...
         Whether the method performs a ``fit`` on an estimator. By default this
         will be inferred based on the method name and signature.
-    check_fit : bool, default=...
+    check_fitted : bool, default=...
         Whether to check if the estimator is fit before calling the method. By
         default this will be enabled for inference methods based on the method
         name and signature.
@@ -411,7 +410,7 @@ def api(
             array=array,
             model=model,
             is_fit=is_fit,
-            check_fit=check_fit,
+            check_fitted=check_fitted,
             check_array=check_array,
             convert_output=convert_output,
         )
@@ -447,12 +446,12 @@ def api(
             "`is_fit=True` is not valid with `array=None` or `model=None`"
         )
 
-    # Infer/validate check_fit
-    if check_fit is ...:
-        check_fit = not is_fit and model is not None
-    elif check_fit and (is_fit or model is None):
+    # Infer/validate check_fitted
+    if check_fitted is ...:
+        check_fitted = not is_fit and model is not None
+    elif check_fitted and (is_fit or model is None):
         raise ValueError(
-            "`check_fit=True` is not valid with `is_fit=True` or `model=None`"
+            "`check_fitted=True` is not valid with `is_fit=True` or `model=None`"
         )
 
     # Infer/validate check_array
@@ -491,7 +490,7 @@ def api(
                     res = func(*args, **kwargs)
             else:
                 # Not a fit call, run the relevant checks then call the method
-                if check_fit:
+                if check_fitted:
                     check_is_fitted(model_arg)
                 if check_array:
                     model_arg._check_features(array_arg)
@@ -525,28 +524,3 @@ def api(
             return res
 
     return inner
-
-
-def reflect(
-    func=None,
-    *,
-    array=...,
-    model=...,
-    reset=False,
-):
-    if func is None:
-        return lambda func: reflect(
-            func,
-            model=model,
-            array=array,
-            reset=reset,
-        )
-
-    return api(
-        func=func,
-        model=model,
-        array=array,
-        is_fit=reset,
-        check_fit=False,
-        check_array=False,
-    )

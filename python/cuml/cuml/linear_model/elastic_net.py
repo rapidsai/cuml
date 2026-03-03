@@ -13,7 +13,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.cd import fit_coordinate_descent
 from cuml.solvers.qn import fit_qn
@@ -208,7 +208,7 @@ class ElasticNet(
         self.selection = selection
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "ElasticNet":

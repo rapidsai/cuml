@@ -27,7 +27,7 @@ from cuml.preprocessing.encoders import OneHotEncoder
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
+from ....internals.outputs import using_output_type, api
 from ....thirdparty_adapters import check_array
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES, check_is_fitted
@@ -152,7 +152,7 @@ class KBinsDiscretizer(TransformerMixin,
             "strategy"
         ]
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.
@@ -279,7 +279,7 @@ class KBinsDiscretizer(TransformerMixin,
                              .format(KBinsDiscretizer.__name__, indices))
         return n_bins
 
-    @reflect
+    @api
     def transform(self, X) -> SparseCumlArray:
         """
         Discretize the data.
@@ -322,7 +322,7 @@ class KBinsDiscretizer(TransformerMixin,
         Xt = self._encoder.transform(Xt)
         return Xt
 
-    @reflect
+    @api
     def inverse_transform(self, Xt) -> SparseCumlArray:
         """
         Transform discretized data back to original feature space.

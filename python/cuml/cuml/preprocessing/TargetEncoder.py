@@ -14,7 +14,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 
 # Module-level flag to ensure deprecation warning only fires once per process
 _COMBINATION_MODE_1D_WARNING_SHOWN = False
@@ -236,7 +236,7 @@ class TargetEncoder(Base, InteropMixin):
         self.multi_feature_mode = multi_feature_mode
         self._fitted = False
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, *, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
@@ -303,7 +303,7 @@ class TargetEncoder(Base, InteropMixin):
 
         return self
 
-    @reflect
+    @api
     def fit_transform(self, X, y, *, fold_ids=None) -> CumlArray:
         """
         Simultaneously fit and transform an input
@@ -333,7 +333,7 @@ class TargetEncoder(Base, InteropMixin):
         self.fit(X, y, fold_ids=fold_ids)
         return self.train_encode
 
-    @reflect
+    @api
     def transform(self, X) -> CumlArray:
         """
         Transform an input into its categorical keys.

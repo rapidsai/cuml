@@ -9,7 +9,7 @@ from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import api
 from cuml.metrics import r2_score
 
 
@@ -177,7 +177,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         domain="cuml_python",
     )
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, *, convert_dtype=True) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
@@ -208,7 +208,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @reflect
+    @api
     def predict(
         self,
         X,
@@ -268,7 +268,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             ("dense", "(n_samples, 1)"),
         ]
     )
-    @run_in_internal_context
+    @api
     def score(
         self,
         X,

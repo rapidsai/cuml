@@ -12,7 +12,7 @@ from cupyx import geterr, lapack, seterr
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import reflect
+from cuml.internals import api
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -279,7 +279,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         )
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
@@ -315,7 +315,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
-    @reflect
+    @api
     def predict(self, X, *, convert_dtype=True):
         """
         Predict using the kernel ridge model.

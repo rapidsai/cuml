@@ -173,7 +173,7 @@ class MBSGDClassifier(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
@@ -217,7 +217,7 @@ class MBSGDClassifier(
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.api(convert_output=False)
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.

@@ -22,11 +22,7 @@ from cuml.internals.input_utils import (
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import (
-    exit_internal_context,
-    reflect,
-    run_in_internal_context,
-)
+from cuml.internals.outputs import api, exit_internal_context
 from cuml.internals.utils import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -289,7 +285,7 @@ class SVC(SVMBase, ClassifierMixin):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @reflect
+    @api
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -304,7 +300,7 @@ class SVC(SVMBase, ClassifierMixin):
         self._support_ = value
 
     @property
-    @reflect
+    @api
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -429,7 +425,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -512,7 +508,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @run_in_internal_context
+    @api(convert_output=False)
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -540,7 +536,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         },
     )
-    @reflect
+    @api
     def predict_proba(self, X, *, log=False) -> CumlArray:
         """
         Predicts the class probabilities for X.
@@ -597,7 +593,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, n_classes)",
         }
     )
-    @reflect
+    @api
     def predict_log_proba(self, X) -> CumlArray:
         """
         Predicts the log probabilities for X (returns log(predict_proba(x)).
@@ -615,7 +611,7 @@ class SVC(SVMBase, ClassifierMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect
+    @api
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Calculates the decision function values for X.

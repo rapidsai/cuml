@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -8,7 +8,7 @@ from copy import deepcopy
 
 from cuml._thirdparty._sklearn_compat import _to_new_tags
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.outputs import api
 
 ###############################################################################
 #                          Tag Functionality Mixin                            #
@@ -217,7 +217,7 @@ class RegressorMixin:
             "description": "R^2 of self.predict(X) wrt. y.",
         }
     )
-    @run_in_internal_context
+    @api
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for regression estimators
@@ -252,7 +252,7 @@ class ClassifierMixin:
             ),
         }
     )
-    @run_in_internal_context
+    @api
     def score(self, X, y, sample_weight=None, **kwargs):
         """
         Scoring function for classifier estimators based on mean accuracy.

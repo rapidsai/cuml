@@ -9,7 +9,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.svm.svm_base import SVMBase
 
 
@@ -135,7 +135,7 @@ class SVR(SVMBase, RegressorMixin):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.
@@ -203,7 +203,7 @@ class SVR(SVMBase, RegressorMixin):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect
+    @api
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the values for X.

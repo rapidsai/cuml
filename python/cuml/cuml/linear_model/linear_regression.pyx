@@ -20,7 +20,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
@@ -290,7 +290,7 @@ class LinearRegression(Base,
         return algo
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.

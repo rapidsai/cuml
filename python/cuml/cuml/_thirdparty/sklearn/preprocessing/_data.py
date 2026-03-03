@@ -45,7 +45,7 @@ from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array import CumlArray
 from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
+from ....internals.outputs import using_output_type, api
 from ....thirdparty_adapters import check_array
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_polynomial_expansion,
@@ -102,7 +102,7 @@ def _handle_zeros_in_scale(scale, copy=True):
         return scale
 
 
-@reflect
+@api
 def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
 
@@ -330,7 +330,7 @@ class MinMaxScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
 
@@ -353,7 +353,7 @@ class MinMaxScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @api(is_fit=True)
     def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
@@ -404,7 +404,7 @@ class MinMaxScaler(TransformerMixin,
         self.data_range_ = data_range
         return self
 
-    @reflect
+    @api
     def transform(self, X) -> CumlArray:
         """Scale features of X according to feature_range.
 
@@ -428,7 +428,7 @@ class MinMaxScaler(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def inverse_transform(self, X) -> CumlArray:
         """Undo the scaling of X according to feature_range.
 
@@ -452,7 +452,7 @@ class MinMaxScaler(TransformerMixin,
         return X
 
 
-@reflect
+@api
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
 
@@ -701,7 +701,7 @@ class StandardScaler(TransformerMixin,
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
 
@@ -719,7 +719,7 @@ class StandardScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @api(is_fit=True)
     def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
@@ -840,7 +840,7 @@ class StandardScaler(TransformerMixin,
 
         return self
 
-    @reflect
+    @api
     def transform(self, X, copy=None) -> SparseCumlArray:
         """Perform standardization by centering and scaling
 
@@ -876,7 +876,7 @@ class StandardScaler(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def inverse_transform(self, X, copy=None) -> SparseCumlArray:
         """Scale back the data to the original representation
 
@@ -1007,7 +1007,7 @@ class MaxAbsScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
 
@@ -1022,7 +1022,7 @@ class MaxAbsScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @api(is_fit=True)
     def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
@@ -1067,7 +1067,7 @@ class MaxAbsScaler(TransformerMixin,
         self.scale_ = _handle_zeros_in_scale(max_abs)
         return self
 
-    @reflect
+    @api
     def transform(self, X) -> SparseCumlArray:
         """Scale the data
 
@@ -1089,7 +1089,7 @@ class MaxAbsScaler(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def inverse_transform(self, X) -> SparseCumlArray:
         """Scale back the data to the original representation
 
@@ -1111,7 +1111,7 @@ class MaxAbsScaler(TransformerMixin,
         return X
 
 
-@reflect
+@api
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
 
@@ -1263,7 +1263,7 @@ class RobustScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
 
@@ -1325,7 +1325,7 @@ class RobustScaler(TransformerMixin,
 
         return self
 
-    @reflect
+    @api
     def transform(self, X) -> SparseCumlArray:
         """Center and scale the data.
 
@@ -1350,7 +1350,7 @@ class RobustScaler(TransformerMixin,
                 X /= self.scale_
         return X
 
-    @reflect
+    @api
     def inverse_transform(self, X) -> SparseCumlArray:
         """Scale back the data to the original representation
 
@@ -1376,7 +1376,7 @@ class RobustScaler(TransformerMixin,
         return X
 
 
-@reflect
+@api
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
     """
@@ -1586,7 +1586,7 @@ class PolynomialFeatures(TransformerMixin,
             feature_names.append(name)
         return feature_names
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "PolynomialFeatures":
         """
         Compute number of output features.
@@ -1610,7 +1610,7 @@ class PolynomialFeatures(TransformerMixin,
         self.n_output_features_ = sum(1 for _ in combinations)
         return self
 
-    @reflect
+    @api
     def transform(self, X) -> SparseCumlArray:
         """Transform data to polynomial features
 
@@ -1738,7 +1738,7 @@ class PolynomialFeatures(TransformerMixin,
         return XP  # TODO keep order
 
 
-@reflect
+@api
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
 
@@ -1889,7 +1889,7 @@ class Normalizer(TransformerMixin,
         self.norm = norm
         self.copy = copy
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
 
@@ -1903,7 +1903,7 @@ class Normalizer(TransformerMixin,
         self._validate_data(X, accept_sparse='csr')
         return self
 
-    @reflect
+    @api
     def transform(self, X, copy=None) -> SparseCumlArray:
         """Scale each non zero row of X to unit norm
 
@@ -1920,7 +1920,7 @@ class Normalizer(TransformerMixin,
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
-@reflect
+@api
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
 
@@ -2020,7 +2020,7 @@ class Binarizer(TransformerMixin,
         self.threshold = threshold
         self.copy = copy
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
 
@@ -2034,7 +2034,7 @@ class Binarizer(TransformerMixin,
         self._validate_data(X, accept_sparse=['csr', 'csc'])
         return self
 
-    @reflect
+    @api
     def transform(self, X, copy=None) -> SparseCumlArray:
         """Binarize each element of X
 
@@ -2051,7 +2051,7 @@ class Binarizer(TransformerMixin,
         return binarize(X, threshold=self.threshold, copy=copy)
 
 
-@reflect
+@api
 def add_dummy_feature(X, value=1.0):
     """Augment dataset with an additional dummy feature.
 
@@ -2161,7 +2161,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    @reflect(reset=True)
+    @api
     def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
@@ -2187,7 +2187,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         self.K_fit_all_ = self.K_fit_rows_.sum() / n_samples
         return self
 
-    @reflect
+    @api
     def transform(self, K, copy=True) -> CumlArray:
         """Center kernel matrix.
 
@@ -2420,7 +2420,7 @@ class QuantileTransformer(TransformerMixin,
         # https://github.com/numpy/numpy/issues/14685
         self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
@@ -2614,7 +2614,7 @@ class QuantileTransformer(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def transform(self, X) -> SparseCumlArray:
         """Feature-wise transformation of the data.
 
@@ -2636,7 +2636,7 @@ class QuantileTransformer(TransformerMixin,
 
         return self._transform(X, inverse=False)
 
-    @reflect
+    @api
     def inverse_transform(self, X) -> SparseCumlArray:
         """Back-projection to the original space.
 
@@ -2863,7 +2863,7 @@ class PowerTransformer(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
@@ -2884,7 +2884,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    @reflect(reset=True)
+    @api
     def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 
@@ -2923,7 +2923,7 @@ class PowerTransformer(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def transform(self, X) -> CumlArray:
         """Apply the power transform to each feature using the fitted lambdas.
 
@@ -2958,7 +2958,7 @@ class PowerTransformer(TransformerMixin,
 
         return X
 
-    @reflect
+    @api
     def inverse_transform(self, X) -> CumlArray:
         """Apply the inverse power transformation using the fitted lambdas.
 

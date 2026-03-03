@@ -7,7 +7,7 @@ import cuml
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
+from cuml.internals import api, logger
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
@@ -916,7 +916,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
@@ -1071,7 +1071,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @reflect
+    @api
     def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit the HDBSCAN model from features and return
@@ -1122,7 +1122,7 @@ def _check_clusterer(clusterer):
     return state
 
 
-@reflect(model="clusterer", array=None)
+@api(model="clusterer", array=None)
 def all_points_membership_vectors(clusterer, int batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1192,7 +1192,7 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     return membership_vec
 
 
-@reflect(model="clusterer", array="points_to_predict")
+@api(model="clusterer", array="points_to_predict")
 def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert_dtype=True):
     """
     Predict soft cluster membership. The result produces a vector
@@ -1279,7 +1279,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
     return membership_vec
 
 
-@reflect(model="clusterer", array="points_to_predict")
+@api(model="clusterer", array="points_to_predict")
 def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,

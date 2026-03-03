@@ -12,7 +12,7 @@ import scipy.sparse
 
 from cuml.common import CumlArray, input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
-from cuml.internals import get_handle, reflect
+from cuml.internals import api, get_handle
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.thirdparty_adapters import _get_mask
@@ -245,7 +245,7 @@ def nan_euclidean_distances(
     return distances
 
 
-@reflect
+@api
 def pairwise_distances(
     X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
 ):
@@ -443,7 +443,7 @@ def pairwise_distances(
     return dest_m
 
 
-@reflect
+@api
 def sparse_pairwise_distances(
     X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
 ):

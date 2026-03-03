@@ -10,7 +10,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -138,7 +138,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.c = c
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
@@ -223,7 +223,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
-    @reflect
+    @api
     def fit_predict(self, X, y=None) -> CumlArray:
         """
         Fit and return the assigned cluster labels.

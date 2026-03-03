@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-from cuml.internals import get_handle, reflect
+from cuml.internals import api, get_handle
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 
@@ -31,7 +31,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         double pval_threshold) except +
 
 
-@reflect
+@api
 def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> CumlArray:
     """
     Perform the KPSS stationarity test on the data differenced according

@@ -7,7 +7,7 @@ from typing import Dict, Mapping, Optional, Tuple, Union
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, nvtx, reflect, run_in_internal_context
+from cuml.internals import api, logger, nvtx, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
@@ -471,19 +471,19 @@ class ARIMA(Base):
         return ic
 
     @property
-    @reflect
+    @api
     def aic(self) -> CumlArray:
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
-    @reflect
+    @api
     def aicc(self) -> CumlArray:
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
-    @reflect
+    @api
     def bic(self) -> CumlArray:
         """Bayesian Information Criterion"""
         return self._ic("bic")
@@ -495,7 +495,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @reflect
+    @api
     def get_fit_params(self) -> Dict[str, CumlArray]:
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -571,7 +571,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @reflect(array=None)
+    @api(array=None)
     def predict(
         self,
         start=0,
@@ -721,7 +721,7 @@ class ARIMA(Base):
                     d_upper)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
-    @reflect(array=None)
+    @api(array=None)
     def forecast(
         self,
         nsteps: int,

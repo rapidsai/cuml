@@ -54,7 +54,7 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
         device_vector_view[int, int] labels) except +
 
 
-@cuml.internals.reflect
+@cuml.internals.api
 def spectral_clustering(
     X,
     *,
@@ -387,7 +387,7 @@ class SpectralClustering(Base):
             "affinity",
         ]
 
-    @cuml.internals.reflect
+    @cuml.internals.api
     def fit_predict(self, X, y=None) -> CumlArray:
         """Perform spectral clustering on ``X`` and return cluster labels.
 
@@ -411,7 +411,7 @@ class SpectralClustering(Base):
         self.fit(X, y=y)
         return self.labels_
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 

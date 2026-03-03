@@ -20,7 +20,7 @@ from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import reflect, using_output_type
+from cuml.internals.outputs import api, using_output_type
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -592,7 +592,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
-        self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
         self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
 
@@ -622,7 +621,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
                 )
 
     @generate_docstring(X='dense_sparse')
-    @reflect(reset=True)
+    @api
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -643,6 +642,9 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             )
 
         self.n_samples_fit_, self.n_features_in_ = self._fit_X.shape
+
+        self.effective_metric_ = self.metric
+        self.effective_metric_params_ = self.metric_params
 
         if self.algorithm == "auto":
             if (
@@ -688,7 +690,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @reflect
+    @api
     def kneighbors(
         self,
         X=None,
@@ -951,7 +953,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @reflect
+    @api
     def kneighbors_graph(
         self, X=None, n_neighbors=None, mode='connectivity'
     ) -> SparseCumlArray:
@@ -1016,18 +1018,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             (distances, indices, rowptr),
             shape=(n_samples, self.n_samples_fit_)
         )
-
-    @property
-    def effective_metric_(self):
-        return self.metric
-
-    @effective_metric_.setter
-    def effective_metric_(self, val):
-        self.metric = val
-
-    @property
-    def effective_metric_params_(self):
-        return self.metric_params or {}
 
 
 class NearestNeighbors(NeighborsBase):
@@ -1214,7 +1204,7 @@ class NearestNeighbors(NeighborsBase):
         }
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @reflect
+    @api
     def radius_neighbors_graph(self, X=None, radius=None) -> SparseCumlArray:
         """Compute the (weighted) graph of neighbors within a radius.
 
@@ -1301,7 +1291,7 @@ class NearestNeighbors(NeighborsBase):
         return out
 
 
-@reflect
+@api
 def kneighbors_graph(
     X=None,
     n_neighbors=5,

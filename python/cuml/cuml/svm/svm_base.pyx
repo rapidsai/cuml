@@ -307,7 +307,7 @@ class SVMBase(Base,
         self.nochange_steps = nochange_steps
 
     @property
-    @cuml.internals.reflect
+    @cuml.internals.api
     def coef_(self):
         if self.kernel != "linear":
             raise AttributeError("coef_ is only available for linear kernels")

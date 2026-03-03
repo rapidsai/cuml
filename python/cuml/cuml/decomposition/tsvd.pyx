@@ -285,7 +285,7 @@ class TruncatedSVD(Base,
         return self.components_.shape[0]
 
     @generate_docstring()
-    @cuml.internals.reflect
+    @cuml.internals.api
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -298,7 +298,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.
@@ -393,7 +393,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.reflect
+    @cuml.internals.api
     def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Transform X back to its original space.
@@ -449,7 +449,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect
+    @cuml.internals.api
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Perform dimensionality reduction on X.

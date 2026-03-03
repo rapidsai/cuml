@@ -6,7 +6,7 @@ import typing
 
 from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg import _build_part_inputs
-from cuml.internals import logger, reflect
+from cuml.internals import api, logger
 from cuml.internals.array import CumlArray
 from cuml.neighbors import NearestNeighbors
 
@@ -55,7 +55,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.batch_size = batch_size
         super().__init__(**kwargs)
 
-    @reflect(array=None)
+    @api(array=None)
     def kneighbors(
         self,
         index,

@@ -59,11 +59,10 @@ class Base(TagsMixin):
     - Define ``_get_param_names`` to extend the base implementation with
       any additional parameter names.
 
-    - Decorate their ``fit`` method with ``cuml.internals.reflect(reset=True)``
-      to store their fitted input type.
-
-    - Decorate methods that return array likes with ``cuml.internals.reflect``
-      to properly coerce outputs to the proper type.
+    - Decorate public (non-underscore) methods with ``cuml.internals.api``.
+      Most cases won't need additional parameters to the ``api`` decorator, but
+      if needed additional configuration may be passed in there. See the ``api``
+      docstring for more info.
 
     Parameters
     ----------
@@ -83,7 +82,7 @@ class Base(TagsMixin):
     .. code-block:: python
 
         import cupy as cp
-        from cuml.internals import Base, reflect
+        from cuml.internals import Base, api
 
         class MyAlgo(Base):
             def __init__(
@@ -100,12 +99,12 @@ class Base(TagsMixin):
             def _get_param_names(cls):
                 return [*super()._get_param_names(), "param"]
 
-            @reflect(reset=True)
+            @api
             def fit(self, X, y):
                 # Training logic goes here...
                 return self
 
-            @reflect
+            @api
             def predict(self, X):
                 # Inference logic goes here...
                 return cp.ones(len(X), dtype="int32")
@@ -226,7 +225,7 @@ class Base(TagsMixin):
             self.n_features_in_ = X.shape[1]
 
     def _check_features(self, X):
-        if hasattr(self, "n_features_in_"):
+        if hasattr(self, "n_features_in_") and X is not None:
             # Check n_features_in_
             if len(X.shape) == 1:
                 n_features = 1
@@ -237,18 +236,6 @@ class Base(TagsMixin):
                     f"X has {n_features} features, but {self.__class__.__name__} "
                     f"is expecting {self.n_features_in_} features as input."
                 )
-
-    def _set_n_features_in(self, X):
-        # TODO: rip out
-        if isinstance(X, int):
-            self.n_features_in_ = X
-        else:
-            shape = X.shape
-            # dataframes can have only one dimension
-            if len(shape) == 1:
-                self.n_features_in_ = 1
-            else:
-                self.n_features_in_ = shape[1]
 
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only applies to

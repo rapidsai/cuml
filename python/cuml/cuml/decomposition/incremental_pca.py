@@ -193,7 +193,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -249,7 +249,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.api(is_fit=True)
     def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
@@ -278,9 +278,6 @@ class IncrementalPCA(PCA):
                     "sparse input. Either convert data to dense "
                     "or use IncrementalPCA.fit to do so in batches."
                 )
-
-            self._set_output_type(X)
-            self._set_n_features_in(X)
 
             X, n_samples, n_features, _ = input_to_cupy_array(
                 X, order="K", check_dtype=[cp.float32, cp.float64]
@@ -391,7 +388,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.reflect
+    @cuml.internals.api
     def transform(self, X, *, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.

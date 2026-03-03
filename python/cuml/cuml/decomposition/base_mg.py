@@ -26,7 +26,7 @@ class BaseDecompositionMG:
         :return: self
         """
         self._set_output_type(X[0])
-        self._set_n_features_in(n_cols)
+        self._set_features(X[0])
 
         if self.n_components is None:
             self.n_components_ = min(total_rows, n_cols)

@@ -10,7 +10,7 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, reflect, run_in_internal_context
+from cuml.internals import api, logger, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.tsa.arima import ARIMA
@@ -439,7 +439,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @reflect(array=None)
+    @api(array=None)
     def predict(
         self,
         start=0,
@@ -499,7 +499,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @reflect(array=None)
+    @api(array=None)
     def forecast(self,
                  nsteps: int,
                  level=None) -> typing.Union[CumlArray,

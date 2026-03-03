@@ -4,7 +4,7 @@
 #
 import typing
 
-from cuml.internals import logger, reflect
+from cuml.internals import api, logger
 from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -45,7 +45,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    @reflect(array=None)
+    @api(array=None)
     def predict(
         self,
         index,

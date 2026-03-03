@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import numpy as np
 
-from cuml.internals import reflect
+from cuml.internals import api
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
 
@@ -25,7 +25,7 @@ def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
     return results
 
 
-@reflect
+@api
 def seas_test(y, s, convert_dtype=True) -> CumlArray:
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal

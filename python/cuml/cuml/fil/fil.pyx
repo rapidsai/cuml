@@ -17,7 +17,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.internals.treelite import safe_treelite_call
 
 from libc.stdint cimport uint32_t, uintptr_t
@@ -963,7 +963,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         message='ForestInference.predict_proba',
         domain='cuml_python'
     )
-    @reflect
+    @api(check_fitted=False, check_array=False)
     def predict_proba(
         self,
         X,
@@ -1020,7 +1020,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         message='ForestInference.predict',
         domain='cuml_python'
     )
-    @reflect
+    @api(check_fitted=False, check_array=False)
     def predict(
         self,
         X,
@@ -1110,7 +1110,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         message='ForestInference.predict_per_tree',
         domain='cuml_python'
     )
-    @reflect
+    @api(check_fitted=False, check_array=False)
     def predict_per_tree(
             self,
             X,
@@ -1165,7 +1165,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         message='ForestInference.apply',
         domain='cuml_python'
     )
-    @reflect
+    @api(check_fitted=False, check_array=False)
     def apply(
             self,
             X,

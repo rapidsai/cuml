@@ -4,7 +4,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import api
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -161,7 +161,7 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset=True)
+    @api
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
