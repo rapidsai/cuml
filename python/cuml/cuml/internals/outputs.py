@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import contextlib
@@ -7,14 +7,18 @@ import functools
 import inspect
 
 import numpy as np
+from sklearn.base import check_is_fitted
 
-# TODO: Try to resolve circular import that makes this necessary:
-from cuml.internals import input_utils as iu
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.input_utils import (
+    determine_array_type,
+    determine_array_type_full,
+    input_to_cuml_array,
+)
 
 __all__ = (
-    "check_output_type",
+    "api",
     "set_global_output_type",
     "using_output_type",
     "reflect",
@@ -35,22 +39,6 @@ OUTPUT_TYPES = (
     "series",
     "df_obj",
 )
-
-
-def check_output_type(output_type: str) -> str:
-    """Validate and normalize an ``output_type`` value"""
-    # normalize as lower, keeping original str reference to appease the sklearn
-    # standard estimator checks as much as possible.
-    if output_type != (temp := output_type.lower()):
-        output_type = temp
-    # Check for allowed types. Allow 'cuml' to support internal estimators
-    if output_type != "cuml" and output_type not in OUTPUT_TYPES:
-        valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
-        raise ValueError(
-            f"`output_type` must be one of {valid_output_types}"
-            f" or None. Got: {output_type!r}"
-        )
-    return output_type
 
 
 def set_global_output_type(output_type):
@@ -129,7 +117,15 @@ def set_global_output_type(output_type):
     >>> cuml.set_global_output_type(original_output_type)
     """
     if output_type is not None:
-        output_type = check_output_type(output_type)
+        output_type = output_type.lower()
+        # Check for allowed types. Allow 'cuml' to support internal estimators
+        if output_type != "cuml" and output_type not in OUTPUT_TYPES:
+            valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
+            raise ValueError(
+                f"`output_type` must be one of {valid_output_types}"
+                f" or None. Got: {output_type!r}"
+            )
+
     GlobalSettings().output_type = output_type
 
 
@@ -269,7 +265,7 @@ def coerce_arrays(res, output_type):
         return {k: coerce_arrays(v, output_type) for k, v in res.items()}
 
     # Get the output type
-    arr_type, is_sparse = iu.determine_array_type_full(res)
+    arr_type, is_sparse = determine_array_type_full(res)
 
     if arr_type is None:
         # Not an array, just return
@@ -280,7 +276,7 @@ def coerce_arrays(res, output_type):
         if is_sparse:
             res = SparseCumlArray(res, convert_index=False)
         else:
-            res = iu.input_to_cuml_array(res, order="K").array
+            res = input_to_cuml_array(res, order="K").array
 
     if output_type == "cuml":
         # Return CumlArray/SparseCumlArray directly
@@ -313,14 +309,39 @@ def run_in_internal_context(func):
     return inner
 
 
-def reflect(
+_CURRENTLY_FITTING = set()
+
+
+@contextlib.contextmanager
+def track_fit_calls(model):
+    """A contextmanager for tracking (and checking) recursive fit calls.
+
+    Marks a model as being within a fit call, and yields whether the model is
+    already within a fit call. Used to avoid repeated validation within
+    recursive fit methods (e.g. `fit_transform` calling `fit`, or `fit` calling
+    `super().fit`).
+    """
+    if (model_id := id(model)) in _CURRENTLY_FITTING:
+        yield True
+    else:
+        try:
+            _CURRENTLY_FITTING.add(model_id)
+            yield False
+        finally:
+            _CURRENTLY_FITTING.discard(model_id)
+
+
+def api(
     func=None,
     *,
     array=...,
     model=...,
-    reset=False,
+    is_fit=...,
+    check_fit=...,
+    check_array=...,
+    convert_output=True,
 ):
-    """Mark a function or method as participating in the reflection system.
+    """Common decorator for public functions or methods.
 
     Functions and methods decorated with this get a few additional behaviors:
 
@@ -333,11 +354,20 @@ def reflect(
     - Their output type is converted to the proper output type following
       standard cuml behavior. The default behavior covers most cases, but when
       needed you may want to specify the ``model`` and/or ``array`` parameters
-      manually.
+      manually. This behavior may also be disabled by setting
+      ``convert_output=False``.
 
     - For estimators, fit-like methods will store the required metadata like
-      ``_input_type`` to support cases like ``output_type="input"``. To enable
-      this for a method set ``reset=True``.
+      ``_input_type`` to support cases like ``output_type="input"``. In most
+      cases this behavior is enabled automatically based on common method
+      names, but may be explicitly enabled by setting ``is_fit=True``.
+
+    - For estimators, inference methods (anything done after a fit) will
+      perform some common validation checks (is the estimator fitted, does the
+      input X match expectations). In most cases these checks will be enabled
+      automatically based on common method names, but may be explicitly
+      enabled/disabled by configuring ``check_fit`` or ``check_array``
+      respectively.
 
     Parameters
     ----------
@@ -356,19 +386,34 @@ def reflect(
         provide ``None`` to disable this inference entirely; in this case the
         output type is expected to be specified manually either internal or
         external to the method.
-    reset : bool, default=False
-        Set to True for methods like ``fit`` that reset the reflected type on
-        an estimator.
+    is_fit : bool, default=...
+        Whether the method performs a ``fit`` on an estimator. By default this
+        will be inferred based on the method name and signature.
+    check_fit : bool, default=...
+        Whether to check if the estimator is fit before calling the method. By
+        default this will be enabled for inference methods based on the method
+        name and signature.
+    check_array : bool, default=...
+        Whether to check if the array parameter to a method matches expected
+        shape/feature names. By default this will be enabled for inference methods
+        based on the method name and signature.
+    convert_output : bool, default=True
+        Whether to perform output conversion following standard cuml behavior. In
+        most cases the default of True is sufficient, but may be disabled when
+        necessary.
     """
     # Local to avoid circular imports
     import cuml.accel
 
     if func is None:
-        return lambda func: reflect(
+        return lambda func: api(
             func,
-            model=model,
             array=array,
-            reset=reset,
+            model=model,
+            is_fit=is_fit,
+            check_fit=check_fit,
+            check_array=check_array,
+            convert_output=convert_output,
         )
 
     sig = inspect.signature(func, follow_wrapped=True)
@@ -390,9 +435,33 @@ def reflect(
     if array is not None:
         array = _get_param(sig, array)
 
-    if reset and (model is None or array is None):
+    # Infer/validate is_fit
+    if is_fit is ...:
+        is_fit = (
+            func.__name__ in ("fit", "fit_transform", "fit_predict")
+            and model is not None
+            and array is not None
+        )
+    elif is_fit and (model is None or array is None):
         raise ValueError(
-            "`reset=True` is not valid with `array=None` or `model=None`"
+            "`is_fit=True` is not valid with `array=None` or `model=None`"
+        )
+
+    # Infer/validate check_fit
+    if check_fit is ...:
+        check_fit = not is_fit and model is not None
+    elif check_fit and (is_fit or model is None):
+        raise ValueError(
+            "`check_fit=True` is not valid with `is_fit=True` or `model=None`"
+        )
+
+    # Infer/validate check_array
+    if check_array is ...:
+        check_array = not is_fit and model is not None and array is not None
+    elif check_array and (is_fit or model is None or array is None):
+        raise ValueError(
+            "`check_array=True` is not valid with `is_fit=True` or "
+            "`array=None` or `model=None`"
         )
 
     @functools.wraps(func)
@@ -410,33 +479,74 @@ def reflect(
             array_arg = np.asarray(array_arg)
 
         with enter_internal_context() as was_external:
-            if reset:
-                model_arg._set_output_type(array_arg)
-                model_arg._set_n_features_in(array_arg)
+            if is_fit:
+                with track_fit_calls(model_arg) as already_in_fit:
+                    # Store relevant fit metadata on the estimator, unless this
+                    # was already done for the same fit call (e.g.
+                    # `fit_transform` calls `fit`, we only run these methods
+                    # for the outer `fit_transform` and not the inner `fit`).
+                    if not already_in_fit:
+                        model_arg._set_output_type(array_arg)
+                        model_arg._set_features(array_arg)
+                    res = func(*args, **kwargs)
+            else:
+                # Not a fit call, run the relevant checks then call the method
+                if check_fit:
+                    check_is_fitted(model_arg)
+                if check_array:
+                    model_arg._check_features(array_arg)
 
-            res = func(*args, **kwargs)
+                res = func(*args, **kwargs)
 
         gs = GlobalSettings()
-        if was_external or gs.output_type != "mirror":
-            # We're returning to the user, infer the expected output type
-            if model is not None:
-                if array is not None:
-                    output_type = model_arg._get_output_type(array_arg)
-                else:
-                    output_type = model_arg._get_output_type()
-            else:
-                output_type = gs.output_type
-                if output_type in ("input", None):
+        if convert_output:
+            if was_external or gs.output_type != "mirror":
+                # We're returning to the user, infer the expected output type
+                if model is not None:
                     if array is not None:
-                        output_type = iu.determine_array_type(array_arg)
+                        output_type = model_arg._get_output_type(array_arg)
+                    else:
+                        output_type = model_arg._get_output_type()
+                else:
+                    output_type = gs.output_type
                     if output_type in ("input", None):
-                        # Nothing to infer from and no explicit type set,
-                        # default to cupy
-                        output_type = "cupy"
-        else:
-            # We're internal, return as cuml
-            output_type = "cuml"
+                        if array is not None:
+                            output_type = determine_array_type(array_arg)
+                        if output_type in ("input", None):
+                            # Nothing to infer from and no explicit type set,
+                            # default to cupy
+                            output_type = "cupy"
+            else:
+                # We're internal, return as cuml
+                output_type = "cuml"
 
-        return coerce_arrays(res, output_type)
+            return coerce_arrays(res, output_type)
+        else:
+            return res
 
     return inner
+
+
+def reflect(
+    func=None,
+    *,
+    array=...,
+    model=...,
+    reset=False,
+):
+    if func is None:
+        return lambda func: reflect(
+            func,
+            model=model,
+            array=array,
+            reset=reset,
+        )
+
+    return api(
+        func=func,
+        model=model,
+        array=array,
+        is_fit=reset,
+        check_fit=False,
+        check_array=False,
+    )

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cuml.internals
@@ -19,7 +19,7 @@ class LinearPredictMixin:
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.reflect
+    @cuml.internals.api
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts `y` values for `X`.
@@ -61,7 +61,7 @@ class LinearClassifierMixin:
             "shape": "(n_samples,) or (n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
+    @cuml.internals.api
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
         if is_sparse(X):

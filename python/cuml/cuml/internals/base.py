@@ -218,7 +218,28 @@ class Base(TagsMixin):
 
         return output_type
 
+    def _set_features(self, X):
+        # Set n_features_in_
+        if len(X.shape) == 1:
+            self.n_features_in_ = 1
+        else:
+            self.n_features_in_ = X.shape[1]
+
+    def _check_features(self, X):
+        if hasattr(self, "n_features_in_"):
+            # Check n_features_in_
+            if len(X.shape) == 1:
+                n_features = 1
+            else:
+                n_features = X.shape[1]
+            if n_features != self.n_features_in_:
+                raise ValueError(
+                    f"X has {n_features} features, but {self.__class__.__name__} "
+                    f"is expecting {self.n_features_in_} features as input."
+                )
+
     def _set_n_features_in(self, X):
+        # TODO: rip out
         if isinstance(X, int):
             self.n_features_in_ = X
         else:

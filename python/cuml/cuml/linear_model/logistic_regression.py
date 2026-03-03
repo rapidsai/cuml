@@ -299,7 +299,7 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.api
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LogisticRegression":
@@ -351,7 +351,7 @@ class LogisticRegression(
             "shape": "(n_samples, 1)",
         },
     )
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.api(convert_output=False)
     def predict(self, X, *, convert_dtype=True):
         """
         Predicts the y for X.
@@ -379,7 +379,7 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
+    @cuml.internals.api
     def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the class probabilities for each class in X
@@ -409,7 +409,7 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
+    @cuml.internals.api
     def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
