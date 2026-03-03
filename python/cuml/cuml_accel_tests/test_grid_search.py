@@ -7,12 +7,16 @@ import types
 import cupy as cp
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.model_selection import GridSearchCV
 
 from cuml.accel.estimator_proxy import is_proxy
+
+AT_LEAST_SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 
 
 @pytest.fixture
@@ -68,6 +72,10 @@ def test_grid_search_basic(regression_data):
     assert is_proxy(gs.best_estimator_)
 
 
+@pytest.mark.skipif(
+    not AT_LEAST_SKLEARN_16,
+    reason="GridSearchCV array API optimization requires sklearn >= 1.6",
+)
 def test_grid_search_data_on_device(regression_data, patch_methods):
     """Verify the patch sends cupy arrays to the inner estimator's fit."""
     patch_methods(Ridge, "fit")

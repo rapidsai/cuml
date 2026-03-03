@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import contextlib
 import functools
+import os
 
 import cupy as cp
 import scipy.sparse
@@ -16,6 +18,41 @@ from cuml.internals.outputs import using_output_type
 AT_LEAST_SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 
 __all__ = ("GridSearchCV",)
+
+
+@contextlib.contextmanager
+def _enable_scipy_array_api():
+    """Enable scipy's array API support.
+
+    Sets the SCIPY_ARRAY_API env var (checked by sklearn's config validation)
+    and updates scipy's cached config (in case scipy had already been imported).
+
+    Both are restored on exit.
+    """
+    old_env = os.environ.get("SCIPY_ARRAY_API")
+    os.environ["SCIPY_ARRAY_API"] = "1"
+
+    old_cached = None
+    try:
+        # XXX What is the oldest scipy version that we might import
+        # XXX do all of them have this?
+        import scipy._lib._array_api as _sa
+
+        old_cached = _sa._GLOBAL_CONFIG.get("SCIPY_ARRAY_API")
+        _sa._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = "1"
+    except (ImportError, AttributeError):
+        _sa = None
+
+    try:
+        yield
+    finally:
+        if old_env is None:
+            os.environ.pop("SCIPY_ARRAY_API", None)
+        else:
+            os.environ["SCIPY_ARRAY_API"] = old_env
+
+        if _sa is not None and old_cached is not None:
+            _sa._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = old_cached
 
 
 def _patch_fit(cls):
@@ -59,6 +96,7 @@ def _patch_fit(cls):
 
         try:
             with (
+                _enable_scipy_array_api(),
                 sklearn.config_context(array_api_dispatch=True),
                 using_output_type("cupy"),
             ):
