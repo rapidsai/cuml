@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import functools
+import shutil
 import sys
 import tempfile
 import warnings
@@ -197,7 +198,21 @@ class AlgorithmPair:
         self.cpu_data_prep_hook = cpu_data_prep_hook
         self.cuml_data_prep_hook = cuml_data_prep_hook
         self.accuracy_function = accuracy_function
-        self.tmpdir = tempfile.mkdtemp()
+        self._tmpdir = None
+
+    @property
+    def tmpdir(self):
+        if self._tmpdir is None:
+            self._tmpdir = tempfile.mkdtemp()
+        return self._tmpdir
+
+    def cleanup(self):
+        if self._tmpdir is not None:
+            shutil.rmtree(self._tmpdir, ignore_errors=True)
+            self._tmpdir = None
+
+    def __del__(self):
+        self.cleanup()
 
     def __str__(self):
         return "AlgoPair:%s" % (self.name)
