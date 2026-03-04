@@ -110,7 +110,11 @@ void infer_kernel_cpu(forest_t const& forest,
     // while computing max_num_row.
     auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
                        (num_outputs * static_cast<std::uint64_t>(num_grove));
-    if (max_num_row >= 3) { max_num_row -= 3; }
+    if (max_num_row >= 3) {
+      max_num_row -= 3;
+      // -3 is part of the upper bound on num_row, to ensure that the offset
+      // does not overflow past the uint32_t limit.
+    }
     if (row_count > max_num_row) {
       throw type_error(std::string("Input size too large! Input should be at most ") +
                        std::to_string(max_num_row) + ".");

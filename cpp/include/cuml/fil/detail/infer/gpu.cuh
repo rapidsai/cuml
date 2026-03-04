@@ -220,7 +220,11 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
     }();
     auto max_num_row = static_cast<std::uint64_t>(std::numeric_limits<index_type>::max()) /
                        (output_count * num_grove);
-    if (max_num_row >= 3) { max_num_row -= 3; }
+    if (max_num_row >= 3) {
+      max_num_row -= 3;
+      // -3 is part of the upper bound on num_row, to ensure that the offset
+      // does not overflow past the uint32_t limit.
+    }
     if (row_count > max_num_row) {
       throw type_error(std::string("Input size too large! Input should be at most ") +
                        std::to_string(max_num_row) + ".");
