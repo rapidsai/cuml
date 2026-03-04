@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import warnings
 
@@ -60,6 +60,11 @@ def preprocess_labels(
         The classes as a numpy array, or a list of numpy arrays if
         y is multi-target.
     """
+    # Check for y is None here to ease satisfying the sklearn validation checks
+    if y is None:
+        raise ValueError(
+            "This estimator requires y to be passed, but the target y is None"
+        )
     # cudf may coerce the dtype, store the original so we can cast back later
     y_dtype = y.dtype if isinstance(y, np.ndarray) else None
 

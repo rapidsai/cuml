@@ -109,10 +109,17 @@ def check_y(
     dtype=(np.float32, np.float64),
     convert_dtype=True,
     order="K",
+    n_samples=None,
     accept_multi_output=False,
 ):
     if not isinstance(dtype, (list, tuple)):
         dtype = [dtype]
+
+    # Check for y is None here to ease satisfying the sklearn validation checks
+    if y is None:
+        raise ValueError(
+            "This estimator requires y to be passed, but the target y is None"
+        )
 
     out = input_to_cuml_array(
         y,
@@ -121,23 +128,28 @@ def check_y(
         order=order,
     ).array
 
-    if out.ndim == 1:
-        return out
-    elif out.ndim == 2:
-        if accept_multi_output:
-            return out
-        elif out.shape[1] == 1:
+    if accept_multi_output:
+        if out.ndim not in (1, 2):
+            raise ValueError(
+                f"y should be a 1d or 2d array, got an array of shape {out.shape} instead."
+            )
+    else:
+        if out.ndim == 2 and out.shape[1] == 1:
             warnings.warn(
                 "A column-vector y was passed when a 1d array was "
                 "expected. Please change the shape of y to "
                 "(n_samples,), for example using ravel().",
                 DataConversionWarning,
             )
-            return out
-    raise ValueError(
-        f"y should be a {'1d or 2d' if accept_multi_output else '1d'} array, "
-        f"got an array of shape {out.shape} instead."
-    )
+        elif out.ndim != 1:
+            raise ValueError(
+                f"y should be a 1d array, got an array of shape {out.shape} instead."
+            )
+
+    if n_samples is not None and out.shape[0] != n_samples:
+        raise ValueError(f"y.shape[0] == {out.shape[0]}, expected {n_samples}")
+
+    return out
 
 
 def check_sample_weight(
@@ -211,6 +223,7 @@ def check_inputs(
             convert_dtype=convert_dtype,
             order=order,
             accept_multi_output=accept_multi_output,
+            n_samples=X.shape[0],
         )
         arrays.append(y)
 

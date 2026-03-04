@@ -10,6 +10,7 @@ from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.validation import check_y
 from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
@@ -164,7 +165,6 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -175,15 +175,14 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
         super().fit(X, convert_dtype=convert_dtype)
-
-        self._y = input_to_cuml_array(
+        self._y = check_y(
             y,
-            order='F',
-            check_rows=self.n_samples_fit_,
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
-
+            n_samples=self.n_samples_fit_,
+            dtype=np.float32,
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_multi_output=True
+        )
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
