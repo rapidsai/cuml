@@ -6,6 +6,7 @@ import os
 
 import cupy as cp
 import numpy as np
+import scipy._lib._array_api as _scipy_array_api
 import scipy.sparse
 import sklearn
 from packaging.version import Version
@@ -35,16 +36,8 @@ def _enable_scipy_array_api():
     old_env = os.environ.get("SCIPY_ARRAY_API")
     os.environ["SCIPY_ARRAY_API"] = "1"
 
-    old_cached = None
-    try:
-        # XXX What is the oldest scipy version that we might import
-        # XXX do all of them have this?
-        import scipy._lib._array_api as _sa
-
-        old_cached = _sa._GLOBAL_CONFIG.get("SCIPY_ARRAY_API")
-        _sa._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = "1"
-    except (ImportError, AttributeError):
-        _sa = None
+    old_cached = _scipy_array_api._GLOBAL_CONFIG["SCIPY_ARRAY_API"]
+    _scipy_array_api._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = "1"
 
     try:
         yield
@@ -54,8 +47,7 @@ def _enable_scipy_array_api():
         else:
             os.environ["SCIPY_ARRAY_API"] = old_env
 
-        if _sa is not None and old_cached is not None:
-            _sa._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = old_cached
+        _scipy_array_api._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = old_cached
 
 
 def _contains_proxy(estimator):
