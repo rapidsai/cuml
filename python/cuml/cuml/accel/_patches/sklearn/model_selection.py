@@ -11,6 +11,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.model_selection import GridSearchCV, ParameterGrid
 
+from cuml.accel.core import logger
 from cuml.accel.estimator_proxy import ensure_host, is_proxy
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.interop import UnsupportedOnGPU
@@ -61,11 +62,23 @@ def _patch_fit(cls):
 
     @functools.wraps(orig_fit)
     def fit(self, X, y=None, **params):
-        if (
-            not AT_LEAST_SKLEARN_18
-            or not is_proxy(self.estimator)
-            or scipy.sparse.issparse(X)
-        ):
+        estimator_name = type(self.estimator).__name__
+
+        if not AT_LEAST_SKLEARN_18:
+            logger.debug(
+                "`GridSearchCV.fit` not optimized: requires sklearn >= 1.8"
+            )
+            return orig_fit(self, X, y, **params)
+
+        if not is_proxy(self.estimator):
+            logger.info(
+                f"`GridSearchCV.fit` not optimized: "
+                f"`{estimator_name}` is not a cuml.accel proxy"
+            )
+            return orig_fit(self, X, y, **params)
+
+        if scipy.sparse.issparse(X):
+            logger.info("`GridSearchCV.fit` not optimized: sparse input")
             return orig_fit(self, X, y, **params)
 
         # Pre-check: does any param combination support GPU?
@@ -82,7 +95,17 @@ def _patch_fit(cls):
             except UnsupportedOnGPU:
                 continue
         if not any_gpu:
+            logger.info(
+                f"`GridSearchCV.fit` not optimized: no parameter "
+                f"combinations in the grid support GPU for `{estimator_name}`"
+            )
             return orig_fit(self, X, y, **params)
+
+        logger.info(
+            f"`GridSearchCV.fit` input data moved to GPU as some "
+            f"parameter combinations support acceleration for "
+            f"`{estimator_name}`"
+        )
 
         X_gpu = cp.asarray(X) if not isinstance(X, cp.ndarray) else X
         y_gpu = (
@@ -102,6 +125,10 @@ def _patch_fit(cls):
 
         orig_n_jobs = self.n_jobs
         if self.n_jobs is not None and self.n_jobs != 1:
+            logger.info(
+                f"`GridSearchCV.fit` forcing n_jobs=1 (was {self.n_jobs}) "
+                f"for GPU execution"
+            )
             self.n_jobs = 1
 
         try:
