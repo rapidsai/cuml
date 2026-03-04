@@ -61,13 +61,10 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     KernelRidge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "KernelRidge does not raise NotFittedError before fit",
-        "check_n_features_in_after_fitting": "KernelRidge does not check n_features_in consistency",
-        "check_sample_weights_pandas_series": "KernelRidge does not handle pandas Series sample weights",
+        "check_sample_weights_list": "KernelRidge does not handle list sample weights",
         "check_sample_weights_not_an_array": "KernelRidge does not handle non-array sample weights",
         "check_all_zero_sample_weights_error": "KernelRidge does not validate all-zero sample weights",
         "check_dtype_object": "KernelRidge does not handle object dtype",
-        "check_estimators_empty_data_messages": "KernelRidge does not handle empty data",
         "check_estimators_nan_inf": "KernelRidge does not check for NaN and inf",
         "check_regressors_train": "KernelRidge does not handle list inputs",
         "check_regressors_train(readonly_memmap=True)": "KernelRidge does not handle readonly memmap",
@@ -77,7 +74,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_supervised_y_no_nan": "KernelRidge does not check for NaN in y",
         "check_fit1d": "KernelRidge does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "KernelRidge does not handle 1D prediction input gracefully",
-        "check_requires_y_none": "KernelRidge does not handle y=None",
     },
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
