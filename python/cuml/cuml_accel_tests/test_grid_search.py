@@ -154,6 +154,32 @@ def test_grid_search_multimetric(regression_data):
     _assert_no_cupy(gs)
 
 
+def test_grid_search_refit_callable(regression_data):
+    """refit=callable receives numpy cv_results_ and works correctly."""
+
+    def my_refit(cv_results):
+        # A typical user callable that uses numpy operations
+        scores = cv_results["mean_test_score"]
+        assert isinstance(scores, np.ndarray), (
+            f"Expected numpy in refit callable, got {type(scores)}"
+        )
+        return np.argmax(scores)
+
+    X, y = regression_data
+    gs = GridSearchCV(
+        Ridge(),
+        {"alpha": [0.1, 1.0, 10.0]},
+        cv=3,
+        scoring="r2",
+        refit=my_refit,
+    )
+    gs.fit(X, y)
+
+    assert gs.best_index_ is not None
+    assert is_proxy(gs.best_estimator_)
+    _assert_no_cupy(gs)
+
+
 def test_grid_search_classification(classification_data):
     """GridSearchCV works with classification estimators."""
     X, y = classification_data
