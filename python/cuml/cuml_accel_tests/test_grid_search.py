@@ -12,6 +12,7 @@ from packaging.version import Version
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import LogisticRegression, Ridge
+from sklearn.metrics import make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -178,6 +179,29 @@ def test_grid_search_refit_callable(regression_data):
     assert gs.best_index_ is not None
     assert is_proxy(gs.best_estimator_)
     _assert_no_cupy(gs)
+
+
+def test_grid_search_custom_scorer(regression_data):
+    """Custom scorers receive numpy arrays, not cupy."""
+    scorer_arg_types = []
+
+    def my_metric(y_true, y_pred):
+        scorer_arg_types.append((type(y_true).__name__, type(y_pred).__name__))
+        return -np.mean((y_true - y_pred) ** 2)
+
+    X, y = regression_data
+    gs = GridSearchCV(
+        Ridge(),
+        {"alpha": [0.1, 1.0]},
+        cv=3,
+        scoring=make_scorer(my_metric),
+    )
+    gs.fit(X, y)
+
+    assert all(
+        yt == "ndarray" and yp == "ndarray" for yt, yp in scorer_arg_types
+    ), f"Expected all numpy in scorer, got {scorer_arg_types}"
+    assert not np.isnan(gs.best_score_)
 
 
 def test_grid_search_classification(classification_data):
