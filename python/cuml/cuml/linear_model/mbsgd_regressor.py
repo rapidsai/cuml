@@ -4,7 +4,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -161,7 +161,6 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
@@ -169,6 +168,10 @@ class MBSGDRegressor(
         """
         if self.loss != "squared_loss":
             raise ValueError("Only loss='squared_loss' is supported")
+
+        X, y = check_inputs(
+            self, X, y, convert_dtype=convert_dtype, order="F", reset=True
+        )
         coef, intercept = fit_sgd(
             X,
             y,
