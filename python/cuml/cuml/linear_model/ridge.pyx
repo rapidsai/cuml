@@ -17,7 +17,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
@@ -399,52 +399,29 @@ class Ridge(Base,
         return coef, intercept
 
     @generate_docstring()
-    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+        X_m, y_m, sample_weight_m = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="K",
-        )
-
-        if n_cols < 1:
-            raise ValueError(
-                f"Found array with {n_cols} feature(s) (shape={X_m.shape}) while "
-                f"a minimum of 1 is required."
-            )
-
-        if n_rows < 2:
-            raise ValueError(
-                f"Found array with {n_rows} sample(s) (shape={X_m.shape}) while a "
-                f"minimum of 2 is required."
-            )
-
-        y_m, _, n_targets, _ = input_to_cuml_array(
             y,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_rows=n_rows,
-            order="K",
+            sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
+            min_samples=2,
+            accept_multi_output=True,
+            reset=True,
         )
 
         if sample_weight is not None:
-            sample_weight_m = input_to_cuml_array(
-                sample_weight,
-                check_dtype=dtype,
-                convert_to_dtype=(dtype if convert_dtype else None),
-                check_rows=n_rows,
-                check_cols=1,
-                deepcopy=True,
-            ).array
-        else:
-            sample_weight_m = None
-
+            # Force a copy, all solvers mutate sample weights
+            sample_weight_m = input_to_cuml_array(sample_weight_m, deepcopy=True).array
         X_is_copy = cuda_ptr(X) != X_m.ptr
         y_is_copy = cuda_ptr(y) != y_m.ptr
+
+        n_cols = 1 if X_m.ndim == 1 else X_m.shape[1]
+        n_targets = 1 if y_m.ndim == 1 else y_m.shape[1]
 
         # Validate alpha
         if cp.isscalar(self.alpha):
@@ -452,7 +429,7 @@ class Ridge(Base,
             if self.alpha < 0.0:
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
         else:
-            alpha = cp.asarray(self.alpha, dtype=dtype).ravel()
+            alpha = cp.asarray(self.alpha, dtype=X_m.dtype).ravel()
             if (alpha < 0).any():
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
             if alpha.shape[0] == 1:

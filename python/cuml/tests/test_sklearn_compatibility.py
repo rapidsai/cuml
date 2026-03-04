@@ -124,8 +124,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     Ridge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "Ridge does not raise NotFittedError before fit",
-        "check_n_features_in_after_fitting": "Ridge does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "Ridge does not handle non-array sample weights",
         "check_sample_weights_list": "Ridge does not handle list sample weights",
         "check_all_zero_sample_weights_error": "Ridge does not validate all-zero sample weights",
@@ -139,7 +137,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
         "check_supervised_y_no_nan": "Ridge does not check for NaN in y",
         "check_fit1d": "Ridge does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "Ridge does not handle 1D prediction input gracefully",
-        "check_requires_y_none": "Ridge does not handle y=None",
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
