@@ -62,6 +62,7 @@ class LinearClassifierMixin:
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
+            accept_sparse=True,
         )
         X = X_m.to_output("cupy")
         out_index = X_m.index if isinstance(X_m, CumlArray) else None
