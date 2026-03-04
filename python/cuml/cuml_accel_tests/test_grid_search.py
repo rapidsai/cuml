@@ -187,6 +187,27 @@ def test_grid_search_all_params_unsupported(regression_data):
     assert not np.isnan(gs.best_score_)
 
 
+def test_grid_search_string_labels(patch_methods):
+    """String y labels bail out to unoptimized path (cupy can't hold strings)."""
+    patch_methods(LogisticRegression, "fit")
+
+    X, _ = make_classification(n_samples=100, n_features=5, random_state=42)
+    y = np.array(["cat", "dog"] * 50)
+
+    gs = GridSearchCV(
+        LogisticRegression(max_iter=200),
+        {"C": [0.1, 1.0]},
+        cv=3,
+        scoring="accuracy",
+    )
+    gs.fit(X, y)
+
+    assert isinstance(LogisticRegression.fit.args[0], np.ndarray), (
+        "Expected numpy (optimization should be skipped for string labels)"
+    )
+    assert gs.best_score_ > 0
+
+
 def test_grid_search_pipeline_non_proxy_tail(regression_data):
     """Pipeline with a non-proxy tail step skips GPU optimization.
 

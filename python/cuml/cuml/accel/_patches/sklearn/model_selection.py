@@ -101,6 +101,10 @@ def _patch_fit(cls):
             logger.debug("`GridSearchCV.fit` not optimized: sparse input")
             return orig_fit(self, X, y, **params)
 
+        if y is not None and np.asarray(y).dtype.kind not in "fiub":
+            logger.debug("`GridSearchCV.fit` not optimized: non-numeric y")
+            return orig_fit(self, X, y, **params)
+
         # Pre-check for bare proxies: does any param combination support GPU?
         # For Pipelines this is skipped -- the Pipeline patch handles
         # per-step fallback internally.
