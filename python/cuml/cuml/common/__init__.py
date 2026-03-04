@@ -1,8 +1,7 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from cuml.common.pointer_utils import device_of_gpu_matrix
 from cuml.common.timing_utils import timed
 from cuml.internals import logger
 from cuml.internals.array import CumlArray

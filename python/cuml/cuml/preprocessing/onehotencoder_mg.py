@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -45,4 +45,6 @@ class OneHotEncoderMG(OneHotEncoder):
         return inp.unique().compute()
 
     def _has_unknown(self, X_cat, encoder_cat):
+        if X_cat.dtype != encoder_cat.dtype:
+            encoder_cat = encoder_cat.astype(X_cat.dtype)
         return not X_cat.isin(encoder_cat).all().compute()

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
@@ -164,10 +164,10 @@ def test_accelerator_external_exclude(mockmod):
     assert mod.fizzbuzz() == "fizzbuzz"
 
 
-def test_accelerator_import_in_patch(mockmod):
-    """Check that imports of the original module work fine within a patch"""
+def test_accelerator_import_in_override(mockmod):
+    """Check that imports of the original module work fine within a override"""
 
-    def patch(module):
+    def override(module):
         # Same as `from {mockmod}.utils import fizz`
         fizz = importlib.import_module(f"{mockmod}.utils").fizz
         assert fizz is module.fizz
@@ -175,7 +175,7 @@ def test_accelerator_import_in_patch(mockmod):
         return {"fizz": lambda: fizz().upper()}
 
     accel = Accelerator()
-    accel.register(f"{mockmod}.utils", patch)
+    accel.register(f"{mockmod}.utils", override)
     accel.install()
 
     mod = importlib.import_module(mockmod)
@@ -199,6 +199,22 @@ def test_accelerator_install_after_import(mockmod):
     assert isinstance(mod.utils, AccelModule)
     assert sys.modules[f"{mockmod}.utils"] is mod.utils
     assert mod.utils.fizz is fizz
+
+
+def test_accelerator_module_patch(mockmod):
+    def fizz():
+        return "FIZZ"
+
+    accel = Accelerator()
+    accel.register(f"{mockmod}.utils", patch={"fizz": fizz})
+    accel.install()
+
+    mod = importlib.import_module(mockmod)
+    # Patch applied to original module
+    assert mod.utils._accel_module.fizz is fizz
+    assert mod.utils.fizz() == "FIZZ"
+    assert mod.fizz() == "FIZZ"
+    assert mod.fizzbuzz() == "FIZZbuzz"
 
 
 def test_accel_module(mockmod):

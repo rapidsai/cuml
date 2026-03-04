@@ -107,22 +107,24 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
-    "cython>=3.0.0,<3.2.0",
+    "cython>=3.2.2",
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",
     "ipython>=7.32.0",
     "nltk",
     "numpydoc<1.9",
     "nvidia-ml-py>=12",
+    "onnxruntime",
     "pynndescent",
+    "pytest",
     "pytest-benchmark",
     "pytest-cases",
     "pytest-cov",
     "pytest-xdist",
-    "pytest<9.0",
     "pyyaml",
     "scikit-learn>=1.5",
     "seaborn",
+    "skl2onnx",
     "statsmodels",
     "umap-learn==0.5.7",
     "xgboost>=2.1.0",
@@ -176,7 +178,7 @@ matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.30.4",
     "cuda-python>=13.0.1,<14.0",
-    "cython>=3.0.0,<3.2.0",
+    "cython>=3.2.2",
     "libcuml==26.4.*,>=0.0.0a0",
     "libraft==26.4.*,>=0.0.0a0",
     "librmm==26.4.*,>=0.0.0a0",
@@ -195,6 +197,7 @@ ninja.make-fallback = false
 sdist.exclude = ["*tests*"]
 sdist.reproducible = true
 wheel.packages = ["cuml"]
+wheel.py-api = "cp311" # overridden in CI builds by arguments from `ci/build_wheel_*.sh` scripts.
 
 [tool.scikit-build.metadata.version]
 provider = "scikit_build_core.metadata.regex"

@@ -1,10 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import types
 
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 import scipy as sp
+from sklearn.base import BaseEstimator
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
@@ -22,7 +27,53 @@ from sklearn.neighbors import (
     NearestNeighbors,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
 from umap import UMAP
+
+
+class MockMethod:
+    """A simple mock for method types, properly handling method binding"""
+
+    def __init__(self, method):
+        self._method = method
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return types.MethodType(self, obj)
+
+    def __call__(self, *args, **kwargs):
+        self.args = args[1:]  # drop self
+        self.kwargs = kwargs
+        return self._method(*args, **kwargs)
+
+
+@pytest.fixture
+def patch_methods(monkeypatch):
+    """A fixture for patching one or more methods on a class"""
+
+    def patch(cls, *methods):
+        for method in methods:
+            monkeypatch.setattr(cls, method, MockMethod(getattr(cls, method)))
+
+    return patch
+
+
+class HostTransformer(BaseEstimator):
+    """A no-op host-only transformer"""
+
+    def fit(self, X, y=None):
+        assert isinstance(X, np.ndarray)
+        self.n_features_in_ = X.shape[1]
+        return self
+
+    def transform(self, X):
+        assert isinstance(X, np.ndarray)
+        return X
+
+    def inverse_transform(self, X):
+        assert isinstance(X, np.ndarray)
+        return X
 
 
 @pytest.fixture
@@ -151,3 +202,143 @@ def test_pipeline_adding_none_value_as_labels(classification_data):
 
     pipeline = make_pipeline(TruncatedSVD(n_components=20))
     pipeline.fit_transform(X_train)
+
+
+@pytest.mark.parametrize(
+    "order, enabled",
+    [
+        ("host", False),
+        ("host-host", False),
+        ("device-host", False),
+        ("device", True),
+        ("device-device", True),
+        ("host-device", True),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True])
+def test_pipeline_data_transfer(
+    order, enabled, nested, regression_data, patch_methods
+):
+    patch_methods(Ridge, "fit", "predict")
+    X_train, X_test, y_train, y_test = regression_data
+    xp = cp if enabled else np
+
+    steps = [
+        StandardScaler() if step == "device" else HostTransformer()
+        for step in order.split("-")
+    ]
+    if nested:
+        pipeline = make_pipeline(make_pipeline(*steps), Ridge())
+    else:
+        pipeline = make_pipeline(*steps, Ridge())
+
+    pipeline.fit(X_train, y_train)
+    assert isinstance(Ridge.fit.args[0], xp.ndarray)
+    out = pipeline.predict(X_test)
+    assert isinstance(Ridge.predict.args[0], xp.ndarray)
+    # User-facing output is always numpy
+    assert isinstance(out, np.ndarray)
+
+
+@pytest.mark.parametrize(
+    "pipeline, scaler, pca",
+    [
+        (
+            make_pipeline(StandardScaler(), PCA()),
+            (False, True),
+            (True, False),
+        ),
+        (
+            make_pipeline(HostTransformer(), StandardScaler(), PCA()),
+            (False, False),
+            (True, False),
+        ),
+        (
+            make_pipeline(StandardScaler(), HostTransformer(), PCA()),
+            (False, False),
+            (False, False),
+        ),
+        (
+            make_pipeline(StandardScaler(), PCA(), HostTransformer()),
+            (False, True),
+            (False, False),
+        ),
+        (
+            make_pipeline(
+                make_pipeline(HostTransformer(), StandardScaler()), PCA()
+            ),
+            (False, False),
+            (True, False),
+        ),
+        (
+            make_pipeline(
+                make_pipeline(StandardScaler(), PCA()), HostTransformer()
+            ),
+            (False, True),
+            (True, False),
+        ),
+    ],
+)
+def test_pipeline_transform_data_transfer(
+    pipeline, scaler, pca, regression_data, patch_methods
+):
+    patch_methods(StandardScaler, "transform", "inverse_transform")
+    patch_methods(PCA, "transform", "inverse_transform")
+    X = regression_data[0]
+
+    pipeline.fit(X)
+
+    def on_device(method, enabled):
+        xp = cp if enabled else np
+        return isinstance(method.args[0], xp.ndarray)
+
+    out = pipeline.transform(X)
+    assert isinstance(out, np.ndarray)
+    assert on_device(PCA.transform, pca[0])
+    assert on_device(StandardScaler.transform, scaler[0])
+
+    out = pipeline.inverse_transform(X)
+    assert isinstance(out, np.ndarray)
+    assert on_device(PCA.inverse_transform, pca[1])
+    assert on_device(StandardScaler.inverse_transform, scaler[1])
+
+
+def test_pipeline_data_transfer_with_host_fallback(
+    regression_data, patch_methods
+):
+    """Intermediates passed on device, but step falls back to CPU for other reasons.
+
+    Smoketests that the proxy converts device->host before fallback is called."""
+    patch_methods(Ridge, "fit", "predict")
+    X_train, X_test, y_train, y_test = regression_data
+
+    pipeline = make_pipeline(StandardScaler(), Ridge(positive=True))
+    pipeline.fit(X_train, y_train)
+    assert isinstance(Ridge.fit.args[0], cp.ndarray)
+    out = pipeline.predict(X_test)
+    assert isinstance(Ridge.predict.args[0], cp.ndarray)
+    # User-facing output is always numpy
+    assert isinstance(out, np.ndarray)
+
+
+def test_pipeline_set_output():
+    X, _ = make_regression(random_state=42)
+    X2 = make_pipeline(
+        StandardScaler().set_output(transform="pandas")
+    ).fit_transform(X)
+    assert isinstance(X2, pd.DataFrame)
+
+
+def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
+    X, y = make_classification(random_state=42, n_classes=2)
+    y = np.array(["a", "b"]).take(y)
+
+    patch_methods(LogisticRegression, "fit", "predict")
+
+    pipeline = make_pipeline(StandardScaler(), LogisticRegression())
+    pipeline.fit(X, y)
+    assert isinstance(LogisticRegression.fit.args[0], cp.ndarray)
+    out = pipeline.predict(X)
+    assert isinstance(LogisticRegression.predict.args[0], cp.ndarray)
+    # User-facing output is always numpy
+    assert isinstance(out, np.ndarray)
