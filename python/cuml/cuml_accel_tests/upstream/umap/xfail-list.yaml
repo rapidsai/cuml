@@ -45,10 +45,3 @@
   condition: scikit-learn>=1.6
   tests:
   - "umap.tests.test_umap_validation_params::test_umap_custom_distance_w_grad"
-- reason: np.in1d was removed in NumPy 2.0; upstream umap AlignedUMAP tests use it directly
-  marker: numpy2incompatibility
-  condition: numpy>=2.0
-  tests:
-  - "umap.tests.test_aligned_umap::test_aligned_update"
-  - "umap.tests.test_aligned_umap::test_aligned_update_params"
-  - "umap.tests.test_aligned_umap::test_neighbor_local_neighbor_accuracy"
