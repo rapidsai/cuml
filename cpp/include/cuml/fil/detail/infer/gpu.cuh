@@ -226,8 +226,8 @@ std::enable_if_t<D == raft_proto::device_type::gpu, void> infer(
       // does not overflow past the uint32_t limit.
     }
     if (row_count > max_num_row) {
-      throw type_error(std::string("Input size too large! Input should be at most ") +
-                       std::to_string(max_num_row) + ".");
+      throw runtime_error(std::string("Input size too large! Input should be at most ") +
+                          std::to_string(max_num_row) + ".");
     }
   }
 

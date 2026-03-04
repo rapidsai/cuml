@@ -40,7 +40,19 @@ struct model_import_error : std::exception {
 struct type_error : std::exception {
   type_error() : type_error("Model cannot be used with given data type") {}
   type_error(char const* msg) : msg_{msg} {}
-  type_error(std::string const& msg) : msg_{msg} {}
+  virtual char const* what() const noexcept { return msg_; }
+
+ private:
+  char const* msg_;
+};
+
+/**
+ * Exception indicating a runtime error.
+ */
+struct runtime_error : std::exception {
+  runtime_error() : runtime_error("Runtime error") {}
+  runtime_error(char const* msg) : msg_{msg} {}
+  runtime_error(std::string const& msg) : msg_{msg} {}
   virtual char const* what() const noexcept { return msg_.c_str(); }
 
  private:
