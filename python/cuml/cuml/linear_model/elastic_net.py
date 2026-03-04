@@ -13,7 +13,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.cd import fit_coordinate_descent
 from cuml.solvers.qn import fit_qn
@@ -208,7 +208,6 @@ class ElasticNet(
         self.selection = selection
 
     @generate_docstring()
-    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "ElasticNet":
@@ -224,6 +223,19 @@ class ElasticNet(
             raise ValueError(
                 f"Expected 0.0 <= l1_ratio <= 1.0, got {self.l1_ratio}"
             )
+        if self.solver not in ["cd", "qn"]:
+            raise ValueError(f"solver {self.solver!r} is not supported")
+
+        X, y, sample_weight = check_inputs(
+            self,
+            X,
+            y,
+            sample_weight,
+            order={"cd": "F", "qn": "K"}[self.solver],
+            convert_dtype=convert_dtype,
+            min_samples=2,
+            reset=True,
+        )
 
         if self.solver == "qn":
             coef, intercept, n_iter, _ = fit_qn(
@@ -242,7 +254,7 @@ class ElasticNet(
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
-        elif self.solver == "cd":
+        else:
             coef, intercept, n_iter = fit_coordinate_descent(
                 X,
                 y,
@@ -255,8 +267,6 @@ class ElasticNet(
                 max_iter=self.max_iter,
                 tol=self.tol,
             )
-        else:
-            raise ValueError(f"solver {self.solver} is not supported")
 
         self.coef_ = coef
         self.intercept_ = intercept
