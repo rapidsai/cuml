@@ -14,18 +14,17 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 
 # generate constraints, the constraints will limit the version of the
 # dependencies that can be installed later on when installing the wheel
-rapids-generate-pip-constraints test_python ./constraints.txt
+rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
 # notes:
 #
-#   * echo to expand wildcard before adding `[...]` extras for pip
-#   * need to provide --constraint="${PIP_CONSTRAINT}" because that environment variable is
-#     ignored if any other --constraint are passed via the CLI
+#   * echo to expand wildcard before adding `[...]` requires for pip
+#   * just providing --constraint="${PIP_CONSTRAINT}" to be explicit, and because
+#     that environment variable is ignored if any other --constraint are passed via the CLI
 #
 rapids-pip-retry install \
    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "$(echo "${CUML_WHEELHOUSE}"/cuml*.whl)[dask,test,test-dask]" \
-  --constraint ./constraints.txt \
   --constraint "${PIP_CONSTRAINT}"
 
 EXITCODE=0
