@@ -50,6 +50,7 @@ def test_umap_min_dist(manifold_data, min_dist):
         "russellrao",
         "kulsinski",
         "dice",
+        # Require 2D data for these metrics
         "wminkowski",
         "mahalanobis",
         "haversine",
@@ -67,7 +68,7 @@ def test_umap_min_dist(manifold_data, min_dist):
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
     # haversine only works for 2D data
-    if metric == "haversine":
+    if metric in ["haversine", "wminkowski", "mahalanobis"]:
         X = X[:, :2]
 
     umap = UMAP(metric=metric, random_state=42)
