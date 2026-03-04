@@ -71,14 +71,14 @@ def _patch_fit(cls):
             return orig_fit(self, X, y, **params)
 
         if not is_proxy(self.estimator):
-            logger.info(
+            logger.debug(
                 f"`GridSearchCV.fit` not optimized: "
                 f"`{estimator_name}` is not a cuml.accel proxy"
             )
             return orig_fit(self, X, y, **params)
 
         if scipy.sparse.issparse(X):
-            logger.info("`GridSearchCV.fit` not optimized: sparse input")
+            logger.debug("`GridSearchCV.fit` not optimized: sparse input")
             return orig_fit(self, X, y, **params)
 
         # Pre-check: does any param combination support GPU?
@@ -95,13 +95,13 @@ def _patch_fit(cls):
             except UnsupportedOnGPU:
                 continue
         if not any_gpu:
-            logger.info(
+            logger.debug(
                 f"`GridSearchCV.fit` not optimized: no parameter "
                 f"combinations in the grid support GPU for `{estimator_name}`"
             )
             return orig_fit(self, X, y, **params)
 
-        logger.info(
+        logger.debug(
             f"`GridSearchCV.fit` input data moved to GPU as some "
             f"parameter combinations support acceleration for "
             f"`{estimator_name}`"
