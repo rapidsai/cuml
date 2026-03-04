@@ -13,6 +13,8 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from cuml.accel.estimator_proxy import is_proxy
 
@@ -182,4 +184,58 @@ def test_grid_search_all_params_unsupported(regression_data):
     gs = GridSearchCV(Ridge(), {"positive": [True]}, cv=3, scoring="r2")
     gs.fit(X, y)
 
+    assert not np.isnan(gs.best_score_)
+
+
+def test_grid_search_pipeline_non_proxy_tail(regression_data):
+    """Pipeline with a non-proxy tail step skips GPU optimization.
+
+    When the Pipeline's tail step is not a proxy, predictions will be
+    numpy while array-API CV splitting keeps y_test as cupy, causing a
+    device mismatch in scoring. Need to fall back to the unoptimized path.
+    """
+    fit_X_types = []
+
+    class SimpleRegressor(BaseEstimator, RegressorMixin):
+        def fit(self, X, y=None):
+            fit_X_types.append(type(X))
+            self.mean_ = np.mean(y)
+            return self
+
+        def predict(self, X):
+            return np.full(X.shape[0], self.mean_)
+
+    X, y = regression_data
+    pipe = Pipeline([("scaler", StandardScaler()), ("reg", SimpleRegressor())])
+
+    gs = GridSearchCV(
+        pipe, {"scaler__with_mean": [True, False]}, cv=3, scoring="r2"
+    )
+    gs.fit(X, y)
+
+    assert all(t is np.ndarray for t in fit_X_types), (
+        f"Expected all numpy fits (optimization skipped), got {fit_X_types}"
+    )
+    assert not np.isnan(gs.best_score_)
+
+
+@pytest.mark.skipif(
+    not AT_LEAST_SKLEARN_18,
+    reason="GridSearchCV array API optimization requires sklearn >= 1.8",
+)
+def test_grid_search_pipeline_all_proxy(regression_data, patch_methods):
+    """Pipeline with all proxy steps uses the cupy optimization path."""
+    patch_methods(Ridge, "fit")
+
+    X, y = regression_data
+    pipe = Pipeline([("scaler", StandardScaler()), ("ridge", Ridge())])
+
+    gs = GridSearchCV(
+        pipe, {"ridge__alpha": [0.1, 1.0, 10.0]}, cv=3, scoring="r2"
+    )
+    gs.fit(X, y)
+
+    assert isinstance(Ridge.fit.args[0], cp.ndarray), (
+        "Expected cupy (optimization should be active)"
+    )
     assert not np.isnan(gs.best_score_)

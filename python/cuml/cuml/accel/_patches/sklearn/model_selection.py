@@ -10,6 +10,7 @@ import scipy.sparse
 import sklearn
 from packaging.version import Version
 from sklearn.model_selection import GridSearchCV, ParameterGrid
+from sklearn.pipeline import Pipeline
 
 from cuml.accel.core import logger
 from cuml.accel.estimator_proxy import ensure_host, is_proxy
@@ -57,6 +58,25 @@ def _enable_scipy_array_api():
             _sa._GLOBAL_CONFIG["SCIPY_ARRAY_API"] = old_cached
 
 
+def _contains_proxy(estimator):
+    """Check if an estimator can benefit from the cupy data path.
+
+    For bare proxies this is always True. For Pipelines, we reuse the
+    Pipeline patch's ``get_output_type`` which returns ``"cupy"`` only
+    when there is an unbroken chain of proxy steps from the first proxy
+    to the end. If the Pipeline would return numpy predictions, the cupy
+    y_test from array-API CV splitting would cause a device mismatch in
+    scoring.
+    """
+    if is_proxy(estimator):
+        return True
+    if isinstance(estimator, Pipeline):
+        from cuml.accel._patches.sklearn.pipeline import get_output_type
+
+        return get_output_type(estimator) == "cupy"
+    return False
+
+
 def _patch_fit(cls):
     orig_fit = cls.fit
 
@@ -70,10 +90,10 @@ def _patch_fit(cls):
             )
             return orig_fit(self, X, y, **params)
 
-        if not is_proxy(self.estimator):
+        if not _contains_proxy(self.estimator):
             logger.debug(
                 f"`GridSearchCV.fit` not optimized: "
-                f"`{estimator_name}` is not a cuml.accel proxy"
+                f"`{estimator_name}` does not contain accelerated estimators"
             )
             return orig_fit(self, X, y, **params)
 
@@ -81,25 +101,29 @@ def _patch_fit(cls):
             logger.debug("`GridSearchCV.fit` not optimized: sparse input")
             return orig_fit(self, X, y, **params)
 
-        # Pre-check: does any param combination support GPU?
-        gpu_class = type(self.estimator)._gpu_class
-        any_gpu = False
-        for candidate in ParameterGrid(self.param_grid):
-            try:
-                cpu_clone = sklearn.clone(self.estimator._cpu).set_params(
-                    **candidate
+        # Pre-check for bare proxies: does any param combination support GPU?
+        # For Pipelines this is skipped -- the Pipeline patch handles
+        # per-step fallback internally.
+        if is_proxy(self.estimator):
+            gpu_class = type(self.estimator)._gpu_class
+            any_gpu = False
+            for candidate in ParameterGrid(self.param_grid):
+                try:
+                    cpu_clone = sklearn.clone(self.estimator._cpu).set_params(
+                        **candidate
+                    )
+                    gpu_class._params_from_cpu(cpu_clone)
+                    any_gpu = True
+                    break
+                except UnsupportedOnGPU:
+                    continue
+            if not any_gpu:
+                logger.debug(
+                    f"`GridSearchCV.fit` not optimized: no parameter "
+                    f"combinations in the grid support GPU for "
+                    f"`{estimator_name}`"
                 )
-                gpu_class._params_from_cpu(cpu_clone)
-                any_gpu = True
-                break
-            except UnsupportedOnGPU:
-                continue
-        if not any_gpu:
-            logger.debug(
-                f"`GridSearchCV.fit` not optimized: no parameter "
-                f"combinations in the grid support GPU for `{estimator_name}`"
-            )
-            return orig_fit(self, X, y, **params)
+                return orig_fit(self, X, y, **params)
 
         logger.debug(
             f"`GridSearchCV.fit` input data moved to GPU as some "
