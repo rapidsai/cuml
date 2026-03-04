@@ -2,20 +2,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import math
 
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
 
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_inputs, check_is_fitted
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
@@ -262,7 +260,6 @@ class KernelDensity(Base, InteropMixin):
         self.metric = metric
         self.metric_params = metric_params
 
-    @reflect(reset=True)
     def fit(
         self, X, y=None, sample_weight=None, *, convert_dtype=True
     ) -> "KernelDensity":
@@ -302,32 +299,16 @@ class KernelDensity(Base, InteropMixin):
         if self.kernel not in VALID_KERNELS:
             raise ValueError(f"kernel={self.kernel!r} is not supported")
 
-        self._X, n_rows, n_cols, _ = input_to_cupy_array(
+        X, sample_weight = check_inputs(
+            self,
             X,
-            order="C",
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[cp.float32, cp.float64],
+            sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
+            reset=True,
         )
-
-        if n_rows < 1:
-            raise ValueError(
-                f"Found array with 0 sample(s) (shape={self._X.shape}) while "
-                f"a minimum of 1 is required by KernelDensity"
-            )
-        if n_cols < 1:
-            raise ValueError(
-                f"Found array with 0 feature(s) (shape={self._X.shape}) while "
-                f"a minimum of 1 is required by KernelDensity"
-            )
-
+        self._X = X.to_output("cupy")
         if sample_weight is not None:
-            self._sample_weight = input_to_cupy_array(
-                sample_weight,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64],
-                check_cols=1,
-                check_rows=self._X.shape[0],
-            ).array
+            self._sample_weight = sample_weight.to_output("cupy")
             if self._sample_weight.min() < 0:
                 raise ValueError("sample_weight must have positive values")
         else:
@@ -352,15 +333,14 @@ class KernelDensity(Base, InteropMixin):
             probability densities, so values will be low for high-dimensional
             data.
         """
-        if not hasattr(self, "_X"):
-            raise NotFittedError()
+        check_is_fitted(self)
 
-        X = input_to_cuml_array(
+        X = check_inputs(
+            self,
             X,
-            convert_to_dtype=(self._X.dtype if convert_dtype else None),
-            check_dtype=[self._X.dtype],
-            check_cols=self.n_features_in_,
-        ).array
+            dtype=self._X.dtype,
+            convert_dtype=convert_dtype,
+        )
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
@@ -463,8 +443,7 @@ class KernelDensity(Base, InteropMixin):
         X : cupy array of shape (n_samples, n_features)
             List of samples.
         """
-        if not hasattr(self, "_X"):
-            raise NotFittedError()
+        check_is_fitted(self)
 
         supported_kernels = ["gaussian", "tophat"]
         if self.kernel not in supported_kernels:

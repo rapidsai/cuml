@@ -161,9 +161,12 @@ def check_sample_weight(
 
         if out.ndim != 1:
             raise ValueError(
-                f"Sample weights must be 1D array or scalar, got "
-                f"{out.ndim}D array. Expected either a scalar value "
-                f"or a 1D array of length {n_samples}."
+                f"sample_weight must be a 1D array or scalar, got a "
+                f"{out.ndim}D array."
+            )
+        if out.shape != (n_samples,):
+            raise ValueError(
+                f"sample_weight.shape == {out.shape}, expected {(n_samples,)}!"
             )
         return out
 
