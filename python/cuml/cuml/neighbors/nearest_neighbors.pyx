@@ -13,14 +13,14 @@ import scipy.sparse
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.common.sparse_utils import is_dense, is_sparse
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect, using_output_type
+from cuml.internals.validation import check_is_fitted, check_X
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -592,7 +592,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
-        self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
         self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
 
@@ -622,33 +621,30 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
                 )
 
     @generate_docstring(X='dense_sparse')
-    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
         """
-        sparse = is_sparse(X)
-
-        if sparse:
+        X = check_X(
+            self,
+            X,
+            dtype=np.float32,
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse=True,
+            reset=True,
+        )
+        if (sparse := isinstance(X, SparseCumlArray)):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
-            self._fit_X = SparseCumlArray(X, convert_to_dtype=cp.float32)
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
-            self._fit_X, _, _, _ = input_to_cuml_array(
-                X,
-                order='C',
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            )
-
-        self.n_samples_fit_, self.n_features_in_ = self._fit_X.shape
 
         if self.algorithm == "auto":
             if (
                 self.n_features_in_ in (2, 3)
                 and not sparse
-                and self.effective_metric_ in cuml.neighbors.VALID_METRICS["rbc"]
+                and self.metric in cuml.neighbors.VALID_METRICS["rbc"]
                 and X.shape[0]**0.5 >= self.n_neighbors
             ):
                 self._fit_method = "rbc"
@@ -664,23 +660,28 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
                 f"algorithm={self._fit_method!r} doesn't support sparse data"
             )
 
-        if self.effective_metric_ not in valid_metrics[self._fit_method]:
+        if self.metric not in valid_metrics[self._fit_method]:
             raise ValueError(
-                f"Metric {self.effective_metric_} is not supported. See "
+                f"Metric {self.metric} is not supported. See "
                 f"`cuml.neighbors.VALID_METRICS{'_SPARSE' * sparse}[{self._fit_method!r}]`"
                 f"for a list of valid options."
             )
 
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
-                self._fit_X,
-                self.effective_metric_,
+                X,
+                self.metric,
                 self._fit_method,
                 params=self.algo_params,
                 p=self.p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(self._fit_X, self.effective_metric_)
+            self._index = RBCIndex.build(X, self.metric)
+
+        self._fit_X = X
+        self.n_samples_fit_ = X.shape[0]
+        self.effective_metric_ = self.metric
+        self.effective_metric_params_ = self.metric_params
 
         return self
 
@@ -744,13 +745,10 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         indices : {}
             The indices of the k-nearest neighbors for each column vector in X
         """
+        check_is_fitted(self)
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         if use_training_data := (X is None):
-            if not hasattr(self, "_fit_X"):
-                raise ValueError(
-                    "Model needs to be trained before calling kneighbors()"
-                )
             X = self._fit_X
             n_neighbors += 1
 
@@ -760,39 +758,29 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         if n_neighbors > self.n_samples_fit_:
             raise ValueError("n_neighbors must be <= number of samples in index")
 
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"Dimensions of X need to match dimensions of indices "
-                f"({self.n_features_in_})"
-            )
+        X = check_X(
+            self,
+            X,
+            dtype=np.float32,
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse=True,
+        )
 
-        if hasattr(self, '_fit_X') and isinstance(self._fit_X, SparseCumlArray):
+        if isinstance(self._fit_X, SparseCumlArray):
             distances, indices = self._kneighbors_sparse(X, n_neighbors)
         else:
-            distances, indices = self._kneighbors_dense(
-                X, n_neighbors, convert_dtype, two_pass_precision
-            )
+            distances, indices = self._kneighbors_dense(X, n_neighbors, two_pass_precision)
 
         if use_training_data:
             distances, indices = _drop_self_edges(distances, indices)
 
         return (distances, indices) if return_distance else indices
 
-    def _kneighbors_dense(
-        self, X, int n_neighbors, convert_dtype=True, two_pass_precision=False
-    ):
-        if not is_dense(X):
+    def _kneighbors_dense(self, X, int n_neighbors, two_pass_precision=False):
+        if isinstance(X, SparseCumlArray):
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
-
-        cdef int n_rows, n_cols
-        X_m, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
-            order="C",
-            check_dtype=np.float32,
-            check_cols=self.n_features_in_,
-            convert_to_dtype=(np.float32 if convert_dtype else False),
-        )
 
         use_index = self._fit_method != "brute"
         if self._fit_method == "rbc" and n_neighbors > self.n_samples_fit_**0.5:
@@ -804,13 +792,13 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             use_index = False
 
         if use_index:
-            return self._index.kneighbors(X_m, n_neighbors)
+            return self._index.kneighbors(X, n_neighbors)
 
         distances = CumlArray.zeros(
-            (X_m.shape[0], n_neighbors), dtype=np.float32, order="C", index=X_m.index,
+            (X.shape[0], n_neighbors), dtype=np.float32, order="C", index=X.index,
         )
         indices = CumlArray.zeros(
-            (X_m.shape[0], n_neighbors), dtype=np.int64, order="C", index=X_m.index,
+            (X.shape[0], n_neighbors), dtype=np.int64, order="C", index=X.index,
         )
 
         handle = get_handle()
@@ -820,10 +808,12 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
         sizes.push_back(<int>self.n_samples_fit_)
         cdef DistanceType distance_type = _metric_to_distance_type(self.effective_metric_)
-        cdef float* X_ptr = <float*><uintptr_t>X_m.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.ptr
         cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.ptr
         cdef float* distances_ptr = <float*><uintptr_t>distances.ptr
         cdef float metric_arg = self.p
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1] if X.ndim == 2 else 1
 
         with nogil:
             brute_force_knn(
@@ -845,7 +835,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
 
         if two_pass_precision:
             distances, indices = self._maybe_apply_two_pass_precision(
-                X_m, distances, indices
+                X, distances, indices
             )
 
         return distances, indices
@@ -883,7 +873,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         return distances, indices
 
     def _kneighbors_sparse(self, X, int n_neighbors):
-        if isinstance(self._fit_X, SparseCumlArray) and not is_sparse(X):
+        if not isinstance(X, SparseCumlArray):
             raise ValueError("A NearestNeighbors model trained on sparse "
                              "data requires sparse input to kneighbors()")
 
@@ -895,13 +885,12 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         cdef float metric_arg = self.p
 
         # Extract query input components
-        X_m = SparseCumlArray(X, convert_to_dtype=cp.float32)
-        cdef int* X_indptr = <int *><uintptr_t>X_m.indptr.ptr
-        cdef int* X_indices = <int *><uintptr_t>X_m.indices.ptr
-        cdef float* X_data = <float *><uintptr_t>X_m.data.ptr
-        cdef size_t X_nnz = X_m.nnz
-        cdef int X_n_rows = X_m.shape[0]
-        cdef int X_n_cols = X_m.shape[1]
+        cdef int* X_indptr = <int *><uintptr_t>X.indptr.ptr
+        cdef int* X_indices = <int *><uintptr_t>X.indices.ptr
+        cdef float* X_data = <float *><uintptr_t>X.data.ptr
+        cdef size_t X_nnz = X.nnz
+        cdef int X_n_rows = X.shape[0]
+        cdef int X_n_cols = X.shape[1]
 
         # Extract index components
         cdef int* idx_indptr = <int *><uintptr_t>self._fit_X.indptr.ptr
@@ -913,10 +902,10 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
 
         # Allocate outputs
         indices = CumlArray.zeros(
-            (X_m.shape[0], n_neighbors), dtype=np.int32, order="C"
+            (X.shape[0], n_neighbors), dtype=np.int32, order="C"
         )
         distances = CumlArray.zeros(
-            (X_m.shape[0], n_neighbors), dtype=np.float32, order="C"
+            (X.shape[0], n_neighbors), dtype=np.float32, order="C"
         )
         cdef int* indices_ptr = <int *><uintptr_t>indices.ptr
         cdef float* distances_ptr = <float *><uintptr_t>distances.ptr
@@ -1016,18 +1005,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             (distances, indices, rowptr),
             shape=(n_samples, self.n_samples_fit_)
         )
-
-    @property
-    def effective_metric_(self):
-        return self.metric
-
-    @effective_metric_.setter
-    def effective_metric_(self, val):
-        self.metric = val
-
-    @property
-    def effective_metric_params_(self):
-        return self.metric_params or {}
 
 
 class NearestNeighbors(NeighborsBase):
@@ -1254,10 +1231,7 @@ class NearestNeighbors(NeighborsBase):
                [0., 1., 0.],
                [1., 0., 1.]])
         """
-        if not hasattr(self, "_fit_X"):
-            raise ValueError("This NearestNeighbors instance has not been "
-                             "fitted yet, call 'fit' before using this "
-                             "estimator")
+        check_is_fitted(self)
 
         if isinstance(self._fit_X, SparseCumlArray) or is_sparse(X):
             raise TypeError("`radius_neighbors_graph` doesn't support sparse inputs")
@@ -1277,13 +1251,7 @@ class NearestNeighbors(NeighborsBase):
         if (using_fit_X := (X is None)):
             X = self._fit_X
 
-        X_m = input_to_cuml_array(
-            X,
-            order="C",
-            check_dtype=np.float32,
-            check_cols=self.n_features_in_,
-            convert_to_dtype=np.float32,
-        ).array
+        X = check_X(self, X, order="C", dtype=np.float32)
 
         if hasattr(self, "_index") and isinstance(self._index, RBCIndex):
             # Already fit with RBC, reuse the index
@@ -1292,7 +1260,7 @@ class NearestNeighbors(NeighborsBase):
             # Fit with another method, build a temporary index
             index = RBCIndex.build(self._fit_X, self.effective_metric_)
 
-        out = index.radius_neighbors_graph(X_m, radius)
+        out = index.radius_neighbors_graph(X, radius)
         if using_fit_X:
             # When using the training data, the diagonal elements aren't included
             out.setdiag(np.int64(0))

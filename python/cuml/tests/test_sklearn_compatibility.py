@@ -205,11 +205,9 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     NearestNeighbors: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_no_attributes_set_in_init": "NearestNeighbors sets attributes during init",
         "check_dtype_object": "NearestNeighbors does not handle object dtype",
-        "check_estimators_empty_data_messages": "NearestNeighbors does not handle empty data",
         "check_estimators_nan_inf": "NearestNeighbors does not check for NaN and inf",
-        "check_fit_check_is_fitted": "NearestNeighbors passes check_is_fitted before being fit",
+        "check_fit1d": "NearestNeighbors does not raise ValueError for 1D input",
     },
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
