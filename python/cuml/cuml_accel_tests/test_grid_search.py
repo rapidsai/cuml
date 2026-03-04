@@ -190,6 +190,22 @@ def test_grid_search_non_proxy_estimator(regression_data):
     assert isinstance(gs.best_score_, (float, np.floating))
 
 
+def test_grid_search_n_jobs_skips_optimization(regression_data, patch_methods):
+    """n_jobs != 1 skips GPU optimization (thread-local state doesn't propagate)."""
+    patch_methods(Ridge, "fit")
+
+    X, y = regression_data
+    gs = GridSearchCV(
+        Ridge(), {"alpha": [0.1, 1.0]}, cv=3, scoring="r2", n_jobs=2
+    )
+    gs.fit(X, y)
+
+    assert isinstance(Ridge.fit.args[0], np.ndarray), (
+        "Expected numpy (optimization should be skipped for n_jobs>1)"
+    )
+    assert not np.isnan(gs.best_score_)
+
+
 def test_grid_search_all_params_unsupported(regression_data):
     """When no param combo supports GPU, falls back to numpy path."""
     X, y = regression_data

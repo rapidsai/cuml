@@ -105,6 +105,13 @@ def _patch_fit(cls):
             logger.debug("`GridSearchCV.fit` not optimized: non-numeric y")
             return orig_fit(self, X, y, **params)
 
+        if self.n_jobs is not None and self.n_jobs != 1:
+            logger.debug(
+                f"`GridSearchCV.fit` not optimized: n_jobs={self.n_jobs} "
+                f"(set n_jobs=1 for GPU acceleration)"
+            )
+            return orig_fit(self, X, y, **params)
+
         # Pre-check for bare proxies: does any param combination support GPU?
         # For Pipelines this is skipped -- the Pipeline patch handles
         # per-step fallback internally.
@@ -151,23 +158,12 @@ def _patch_fit(cls):
             for k, v in params.items()
         }
 
-        orig_n_jobs = self.n_jobs
-        if self.n_jobs is not None and self.n_jobs != 1:
-            logger.info(
-                f"`GridSearchCV.fit` forcing n_jobs=1 (was {self.n_jobs}) "
-                f"for GPU execution"
-            )
-            self.n_jobs = 1
-
-        try:
-            with (
-                _enable_scipy_array_api(),
-                sklearn.config_context(array_api_dispatch=True),
-                using_output_type("cupy"),
-            ):
-                out = orig_fit(self, X_gpu, y_gpu, **params)
-        finally:
-            self.n_jobs = orig_n_jobs
+        with (
+            _enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_fit(self, X_gpu, y_gpu, **params)
 
         # Ensure user-facing attributes are host arrays
         if GlobalSettings().output_type in (None, "numpy"):
