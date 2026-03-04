@@ -5,6 +5,7 @@ import functools
 import os
 
 import cupy as cp
+import numpy as np
 import scipy.sparse
 import sklearn
 from packaging.version import Version
@@ -89,6 +90,15 @@ def _patch_fit(cls):
             if y is not None and not isinstance(y, cp.ndarray)
             else y
         )
+        # Convert array-like params (e.g. sample_weight) to cupy so scoring
+        # metrics see consistent array types. Exclude "groups" which goes to
+        # the CV splitter and must stay on host.
+        params = {
+            k: cp.asarray(v)
+            if isinstance(v, np.ndarray) and k != "groups"
+            else v
+            for k, v in params.items()
+        }
 
         orig_n_jobs = self.n_jobs
         if self.n_jobs is not None and self.n_jobs != 1:
