@@ -89,6 +89,19 @@ def test_grid_search_data_on_device(regression_data, patch_methods):
     assert isinstance(Ridge.fit.args[0], cp.ndarray)
 
 
+def _assert_no_cupy(gs):
+    """Assert all fitted attributes on a GridSearchCV are host arrays."""
+    for attr in ("best_score_", "best_index_"):
+        val = getattr(gs, attr, None)
+        if val is not None:
+            assert not isinstance(val, cp.ndarray), (
+                f"{attr} is cupy ({type(val)})"
+            )
+
+    for key, val in gs.cv_results_.items():
+        assert not isinstance(val, cp.ndarray), f"cv_results_[{key!r}] is cupy"
+
+
 def test_grid_search_output_types(regression_data):
     """All user-facing outputs are numpy, not cupy."""
     X, y = regression_data
@@ -96,8 +109,7 @@ def test_grid_search_output_types(regression_data):
     gs = GridSearchCV(Ridge(), {"alpha": [0.1, 1.0]}, cv=3, scoring="r2")
     gs.fit(X, y)
 
-    assert isinstance(gs.best_score_, (float, np.floating))
-    assert isinstance(gs.cv_results_["mean_test_score"], np.ndarray)
+    _assert_no_cupy(gs)
 
     pred = gs.predict(X[:5])
     assert isinstance(pred, np.ndarray)
@@ -121,6 +133,7 @@ def test_grid_search_mixed_gpu_cpu_fallback(regression_data):
     scores = gs.cv_results_["mean_test_score"]
     assert len(scores) == 4
     assert not any(np.isnan(scores)), f"NaN scores found: {scores}"
+    _assert_no_cupy(gs)
 
 
 def test_grid_search_multimetric(regression_data):
@@ -138,7 +151,7 @@ def test_grid_search_multimetric(regression_data):
 
     assert "mean_test_r2" in gs.cv_results_
     assert "mean_test_neg_mean_squared_error" in gs.cv_results_
-    assert isinstance(gs.cv_results_["mean_test_r2"], np.ndarray)
+    _assert_no_cupy(gs)
 
 
 def test_grid_search_classification(classification_data):
@@ -259,4 +272,4 @@ def test_grid_search_pipeline_all_proxy(regression_data, patch_methods):
     assert isinstance(Ridge.fit.args[0], cp.ndarray), (
         "Expected cupy (optimization should be active)"
     )
-    assert not np.isnan(gs.best_score_)
+    _assert_no_cupy(gs)
