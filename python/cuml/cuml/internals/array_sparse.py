@@ -81,7 +81,7 @@ class SparseCumlArray:
         check_rows=None,
         check_cols=None,
     ):
-        if not isinstance(data, SparseCumlArrayInput):
+        if not isinstance(data, (SparseCumlArrayInput, SparseCumlArray)):
             if cpx_sparse.issparse(data):
                 from_mem_type = MemoryType.device
             elif scipy_sparse.issparse(data):
