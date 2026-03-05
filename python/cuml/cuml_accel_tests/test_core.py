@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import importlib
+import importlib.metadata
 import multiprocessing
 from inspect import Parameter, signature
 
