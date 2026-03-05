@@ -179,6 +179,8 @@ When tests fail only on specific versions of a dependency, use the `--condition`
 
 This ensures xfails only apply to the relevant versions, keeping the test suite accurate across different dependency combinations.
 
+You can combine multiple version requirements in a condition using "and". For example: `umap-learn<=0.5.8 and scikit-learn>=1.6` will only xfail tests when both package constraints are met.
+
 ### Handling Unmatched Test IDs
 
 The pytest plugin validates that all test IDs in the xfail list correspond to actual tests. When tests don't exist, a `UnmatchedXfailTests` warning is issued.
