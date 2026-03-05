@@ -82,12 +82,12 @@ def iter_proxy_class_methods():
             if not name.startswith("_") and callable(
                 getattr(cls._cpu_class, name)
             ):
-                # XXX: xfail umap.UMAP.get_feature_names_out for umap-learn <= 0.5.7
+                # XXX: xfail umap.UMAP.get_feature_names_out for umap-learn < 0.5.8
                 if (
                     cls._cpu_class.__name__ == "UMAP"
                     and name == "get_feature_names_out"
                     and Version(importlib.metadata.version("umap-learn"))
-                    <= Version("0.5.7")
+                    < Version("0.5.8")
                 ):
                     yield pytest.param(
                         cls,
