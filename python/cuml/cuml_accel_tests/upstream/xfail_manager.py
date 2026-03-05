@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 
 class QuoteTestID(str):
@@ -361,7 +361,7 @@ class XfailManager:
                 for clause in group.condition.split(" and "):
                     try:
                         Requirement(clause.strip())
-                    except Exception as e:
+                    except InvalidRequirement as e:
                         errors.append(
                             f"Group {i} has invalid condition "
                             f"'{group.condition}': {e}"
