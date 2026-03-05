@@ -324,7 +324,7 @@ dependencies:
           - joblib>=0.11
           - numba>=0.60.0,<0.65.0
           - &numpy numpy>=1.23,<3.0
-          - scipy>=1.13.0
+          - scipy>=1.14.0
           - packaging
           - rich
           - &scikit_learn scikit-learn>=1.5
