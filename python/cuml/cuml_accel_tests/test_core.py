@@ -94,7 +94,7 @@ def iter_proxy_class_methods():
                         name,
                         marks=[
                             pytest.mark.xfail(
-                                reason="umap-learn <= 0.5.7 doesn't implement `get_feature_names_out` properly",
+                                reason="umap-learn < 0.5.8 doesn't implement `get_feature_names_out` properly",
                                 strict=True,
                             )
                         ],
