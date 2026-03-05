@@ -3,11 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import umap
 from packaging.version import Version
 
 import cuml.manifold
 from cuml.accel.estimator_proxy import ProxyBase
+
+try:
+    import umap as _umap_module
+
+    _UMAP_LT_058 = Version(_umap_module.__version__) < Version("0.5.8")
+except ImportError:
+    _UMAP_LT_058 = False
 
 __all__ = ("UMAP",)
 
@@ -15,8 +21,8 @@ __all__ = ("UMAP",)
 class UMAP(ProxyBase):
     _gpu_class = cuml.manifold.UMAP
 
-    if Version(umap.__version__) < Version("0.5.8"):
-        # We support the old signature for backwards compatibility with umap-learn 0.5.7
+    if _UMAP_LT_058:
+        # We support the old signature for backwards compatibility prior to umap-learn 0.5.8
 
         def _gpu_fit(self, X, y=None, force_all_finite=True, **kwargs):
             return self._gpu.fit(X, y=y)
