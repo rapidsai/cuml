@@ -18,7 +18,7 @@ dependencies:
 - cupy>=13.6.0
 - cuvs==26.4.*,>=0.0.0a0
 - cxx-compiler
-- cython>=3.0.0,<3.2.0
+- cython>=3.2.2
 - dask-cuda==26.4.*,>=0.0.0a0
 - dask-cudf==26.4.*,>=0.0.0a0
 - dask-ml>=2024
@@ -55,11 +55,11 @@ dependencies:
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==26.4.*,>=0.0.0a0
 - pynndescent
+- pytest
 - pytest-benchmark
 - pytest-cases
 - pytest-cov
 - pytest-xdist
-- pytest<9.0
 - python>=3.11,<3.14
 - pyyaml
 - raft-dask==26.4.*,>=0.0.0a0

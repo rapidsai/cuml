@@ -107,7 +107,7 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
-    "cython>=3.0.0,<3.2.0",
+    "cython>=3.2.2",
     "hdbscan>=0.8.39,<0.8.40",
     "hypothesis>=6.0,<7",
     "ipython>=7.32.0",
@@ -116,11 +116,11 @@ test = [
     "nvidia-ml-py>=12",
     "onnxruntime",
     "pynndescent",
+    "pytest",
     "pytest-benchmark",
     "pytest-cases",
     "pytest-cov",
     "pytest-xdist",
-    "pytest<9.0",
     "pyyaml",
     "scikit-learn>=1.5",
     "seaborn",
@@ -178,7 +178,7 @@ matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.30.4",
     "cuda-python>=13.0.1,<14.0",
-    "cython>=3.0.0,<3.2.0",
+    "cython>=3.2.2",
     "libcuml==26.4.*,>=0.0.0a0",
     "libraft==26.4.*,>=0.0.0a0",
     "librmm==26.4.*,>=0.0.0a0",

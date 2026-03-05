@@ -75,7 +75,7 @@ class Logger:
 logger = Logger()
 
 
-ACCELERATED_MODULES = [
+_OVERRIDES = {
     "hdbscan",
     "sklearn.cluster",
     "sklearn.covariance",
@@ -88,7 +88,14 @@ ACCELERATED_MODULES = [
     "sklearn.preprocessing",
     "sklearn.svm",
     "umap",
-]
+}
+
+_PATCHES = {
+    "sklearn.pipeline",
+    "sklearn.utils",
+}
+
+ACCELERATED_MODULES = sorted(_OVERRIDES.union(_PATCHES))
 
 
 def _exclude_from_acceleration(module: str) -> bool:
@@ -107,7 +114,15 @@ def _exclude_from_acceleration(module: str) -> bool:
 
 ACCEL = Accelerator(exclude=_exclude_from_acceleration)
 for module in ACCELERATED_MODULES:
-    ACCEL.register(module, f"cuml.accel._wrappers.{module}")
+    ACCEL.register(
+        module,
+        override=(
+            f"cuml.accel._overrides.{module}" if module in _OVERRIDES else None
+        ),
+        patch=(
+            f"cuml.accel._patches.{module}" if module in _PATCHES else None
+        ),
+    )
 
 
 def _is_concurrent_managed_access_supported():
