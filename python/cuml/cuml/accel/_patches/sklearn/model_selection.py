@@ -53,19 +53,19 @@ def _enable_scipy_array_api():
 def _contains_proxy(estimator):
     """Check if an estimator can benefit from the cupy data path.
 
-    For bare proxies this is always True. For Pipelines, we reuse the
-    Pipeline patch's ``get_output_type`` which returns ``"cupy"`` only
-    when there is an unbroken chain of proxy steps from the first proxy
-    to the end. If the Pipeline would return numpy predictions, the cupy
-    y_test from array-API CV splitting would cause a device mismatch in
-    scoring.
+    For estimator proxies this is always True. For Pipelines, ALL steps must
+    be proxies: non-proxy steps can't handle cupy inputs, and a non-proxy
+    tail would produce numpy predictions causing a device mismatch with
+    cupy y_test in scoring.
     """
     if is_proxy(estimator):
         return True
     if isinstance(estimator, Pipeline):
-        from cuml.accel._patches.sklearn.pipeline import get_output_type
-
-        return get_output_type(estimator) == "cupy"
+        return all(
+            is_proxy(step)
+            for _, step in estimator.steps
+            if step not in (None, "passthrough")
+        )
     return False
 
 
@@ -93,8 +93,10 @@ def _patch_fit(cls):
             logger.debug("`GridSearchCV.fit` not optimized: sparse input")
             return orig_fit(self, X, y, **params)
 
-        if y is not None and np.asarray(y).dtype.kind not in "fiub":
-            logger.debug("`GridSearchCV.fit` not optimized: non-numeric y")
+        if np.asarray(X).dtype.kind not in "fiub" or (
+            y is not None and np.asarray(y).dtype.kind not in "fiub"
+        ):
+            logger.debug("`GridSearchCV.fit` not optimized: non-numeric data")
             return orig_fit(self, X, y, **params)
 
         if self.n_jobs is not None and self.n_jobs != 1:
@@ -135,6 +137,7 @@ def _patch_fit(cls):
         )
 
         X_gpu = cp.asarray(X) if not isinstance(X, cp.ndarray) else X
+        # XXX can we just leave y, because "everything follows X"?
         y_gpu = (
             cp.asarray(y)
             if y is not None and not isinstance(y, cp.ndarray)
