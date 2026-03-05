@@ -42,6 +42,6 @@
   - "umap.tests.test_umap_ops::test_umap_transform_embedding_stability"
 - reason: Test fails with newer sklearn
   marker: cuml_accel_sklearn_pin
-  condition: umap-learn<=0.5.8
+  condition: umap-learn<=0.5.8 and scikit-learn>=1.6
   tests:
   - "umap.tests.test_umap_validation_params::test_umap_custom_distance_w_grad"
