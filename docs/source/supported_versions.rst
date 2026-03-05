@@ -36,7 +36,7 @@ The following dependencies are optional and provide additional functionality:
 
 * **xgboost**: >=2.1.0 (for gradient boosting algorithms)
 * **hdbscan**: >=0.8.39,<0.8.40 (for hierarchical density-based clustering)
-* **umap-learn**: ==0.5.7 (for dimensionality reduction)
+* **umap-learn**: >=0.5.7,<0.5.12 (for dimensionality reduction)
 * **pynndescent**: (for approximate nearest neighbor search)
 
 RAPIDS Dependencies
