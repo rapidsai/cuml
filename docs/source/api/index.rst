@@ -44,6 +44,9 @@ use.
    cuml.tsa
 
 
+Configuration and Utilities
+---------------------------
+
 .. list-table::
    :header-rows: 1
    :widths: 30 50 20
@@ -51,7 +54,6 @@ use.
    * - Object
      - Description
      - Module
-
    * - :obj:`~cuml.set_global_output_type`
      - Set global output type for cuML estimators.
      - :mod:`cuml`
@@ -59,6 +61,16 @@ use.
      - Context manager to temporarily set output type.
      - :mod:`cuml`
 
+Zero-code-change Acceleration
+-----------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.accel.install`
      - Install cuML acceleration hooks.
      - :mod:`cuml.accel`
@@ -72,6 +84,16 @@ use.
      - Check if an object is a cuML proxy.
      - :mod:`cuml.accel`
 
+Clustering
+----------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.cluster.AgglomerativeClustering`
      - Agglomerative Clustering.
      - :mod:`cuml.cluster`
@@ -88,69 +110,16 @@ use.
      - Spectral clustering.
      - :mod:`cuml.cluster`
 
-   * - :obj:`~cuml.compose.ColumnTransformer`
-     - Applies transformers to columns of an array or DataFrame.
-     - :mod:`cuml.compose`
+Regression and Classification
+-----------------------------
 
-   * - :obj:`~cuml.covariance.LedoitWolf`
-     - Ledoit-Wolf shrinkage covariance estimator.
-     - :mod:`cuml.covariance`
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
 
-   * - :obj:`~cuml.datasets.make_blobs`
-     - Generate isotropic Gaussian blobs for clustering.
-     - :mod:`cuml.datasets`
-   * - :obj:`~cuml.datasets.make_classification`
-     - Generate a random classification problem.
-     - :mod:`cuml.datasets`
-   * - :obj:`~cuml.datasets.make_regression`
-     - Generate a random regression problem.
-     - :mod:`cuml.datasets`
-
-   * - :obj:`~cuml.decomposition.PCA`
-     - Principal Component Analysis.
-     - :mod:`cuml.decomposition`
-   * - :obj:`~cuml.decomposition.IncrementalPCA`
-     - Incremental Principal Component Analysis.
-     - :mod:`cuml.decomposition`
-   * - :obj:`~cuml.decomposition.TruncatedSVD`
-     - Dimensionality reduction using truncated SVD.
-     - :mod:`cuml.decomposition`
-
-   * - :obj:`~cuml.ensemble.RandomForestClassifier`
-     - Random Forest classifier.
-     - :mod:`cuml.ensemble`
-   * - :obj:`~cuml.ensemble.RandomForestRegressor`
-     - Random Forest regressor.
-     - :mod:`cuml.ensemble`
-
-   * - :obj:`~cuml.explainer.KernelExplainer`
-     - SHAP Kernel Explainer.
-     - :mod:`cuml.explainer`
-   * - :obj:`~cuml.explainer.PermutationExplainer`
-     - SHAP Permutation Explainer.
-     - :mod:`cuml.explainer`
-   * - :obj:`~cuml.explainer.TreeExplainer`
-     - SHAP Tree Explainer.
-     - :mod:`cuml.explainer`
-
-   * - :obj:`~cuml.feature_extraction.text.CountVectorizer`
-     - Convert a collection of text documents to a matrix of token counts.
-     - :mod:`cuml.feature_extraction`
-   * - :obj:`~cuml.feature_extraction.text.HashingVectorizer`
-     - Convert a collection of text documents to a matrix of token occurrences.
-     - :mod:`cuml.feature_extraction`
-   * - :obj:`~cuml.feature_extraction.text.TfidfVectorizer`
-     - Convert a collection of raw documents to a matrix of TF-IDF features.
-     - :mod:`cuml.feature_extraction`
-
-   * - :obj:`~cuml.fil.ForestInference`
-     - Forest Inference for fast prediction of tree-based models.
-     - :mod:`cuml.fil`
-
-   * - :obj:`~cuml.kernel_ridge.KernelRidge`
-     - Kernel Ridge Regression.
-     - :mod:`cuml.kernel_ridge`
-
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.linear_model.LinearRegression`
      - Ordinary least squares Linear Regression.
      - :mod:`cuml.linear_model`
@@ -172,41 +141,33 @@ use.
    * - :obj:`~cuml.linear_model.MBSGDRegressor`
      - Mini Batch SGD Regressor.
      - :mod:`cuml.linear_model`
-
-   * - :obj:`~cuml.manifold.UMAP`
-     - Uniform Manifold Approximation and Projection.
-     - :mod:`cuml.manifold`
-   * - :obj:`~cuml.manifold.TSNE`
-     - t-Distributed Stochastic Neighbor Embedding.
-     - :mod:`cuml.manifold`
-   * - :obj:`~cuml.manifold.SpectralEmbedding`
-     - Spectral Embedding for non-linear dimensionality reduction.
-     - :mod:`cuml.manifold`
-
-   * - :obj:`~cuml.metrics.accuracy_score`
-     - Accuracy classification score.
-     - :mod:`cuml.metrics`
-   * - :obj:`~cuml.metrics.confusion_matrix`
-     - Compute confusion matrix.
-     - :mod:`cuml.metrics`
-   * - :obj:`~cuml.metrics.roc_auc_score`
-     - Compute Area Under the ROC Curve.
-     - :mod:`cuml.metrics`
-
-   * - :obj:`~cuml.model_selection.train_test_split`
-     - Split arrays into random train and test subsets.
-     - :mod:`cuml.model_selection`
-   * - :obj:`~cuml.model_selection.KFold`
-     - K-Fold cross-validator.
-     - :mod:`cuml.model_selection`
-
+   * - :obj:`~cuml.svm.SVC`
+     - C-Support Vector Classification.
+     - :mod:`cuml.svm`
+   * - :obj:`~cuml.svm.SVR`
+     - Epsilon-Support Vector Regression.
+     - :mod:`cuml.svm`
+   * - :obj:`~cuml.svm.LinearSVC`
+     - Linear Support Vector Classification.
+     - :mod:`cuml.svm`
+   * - :obj:`~cuml.svm.LinearSVR`
+     - Linear Support Vector Regression.
+     - :mod:`cuml.svm`
+   * - :obj:`~cuml.kernel_ridge.KernelRidge`
+     - Kernel Ridge Regression.
+     - :mod:`cuml.kernel_ridge`
+   * - :obj:`~cuml.ensemble.RandomForestClassifier`
+     - Random Forest classifier.
+     - :mod:`cuml.ensemble`
+   * - :obj:`~cuml.ensemble.RandomForestRegressor`
+     - Random Forest regressor.
+     - :mod:`cuml.ensemble`
    * - :obj:`~cuml.multiclass.OneVsOneClassifier`
      - One-vs-one multiclass strategy.
      - :mod:`cuml.multiclass`
    * - :obj:`~cuml.multiclass.OneVsRestClassifier`
      - One-vs-the-rest multiclass strategy.
      - :mod:`cuml.multiclass`
-
    * - :obj:`~cuml.naive_bayes.BernoulliNB`
      - Naive Bayes classifier for multivariate Bernoulli models.
      - :mod:`cuml.naive_bayes`
@@ -223,6 +184,51 @@ use.
      - Naive Bayes classifier for multinomial models.
      - :mod:`cuml.naive_bayes`
 
+Dimensionality Reduction and Manifold Learning
+-----------------------------------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.decomposition.PCA`
+     - Principal Component Analysis.
+     - :mod:`cuml.decomposition`
+   * - :obj:`~cuml.decomposition.IncrementalPCA`
+     - Incremental Principal Component Analysis.
+     - :mod:`cuml.decomposition`
+   * - :obj:`~cuml.decomposition.TruncatedSVD`
+     - Dimensionality reduction using truncated SVD.
+     - :mod:`cuml.decomposition`
+   * - :obj:`~cuml.manifold.UMAP`
+     - Uniform Manifold Approximation and Projection.
+     - :mod:`cuml.manifold`
+   * - :obj:`~cuml.manifold.TSNE`
+     - t-Distributed Stochastic Neighbor Embedding.
+     - :mod:`cuml.manifold`
+   * - :obj:`~cuml.manifold.SpectralEmbedding`
+     - Spectral Embedding for non-linear dimensionality reduction.
+     - :mod:`cuml.manifold`
+   * - :obj:`~cuml.random_projection.GaussianRandomProjection`
+     - Reduce dimensionality through Gaussian random projection.
+     - :mod:`cuml.random_projection`
+   * - :obj:`~cuml.random_projection.SparseRandomProjection`
+     - Reduce dimensionality through sparse random projection.
+     - :mod:`cuml.random_projection`
+
+Neighbors
+---------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.neighbors.NearestNeighbors`
      - Unsupervised nearest neighbors.
      - :mod:`cuml.neighbors`
@@ -236,6 +242,16 @@ use.
      - Kernel Density Estimation.
      - :mod:`cuml.neighbors`
 
+Preprocessing
+-------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.preprocessing.StandardScaler`
      - Standardize features by removing the mean and scaling to unit variance.
      - :mod:`cuml.preprocessing`
@@ -269,14 +285,145 @@ use.
    * - :obj:`~cuml.preprocessing.SimpleImputer`
      - Univariate imputer for completing missing values.
      - :mod:`cuml.preprocessing`
+   * - :obj:`~cuml.compose.ColumnTransformer`
+     - Applies transformers to columns of an array or DataFrame.
+     - :mod:`cuml.compose`
 
-   * - :obj:`~cuml.random_projection.GaussianRandomProjection`
-     - Reduce dimensionality through Gaussian random projection.
-     - :mod:`cuml.random_projection`
-   * - :obj:`~cuml.random_projection.SparseRandomProjection`
-     - Reduce dimensionality through sparse random projection.
-     - :mod:`cuml.random_projection`
+Feature Extraction
+------------------
 
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.feature_extraction.text.CountVectorizer`
+     - Convert a collection of text documents to a matrix of token counts.
+     - :mod:`cuml.feature_extraction`
+   * - :obj:`~cuml.feature_extraction.text.HashingVectorizer`
+     - Convert a collection of text documents to a matrix of token occurrences.
+     - :mod:`cuml.feature_extraction`
+   * - :obj:`~cuml.feature_extraction.text.TfidfVectorizer`
+     - Convert a collection of raw documents to a matrix of TF-IDF features.
+     - :mod:`cuml.feature_extraction`
+
+Covariance Estimation
+---------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.covariance.LedoitWolf`
+     - Ledoit-Wolf shrinkage covariance estimator.
+     - :mod:`cuml.covariance`
+
+Model Selection
+---------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.model_selection.train_test_split`
+     - Split arrays into random train and test subsets.
+     - :mod:`cuml.model_selection`
+   * - :obj:`~cuml.model_selection.KFold`
+     - K-Fold cross-validator.
+     - :mod:`cuml.model_selection`
+
+Metrics
+-------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.metrics.accuracy_score`
+     - Accuracy classification score.
+     - :mod:`cuml.metrics`
+   * - :obj:`~cuml.metrics.confusion_matrix`
+     - Compute confusion matrix.
+     - :mod:`cuml.metrics`
+   * - :obj:`~cuml.metrics.roc_auc_score`
+     - Compute Area Under the ROC Curve.
+     - :mod:`cuml.metrics`
+
+Explainability
+--------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.explainer.KernelExplainer`
+     - SHAP Kernel Explainer.
+     - :mod:`cuml.explainer`
+   * - :obj:`~cuml.explainer.PermutationExplainer`
+     - SHAP Permutation Explainer.
+     - :mod:`cuml.explainer`
+   * - :obj:`~cuml.explainer.TreeExplainer`
+     - SHAP Tree Explainer.
+     - :mod:`cuml.explainer`
+
+Datasets
+--------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.datasets.make_blobs`
+     - Generate isotropic Gaussian blobs for clustering.
+     - :mod:`cuml.datasets`
+   * - :obj:`~cuml.datasets.make_classification`
+     - Generate a random classification problem.
+     - :mod:`cuml.datasets`
+   * - :obj:`~cuml.datasets.make_regression`
+     - Generate a random regression problem.
+     - :mod:`cuml.datasets`
+
+Forest Inference
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
+   * - :obj:`~cuml.fil.ForestInference`
+     - Forest Inference for fast prediction of tree-based models.
+     - :mod:`cuml.fil`
+
+Solvers
+-------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.solvers.CD`
      - Coordinate Descent solver.
      - :mod:`cuml.solvers`
@@ -287,19 +434,16 @@ use.
      - Stochastic Gradient Descent solver.
      - :mod:`cuml.solvers`
 
-   * - :obj:`~cuml.svm.SVC`
-     - C-Support Vector Classification.
-     - :mod:`cuml.svm`
-   * - :obj:`~cuml.svm.SVR`
-     - Epsilon-Support Vector Regression.
-     - :mod:`cuml.svm`
-   * - :obj:`~cuml.svm.LinearSVC`
-     - Linear Support Vector Classification.
-     - :mod:`cuml.svm`
-   * - :obj:`~cuml.svm.LinearSVR`
-     - Linear Support Vector Regression.
-     - :mod:`cuml.svm`
+Time Series
+-----------
 
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.tsa.ARIMA`
      - ARIMA time series model.
      - :mod:`cuml.tsa`
@@ -310,6 +454,16 @@ use.
      - Holt-Winters Exponential Smoothing.
      - :mod:`cuml.tsa`
 
+Multi-GPU (Dask)
+----------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 50 20
+
+   * - Object
+     - Description
+     - Module
    * - :obj:`~cuml.dask.cluster.DBSCAN`
      - Multi-GPU DBSCAN clustering.
      - :mod:`cuml.dask`
