@@ -254,7 +254,7 @@ class KernelDensity(Base, InteropMixin):
                 raise ValueError(
                     "Cuml only supports metrics with a single arg."
                 )
-            metric_arg = float(list(self.metric_params.values())[0])
+            metric_arg = float(next(iter(self.metric_params.values())))
         else:
             metric_arg = 2.0
 

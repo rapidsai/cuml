@@ -42,32 +42,47 @@ enum class KernelType : int {
  * @param[in]  metric      Distance metric type
  * @param[in]  metric_arg  Metric parameter (e.g. p for Minkowski)
  */
+template <typename T>
 void score_samples(const raft::handle_t& handle,
-                   const float* query,
-                   const float* train,
-                   const float* weights,
-                   float* output,
+                   const T* query,
+                   const T* train,
+                   const T* weights,
+                   T* output,
                    int n_query,
                    int n_train,
                    int n_features,
-                   float bandwidth,
-                   float sum_weights,
+                   T bandwidth,
+                   T sum_weights,
                    KernelType kernel,
                    ML::distance::DistanceType metric,
-                   float metric_arg);
+                   T metric_arg);
 
-void score_samples(const raft::handle_t& handle,
-                   const double* query,
-                   const double* train,
-                   const double* weights,
-                   double* output,
-                   int n_query,
-                   int n_train,
-                   int n_features,
-                   double bandwidth,
-                   double sum_weights,
-                   KernelType kernel,
-                   ML::distance::DistanceType metric,
-                   double metric_arg);
+extern template void score_samples<float>(const raft::handle_t&,
+                                          const float*,
+                                          const float*,
+                                          const float*,
+                                          float*,
+                                          int,
+                                          int,
+                                          int,
+                                          float,
+                                          float,
+                                          KernelType,
+                                          ML::distance::DistanceType,
+                                          float);
+
+extern template void score_samples<double>(const raft::handle_t&,
+                                           const double*,
+                                           const double*,
+                                           const double*,
+                                           double*,
+                                           int,
+                                           int,
+                                           int,
+                                           double,
+                                           double,
+                                           KernelType,
+                                           ML::distance::DistanceType,
+                                           double);
 
 }  // namespace ML::KDE
