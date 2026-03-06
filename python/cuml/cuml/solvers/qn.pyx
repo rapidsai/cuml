@@ -164,7 +164,7 @@ def fit_qn(
     """
     handle = get_handle()
 
-    cdef bool sparse_X = is_sparse(X)
+    cdef bool sparse_X = isinstance(X, SparseCumlArray) or is_sparse(X)
     cdef int n_rows, n_cols
 
     if sparse_X:

@@ -20,7 +20,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin
 
 from libc.stdint cimport uintptr_t
@@ -290,44 +290,25 @@ class LinearRegression(Base,
         return algo
 
     @generate_docstring()
-    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        X_m = input_to_cuml_array(
+        X_m, y_m, sample_weight = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
-
-        if X_m.shape[0] < 2:
-            raise ValueError("X matrix must have at least two rows")
-
-        if X_m.shape[1] < 1:
-            raise ValueError("X matrix must have at least one column")
-
-        y_m = input_to_cuml_array(
             y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
+            sample_weight,
+            convert_dtype=convert_dtype,
             order="F",
-        ).array
-
+            min_samples=2,
+            accept_multi_output=True,
+            reset=True,
+        )
         if sample_weight is not None:
             # Always copy the weights, all solvers mutate them
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X_m.dtype,
-                convert_to_dtype=(X_m.dtype if convert_dtype else None),
-                check_rows=X_m.shape[0],
-                check_cols=1,
-                order="F",
-                deepcopy=True,
-            ).array
+            sample_weight = input_to_cuml_array(sample_weight, deepcopy=True).array
 
         cdef int algo = self._select_algo(X_m, y_m)
 

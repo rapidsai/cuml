@@ -219,6 +219,7 @@ class Base(TagsMixin):
         return output_type
 
     def _set_n_features_in(self, X):
+        # TODO: remove
         if isinstance(X, int):
             self.n_features_in_ = X
         else:
@@ -228,6 +229,18 @@ class Base(TagsMixin):
                 self.n_features_in_ = 1
             else:
                 self.n_features_in_ = shape[1]
+
+    def _set_features(self, X):
+        self.n_features_in_ = 1 if len(X.shape) == 1 else X.shape[1]
+
+    def _check_features(self, X):
+        n_features = 1 if len(X.shape) == 1 else X.shape[1]
+
+        if n_features != self.n_features_in_:
+            raise ValueError(
+                f"X has {n_features} features, but {type(self).__name__} "
+                f"is expecting {self.n_features_in_} features as input."
+            )
 
     def _more_tags(self):
         # 'preserves_dtype' tag's Scikit definition currently only applies to

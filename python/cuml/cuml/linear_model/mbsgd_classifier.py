@@ -10,6 +10,7 @@ from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.internals.validation import check_X
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -173,12 +174,14 @@ class MBSGDClassifier(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @cuml.internals.reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
 
         """
+        X = check_X(
+            self, X, convert_dtype=convert_dtype, order="F", reset=True
+        )
         y, classes = preprocess_labels(y)
         if len(classes) > 2:
             raise ValueError(

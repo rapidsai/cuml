@@ -996,7 +996,7 @@ def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
     cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
 
     if ntargets > 1:
-        with pytest.raises(ValueError, match="Expected 1 columns"):
+        with pytest.raises(ValueError, match="y should be a 1d array"):
             cuelastic.fit(X_train, y_train)
         return
 

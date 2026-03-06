@@ -1,13 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_is_fitted, check_X
 
 
 class LinearPredictMixin:
@@ -24,19 +22,13 @@ class LinearPredictMixin:
         """
         Predicts `y` values for `X`.
         """
-        if getattr(self, "coef_", None) is None:
-            raise ValueError(
-                "LinearModel.predict() cannot be called before fit(). "
-                "Please fit the model first."
-            )
-
-        X = input_to_cuml_array(
+        check_is_fitted(self)
+        X = check_X(
+            self,
             X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
-            order="K",
-        ).array
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+        )
         X_cp = X.to_output("cupy")
 
         coef = self.coef_.to_output("cupy")
@@ -64,21 +56,16 @@ class LinearClassifierMixin:
     @cuml.internals.reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
-        if is_sparse(X):
-            X = SparseCumlArray(
-                X, convert_to_dtype=self.coef_.dtype
-            ).to_output("cupy")
-            out_index = None
-        else:
-            X_m = input_to_cuml_array(
-                X,
-                check_dtype=self.coef_.dtype,
-                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_,
-                order="K",
-            ).array
-            out_index = X_m.index
-            X = X_m.to_output("cupy")
+        check_is_fitted(self)
+        X_m = check_X(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            accept_sparse=True,
+        )
+        X = X_m.to_output("cupy")
+        out_index = X_m.index if isinstance(X_m, CumlArray) else None
 
         coef = self.coef_.to_output("cupy")
         intercept = self.intercept_

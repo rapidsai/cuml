@@ -24,6 +24,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
+from cuml.internals.validation import check_consistent_length, check_X
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
@@ -299,21 +300,29 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LogisticRegression":
         """
         Fit the model with X and y.
         """
+        X = check_X(
+            self,
+            X,
+            convert_dtype=convert_dtype,
+            min_samples=2,
+            accept_sparse=True,
+            reset=True,
+        )
         y, classes = preprocess_labels(y)
         _, sample_weight = process_class_weight(
             classes,
             y,
             class_weight=self.class_weight,
             sample_weight=sample_weight,
-            float64=(getattr(X, "dtype", np.float32) == np.float64),
+            float64=(X.dtype == np.float64),
         )
+        check_consistent_length(X, y, sample_weight)
 
         l1_strength, l2_strength = self._get_l1_l2_strength()
 
@@ -384,10 +393,11 @@ class LogisticRegression(
         """
         Predicts the class probabilities for each class in X
         """
-        n_classes = self.classes_.shape[0]
+        scores = self.decision_function(
+            X, convert_dtype=convert_dtype
+        ).to_output("cupy")
 
-        scores = self.decision_function(X, convert_dtype=convert_dtype)
-        scores = scores.to_output("cupy")
+        n_classes = self.classes_.shape[0]
         if n_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))

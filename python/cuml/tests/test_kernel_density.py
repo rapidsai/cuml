@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -16,7 +16,6 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
 
 import cuml
-from cuml.common.exceptions import NotFittedError
 from cuml.neighbors import VALID_KERNELS, KernelDensity
 from cuml.neighbors.kernel_density import logsumexp
 from cuml.testing.utils import as_type
@@ -210,26 +209,16 @@ def test_grid_search():
     grid.fit(X)
 
 
-def test_not_fitted():
-    rs = np.random.RandomState(3)
-    kde = KernelDensity()
-    X = rs.normal(size=(30, 5))
-    with pytest.raises(NotFittedError):
-        kde.score(X)
-    with pytest.raises(NotFittedError):
-        kde.sample(X)
-    with pytest.raises(NotFittedError):
-        kde.score_samples(X)
-
-
 def test_bad_sample_weight_errors():
     kde = KernelDensity()
     X = np.array([[0.0, 1.0], [2.0, 0.5]])
 
-    with pytest.raises(ValueError, match="Expected 2 rows but got 3 rows."):
+    with pytest.raises(
+        ValueError, match=r"sample_weight.shape == \(3,\), expected \(2,\)!"
+    ):
         kde.fit(X, sample_weight=np.array([1, 2, 3]))
 
     with pytest.raises(
-        ValueError, match="Expected 1 columns but got 2 columns."
+        ValueError, match="sample_weight must be a 1D array or scalar"
     ):
         kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))

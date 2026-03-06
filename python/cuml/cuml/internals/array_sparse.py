@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from collections import namedtuple
@@ -81,7 +81,7 @@ class SparseCumlArray:
         check_rows=None,
         check_cols=None,
     ):
-        if not isinstance(data, SparseCumlArrayInput):
+        if not isinstance(data, (SparseCumlArrayInput, SparseCumlArray)):
             if cpx_sparse.issparse(data):
                 from_mem_type = MemoryType.device
             elif scipy_sparse.issparse(data):
@@ -159,6 +159,11 @@ class SparseCumlArray:
         self.dtype = self.data.dtype
         self.nnz = data.nnz
         self.index = None
+
+    @property
+    def ndim(self):
+        """Number of dimensions"""
+        return 2
 
     @nvtx.annotate(
         message="common.SparseCumlArray.to_output",
