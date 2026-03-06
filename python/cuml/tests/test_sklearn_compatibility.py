@@ -81,7 +81,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "LogisticRegression does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "LogisticRegression does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LogisticRegression does not handle non-array sample weights",
         "check_sample_weights_list": "LogisticRegression does not handle list sample weights",
@@ -104,7 +103,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LinearRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "LinearRegression does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "LinearRegression does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LinearRegression does not handle non-array sample weights",
         "check_sample_weights_list": "LinearRegression does not handle list sample weights",
@@ -124,7 +122,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     Ridge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "Ridge does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "Ridge does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "Ridge does not handle non-array sample weights",
         "check_sample_weights_list": "Ridge does not handle list sample weights",
@@ -225,7 +222,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "LinearSVC does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "LinearSVC does not check n_features_in consistency",
         "check_estimators_dtypes": "LinearSVC does not handle dtypes properly",
         "check_sample_weights_not_an_array": "LinearSVC does not handle non-array sample weights",
@@ -252,7 +248,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     LinearSVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "LinearSVR does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "LinearSVR does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "LinearSVR does not handle non-array sample weights",
         "check_sample_weights_list": "LinearSVR does not handle list sample weights",
@@ -375,7 +370,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "Lasso does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "Lasso does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "Lasso does not handle non-array sample weights",
         "check_sample_weights_list": "Lasso does not handle list sample weights",
@@ -394,7 +388,6 @@ PER_ESTIMATOR_XFAIL_CHECKS = {
     },
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "ElasticNet does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "ElasticNet does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "ElasticNet does not handle non-array sample weights",
         "check_sample_weights_list": "ElasticNet does not handle list sample weights",
