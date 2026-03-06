@@ -44,8 +44,8 @@ def check_random_seed(random_state) -> int:
         randint = random_state.randint
     else:
         raise TypeError(
-            "`random_state` must be an `int`, an instance of `RandomState`, or `None`. "
-            "Got {random_state!r} instead."
+            f"`random_state` must be an `int`, an instance of `RandomState`, or `None`. "
+            f"Got {random_state!r} instead."
         )
 
     # randint returns in [low, high), so high=2**32 to sample all uint32s
