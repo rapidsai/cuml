@@ -64,6 +64,7 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.linear_model.Lasso``
     * ``sklearn.manifold.TSNE``
     * ``sklearn.manifold.SpectralEmbedding``
+    * ``sklearn.model_selection.GridSearchCV``
     * ``sklearn.neighbors.NearestNeighbors``
     * ``sklearn.neighbors.KNeighborsClassifier``
     * ``sklearn.neighbors.KNeighborsRegressor``

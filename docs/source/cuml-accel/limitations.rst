@@ -53,7 +53,7 @@ A few additional general notes:
   processing.
 
 - The accelerator is tested to be compatible with scikit-learn versions 1.4
-  through 1.7. This ensures that cuML's implementation of scikit-learn
+  through 1.8. This ensures that cuML's implementation of scikit-learn
   compatible APIs works as expected.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
@@ -334,6 +334,19 @@ The following fitted attributes are currently not computed:
 Additional notes:
 
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
+
+
+sklearn.model_selection
+-----------------------
+
+GridSearchCV
+^^^^^^^^^^^^
+
+``GridSearchCV`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse or contains non-numeric data.
+- If ``y`` is sparse or contains non-numeric data.
+- If the installed scikit-learn version is less than 1.8.
 
 
 sklearn.neighbors
