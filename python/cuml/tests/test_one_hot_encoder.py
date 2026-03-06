@@ -17,6 +17,8 @@ from cuml.testing.utils import (
     stress_param,
 )
 
+cudf_pandas_active = "ModuleAccelerator" in str(pd)
+
 
 def _from_df_to_cupy(df):
     """Transform char columns to integer columns, and then create an array"""
@@ -167,6 +169,10 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 def test_onehot_drop_idx_first(as_array):
+    if not as_array and cudf_pandas_active:
+        pytest.xfail(
+            "rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas"
+        )
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
     if as_array:
@@ -186,6 +192,10 @@ def test_onehot_drop_idx_first(as_array):
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
 def test_onehot_drop_one_of_each(as_array):
+    if not as_array and cudf_pandas_active:
+        pytest.xfail(
+            "rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas"
+        )
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
     drop = dict({"chars": "b", "int": 2, "letters": "b"})
     X_ary = from_df_to_numpy(X)
