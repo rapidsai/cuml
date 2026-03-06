@@ -44,8 +44,7 @@ dependencies:
 - ninja
 - nltk
 - numba-cuda>=0.22.2
-- numba==0.61.2
-- numpy <2.3
+- numba==0.62.0
 - numpy>=1.23,<2.3
 - numpydoc
 - numpydoc<1.9

@@ -324,7 +324,7 @@ dependencies:
           - joblib>=0.11
           # - numba>=0.60.0,<0.65.0
           # Pin exact `numba` to narrow down failure
-          - numba==0.61.2
+          - &numba numba==0.62.0
           - &numpy numpy>=1.23,<2.3
           - scipy>=1.13.0
           - packaging
@@ -462,27 +462,27 @@ dependencies:
             packages:
               - scikit-learn==1.5.0
               - umap-learn==0.5.7
-              - numpy <2.3
-              - numba==0.61.2
+              - *numpy
+              - *numba
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
               - umap-learn==0.5.8
               - ipython==8.10.0
-              - numpy <2.3
-              - numba==0.61.2
+              - *numpy
+              - *numba
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
               - scikit-learn>=1.5.0a0
-              - numpy <2.3
-              - numba==0.61.2
+              - *numpy
+              - *numba
           - matrix:
             packages:
               - *scikit_learn
               - ipython>=7.32.0
-              - numpy <2.3
-              - numba==0.61.2
+              - *numpy
+              - *numba
       # ipython for "oldest" is split: conda uses 8.x (7.x has no Python 3.11+ packages),
       # pip uses 7.34.0 from PyPI (which supports Python 3.11+)
       - output_types: [conda]
