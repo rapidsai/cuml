@@ -21,4 +21,5 @@ GitHub repository instead.
    estimator_intro.ipynb
    pickling_cuml_models.ipynb
    dask_multigpu_guide.ipynb
+   health_checks.rst
    supported_versions.rst
