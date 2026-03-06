@@ -6,6 +6,12 @@ import numbers
 
 import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
+
+__all__ = (
+    "check_is_fitted",
+    "check_random_seed",
+)
 
 
 def check_random_seed(random_state) -> int:

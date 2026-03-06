@@ -1,12 +1,7 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from sklearn.exceptions import NotFittedError
 
-
-class NotFittedError(ValueError, AttributeError):
-    """Exception class to raise if estimator is used before fitting.
-
-    This class inherits from both ValueError and AttributeError to help with
-    exception handling and backward compatibility.
-    """
+__all__ = ("NotFittedError",)

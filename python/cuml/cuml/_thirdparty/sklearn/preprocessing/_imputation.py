@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 # SPDX-FileCopyrightText: Sergey Feldman <sergeyfeldman@gmail.com>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -28,6 +28,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
     StringInputTagMixin,
 )
+from cuml.internals.validation import check_is_fitted
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
@@ -39,7 +40,7 @@ from ....thirdparty_adapters import (
     _masked_column_mode,
 )
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ..utils.validation import FLOAT_DTYPES, check_is_fitted
+from ..utils.validation import FLOAT_DTYPES
 
 
 def is_scalar_nan(x):

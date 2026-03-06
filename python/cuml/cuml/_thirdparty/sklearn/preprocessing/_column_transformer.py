@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -36,6 +36,7 @@ from sklearn.utils import Bunch
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
+from cuml.internals.validation import check_is_fitted
 
 from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
@@ -44,7 +45,6 @@ from ..utils.skl_dependencies import (
     BaseEstimator,
     TransformerMixin,
 )
-from ..utils.validation import check_is_fitted
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "
