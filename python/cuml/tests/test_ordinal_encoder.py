@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cudf.pandas
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 
 from cuml.preprocessing import OrdinalEncoder
 
-cudf_pandas_active = "ModuleAccelerator" in str(pd)
+cudf_pandas_active = cudf.pandas.LOADED
 
 
 @pytest.fixture

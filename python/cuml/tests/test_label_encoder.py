@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
+import cudf.pandas
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
-cudf_pandas_active = "ModuleAccelerator" in str(pd)
+cudf_pandas_active = cudf.pandas.LOADED
 
 
 def _df_to_similarity_mat(df):
