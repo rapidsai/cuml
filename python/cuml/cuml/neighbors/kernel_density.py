@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import math
-
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
@@ -16,122 +14,10 @@ from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.utils import check_random_seed
-from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
 )
-
-VALID_KERNELS = [
-    "gaussian",
-    "tophat",
-    "epanechnikov",
-    "exponential",
-    "linear",
-    "cosine",
-]
-
-
-@cp.fuse()
-def gaussian_log_kernel(x, h):
-    return -(x * x) / (2 * h * h)
-
-
-@cp.fuse()
-def tophat_log_kernel(x, h):
-    """
-    if x < h:
-        return 0.0
-    else:
-        return -FLOAT_MIN
-    """
-    y = (x >= h) * np.finfo(x.dtype).min
-    return y
-
-
-@cp.fuse()
-def epanechnikov_log_kernel(x, h):
-    # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(1.0 - (x * x) / (h * h), 1e-30)
-    y = (x < h) * cp.log(z)
-    y += (x >= h) * np.finfo(y.dtype).min
-    return y
-
-
-@cp.fuse()
-def exponential_log_kernel(x, h):
-    return -x / h
-
-
-@cp.fuse()
-def linear_log_kernel(x, h):
-    # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(1.0 - x / h, 1e-30)
-    y = (x < h) * cp.log(z)
-    y += (x >= h) * np.finfo(y.dtype).min
-    return y
-
-
-@cp.fuse()
-def cosine_log_kernel(x, h):
-    # don't call log(0) otherwise we get NaNs
-    z = cp.maximum(cp.cos(0.5 * np.pi * x / h), 1e-30)
-    y = (x < h) * cp.log(z)
-    y += (x >= h) * np.finfo(y.dtype).min
-    return y
-
-
-log_probability_kernels_ = {
-    "gaussian": gaussian_log_kernel,
-    "tophat": tophat_log_kernel,
-    "epanechnikov": epanechnikov_log_kernel,
-    "exponential": exponential_log_kernel,
-    "linear": linear_log_kernel,
-    "cosine": cosine_log_kernel,
-}
-
-
-def logVn(n):
-    return 0.5 * n * np.log(np.pi) - math.lgamma(0.5 * n + 1)
-
-
-def logSn(n):
-    return np.log(2 * np.pi) + logVn(n - 1)
-
-
-def norm_factor(kernel, h, d):
-    if kernel == "gaussian":
-        factor = 0.5 * d * np.log(2 * np.pi)
-    elif kernel == "tophat":
-        factor = logVn(d)
-    elif kernel == "epanechnikov":
-        factor = logVn(d) + np.log(2.0 / (d + 2.0))
-    elif kernel == "exponential":
-        factor = logSn(d - 1) + math.lgamma(d)
-    elif kernel == "linear":
-        factor = logVn(d) - np.log(d + 1.0)
-    elif kernel == "cosine":
-        factor = 0.0
-        tmp = 2.0 / np.pi
-        for k in range(1, d + 1, 2):
-            factor += tmp
-            tmp *= -(d - k) * (d - k - 1) * (2.0 / np.pi) ** 2
-        factor = np.log(factor) + logSn(d - 1)
-    else:
-        raise ValueError("Unsupported kernel.")
-
-    return factor + d * np.log(h)
-
-
-# Implements a faster (but simpler) version of `cupyx.scipy.special.logsumexp`
-logsumexp = cp.ReductionKernel(
-    "T d",
-    "T out",
-    "exp(d)",
-    "a + b",
-    "out = log(a)",
-    "0",
-    "logsumexp",
-)
+from cuml.neighbors.kde import VALID_KERNELS, kde_score_samples
 
 
 class KernelDensity(Base, InteropMixin):
@@ -357,69 +243,37 @@ class KernelDensity(Base, InteropMixin):
 
         X = input_to_cuml_array(
             X,
+            order="C",
             convert_to_dtype=(self._X.dtype if convert_dtype else None),
             check_dtype=[self._X.dtype],
             check_cols=self.n_features_in_,
         ).array
+
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
                     "Cuml only supports metrics with a single arg."
                 )
-            metric_arg = list(self.metric_params.values())[0]
-            distances = pairwise_distances(
-                X,
-                self._X,
-                metric=self.metric,
-                metric_arg=metric_arg,
-            )
+            metric_arg = float(next(iter(self.metric_params.values())))
         else:
-            distances = pairwise_distances(X, self._X, metric=self.metric)
+            metric_arg = 2.0
 
-        distances = cp.asarray(distances)
-
-        h = distances.dtype.type(self.bandwidth_)
-        if self.kernel in log_probability_kernels_:
-            # XXX: passing `h` as a 0-dim array works around dtype inference
-            # issues in cupy.fuse. See https://github.com/cupy/cupy/issues/9400
-            distances = log_probability_kernels_[self.kernel](
-                distances, cp.array(h, dtype=distances.dtype)
-            )
-        else:
-            raise ValueError("Unsupported kernel.")
-
-        if self._sample_weight is not None:
-            distances += cp.log(self._sample_weight)
-
-        # To avoid overflow, we apply
-        # log(exp(x).sum()) -> log(exp(x - x.max())) + x.max()
-        # We subtract the max inplace to avoid an extra allocation,
-        # since `distances` is no longer needed after this point.
-        max_distances = distances.max(axis=1)
-        distances -= max_distances[:, None]
-        log_probabilities = logsumexp(distances, axis=1)
-        log_probabilities += max_distances
-
-        # Note that sklearns user guide is wrong
-        # It says the (unnormalised) probability output for
-        #  the kernel density is sum(K(x,h)).
-        # In fact what they implement is (1/n)*sum(K(x,h))
-        # Here we divide by n in normal probability space
-        # Which becomes -log(n) in log probability space
         sum_weights = (
-            cp.sum(self._sample_weight)
+            float(cp.sum(self._sample_weight))
             if self._sample_weight is not None
-            else distances.shape[1]
+            else float(self._X.shape[0])
         )
-        log_probabilities -= np.log(sum_weights)
 
-        # norm
-        if len(X.shape) == 1:
-            # if X is one dimensional, we have 1 feature
-            dimension = 1
-        else:
-            dimension = X.shape[1]
-        log_probabilities -= norm_factor(self.kernel, h, dimension)
+        log_probabilities = kde_score_samples(
+            X,
+            self._X,
+            self._sample_weight,
+            self.bandwidth_,
+            sum_weights,
+            self.kernel,
+            self.metric,
+            metric_arg,
+        )
 
         return log_probabilities
 

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -18,7 +18,6 @@ from sklearn.neighbors._ball_tree import kernel_norm
 import cuml
 from cuml.common.exceptions import NotFittedError
 from cuml.neighbors import VALID_KERNELS, KernelDensity
-from cuml.neighbors.kernel_density import logsumexp
 from cuml.testing.utils import as_type
 
 
@@ -183,16 +182,6 @@ def test_score_samples_output_type_and_dtype(kernel, fit_dtype, score_dtype):
         res = kde.score_samples(X_score)
     assert res.dtype == fit_dtype
     assert isinstance(res, cp.ndarray)
-
-
-def test_logsumexp():
-    X = np.array([[0.0, 0.0], [0.0, 0.0]])
-    out = logsumexp(cp.asarray(X), axis=1).get()
-    assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
-
-    X = np.array([[3.0, 1.0], [0.2, 0.7]])
-    out = logsumexp(cp.asarray(X), axis=1).get()
-    assert np.allclose(out, np.logaddexp.reduce(X, axis=1))
 
 
 def test_metric_params():
