@@ -7,9 +7,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 cudf_pandas_active = cudf.pandas.LOADED

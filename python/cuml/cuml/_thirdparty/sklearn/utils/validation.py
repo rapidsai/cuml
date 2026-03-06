@@ -32,7 +32,6 @@ import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)

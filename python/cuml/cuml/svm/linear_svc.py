@@ -3,6 +3,7 @@
 #
 import cupy as cp
 import numpy as np
+from sklearn.exceptions import NotFittedError
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -12,7 +13,6 @@ from cuml.common.classification import (
     process_class_weight,
 )
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array

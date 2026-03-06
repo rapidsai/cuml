@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numbers
@@ -9,9 +9,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from cudf import Series
+from sklearn.exceptions import NotFittedError
 
 import cuml.internals.logger as logger
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparsefuncs import (
     create_csr_matrix_from_count_df,
     csr_row_normalize_l1,
