@@ -211,9 +211,13 @@ class Results {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    *dual_coefs    = (math_t*)rmm_alloc.allocate(stream, *n_support * sizeof(math_t));
-    raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
-    handle.sync_stream(stream);
+    if (*n_support > 0) {
+      *dual_coefs = (math_t*)rmm_alloc.allocate(stream, *n_support * sizeof(math_t));
+      raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
+      handle.sync_stream(stream);
+    } else {
+      *dual_coefs = nullptr;
+    }
   }
 
   /**
