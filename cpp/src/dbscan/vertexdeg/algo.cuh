@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,11 +20,6 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cuda_runtime.h>
-#include <thrust/execution_policy.h>
-#include <thrust/functional.h>
-#include <thrust/iterator/constant_iterator.h>
-#include <thrust/iterator/counting_iterator.h>
-#include <thrust/transform.h>
 
 #include <cuvs/neighbors/ball_cover.hpp>
 #include <cuvs/neighbors/epsilon_neighborhood.hpp>

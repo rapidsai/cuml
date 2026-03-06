@@ -1,10 +1,12 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import importlib
+import importlib.metadata
 import multiprocessing
 from inspect import Parameter, signature
 
 import pytest
+from packaging.version import Version
 
 import cuml.accel
 from cuml.accel.estimator_proxy import ProxyBase
@@ -80,17 +82,19 @@ def iter_proxy_class_methods():
             if not name.startswith("_") and callable(
                 getattr(cls._cpu_class, name)
             ):
-                # XXX: xfail umap.UMAP.get_feature_names_out for now
+                # XXX: xfail umap.UMAP.get_feature_names_out for umap-learn < 0.5.8
                 if (
                     cls._cpu_class.__name__ == "UMAP"
                     and name == "get_feature_names_out"
+                    and Version(importlib.metadata.version("umap-learn"))
+                    < Version("0.5.8")
                 ):
                     yield pytest.param(
                         cls,
                         name,
                         marks=[
                             pytest.mark.xfail(
-                                reason="umap-learn <= 0.5.7 doesn't implement `get_feature_names_out` properly",
+                                reason="umap-learn < 0.5.8 doesn't implement `get_feature_names_out` properly",
                                 strict=True,
                             )
                         ],

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -10,7 +10,6 @@ from pathlib import Path
 
 from packaging.requirements import Requirement
 
-from cuml.accel._sklearn_patch import apply_sklearn_patches
 from cuml.accel.core import install
 
 
@@ -32,16 +31,7 @@ class UnmatchedXfailTests(UserWarning):
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
-
-    # Apply sklearn patches BEFORE installing cuml.accel to prevent duplicates
-    apply_sklearn_patches()
-
-    try:
-        install()
-    except RuntimeError:
-        raise RuntimeError(
-            "An existing plugin has already loaded sklearn. Interposing failed."
-        )
+    install()
 
 
 def pytest_addoption(parser):
@@ -53,28 +43,46 @@ def pytest_addoption(parser):
     )
 
 
-def create_version_condition(condition_str: str) -> bool:
-    """Evaluate a version condition immediately.
+def _evaluate_single_condition(condition_str: str) -> bool:
+    """Evaluate a single package version condition.
 
     Args:
-        condition_str: String in format 'package[comparison]version'
-                      For example:
-                      - 'scikit-learn>=1.5.2'
-                      - 'numpy<2.0.0'
-                      - 'pandas==2.1.0'
+        condition_str: String in format 'package[comparison]version',
+                      e.g. 'scikit-learn>=1.5.2'
 
     Returns:
         bool: True if the condition is met, False otherwise
     """
-    if not condition_str:
-        return True
-
     try:
-        req = Requirement(condition_str)
+        req = Requirement(condition_str.strip())
         installed_version = version(req.name)
         return req.specifier.contains(installed_version, prereleases=True)
     except Exception:
         return False
+
+
+def create_version_condition(condition_str: str) -> bool:
+    """Evaluate a version condition immediately.
+
+    Supports a single package specifier or multiple specifiers joined by 'and',
+    in which case all clauses must be satisfied.
+
+    Args:
+        condition_str: A version condition string. Examples:
+                      - 'scikit-learn>=1.5.2'
+                      - 'numpy<2.0.0'
+                      - 'umap-learn<=0.5.8 and scikit-learn>=1.6'
+
+    Returns:
+        bool: True if all conditions are met, False otherwise
+    """
+    if not condition_str:
+        return True
+
+    return all(
+        _evaluate_single_condition(clause)
+        for clause in condition_str.split(" and ")
+    )
 
 
 def pytest_collection_modifyitems(config, items):

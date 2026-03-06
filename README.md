@@ -131,6 +131,12 @@ See the build [guide](BUILD.md).
 
 cuML is compatible with scikit-learn version 1.4 or higher.
 
+## Model serialization and security
+
+cuML models can be serialized with `pickle` or `joblib` and loaded later for inference. cuML uses cloudpickle so that models trained with cuml.accel can be loaded and used with scikit-learn.
+
+**Only unpickle or deserialize from trusted sources.** The `pickle` module (and by extension `joblib`) is not secure: malicious payloads can execute arbitrary code during deserialization and compromise your system. **Do not unpickle or load data from untrusted or tampered sources.** This applies to `pickle.load()` / `pickle.loads()`, `joblib.load()`, and any file-based model loading. For details and patterns, see the [Model Serialization and Persistence](docs/source/pickling_cuml_models.ipynb) notebook and the [Python pickle security documentation](https://docs.python.org/3/library/pickle.html).
+
 ## Contributing
 
 Please see our [guide for contributing to cuML](CONTRIBUTING.md).

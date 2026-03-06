@@ -315,7 +315,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.0.0,<3.2.0
+          - &cython cython>=3.2.2
           - &treelite treelite>=4.6.1,<5.0.0
   py_run_cuml:
     common:
@@ -401,10 +401,12 @@ dependencies:
           - ipykernel
           - nbsphinx
           - numpydoc
+          - &onnxruntime onnxruntime
           # https://github.com/pydata/pydata-sphinx-theme/issues/1539
           - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
+          - &skl2onnx skl2onnx
           - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
@@ -453,9 +455,11 @@ dependencies:
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
+              - umap-learn==0.5.7
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
+              - umap-learn==0.5.8
               - ipython==8.10.0
           - matrix: {dependencies: "nightly"}
             packages:
@@ -500,15 +504,17 @@ dependencies:
           - numpydoc<1.9
           # 'nvidia-ml-py' provides the 'pynvml' module
           - nvidia-ml-py>=12
+          - *onnxruntime
+          - *skl2onnx
           - pyyaml
-          - pytest<9.0
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
           - pytest-xdist
           - seaborn
           - statsmodels
-          - umap-learn==0.5.7
+          - umap-learn>=0.5.7,<0.5.12
           - pynndescent
       - output_types: conda
         packages:
