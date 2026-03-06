@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,12 +11,12 @@ from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from sklearn.datasets import make_blobs
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
 
 import cuml
-from cuml.common.exceptions import NotFittedError
 from cuml.neighbors import VALID_KERNELS, KernelDensity
 from cuml.neighbors.kernel_density import logsumexp
 from cuml.testing.utils import as_type

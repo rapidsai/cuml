@@ -12,10 +12,10 @@ import joblib
 import numpy as np
 import scipy.sparse
 import scipy.spatial
+from sklearn.exceptions import NotFittedError
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect

@@ -4,9 +4,9 @@
 #
 import cupy as cp
 import cupyx
+from sklearn.exceptions import NotFittedError
 
 import cuml.internals
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparsefuncs import (
     csr_diag_mul,
     csr_row_normalize_l1,

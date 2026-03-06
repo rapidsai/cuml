@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 import sklearn.svm
 from sklearn.datasets import make_classification, make_regression
+from sklearn.exceptions import NotFittedError
 from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.svm as cu
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import as_type
 
 

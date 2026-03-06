@@ -3,6 +3,7 @@
 #
 import cupy as cp
 import numpy as np
+from sklearn.exceptions import NotFittedError
 
 from cuml.common.classification import (
     decode_labels,
@@ -10,7 +11,6 @@ from cuml.common.classification import (
     process_class_weight,
 )
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
