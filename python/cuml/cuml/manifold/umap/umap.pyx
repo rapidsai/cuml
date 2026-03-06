@@ -12,7 +12,6 @@ import joblib
 import numpy as np
 import scipy.sparse
 import scipy.spatial
-from sklearn.exceptions import NotFittedError
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -31,7 +30,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_is_fitted, check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -1409,6 +1408,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
         """
+        check_is_fitted(self)
+
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
 
@@ -1543,11 +1544,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
-        if not hasattr(self, "embedding_") or self.embedding_ is None:
-            raise NotFittedError(
-                "This UMAP instance is not fitted yet. Call 'fit' with "
-                "appropriate arguments before using 'inverse_transform'."
-            )
+        check_is_fitted(self)
+
         if self._sparse_data:
             raise ValueError("Inverse transform not available for sparse input.")
         if self.n_components >= 8:
