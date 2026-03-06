@@ -5,20 +5,14 @@
 
 #pragma once
 
+#include <raft/linalg/pca_types.hpp>
+
 #include <cstdint>
 
 namespace ML {
 
-/**
- * @param COV_EIG_DQ: covariance of input will be used along with eigen decomposition using divide
- * and conquer method for symmetric matrices
- * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using
- * jacobi method for symmetric matrices
- */
-enum class solver : int {
-  COV_EIG_DQ,
-  COV_EIG_JACOBI,
-};
+using solver    = raft::linalg::solver;
+using mg_solver = raft::linalg::solver;
 
 class params {
  public:
@@ -53,10 +47,8 @@ class paramsTSVDTemplate : public paramsSolver {
  * root of n_samples and then divided by the singular values to ensure uncorrelated outputs with
  * unit component-wise variances.
  * @param algorithm: the solver to be used in PCA.
- * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver ==
- * ‘COV_EIG_JACOBI’
- * @param n_iterations: Number of iterations for the power method computed by jacobi method
- * (svd_solver == 'COV_EIG_JACOBI').
+ * @param tol: Tolerance for singular values computed by the Jacobi solver
+ * @param n_iterations: Number of iterations for the power method computed by the Jacobi solver
  * @param verbose: 0: no error message printing, 1: print error messages
  */
 
@@ -69,8 +61,6 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 
 typedef paramsTSVDTemplate<> paramsTSVD;
 typedef paramsPCATemplate<> paramsPCA;
-
-enum class mg_solver { COV_EIG_DQ, COV_EIG_JACOBI };
 
 typedef paramsPCATemplate<mg_solver> paramsPCAMG;
 typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;

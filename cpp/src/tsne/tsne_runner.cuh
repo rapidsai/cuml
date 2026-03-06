@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,12 +13,15 @@
 #include "utils.cuh"
 
 #include <cuml/common/logger.hpp>
+#include <cuml/decomposition/pca.hpp>
 #include <cuml/manifold/common.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -26,7 +29,6 @@
 #include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
-#include <pca/pca.cuh>
 #include <stdint.h>
 
 #include <utility>
@@ -116,7 +118,7 @@ class TSNE_runner {
                         mu.data_handle(),
                         noise_vars.data_handle(),
                         prms,
-                        stream);
+                        false);
 
         auto mean_result       = raft::make_device_vector<float, int>(handle, dim);
         auto stddev_result     = raft::make_device_vector<float, int>(handle, dim);

@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/decomposition/params.hpp>
+#include <cuml/decomposition/tsvd.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/random/rng.cuh>
@@ -11,7 +12,6 @@
 
 #include <gtest/gtest.h>
 #include <test_utils.h>
-#include <tsvd/tsvd.cuh>
 
 #include <vector>
 
@@ -82,7 +82,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    tsvdFit(handle, data.data(), components.data(), singular_vals.data(), prms, stream);
+    tsvdFit(handle, data.data(), components.data(), singular_vals.data(), prms, false);
   }
 
   void advancedTest()
@@ -130,11 +130,10 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
                      explained_var_ratio2.data(),
                      singular_vals2.data(),
                      prms,
-                     stream);
+                     false);
 
     data2_back.resize(len, stream);
-    tsvdInverseTransform(
-      handle, data2_trans.data(), components2.data(), data2_back.data(), prms, stream);
+    tsvdInverseTransform(handle, data2_trans.data(), components2.data(), data2_back.data(), prms);
   }
 
  protected:
