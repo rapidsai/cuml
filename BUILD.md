@@ -18,8 +18,8 @@ Note that while a GPU is not required to build or develop cuML itself, it is nec
 2. gcc (>= 13.0)
 3. cmake (>= 3.30.4)
 4. ninja - build system used by default
-5. Python (>= 3.11 and <= 3.13)
-6. Cython (>= 3.0.0)
+5. Python (>= 3.11 and <= 3.14)
+6. Cython (>= 3.2.2)
 
 **RAPIDS Ecosystem Libraries:**
 
@@ -62,7 +62,7 @@ cuML has limited support for multi-GPU and multi-node operations. The following 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above. To create a development environment named `cuml_dev`, you can use the following commands (adjust the YAML filename to match your CUDA version and architecture):
 
 ```bash
-conda create -n cuml_dev python=3.13
+conda create -n cuml_dev python=3.14
 conda env update -n cuml_dev --file=conda/environments/all_cuda-131_arch-$(uname -m).yaml
 conda activate cuml_dev
 ```
