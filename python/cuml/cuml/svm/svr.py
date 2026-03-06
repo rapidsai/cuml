@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect
 from cuml.svm.svm_base import SVMBase
@@ -143,6 +145,11 @@ class SVR(SVMBase, RegressorMixin):
         """
         # Handle precomputed kernels
         if self.kernel == "precomputed":
+            if y is None:
+                raise ValueError(
+                    "This SVR estimator "
+                    "requires y to be passed, but the target y is None."
+                )
             if is_sparse(X):
                 raise TypeError(
                     "Sparse precomputed kernels are not supported."
@@ -159,28 +166,49 @@ class SVR(SVMBase, RegressorMixin):
                     f"Precomputed kernel matrix must be square, "
                     f"got shape ({X.shape[0]}, {X.shape[1]})"
                 )
+            y = input_to_cuml_array(
+                y,
+                check_dtype=X.dtype,
+                convert_to_dtype=(X.dtype if convert_dtype else None),
+                check_rows=X.shape[0],
+                check_cols=1,
+            ).array
+            if cp.any(cp.isnan(y.to_output("cupy"))):
+                raise ValueError("Input y contains NaN.")
         elif is_sparse(X):
+            if y is None:
+                raise ValueError(
+                    "This SVR estimator "
+                    "requires y to be passed, but the target y is None."
+                )
             X = SparseCumlArray(
                 X,
                 convert_to_dtype=(
                     None if X.dtype in (np.float32, np.float64) else np.float32
                 ),
             )
+            y = input_to_cuml_array(
+                y,
+                check_dtype=X.dtype,
+                convert_to_dtype=(X.dtype if convert_dtype else None),
+                check_rows=X.shape[0],
+                check_cols=1,
+            ).array
+            if cp.any(cp.isnan(y.to_output("cupy"))):
+                raise ValueError("Input y contains NaN.")
         else:
-            X = input_to_cuml_array(
+            X_out, y_out = validate_data(
+                self,
                 X,
+                y,
                 convert_to_dtype=(np.float32 if convert_dtype else None),
                 check_dtype=[np.float32, np.float64],
                 order="F",
-            ).array
-
-        y = input_to_cuml_array(
-            y,
-            check_dtype=X.dtype,
-            convert_to_dtype=(X.dtype if convert_dtype else None),
-            check_rows=X.shape[0],
-            check_cols=1,
-        ).array
+            )
+            X = X_out.array
+            y = y_out.array
+            if cp.any(cp.isnan(y.to_output("cupy"))):
+                raise ValueError("Input y contains NaN.")
 
         if sample_weight is not None:
             sample_weight = input_to_cuml_array(
@@ -213,6 +241,7 @@ class SVR(SVMBase, RegressorMixin):
         number of samples used during fit.
 
         """
+        check_is_fitted(self)
         dtype = self.support_vectors_.dtype
 
         # For precomputed kernels, check that columns match training set size
@@ -231,12 +260,13 @@ class SVR(SVMBase, RegressorMixin):
         elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
-            X = input_to_cuml_array(
+            X = validate_data(
+                self,
                 X,
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
+                reset=False,
             ).array
 
         return self._predict(X)

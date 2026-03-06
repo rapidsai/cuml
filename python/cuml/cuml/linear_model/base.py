@@ -1,13 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from sklearn.utils.validation import check_is_fitted
+
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import validate_data
 
 
 class LinearPredictMixin:
@@ -24,17 +26,14 @@ class LinearPredictMixin:
         """
         Predicts `y` values for `X`.
         """
-        if getattr(self, "coef_", None) is None:
-            raise ValueError(
-                "LinearModel.predict() cannot be called before fit(). "
-                "Please fit the model first."
-            )
+        check_is_fitted(self, "coef_")
 
-        X = input_to_cuml_array(
+        X = validate_data(
+            self,
             X,
+            reset=False,
             check_dtype=self.coef_.dtype,
             convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
             order="K",
         ).array
         X_cp = X.to_output("cupy")
@@ -64,17 +63,20 @@ class LinearClassifierMixin:
     @cuml.internals.reflect
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
+        check_is_fitted(self, "coef_")
+
         if is_sparse(X):
             X = SparseCumlArray(
                 X, convert_to_dtype=self.coef_.dtype
             ).to_output("cupy")
             out_index = None
         else:
-            X_m = input_to_cuml_array(
+            X_m = validate_data(
+                self,
                 X,
+                reset=False,
                 check_dtype=self.coef_.dtype,
                 convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_,
                 order="K",
             ).array
             out_index = X_m.index

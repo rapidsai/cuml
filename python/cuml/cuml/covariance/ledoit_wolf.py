@@ -12,7 +12,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.input_utils import input_to_cupy_array, validate_data
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 
 
@@ -246,8 +246,10 @@ class LedoitWolf(Base, InteropMixin):
         self : LedoitWolf
             Returns the instance itself.
         """
-        X_arr, n_samples, n_features, dtype = input_to_cupy_array(
+        X_arr, n_samples, n_features, dtype = validate_data(
+            self,
             X,
+            array_output_type="cupy",
             check_dtype=[np.float32, np.float64],
             order="C",
             convert_to_dtype=(np.float32 if convert_dtype else None),
@@ -324,10 +326,12 @@ class LedoitWolf(Base, InteropMixin):
         log_likelihood : float
             Log-likelihood of the data under the fitted Gaussian model.
         """
-        X_arr, _, n_features, _ = input_to_cupy_array(
+        X_arr, _, n_features, _ = validate_data(
+            self,
             X_test,
+            reset=False,
+            array_output_type="cupy",
             check_dtype=[np.float32, np.float64],
-            check_cols=self.n_features_in_,
             order="C",
         )
 
@@ -408,10 +412,12 @@ class LedoitWolf(Base, InteropMixin):
         mahalanobis_distances : ndarray of shape (n_samples,)
             Squared Mahalanobis distances of the observations.
         """
-        X_arr, _, _, _ = input_to_cupy_array(
+        X_arr, _, _, _ = validate_data(
+            self,
             X,
+            reset=False,
+            array_output_type="cupy",
             check_dtype=[np.float32, np.float64],
-            check_cols=self.n_features_in_,
             order="C",
         )
         precision = cp.asarray(self.get_precision())

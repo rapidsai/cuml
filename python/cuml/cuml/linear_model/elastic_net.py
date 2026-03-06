@@ -6,6 +6,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -224,6 +225,11 @@ class ElasticNet(
             raise ValueError(
                 f"Expected 0.0 <= l1_ratio <= 1.0, got {self.l1_ratio}"
             )
+
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  The solver functions
+        # below handle the actual X and y conversion.
+        validate_data(self, X, y=y if y is None else "no_validation")
 
         if self.solver == "qn":
             coef, intercept, n_iter, _ = fit_qn(

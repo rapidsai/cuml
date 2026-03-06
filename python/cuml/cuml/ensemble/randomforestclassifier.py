@@ -3,6 +3,7 @@
 
 import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -11,7 +12,7 @@ from cuml.common.classification import decode_labels, preprocess_labels
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
 from cuml.metrics import accuracy_score
@@ -221,11 +222,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X_m = input_to_cuml_array(
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  Non-None y is skipped
+        # here because classifiers accept string labels that
+        # input_to_cuml_array cannot convert; preprocess_labels handles y
+        # conversion below.
+        X_m = validate_data(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
+            y=y if y is None else "no_validation",
+            convert_to_dtype=(np.float32 if convert_dtype else False),
             check_dtype=[np.float32, np.float64],
-            order="F",
         ).array
         y, classes = preprocess_labels(
             y, n_samples=X_m.shape[0], dtype=cp.int32
@@ -280,6 +287,16 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
+        check_is_fitted(self)
+
+        if X.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,

@@ -10,7 +10,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -330,11 +330,10 @@ class DBSCAN(Base,
             )
 
         cdef int64_t n_rows, n_cols
-        X, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
-            order='C',
+        X, n_rows, n_cols, _ = validate_data(
+            self, X, order='C',
             convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64]
+            check_dtype=[np.float32, np.float64],
         )
 
         if n_rows * n_cols > (2**31 - 1):

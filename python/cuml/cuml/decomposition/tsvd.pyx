@@ -4,6 +4,7 @@
 #
 
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 import cuml.internals
 from cuml.common import input_to_cuml_array
@@ -11,6 +12,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 
@@ -306,11 +308,12 @@ class TruncatedSVD(Base,
 
         """
         # Validate input
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64]
+        X_out = validate_data(
+            self, X,
+            convert_to_dtype=(np.float32 if convert_dtype else False),
+            check_dtype=[np.float32, np.float64],
         )
+        X_m, n_rows, n_cols, dtype = X_out
 
         # Validate and initialize parameters
         if self.n_components > n_cols:
@@ -455,13 +458,14 @@ class TruncatedSVD(Base,
         Perform dimensionality reduction on X.
 
         """
+        check_is_fitted(self)
         dtype = self.components_.dtype
-        X_m, n_rows, _, _ = input_to_cuml_array(
-            X,
+        X_out = validate_data(
+            self, X, reset=False,
             check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
+            convert_to_dtype=(dtype if convert_dtype else False),
         )
+        X_m, n_rows = X_out.array, X_out.n_rows
 
         cdef paramsTSVD params
         params.n_components = self.n_components

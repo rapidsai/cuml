@@ -8,13 +8,18 @@ import warnings
 import cupy as cp
 import cupyx
 import scipy.sparse
+from sklearn.utils.validation import check_is_fitted
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
+from cuml.internals.input_utils import (
+    input_to_cuml_array,
+    input_to_cupy_array,
+    validate_data,
+)
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
 from cuml.prims.label.classlabels import make_monotonic
@@ -196,6 +201,16 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
+        check_is_fitted(self)
+
+        if X.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -365,6 +380,12 @@ class GaussianNB(_BaseNB):
         sample_weight : array-like of shape (n_samples)
             Weights applied to individual samples.
         """
+        if y is None:
+            raise ValueError(
+                "This GaussianNB estimator "
+                "requires y to be passed, but the target y is None."
+            )
+
         return self._partial_fit(
             X,
             y,
@@ -386,6 +407,12 @@ class GaussianNB(_BaseNB):
         sample_weight=None,
         convert_dtype=True,
     ) -> "GaussianNB":
+        if y is None:
+            raise ValueError(
+                "This GaussianNB estimator "
+                "requires y to be passed, but the target y is None."
+            )
+
         first_call = _refit or not hasattr(self, "classes_")
 
         if first_call and _classes is None:
@@ -396,9 +423,14 @@ class GaussianNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
+            X, _, _, _ = validate_data(
+                self,
+                X,
+                array_output_type="cupy",
+                order="K",
+                check_dtype=[cp.float32, cp.float64, cp.int32],
+                reset=first_call,
+            )
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -409,6 +441,9 @@ class GaussianNB(_BaseNB):
             check_rows=X.shape[0],
             check_dtype=expected_y_dtype,
         ).array
+
+        if cp.any(cp.isnan(y.astype(cp.float64))):
+            raise ValueError("Input y contains NaN.")
         if sample_weight is not None:
             sample_weight = input_to_cupy_array(
                 sample_weight,
@@ -843,6 +878,12 @@ class _BaseDiscreteNB(_BaseNB):
         _refit=False,
         convert_dtype=True,
     ) -> "_BaseDiscreteNB":
+        if y is None:
+            raise ValueError(
+                "This estimator "
+                "requires y to be passed, but the target y is None."
+            )
+
         first_call = _refit or not hasattr(self, "classes_")
 
         if self.alpha < 0:
@@ -851,11 +892,14 @@ class _BaseDiscreteNB(_BaseNB):
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
         else:
-            X = input_to_cupy_array(
+            X, _, _, _ = validate_data(
+                self,
                 X,
+                array_output_type="cupy",
                 order="K",
                 check_dtype=[cp.float32, cp.float64, cp.int32],
-            ).array
+                reset=first_call,
+            )
 
         expected_y_dtype = (
             cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
@@ -865,6 +909,9 @@ class _BaseDiscreteNB(_BaseNB):
             convert_to_dtype=(expected_y_dtype if convert_dtype else False),
             check_dtype=expected_y_dtype,
         ).array
+
+        if cp.any(cp.isnan(y.astype(cp.float64))):
+            raise ValueError("Input y contains NaN.")
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(
                 _classes,
@@ -920,6 +967,12 @@ class _BaseDiscreteNB(_BaseNB):
             Weights applied to individual samples. Currently sample weight is
             ignored.
         """
+        if y is None:
+            raise ValueError(
+                "This estimator "
+                "requires y to be passed, but the target y is None."
+            )
+
         return self._partial_fit(
             X, y, _refit=True, sample_weight=sample_weight
         )

@@ -3,6 +3,7 @@
 #
 import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -15,7 +16,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -244,8 +245,15 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
-        X = input_to_cuml_array(
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  Non-None y is skipped
+        # here because classifiers accept string labels that
+        # input_to_cuml_array cannot convert; preprocess_labels handles y
+        # conversion below.
+        X = validate_data(
+            self,
             X,
+            y=y if y is None else "no_validation",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
@@ -298,6 +306,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
+        check_is_fitted(self)
         if self.probability:
             scores = self.predict_proba(
                 X, convert_dtype=convert_dtype

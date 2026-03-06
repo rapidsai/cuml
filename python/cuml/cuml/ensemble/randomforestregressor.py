@@ -1,13 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
+from cuml.internals.input_utils import validate_data
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.metrics import r2_score
@@ -183,20 +185,18 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Perform Random Forest Regression on the input data
 
         """
-        X_m = input_to_cuml_array(
+        X_out, y_out = validate_data(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
-
-        y_m = input_to_cuml_array(
             y,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_dtype=X_m.dtype,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
+            convert_to_dtype=(np.float32 if convert_dtype else False),
+            check_dtype=[np.float32, np.float64],
+        )
+        X_m = X_out.array
+        y_m = y_out.array
+
+        if cp.any(cp.isnan(y_m.to_output("cupy"))):
+            raise ValueError("Input y contains NaN.")
 
         return self._fit_forest(X_m, y_m)
 
@@ -245,6 +245,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         -------
         y : {}
         """
+        check_is_fitted(self)
+
+        if X.ndim == 1:
+            raise ValueError(
+                "Expected 2D array, got 1D array instead.\n"
+                "Reshape your data either using array.reshape(-1, 1) if "
+                "your data has a single feature or array.reshape(1, -1) "
+                "if it contains a single sample."
+            )
+
         fil = self._get_inference_fil_model(
             layout=layout,
             default_chunk_size=default_chunk_size,

@@ -17,6 +17,7 @@ from cuml.common.classification import (
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -306,6 +307,18 @@ class LogisticRegression(
         """
         Fit the model with X and y.
         """
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  Non-None y is skipped
+        # because classifiers accept string labels that input_to_cuml_array
+        # cannot convert; preprocess_labels handles y conversion below.
+        # accept_sparse=True because the solver handles sparse X internally.
+        validate_data(
+            self,
+            X,
+            y=y if y is None else "no_validation",
+            accept_sparse=True,
+        )
+
         y, classes = preprocess_labels(y)
         _, sample_weight = process_class_weight(
             classes,

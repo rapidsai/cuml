@@ -13,6 +13,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
+from cuml.internals.input_utils import validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -296,12 +297,14 @@ class LinearRegression(Base,
         Fit the model with X and y.
 
         """
-        X_m = input_to_cuml_array(
-            X,
+        X_out, y_out = validate_data(
+            self, X, y,
+            order="F",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
+        )
+        X_m = X_out.array
+        y_m = y_out.array
 
         if X_m.shape[0] < 2:
             raise ValueError("X matrix must have at least two rows")
@@ -309,13 +312,8 @@ class LinearRegression(Base,
         if X_m.shape[1] < 1:
             raise ValueError("X matrix must have at least one column")
 
-        y_m = input_to_cuml_array(
-            y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
-            order="F",
-        ).array
+        if cp.any(cp.isnan(y_m.to_output("cupy"))):
+            raise ValueError("Input y contains NaN.")
 
         if sample_weight is not None:
             # Always copy the weights, all solvers mutate them

@@ -3,6 +3,7 @@
 #
 import cupy as cp
 import numpy as np
+from sklearn.utils.validation import check_is_fitted
 
 from cuml.common.classification import (
     decode_labels,
@@ -18,6 +19,7 @@ from cuml.internals.input_utils import (
     input_to_cuml_array,
     input_to_host_array,
     input_to_host_array_with_sparse_support,
+    validate_data,
 )
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
@@ -435,6 +437,17 @@ class SVC(SVMBase, ClassifierMixin):
         Fit the model with X and y.
 
         """
+        # y is only forwarded when None so that validate_data's tag-driven
+        # check raises ValueError for missing targets.  Non-None y is skipped
+        # because classifiers accept string labels that input_to_cuml_array
+        # cannot convert; preprocess_labels handles y conversion below.
+        # accept_sparse=True because SVC handles sparse X internally.
+        validate_data(
+            self,
+            X,
+            y=y if y is None else "no_validation",
+            accept_sparse=True,
+        )
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
@@ -518,6 +531,7 @@ class SVC(SVMBase, ClassifierMixin):
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
+        check_is_fitted(self)
         if hasattr(self, "_multiclass"):
             inds = self._multiclass.predict(X).to_output("cupy")
         elif self.probability:
@@ -646,12 +660,13 @@ class SVC(SVMBase, ClassifierMixin):
         elif is_sparse(X):
             X = SparseCumlArray(X, convert_to_dtype=dtype)
         else:
-            X = input_to_cuml_array(
+            X = validate_data(
+                self,
                 X,
+                reset=False,
                 check_dtype=[dtype],
                 convert_to_dtype=(dtype if convert_dtype else None),
                 order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
             ).array
 
         return self._predict(X)

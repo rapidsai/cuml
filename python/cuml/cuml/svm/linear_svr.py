@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -205,20 +206,18 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":
         """Fit the model according to the given training data."""
-        X = input_to_cuml_array(
+        X_out, y_out = validate_data(
+            self,
             X,
+            y,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
-        ).array
-
-        y = input_to_cuml_array(
-            y,
-            check_dtype=X.dtype,
-            convert_to_dtype=(X.dtype if convert_dtype else None),
-            check_rows=X.shape[0],
-            check_cols=1,
-        ).array
+        )
+        X = X_out.array
+        y = y_out.array
+        if cp.any(cp.isnan(y.to_output("cupy"))):
+            raise ValueError("Input y contains NaN.")
 
         if sample_weight is not None:
             sample_weight = input_to_cuml_array(

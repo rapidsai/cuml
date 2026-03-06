@@ -9,7 +9,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.input_utils import input_to_cuml_array, validate_data
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -404,12 +404,14 @@ class Ridge(Base,
         """
         Fit the model with X and y.
         """
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-            X,
+        X_out, y_out = validate_data(
+            self, X, y,
+            order="K",
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
-            order="K",
         )
+        X_m, n_rows, n_cols, dtype = X_out
+        y_m, _, n_targets, _ = y_out
 
         if n_cols < 1:
             raise ValueError(
@@ -423,13 +425,8 @@ class Ridge(Base,
                 f"minimum of 2 is required."
             )
 
-        y_m, _, n_targets, _ = input_to_cuml_array(
-            y,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_rows=n_rows,
-            order="K",
-        )
+        if cp.any(cp.isnan(y_m.to_output("cupy"))):
+            raise ValueError("Input y contains NaN.")
 
         if sample_weight is not None:
             sample_weight_m = input_to_cuml_array(
