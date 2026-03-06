@@ -292,7 +292,6 @@ XFAILS = {
     },
     SVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "SVC does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "SVC does not check n_features_in consistency",
         "check_estimators_dtypes": "SVC does not handle dtypes properly",
         "check_sample_weights_not_an_array": "SVC does not handle non-array sample weights",
@@ -321,7 +320,6 @@ XFAILS = {
     },
     SVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "SVR does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "SVR does not check n_features_in consistency",
         "check_sample_weights_not_an_array": "SVR does not handle non-array sample weights",
         "check_sample_weights_list": "SVR does not handle list sample weights",
