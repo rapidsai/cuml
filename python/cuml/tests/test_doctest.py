@@ -9,13 +9,13 @@ import io
 import warnings
 
 import cudf
+import cudf.pandas
 import numpy as np
-import pandas as pd
 import pytest
 
 import cuml
 
-cudf_pandas_active = "ModuleAccelerator" in str(pd)
+cudf_pandas_active = cudf.pandas.LOADED
 
 _XFAIL_CUDF_PANDAS_21695 = pytest.mark.xfail(
     reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
