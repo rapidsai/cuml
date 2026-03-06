@@ -534,6 +534,26 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.random_state = check_random_seed(self.random_state)
     params.force_serial_epochs = self.force_serial_epochs
 
+    densmap = getattr(self, "densmap", False)
+    params.densmap = densmap
+    if densmap:
+        dens_lambda = getattr(self, "dens_lambda", 2.0)
+        dens_frac = getattr(self, "dens_frac", 0.3)
+        dens_var_shift = getattr(self, "dens_var_shift", 0.1)
+
+        if dens_lambda < 0:
+            raise ValueError(f"Expected `dens_lambda >= 0`, got {dens_lambda}")
+        if not (0.0 <= dens_frac <= 1.0):
+            raise ValueError(f"Expected `0 <= dens_frac <= 1`, got {dens_frac}")
+        if dens_var_shift < 0:
+            raise ValueError(f"Expected `dens_var_shift >= 0`, got {dens_var_shift}")
+        if is_sparse:
+            raise NotImplementedError("densMAP is not supported for sparse inputs")
+
+        params.dens_lambda = dens_lambda
+        params.dens_frac = dens_frac
+        params.dens_var_shift = dens_var_shift
+
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
@@ -846,6 +866,26 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         `build_algo=nn_descent` and `knn_n_clusters > 1`). May be a list of
         ids, ``"all"`` (to use all available devices), or ``None`` (to fit
         using a single GPU only). Default is None.
+    densmap: bool (optional, default False)
+        Whether to use the density-augmented densMAP objective
+        (Narayan et al., 2021). When True, an additional regularization
+        term encourages the embedding to preserve local density structure
+        from the original high-dimensional space. Requires
+        ``metric='euclidean'`` and dense (non-sparse) input.
+        ``transform()`` is not supported when ``densmap=True``; use
+        ``fit_transform()`` instead.
+    dens_lambda: float (optional, default 2.0)
+        Regularization weight of the density correlation term in densMAP.
+        Higher values place more emphasis on density preservation.
+        Only used when ``densmap=True``.
+    dens_frac: float (optional, default 0.3)
+        Fraction of epochs (from the end) during which the density
+        regularization term is active. E.g., 0.3 means densMAP gradients
+        are applied in the last 30% of epochs. Must be between 0 and 1.
+        Only used when ``densmap=True``.
+    dens_var_shift: float (optional, default 0.1)
+        Small constant added to the variance of local radii in embedding
+        space to prevent division by zero. Only used when ``densmap=True``.
 
     Notes
     -----
@@ -909,6 +949,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "build_algo",
             "build_kwds",
             "device_ids",
+            "densmap",
+            "dens_lambda",
+            "dens_frac",
+            "dens_var_shift",
         ]
 
     @classmethod
@@ -927,9 +971,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         if model.unique:
             raise UnsupportedOnGPU("`unique=True` is not supported")
-
-        if model.densmap:
-            raise UnsupportedOnGPU("`densmap=True` is not supported")
 
         precomputed_knn = model.precomputed_knn[:2]
         if all(item is None for item in precomputed_knn):
@@ -959,6 +1000,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "random_state": model.random_state,
             "force_serial_epochs": getattr(model, "force_serial_epochs", False),
             "precomputed_knn": precomputed_knn,
+            "densmap": getattr(model, "densmap", False),
+            "dens_lambda": getattr(model, "dens_lambda", 2.0),
+            "dens_frac": getattr(model, "dens_frac", 0.3),
+            "dens_var_shift": getattr(model, "dens_var_shift", 0.1),
         }
 
     def _params_to_cpu(self):
@@ -991,6 +1036,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": self.target_metric,
             "random_state": self.random_state,
             "precomputed_knn": precomputed_knn,
+            "densmap": getattr(self, "densmap", False),
+            "dens_lambda": getattr(self, "dens_lambda", 2.0),
+            "dens_frac": getattr(self, "dens_frac", 0.3),
+            "dens_var_shift": getattr(self, "dens_var_shift", 0.1),
         }
 
     def _attrs_from_cpu(self, model):
@@ -1107,6 +1156,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         build_algo="auto",
         build_kwds=None,
         device_ids=None,
+        densmap=False,
+        dens_lambda=2.0,
+        dens_frac=0.3,
+        dens_var_shift=0.1,
         verbose=False,
         output_type=None,
     ):
@@ -1139,6 +1192,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.build_algo = build_algo
         self.build_kwds = build_kwds
         self.device_ids = device_ids
+        self.densmap = densmap
+        self.dens_lambda = dens_lambda
+        self.dens_frac = dens_frac
+        self.dens_var_shift = dens_var_shift
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
@@ -1409,6 +1466,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
         """
+        if getattr(self, "densmap", False):
+            raise NotImplementedError(
+                "transform is not supported for densMAP. "
+                "Use fit_transform instead."
+            )
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
 

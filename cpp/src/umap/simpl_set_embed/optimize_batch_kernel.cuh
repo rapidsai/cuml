@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "../densmap.cuh"
+
 #include <common/fast_int_div.cuh>
 
 #include <cuml/manifold/umapparams.h>
@@ -192,6 +194,15 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
                                            UMAPParams params,
                                            T nsr_inv,
                                            T rounding,
+                                           bool densmap_flag,
+                                           T const* dm_R,
+                                           T const* dm_mu,
+                                           T const* dm_re_sum,
+                                           T const* dm_phi_sum,
+                                           T const* dm_exp_neg_re_sum,
+                                           T dm_re_mean,
+                                           T dm_cov_over_var,
+                                           T dm_outer_scale,
                                            size_t offset = 0)
 {
   size_t row =
@@ -236,6 +247,24 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     // are connected by an edge in the 1-skeleton.
     auto attractive_grad_coeff = T(0.0);
     if (dist_squared > T(0.0)) { attractive_grad_coeff = attractive_grad<T>(dist_squared, params); }
+
+    T grad_cor_coeff = T(0.0);
+    if (densmap_flag && dist_squared > T(0.0)) {
+      grad_cor_coeff = DensMap::compute_densmap_grad_coeff<T>(dist_squared,
+                                                              params.a,
+                                                              params.b,
+                                                              j,
+                                                              k,
+                                                              dm_mu[row],
+                                                              dm_re_mean,
+                                                              dm_cov_over_var,
+                                                              dm_outer_scale,
+                                                              dm_R,
+                                                              dm_re_sum,
+                                                              dm_phi_sum,
+                                                              dm_exp_neg_re_sum);
+    }
+
     /**
      * Apply attractive force between `current` and `other`
      * by updating their 'weights' to place them relative
@@ -246,6 +275,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     for (int d = 0; d < n_components; d++) {
       auto diff   = current_reg[d] - other_reg[d];
       auto grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+      if (densmap_flag) { grad_d += clip<T>(T(2.0) * grad_cor_coeff * diff, T(-4.0), T(4.0)); }
       current_reg[d] += grad_d * alpha;
       grads[d] = grad_d * alpha;
     }
@@ -335,6 +365,15 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
                                        UMAPParams params,
                                        T nsr_inv,
                                        T rounding,
+                                       bool densmap_flag,
+                                       T const* dm_R,
+                                       T const* dm_mu,
+                                       T const* dm_re_sum,
+                                       T const* dm_phi_sum,
+                                       T const* dm_exp_neg_re_sum,
+                                       T dm_re_mean,
+                                       T dm_cov_over_var,
+                                       T dm_outer_scale,
                                        size_t offset = 0)
 {
   extern __shared__ T embedding_shared_mem_updates[];
@@ -386,6 +425,24 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     // are connected by an edge in the 1-skeleton.
     auto attractive_grad_coeff = T(0.0);
     if (dist_squared > T(0.0)) { attractive_grad_coeff = attractive_grad<T>(dist_squared, params); }
+
+    T grad_cor_coeff = T(0.0);
+    if (densmap_flag && dist_squared > T(0.0)) {
+      grad_cor_coeff = DensMap::compute_densmap_grad_coeff<T>(dist_squared,
+                                                              params.a,
+                                                              params.b,
+                                                              j,
+                                                              k,
+                                                              dm_mu[row],
+                                                              dm_re_mean,
+                                                              dm_cov_over_var,
+                                                              dm_outer_scale,
+                                                              dm_R,
+                                                              dm_re_sum,
+                                                              dm_phi_sum,
+                                                              dm_exp_neg_re_sum);
+    }
+
     /**
      * Apply attractive force between `current` and `other`
      * by updating their 'weights' to place them relative
@@ -397,6 +454,9 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
       T current_val = current[d];
       if constexpr (use_shared_mem) { current_buffer[d] = current_val; }
       auto grad_d = clip<T>(attractive_grad_coeff * (current_val - other[d]), T(-4.0), T(4.0));
+      if (densmap_flag) {
+        grad_d += clip<T>(T(2.0) * grad_cor_coeff * (current_val - other[d]), T(-4.0), T(4.0));
+      }
       grad_d *= alpha;
       if constexpr (use_shared_mem) {
         current_buffer[d] += grad_d;
@@ -528,7 +588,16 @@ void call_optimize_batch_kernel(T* head_embedding,
                                 dim3& grid,
                                 dim3& blk,
                                 cudaStream_t& stream,
-                                T rounding)
+                                T rounding,
+                                bool densmap_flag          = false,
+                                T const* dm_R              = nullptr,
+                                T const* dm_mu             = nullptr,
+                                T const* dm_re_sum         = nullptr,
+                                T const* dm_phi_sum        = nullptr,
+                                T const* dm_exp_neg_re_sum = nullptr,
+                                T dm_re_mean               = T(0),
+                                T dm_cov_over_var          = T(0),
+                                T dm_outer_scale           = T(0))
 {
   std::size_t requiredSize = TPB_X * params->n_components * 2;
   requiredSize *= sizeof(T);
@@ -562,6 +631,15 @@ void call_optimize_batch_kernel(T* head_embedding,
                                    *params,
                                    nsr_inv,
                                    rounding,
+                                   densmap_flag,
+                                   dm_R,
+                                   dm_mu,
+                                   dm_re_sum,
+                                   dm_phi_sum,
+                                   dm_exp_neg_re_sum,
+                                   dm_re_mean,
+                                   dm_cov_over_var,
+                                   dm_outer_scale,
                                    offset);
     } else if (use_shared_mem) {
       // multicore implementation with shared memory
@@ -587,6 +665,15 @@ void call_optimize_batch_kernel(T* head_embedding,
                                               *params,
                                               nsr_inv,
                                               rounding,
+                                              densmap_flag,
+                                              dm_R,
+                                              dm_mu,
+                                              dm_re_sum,
+                                              dm_phi_sum,
+                                              dm_exp_neg_re_sum,
+                                              dm_re_mean,
+                                              dm_cov_over_var,
+                                              dm_outer_scale,
                                               offset);
     } else {
       // multicore implementation without shared memory
@@ -612,6 +699,15 @@ void call_optimize_batch_kernel(T* head_embedding,
                                    *params,
                                    nsr_inv,
                                    rounding,
+                                   densmap_flag,
+                                   dm_R,
+                                   dm_mu,
+                                   dm_re_sum,
+                                   dm_phi_sum,
+                                   dm_exp_neg_re_sum,
+                                   dm_re_mean,
+                                   dm_cov_over_var,
+                                   dm_outer_scale,
                                    offset);
     }
   };
