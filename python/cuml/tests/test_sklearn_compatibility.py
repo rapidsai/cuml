@@ -195,7 +195,6 @@ XFAILS = {
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "KNeighborsClassifier does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KNeighborsClassifier does not check n_features_in consistency",
         "check_dtype_object": "KNeighborsClassifier does not handle object dtype",
@@ -229,7 +228,6 @@ XFAILS = {
     },
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "KNeighborsRegressor does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KNeighborsRegressor does not check n_features_in consistency",
         "check_dtype_object": "KNeighborsRegressor does not handle object dtype",
