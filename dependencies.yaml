@@ -455,9 +455,11 @@ dependencies:
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.5.0
+              - umap-learn==0.5.7
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
+              - umap-learn==0.5.8
               - ipython==8.10.0
           - matrix: {dependencies: "nightly"}
             packages:
@@ -505,14 +507,14 @@ dependencies:
           - *onnxruntime
           - *skl2onnx
           - pyyaml
-          - pytest<9.0
+          - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
           - pytest-xdist
           - seaborn
           - statsmodels
-          - umap-learn==0.5.7
+          - umap-learn>=0.5.7,<0.5.12
           - pynndescent
       - output_types: conda
         packages:

@@ -55,11 +55,11 @@ dependencies:
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==26.4.*,>=0.0.0a0
 - pynndescent
+- pytest
 - pytest-benchmark
 - pytest-cases
 - pytest-cov
 - pytest-xdist
-- pytest<9.0
 - python>=3.11,<3.14
 - pyyaml
 - raft-dask==26.4.*,>=0.0.0a0
@@ -81,5 +81,5 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.28
 - treelite>=4.6.1,<5.0.0
-- umap-learn==0.5.7
+- umap-learn>=0.5.7,<0.5.12
 name: all_cuda-131_arch-x86_64

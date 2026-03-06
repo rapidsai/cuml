@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test_python_dask.sh outside the script directory
@@ -15,9 +15,6 @@ set +e
 
 test_args=(
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
-  --cov-config=../../.coveragerc
-  --cov=cuml_dask
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml"
 )
 
 # Run tests

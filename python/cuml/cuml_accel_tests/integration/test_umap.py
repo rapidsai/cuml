@@ -4,24 +4,9 @@
 #
 
 import pytest
-import sklearn
-from packaging.version import Version
 from sklearn.datasets import make_swiss_roll
 from sklearn.manifold import trustworthiness
 from umap import UMAP
-
-if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
-
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. This is not in cuml's control. Note: this will break when
-# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
-# need to be updated at that point.
-# See also https://github.com/lmcinnes/umap/issues/1174
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to 'ensure_all_finite':FutureWarning:sklearn"
-)
 
 
 @pytest.fixture(scope="module")
@@ -65,6 +50,7 @@ def test_umap_min_dist(manifold_data, min_dist):
         "russellrao",
         "kulsinski",
         "dice",
+        # Require 2D data for these metrics
         "wminkowski",
         "mahalanobis",
         "haversine",
@@ -82,7 +68,7 @@ def test_umap_min_dist(manifold_data, min_dist):
 def test_umap_metric(manifold_data, metric):
     X = manifold_data
     # haversine only works for 2D data
-    if metric == "haversine":
+    if metric in ["haversine", "wminkowski", "mahalanobis"]:
         X = X[:, :2]
 
     umap = UMAP(metric=metric, random_state=42)
