@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "densmap.cuh"
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
@@ -47,6 +48,14 @@
 #include <type_traits>
 
 namespace UMAPAlgo {
+
+namespace detail {
+template <typename T, typename = void>
+struct has_dense_X : std::false_type {};
+
+template <typename T>
+struct has_dense_X<T, std::void_t<decltype(std::declval<T>().X)>> : std::true_type {};
+}  // namespace detail
 
 // Swap this as impls change for now.
 namespace FuzzySimplSetImpl = FuzzySimplSet::Naive;
@@ -274,13 +283,17 @@ void _refine(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   int n_epochs = get_n_epochs(params, inputs.n);
+  if (params->densmap) n_epochs += 200;
   trim_graph(handle, *graph, n_epochs);
 
-  /**
-   * Run simplicial set embedding to approximate low-dimensional representation
-   */
+  std::unique_ptr<DensMap::DensMapData<value_t>> dm;
+  if (params->densmap) {
+    dm = DensMap::densmap_precompute<value_t, nnz_t, TPB_X>(
+      inputs.X, inputs.n, inputs.d, *graph, params, stream);
+  }
+
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream);
+    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, 0, dm.get());
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -294,15 +307,20 @@ void _init_and_refine(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   int n_epochs = get_n_epochs(params, inputs.n);
+  if (params->densmap) n_epochs += 200;
   trim_graph(handle, *graph, n_epochs);
 
-  // Initialize embeddings
   InitEmbed::run<value_t, nnz_t>(
     handle, inputs.n, inputs.d, graph, params, embeddings, stream, params->init);
 
-  // Run simplicial set embedding
+  std::unique_ptr<DensMap::DensMapData<value_t>> dm;
+  if (params->densmap) {
+    dm = DensMap::densmap_precompute<value_t, nnz_t, TPB_X>(
+      inputs.X, inputs.n, inputs.d, *graph, params, stream);
+  }
+
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream);
+    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, 0, dm.get());
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -320,6 +338,7 @@ void _fit(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   int n_epochs = get_n_epochs(params, inputs.n);
+  if (params->densmap) n_epochs += 200;
 
   raft::sparse::COO<value_t> graph(stream);
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
@@ -329,15 +348,19 @@ void _fit(const raft::handle_t& handle,
 
   trim_graph(handle, graph, n_epochs);
 
-  // Allocate embeddings buffer just before initialization
+  std::unique_ptr<DensMap::DensMapData<value_t>> dm;
+  if constexpr (detail::has_dense_X<umap_inputs>::value) {
+    if (params->densmap) {
+      dm = DensMap::densmap_precompute<value_t, nnz_t, TPB_X>(
+        inputs.X, inputs.n, inputs.d, graph, params, stream);
+    }
+  }
+
   std::size_t embeddings_size =
     static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
   if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
   value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
 
-  /**
-   * Run initialization method
-   */
   raft::common::nvtx::push_range("umap::embedding");
   InitEmbed::run<value_t, nnz_t>(
     handle, inputs.n, inputs.d, &graph, params, embeddings_ptr, stream, params->init);
@@ -347,11 +370,8 @@ void _fit(const raft::handle_t& handle,
     params->callback->on_preprocess_end(embeddings_ptr);
   }
 
-  /**
-   * Run simplicial set embedding to approximate low-dimensional representation
-   */
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream);
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, 0, dm.get());
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);
@@ -372,6 +392,7 @@ void _fit_supervised(const raft::handle_t& handle,
   ML::default_logger().set_level(params->verbosity);
 
   int n_epochs = get_n_epochs(params, inputs.n);
+  if (params->densmap) n_epochs += 200;
 
   raft::sparse::COO<value_t> graph(stream);
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
@@ -381,15 +402,19 @@ void _fit_supervised(const raft::handle_t& handle,
 
   trim_graph(handle, graph, n_epochs);
 
-  // Allocate embeddings buffer just before initialization
+  std::unique_ptr<DensMap::DensMapData<value_t>> dm;
+  if constexpr (detail::has_dense_X<umap_inputs>::value) {
+    if (params->densmap) {
+      dm = DensMap::densmap_precompute<value_t, nnz_t, TPB_X>(
+        inputs.X, inputs.n, inputs.d, graph, params, stream);
+    }
+  }
+
   std::size_t embeddings_size =
     static_cast<std::size_t>(inputs.n) * params->n_components * sizeof(value_t);
   if (!embeddings) { embeddings = std::make_unique<rmm::device_buffer>(embeddings_size, stream); }
   value_t* embeddings_ptr = static_cast<value_t*>(embeddings->data());
 
-  /**
-   * Initialize embeddings
-   */
   raft::common::nvtx::push_range("umap::supervised::fit");
   InitEmbed::run<value_t, nnz_t>(
     handle, inputs.n, inputs.d, &graph, params, embeddings_ptr, stream, params->init);
@@ -399,11 +424,8 @@ void _fit_supervised(const raft::handle_t& handle,
     params->callback->on_preprocess_end(embeddings_ptr);
   }
 
-  /**
-   * Run simplicial set embedding to approximate low-dimensional representation
-   */
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream);
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, 0, dm.get());
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);

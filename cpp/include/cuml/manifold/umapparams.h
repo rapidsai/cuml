@@ -220,6 +220,33 @@ class UMAPParams {
 
   float p = 2.0;
 
+  /**
+   * Whether to use the density-augmented densMAP objective
+   * (Narayan et al., 2021). When true, an additional regularization
+   * term is added that encourages the embedding to preserve local
+   * density structure from the original high-dimensional space.
+   */
+  bool densmap = false;
+
+  /**
+   * Regularization weight of the density correlation term in densMAP.
+   * Higher values place more emphasis on density preservation.
+   */
+  float dens_lambda = 2.0f;
+
+  /**
+   * Fraction of epochs (from the end) during which the density
+   * regularization term is active. E.g., 0.3 means densMAP gradients
+   * are applied in the last 30% of epochs.
+   */
+  float dens_frac = 0.3f;
+
+  /**
+   * Small constant added to the variance of local radii in embedding
+   * space to prevent division by zero.
+   */
+  float dens_var_shift = 0.1f;
+
   Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
 
