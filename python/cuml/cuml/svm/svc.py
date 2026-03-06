@@ -27,7 +27,7 @@ from cuml.internals.outputs import (
     reflect,
     run_in_internal_context,
 )
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
