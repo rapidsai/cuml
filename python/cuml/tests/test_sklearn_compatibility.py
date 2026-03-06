@@ -195,7 +195,6 @@ XFAILS = {
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_no_attributes_set_in_init": "KNeighborsClassifier sets attributes during init",
         "check_estimators_unfitted": "KNeighborsClassifier does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KNeighborsClassifier does not check n_features_in consistency",
@@ -206,7 +205,6 @@ XFAILS = {
         "check_classifiers_train": "KNeighborsClassifier does not validate input data properly",
         "check_supervised_y_no_nan": "KNeighborsClassifier does not check for NaN in y",
         "check_supervised_y_2d": "KNeighborsClassifier does not handle 2D y",
-        "check_fit_check_is_fitted": "KNeighborsClassifier passes check_is_fitted before being fit",
         "check_fit2d_predict1d": "KNeighborsClassifier does not handle 1D prediction input gracefully",
         "check_requires_y_none": "KNeighborsClassifier does not handle y=None",
     },
@@ -231,7 +229,6 @@ XFAILS = {
     },
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_no_attributes_set_in_init": "KNeighborsRegressor sets attributes during init",
         "check_estimators_unfitted": "KNeighborsRegressor does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
         "check_n_features_in_after_fitting": "KNeighborsRegressor does not check n_features_in consistency",
@@ -244,17 +241,14 @@ XFAILS = {
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
         "check_supervised_y_no_nan": "KNeighborsRegressor does not check for NaN in y",
-        "check_fit_check_is_fitted": "KNeighborsRegressor passes check_is_fitted before being fit",
         "check_fit2d_predict1d": "KNeighborsRegressor does not handle 1D prediction input gracefully",
         "check_requires_y_none": "KNeighborsRegressor does not handle y=None",
     },
     NearestNeighbors: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_no_attributes_set_in_init": "NearestNeighbors sets attributes during init",
         "check_dtype_object": "NearestNeighbors does not handle object dtype",
         "check_estimators_empty_data_messages": "NearestNeighbors does not handle empty data",
         "check_estimators_nan_inf": "NearestNeighbors does not check for NaN and inf",
-        "check_fit_check_is_fitted": "NearestNeighbors passes check_is_fitted before being fit",
     },
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

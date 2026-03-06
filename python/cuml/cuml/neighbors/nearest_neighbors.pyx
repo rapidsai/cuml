@@ -556,6 +556,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         return {
             "n_samples_fit_": model.n_samples_fit_,
             "effective_metric_": model.effective_metric_,
+            "effective_metric_params_": model.effective_metric_params_,
             "_fit_X": fit_X,
             "_fit_method": "brute",
             **super()._attrs_from_cpu(model),
@@ -592,7 +593,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         self.algo_params = algo_params
         self.p = p
         self.algorithm = algorithm
-        self.selected_algorithm_ = algorithm
         self.algo_params = algo_params
         self.n_jobs = n_jobs  # Ignored, here for sklearn API compatibility
 
@@ -648,7 +648,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             if (
                 self.n_features_in_ in (2, 3)
                 and not sparse
-                and self.effective_metric_ in cuml.neighbors.VALID_METRICS["rbc"]
+                and self.metric in cuml.neighbors.VALID_METRICS["rbc"]
                 and X.shape[0]**0.5 >= self.n_neighbors
             ):
                 self._fit_method = "rbc"
@@ -664,9 +664,9 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
                 f"algorithm={self._fit_method!r} doesn't support sparse data"
             )
 
-        if self.effective_metric_ not in valid_metrics[self._fit_method]:
+        if self.metric not in valid_metrics[self._fit_method]:
             raise ValueError(
-                f"Metric {self.effective_metric_} is not supported. See "
+                f"Metric {self.metric} is not supported. See "
                 f"`cuml.neighbors.VALID_METRICS{'_SPARSE' * sparse}[{self._fit_method!r}]`"
                 f"for a list of valid options."
             )
@@ -674,14 +674,16 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
                 self._fit_X,
-                self.effective_metric_,
+                self.metric,
                 self._fit_method,
                 params=self.algo_params,
                 p=self.p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(self._fit_X, self.effective_metric_)
+            self._index = RBCIndex.build(self._fit_X, self.metric)
 
+        self.effective_metric_ = self.metric
+        self.effective_metric_params_ = self.metric_params
         return self
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
@@ -1016,18 +1018,6 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             (distances, indices, rowptr),
             shape=(n_samples, self.n_samples_fit_)
         )
-
-    @property
-    def effective_metric_(self):
-        return self.metric
-
-    @effective_metric_.setter
-    def effective_metric_(self, val):
-        self.metric = val
-
-    @property
-    def effective_metric_params_(self):
-        return self.metric_params or {}
 
 
 class NearestNeighbors(NeighborsBase):
