@@ -175,7 +175,6 @@ XFAILS = {
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "RandomForestRegressor does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "RandomForestRegressor raises errors in init or set_params",
         "check_n_features_in_after_fitting": "RandomForestRegressor does not check n_features_in consistency",
         "check_dtype_object": "RandomForestRegressor does not handle object dtype",
@@ -208,7 +207,6 @@ XFAILS = {
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "RandomForestClassifier does not raise NotFittedError before fit",
         "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_n_features_in_after_fitting": "RandomForestClassifier does not check n_features_in consistency",
         "check_dtype_object": "RandomForestClassifier does not handle object dtype",
