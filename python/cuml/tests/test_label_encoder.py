@@ -72,7 +72,7 @@ def test_labelencoder_unfitted():
 @pytest.mark.xfail(
     cudf_pandas_active,
     reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-    strict=False,
+    strict=True,
 )
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(

@@ -17,6 +17,11 @@ import cuml
 
 cudf_pandas_active = "ModuleAccelerator" in str(pd)
 
+_XFAIL_CUDF_PANDAS_21695 = pytest.mark.xfail(
+    reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
+    strict=True,
+)
+
 
 def _name_in_all(parent, name):
     return name in getattr(parent, "__all__", [])
@@ -82,9 +87,17 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
             yield from _find_doctests_in_obj(member, finder)
 
 
+def _doctest_params():
+    for docstring in _find_doctests_in_obj(cuml):
+        if docstring.name == "LabelEncoder" and cudf_pandas_active:
+            yield pytest.param(docstring, marks=_XFAIL_CUDF_PANDAS_21695)
+        else:
+            yield docstring
+
+
 @pytest.mark.parametrize(
     "docstring",
-    _find_doctests_in_obj(cuml),
+    _doctest_params(),
     ids=lambda docstring: docstring.name,
 )
 def test_docstring(docstring):
@@ -94,10 +107,6 @@ def test_docstring(docstring):
     # imprecise floating point values.
     if docstring.name == "Handle":
         pytest.skip("Docstring is tested in RAFT.")
-    if docstring.name == "LabelEncoder" and cudf_pandas_active:
-        pytest.xfail(
-            "rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas"
-        )
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 
