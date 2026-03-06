@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
@@ -10,6 +10,8 @@ import pytest
 from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
 from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing.LabelEncoder import LabelEncoder
+
+cudf_pandas_active = "ModuleAccelerator" in str(pd)
 
 
 def _df_to_similarity_mat(df):
@@ -67,6 +69,11 @@ def test_labelencoder_unfitted():
         le.transform(df)
 
 
+@pytest.mark.xfail(
+    cudf_pandas_active,
+    reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
+    strict=False,
+)
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
     "orig_label, ord_label, expected_reverted, bad_ord_label",

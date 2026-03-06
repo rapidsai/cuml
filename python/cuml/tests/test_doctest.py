@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -10,9 +10,12 @@ import warnings
 
 import cudf
 import numpy as np
+import pandas as pd
 import pytest
 
 import cuml
+
+cudf_pandas_active = "ModuleAccelerator" in str(pd)
 
 
 def _name_in_all(parent, name):
@@ -91,6 +94,10 @@ def test_docstring(docstring):
     # imprecise floating point values.
     if docstring.name == "Handle":
         pytest.skip("Docstring is tested in RAFT.")
+    if docstring.name == "LabelEncoder" and cudf_pandas_active:
+        pytest.xfail(
+            "rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas"
+        )
     optionflags = doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
     runner = doctest.DocTestRunner(optionflags=optionflags)
 
