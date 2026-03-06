@@ -17,6 +17,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_is_fitted
 from cuml.prims.label.classlabels import make_monotonic
 
 _binarize = cp.ElementwiseKernel(
@@ -196,6 +197,8 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
+        check_is_fitted(self)
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -236,6 +239,8 @@ class _BaseNB(Base, ClassifierMixin):
         Return log-probability estimates for the test vector X.
 
         """
+        check_is_fitted(self)
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None

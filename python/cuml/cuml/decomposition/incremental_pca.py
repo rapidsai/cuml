@@ -15,6 +15,7 @@ from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_is_fitted
 
 
 class IncrementalPCA(PCA):
@@ -418,6 +419,7 @@ class IncrementalPCA(PCA):
         X_new : array-like, shape (n_samples, n_components)
 
         """
+        check_is_fitted(self)
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
             X = _validate_sparse_input(X)

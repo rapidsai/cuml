@@ -3,6 +3,7 @@
 #
 import cupy as cp
 import numpy as np
+from sklearn.exceptions import NotFittedError
 
 from cuml.common.classification import (
     decode_labels,
@@ -10,7 +11,6 @@ from cuml.common.classification import (
     process_class_weight,
 )
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -27,7 +27,7 @@ from cuml.internals.outputs import (
     reflect,
     run_in_internal_context,
 )
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_is_fitted, check_random_seed
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
@@ -518,6 +518,8 @@ class SVC(SVMBase, ClassifierMixin):
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
+        check_is_fitted(self)
+
         if hasattr(self, "_multiclass"):
             inds = self._multiclass.predict(X).to_output("cupy")
         elif self.probability:
@@ -553,6 +555,8 @@ class SVC(SVMBase, ClassifierMixin):
              Whether to return log probabilities.
 
         """
+        check_is_fitted(self)
+
         from cupyx.scipy.special import expit
 
         if not self.probability:
@@ -625,6 +629,8 @@ class SVC(SVMBase, ClassifierMixin):
         number of samples used during fit.
 
         """
+        check_is_fitted(self)
+
         if hasattr(self, "_multiclass"):
             return self._multiclass.decision_function(X)
 

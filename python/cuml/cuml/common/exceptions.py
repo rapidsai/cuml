@@ -1,12 +1,23 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+__all__ = ("NotFittedError",)  # noqa
 
 
-class NotFittedError(ValueError, AttributeError):
-    """Exception class to raise if estimator is used before fitting.
+def __getattr__(name):
+    if name == "NotFittedError":
+        import warnings
 
-    This class inherits from both ValueError and AttributeError to help with
-    exception handling and backward compatibility.
-    """
+        from sklearn.exceptions import NotFittedError
+
+        warnings.warn(
+            "`cuml.common.exceptions.NotFittedError` was deprecated in 26.04 "
+            "and will be removed in 26.06. Please use "
+            "`sklearn.exceptions.NotFittedError` instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return NotFittedError
+    else:
+        raise AttributeError(f"module {__name__} has no attribute {name}")

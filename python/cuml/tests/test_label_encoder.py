@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
@@ -6,9 +6,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 

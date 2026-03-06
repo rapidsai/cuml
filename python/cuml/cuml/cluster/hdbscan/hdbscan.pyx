@@ -18,6 +18,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.validation import check_is_fitted
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
@@ -906,8 +907,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         the label of new/unseen points. This data is only useful if you
         are intending to use functions from hdbscan.prediction.
         """
-        if getattr(self, "labels_", None) is None:
-            raise ValueError("The model is not trained yet (call fit() first).")
+        check_is_fitted(self)
 
         with cuml.using_output_type("cuml"):
             labels = self.labels_
@@ -1107,10 +1107,8 @@ def _check_clusterer(clusterer):
             f"Expected an instance of `HDBSCAN`, got {type(clusterer).__name__}"
         )
 
-    if getattr(clusterer, "labels_", None) is None:
-        raise ValueError(
-            "The clusterer is not fit, please call `clusterer.fit` first"
-        )
+    check_is_fitted(clusterer)
+
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
 
     if state.prediction_data == NULL:

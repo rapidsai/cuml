@@ -384,10 +384,10 @@ class LogisticRegression(
         """
         Predicts the class probabilities for each class in X
         """
-        n_classes = self.classes_.shape[0]
-
         scores = self.decision_function(X, convert_dtype=convert_dtype)
         scores = scores.to_output("cupy")
+
+        n_classes = self.classes_.shape[0]
         if n_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
             proba[:, 1] = 1 / (1 + cp.exp(-scores.ravel()))

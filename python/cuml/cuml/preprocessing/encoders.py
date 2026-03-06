@@ -12,9 +12,9 @@ from cudf import Index
 
 import cuml.internals.logger as logger
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
+from cuml.internals.validation import check_is_fitted
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 
@@ -228,7 +228,6 @@ class OneHotEncoder(BaseEncoder):
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
-        self._fitted = False
         self.drop_idx_ = None
         self._features = None
         self._encoders = None
@@ -258,13 +257,10 @@ class OneHotEncoder(BaseEncoder):
                 "zero."
             )
 
-    def _check_is_fitted(self):
-        if not self._fitted:
-            msg = (
-                "This OneHotEncoder instance is not fitted yet. Call 'fit' "
-                "with appropriate arguments before using this estimator."
-            )
-            raise NotFittedError(msg)
+    def __sklearn_is_fitted__(self):
+        # TODO: fix state management of this class so `check_is_fitted` works
+        # without special casing
+        return getattr(self, "_fitted", False)
 
     def _compute_drop_idx(self):
         """Helper to compute indices to drop from category to drop."""
@@ -359,7 +355,8 @@ class OneHotEncoder(BaseEncoder):
     )
     def transform(self, X):
         """Transform X using one-hot encoding."""
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         X = self._check_input(X)
 
         cols, rows = list(), list()
@@ -457,7 +454,8 @@ class OneHotEncoder(BaseEncoder):
         X_tr : cudf.DataFrame or cupy.ndarray
             Inverse transformed array.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         if cupyx.scipy.sparse.issparse(X):
             # cupyx.scipy.sparse 7.x does not support argmax,
             # when we upgrade cupy to 8.x, we should add a condition in the
@@ -529,7 +527,8 @@ class OneHotEncoder(BaseEncoder):
         output_feature_names : ndarray of shape (n_output_features,)
             Array of feature names.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         cats = self.categories_
         if input_features is None:
             input_features = ["x%d" % i for i in range(len(cats))]

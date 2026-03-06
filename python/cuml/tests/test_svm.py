@@ -19,6 +19,7 @@ from sklearn.datasets import (
     make_gaussian_quantiles,
     make_regression,
 )
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -26,7 +27,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,

@@ -14,7 +14,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool

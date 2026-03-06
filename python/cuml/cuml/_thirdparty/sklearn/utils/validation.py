@@ -5,7 +5,7 @@
 # SPDX-FileCopyrightText: Alexandre Gramfort
 # SPDX-FileCopyrightText: Nicolas Tresegnie
 # SPDX-FileCopyrightText: Sylvain Marie
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -32,7 +32,6 @@ import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from ....common.exceptions import NotFittedError
 from ....thirdparty_adapters import check_array
 
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
@@ -174,74 +173,6 @@ def check_random_state(seed):
         return seed
     raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
                      ' instance' % seed)
-
-
-def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
-    """Perform is_fitted validation for estimator.
-
-    Checks if the estimator is fitted by verifying the presence of
-    fitted attributes (ending with a trailing underscore) and otherwise
-    raises a NotFittedError with the given message.
-
-    This utility is meant to be used internally by estimators themselves,
-    typically in their own predict / transform methods.
-
-    Parameters
-    ----------
-    estimator : estimator instance.
-        estimator instance for which the check is performed.
-
-    attributes : str, list or tuple of str, default=None
-        Attribute name(s) given as string or a list/tuple of strings
-        Eg.: ``["coef_", "estimator_", ...], "coef_"``
-
-        If `None`, `estimator` is considered fitted if there exist an
-        attribute that ends with a underscore and does not start with double
-        underscore.
-
-    msg : string
-        The default error message is, "This %(name)s instance is not fitted
-        yet. Call 'fit' with appropriate arguments before using this
-        estimator."
-
-        For custom messages if "%(name)s" is present in the message string,
-        it is substituted for the estimator name.
-
-        Eg. : "Estimator, %(name)s, must be fitted before sparsifying".
-
-    all_or_any : callable, {all, any}, default all
-        Specify whether all or any of the given attributes must exist.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    NotFittedError
-        If the attributes are not found.
-    """
-    if isclass(estimator):
-        raise TypeError("{} is a class, not an instance.".format(estimator))
-    if msg is None:
-        msg = ("This %(name)s instance is not fitted yet. Call 'fit' with "
-               "appropriate arguments before using this estimator.")
-
-    if not hasattr(estimator, 'fit'):
-        raise TypeError("%s is not an estimator instance." % (estimator))
-
-    if attributes is not None:
-        if not isinstance(attributes, (list, tuple)):
-            attributes = [attributes]
-        attrs = all_or_any([hasattr(estimator, attr) for attr in attributes])
-    elif hasattr(estimator, "__sklearn_is_fitted__"):
-        attrs = estimator.__sklearn_is_fitted__()
-    else:
-        attrs = [v for v in vars(estimator)
-                 if v.endswith("_") and not v.startswith("__")]
-
-    if not attrs:
-        raise NotFittedError(msg % {'name': type(estimator).__name__})
 
 
 def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
