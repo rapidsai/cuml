@@ -474,7 +474,6 @@ XFAILS = {
     },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "GaussianNB does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "GaussianNB does not check n_features_in consistency",
         "check_estimators_dtypes": "GaussianNB does not handle dtypes properly",
         "check_sample_weights_pandas_series": "GaussianNB does not handle pandas Series sample weights",
@@ -520,7 +519,6 @@ XFAILS = {
     },
     BernoulliNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "BernoulliNB does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "BernoulliNB does not check n_features_in consistency",
         "check_estimators_dtypes": "BernoulliNB expects specific dtypes, not bool",
         "check_sample_weights_pandas_series": "BernoulliNB does not handle pandas Series sample weights",
@@ -548,7 +546,6 @@ XFAILS = {
         "check_estimators_overwrite_params": "ComplementNB overwrites params on clone",
         "check_estimators_fit_returns_self": "ComplementNB fit does not return self for certain data types",
         "check_readonly_memmap_input": "ComplementNB does not handle readonly memmap input",
-        "check_estimators_unfitted": "ComplementNB does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "ComplementNB does not check n_features_in consistency",
         "check_positive_only_tag_during_fit": "ComplementNB does not validate positive-only requirement",
         "check_estimators_dtypes": "ComplementNB expects specific dtypes, not bool",
@@ -580,7 +577,6 @@ XFAILS = {
         "check_estimators_overwrite_params": "CategoricalNB overwrites params on clone",
         "check_estimators_fit_returns_self": "CategoricalNB fit does not return self for certain data types",
         "check_readonly_memmap_input": "CategoricalNB does not handle readonly memmap input",
-        "check_estimators_unfitted": "CategoricalNB does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "CategoricalNB does not check n_features_in consistency",
         "check_positive_only_tag_during_fit": "CategoricalNB does not validate positive-only requirement",
         "check_estimators_dtypes": "CategoricalNB expects specific dtypes, not bool",
@@ -606,7 +602,6 @@ XFAILS = {
     },
     MultinomialNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "MultinomialNB does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "MultinomialNB does not check n_features_in consistency",
         "check_estimators_dtypes": "MultinomialNB does not handle all dtypes properly",
         "check_sample_weights_pandas_series": "MultinomialNB does not handle pandas Series sample weights",
