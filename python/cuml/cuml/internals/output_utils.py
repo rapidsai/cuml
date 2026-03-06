@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -9,7 +9,13 @@ def cudf_to_pandas(cudf_obj):
 
     Unlike cudf's builtin ``to_pandas`` method, this function will return a
     ``cudf.pandas`` object if ``cudf.pandas`` is active.
+
+    If the object is already a pandas-native type (e.g. ``RangeIndex``), it is
+    returned as-is.
     """
+    if not hasattr(cudf_obj, "to_pandas"):
+        return cudf_obj
+
     import cudf.pandas
 
     if cudf.pandas.LOADED:
