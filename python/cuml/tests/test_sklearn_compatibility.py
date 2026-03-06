@@ -97,7 +97,6 @@ XFAILS = {
     },
     KernelRidge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_estimators_unfitted": "KernelRidge does not raise NotFittedError before fit",
         "check_n_features_in_after_fitting": "KernelRidge does not check n_features_in consistency",
         "check_sample_weights_pandas_series": "KernelRidge does not handle pandas Series sample weights",
         "check_sample_weights_not_an_array": "KernelRidge does not handle non-array sample weights",
