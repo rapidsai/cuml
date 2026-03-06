@@ -71,13 +71,37 @@ void fit(const raft::handle_t& handle,
          std::unique_ptr<rmm::device_buffer>& embeddings,
          raft::host_coo_matrix<float, int, int, uint64_t>& graph,
          float* sigmas,
-         float* rhos)
+         float* rhos,
+         std::unique_ptr<cagra_index_t>* cagra_index)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
-    _fit<uint64_t>(
-      handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph, sigmas, rhos);
+    _fit<uint64_t>(handle,
+                   X,
+                   y,
+                   n,
+                   d,
+                   knn_indices,
+                   knn_dists,
+                   params,
+                   embeddings,
+                   graph,
+                   sigmas,
+                   rhos,
+                   cagra_index);
   else
-    _fit<int>(handle, X, y, n, d, knn_indices, knn_dists, params, embeddings, graph, sigmas, rhos);
+    _fit<int>(handle,
+              X,
+              y,
+              n,
+              d,
+              knn_indices,
+              knn_dists,
+              params,
+              embeddings,
+              graph,
+              sigmas,
+              rhos,
+              cagra_index);
 }
 
 void fit_sparse(const raft::handle_t& handle,
@@ -133,13 +157,15 @@ void transform(const raft::handle_t& handle,
                float* embedding,
                int embedding_n,
                UMAPParams* params,
-               float* transformed)
+               float* transformed,
+               cagra_index_t* cagra_index)
 {
   if (dispatch_to_uint64_t(n, params->n_neighbors, params->n_components))
     _transform<uint64_t>(
-      handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed);
+      handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed, cagra_index);
   else
-    _transform<int>(handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed);
+    _transform<int>(
+      handle, X, n, d, orig_X, orig_n, embedding, embedding_n, params, transformed, cagra_index);
 }
 
 void transform_sparse(const raft::handle_t& handle,
