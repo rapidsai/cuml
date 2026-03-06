@@ -138,7 +138,7 @@ FIL is ideal for many scenarios:
 API Reference
 =============
 
-See the :doc:`API reference <api>` for the API documentation.
+See the :doc:`API reference <api/index>` for the API documentation.
 
 Migration Guide
 ===============

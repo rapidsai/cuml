@@ -40,6 +40,14 @@ junit-*.xml
 docs/source/*.model
 docs/source/*.pkl
 docs/source/*.tl
+docs/source/*.joblib
+
+## autosummary-generated API reference stubs
+docs/source/api/generated/
+
+## Sphinx build output
+docs/build/
+docs/_html/
 
 ## eclipse
 .project
