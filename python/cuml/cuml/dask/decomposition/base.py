@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -44,6 +44,8 @@ class DecompositionSyncFitMixin(object):
             comms = Comms(comms_p2p=True)
         else:
             comms = Comms(comms_p2p=False)
+
+        data._fetch_worker_sizes()
 
         comms.init(workers=data.workers)
 

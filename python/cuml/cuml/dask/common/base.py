@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -374,6 +374,8 @@ class SyncFitMixinLinearModel(object):
 
         data = DistributedDataHandler.create(data=data, client=self.client)
         self.datatype = data.datatype
+
+        data._fetch_worker_sizes()
 
         comms = Comms(comms_p2p=False)
         comms.init(workers=data.workers)
