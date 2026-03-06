@@ -20,7 +20,7 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
 )
 from cuml.internals.treelite import safe_treelite_call
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 from cuml.metrics import accuracy_score, r2_score
 
 from libc.stdint cimport uint64_t, uintptr_t

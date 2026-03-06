@@ -19,7 +19,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool

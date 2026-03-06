@@ -13,7 +13,7 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):

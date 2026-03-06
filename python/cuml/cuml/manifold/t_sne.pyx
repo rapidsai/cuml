@@ -23,7 +23,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
