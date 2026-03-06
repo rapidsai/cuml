@@ -16,6 +16,7 @@ def __getattr__(name):
             "and will be removed in 26.06. Please use "
             "`sklearn.exceptions.NotFittedError` instead.",
             FutureWarning,
+            stacklevel=2,
         )
         return NotFittedError
     else:
