@@ -20,7 +20,6 @@ class UMAP(ProxyBase):
         """Fit the UMAP model with GPU-accelerated input validation."""
         del kwargs  # Handle intentionally unused kwargs for signature compatibility
 
-        # Validate input to handle non-finite values (NaN, Inf)
         X = check_array(
             X, accept_sparse="csr", force_all_finite=force_all_finite
         )
@@ -31,22 +30,28 @@ class UMAP(ProxyBase):
         """Fit and transform the data with GPU-accelerated input validation."""
         del kwargs  # Handle intentionally unused kwargs for signature compatibility
 
-        # Validate input to handle non-finite values (NaN, Inf)
         X = check_array(
             X, accept_sparse="csr", force_all_finite=force_all_finite
         )
 
         return self._gpu.fit_transform(X, y=y)
 
-    def _gpu_transform(self, X, force_all_finite=True):
+    def _gpu_transform(self, X, force_all_finite=True, **kwargs):
         """Transform the data with GPU-accelerated input validation."""
-        # Validate input during transform
+        del kwargs  # Handle intentionally unused kwargs for signature compatibility
+
         X = check_array(
             X, accept_sparse="csr", force_all_finite=force_all_finite
         )
 
         return self._gpu.transform(X)
 
-    def _gpu_inverse_transform(self, X):
-        """Inverse transform the data."""
+    def _gpu_inverse_transform(self, X, force_all_finite=True, **kwargs):
+        """Inverse transform the data with GPU-accelerated input validation."""
+        del kwargs  # Handle intentionally unused kwargs for signature compatibility
+
+        X = check_array(
+            X, accept_sparse="csr", force_all_finite=force_all_finite
+        )
+
         return self._gpu.inverse_transform(X)
