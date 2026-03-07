@@ -4,6 +4,7 @@
 #
 
 import cuml.manifold
+import numpy as np
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.thirdparty_adapters.adapters import check_array
 
@@ -18,40 +19,44 @@ class UMAP(ProxyBase):
 
     def _gpu_fit(self, X, y=None, force_all_finite=True, **kwargs):
         """Fit the UMAP model with GPU-accelerated input validation."""
-        del kwargs  # Handle intentionally unused kwargs for signature compatibility
-
         X = check_array(
-            X, accept_sparse="csr", force_all_finite=force_all_finite
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32,
+            order="C"
         )
-
-        return self._gpu.fit(X, y=y)
+        return self._gpu.fit(X, y=y, **kwargs)
 
     def _gpu_fit_transform(self, X, y=None, force_all_finite=True, **kwargs):
         """Fit and transform the data with GPU-accelerated input validation."""
-        del kwargs  # Handle intentionally unused kwargs for signature compatibility
-
         X = check_array(
-            X, accept_sparse="csr", force_all_finite=force_all_finite
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32,
+            order="C"
         )
-
-        return self._gpu.fit_transform(X, y=y)
+        return self._gpu.fit_transform(X, y=y, **kwargs)
 
     def _gpu_transform(self, X, force_all_finite=True, **kwargs):
         """Transform the data with GPU-accelerated input validation."""
-        del kwargs  # Handle intentionally unused kwargs for signature compatibility
-
         X = check_array(
-            X, accept_sparse="csr", force_all_finite=force_all_finite
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32,
+            order="C"
         )
-
-        return self._gpu.transform(X)
+        return self._gpu.transform(X, **kwargs)
 
     def _gpu_inverse_transform(self, X, force_all_finite=True, **kwargs):
         """Inverse transform the data with GPU-accelerated input validation."""
-        del kwargs  # Handle intentionally unused kwargs for signature compatibility
-
         X = check_array(
-            X, accept_sparse="csr", force_all_finite=force_all_finite
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32,
+            order="C"
         )
-
-        return self._gpu.inverse_transform(X)
+        return self._gpu.inverse_transform(X, **kwargs)
