@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.datasets
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.sparse import isspmatrix_csr
 from sklearn.metrics import pairwise_distances
@@ -427,9 +428,9 @@ def test_knn_fit_twice():
 @pytest.mark.parametrize("nrows", [unit_param(500), stress_param(70000)])
 @pytest.mark.parametrize("n_feats", [unit_param(20), stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
-    from sklearn.datasets import make_blobs as skmb
-
-    X, y = skmb(n_samples=nrows, n_features=n_feats, random_state=0)
+    X, y = sklearn.datasets.make_blobs(
+        n_samples=nrows, n_features=n_feats, random_state=0
+    )
 
     knn_cu = cuKNN()
     if input_type == "dataframe":
@@ -790,3 +791,30 @@ def test_n_jobs_parameter_passthrough():
     assert cunn.n_jobs == 1
     cunn.set_params(n_jobs=12)
     assert cunn.n_jobs == 12
+
+
+@pytest.mark.parametrize(
+    "metric, p, effective_metric",
+    [
+        ("minkowski", 1, "manhattan"),
+        ("minkowski", 2, "euclidean"),
+        ("minkowski", 3, "minkowski"),
+        ("minkowski", np.inf, "chebyshev"),
+        ("sqeuclidean", 2, "sqeuclidean"),
+    ],
+)
+@pytest.mark.parametrize("use_params", [False, True])
+def test_effective_metric_and_params(metric, p, effective_metric, use_params):
+    kws = {"p": 1000, "metric_params": {"p": p}} if use_params else {"p": p}
+    X, _ = sklearn.datasets.make_blobs(random_state=42)
+    cunn = cuKNN(metric=metric, **kws).fit(X)
+    sknn = skKNN(metric=metric, p=p).fit(X)
+    assert cunn.effective_metric_ == effective_metric
+    assert cunn.effective_metric_ == sknn.effective_metric_
+    assert cunn.effective_metric_params_.get(
+        "p"
+    ) == sknn.effective_metric_params_.get("p")
+
+    sol, _ = sknn.kneighbors(n_neighbors=5)
+    res, _ = cunn.kneighbors(n_neighbors=5)
+    np.testing.assert_allclose(sol, res, atol=1e-4)
