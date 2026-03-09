@@ -18,56 +18,60 @@ class UMAP(ProxyBase):
 
     def _gpu_fit(self, X, y=None, force_all_finite=True, **kwargs):
         """Fit the UMAP model with optimized float32 input validation."""
-        # Validate and optimize memory: convert to float32 and C-order
+        convert_dtype = kwargs.get("convert_dtype", True)
+        
+        # Validate and optimize memory: convert to float32 and C-order if allowed
         X = check_array(
             X, 
             accept_sparse="csr", 
             force_all_finite=force_all_finite,
-            dtype=np.float32,
-            order="C"
+            dtype=np.float32 if convert_dtype else None,
+            order="C" if convert_dtype else None
         )
 
         return self._gpu.fit(X, y=y, **kwargs)
 
     def _gpu_fit_transform(self, X, y=None, force_all_finite=True, **kwargs):
         """Fit and transform the UMAP model with optimized float32 input validation."""
-        # Validate and optimize memory: convert to float32 and C-order
-        X = check_array(
-            X, 
-            accept_sparse="csr", 
-            force_all_finite=force_all_finite,
-            dtype=np.float32,
-            order="C"
-        )
+        convert_dtype = kwargs.get("convert_dtype", True)
 
-        return self._gpu.fit_transform(X, y=y, **kwargs)
-
-    def _gpu_transform(self, X, force_all_finite=True):
-        """Transform the data with optimized float32 input validation."""
         # Validate and optimize memory
         X = check_array(
             X, 
             accept_sparse="csr", 
             force_all_finite=force_all_finite,
-            dtype=np.float32,
-            order="C"
+            dtype=np.float32 if convert_dtype else None,
+            order="C" if convert_dtype else None
         )
 
-<<<<<<< HEAD
-        return self._gpu.transform(X)
+        return self._gpu.fit_transform(X, y=y, **kwargs)
 
-    def _gpu_inverse_transform(self, X):
-        """Inverse transform the data."""
-        return self._gpu.inverse_transform(X)
-=======
-    def _gpu_inverse_transform(self, X, force_all_finite=True, **kwargs):
-        """Inverse transform the data with GPU-accelerated input validation."""
+    def _gpu_transform(self, X, force_all_finite=True, **kwargs):
+        """Transform the data with optimized float32 input validation."""
+        convert_dtype = kwargs.get("convert_dtype", True)
+
+        # Validate and optimize memory
         X = check_array(
             X, 
             accept_sparse="csr", 
             force_all_finite=force_all_finite,
-            dtype=np.float32,
-            order="C"
+            dtype=np.float32 if convert_dtype else None,
+            order="C" if convert_dtype else None
         )
+
+        return self._gpu.transform(X)
+
+    def _gpu_inverse_transform(self, X, force_all_finite=True, **kwargs):
+        """Inverse transform the data with optimized float32 input validation."""
+        convert_dtype = kwargs.get("convert_dtype", True)
+
+        # Validate and optimize memory
+        X = check_array(
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32 if convert_dtype else None,
+            order="C" if convert_dtype else None
+        )
+
         return self._gpu.inverse_transform(X, **kwargs)
->>>>>>> 4369464be (FIX: Optimize memory with float32/C-order and forward fit kwargs)
