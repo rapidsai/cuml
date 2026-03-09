@@ -13,16 +13,6 @@ else:
     libcuml.load_library()
     del libcuml
 
-# numba-cuda extends the numba.cuda namespace via a meta-path finder installed
-# by _numba_cuda_redirector. If cuml is imported before that finder is active
-# (e.g. from a .pth file that sorts earlier alphabetically), the cudf import
-# chain will fail to find numba.cuda.core. Importing the redirector here
-# ensures it's always installed before we touch cudf.
-try:
-    import _numba_cuda_redirector
-except ImportError:
-    pass
-
 import cupy
 from rmm.allocators.cupy import rmm_cupy_allocator
 
