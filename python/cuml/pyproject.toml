@@ -143,6 +143,12 @@ test-dask = [
 Homepage = "https://github.com/rapidsai/cuml"
 Documentation = "https://docs.rapids.ai/api/cuml/stable/"
 
+[project.entry-points.rapids_doctor_check]
+cuml_import = "cuml.health_checks:import_check"
+cuml_functional = "cuml.health_checks:functional_check"
+cuml_accel_basic = "cuml.health_checks:accel_basic_check"
+cuml_accel_cli = "cuml.health_checks:accel_cli_check"
+
 [tool.black]
 line-length = 79
 target-version = ["py311"]
