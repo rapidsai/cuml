@@ -477,17 +477,6 @@ def test_svc_multiclass_unsupported(random_state):
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("supervised", [False, True])
-@pytest.mark.skipif(SKLEARN_18, reason="umap requires sklearn < 1.8.0")
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. This is not in cuml's control. Note: this will break when
-# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
-# need to be updated at that point.
-# See also https://github.com/lmcinnes/umap/issues/1174
-@pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
-)
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
     X, y = make_blobs(n_samples=200, random_state=random_state)

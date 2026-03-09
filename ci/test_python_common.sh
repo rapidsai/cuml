@@ -38,8 +38,7 @@ fi
 rapids-print-env
 
 RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
-RAPIDS_COVERAGE_DIR=${RAPIDS_COVERAGE_DIR:-"${PWD}/coverage-results"}
-mkdir -p "${RAPIDS_TESTS_DIR}" "${RAPIDS_COVERAGE_DIR}"
+mkdir -p "${RAPIDS_TESTS_DIR}"
 
 rapids-logger "Check GPU usage"
 nvidia-smi

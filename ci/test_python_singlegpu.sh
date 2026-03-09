@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test_python_singlegpu.sh outside the script directory
@@ -24,19 +24,13 @@ rapids-logger "pytest cuml single GPU"
 timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml" \
-  --cov-config=../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-coverage.xml"
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
   rapids-logger "pytest cuml accelerator"
 timeout 15m ./ci/run_cuml_singlegpu_accel_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
-  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml" \
-  --cov-config=../.coveragerc \
-  --cov=cuml \
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-accel-coverage.xml"
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml"
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
