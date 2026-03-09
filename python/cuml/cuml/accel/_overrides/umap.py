@@ -53,8 +53,21 @@ class UMAP(ProxyBase):
             order="C"
         )
 
+<<<<<<< HEAD
         return self._gpu.transform(X)
 
     def _gpu_inverse_transform(self, X):
         """Inverse transform the data."""
         return self._gpu.inverse_transform(X)
+=======
+    def _gpu_inverse_transform(self, X, force_all_finite=True, **kwargs):
+        """Inverse transform the data with GPU-accelerated input validation."""
+        X = check_array(
+            X, 
+            accept_sparse="csr", 
+            force_all_finite=force_all_finite,
+            dtype=np.float32,
+            order="C"
+        )
+        return self._gpu.inverse_transform(X, **kwargs)
+>>>>>>> 4369464be (FIX: Optimize memory with float32/C-order and forward fit kwargs)
