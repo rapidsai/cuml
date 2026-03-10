@@ -997,3 +997,13 @@ def test_svc_precomputed_multiclass_ovo_fails():
     )
     with pytest.raises(ValueError, match="square"):
         cuml_clf.fit(K_cp, y_cp)
+
+
+def test_svr_fit_homogeneous_y():
+    """SVR fit with homogeneous y has empty coefs and just an intercept"""
+    X = np.eye(3)
+    y = np.full(3, 1.23)
+    model = cuml.SVR().fit(X, y)
+    assert (model.intercept_ == 1.23).all()
+    assert model.dual_coef_.shape == (1, 0)
+    assert (model.predict(X) == y).all()
