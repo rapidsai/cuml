@@ -1,7 +1,7 @@
 cuml.tsa
 ========
 
-Time series analysis algorithms.
+.. automodule:: cuml.tsa
 
 .. currentmodule:: cuml.tsa
 

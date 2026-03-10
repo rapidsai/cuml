@@ -1,6 +1,8 @@
 cuml.dask
 =========
 
+.. automodule:: cuml.dask
+
 Multi-node, multi-GPU algorithms using Dask.
 
 Cluster

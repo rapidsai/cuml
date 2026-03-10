@@ -372,9 +372,6 @@ Dimensionality Reduction and Manifold Learning
 Covariance Estimation
 =====================
 
-Ledoit-Wolf Shrinkage
----------------------
-
 .. list-table::
    :header-rows: 1
    :widths: 30 50 20
@@ -427,9 +424,9 @@ Time Series
    * - :obj:`~cuml.tsa.auto_arima.AutoARIMA`
      - Automatic ARIMA model selection.
      - :mod:`cuml.tsa`
-   * - :obj:`~cuml.ExponentialSmoothing`
+   * - :obj:`~cuml.tsa.ExponentialSmoothing`
      - Holt-Winters Exponential Smoothing.
-     - :mod:`cuml`
+     - :mod:`cuml.tsa`
 
 
 Model Explainability
