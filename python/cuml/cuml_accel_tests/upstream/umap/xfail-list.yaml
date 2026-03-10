@@ -42,7 +42,7 @@
   - "umap.tests.test_umap_ops::test_umap_transform_embedding_stability"
 - reason: UMAP using removed numpy function `in1d`
   marker: cuml_accel_no_numpy_in1d
-  condition: numpy>=2.4
+  condition: umap-learn<=0.5.7 and numpy>=2.4
   tests:
   - "umap.tests.test_aligned_umap::test_aligned_update"
   - "umap.tests.test_aligned_umap::test_aligned_update_params"
