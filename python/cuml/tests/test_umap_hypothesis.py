@@ -979,6 +979,7 @@ def evaluate_fuzzy_quality(
 @pytest.mark.xfail(
     Version(numba.__version__) >= Version("0.62.0"),
     reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
 )
 @pytest.mark.slow
 @settings(

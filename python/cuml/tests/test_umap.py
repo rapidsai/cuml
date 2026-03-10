@@ -687,6 +687,7 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.xfail(
     Version(numba.__version__) >= Version("0.62.0"),
     reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
 )
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
@@ -1162,6 +1163,7 @@ def test_umap_custom_init_errors():
 @pytest.mark.xfail(
     Version(numba.__version__) >= Version("0.62.0"),
     reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
 )
 def test_umap_sigmas_rhos():
     """Test that sigmas and rhos are correctly produced and valid."""
@@ -1201,6 +1203,7 @@ def test_umap_sigmas_rhos():
 @pytest.mark.xfail(
     Version(numba.__version__) >= Version("0.62.0"),
     reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
 )
 def test_inverse_transform():
     """Test cuML UMAP inverse_transform produces valid output."""
