@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import contextlib
@@ -12,6 +12,7 @@ import numpy as np
 from cuml.internals import input_utils as iu
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.validation import check_features
 
 __all__ = (
     "check_output_type",
@@ -412,7 +413,7 @@ def reflect(
         with enter_internal_context() as was_external:
             if reset:
                 model_arg._set_output_type(array_arg)
-                model_arg._set_n_features_in(array_arg)
+                check_features(model_arg, array_arg, reset=True)
 
             res = func(*args, **kwargs)
 

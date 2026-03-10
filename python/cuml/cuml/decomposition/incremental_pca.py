@@ -15,7 +15,7 @@ from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 
 class IncrementalPCA(PCA):
@@ -281,7 +281,7 @@ class IncrementalPCA(PCA):
                 )
 
             self._set_output_type(X)
-            self._set_n_features_in(X)
+            check_features(self, X, reset=True)
 
             X, n_samples, n_features, _ = input_to_cupy_array(
                 X, order="K", check_dtype=[cp.float32, cp.float64]
