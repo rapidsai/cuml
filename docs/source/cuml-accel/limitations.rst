@@ -536,6 +536,10 @@ Additional notes:
 
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
+- We have observed compatibility isuess with UMAP for numba versions 0.62.0 and
+  above. For best stability, we recommend using numba versions earlier than
+  0.62.0 when accelerating UMAP with cuml.accel.
+
 While the exact numerical output for UMAP may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as
 good in most cases. Beyond comparing the visual representation, you may find
