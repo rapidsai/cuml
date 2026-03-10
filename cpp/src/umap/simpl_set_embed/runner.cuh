@@ -25,14 +25,10 @@ void run(int m,
          T* embedding,
          int n_epochs,
          cudaStream_t stream,
-         int algorithm               = 0,
          DensMap::DensMapData<T>* dm = nullptr)
 {
-  switch (algorithm) {
-    case 0:
-      SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(
-        m, n, coo, params, embedding, n_epochs, stream, dm);
-  }
+  SimplSetEmbed::Algo::launcher<T, nnz_t, TPB_X>(
+    m, n, coo, params, embedding, n_epochs, stream, dm);
 }
 }  // namespace SimplSetEmbed
 }  // namespace UMAPAlgo

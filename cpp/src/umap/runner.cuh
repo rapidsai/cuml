@@ -293,7 +293,7 @@ void _refine(const raft::handle_t& handle,
   }
 
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, 0, dm.get());
+    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, dm.get());
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -320,7 +320,7 @@ void _init_and_refine(const raft::handle_t& handle,
   }
 
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, 0, dm.get());
+    inputs.n, inputs.d, graph, params, embeddings, n_epochs, stream, dm.get());
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -371,7 +371,7 @@ void _fit(const raft::handle_t& handle,
   }
 
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, 0, dm.get());
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, dm.get());
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);
@@ -425,7 +425,7 @@ void _fit_supervised(const raft::handle_t& handle,
   }
 
   SimplSetEmbed::run<value_t, nnz_t, TPB_X>(
-    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, 0, dm.get());
+    inputs.n, inputs.d, &graph, params, embeddings_ptr, n_epochs, stream, dm.get());
   raft::common::nvtx::pop_range();
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);
