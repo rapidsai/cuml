@@ -4,6 +4,7 @@
 import cupy as cp
 import numpy as np
 from sklearn.exceptions import NotFittedError
+from sklearn.utils.metaestimators import available_if
 
 from cuml.common.classification import (
     decode_labels,
@@ -533,6 +534,7 @@ class SVC(SVMBase, ClassifierMixin):
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
+    @available_if(lambda self: self.probability)
     @generate_docstring(
         skip_parameters_heading=True,
         return_values={
@@ -557,14 +559,13 @@ class SVC(SVMBase, ClassifierMixin):
         """
         check_is_fitted(self)
 
+        if self._probA.size == 0 or self._probB.size == 0:
+            raise NotFittedError(
+                "predict_proba is not available when fitted with probability=False"
+            )
+
         from cupyx.scipy.special import expit
 
-        if not self.probability:
-            raise NotFittedError(
-                "This classifier is not fitted to predict "
-                "probabilities. Fit a new classifier with "
-                "probability=True to enable predict_proba."
-            )
         preds = self.decision_function(X).to_output("cupy")
         if preds.ndim == 1:
             preds = preds[:, None]
@@ -593,6 +594,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         return CumlArray(data=proba)
 
+    @available_if(lambda self: self.probability)
     @generate_docstring(
         return_values={
             "name": "preds",
