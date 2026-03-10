@@ -61,7 +61,7 @@ def test_spectral_clustering_n_components(clustering_data, n_components):
         random_state=42,
     ).fit(X)
     y_pred = sc.labels_
-    adjusted_rand_score(y_true, y_pred)
+    assert adjusted_rand_score(y_true, y_pred) > 0.8
 
 
 @pytest.mark.parametrize("n_init", [1, 5, 10])
