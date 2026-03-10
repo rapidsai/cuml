@@ -21,7 +21,7 @@ from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect, using_output_type
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 from libc.stdint cimport int64_t, uint32_t, uintptr_t
 from libcpp cimport bool
@@ -774,6 +774,8 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         if use_training_data := (X is None):
             X = self._fit_X
             n_neighbors += 1
+        else:
+            check_features(self, X)
 
         if (n_neighbors is None and self.n_neighbors is None) or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
@@ -1279,6 +1281,8 @@ class NearestNeighbors(NeighborsBase):
 
         if (using_fit_X := (X is None)):
             X = self._fit_X
+        else:
+            check_features(self, X)
 
         X_m = input_to_cuml_array(
             X,

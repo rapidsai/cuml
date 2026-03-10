@@ -14,6 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.validation import check_features
 from cuml.metrics import accuracy_score
 
 
@@ -285,6 +286,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
+        check_features(self, X)
         inds = fil.predict(X, threshold=threshold).to_output("cupy")
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
@@ -336,6 +338,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
+        check_features(self, X)
         return fil.predict_proba(X)
 
     @nvtx.annotate(

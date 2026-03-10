@@ -14,7 +14,11 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_is_fitted, check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
@@ -352,6 +356,7 @@ class KernelDensity(Base, InteropMixin):
             data.
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         X = input_to_cuml_array(
             X,

@@ -13,7 +13,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 # Module-level flag to ensure deprecation warning only fires once per process
 _COMBINATION_MODE_1D_WARNING_SHOWN = False
@@ -351,21 +351,14 @@ class TargetEncoder(Base, InteropMixin):
 
         """
         check_is_fitted(self)
-        test = self._data_with_strings_to_cudf_dataframe(X)
+        check_features(self, X)
 
-        # Check feature dimensions match
-        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
-        if (
-            hasattr(self, "n_features_in_")
-            and len(x_cols) != self.n_features_in_
-        ):
-            raise ValueError(
-                f"X has {len(x_cols)} features, but TargetEncoder is "
-                f"expecting {self.n_features_in_} features as input."
-            )
+        test = self._data_with_strings_to_cudf_dataframe(X)
 
         if self._is_train_df(test):
             return self.train_encode
+
+        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
 
         # Handle independent mode (per-feature encoding)
         if getattr(self, "_independent_mode_fitted", False):
@@ -399,8 +392,6 @@ class TargetEncoder(Base, InteropMixin):
         train = self._data_with_strings_to_cudf_dataframe(x)
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
 
-        # Store n_features_in_ and categories_ for sklearn interop
-        self.n_features_in_ = len(x_cols)
         self._x_cols = x_cols
 
         # Set feature_names_in_ if input has column names (DataFrame)
@@ -976,7 +967,6 @@ class TargetEncoder(Base, InteropMixin):
             "_independent_mode_fitted": independent_mode,
             "categories_": categories_gpu,
             "_x_cols": x_cols,
-            "n_features_in_": n_features,
             "_n_features_out": n_features,  # sklearn always uses independent mode
             "mean": float(model.target_mean_),
             "y_stat_val": float(model.target_mean_),

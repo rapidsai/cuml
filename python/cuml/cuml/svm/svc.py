@@ -28,7 +28,11 @@ from cuml.internals.outputs import (
     reflect,
     run_in_internal_context,
 )
-from cuml.internals.validation import check_is_fitted, check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
@@ -520,6 +524,7 @@ class SVC(SVMBase, ClassifierMixin):
         labels associated to sign(decision_function(X)).
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if hasattr(self, "_multiclass"):
             inds = self._multiclass.predict(X).to_output("cupy")
@@ -558,6 +563,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if self._probA.size == 0 or self._probB.size == 0:
             raise NotFittedError(
@@ -632,6 +638,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if hasattr(self, "_multiclass"):
             return self._multiclass.decision_function(X)

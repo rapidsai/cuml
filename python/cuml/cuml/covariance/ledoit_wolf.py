@@ -14,7 +14,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 
 def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
@@ -328,6 +328,7 @@ class LedoitWolf(Base, InteropMixin):
             Log-likelihood of the data under the fitted Gaussian model.
         """
         check_is_fitted(self)
+        check_features(self, X_test)
 
         X_arr, _, n_features, _ = input_to_cupy_array(
             X_test,
@@ -416,6 +417,7 @@ class LedoitWolf(Base, InteropMixin):
             Squared Mahalanobis distances of the observations.
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         X_arr, _, _, _ = input_to_cupy_array(
             X,

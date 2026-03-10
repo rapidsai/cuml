@@ -127,6 +127,7 @@ def test_exceptions():
         ipca.partial_fit(X)
 
     X = X.toarray()
+    ipca = cuIPCA()
     with pytest.raises(NotFittedError):
         ipca.transform(X)
 

@@ -8,7 +8,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 
 class LinearPredictMixin:
@@ -26,6 +26,7 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         X = input_to_cuml_array(
             X,
@@ -62,6 +63,7 @@ class LinearClassifierMixin:
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
         check_is_fitted(self)
+        check_features(self, X)
 
         if is_sparse(X):
             X = SparseCumlArray(

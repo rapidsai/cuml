@@ -30,7 +30,11 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.validation import check_is_fitted, check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -1409,6 +1413,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         https://github.com/lmcinnes/umap/issues/158
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
