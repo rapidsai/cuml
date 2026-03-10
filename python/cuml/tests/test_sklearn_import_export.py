@@ -552,7 +552,7 @@ def test_nearest_neighbors(random_state, sparse):
             (50, 20), dtype="float32"
         )
 
-    cu_model = cuml.NearestNeighbors(n_neighbors=10).fit(X)
+    cu_model = cuml.NearestNeighbors(metric="minkowski", n_neighbors=10).fit(X)
     sk_model = sklearn.neighbors.NearestNeighbors(n_neighbors=10).fit(X)
 
     sk_model2 = cu_model.as_sklearn()
@@ -592,9 +592,9 @@ def test_kneighbors_regressor(random_state, sparse, n_targets, weights):
         X[X < -0.5] = 0
         X = scipy.sparse.csr_matrix(X)
 
-    cu_model = cuml.KNeighborsRegressor(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsRegressor(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsRegressor(
         n_neighbors=10, weights=weights
     ).fit(X, y)
@@ -642,9 +642,9 @@ def test_kneighbors_classifier(random_state, sparse, n_labels, weights):
 
     X = X.astype("float32")
 
-    cu_model = cuml.KNeighborsClassifier(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsClassifier(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsClassifier(
         n_neighbors=10, weights=weights
     ).fit(X, y)

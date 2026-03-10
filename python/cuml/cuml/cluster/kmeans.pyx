@@ -19,7 +19,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_is_fitted, check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -633,6 +633,8 @@ class KMeans(Base,
         inertia : float
         Sum of squared distances of samples to their closest cluster center.
         """
+        check_is_fitted(self)
+
         dtype = self.cluster_centers_.dtype
 
         X_m, n_rows, _, _ = input_to_cuml_array(
@@ -694,6 +696,8 @@ class KMeans(Base,
         Transform X to a cluster-distance space.
 
         """
+        check_is_fitted(self)
+
         dtype = self.cluster_centers_.dtype
 
         X_m = input_to_cuml_array(
