@@ -368,7 +368,7 @@ class SpectralClustering(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.affinity not in cls._SUPPORTED_AFFINITIES:
+        if model.affinity not in ["nearest_neighbors", "precomputed"]:
             raise UnsupportedOnGPU(
                 f"`affinity={model.affinity!r}` is not supported"
             )
