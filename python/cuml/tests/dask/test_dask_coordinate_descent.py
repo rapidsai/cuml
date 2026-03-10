@@ -28,6 +28,7 @@ numpy_gte_24 = Version(np.__version__) >= Version("2.4.0")
                 pytest.mark.xfail(
                     numpy_gte_24,
                     reason="Fails with numpy >=2.4.*",
+                    strict=True,
                 ),
             ],
         ),
@@ -126,6 +127,7 @@ def test_lasso_default(dtype, nrows, column_info, n_parts, client):
                 pytest.mark.xfail(
                     numpy_gte_24,
                     reason="Fails with numpy >=2.4.*",
+                    strict=True,
                 ),
             ],
         ),
