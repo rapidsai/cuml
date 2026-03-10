@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,8 +7,8 @@ import cupy as cp
 import cupyx
 import pytest
 from sklearn.decomposition import IncrementalPCA as skIPCA
+from sklearn.exceptions import NotFittedError
 
-from cuml.common.exceptions import NotFittedError
 from cuml.datasets import make_blobs
 from cuml.decomposition import IncrementalPCA as cuIPCA
 from cuml.decomposition.incremental_pca import _svd_flip

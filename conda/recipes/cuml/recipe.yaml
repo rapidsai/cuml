@@ -78,7 +78,7 @@ requirements:
   host:
     - cuda-version =${{ cuda_version }}
     - cudf =${{ minor_version }}
-    - cython >=3.0.0,<3.2.0
+    - cython >=3.2.2
     - libcuml =${{ version }}
     - pip
     - pylibraft =${{ minor_version }}

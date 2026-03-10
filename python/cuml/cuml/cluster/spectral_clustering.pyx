@@ -21,7 +21,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool

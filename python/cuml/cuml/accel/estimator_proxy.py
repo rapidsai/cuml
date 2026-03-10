@@ -6,18 +6,24 @@ from __future__ import annotations
 import functools
 from typing import Any
 
+import cupy as cp
 import sklearn
+from cupyx.scipy.sparse import issparse as is_cp_sparse
 from packaging.version import Version
 from sklearn.base import (
     BaseEstimator,
     ClassNamePrefixFeaturesOutMixin,
     OneToOneFeatureMixin,
 )
-from sklearn.utils._set_output import _wrap_data_with_container
+from sklearn.utils._set_output import (
+    _get_output_config,
+    _wrap_data_with_container,
+)
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
 from cuml.internals.interop import UnsupportedOnGPU, is_fitted
+from cuml.internals.outputs import using_output_type
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
@@ -29,6 +35,11 @@ def is_proxy(instance_or_class) -> bool:
     else:
         cls = type(instance_or_class)
     return issubclass(cls, ProxyBase)
+
+
+def ensure_host(x):
+    """Convert any cupy/cupyx.scipy.sparse inputs to their host equivalents"""
+    return x.get() if (isinstance(x, cp.ndarray) or is_cp_sparse(x)) else x
 
 
 class _ReconstructProxy:
@@ -105,7 +116,7 @@ class ProxyBase(BaseEstimator):
     to the GPU with the rules above. If this method raises a ``UnsupportedOnGPU`` error
     then the proxy will fallback to CPU.
 
-    See the definitions in ``cuml.accel._wrappers.linear_model`` for examples.
+    See the definitions in ``cuml.accel._overrides.linear_model`` for examples.
     """
 
     # A set of attribute names that aren't supported by `cuml.accel`.
@@ -256,10 +267,21 @@ class ProxyBase(BaseEstimator):
             if (gpu_func := getattr(self._gpu, method, None)) is None:
                 raise UnsupportedOnGPU("Method is not implemented in cuml")
 
-        out = gpu_func(*args, **kwargs)
+        # Only transform/fit_transform/inverse_transform with default
+        # set_output config may return device arrays (to support optimized
+        # pipeline data transfers). All other methods must return on host.
+        may_return_on_device = (
+            method in ("transform", "fit_transform", "inverse_transform")
+            and _get_output_config("transform", self)["dense"] == "default"
+        )
+        if may_return_on_device:
+            out = gpu_func(*args, **kwargs)
+        else:
+            with using_output_type("numpy"):
+                out = gpu_func(*args, **kwargs)
 
         if method in ("transform", "fit_transform"):
-            # Ensure transform result is properly wrapped for `set_output`
+            # Properly wrap output of transform following `set_output` config.
             out = _wrap_data_with_container("transform", out, args[0], self)
 
         return self if out is self._gpu else out
@@ -318,6 +340,12 @@ class ProxyBase(BaseEstimator):
 
         # Failed to run on GPU, fallback to CPU
         self._sync_attrs_to_cpu()
+        # Ensure the arguments are on host for the CPU fallback. This is _usually_
+        # already True, but in certain cases (a pipeline with optimized data transfer)
+        # we may need to migrate. In those cases the inputs will only ever be
+        # cupy/cupyx.scipy.sparse objects, so that's all we need to handle here.
+        args = [ensure_host(a) for a in args]
+        kwargs = {k: ensure_host(v) for k, v in kwargs.items()}
         with profilers.track_cpu_call(
             qualname, reason=reason or "Estimator not fit on GPU"
         ):

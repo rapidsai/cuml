@@ -1,15 +1,59 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-"""Command-line ML benchmark runner"""
+"""Command-line ML benchmark runner (core logic).
+
+This module holds the main benchmark logic. Entry points:
+  - Full mode:     python -m cuml.benchmark
+  - Standalone:    python run_benchmarks.py  (from this directory)
+
+Modes:
+  1. GPU mode: When cuML is installed, benchmarks both cuML (GPU) and
+     scikit-learn (CPU) implementations.
+  2. CPU-only mode: When cuML is not installed, benchmarks only CPU
+     implementations (scikit-learn, umap-learn, etc.).
+"""
 
 import json
+import os
+import sys
+import warnings
 
 import numpy as np
-import rmm
 
-from cuml.benchmark import algorithms, datagen, runners
+# Import benchmark modules - supports both package and standalone execution
+# without polluting sys.path on normal package import
+try:
+    from cuml.benchmark import algorithms, datagen, runners
+    from cuml.benchmark.cli import build_parser
+    from cuml.benchmark.gpu_check import (
+        get_status_string,
+        is_cuml_available,
+        is_gpu_available,
+    )
+except ImportError:
+    # Standalone execution (benchmark/ directory or cuML not installed)
+    # Add benchmark directory to sys.path
+    _benchmark_dir = os.path.dirname(os.path.abspath(__file__))
+    if _benchmark_dir not in sys.path:
+        sys.path.insert(0, _benchmark_dir)
+    assert any("cuml/benchmark" in p for p in sys.path)
+
+    import algorithms  # noqa: E402
+    import datagen  # noqa: E402
+    import runners  # noqa: E402
+    from cli import build_parser  # noqa: E402
+    from gpu_check import (  # noqa: E402
+        get_status_string,
+        is_cuml_available,
+        is_gpu_available,
+    )
+
+# Conditional RMM import (RMM is a cuML dependency)
+rmm = None
+if is_cuml_available():
+    import rmm
 
 PrecisionMap = {
     "fp32": np.float32,
@@ -31,7 +75,7 @@ def extract_param_overrides(params_to_sweep):
     """
     import itertools
 
-    if not params_to_sweep or len(params_to_sweep) == 0:
+    if not params_to_sweep:
         return [{}]
 
     # Expand each arg into a list of (key,value) tuples
@@ -39,10 +83,6 @@ def extract_param_overrides(params_to_sweep):
     for p in params_to_sweep:
         key, val_string = p.split("=")
         vals = val_string.split(",")
-
-        if not isinstance(vals, list):
-            vals = [vals]  # Handle single-element sweep cleanly
-
         # use json loads to convert to correct data type
         for idx, val in enumerate(vals):
             try:
@@ -58,230 +98,151 @@ def extract_param_overrides(params_to_sweep):
     return dict_list
 
 
-if __name__ == "__main__":
-    import argparse
-    import sys
+def setup_rmm_allocator(allocator_type):
+    """Setup RMM allocator if GPU is available.
 
-    parser = argparse.ArgumentParser(
-        prog="run_benchmarks",
-        description=r"""
-        Command-line benchmark runner, logging results to
-        stdout and/or CSV.
+    Parameters
+    ----------
+    allocator_type : str
+        One of 'cuda', 'managed', 'prefetched'
 
-        Examples:
-          # Simple logistic regression
-          python run_benchmarks.py --dataset classification LogisticRegression
+    Returns
+    -------
+    bool
+        True if RMM was set up, False otherwise
+    """
+    if not is_gpu_available() or rmm is None:
+        return False
 
-          # Compare impact of RF parameters and data sets for multiclass
-          python run_benchmarks.py --dataset classification  \
-                --max-rows 100000 --min-rows 10000 \
-                --dataset-param-sweep n_classes=[2,8] \
-                --cuml-param-sweep n_bins=[4,16] n_estimators=[10,100] \
-                --csv results.csv \
-                RandomForestClassifier
+    if allocator_type == "cuda":
+        dev_resource = rmm.mr.CudaMemoryResource()
+        rmm.mr.set_current_device_resource(dev_resource)
+        print("Using CUDA Memory Resource...")
+    elif allocator_type == "managed":
+        managed_resource = rmm.mr.ManagedMemoryResource()
+        rmm.mr.set_current_device_resource(managed_resource)
+        print("Using Managed Memory Resource...")
+    elif allocator_type == "prefetched":
+        upstream_mr = rmm.mr.ManagedMemoryResource()
+        prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
+        rmm.mr.set_current_device_resource(prefetch_mr)
+        print("Using Prefetched Managed Memory Resource...")
+    else:
+        raise ValueError(f"Unknown RMM allocator type: {allocator_type}")
 
-          # Run a bunch of clustering and dimensionality reduction algorithms
-          # (Because `--input-dimensions` takes a varying number of args, you
-          # need the extra `--` to separate it from the algorithm names
-          python run_benchmarks.py --dataset blobs \
-                --max-rows 20000 --min-rows 20000 --num-sizes 1 \
-                --input-dimensions 16 256 \
-                -- DBSCAN KMeans TSNE PCA UMAP
+    return True
 
-          # Use a real dataset at its default size
-          python run_benchmarks.py --dataset higgs --default-size \
-                RandomForestClassifier LogisticRegression
 
-        """,
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
-    parser.add_argument(
-        "--max-rows",
-        type=int,
-        default=100000,
-        help="Evaluate at most max_row samples",
-    )
-    parser.add_argument(
-        "--min-rows",
-        type=int,
-        default=10000,
-        help="Evaluate at least min_rows samples",
-    )
-    parser.add_argument(
-        "--num-sizes",
-        type=int,
-        default=2,
-        help="Number of different sizes to test",
-    )
-    parser.add_argument(
-        "--num-rows",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Shortcut for --min-rows N --max-rows N --num-sizes 1",
-    )
-    parser.add_argument("--num-features", type=int, default=-1)
-    parser.add_argument(
-        "--quiet", "-q", action="store_false", dest="verbose", default=True
-    )
-    parser.add_argument("--csv", nargs="?")
-    parser.add_argument("--dataset", default="blobs")
-    parser.add_argument("--skip-cpu", action="store_true")
-    parser.add_argument("--input-type", default="numpy")
-    parser.add_argument(
-        "--test-split",
-        default=0.1,
-        type=float,
-        help="Fraction of input data used for testing (between 0.0 and 1.0)",
-    )
-    parser.add_argument(
-        "--input-dimensions",
-        default=[64, 256, 512],
-        nargs="+",
-        type=int,
-        help="Data dimension sizes (may provide multiple sizes)",
-    )
-    parser.add_argument(
-        "--param-sweep",
-        nargs="*",
-        type=str,
-        help="""Parameter values to vary, in the form:
-                key=val_list, where val_list may be a comma-separated list""",
-    )
-    parser.add_argument(
-        "--cuml-param-sweep",
-        nargs="*",
-        type=str,
-        help="""Parameter values to vary for cuML only, in the form:
-                key=val_list, where val_list may be a comma-separated list""",
-    )
-    parser.add_argument(
-        "--cpu-param-sweep",
-        nargs="*",
-        type=str,
-        help="""Parameter values to vary for CPU only, in the form:
-                key=val_list, where val_list may be a comma-separated list""",
-    )
-    parser.add_argument(
-        "--dataset-param-sweep",
-        nargs="*",
-        type=str,
-        help="""Parameter values to vary for dataset generator, in the form
-                key=val_list, where val_list may be a comma-separated list""",
-    )
-    parser.add_argument(
-        "--default-size",
-        action="store_true",
-        help="Only run datasets at default size",
-    )
-    parser.add_argument(
-        "--raise-on-error",
-        action="store_true",
-        help="Throw exception on a failed benchmark",
-    )
-    parser.add_argument(
-        "--print-algorithms",
-        action="store_true",
-        help="Print the list of all available algorithms and exit",
-    )
-    parser.add_argument(
-        "--print-datasets",
-        action="store_true",
-        help="Print the list of all available datasets and exit",
-    )
-    parser.add_argument(
-        "algorithms",
-        nargs="*",
-        help="List of algorithms to run, or omit to run all",
-    )
-    parser.add_argument("--n-reps", type=int, default=1)
-    parser.add_argument(
-        "--dtype",
-        choices=["fp32", "fp64"],
-        default="fp32",
-        help="Precision of the dataset to benchmark with",
-    )
-    parser.add_argument(
-        "--rmm-allocator",
-        choices=["cuda", "managed", "prefetched"],
-        default="cuda",
-        help="RMM memory resource to use (default: cuda)",
-    )
-    args = parser.parse_args()
-
-    # Setup RMM allocator based on command line option
-    match args.rmm_allocator:
-        case "cuda":
-            dev_resource = rmm.mr.CudaMemoryResource()
-            rmm.mr.set_current_device_resource(dev_resource)
-            print("Using CUDA Memory Resource...")
-        case "managed":
-            managed_resource = rmm.mr.ManagedMemoryResource()
-            rmm.mr.set_current_device_resource(managed_resource)
-            print("Using Managed Memory Resource...")
-        case "prefetched":
-            upstream_mr = rmm.mr.ManagedMemoryResource()
-            prefetch_mr = rmm.mr.PrefetchResourceAdaptor(upstream_mr)
-            rmm.mr.set_current_device_resource(prefetch_mr)
-            print("Using Prefetched Managed Memory Resource...")
-        case _:
-            raise ValueError(
-                f"Unknown RMM allocator type: {args.rmm_allocator}"
-            )
-
-    args.dtype = PrecisionMap[args.dtype]
-
-    if args.print_algorithms:
-        for algo in algorithms.all_algorithms():
-            print(algo.name)
-        sys.exit()
-
-    if args.print_datasets:
-        for dataset in datagen.all_datasets().keys():
-            print(dataset)
-        sys.exit()
-
+def _validate_args(args, run_gpu):
+    """Validate CLI args: skip flags, test_split range, and CPU-only input_type."""
+    if args.skip_gpu and args.skip_cpu:
+        raise ValueError(
+            "Cannot use both --skip-gpu and --skip-cpu; no benchmarks would run. "
+            "Use --skip-gpu for CPU-only or --skip-cpu for GPU-only."
+        )
     if not 0.0 <= args.test_split <= 1.0:
         raise ValueError(
             "test_split: got %f, want a value between 0.0 and 1.0"
             % args.test_split
         )
+    if not run_gpu:
+        cpu_valid_types = ["numpy", "pandas"]
+        if args.input_type not in cpu_valid_types:
+            warnings.warn(
+                f"--input-type={args.input_type} not available without GPU. "
+                f"Switching to 'numpy'. Available types: {cpu_valid_types}"
+            )
+            args.input_type = "numpy"
 
+
+def _handle_print_commands(args):
+    """Handle --print-status, --print-algorithms, --print-datasets; exits if used."""
+    if args.print_status:
+        sys.exit()
+    if args.print_algorithms:
+        for algo in algorithms.all_algorithms():
+            print(algo.name)
+        sys.exit()
+    if args.print_datasets:
+        for dataset in datagen.all_datasets().keys():
+            print(dataset)
+        sys.exit()
+
+
+def _resolve_bench_dimensions(args):
+    """Compute bench_rows and bench_dims from args; apply overrides. Returns (bench_rows, bench_dims)."""
     bench_rows = np.logspace(
         np.log10(args.min_rows),
         np.log10(args.max_rows),
         num=args.num_sizes,
         dtype=np.int32,
     )
-
     bench_dims = args.input_dimensions
 
     if args.num_rows is not None:
         bench_rows = [args.num_rows]
-
     if args.num_features > 0:
         bench_dims = [args.num_features]
     if args.default_size:
         bench_rows = [0]
         bench_dims = [0]
+    return bench_rows, bench_dims
 
-    param_override_list = extract_param_overrides(args.param_sweep)
-    cuml_param_override_list = extract_param_overrides(args.cuml_param_sweep)
-    cpu_param_override_list = extract_param_overrides(args.cpu_param_sweep)
-    dataset_param_override_list = extract_param_overrides(
-        args.dataset_param_sweep
-    )
 
+def _build_param_override_lists(args):
+    """Build the four param override lists from sweep args. Returns a dict of lists."""
+    return {
+        "param_override_list": extract_param_overrides(args.param_sweep),
+        "cuml_param_override_list": extract_param_overrides(
+            args.cuml_param_sweep
+        ),
+        "cpu_param_override_list": extract_param_overrides(
+            args.cpu_param_sweep
+        ),
+        "dataset_param_override_list": extract_param_overrides(
+            args.dataset_param_sweep
+        ),
+    }
+
+
+def _resolve_algorithms(args):
+    """Resolve algorithm names from args to list of algorithm objects."""
     if args.algorithms:
         algos_to_run = []
         for name in args.algorithms:
             algo = algorithms.algorithm_by_name(name)
             if not algo:
-                raise ValueError("No %s 'algorithm' found" % name)
+                available = [a.name for a in algorithms.all_algorithms()]
+                raise ValueError(
+                    f"No '{name}' algorithm found. Available algorithms: {available}"
+                )
             algos_to_run.append(algo)
-    else:
-        # Run all by default
-        algos_to_run = algorithms.all_algorithms()
+        return algos_to_run
+    return list(algorithms.all_algorithms())
+
+
+def _save_results(results_df, csv_path):
+    """Write results DataFrame to CSV and print confirmation if path given."""
+    if csv_path:
+        results_df.to_csv(csv_path)
+        print("Saved results to %s" % csv_path)
+
+
+def run_benchmark(args):
+    """Execute the benchmark run from parsed CLI arguments."""
+    print(f"Benchmark mode: {get_status_string()}")
+    _handle_print_commands(args)  # early exit paths
+
+    run_gpu = is_gpu_available() and not args.skip_gpu
+    if run_gpu:
+        setup_rmm_allocator(args.rmm_allocator)
+    args.dtype = PrecisionMap[args.dtype]
+
+    _validate_args(args, run_gpu)
+
+    bench_rows, bench_dims = _resolve_bench_dimensions(args)
+    param_lists = _build_param_override_lists(args)
+    algos_to_run = _resolve_algorithms(args)
 
     results_df = runners.run_variations(
         algos_to_run,
@@ -290,16 +251,22 @@ if __name__ == "__main__":
         bench_dims=bench_dims,
         input_type=args.input_type,
         test_fraction=args.test_split,
-        param_override_list=param_override_list,
-        cuml_param_override_list=cuml_param_override_list,
-        cpu_param_override_list=cpu_param_override_list,
-        dataset_param_override_list=dataset_param_override_list,
         dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
+        run_cuml=run_gpu,
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps,
+        **param_lists,
     )
+    _save_results(results_df, args.csv)
 
-    if args.csv:
-        results_df.to_csv(args.csv)
-        print("Saved results to %s" % args.csv)
+
+def main(argv=None):
+    """Parse arguments and run the benchmark. Returns exit code."""
+    args = build_parser().parse_args(argv)
+    run_benchmark(args)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

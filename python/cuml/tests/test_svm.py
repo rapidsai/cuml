@@ -19,6 +19,7 @@ from sklearn.datasets import (
     make_gaussian_quantiles,
     make_regression,
 )
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -26,7 +27,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,
@@ -997,3 +997,13 @@ def test_svc_precomputed_multiclass_ovo_fails():
     )
     with pytest.raises(ValueError, match="square"):
         cuml_clf.fit(K_cp, y_cp)
+
+
+def test_svr_fit_homogeneous_y():
+    """SVR fit with homogeneous y has empty coefs and just an intercept"""
+    X = np.eye(3)
+    y = np.full(3, 1.23)
+    model = cuml.SVR().fit(X, y)
+    assert (model.intercept_ == 1.23).all()
+    assert model.dual_coef_.shape == (1, 0)
+    assert (model.predict(X) == y).all()

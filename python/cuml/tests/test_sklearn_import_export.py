@@ -494,17 +494,6 @@ def test_svc_multiclass_unsupported(random_state):
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("supervised", [False, True])
-@pytest.mark.skipif(SKLEARN_18, reason="umap requires sklearn < 1.8.0")
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. This is not in cuml's control. Note: this will break when
-# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
-# need to be updated at that point.
-# See also https://github.com/lmcinnes/umap/issues/1174
-@pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
-)
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
     X, y = make_blobs(n_samples=200, random_state=random_state)
@@ -580,7 +569,7 @@ def test_nearest_neighbors(random_state, sparse):
             (50, 20), dtype="float32"
         )
 
-    cu_model = cuml.NearestNeighbors(n_neighbors=10).fit(X)
+    cu_model = cuml.NearestNeighbors(metric="minkowski", n_neighbors=10).fit(X)
     sk_model = sklearn.neighbors.NearestNeighbors(n_neighbors=10).fit(X)
 
     sk_model2 = cu_model.as_sklearn()
@@ -620,9 +609,9 @@ def test_kneighbors_regressor(random_state, sparse, n_targets, weights):
         X[X < -0.5] = 0
         X = scipy.sparse.csr_matrix(X)
 
-    cu_model = cuml.KNeighborsRegressor(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsRegressor(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsRegressor(
         n_neighbors=10, weights=weights
     ).fit(X, y)
@@ -670,9 +659,9 @@ def test_kneighbors_classifier(random_state, sparse, n_labels, weights):
 
     X = X.astype("float32")
 
-    cu_model = cuml.KNeighborsClassifier(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsClassifier(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsClassifier(
         n_neighbors=10, weights=weights
     ).fit(X, y)

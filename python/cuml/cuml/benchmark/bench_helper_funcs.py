@@ -1,24 +1,48 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import os
 import pickle as pickle
+import sys
 from time import perf_counter
 
-import cudf
-import cupy as cp
 import numpy as np
 import pandas as pd
 import sklearn.ensemble as skl_ensemble
-from numba import cuda
+from sklearn import metrics as sklearn_metrics
 
-import cuml
-from cuml.benchmark import datagen
-from cuml.fil import get_fil_device_type, set_fil_device_type
-from cuml.internals import input_utils
-from cuml.internals.device_type import DeviceType
-from cuml.manifold import UMAP
+# Supports both package and standalone execution
+try:
+    from cuml.benchmark import datagen
+    from cuml.benchmark.gpu_check import is_cuml_available
+except ImportError:
+    if not any("cuml/benchmark" in p for p in sys.path):
+        raise
+    import datagen  # noqa: E402
+    from gpu_check import is_cuml_available  # noqa: E402
+
+# Conditional GPU imports
+cudf = None
+cp = None
+cuda = None
+cuml = None
+input_utils = None
+get_fil_device_type = None
+set_fil_device_type = None
+DeviceType = None
+UMAP = None
+
+if is_cuml_available():
+    import cudf
+    import cupy as cp
+    from numba import cuda
+
+    import cuml
+    from cuml.fil import get_fil_device_type, set_fil_device_type
+    from cuml.internals import input_utils
+    from cuml.internals.device_type import DeviceType
+    from cuml.manifold import UMAP
 
 
 def call(m, func_name, X, y=None):
@@ -87,25 +111,33 @@ def _training_data_to_numpy(X, y):
     if isinstance(X, np.ndarray):
         X_np = X
         y_np = y
-    elif isinstance(X, cp.ndarray):
+    elif is_cuml_available() and isinstance(X, cp.ndarray):
         X_np = cp.asnumpy(X)
-        y_np = cp.asnumpy(y)
-    elif isinstance(X, cudf.DataFrame):
+        y_np = cp.asnumpy(y) if y is not None else None
+    elif is_cuml_available() and isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
-        y_np = y.to_numpy()
-    elif cuda.devicearray.is_cuda_ndarray(X):
+        y_np = y.to_numpy() if y is not None else None
+    elif is_cuml_available() and cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
-        y_np = y.copy_to_host()
+        y_np = y.copy_to_host() if y is not None else None
     elif isinstance(X, (pd.DataFrame, pd.Series)):
         X_np = datagen._convert_to_numpy(X)
-        y_np = datagen._convert_to_numpy(y)
+        y_np = datagen._convert_to_numpy(y) if y is not None else None
     else:
-        raise TypeError("Received unsupported input type")
+        raise TypeError("Received unsupported input type: %s" % type(X))
     return X_np, y_np
 
 
 def _build_fil_classifier(m, data, args, tmpdir):
-    """Setup function for FIL classification benchmarking"""
+    """Setup function for FIL classification benchmarking.
+
+    Note: This function requires GPU libraries (cuML) to be available.
+    """
+    if not is_cuml_available():
+        raise RuntimeError(
+            "FIL classifier requires GPU libraries (cuML). "
+            "Not available in CPU-only mode."
+        )
     import xgboost as xgb
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
@@ -158,7 +190,15 @@ class OptimizedFilWrapper:
 
 def _build_optimized_fil_classifier(m, data, args, tmpdir):
     """Setup function for FIL classification benchmarking with optimal
-    parameters"""
+    parameters.
+
+    Note: This function requires GPU libraries (cuML) to be available.
+    """
+    if not is_cuml_available():
+        raise RuntimeError(
+            "Optimized FIL classifier requires GPU libraries (cuML). "
+            "Not available in CPU-only mode."
+        )
     import xgboost as xgb
 
     with set_fil_device_type("gpu"):
@@ -228,17 +268,25 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
                 optimal_chunk_size = chunk_size
                 optimal_layout = layout
 
-        fil_kwargs["layout"] = optimal_layout
+    fil_kwargs["layout"] = optimal_layout
 
-        return OptimizedFilWrapper(
-            m.load(model_path, **fil_kwargs),
-            optimal_chunk_size,
-            infer_type=infer_type,
-        )
+    return OptimizedFilWrapper(
+        m.load(model_path, **fil_kwargs),
+        optimal_chunk_size,
+        infer_type=infer_type,
+    )
 
 
 def _build_fil_skl_classifier(m, data, args, tmpdir):
-    """Trains an SKLearn classifier and returns a FIL version of it"""
+    """Trains an SKLearn classifier and returns a FIL version of it.
+
+    Note: This function requires GPU libraries (cuML) to be available.
+    """
+    if not is_cuml_available():
+        raise RuntimeError(
+            "FIL SKLearn classifier requires GPU libraries (cuML). "
+            "Not available in CPU-only mode."
+        )
 
     train_data, train_label = _training_data_to_numpy(data[0], data[1])
 
@@ -342,22 +390,37 @@ def _build_gtil_classifier(m, data, args, tmpdir):
 def _treelite_fil_accuracy_score(y_true, y_pred):
     """Function to get correct accuracy for FIL (returns class index)"""
     # convert the input if necessary
-    y_pred1 = (
-        y_pred.copy_to_host()
-        if cuda.devicearray.is_cuda_ndarray(y_pred)
-        else y_pred
-    )
-    y_true1 = (
-        y_true.copy_to_host()
-        if cuda.devicearray.is_cuda_ndarray(y_true)
-        else y_true
-    )
-
-    y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
-    return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
+    if is_cuml_available():
+        y_pred1 = (
+            y_pred.copy_to_host()
+            if cuda.devicearray.is_cuda_ndarray(y_pred)
+            else y_pred
+        )
+        y_true1 = (
+            y_true.copy_to_host()
+            if cuda.devicearray.is_cuda_ndarray(y_true)
+            else y_true
+        )
+        y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
+        return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
+    else:
+        # CPU-only fallback using sklearn
+        y_pred_binary = (np.asarray(y_pred) > 0.5).astype(np.int32)
+        return sklearn_metrics.accuracy_score(
+            np.asarray(y_true), y_pred_binary
+        )
 
 
 def _build_mnmg_umap(m, data, args, tmpdir):
+    """Build multi-node multi-GPU UMAP model.
+
+    Note: This function requires GPU libraries (cuML) to be available.
+    """
+    if not is_cuml_available():
+        raise RuntimeError(
+            "MNMG UMAP requires GPU libraries (cuML). "
+            "Not available in CPU-only mode."
+        )
     client = args["client"]
     del args["client"]
     local_model = UMAP(**args)
