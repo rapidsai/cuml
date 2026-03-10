@@ -117,7 +117,7 @@ def test_spectral_clustering_precomputed(clustering_data):
         random_state=42,
     ).fit(affinity_matrix)
     y_pred = sc.labels_
-    adjusted_rand_score(y_true, y_pred)
+    assert adjusted_rand_score(y_true, y_pred) > 0.8
 
 
 def test_spectral_clustering_fit_predict(clustering_data):
