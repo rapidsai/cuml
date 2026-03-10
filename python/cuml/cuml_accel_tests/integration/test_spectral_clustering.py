@@ -102,7 +102,7 @@ def test_spectral_clustering_assign_labels(clustering_data, assign_labels):
         random_state=42,
     ).fit(X)
     y_pred = sc.labels_
-    adjusted_rand_score(y_true, y_pred)
+    assert adjusted_rand_score(y_true, y_pred) > 0.8
 
 
 def test_spectral_clustering_precomputed(clustering_data):
