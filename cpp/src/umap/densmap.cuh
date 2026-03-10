@@ -88,8 +88,8 @@ CUML_KERNEL void compute_ro_scatter_kernel(
   int j  = rows[idx];
   int k  = cols[idx];
   T mu_i = mu[idx];
-  T D_sq = edge_dists[idx];
-  T mu_D = mu_i * D_sq;
+  T d    = edge_dists[idx];
+  T mu_D = mu_i * d * d;
 
   atomicAdd(&ro[j], mu_D);
   atomicAdd(&ro[k], mu_D);
