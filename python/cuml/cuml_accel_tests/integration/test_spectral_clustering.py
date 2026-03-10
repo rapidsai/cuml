@@ -87,7 +87,7 @@ def test_spectral_clustering_eigen_tol(clustering_data, eigen_tol):
         random_state=42,
     ).fit(X)
     y_pred = sc.labels_
-    adjusted_rand_score(y_true, y_pred)
+    assert adjusted_rand_score(y_true, y_pred) > 0.8
 
 
 @pytest.mark.parametrize(
