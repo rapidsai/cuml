@@ -21,7 +21,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
@@ -702,6 +702,7 @@ class PCA(Base,
 
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if is_sparse(X):
             return self._transform_sparse(X)

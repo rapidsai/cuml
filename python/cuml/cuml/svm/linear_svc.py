@@ -4,6 +4,7 @@
 import cupy as cp
 import numpy as np
 from sklearn.exceptions import NotFittedError
+from sklearn.utils.metaestimators import available_if
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -24,7 +25,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -316,6 +317,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
 
+    @available_if(lambda self: self.probability)
     @generate_docstring(
         return_values={
             "name": "probs",
@@ -332,14 +334,12 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         to be available.
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         if self.prob_scale_ is None:
             raise NotFittedError(
-                "This classifier is not fitted to predict "
-                "probabilities. Fit a new classifier with "
-                "probability=True to enable predict_proba."
+                "predict_proba is not available when fitted with probability=False"
             )
-
         scores = self.decision_function(X, convert_dtype=convert_dtype)
         scores = input_to_cuml_array(
             scores,
@@ -352,6 +352,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             n_streams=self.n_streams,
         )
 
+    @available_if(lambda self: self.probability)
     @generate_docstring(
         return_values={
             "name": "probs",

@@ -257,11 +257,16 @@ def test_svc_predict_proba_not_available():
     X, y = make_classification()
     model = cuml.SVC().fit(X, y)
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_proba(X)
+    assert not hasattr(model, "predict_proba")
+    assert not hasattr(model, "predict_log_proba")
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_log_proba(X)
+    # Setting `probability=True` makes the attribute available, but
+    # calling it raises a NotFittedError until refit
+    model.probability = True
+    assert hasattr(model, "predict_proba")
+
+    with pytest.raises(NotFittedError, match="fitted with probability=False"):
+        model.predict_proba(X)
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore

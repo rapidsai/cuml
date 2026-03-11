@@ -322,7 +322,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[brute]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[kd_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_train_is_not_query"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier_predict_proba[float64]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier_sparse"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_regressor_sparse"
@@ -813,8 +812,6 @@
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
   tests:
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LedoitWolf()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LogisticRegression()]"
   - "sklearn.tests.test_common::test_pandas_column_name_consistency[HalvingGridSearchCV(cv=2,estimator=LogisticRegression(),min_resources='smallest',param_grid={'C':[0.1,1.0]},random_state=0)0]"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
   marker: cuml_accel_bugs
@@ -869,56 +866,6 @@
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.utils.tests.test_estimator_checks::test_estimator_with_set_output"
-- reason: cuml raises a different error if X doesn't have expected n features
-  marker: cuml_accel_check_n_features_in
-  condition: scikit-learn<1.6
-  tests:
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[ElasticNet()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KMeans()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsClassifier()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KNeighborsRegressor()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelDensity()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[KernelRidge()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Lasso()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearRegression()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[PCA()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[RandomForestClassifier()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[RandomForestRegressor()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[Ridge()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVC()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SVR()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[TruncatedSVD()]"
-- reason: cuml raises a different error if X doesn't have expected n features
-  marker: cuml_accel_check_n_features_in
-  condition: scikit-learn<1.6
-  strict: false
-  tests:
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[SpectralEmbedding()]"
-- reason: cuml raises a different error if X doesn't have expected n features
-  marker: cuml_accel_check_n_features_in
-  condition: scikit-learn==1.7.*
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_n_features_in_after_fitting]"
-- reason: cuml raises a different error if X doesn't have expected n features
-  marker: cuml_accel_check_n_features_in
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_n_features_in_after_fitting]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_n_features_in_after_fitting]"
 - reason: cuml doesn't set `feature_names_in_` properly
   marker: cuml_accel_feature_names_in
   tests:
@@ -1298,7 +1245,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_decision_function]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train(readonly_memmap=True,X_dtype=float32)]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_estimators_empty_data_messages]"
@@ -1321,7 +1267,6 @@
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[StandardScaler()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
@@ -1493,17 +1438,10 @@
   - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-hinge]"
   - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-squared_hinge]"
 - reason: LinearSVM
-  condition: scikit-learn<=1.6
-  tests:
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVC()]"
-  - "sklearn.tests.test_common::test_check_n_features_in_after_fitting[LinearSVR()]"
-- reason: LinearSVM
   condition: scikit-learn>=1.7
   tests:
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_sparse_data]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_n_features_in_after_fitting]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weight_equivalence_on_sparse_data]"
 - reason: LinearSVM
@@ -1518,7 +1456,6 @@
   - "sklearn.svm.tests.test_sparse::test_sparse_liblinear_intercept_handling"
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
   - "sklearn.tests.test_calibration::test_calibration_default_estimator"
-  - "sklearn.tests.test_calibration::test_calibration_inconsistent_prefit_n_features_in"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
