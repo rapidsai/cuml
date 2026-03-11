@@ -13,6 +13,7 @@ import umap
 from numpy.testing import assert_allclose
 from packaging.version import Version
 from sklearn.cluster import KMeans as SkKMeans
+from sklearn.cluster import SpectralClustering as SkSpectralClustering
 from sklearn.datasets import (
     make_blobs,
     make_classification,
@@ -205,10 +206,7 @@ def test_spectral_clustering(random_state):
         n_neighbors=10,
         random_state=random_state,
     )
-    original.fit(X)
-    sklearn_model = original.as_sklearn()
-    roundtrip_model = SpectralClustering.from_sklearn(sklearn_model)
-    assert array_equal(original.labels_, roundtrip_model.labels_)
+    assert_estimator_roundtrip(original, SkSpectralClustering, X)
 
 
 def test_pca(random_state):

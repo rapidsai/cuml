@@ -113,6 +113,9 @@ SpectralClustering
 
 - If ``assign_labels`` is not ``"kmeans"``.
 - If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+  Note that the default value of ``affinity`` in scikit-learn is ``"rbf"``,
+  which is not GPU-accelerated.
+- If ``X`` is sparse.
 
 The following fitted attributes are currently not computed:
 

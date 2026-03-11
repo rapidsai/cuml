@@ -7,7 +7,13 @@ from functools import partial
 import pytest
 from sklearn.utils import estimator_checks
 
-from cuml.cluster import DBSCAN, HDBSCAN, AgglomerativeClustering, KMeans
+from cuml.cluster import (
+    DBSCAN,
+    HDBSCAN,
+    AgglomerativeClustering,
+    KMeans,
+    SpectralClustering,
+)
 from cuml.covariance import LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -77,6 +83,7 @@ ESTIMATORS = [
     RandomForestClassifier(),
     RandomForestRegressor(),
     KMeans(),
+    SpectralClustering(),
     LogisticRegression(),
 ]
 
@@ -468,6 +475,13 @@ XFAILS = {
         "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
         "check_fit1d": "AgglomerativeClustering does not raise ValueError for 1D input",
     },
+    SpectralClustering: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_n_features_in_after_fitting": "SpectralClustering does not check n_features_in consistency",
+        "check_dtype_object": "SpectralClustering does not handle object dtype",
+        "check_estimators_empty_data_messages": "SpectralClustering does not handle empty data",
+        "check_estimators_nan_inf": "SpectralClustering does not check for NaN and inf",
+    },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_n_features_in_after_fitting": "GaussianNB does not check n_features_in consistency",
@@ -672,8 +686,8 @@ def test_sklearn_compatible_estimator(estimator, check):
     check_name = _check_name(check)
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
-        estimator, UMAP
+        estimator, (UMAP, SpectralClustering)
     ):
-        pytest.skip("UMAP does not handle Nans and infinities")
+        pytest.skip("Estimator does not handle NaN and infinities")
 
     check(estimator)
