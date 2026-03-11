@@ -322,7 +322,6 @@
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[ball_tree]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[brute]"
   - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_duplicates[kd_tree]"
-  - "sklearn.neighbors.tests.test_neighbors::test_k_and_radius_neighbors_train_is_not_query"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier_predict_proba[float64]"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_classifier_sparse"
   - "sklearn.neighbors.tests.test_neighbors::test_kneighbors_regressor_sparse"
