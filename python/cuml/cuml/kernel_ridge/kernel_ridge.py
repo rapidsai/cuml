@@ -22,7 +22,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.metrics import pairwise_kernels
 
 
@@ -335,6 +335,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             Returns predicted values.
         """
         check_is_fitted(self)
+        check_features(self, X)
 
         dtype = self.X_fit_.dtype
 

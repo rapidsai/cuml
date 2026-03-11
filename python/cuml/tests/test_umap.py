@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
+import platform
 
 import cupy as cp
 import cupyx
 import joblib
+import numba
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
 import umap
+from packaging.version import Version
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
@@ -682,6 +685,11 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.filterwarnings(
     "ignore:Graph is not fully connected.*:UserWarning"
 )
+@pytest.mark.xfail(
+    Version(numba.__version__) >= Version("0.62.0"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -1153,6 +1161,11 @@ def test_umap_custom_init_errors():
         model.fit(data)
 
 
+@pytest.mark.xfail(
+    Version(numba.__version__) >= Version("0.62.0"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_umap_sigmas_rhos():
     """Test that sigmas and rhos are correctly produced and valid."""
     n_samples = 200
@@ -1188,6 +1201,12 @@ def test_umap_sigmas_rhos():
     np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
 
 
+@pytest.mark.xfail(
+    (Version(numba.__version__) >= Version("0.62.0"))
+    and (platform.machine() == "x86_64"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_inverse_transform():
     """Test cuML UMAP inverse_transform produces valid output."""
     X, _ = make_blobs(n_samples=200, n_features=10, centers=4, random_state=42)

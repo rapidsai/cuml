@@ -55,7 +55,7 @@ cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tre
 To build cuML's Python package, the following dependencies are required:
 
 - cudatoolkit version corresponding to system CUDA toolkit
-- cython >=3.0.0
+- cython >=3.2.2
 - numpy
 - cmake >=3.30.4
 - cudf version matching the cuML version

@@ -10,6 +10,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.validation import check_features
 from cuml.metrics import r2_score
 
 
@@ -250,6 +251,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
+        check_features(self, X)
         preds = fil.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match

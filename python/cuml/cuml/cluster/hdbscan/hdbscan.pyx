@@ -18,7 +18,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_features, check_is_fitted
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
@@ -1223,6 +1223,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         in ``membership_vectors[i, j]``.
     """
     _check_clusterer(clusterer)
+    check_features(clusterer, points_to_predict)
 
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
@@ -1311,6 +1312,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         The soft cluster scores for each of the ``points_to_predict``
     """
     _check_clusterer(clusterer)
+    check_features(clusterer, points_to_predict)
 
     if clusterer.n_clusters_ == 0:
         logger.warn(

@@ -17,10 +17,12 @@ range of parameters and synthetic dataset configurations.
 
 import cupy as cp
 import hypothesis
+import numba
 import numpy as np
 import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
+from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import (
     make_circles,
@@ -974,6 +976,11 @@ def evaluate_fuzzy_quality(
     return should_fail, fail_reason, metrics_dict
 
 
+@pytest.mark.xfail(
+    Version(numba.__version__) >= Version("0.62.0"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 @pytest.mark.slow
 @settings(
     max_examples=5,  # Random testing across dataset types
