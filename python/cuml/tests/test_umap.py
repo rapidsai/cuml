@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
+import platform
 
 import cupy as cp
 import cupyx
@@ -1201,7 +1202,8 @@ def test_umap_sigmas_rhos():
 
 
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
+    (Version(numba.__version__) >= Version("0.62.0"))
+    and (platform.machine() == "x86_64"),
     reason="Upstream regression in umap with numba >= 0.62.0",
     strict=True,
 )
