@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
@@ -189,15 +189,11 @@ class InteropMixin:
             If one or more attributes are unsupported by the CPU model.
         """
         out = {}
-        if (
-            n_features_in_ := getattr(self, "n_features_in_", None)
-        ) is not None:
-            out["n_features_in_"] = n_features_in_
-
-        # TODO: Some cuml estimators set `feature_names_in_`, but they don't
-        # do this properly per sklearn conventions. For now we skip forwarding
-        # feature_names_in_ to CPU. Revisit once
-        # https://github.com/rapidsai/cuml/issues/6650 is resolved.
+        for name in ["n_features_in_", "feature_names_in_"]:
+            try:
+                out[name] = getattr(self, name)
+            except AttributeError:
+                pass
         return out
 
     def _sync_attrs_to_cpu(self, model) -> None:

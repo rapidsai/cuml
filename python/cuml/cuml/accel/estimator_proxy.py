@@ -422,12 +422,9 @@ class ProxyBase(BaseEstimator):
             try:
                 return getattr(self._cpu, name)
             except AttributeError:
-                # We special case `feature_names_in_` here since it's the only common
-                # fitted attribute that cuml doesn't support anywhere.
-                if (
-                    name in self._not_implemented_attributes
-                    or name == "feature_names_in_"
-                ) and is_fitted(self._cpu):
+                if name in self._not_implemented_attributes and is_fitted(
+                    self._cpu
+                ):
                     raise AttributeError(
                         f"The `{type(self).__name__}.{name}` attribute is not yet "
                         "implemented in `cuml.accel`.\n\n"

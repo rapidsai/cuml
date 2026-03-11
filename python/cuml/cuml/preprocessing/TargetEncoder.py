@@ -394,10 +394,6 @@ class TargetEncoder(Base, InteropMixin):
 
         self._x_cols = x_cols
 
-        # Set feature_names_in_ if input has column names (DataFrame)
-        if hasattr(x, "columns"):
-            self.feature_names_in_ = np.asarray(x.columns, dtype=object)
-
         # Extract unique categories for each feature (sorted for consistency)
         self.categories_ = []
         for col in x_cols:
