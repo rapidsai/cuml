@@ -27,16 +27,21 @@ def test_spectral_clustering_default(clustering_data):
 
 
 @pytest.mark.parametrize("n_clusters", [2, 3, 4, 5])
-def test_spectral_clustering_n_clusters(clustering_data, n_clusters):
-    X, y_true = clustering_data
+def test_spectral_clustering_n_clusters(n_clusters):
+    X, y_true = make_blobs(
+        n_samples=300,
+        centers=n_clusters,
+        cluster_std=1.0,
+        random_state=42,
+    )
+    X = X.astype(np.float32)
     sc = SpectralClustering(
         n_clusters=n_clusters,
         affinity="nearest_neighbors",
         random_state=42,
     ).fit(X)
     y_pred = sc.labels_
-    if n_clusters == 3:
-        assert adjusted_rand_score(y_true, y_pred) > 0.8
+    assert adjusted_rand_score(y_true, y_pred) > 0.8
 
 
 @pytest.mark.parametrize("n_neighbors", [5, 10, 20])
