@@ -477,7 +477,6 @@ XFAILS = {
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_n_features_in_after_fitting": "SpectralClustering does not check n_features_in consistency",
         "check_dtype_object": "SpectralClustering does not handle object dtype",
         "check_estimators_empty_data_messages": "SpectralClustering does not handle empty data",
         "check_estimators_nan_inf": "SpectralClustering does not check for NaN and inf",
@@ -684,6 +683,13 @@ def test_sklearn_compatible_estimator(estimator, check):
         )
 
     check_name = _check_name(check)
+
+    if check_name in ["check_n_features_in_after_fitting"] and isinstance(
+        estimator, SpectralClustering
+    ):
+        pytest.skip(
+            "SpectralClustering does not check n_features_in consistency"
+        )
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
         estimator, (UMAP, SpectralClustering)
