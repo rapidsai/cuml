@@ -1,14 +1,28 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import warnings
+from contextlib import contextmanager
+
+import cudf
 import cupy as cp
 import numpy as np
+import pandas as pd
 import pytest
 
 from cuml.internals.validation import (
+    _get_feature_names,
     _get_n_features,
     check_features,
     check_random_seed,
 )
+
+
+@contextmanager
+def assert_no_warnings():
+    """Small helper for asserting no warnings raised"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        yield
 
 
 @pytest.mark.parametrize(
@@ -70,18 +84,82 @@ def test_get_n_features():
     assert _get_n_features([{"a": 1, "b": 2}, {"c": 3}]) == 1
 
 
-def test_check_features_n_features_in():
-    class MyModel:
-        def fit(self, X, y=None):
-            check_features(self, X, reset=True)
-            return self
+def test_get_feature_names():
+    def assert_names(df, sol):
+        names = _get_feature_names(df)
+        if sol is None:
+            assert names is None
+        else:
+            assert isinstance(names, np.ndarray)
+            assert names.dtype == "object"
+            assert (names == sol).all()
 
-        def predict(self, X):
-            check_features(self, X)
+    class DataFrameInterfaceOnly:
+        def __init__(self, df):
+            self.df = df
 
+        def __dataframe__(self):
+            return self.df.__dataframe__()
+
+    # Non-dataframe-like objects return None
+    assert_names(None, None)
+    assert_names([1, 2], None)
+    assert_names(np.array([[1, 2], [3, 4]]), None)
+
+    # 0-column frames return None
+    empty = pd.DataFrame({})
+    assert_names(empty, None)
+    assert_names(cudf.DataFrame(empty), None)
+    assert_names(DataFrameInterfaceOnly(empty), None)
+
+    # str-names return object arrays
+    df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    assert_names(df, ["a", "b"])
+    assert_names(cudf.DataFrame(df), ["a", "b"])
+    assert_names(DataFrameInterfaceOnly(df), ["a", "b"])
+
+    # Fully non-str names are fully ignored
+    df_int = pd.DataFrame({0: [1, 2], 1: [3, 4]})
+    assert_names(df_int, None)
+
+    # Mixed str & non-str names warn
+    df_mixed = pd.DataFrame({"a": [1, 2], 1: [3, 4]})
+    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+        _get_feature_names(df_mixed)
+    assert "all input features have string names" in str(rec[0].message)
+
+
+class MyModel:
+    def fit(self, X, y=None):
+        check_features(self, X, reset=True)
+        return self
+
+    def predict(self, X):
+        check_features(self, X)
+
+
+def test_check_features_reset_true():
     X = np.ones((3, 2))
+    df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+
     model = MyModel().fit(X)
     assert model.n_features_in_ == 2
+    assert not hasattr(model, "feature_names_in_")
+
+    model = MyModel().fit(df)
+    assert model.n_features_in_ == 2
+    assert (model.feature_names_in_ == ["a", "b"]).all()
+
+    # refitting without feature names clears
+    model.fit(X)
+    assert model.n_features_in_ == 2
+    assert not hasattr(model, "feature_names_in_")
+
+
+def test_check_n_features_in():
+    X = np.ones((3, 2))
+    model = MyModel().fit(X)
+    # no error
     model.predict(X)
 
     with pytest.raises(
@@ -89,3 +167,58 @@ def test_check_features_n_features_in():
         match="X has 3 features, but MyModel is expecting 2 features as input",
     ):
         model.predict(np.ones((3, 3)))
+
+
+def test_fit_and_predict_with_and_without_feature_names_warnings():
+    X_unnamed = np.ones((3, 2))
+    X_named = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+
+    est_unnamed = MyModel().fit(X_unnamed)
+    est_named = MyModel().fit(X_named)
+
+    with assert_no_warnings():
+        est_unnamed.predict(X_unnamed)
+
+    with assert_no_warnings():
+        est_named.predict(X_named)
+
+    with pytest.warns(UserWarning, match="X has feature names"):
+        est_unnamed.predict(X_named)
+
+    with pytest.warns(
+        UserWarning, match="X does not have valid feature names"
+    ):
+        est_named.predict(X_unnamed)
+
+
+def test_feature_names_mismatch_warnings():
+    X = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
+
+    # Correct names are fine
+    model = MyModel().fit(X)
+    with assert_no_warnings():
+        model.predict(X)
+
+    # Missing column
+    bad = pd.DataFrame({"a": [1], "b": [2]})
+    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+        # TODO: in 26.06 the FutureWarning will become an error,
+        # and this raises check can go away.
+        with pytest.raises(ValueError, match="X has 2 features"):
+            model.predict(bad)
+    assert "Feature names seen at fit time" in str(rec[0].message)
+
+    # Extra column
+    bad = pd.DataFrame({"a": [1], "b": [2], "c": [3], "d": [4]})
+    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+        # TODO: in 26.06 the FutureWarning will become an error,
+        # and this raises check can go away.
+        with pytest.raises(ValueError, match="X has 4 features"):
+            model.predict(bad)
+    assert "Feature names unseen at fit time" in str(rec[0].message)
+
+    # Reordered columns
+    bad = pd.DataFrame({"a": [1], "c": [3], "b": [2]})
+    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+        model.predict(bad)
+    assert "Feature names must be in the same order" in str(rec[0].message)
