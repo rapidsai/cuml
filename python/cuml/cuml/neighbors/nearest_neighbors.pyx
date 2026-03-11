@@ -783,13 +783,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         if n_neighbors > self.n_samples_fit_:
             raise ValueError("n_neighbors must be <= number of samples in index")
 
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"Dimensions of X need to match dimensions of indices "
-                f"({self.n_features_in_})"
-            )
-
-        if hasattr(self, '_fit_X') and isinstance(self._fit_X, SparseCumlArray):
+        if isinstance(self._fit_X, SparseCumlArray):
             distances, indices = self._kneighbors_sparse(X, n_neighbors)
         else:
             distances, indices = self._kneighbors_dense(

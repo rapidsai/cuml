@@ -39,12 +39,12 @@ class BaseEncoder(Base):
         if self.input_type is None:
             self.input_type = value
 
-    def _check_features(self, X, reset: bool = False):
+    def _set_features(self, X):
         # TODO: drop this whole method when check_features supports
         # feature_names_in_. This implementation here is wrong anyway.
         if hasattr(X, "columns"):
             self.feature_names_in_ = [str(c) for c in X.columns]
-        check_features(self, X, reset=reset)
+        check_features(self, X, reset=True)
 
     def _check_input(self, X, is_categories=False):
         """If input is cupy, convert it to a DataFrame with 0 copies."""
@@ -59,7 +59,7 @@ class BaseEncoder(Base):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function used in fit, can be overridden in subclasses."""
-        self._check_features(X, reset=True)
+        self._set_features(X)
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
@@ -82,7 +82,7 @@ class BaseEncoder(Base):
                 for feature in self._features
             }
         else:
-            self.categories = self._check_input_fit(self.categories, True)
+            self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
                 raise ValueError(
@@ -335,6 +335,7 @@ class OneHotEncoder(BaseEncoder):
     def transform(self, X):
         """Transform X using one-hot encoding."""
         check_is_fitted(self)
+        check_features(self, X)
 
         X = self._check_input(X)
 

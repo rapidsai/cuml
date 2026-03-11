@@ -55,14 +55,20 @@ def check_random_seed(random_state) -> int:
 
 def _get_n_features(X):
     if isinstance(X, (list, tuple)):
+        if len(X) == 0:
+            return 0
+        row = X[0]
         # For non-array inputs, we assume that all nested lists have the same
         # length. This matches sklearn's implementation as well. If this
         # assumption isn't true, then later validation code will error anyway.
-        try:
-            row = X[0]
-            return len(row) if isinstance(row, (list, tuple)) else 1
-        except Exception:
-            pass
+        # We only take the length of sub-sequences that numpy wouldn't treat as
+        # single elements.
+        if not isinstance(row, (str, bytes, dict)):
+            try:
+                return len(row)
+            except Exception:
+                pass
+        return 1
 
     if hasattr(X, "shape"):
         shape = X.shape

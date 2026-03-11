@@ -60,9 +60,14 @@ def test_get_n_features():
     assert _get_n_features(ArrayInterfaceOnly(x)) == 2
     assert _get_n_features(cx) == 2
     assert _get_n_features(ArrayInterfaceOnly(cx)) == 2
+
     assert _get_n_features([[1, 2, 3], [3, 4, 5]]) == 3
+    assert _get_n_features([np.array([1, 2])]) == 2
+    assert _get_n_features([]) == 0
     assert _get_n_features([1, 2, 3]) == 1
     assert _get_n_features(["a", "b", "c"]) == 1
+    assert _get_n_features([b"a", b"b", b"c"]) == 1
+    assert _get_n_features([{"a": 1, "b": 2}, {"c": 3}]) == 1
 
 
 def test_check_features_n_features_in():
