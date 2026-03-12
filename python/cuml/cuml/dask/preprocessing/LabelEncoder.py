@@ -1,13 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from collections.abc import Sequence
 
 from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
+from sklearn.exceptions import NotFittedError
 from toolz import first
 
-from cuml.common.exceptions import NotFittedError
 from cuml.dask.common.base import (
     BaseEstimator,
     DelayedInverseTransformMixin,

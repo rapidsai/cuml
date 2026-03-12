@@ -19,6 +19,7 @@ from sklearn.datasets import (
     make_gaussian_quantiles,
     make_regression,
 )
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -26,7 +27,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,
@@ -257,11 +257,16 @@ def test_svc_predict_proba_not_available():
     X, y = make_classification()
     model = cuml.SVC().fit(X, y)
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_proba(X)
+    assert not hasattr(model, "predict_proba")
+    assert not hasattr(model, "predict_log_proba")
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_log_proba(X)
+    # Setting `probability=True` makes the attribute available, but
+    # calling it raises a NotFittedError until refit
+    model.probability = True
+    assert hasattr(model, "predict_proba")
+
+    with pytest.raises(NotFittedError, match="fitted with probability=False"):
+        model.predict_proba(X)
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
@@ -997,3 +1002,13 @@ def test_svc_precomputed_multiclass_ovo_fails():
     )
     with pytest.raises(ValueError, match="square"):
         cuml_clf.fit(K_cp, y_cp)
+
+
+def test_svr_fit_homogeneous_y():
+    """SVR fit with homogeneous y has empty coefs and just an intercept"""
+    X = np.eye(3)
+    y = np.full(3, 1.23)
+    model = cuml.SVR().fit(X, y)
+    assert (model.intercept_ == 1.23).all()
+    assert model.dual_coef_.shape == (1, 0)
+    assert (model.predict(X) == y).all()

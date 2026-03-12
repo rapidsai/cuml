@@ -186,7 +186,13 @@ def install(
             import rmm
 
             mr = rmm.mr.get_current_device_resource()
-            if isinstance(mr, rmm.mr.ManagedMemoryResource):
+            if (
+                isinstance(mr, rmm.mr.PrefetchResourceAdaptor)
+                and isinstance(mr.upstream_mr, rmm.mr.PoolMemoryResource)
+                and isinstance(
+                    mr.upstream_mr.upstream_mr, rmm.mr.ManagedMemoryResource
+                )
+            ):
                 # Nothing to do
                 pass
             elif not isinstance(mr, rmm.mr.CudaMemoryResource):
@@ -196,7 +202,11 @@ def install(
                 )
             else:
                 rmm.mr.set_current_device_resource(
-                    rmm.mr.ManagedMemoryResource()
+                    rmm.mr.PrefetchResourceAdaptor(
+                        rmm.mr.PoolMemoryResource(
+                            rmm.mr.ManagedMemoryResource()
+                        )
+                    )
                 )
                 logger.debug("Enabled managed memory.")
         else:

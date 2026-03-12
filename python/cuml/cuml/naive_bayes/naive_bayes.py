@@ -16,7 +16,8 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.prims.label.classlabels import make_monotonic
 
 _binarize = cp.ElementwiseKernel(
@@ -196,6 +197,9 @@ class _BaseNB(Base, ClassifierMixin):
         Perform classification on an array of test vectors X.
 
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -236,6 +240,9 @@ class _BaseNB(Base, ClassifierMixin):
         Return log-probability estimates for the test vector X.
 
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
             index = None
@@ -350,7 +357,7 @@ class GaussianNB(_BaseNB):
         self.priors = priors
         self.var_smoothing = var_smoothing
 
-    @reflect(reset=True)
+    @run_in_internal_context
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -376,7 +383,6 @@ class GaussianNB(_BaseNB):
     @nvtx.annotate(
         message="naive_bayes.GaussianNB._partial_fit", domain="cuml_python"
     )
-    @reflect(reset=True)
     def _partial_fit(
         self,
         X,
@@ -388,10 +394,15 @@ class GaussianNB(_BaseNB):
     ) -> "GaussianNB":
         first_call = _refit or not hasattr(self, "classes_")
 
-        if first_call and _classes is None:
-            raise ValueError(
-                "classes must be passed on the first call to partial_fit."
-            )
+        if first_call:
+            if _classes is None:
+                raise ValueError(
+                    "classes must be passed on the first call to partial_fit."
+                )
+            self._set_output_type(X)
+            check_features(self, X, reset=True)
+        else:
+            check_features(self, X)
 
         if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
@@ -521,7 +532,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
-    @reflect(reset=True)
+    @run_in_internal_context
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -788,7 +799,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -math.log(self.n_classes_)
             )
 
-    @reflect(reset=True)
+    @run_in_internal_context
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "_BaseDiscreteNB":
@@ -833,7 +844,6 @@ class _BaseDiscreteNB(_BaseNB):
         message="naive_bayes._BaseDiscreteNB._partial_fit",
         domain="cuml_python",
     )
-    @reflect(reset=True)
     def _partial_fit(
         self,
         X,
@@ -844,6 +854,12 @@ class _BaseDiscreteNB(_BaseNB):
         convert_dtype=True,
     ) -> "_BaseDiscreteNB":
         first_call = _refit or not hasattr(self, "classes_")
+
+        if first_call:
+            self._set_output_type(X)
+            check_features(self, X, reset=True)
+        else:
+            check_features(self, X)
 
         if self.alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
@@ -904,7 +920,7 @@ class _BaseDiscreteNB(_BaseNB):
         self._update_class_log_prior(class_prior=self.class_prior)
         return self
 
-    @reflect(reset=True)
+    @run_in_internal_context
     def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
@@ -1349,6 +1365,10 @@ class ComplementNB(_BaseDiscreteNB):
         )
         self.norm = norm
 
+    @staticmethod
+    def _more_static_tags():
+        return {"requires_positive_X": True}
+
     def _check_X(self, X):
         X = super()._check_X(X)
         if cupyx.scipy.sparse.isspmatrix(X):
@@ -1491,6 +1511,10 @@ class CategoricalNB(_BaseDiscreteNB):
             output_type=output_type,
             verbose=verbose,
         )
+
+    @staticmethod
+    def _more_static_tags():
+        return {"requires_positive_X": True}
 
     def _check_X_y(self, X, y):
         """

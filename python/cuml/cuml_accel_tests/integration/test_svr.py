@@ -77,3 +77,13 @@ def test_svr_precomputed_train_test():
     # Just check it runs and produces reasonable output
     predictions = svr.predict(K_test)
     assert predictions.shape == y_test.shape
+
+
+def test_svr_fit_n_support_0():
+    X = np.eye(3)
+    y = np.full(3, 1.23)
+    model = SVR().fit(X, y)
+    assert (model.intercept_ == 1.23).all()
+    assert (model.n_support_ == 0).all()
+    assert model.dual_coef_.shape == (1, 0)
+    assert (model.predict(X) == y).all()
