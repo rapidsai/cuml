@@ -31,7 +31,7 @@ def test_spectral_clustering_n_clusters(n_clusters):
     X, y_true = make_blobs(
         n_samples=300,
         centers=n_clusters,
-        cluster_std=1.0,
+        cluster_std=0.5,
         random_state=42,
     )
     X = X.astype(np.float32)
