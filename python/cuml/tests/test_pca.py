@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,9 +12,9 @@ from packaging.version import Version
 from sklearn import datasets
 from sklearn.datasets import make_blobs, make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
+from sklearn.exceptions import NotFittedError
 
 from cuml import PCA as cuPCA
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     array_equal,
     quality_param,

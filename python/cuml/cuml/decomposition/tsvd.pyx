@@ -13,6 +13,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
+from cuml.internals.validation import check_features, check_is_fitted
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -400,6 +401,8 @@ class TruncatedSVD(Base,
         Returns X_original whose transform would be X.
 
         """
+        check_is_fitted(self)
+
         dtype = self.components_.dtype
         X_m, n_rows, _, _ = input_to_cuml_array(
             X,
@@ -455,6 +458,9 @@ class TruncatedSVD(Base,
         Perform dimensionality reduction on X.
 
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         dtype = self.components_.dtype
         X_m, n_rows, _, _ = input_to_cuml_array(
             X,

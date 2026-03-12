@@ -12,37 +12,13 @@ from cudf import Index
 
 import cuml.internals.logger as logger
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 
-class CheckFeaturesMixIn:
-    def _check_n_features(self, X, reset: bool = False):
-        n_features = X.shape[1]
-        if reset:
-            self.n_features_in_ = n_features
-            if hasattr(X, "columns"):
-                self.feature_names_in_ = [str(c) for c in X.columns]
-        else:
-            if not hasattr(self, "n_features_in_"):
-                raise RuntimeError(
-                    "The reset parameter is False but there is no "
-                    "n_features_in_ attribute. Is this estimator fitted?"
-                )
-            if n_features != self.n_features_in_:
-                raise ValueError(
-                    "X has {} features, but this {} is expecting {} features "
-                    "as input.".format(
-                        n_features,
-                        self.__class__.__name__,
-                        self.n_features_in_,
-                    )
-                )
-
-
-class BaseEncoder(Base, CheckFeaturesMixIn):
+class BaseEncoder(Base):
     """Base implementation for encoding categorical values, uses
     :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
 
@@ -63,6 +39,13 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
         if self.input_type is None:
             self.input_type = value
 
+    def _set_features(self, X):
+        # TODO: drop this whole method when check_features supports
+        # feature_names_in_. This implementation here is wrong anyway.
+        if hasattr(X, "columns"):
+            self.feature_names_in_ = [str(c) for c in X.columns]
+        check_features(self, X, reset=True)
+
     def _check_input(self, X, is_categories=False):
         """If input is cupy, convert it to a DataFrame with 0 copies."""
         if isinstance(X, cp.ndarray):
@@ -76,7 +59,7 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function used in fit, can be overridden in subclasses."""
-        self._check_n_features(X, reset=True)
+        self._set_features(X)
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
@@ -99,7 +82,7 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
                 for feature in self._features
             }
         else:
-            self.categories = self._check_input_fit(self.categories, True)
+            self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
                 raise ValueError(
@@ -228,7 +211,6 @@ class OneHotEncoder(BaseEncoder):
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
-        self._fitted = False
         self.drop_idx_ = None
         self._features = None
         self._encoders = None
@@ -258,13 +240,10 @@ class OneHotEncoder(BaseEncoder):
                 "zero."
             )
 
-    def _check_is_fitted(self):
-        if not self._fitted:
-            msg = (
-                "This OneHotEncoder instance is not fitted yet. Call 'fit' "
-                "with appropriate arguments before using this estimator."
-            )
-            raise NotFittedError(msg)
+    def __sklearn_is_fitted__(self):
+        # TODO: fix state management of this class so `check_is_fitted` works
+        # without special casing
+        return getattr(self, "_fitted", False)
 
     def _compute_drop_idx(self):
         """Helper to compute indices to drop from category to drop."""
@@ -317,10 +296,6 @@ class OneHotEncoder(BaseEncoder):
             )
             raise ValueError(msg.format(type(self.drop)))
 
-    def _check_input_fit(self, X, is_categories=False):
-        """Helper function used in fit. Can be overridden in subclasses."""
-        return self._check_input(X, is_categories=is_categories)
-
     def _has_unknown(self, X_cat, encoder_cat):
         """Check if X_cat has categories that are not present in encoder_cat."""
         if X_cat.dtype != encoder_cat.dtype:
@@ -359,7 +334,9 @@ class OneHotEncoder(BaseEncoder):
     )
     def transform(self, X):
         """Transform X using one-hot encoding."""
-        self._check_is_fitted()
+        check_is_fitted(self)
+        check_features(self, X)
+
         X = self._check_input(X)
 
         cols, rows = list(), list()
@@ -457,7 +434,8 @@ class OneHotEncoder(BaseEncoder):
         X_tr : cudf.DataFrame or cupy.ndarray
             Inverse transformed array.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         if cupyx.scipy.sparse.issparse(X):
             # cupyx.scipy.sparse 7.x does not support argmax,
             # when we upgrade cupy to 8.x, we should add a condition in the
@@ -529,7 +507,8 @@ class OneHotEncoder(BaseEncoder):
         output_feature_names : ndarray of shape (n_output_features,)
             Array of feature names.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         cats = self.categories_
         if input_features is None:
             input_features = ["x%d" % i for i in range(len(cats))]
@@ -659,7 +638,8 @@ class OrdinalEncoder(BaseEncoder):
     )
     def transform(self, X):
         """Transform X using ordinal encoding."""
-        self._check_n_features(X, reset=False)
+        check_is_fitted(self)
+        check_features(self, X)
 
         result = {}
         for feature in self._features:
@@ -696,7 +676,7 @@ class OrdinalEncoder(BaseEncoder):
         X_tr : Type is specified by the `output_type` parameter.
             Inverse transformed array.
         """
-        self._check_n_features(X, reset=False)
+        check_is_fitted(self)
 
         result = {}
         for feature in self._features:

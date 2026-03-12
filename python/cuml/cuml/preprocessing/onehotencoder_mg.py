@@ -27,7 +27,7 @@ class OneHotEncoderMG(OneHotEncoder):
 
         from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
-        self._check_n_features(X, reset=True)
+        self._set_features(X)
 
         if isinstance(X, (dask.array.core.Array, cp.ndarray)):
             self._set_input_type("array")

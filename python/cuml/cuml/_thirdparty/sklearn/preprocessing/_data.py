@@ -41,6 +41,7 @@ from cuml.internals.mixins import (
     StatelessTagMixin,
 )
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.validation import check_is_fitted
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array import CumlArray
@@ -59,11 +60,7 @@ from ..utils.sparsefuncs import (
     mean_variance_axis,
     min_max_axis,
 )
-from ..utils.validation import (
-    FLOAT_DTYPES,
-    check_is_fitted,
-    check_random_state,
-)
+from ..utils.validation import FLOAT_DTYPES, check_random_state
 
 BOUNDS_THRESHOLD = 1e-7
 
