@@ -752,7 +752,6 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
-  - "sklearn.tests.test_pipeline::test_pipeline_set_output_integration"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6

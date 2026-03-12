@@ -98,7 +98,7 @@ def _warn_or_error(exc_cls, msg):
         warnings.warn(
             "cuml is adding support for `feature_names_in_` for validating "
             "the feature names of dataframe-like inputs. In cuml 26.06 this "
-            f"will raise the following error message:\n\n{msg}",
+            f"will error with the following message:\n\n{msg}",
             FutureWarning,
         )
 
