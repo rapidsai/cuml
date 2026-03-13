@@ -73,7 +73,10 @@ class BaseEstimator(Base):
             The validated input. A tuple is returned if `y` is not None.
         """
         if check_params.get('ensure_2d', True) and not reset:
-            # `reset=True` should be handled by `reflect`
+            # The `reset=True` case is always handled by the mandatory
+            # `reflect(reset=True)` decorators currently. To avoid
+            # duplicate calls, we avoid `check_features(self, X, reset=True)`
+            # for now.
             check_features(self, X)
 
         if y is None:

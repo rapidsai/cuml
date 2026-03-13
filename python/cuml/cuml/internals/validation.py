@@ -143,7 +143,7 @@ def _get_feature_names(X):
 
 
 def check_features(estimator, X, reset=False) -> None:
-    """Check or set ``n_features_in_``.
+    """Check or set ``n_features_in_`` and ``feature_names_in_``.
 
     Parameters
     ----------
@@ -153,9 +153,10 @@ def check_features(estimator, X, reset=False) -> None:
         The original user-provided `X` input. No conversion or processing steps
         should have occurred to this array yet.
     reset : bool, default=False
-        If true, ``n_features_in_`` is set on ``estimator`` to match ``X``.
-        Otherwise the ``X`` is checked to match the existing
-        ``n_features_in_``. ``reset=True`` should be used for fit-like methods.
+        If True, ``n_features_in_`` and ``feature_names_in_`` are set on
+        ``estimator`` to match ``X``. Otherwise ``X`` is checked to match the
+        existing ``n_features_in_`` and ``feature_names_in_``. ``reset=True``
+        should be used for fit-like methods, and False otherwise.
     """
     n_features = _get_n_features(X)
     feature_names = _get_feature_names(X)
