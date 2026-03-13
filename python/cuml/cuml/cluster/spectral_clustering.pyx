@@ -214,8 +214,9 @@ def spectral_clustering(
     cdef params config
     config.seed = check_random_seed(random_state)
     config.n_clusters = n_clusters
-    config.n_components = n_components if n_components is not None else n_clusters
-    config.n_neighbors = n_neighbors
+    cdef int effective_n_components = n_components if n_components is not None else n_clusters
+    config.n_components = max(1, min(effective_n_components, (n_samples - 1) // 3))
+    config.n_neighbors = min(n_neighbors, n_samples - 1)
     config.n_init = n_init
     # Handle 'auto' for eigen_tol
     if eigen_tol == 'auto':

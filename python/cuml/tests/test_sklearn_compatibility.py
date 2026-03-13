@@ -624,15 +624,8 @@ def test_sklearn_compatible_estimator(estimator, check):
 
     check_name = _check_name(check)
 
-    if check_name in ["check_n_features_in_after_fitting"] and isinstance(
-        estimator, SpectralClustering
-    ):
-        pytest.skip(
-            "SpectralClustering does not check n_features_in consistency"
-        )
-
     if check_name in ["check_estimators_nan_inf"] and isinstance(
-        estimator, (UMAP, SpectralClustering)
+        estimator, (UMAP)
     ):
         pytest.skip("Estimator does not handle NaN and infinities")
 
