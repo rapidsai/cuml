@@ -396,7 +396,7 @@ def reflect(
     if reset not in (True, False, "type"):
         raise ValueError(f"reset={reset!r} is not supported")
 
-    if reset and (model is None or array is None):
+    if (reset is not False) and (model is None or array is None):
         raise ValueError(
             f"`reset={reset}` is not valid with `array=None` or `model=None`"
         )

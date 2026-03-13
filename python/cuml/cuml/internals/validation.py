@@ -96,8 +96,8 @@ def _get_n_features(X):
         else:
             kind = "scalar" if ndim == 0 else f"{ndim}D"
             msg = (
-                f"Expected a 2D array, got a {kind} array instead. Reshape your "
-                "data using array.reshape(-1, 1) if your data has a single feature, "
+                f"Expected 2D array, got {kind} array instead. Reshape your data "
+                "using array.reshape(-1, 1) if your data has a single feature, "
                 "or array.reshape(1, -1) if it contains a single sample."
             )
 
@@ -105,7 +105,7 @@ def _get_n_features(X):
             raise ValueError(msg)
         else:
             warnings.warn(
-                "Support for passing non-2-dimensional X was deprecated in 26.04"
+                "Support for passing non-2-dimensional X was deprecated in 26.04 "
                 "and will be removed in 26.06. In cuml 26.06 this will error "
                 f"with the following message:\n\n{msg}",
                 FutureWarning,

@@ -79,9 +79,7 @@ def test_get_n_features():
     assert _get_n_features([np.array([1, 2])]) == 2
     assert _get_n_features([]) == 0
 
-    with pytest.raises(
-        ValueError, match="Expected a 2D array, got a 3D array"
-    ):
+    with pytest.raises(ValueError, match="Expected 2D array, got 3D array"):
         _get_n_features(np.ones((3, 2, 1)))
 
 

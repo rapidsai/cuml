@@ -175,8 +175,6 @@
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_array-randomized]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
-  - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestClassifier]"
-  - "sklearn.ensemble.tests.test_forest::test_1d_input[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_backend_respected"
   - "sklearn.ensemble.tests.test_forest::test_class_weights[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-False-1]"
