@@ -357,23 +357,22 @@ def test_rf_data_count(client, max_depth, n_estimators):
             check_count(node, nodes)
 
 
-@pytest.mark.parametrize("max_depth", [-1, None])
-def test_unlimited_max_depth_classifier(client, max_depth):
+def test_unlimited_max_depth_classifier(client):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     X, y = make_classification(
         n_samples=n_workers * 200, n_features=10, random_state=42
     )
+    X = X.astype(np.float32)
     y = y.astype(np.int32)
 
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=1)
-    clf = cuRFC_mg(n_estimators=n_workers * 5, max_depth=max_depth)
+    clf = cuRFC_mg(n_estimators=n_workers * 5, max_depth=None)
     clf.fit(X_dask, y_dask)
     preds = cp.asnumpy(cp.array(clf.predict(X_dask).compute()))
     assert len(preds) == len(y)
 
 
-@pytest.mark.parametrize("max_depth", [-1, None])
-def test_unlimited_max_depth_regressor(client, max_depth):
+def test_unlimited_max_depth_regressor(client):
     n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
     X, y = make_regression(
         n_samples=n_workers * 200, n_features=10, random_state=42
@@ -382,7 +381,7 @@ def test_unlimited_max_depth_regressor(client, max_depth):
     y = y.astype(np.float32)
 
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=1)
-    reg = cuRFR_mg(n_estimators=n_workers * 5, max_depth=max_depth)
+    reg = cuRFR_mg(n_estimators=n_workers * 5, max_depth=None)
     reg.fit(X_dask, y_dask)
     preds = cp.asnumpy(cp.array(reg.predict(X_dask).compute()))
     assert len(preds) == len(y)

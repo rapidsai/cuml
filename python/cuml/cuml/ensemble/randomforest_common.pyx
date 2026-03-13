@@ -220,8 +220,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
-        if model.max_depth is not None:
-            conditional_params["max_depth"] = model.max_depth
+        conditional_params["max_depth"] = model.max_depth
 
         return {
             "n_estimators": model.n_estimators,
@@ -418,13 +417,12 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
-        # None/-1 mean unlimited; translate to INT32_MAX just like sklearn.
         cdef int max_depth_c
-        if self.max_depth is None or self.max_depth == -1:
+        if self.max_depth is None:
             max_depth_c = np.iinfo(np.int32).max
-        elif self.max_depth <= 0:
+        elif not isinstance(self.max_depth, int) or self.max_depth <= 0:
             raise ValueError(
-                f"max_depth must be a positive integer, None, or -1 (unlimited); "
+                f"max_depth must be a positive integer or None (unlimited); "
                 f"got {self.max_depth!r}"
             )
         else:
