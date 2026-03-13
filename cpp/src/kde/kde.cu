@@ -547,8 +547,9 @@ void score_samples(const raft::handle_t& handle,
       // Determine whether to split the train dimension across blocks.
       // When n_query is small the GPU is underutilised; splitting the train
       // set across a 2D grid exposes more parallelism.
-      int sm_count = 0;
-      cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, 0);
+      int dev, sm_count;
+      RAFT_CUDA_TRY(cudaGetDevice(&dev));
+      RAFT_CUDA_TRY(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, dev));
       int target_blocks   = sm_count * 4;
       int n_train_blocks  = max(1, target_blocks / n_query_blocks);
       int min_train_chunk = CELL_TILE * 4;
