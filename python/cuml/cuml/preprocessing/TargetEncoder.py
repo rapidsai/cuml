@@ -174,8 +174,8 @@ class TargetEncoder(Base, InteropMixin):
     >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
     >>> encoder = TargetEncoder(output_type='numpy')
-    >>> train_encoded = encoder.fit_transform(train.category, train.label)
-    >>> test_encoded = encoder.transform(test.category)
+    >>> train_encoded = encoder.fit_transform(train[["category"]], train.label)
+    >>> test_encoded = encoder.transform(test[["category"]])
     >>> print(train_encoded)
     [1. 1. 0. 1.]
     >>> print(test_encoded)
