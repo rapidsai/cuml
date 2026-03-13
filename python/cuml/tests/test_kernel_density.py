@@ -6,6 +6,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+import scipy.special
 import sklearn.neighbors
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
@@ -21,10 +22,42 @@ from cuml.neighbors import VALID_KERNELS, KernelDensity
 from cuml.testing.utils import as_type
 
 
+def _cosine_kernel_norm(h, d):
+    """Normalization constant for cosine kernel in d dimensions.
+
+    Matches the recurrence in cuvs::distance for DensityKernelType::Cosine:
+      I_0 = 2/pi
+      I_1 = 2/pi - (2/pi)^2
+      I_n = 2/pi - n*(n-1)*(2/pi)^2 * I_{n-2}  for n >= 2
+      norm = 1 / (S_{d-1} * I_{d-1} * h^d)
+    where S_{d-1} = 2*pi^(d/2) / Gamma(d/2).
+
+    sklearn's kernel_norm returns NaN for cosine at d >= 4 due to a bug in
+    its integration-by-parts formula, so we use this custom implementation.
+    """
+    two_over_pi = 2.0 / np.pi
+    two_over_pi_sq = two_over_pi**2
+    I_prev = two_over_pi  # I_0
+    I_curr = two_over_pi - two_over_pi_sq  # I_1
+    n = d - 1
+    if n == 0:
+        integral = I_prev
+    else:
+        for j in range(2, n + 1):
+            I_next = two_over_pi - j * (j - 1) * two_over_pi_sq * I_prev
+            I_prev, I_curr = I_curr, I_next
+        integral = I_curr
+    Sn = 2.0 * np.pi ** (d / 2.0) / scipy.special.gamma(d / 2.0)
+    return 1.0 / (Sn * integral * h**d)
+
+
 # not in log probability space
 def compute_kernel_naive(Y, X, kernel, metric, h, sample_weight):
     d = skl_pairwise_distances(Y, X, metric)
-    norm = kernel_norm(h, X.shape[1], kernel)
+    if kernel == "cosine":
+        norm = _cosine_kernel_norm(h, X.shape[1])
+    else:
+        norm = kernel_norm(h, X.shape[1], kernel)
 
     if kernel == "gaussian":
         k = np.exp(-0.5 * (d * d) / (h * h))
@@ -37,7 +70,7 @@ def compute_kernel_naive(Y, X, kernel, metric, h, sample_weight):
     elif kernel == "linear":
         k = (1 - d / h) * (d < h)
     elif kernel == "cosine":
-        k = np.cos(0.5 * np.pi * d / h) * (d < h)
+        k = np.maximum(np.cos(0.5 * np.pi * d / h), 1e-30) * (d < h)
     else:
         raise ValueError("kernel not recognized")
     return norm * np.average(k, -1, sample_weight)
@@ -268,7 +301,10 @@ def _kldivergence_dist(X, Y):
 def _kde_naive_custom(Y, X, kernel, dist_fn, h, sample_weight):
     """Like compute_kernel_naive but accepts a callable pairwise distance."""
     d = dist_fn(Y, X)
-    norm = kernel_norm(h, X.shape[1], kernel)
+    if kernel == "cosine":
+        norm = _cosine_kernel_norm(h, X.shape[1])
+    else:
+        norm = kernel_norm(h, X.shape[1], kernel)
     if kernel == "gaussian":
         k = np.exp(-0.5 * d * d / (h * h))
     elif kernel == "tophat":
@@ -280,7 +316,7 @@ def _kde_naive_custom(Y, X, kernel, dist_fn, h, sample_weight):
     elif kernel == "linear":
         k = np.maximum(1.0 - d / h, 0.0) * (d < h)
     elif kernel == "cosine":
-        k = np.cos(0.5 * np.pi * d / h) * (d < h)
+        k = np.maximum(np.cos(0.5 * np.pi * d / h), 1e-30) * (d < h)
     else:
         raise ValueError(kernel)
     return norm * np.average(k, axis=1, weights=sample_weight)
@@ -358,7 +394,9 @@ def test_all_kernels_all_metrics(metric, kernel):
     h = 1.0
 
     kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=h)
-    kde.fit(X)
+    # fit with convert_dtype=False so float64 test data stays float64,
+    # matching the float64 Python reference distances.
+    kde.fit(X, convert_dtype=False)
     cuml_log = as_type("numpy", kde.score_samples(Q))
 
     # -inf is valid (zero density when all train points are beyond the bandwidth);

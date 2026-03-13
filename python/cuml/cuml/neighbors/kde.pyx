@@ -13,57 +13,77 @@ from cuml.internals.input_utils import input_to_cuml_array
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
 
-from cuml.metrics.distance_type cimport DistanceType
-
 from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
 
 
-cdef extern from "cuml/neighbors/kde.hpp" namespace "ML::KDE" nogil:
+# All types and the wrapper function come from the single cuML header,
+# which transitively includes the cuVS distance headers.
+# handle_t extends raft::device_resources (raft::resources), so passing
+# handle_t to a raft::resources const& parameter is valid.
+# The alias _cuml_kde_score_samples avoids shadowing the Python def below.
+cdef extern from "cuml/neighbors/kde.hpp" nogil:
 
-    ctypedef enum class KernelType:
-        Gaussian "ML::KDE::KernelType::Gaussian"
-        Tophat "ML::KDE::KernelType::Tophat"
-        Epanechnikov "ML::KDE::KernelType::Epanechnikov"
-        Exponential "ML::KDE::KernelType::Exponential"
-        Linear "ML::KDE::KernelType::Linear"
-        Cosine "ML::KDE::KernelType::Cosine"
+    ctypedef enum class DistanceType "cuvs::distance::DistanceType":
+        L2SqrtUnexpanded "cuvs::distance::DistanceType::L2SqrtUnexpanded"
+        L2Expanded "cuvs::distance::DistanceType::L2Expanded"
+        L1 "cuvs::distance::DistanceType::L1"
+        Linf "cuvs::distance::DistanceType::Linf"
+        LpUnexpanded "cuvs::distance::DistanceType::LpUnexpanded"
+        CosineExpanded "cuvs::distance::DistanceType::CosineExpanded"
+        CorrelationExpanded "cuvs::distance::DistanceType::CorrelationExpanded"
+        Canberra "cuvs::distance::DistanceType::Canberra"
+        HellingerExpanded "cuvs::distance::DistanceType::HellingerExpanded"
+        JensenShannon "cuvs::distance::DistanceType::JensenShannon"
+        HammingUnexpanded "cuvs::distance::DistanceType::HammingUnexpanded"
+        KLDivergence "cuvs::distance::DistanceType::KLDivergence"
+        RusselRaoExpanded "cuvs::distance::DistanceType::RusselRaoExpanded"
 
-    void score_samples(const handle_t &handle,
-                       const float *query,
-                       const float *train,
-                       const float *weights,
-                       float *output,
-                       int n_query,
-                       int n_train,
-                       int n_features,
-                       float bandwidth,
-                       float sum_weights,
-                       KernelType kernel,
-                       DistanceType metric,
-                       float metric_arg) except +
+    ctypedef enum class DensityKernelType "cuvs::distance::DensityKernelType":
+        Gaussian "cuvs::distance::DensityKernelType::Gaussian"
+        Tophat "cuvs::distance::DensityKernelType::Tophat"
+        Epanechnikov "cuvs::distance::DensityKernelType::Epanechnikov"
+        Exponential "cuvs::distance::DensityKernelType::Exponential"
+        Linear "cuvs::distance::DensityKernelType::Linear"
+        Cosine "cuvs::distance::DensityKernelType::Cosine"
 
-    void score_samples(const handle_t &handle,
-                       const double *query,
-                       const double *train,
-                       const double *weights,
-                       double *output,
-                       int n_query,
-                       int n_train,
-                       int n_features,
-                       double bandwidth,
-                       double sum_weights,
-                       KernelType kernel,
-                       DistanceType metric,
-                       double metric_arg) except +
+    void _cuml_kde_score_samples \
+        "ML::KDE::score_samples"(const handle_t &handle,
+                                 const float *query,
+                                 const float *train,
+                                 const float *weights,
+                                 float *output,
+                                 int n_query,
+                                 int n_train,
+                                 int n_features,
+                                 float bandwidth,
+                                 float sum_weights,
+                                 DensityKernelType kernel,
+                                 DistanceType metric,
+                                 float metric_arg) except +
+
+    void _cuml_kde_score_samples \
+        "ML::KDE::score_samples"(const handle_t &handle,
+                                 const double *query,
+                                 const double *train,
+                                 const double *weights,
+                                 double *output,
+                                 int n_query,
+                                 int n_train,
+                                 int n_features,
+                                 double bandwidth,
+                                 double sum_weights,
+                                 DensityKernelType kernel,
+                                 DistanceType metric,
+                                 double metric_arg) except +
 
 
 KDE_KERNEL_TYPES = {
-    "gaussian": KernelType.Gaussian,
-    "tophat": KernelType.Tophat,
-    "epanechnikov": KernelType.Epanechnikov,
-    "exponential": KernelType.Exponential,
-    "linear": KernelType.Linear,
-    "cosine": KernelType.Cosine,
+    "gaussian": DensityKernelType.Gaussian,
+    "tophat": DensityKernelType.Tophat,
+    "epanechnikov": DensityKernelType.Epanechnikov,
+    "exponential": DensityKernelType.Exponential,
+    "linear": DensityKernelType.Linear,
+    "cosine": DensityKernelType.Cosine,
 }
 
 VALID_KERNELS = list(KDE_KERNEL_TYPES.keys())
@@ -72,7 +92,7 @@ VALID_KERNELS = list(KDE_KERNEL_TYPES.keys())
 def kde_score_samples(query, train, sample_weight,
                       bandwidth, sum_weights,
                       kernel_str, metric_str, metric_arg=2.0):
-    """Compute log-density via fused C++ KDE kernel.
+    """Compute log-density via fused cuVS KDE kernel.
 
     Parameters
     ----------
@@ -94,7 +114,7 @@ def kde_score_samples(query, train, sample_weight,
     if metric_str not in PAIRWISE_DISTANCE_METRICS:
         raise ValueError(f"metric={metric_str!r} is not supported")
 
-    cdef KernelType kernel_enum = KDE_KERNEL_TYPES[kernel_str]
+    cdef DensityKernelType kernel_enum = KDE_KERNEL_TYPES[kernel_str]
     cdef DistanceType metric_enum = PAIRWISE_DISTANCE_METRICS[metric_str]
 
     # Determine dtype from training data
@@ -135,7 +155,7 @@ def kde_score_samples(query, train, sample_weight,
 
     if dtype == np.float32:
         with nogil:
-            score_samples(
+            _cuml_kde_score_samples(
                 handle_[0],
                 <const float*>query_ptr,
                 <const float*>train_ptr,
@@ -149,7 +169,7 @@ def kde_score_samples(query, train, sample_weight,
                 <float>c_metric_arg)
     elif dtype == np.float64:
         with nogil:
-            score_samples(
+            _cuml_kde_score_samples(
                 handle_[0],
                 <const double*>query_ptr,
                 <const double*>train_ptr,
