@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -64,8 +64,7 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT max_depth,
-                           const IdxT min_samples_leaf,
+void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const IdxT min_samples_split,
                            const IdxT max_leaves,
                            const DataT min_impurity_decrease,
