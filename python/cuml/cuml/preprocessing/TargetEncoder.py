@@ -11,7 +11,12 @@ import pandas as pd
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnCPU,
+    to_cpu,
+    to_gpu,
+)
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import check_features, check_is_fitted
 
@@ -393,10 +398,6 @@ class TargetEncoder(Base, InteropMixin):
         x_cols = [i for i in train.columns.tolist() if i != self.id_col]
 
         self._x_cols = x_cols
-
-        # Set feature_names_in_ if input has column names (DataFrame)
-        if hasattr(x, "columns"):
-            self.feature_names_in_ = np.asarray(x.columns, dtype=object)
 
         # Extract unique categories for each feature (sorted for consistency)
         self.categories_ = []
@@ -904,11 +905,12 @@ class TargetEncoder(Base, InteropMixin):
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
+            "multi_feature_mode": "independent",
         }
         return params
 
     def _params_to_cpu(self):
-        params = {
+        return {
             "cv": self.n_folds,
             "random_state": self.seed,
             "smooth": self.smooth,
@@ -916,7 +918,6 @@ class TargetEncoder(Base, InteropMixin):
             "categories": "auto",
             "target_type": "continuous",
         }
-        return params
 
     def _attrs_from_cpu(self, model):
         """Convert sklearn TargetEncoder attributes to cuML format.
@@ -1023,10 +1024,8 @@ class TargetEncoder(Base, InteropMixin):
             encodings_list = [np.array(feature_encodings)]
         else:
             # Multi-feature combination mode cannot be converted to sklearn
-            raise ValueError(
-                "Cannot convert multi-feature cuML TargetEncoder fitted with "
-                "multi_feature_mode='combination' to sklearn. Use "
-                "multi_feature_mode='independent' for sklearn compatibility."
+            raise UnsupportedOnCPU(
+                f"`multi_feature_mode={self.multi_feature_mode!r}` is not supported"
             )
 
         return {
