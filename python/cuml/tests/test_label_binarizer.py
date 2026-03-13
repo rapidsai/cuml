@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
@@ -9,6 +9,13 @@ from sklearn.preprocessing import LabelBinarizer as skLB
 
 from cuml.preprocessing import LabelBinarizer
 from cuml.testing.utils import array_equal
+
+
+def test_label_binarizer_no_features():
+    """Ensure the features infra is never applied to LabelBinarizer"""
+    y = cp.asarray([1, 2, 1, 2, 1, 0])
+    model = LabelBinarizer().fit(y)
+    assert not hasattr(model, "n_features_in_")
 
 
 @pytest.mark.parametrize(
