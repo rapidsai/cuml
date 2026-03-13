@@ -20,9 +20,6 @@ from cuml.internals.interop import (
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import check_features, check_is_fitted
 
-# Module-level flag to ensure deprecation warning only fires once per process
-_COMBINATION_MODE_1D_WARNING_SHOWN = False
-
 
 def get_stat_func(stat):
     def func(ds):
@@ -165,8 +162,6 @@ class TargetEncoder(Base, InteropMixin):
     --------
     Converting a categorical implementation to a numerical one
 
-    >>> import warnings
-    >>> warnings.filterwarnings('ignore', category=FutureWarning)
     >>> from cudf import DataFrame, Series
     >>> from cuml.preprocessing import TargetEncoder
     >>> train = DataFrame({'category': ['a', 'b', 'b', 'a'],
@@ -174,12 +169,12 @@ class TargetEncoder(Base, InteropMixin):
     >>> test = DataFrame({'category': ['a', 'c', 'b', 'a']})
 
     >>> encoder = TargetEncoder(output_type='numpy')
-    >>> train_encoded = encoder.fit_transform(train[["category"]], train.label)
-    >>> test_encoded = encoder.transform(test[["category"]])
-    >>> print(train_encoded)
-    [1. 1. 0. 1.]
-    >>> print(test_encoded)
-    [1.   0.75 0.5  1.  ]
+    >>> encoded = encoder.fit_transform(train[["category"]], train.label)
+    >>> encoded
+    array([[1.],
+           [1.],
+           [0.],
+           [1.]])
     """
 
     # InteropMixin requirements
@@ -792,36 +787,13 @@ class TargetEncoder(Base, InteropMixin):
     def _impute_and_sort(self, df):
         """
         Impute and sort the result encoding in the same row order as input.
-
-        Returns 2D array (n_samples, 1) when in independent mode (sklearn
-        compatibility), otherwise returns 1D array (cuML native behavior).
         """
 
         df[self.out_col] = df[self.out_col].nans_to_nulls()
         df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
         df = df.sort_values(self.id_col)
         res = df[self.out_col].values.copy()
-        # Reshape to 2D (n_samples, 1) for sklearn compatibility when:
-        # - multi_feature_mode="independent" is set (by cuml.accel or user)
-        # - _independent_mode_fitted is True (multi-feature independent mode)
-        sklearn_compat = getattr(
-            self, "multi_feature_mode", "combination"
-        ) == "independent" or getattr(self, "_independent_mode_fitted", False)
-        if sklearn_compat:
-            res = res.reshape(-1, 1)
-        else:
-            # Deprecation warning for 1D output in combination mode (once per process)
-            global _COMBINATION_MODE_1D_WARNING_SHOWN
-            if not _COMBINATION_MODE_1D_WARNING_SHOWN:
-                warnings.warn(
-                    "TargetEncoder currently returns 1D output for combination mode "
-                    "(multi_feature_mode='combination'). In version 26.04, the output "
-                    "will change to 2D (n_samples, n_output_features) for consistency "
-                    "with sklearn. Use .ravel() if you need 1D output.",
-                    FutureWarning,
-                    stacklevel=4,
-                )
-                _COMBINATION_MODE_1D_WARNING_SHOWN = True
+        res = res.reshape(-1, 1)
         return CumlArray(res)
 
     def _data_with_strings_to_cudf_dataframe(self, x):
