@@ -5,8 +5,11 @@
 
 #include <cuml/neighbors/kde.hpp>
 
+#include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <cuda/std/limits>
 
@@ -341,7 +344,9 @@ __global__ void kde_tiled_kernel(const T* __restrict__ query,
   const int j_begin = blockIdx.y * train_chunk;
   const int j_end   = min(j_begin + train_chunk, n_train);
 
-  T running_max = -cuda::std::numeric_limits<T>::infinity();
+  // Initialize to lowest() (not -inf) so that out-of-support points returning
+  // lowest() don't produce 0*exp(+inf)=NaN via exp(-inf - lowest()) = exp(+inf).
+  T running_max = cuda::std::numeric_limits<T>::lowest();
   T running_sum = T(0);
 
   // Tile over train points in groups of CELL_TILE
@@ -433,7 +438,7 @@ __global__ void kde_reduce_kernel(const T* __restrict__ partial_max,
   const int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= n_query) return;
 
-  T rmax = -cuda::std::numeric_limits<T>::infinity();
+  T rmax = cuda::std::numeric_limits<T>::lowest();
   T rsum = T(0);
 
   for (int b = 0; b < n_blocks; ++b) {
@@ -515,6 +520,11 @@ void score_samples(const raft::handle_t& handle,
                    ML::distance::DistanceType metric,
                    T metric_arg)
 {
+  RAFT_EXPECTS(n_query > 0, "n_query must be > 0");
+  RAFT_EXPECTS(n_train > 0, "n_train must be > 0");
+  RAFT_EXPECTS(d > 0, "n_features must be > 0");
+  RAFT_EXPECTS(bandwidth > T(0), "bandwidth must be > 0");
+
   cudaStream_t stream = handle.get_stream().value();
   T log_norm          = std::log(sum_weights) + norm_factor<T>(kernel, bandwidth, d);
 
@@ -582,33 +592,29 @@ void score_samples(const raft::handle_t& handle,
         n_train_blocks = (n_train + train_chunk - 1) / train_chunk;
 
         size_t buf_elems = static_cast<size_t>(n_query) * n_train_blocks;
-        T* partial_max   = nullptr;
-        T* partial_sum   = nullptr;
-        RAFT_CUDA_TRY(cudaMallocAsync(&partial_max, buf_elems * sizeof(T), stream));
-        RAFT_CUDA_TRY(cudaMallocAsync(&partial_sum, buf_elems * sizeof(T), stream));
+        rmm::device_uvector<T> partial_max(buf_elems, stream);
+        rmm::device_uvector<T> partial_sum(buf_elems, stream);
 
         dim3 grid(n_query_blocks, n_train_blocks);
-        kde_tiled_kernel<T, M, K, CELL_TILE><<<grid, threads, smem_bytes, stream>>>(query,
-                                                                                    train,
-                                                                                    weights,
-                                                                                    partial_max,
-                                                                                    partial_sum,
-                                                                                    n_query,
-                                                                                    n_train,
-                                                                                    d,
-                                                                                    bandwidth,
-                                                                                    metric_arg,
-                                                                                    log_norm,
-                                                                                    train_chunk,
-                                                                                    feat_tile);
+        kde_tiled_kernel<T, M, K, CELL_TILE>
+          <<<grid, threads, smem_bytes, stream>>>(query,
+                                                  train,
+                                                  weights,
+                                                  partial_max.data(),
+                                                  partial_sum.data(),
+                                                  n_query,
+                                                  n_train,
+                                                  d,
+                                                  bandwidth,
+                                                  metric_arg,
+                                                  log_norm,
+                                                  train_chunk,
+                                                  feat_tile);
         RAFT_CUDA_TRY(cudaPeekAtLastError());
 
         kde_reduce_kernel<T><<<n_query_blocks, threads, 0, stream>>>(
-          partial_max, partial_sum, output, n_query, n_train_blocks, log_norm);
+          partial_max.data(), partial_sum.data(), output, n_query, n_train_blocks, log_norm);
         RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-        RAFT_CUDA_TRY(cudaFreeAsync(partial_max, stream));
-        RAFT_CUDA_TRY(cudaFreeAsync(partial_sum, stream));
       }
     });
   });

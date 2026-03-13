@@ -225,3 +225,178 @@ def test_bad_sample_weight_errors():
         ValueError, match="Sample weights must be 1D array or scalar"
     ):
         kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reference pairwise distances for metrics absent from sklearn.pairwise
+# (must match the corresponding DistOp accumulate/finalize in kde.cu exactly)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _hellinger_dist(X, Y):
+    """sqrt(max(0, 1 - Σ sqrt(xi·yi)))  — matches DistOp<HellingerExpanded>."""
+    sx = np.sqrt(np.maximum(X, 0.0))
+    sy = np.sqrt(np.maximum(Y, 0.0))
+    return np.sqrt(np.maximum(1.0 - sx @ sy.T, 0.0))
+
+
+def _jensenshannon_dist(X, Y):
+    """sqrt(0.5·Σ(a·log(a/m) + b·log(b/m)))  — matches DistOp<JensenShannon>."""
+    out = np.zeros((len(X), len(Y)))
+    for i, a in enumerate(X):
+        for j, b in enumerate(Y):
+            m = 0.5 * (a + b)
+            # Mirror device guards: log(0) → 0
+            logM = np.where(m > 0, np.log(np.where(m > 0, m, 1.0)), 0.0)
+            logA = np.where(a > 0, np.log(np.where(a > 0, a, 1.0)), 0.0)
+            logB = np.where(b > 0, np.log(np.where(b > 0, b, 1.0)), 0.0)
+            acc = np.sum(-a * (logM - logA) + -b * (logM - logB))
+            out[i, j] = np.sqrt(0.5 * max(float(acc), 0.0))
+    return out
+
+
+def _kldivergence_dist(X, Y):
+    """Σ a·log(a/b) for a,b > 0  — matches DistOp<KLDivergence>."""
+    out = np.zeros((len(X), len(Y)))
+    for i, a in enumerate(X):
+        for j, b in enumerate(Y):
+            mask = (a > 0) & (b > 0)
+            out[i, j] = float(np.sum(a[mask] * np.log(a[mask] / b[mask])))
+    return out
+
+
+def _kde_naive_custom(Y, X, kernel, dist_fn, h, sample_weight):
+    """Like compute_kernel_naive but accepts a callable pairwise distance."""
+    d = dist_fn(Y, X)
+    norm = kernel_norm(h, X.shape[1], kernel)
+    if kernel == "gaussian":
+        k = np.exp(-0.5 * d * d / (h * h))
+    elif kernel == "tophat":
+        k = (d < h).astype(float)
+    elif kernel == "epanechnikov":
+        k = np.maximum(1.0 - d * d / (h * h), 0.0) * (d < h)
+    elif kernel == "exponential":
+        k = np.exp(-d / h)
+    elif kernel == "linear":
+        k = np.maximum(1.0 - d / h, 0.0) * (d < h)
+    elif kernel == "cosine":
+        k = np.cos(0.5 * np.pi * d / h) * (d < h)
+    else:
+        raise ValueError(kernel)
+    return norm * np.average(k, axis=1, weights=sample_weight)
+
+
+# Custom distance functions for metrics not in sklearn.pairwise_distances
+_CUSTOM_DIST_FN = {
+    "hellinger": _hellinger_dist,
+    "jensenshannon": _jensenshannon_dist,
+    "kldivergence": _kldivergence_dist,
+}
+
+# Metrics that require non-negative inputs
+_NONNEG_METRICS = {"hellinger", "jensenshannon"}
+# Metrics that require strictly positive inputs
+_POSONLY_METRICS = {"kldivergence"}
+# Metrics defined for binary {0,1} inputs (our DistOp matches sklearn only for binary)
+_BINARY_METRICS = {"russellrao"}
+
+
+def _make_metric_data(metric, n_train=40, n_query=8, d=4, seed=7):
+    """Generate float64 test data appropriate for the given metric."""
+    rng = np.random.RandomState(seed)
+    if metric in _BINARY_METRICS:
+        X = rng.randint(0, 2, size=(n_train, d)).astype(np.float64)
+        Q = rng.randint(0, 2, size=(n_query, d)).astype(np.float64)
+    elif metric in _POSONLY_METRICS:
+        X = (
+            rng.exponential(scale=1.0, size=(n_train, d)).astype(np.float64)
+            + 0.1
+        )
+        Q = (
+            rng.exponential(scale=1.0, size=(n_query, d)).astype(np.float64)
+            + 0.1
+        )
+    elif metric in _NONNEG_METRICS:
+        X = np.abs(rng.randn(n_train, d)).astype(np.float64) + 0.05
+        Q = np.abs(rng.randn(n_query, d)).astype(np.float64) + 0.05
+    else:
+        X = rng.randn(n_train, d).astype(np.float64)
+        Q = rng.randn(n_query, d).astype(np.float64)
+    return X, Q
+
+
+@pytest.mark.parametrize("kernel", VALID_KERNELS)
+@pytest.mark.parametrize(
+    "metric",
+    [
+        # sklearn-pairwise-compatible
+        "euclidean",
+        "manhattan",
+        "chebyshev",
+        "minkowski",
+        "sqeuclidean",
+        "canberra",
+        "hamming",
+        "cosine",
+        "correlation",
+        "russellrao",
+        # custom reference required
+        "hellinger",
+        "jensenshannon",
+        "kldivergence",
+    ],
+)
+def test_all_kernels_all_metrics(metric, kernel):
+    """Every metric × kernel combination produces output matching the reference.
+
+    For metrics supported by sklearn.pairwise_distances the reference is
+    compute_kernel_naive; for metrics absent from sklearn a matching numpy
+    reference is used that mirrors the DistOp accumulate/finalize logic in
+    kde.cu exactly.
+    """
+    X, Q = _make_metric_data(metric)
+    h = 1.0
+
+    kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=h)
+    kde.fit(X)
+    cuml_log = as_type("numpy", kde.score_samples(Q))
+
+    # -inf is valid (zero density when all train points are beyond the bandwidth);
+    # only NaN indicates a real bug.
+    assert not np.any(np.isnan(cuml_log)), (
+        f"NaN output for metric={metric}, kernel={kernel}"
+    )
+
+    dist_fn = _CUSTOM_DIST_FN.get(metric)
+    if dist_fn is not None:
+        ref = _kde_naive_custom(Q, X, kernel, dist_fn, h, None)
+    else:
+        ref = compute_kernel_naive(Q, X, kernel, metric, h, None)
+
+    # exp(-inf) == 0 == reference density, so this naturally handles the
+    # all-zero-density case (compact-support kernels with small bandwidth).
+    cuml_prob = np.exp(cuml_log)
+    assert np.allclose(cuml_prob, ref, rtol=1e-3, atol=1e-3, equal_nan=True), (
+        f"metric={metric}, kernel={kernel}: max err="
+        f"{np.max(np.abs(cuml_prob - ref)):.4e}"
+    )
+
+
+def test_tiling_multipass():
+    """Multi-pass tiling path (small n_query, large n_train) matches reference.
+
+    When n_query is small enough that the 2-D grid / multi-pass reduction
+    code path is taken the result must match the naive single-pass reference.
+    """
+    rng = np.random.RandomState(0)
+    X_train = rng.randn(2000, 4).astype(np.float64)
+    X_query = rng.randn(2, 4).astype(np.float64)
+
+    kde = KernelDensity(kernel="gaussian", metric="euclidean", bandwidth=0.5)
+    kde.fit(X_train)
+    cuml_scores = as_type("numpy", kde.score_samples(X_query))
+
+    ref = compute_kernel_naive(
+        X_query, X_train, "gaussian", "euclidean", 0.5, None
+    )
+    assert np.allclose(np.exp(cuml_scores), ref, rtol=1e-3, atol=1e-3)
