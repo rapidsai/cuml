@@ -14,6 +14,7 @@
 
 
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.validation import check_features
 
 from ....internals.base import Base
 from ....thirdparty_adapters import check_array
@@ -40,35 +41,6 @@ class BaseEstimator(Base):
             orig_init(self, *args, **kwargs)
 
         cls.__init__ = init
-
-    def _check_n_features(self, X, reset):
-        """Set the `n_features_in_` attribute, or check against it.
-
-        Parameters
-        ----------
-        X : {ndarray, sparse matrix} of shape (n_samples, n_features)
-            The input samples.
-        reset : bool
-            If True, the `n_features_in_` attribute is set to `X.shape[1]`.
-            Else, the attribute must already exist and the function checks
-            that it is equal to `X.shape[1]`.
-        """
-        n_features = X.shape[1]
-
-        if reset:
-            self.n_features_in_ = n_features
-        else:
-            if not hasattr(self, 'n_features_in_'):
-                raise RuntimeError(
-                    "The reset parameter is False but there is no "
-                    "n_features_in_ attribute. Is this estimator fitted?"
-                )
-            if n_features != self.n_features_in_:
-                raise ValueError(
-                    'X has {} features, but {} is expecting {} features '
-                    'as input.'.format(n_features, self.__class__.__name__,
-                                       self.n_features_in_)
-                )
 
     def _validate_data(self, X, y=None, reset=True,
                        validate_separately=False, **check_params):
@@ -100,6 +72,12 @@ class BaseEstimator(Base):
         out : {ndarray, sparse matrix} or tuple of these
             The validated input. A tuple is returned if `y` is not None.
         """
+        if check_params.get('ensure_2d', True) and not reset:
+            # The `reset=True` case is always handled by the mandatory
+            # `reflect(reset=True)` decorators currently. To avoid
+            # duplicate calls, we avoid `check_features(self, X, reset=True)`
+            # for now.
+            check_features(self, X)
 
         if y is None:
             if self._get_tags()['requires_y']:
@@ -121,9 +99,6 @@ class BaseEstimator(Base):
             else:
                 X, y = check_X_y(X, y, **check_params)
             out = X, y
-
-        if check_params.get('ensure_2d', True):
-            self._check_n_features(X, reset=reset)
 
         return out
 

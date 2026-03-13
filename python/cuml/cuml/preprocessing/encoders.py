@@ -39,13 +39,6 @@ class BaseEncoder(Base):
         if self.input_type is None:
             self.input_type = value
 
-    def _set_features(self, X):
-        # TODO: drop this whole method when check_features supports
-        # feature_names_in_. This implementation here is wrong anyway.
-        if hasattr(X, "columns"):
-            self.feature_names_in_ = [str(c) for c in X.columns]
-        check_features(self, X, reset=True)
-
     def _check_input(self, X, is_categories=False):
         """If input is cupy, convert it to a DataFrame with 0 copies."""
         if isinstance(X, cp.ndarray):
@@ -59,7 +52,6 @@ class BaseEncoder(Base):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function used in fit, can be overridden in subclasses."""
-        self._set_features(X)
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
@@ -70,6 +62,7 @@ class BaseEncoder(Base):
         return inp
 
     def _fit(self, X, need_drop: bool):
+        check_features(self, X, reset=True)
         X = self._check_input_fit(X)
         if type(self.categories) is str and self.categories == "auto":
             self._features = X.columns

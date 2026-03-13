@@ -248,6 +248,8 @@ class KernelDensity(Base, InteropMixin):
             else cp.asnumpy(self._sample_weight)
         )
         model.fit(X, sample_weight=sample_weight)
+        if hasattr(self, "feature_names_in_"):
+            model.feature_names_in_ = self.feature_names_in_
 
     def __init__(
         self,

@@ -263,15 +263,14 @@ def test_transform_with_index():
         {"a": [1, 1, 2, 3], "b": [True, False, False, True]},
         index=[9, 4, 5, 3],
     )
+    X = df[["a"]]
+    y = df["b"]
 
     t_enc = TargetEncoder()
 
-    t_enc.fit(df.a, y=df.b)
-    train_encoded = t_enc.transform(df.a)
+    t_enc.fit(X, y)
+    train_encoded = t_enc.transform(X)
     ans = cp.asarray([0, 1, 0.5, 0.5])
-    assert array_equal(train_encoded, ans)
-
-    train_encoded = t_enc.transform(df[["a"]])
     assert array_equal(train_encoded, ans)
 
 
