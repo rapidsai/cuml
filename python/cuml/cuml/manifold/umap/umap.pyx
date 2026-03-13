@@ -166,14 +166,21 @@ def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
     # Find starting vertices (first vertex of simplex containing each point)
     simplex_indices = deltri.find_simplex(X_np)
     out_of_hull_mask = simplex_indices == -1
+
+    start_vertices = np.empty(X_np.shape[0], dtype=np.intp)
+    in_hull = ~out_of_hull_mask
+    start_vertices[in_hull] = deltri.simplices[simplex_indices[in_hull]][:, 0]
+
+    # For points outside the convex hull (can happen due to floating-point
+    # precision even when inverse-transforming the training embedding),
+    # fall back to the nearest embedding vertex.
     if np.any(out_of_hull_mask):
-        n_outside = out_of_hull_mask.sum()
-        raise ValueError(
-            f"{n_outside} point(s) are outside the convex hull of the embedding "
-            "and cannot be inverse transformed. Ensure all points to inverse "
-            "transform lie within the range of the original embedding."
+        ooh_points = X_np[out_of_hull_mask]
+        dists = np.linalg.norm(
+            embedding_np[np.newaxis, :, :] - ooh_points[:, np.newaxis, :],
+            axis=2,
         )
-    start_vertices = deltri.simplices[simplex_indices][:, 0]
+        start_vertices[out_of_hull_mask] = np.argmin(dists, axis=1)
 
     # Build adjacency matrix from simplices
     simplices = deltri.simplices
