@@ -625,8 +625,8 @@ def test_sklearn_compatible_estimator(estimator, check):
     check_name = _check_name(check)
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
-        estimator, (UMAP)
+        estimator, UMAP
     ):
-        pytest.skip("Estimator does not handle NaN and infinities")
+        pytest.skip("UMAP does not handle Nans and infinities")
 
     check(estimator)
