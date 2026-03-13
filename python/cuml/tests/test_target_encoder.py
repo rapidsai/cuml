@@ -15,6 +15,10 @@ pytestmark = pytest.mark.filterwarnings(
     "ignore:TargetEncoder currently returns 1D output:FutureWarning"
 )
 
+# TODO: many of these tests use `output_type="numpy"` to work around
+# https://github.com/rapidsai/cuml/issues/7893. These can be
+# reverted once that's resolved.
+
 
 def test_targetencoder_deprecated_1d_input():
     df = cudf.DataFrame(
@@ -88,7 +92,7 @@ def test_targetencoder_random(n_samples, dtype, stat):
     df_test["row_id"] = cp.arange(len(df_test))
     df_test = df_test.merge(dg, on="x", how="left")
     df_test = df_test.sort_values("row_id")
-    answer = df_test["y"].fillna(eval(f"cp.{stat}")(y).item()).values[:, None]
+    answer = df_test["y"].fillna(getattr(cp, stat)(y).item()).values[:, None]
     assert array_equal(test_encoded, answer)
 
 
