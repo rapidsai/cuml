@@ -387,7 +387,6 @@ template <typename DataT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
                               IdxT n_bins,
-                              IdxT max_depth,
                               IdxT min_samples_split,
                               IdxT max_leaves,
                               const Dataset<DataT, LabelT, IdxT>& dataset,

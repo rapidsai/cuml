@@ -524,7 +524,6 @@ struct Builder {
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
     launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
                                                                params.max_n_bins,
-                                                               params.max_depth,
                                                                params.min_samples_split,
                                                                params.max_leaves,
                                                                dataset,
