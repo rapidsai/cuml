@@ -418,8 +418,17 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
-        if self.max_depth <= 0:
-            raise ValueError("Must specify max_depth > 0")
+        # None/-1 mean unlimited; translate to INT32_MAX just like sklearn.
+        cdef int max_depth_c
+        if self.max_depth is None or self.max_depth == -1:
+            max_depth_c = np.iinfo(np.int32).max
+        elif self.max_depth <= 0:
+            raise ValueError(
+                f"max_depth must be a positive integer, None, or -1 (unlimited); "
+                f"got {self.max_depth!r}"
+            )
+        else:
+            max_depth_c = self.max_depth
 
         # Validate OOB score parameter
         if callable(self.oob_score):
@@ -456,7 +465,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             n_bins = self.n_bins
 
         cdef RF_params params = set_rf_params(
-            self.max_depth,
+            max_depth_c,
             self.max_leaves,
             max_features,
             n_bins,
