@@ -220,11 +220,10 @@ class BaseRandomForestModel(Base, InteropMixin):
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
-        conditional_params["max_depth"] = model.max_depth
-
         return {
             "n_estimators": model.n_estimators,
             "split_criterion": split_criterion,
+            "max_depth": model.max_depth,
             "min_samples_split": model.min_samples_split,
             "min_samples_leaf": model.min_samples_leaf,
             "max_features": model.max_features,
