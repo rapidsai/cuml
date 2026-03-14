@@ -15,7 +15,6 @@ import scipy.spatial
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect
@@ -31,7 +30,11 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -163,14 +166,21 @@ def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
     # Find starting vertices (first vertex of simplex containing each point)
     simplex_indices = deltri.find_simplex(X_np)
     out_of_hull_mask = simplex_indices == -1
+
+    start_vertices = np.empty(X_np.shape[0], dtype=np.intp)
+    in_hull = ~out_of_hull_mask
+    start_vertices[in_hull] = deltri.simplices[simplex_indices[in_hull]][:, 0]
+
+    # For points outside the convex hull (can happen due to floating-point
+    # precision even when inverse-transforming the training embedding),
+    # fall back to the nearest embedding vertex.
     if np.any(out_of_hull_mask):
-        n_outside = out_of_hull_mask.sum()
-        raise ValueError(
-            f"{n_outside} point(s) are outside the convex hull of the embedding "
-            "and cannot be inverse transformed. Ensure all points to inverse "
-            "transform lie within the range of the original embedding."
+        ooh_points = X_np[out_of_hull_mask]
+        dists = np.linalg.norm(
+            embedding_np[np.newaxis, :, :] - ooh_points[:, np.newaxis, :],
+            axis=2,
         )
-    start_vertices = deltri.simplices[simplex_indices][:, 0]
+        start_vertices[out_of_hull_mask] = np.argmin(dists, axis=1)
 
     # Build adjacency matrix from simplices
     simplices = deltri.simplices
@@ -1409,6 +1419,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
 
@@ -1543,11 +1556,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
-        if not hasattr(self, "embedding_") or self.embedding_ is None:
-            raise NotFittedError(
-                "This UMAP instance is not fitted yet. Call 'fit' with "
-                "appropriate arguments before using 'inverse_transform'."
-            )
+        check_is_fitted(self)
+
         if self._sparse_data:
             raise ValueError("Inverse transform not available for sparse input.")
         if self.n_components >= 8:

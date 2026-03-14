@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -274,7 +274,7 @@ def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
 
 @pytest.mark.parametrize("cls", [cuml.ElasticNet, cuml.Lasso])
 def test_set_params(cls):
-    x = np.linspace(0, 1, 50)
+    x = np.linspace(0, 1, 50)[:, None]
     y = 2 * x
 
     model = cls(alpha=0.01)

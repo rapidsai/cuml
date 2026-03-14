@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
+import platform
 
 import cupy as cp
 import cupyx
 import joblib
+import numba
 import numpy as np
 import pytest
 import scipy.sparse as scipy_sparse
-import sklearn
 import umap
 from packaging.version import Version
 from sklearn import datasets
@@ -28,17 +29,6 @@ from cuml.testing.utils import (
     quality_param,
     stress_param,
     unit_param,
-)
-
-if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-    pytest.skip("umap requires sklearn < 1.8.0.dev0", allow_module_level=True)
-
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. Old versions of umap-learn use a deprecated parameter.
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
 )
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
@@ -695,6 +685,11 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
 @pytest.mark.filterwarnings(
     "ignore:Graph is not fully connected.*:UserWarning"
 )
+@pytest.mark.xfail(
+    Version(numba.__version__) >= Version("0.62.0"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
     n_clusters = 30
     random_state = 42
@@ -1166,6 +1161,11 @@ def test_umap_custom_init_errors():
         model.fit(data)
 
 
+@pytest.mark.xfail(
+    Version(numba.__version__) >= Version("0.62.0"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_umap_sigmas_rhos():
     """Test that sigmas and rhos are correctly produced and valid."""
     n_samples = 200
@@ -1201,6 +1201,12 @@ def test_umap_sigmas_rhos():
     np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
 
 
+@pytest.mark.xfail(
+    (Version(numba.__version__) >= Version("0.62.0"))
+    and (platform.machine() == "x86_64"),
+    reason="Upstream regression in umap with numba >= 0.62.0",
+    strict=True,
+)
 def test_inverse_transform():
     """Test cuML UMAP inverse_transform produces valid output."""
     X, _ = make_blobs(n_samples=200, n_features=10, centers=4, random_state=42)

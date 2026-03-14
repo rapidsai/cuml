@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -44,6 +44,19 @@ struct type_error : std::exception {
 
  private:
   char const* msg_;
+};
+
+/**
+ * Exception indicating a runtime error.
+ */
+struct runtime_error : std::exception {
+  runtime_error() : runtime_error("Runtime error") {}
+  runtime_error(char const* msg) : msg_{msg} {}
+  runtime_error(std::string const& msg) : msg_{msg} {}
+  virtual char const* what() const noexcept { return msg_.c_str(); }
+
+ private:
+  std::string msg_;
 };
 
 }  // namespace fil

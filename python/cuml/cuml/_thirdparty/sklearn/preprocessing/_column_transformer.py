@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -36,6 +36,7 @@ from sklearn.utils import Bunch
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
+from cuml.internals.validation import check_is_fitted, check_features
 
 from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
@@ -44,7 +45,6 @@ from ..utils.skl_dependencies import (
     BaseEstimator,
     TransformerMixin,
 )
-from ..utils.validation import check_is_fitted
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "
@@ -880,13 +880,6 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             sparse matrices.
 
         """
-        # TODO: this should be `feature_names_in_` when we start having it
-        if hasattr(X, "columns"):
-            self._feature_names_in = cpu_np.asarray(X.columns)
-        else:
-            self._feature_names_in = None
-        # set n_features_in_ attribute
-        self._check_n_features(X, reset=True)
         self._validate_transformers()
         self._validate_column_callables(X)
         self._validate_remainder(X)
@@ -935,19 +928,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         """
         check_is_fitted(self)
-        if hasattr(X, "columns"):
-            X_feature_names = cpu_np.asarray(X.columns)
-        else:
-            X_feature_names = None
-
-        self._check_n_features(X, reset=False)
-        if (self._feature_names_in is not None and
-            X_feature_names is not None and
-                cpu_np.any(self._feature_names_in != X_feature_names)):
-            raise RuntimeError(
-                "Given feature/column names do not match the ones for the "
-                "data given during fit."
-            )
+        check_features(self, X)
         Xs = self._fit_transform(X, None, _transform_one, fitted=True)
         self._validate_output(Xs)
 

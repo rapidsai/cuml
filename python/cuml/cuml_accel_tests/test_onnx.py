@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+
 import hdbscan
 import numpy as np
-import onnxruntime as ort
 import pytest
 import umap
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
+
+# TODO: restore these after onnxruntime has 3.14 support
+# import onnxruntime as ort
+# from skl2onnx import convert_sklearn
+# from skl2onnx.common.data_types import FloatTensorType
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
@@ -22,6 +26,19 @@ from sklearn.neighbors import (
     NearestNeighbors,
 )
 from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
+
+# TODO: remove these after onnxruntime has 3.14 support
+###
+if sys.version_info >= (3, 14):
+    ort = pytest.importorskip("onnxruntime")
+    pytest.importorskip("skl2onnx")
+    from skl2onnx import convert_sklearn  # noqa: E402
+    from skl2onnx.common.data_types import FloatTensorType  # noqa: E402
+else:
+    import onnxruntime as ort
+    from skl2onnx import convert_sklearn
+    from skl2onnx.common.data_types import FloatTensorType
+###
 
 # Which estimators are supported and not is also mentioned in the cuml.accel docs,
 # make sure to update the docs if you make changes here.

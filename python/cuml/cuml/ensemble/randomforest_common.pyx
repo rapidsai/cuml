@@ -20,7 +20,7 @@ from cuml.internals.interop import (
     UnsupportedOnGPU,
 )
 from cuml.internals.treelite import safe_treelite_call
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_is_fitted, check_random_seed
 from cuml.metrics import accuracy_score, r2_score
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -363,6 +363,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         -------
         treelite.Model
         """
+        check_is_fitted(self)
+
         return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
 
     def as_fil(
@@ -393,6 +395,8 @@ class BaseRandomForestModel(Base, InteropMixin):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
+        check_is_fitted(self)
+
         return ForestInference(
             verbose=self.verbose,
             output_type=self.output_type,

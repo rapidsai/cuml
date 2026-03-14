@@ -7,6 +7,7 @@ import numpy as np
 import cuml.common.opg_data_utils_mg as opg
 from cuml.common import input_to_cuml_array
 from cuml.internals import run_in_internal_context
+from cuml.internals.validation import check_features
 
 
 class BaseDecompositionMG:
@@ -26,7 +27,7 @@ class BaseDecompositionMG:
         :return: self
         """
         self._set_output_type(X[0])
-        self._set_n_features_in(n_cols)
+        check_features(self, X[0], reset=True)
 
         if self.n_components is None:
             self.n_components_ = min(total_rows, n_cols)
