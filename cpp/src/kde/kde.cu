@@ -5,7 +5,11 @@
 
 #include <cuml/neighbors/kde.hpp>
 
+#include <raft/core/device_mdspan.hpp>
+
 #include <cuvs/distance/kde.hpp>
+
+#include <optional>
 
 namespace ML::KDE {
 
@@ -24,19 +28,26 @@ void score_samples(raft::resources const& handle,
                    cuvs::distance::DistanceType metric,
                    T metric_arg)
 {
-  cuvs::distance::kde_score_samples(handle,
-                                    query,
-                                    train,
-                                    weights,
-                                    output,
-                                    n_query,
-                                    n_train,
-                                    n_features,
-                                    bandwidth,
-                                    sum_weights,
-                                    kernel,
-                                    metric,
-                                    metric_arg);
+  auto query_view =
+    raft::make_device_matrix_view<const T, std::int64_t>(query, n_query, n_features);
+  auto train_view =
+    raft::make_device_matrix_view<const T, std::int64_t>(train, n_train, n_features);
+  auto output_view = raft::make_device_vector_view<T, std::int64_t>(output, n_query);
+  auto weights_view =
+    weights
+      ? std::make_optional(raft::make_device_vector_view<const T, std::int64_t>(weights, n_train))
+      : std::nullopt;
+
+  cuvs::distance::kde(handle,
+                      query_view,
+                      train_view,
+                      weights_view,
+                      output_view,
+                      bandwidth,
+                      sum_weights,
+                      kernel,
+                      metric,
+                      metric_arg);
 }
 
 template void score_samples<float>(raft::resources const&,
