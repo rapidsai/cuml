@@ -71,7 +71,6 @@ def _get_n_features(X):
                 return len(row)
             except Exception:
                 pass
-        return 1
 
     if hasattr(X, "shape"):
         shape = X.shape
@@ -82,9 +81,38 @@ def _get_n_features(X):
     else:
         shape = np.asarray(X).shape
 
-    # TODO: Can remove the fallback to 1 when we finish dropping support
-    # for 1D X inputs
-    return shape[1] if len(shape) >= 2 else 1
+    ndim = len(shape)
+
+    if ndim != 2:
+        import cuml.accel
+
+        if isinstance(X, (cudf.Series, pd.Series)):
+            msg = (
+                f"Expected a 2-dimensional container but got {type(X).__name__} "
+                "instead. Pass a DataFrame containing a single row (i.e. "
+                "single sample) or a single column (i.e. single feature) "
+                "instead."
+            )
+        else:
+            kind = "scalar" if ndim == 0 else f"{ndim}D"
+            msg = (
+                f"Expected 2D array, got {kind} array instead. Reshape your data "
+                "using array.reshape(-1, 1) if your data has a single feature, "
+                "or array.reshape(1, -1) if it contains a single sample."
+            )
+
+        if cuml.accel.enabled() or ndim > 2:
+            raise ValueError(msg)
+        else:
+            warnings.warn(
+                "Support for passing non-2-dimensional X was deprecated in 26.04 "
+                "and will be removed in 26.06. In cuml 26.06 this will error "
+                f"with the following message:\n\n{msg}",
+                FutureWarning,
+            )
+            # Fallback to 1 feature until the deprecation is completed
+            return 1
+    return shape[1]
 
 
 def _warn_or_error(exc_cls, msg):

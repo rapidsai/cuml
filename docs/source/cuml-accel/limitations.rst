@@ -106,6 +106,21 @@ KMeans
 - If a callable ``init`` is provided.
 - If ``X`` is sparse.
 
+SpectralClustering
+^^^^^^^^^^^^^^^^^^
+
+``SpectralClustering`` will fall back to CPU in the following cases:
+
+- If ``assign_labels`` is not ``"kmeans"``.
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+  Note that the default value of ``affinity`` in scikit-learn is ``"rbf"``,
+  which is not GPU-accelerated.
+- If ``X`` is sparse.
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+
 DBSCAN
 ^^^^^^
 

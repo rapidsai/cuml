@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -10,7 +10,7 @@ import cuml.cluster
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("KMeans", "DBSCAN")
+__all__ = ("KMeans", "DBSCAN", "SpectralClustering")
 
 
 class KMeans(ProxyBase):
@@ -44,3 +44,8 @@ class DBSCAN(ProxyBase):
     def _gpu_fit_predict(self, X, y=None, sample_weight=None):
         # Fixes signature mismatch with cuml.DBSCAN. Can be removed after #6741.
         return self._gpu.fit_predict(X, y=y, sample_weight=sample_weight)
+
+
+class SpectralClustering(ProxyBase):
+    _gpu_class = cuml.cluster.SpectralClustering
+    _not_implemented_attributes = frozenset(("affinity_matrix_",))

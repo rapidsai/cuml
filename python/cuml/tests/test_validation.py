@@ -78,10 +78,28 @@ def test_get_n_features():
     assert _get_n_features([[1, 2, 3], [3, 4, 5]]) == 3
     assert _get_n_features([np.array([1, 2])]) == 2
     assert _get_n_features([]) == 0
-    assert _get_n_features([1, 2, 3]) == 1
-    assert _get_n_features(["a", "b", "c"]) == 1
-    assert _get_n_features([b"a", b"b", b"c"]) == 1
-    assert _get_n_features([{"a": 1, "b": 2}, {"c": 3}]) == 1
+
+    with pytest.raises(ValueError, match="Expected 2D array, got 3D array"):
+        _get_n_features(np.ones((3, 2, 1)))
+
+
+@pytest.mark.parametrize(
+    "X",
+    [
+        [1, 2, 3],
+        ["a", "b", "c"],
+        [b"a", b"b", b"c"],
+        [{"a": 1, "b": 2}, {"c": 3}],
+        np.array([1, 2, 3]),
+        cp.array([1, 2, 3]),
+        pd.Series([1, 2, 3]),
+        cudf.Series([1, 2, 3]),
+    ],
+)
+def test_get_n_features_1D(X):
+    with pytest.warns(FutureWarning, match="non-2-dimensional"):
+        n_features = _get_n_features(X)
+    assert n_features == 1
 
 
 def test_get_feature_names():
