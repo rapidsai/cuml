@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 import math
 
-import cudf.pandas
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -17,8 +16,6 @@ from cuml.testing.utils import (
     generate_inputs_from_categories,
     stress_param,
 )
-
-cudf_pandas_active = cudf.pandas.LOADED
 
 
 def _from_df_to_cupy(df):
@@ -170,17 +167,7 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
 
 @pytest.mark.parametrize(
     "as_array",
-    [
-        True,
-        pytest.param(
-            False,
-            marks=pytest.mark.xfail(
-                condition=cudf_pandas_active,
-                reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-                strict=True,
-            ),
-        ),
-    ],
+    [True, False],
     ids=["cupy", "cudf"],
 )
 def test_onehot_drop_idx_first(as_array):
@@ -203,17 +190,7 @@ def test_onehot_drop_idx_first(as_array):
 
 @pytest.mark.parametrize(
     "as_array",
-    [
-        True,
-        pytest.param(
-            False,
-            marks=pytest.mark.xfail(
-                condition=cudf_pandas_active,
-                reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-                strict=True,
-            ),
-        ),
-    ],
+    [True, False],
     ids=["cupy", "cudf"],
 )
 def test_onehot_drop_one_of_each(as_array):

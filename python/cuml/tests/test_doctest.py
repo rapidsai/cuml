@@ -9,18 +9,10 @@ import io
 import warnings
 
 import cudf
-import cudf.pandas
 import numpy as np
 import pytest
 
 import cuml
-
-cudf_pandas_active = cudf.pandas.LOADED
-
-_XFAIL_CUDF_PANDAS_21695 = pytest.mark.xfail(
-    reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-    strict=True,
-)
 
 
 def _name_in_all(parent, name):
@@ -87,17 +79,9 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
             yield from _find_doctests_in_obj(member, finder)
 
 
-def _doctest_params():
-    for docstring in _find_doctests_in_obj(cuml):
-        if docstring.name == "LabelEncoder" and cudf_pandas_active:
-            yield pytest.param(docstring, marks=_XFAIL_CUDF_PANDAS_21695)
-        else:
-            yield docstring
-
-
 @pytest.mark.parametrize(
     "docstring",
-    _doctest_params(),
+    _find_doctests_in_obj(cuml),
     ids=lambda docstring: docstring.name,
 )
 def test_docstring(docstring):
