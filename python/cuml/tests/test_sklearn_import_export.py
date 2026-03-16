@@ -13,6 +13,7 @@ import umap
 from numpy.testing import assert_allclose
 from packaging.version import Version
 from sklearn.cluster import KMeans as SkKMeans
+from sklearn.cluster import SpectralClustering as SkSpectralClustering
 from sklearn.datasets import (
     make_blobs,
     make_classification,
@@ -32,7 +33,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml.cluster import DBSCAN, KMeans
+from cuml.cluster import DBSCAN, KMeans, SpectralClustering
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.linear_model import (
@@ -192,6 +193,20 @@ def test_dbscan(random_state):
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
     assert array_equal(original.labels_, roundtrip_model.labels_)
+
+
+def test_spectral_clustering(random_state):
+    X, _ = make_blobs(
+        n_samples=100, n_features=10, centers=3, random_state=random_state
+    )
+    X = X.astype(np.float32)
+    original = SpectralClustering(
+        n_clusters=3,
+        affinity="nearest_neighbors",
+        n_neighbors=10,
+        random_state=random_state,
+    )
+    assert_estimator_roundtrip(original, SkSpectralClustering, X)
 
 
 def test_pca(random_state):
@@ -968,7 +983,12 @@ def test_target_encoder(random_state):
     )
     y = np.array([1.0, 2.0, 1.5, 2.5, 3.0, 1.2, 2.2, 3.2])
 
-    original = TargetEncoder(n_folds=2, smooth=1.0, split_method="continuous")
+    original = TargetEncoder(
+        multi_feature_mode="independent",
+        n_folds=2,
+        smooth=1.0,
+        split_method="continuous",
+    )
     original.fit(X, y)
 
     sklearn_model = original.as_sklearn()
@@ -983,7 +1003,5 @@ def test_target_encoder(random_state):
     sklearn_output = sklearn_model.transform(X_test)
     roundtrip_output = roundtrip_model.transform(X_test)
 
-    # sklearn returns 2D (n_samples, n_features), cuML returns 1D for single feature
-    sklearn_output_flat = sklearn_output.ravel()
-    assert array_equal(original_output, sklearn_output_flat)
+    assert array_equal(original_output, sklearn_output)
     assert array_equal(original_output, roundtrip_output)

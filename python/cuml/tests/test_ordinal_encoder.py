@@ -102,7 +102,7 @@ def test_output_type(test_sample) -> None:
 
 def test_feature_names(test_sample) -> None:
     enc = OrdinalEncoder().fit(test_sample)
-    assert enc.feature_names_in_ == ["cat", "num"]
+    assert (enc.feature_names_in_ == ["cat", "num"]).all()
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])

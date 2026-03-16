@@ -20,6 +20,13 @@ def _df_to_similarity_mat(df):
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
 
 
+def test_label_encoder_no_features():
+    """Ensure the features infra is never applied to LabelEncoder"""
+    y = cp.asarray([1, 2, 1, 2, 1, 0])
+    model = LabelEncoder().fit(y)
+    assert not hasattr(model, "n_features_in_")
+
+
 @pytest.mark.parametrize("length", [10, 1000])
 @pytest.mark.parametrize("cardinality", [5, 10, 50])
 def test_labelencoder_fit_transform(length, cardinality):
