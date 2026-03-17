@@ -5,10 +5,10 @@ import cupy as cp
 import dask_cudf
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.dask.preprocessing._label import LabelEncoder
 
 

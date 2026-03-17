@@ -5,9 +5,9 @@ from collections.abc import Sequence
 
 from dask_cudf import DataFrame as dcDataFrame
 from dask_cudf import Series as dcSeries
+from sklearn.exceptions import NotFittedError
 from toolz import first
 
-from cuml.common.exceptions import NotFittedError
 from cuml.dask.common.base import (
     BaseEstimator,
     DelayedInverseTransformMixin,

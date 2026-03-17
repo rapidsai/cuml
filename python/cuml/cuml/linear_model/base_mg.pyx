@@ -10,6 +10,7 @@ from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_features
 
 from libc.stdint cimport uintptr_t
 
@@ -44,7 +45,7 @@ class MGFitMixin:
         """
 
         self._set_output_type(input_data[0][0])
-        self._set_n_features_in(n_cols)
+        check_features(self, input_data[0][0], reset=True)
         sparse_input = is_sparse(input_data[0][0])
 
         X_arys = []

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -18,8 +18,6 @@ class OrdinalEncoderMG(OrdinalEncoder):
         import dask.array
 
         from cuml.dask.common.dask_arr_utils import to_dask_cudf
-
-        self._check_n_features(X, reset=True)
 
         if isinstance(X, (dask.array.core.Array, cp.ndarray)):
             self._set_input_type("array")

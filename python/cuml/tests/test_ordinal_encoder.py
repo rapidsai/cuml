@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-import cudf.pandas
 import cupy as cp
 import numpy as np
 import pandas as pd
@@ -10,8 +9,6 @@ from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 
 from cuml.preprocessing import OrdinalEncoder
 
-cudf_pandas_active = cudf.pandas.LOADED
-
 
 @pytest.fixture
 def test_sample():
@@ -19,11 +16,6 @@ def test_sample():
     return X
 
 
-@pytest.mark.xfail(
-    cudf_pandas_active,
-    reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-    strict=True,
-)
 def test_ordinal_encoder_df(test_sample) -> None:
     X = test_sample
     enc = OrdinalEncoder()
@@ -102,7 +94,7 @@ def test_output_type(test_sample) -> None:
 
 def test_feature_names(test_sample) -> None:
     enc = OrdinalEncoder().fit(test_sample)
-    assert enc.feature_names_in_ == ["cat", "num"]
+    assert (enc.feature_names_in_ == ["cat", "num"]).all()
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])

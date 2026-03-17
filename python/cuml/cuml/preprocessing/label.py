@@ -157,7 +157,7 @@ class LabelBinarizer(Base):
         self.sparse_output = sparse_output
         self.classes_ = None
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer

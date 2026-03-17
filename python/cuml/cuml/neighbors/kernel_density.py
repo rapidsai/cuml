@@ -9,13 +9,16 @@ import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
 
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
@@ -245,6 +248,8 @@ class KernelDensity(Base, InteropMixin):
             else cp.asnumpy(self._sample_weight)
         )
         model.fit(X, sample_weight=sample_weight)
+        if hasattr(self, "feature_names_in_"):
+            model.feature_names_in_ = self.feature_names_in_
 
     def __init__(
         self,
@@ -352,8 +357,8 @@ class KernelDensity(Base, InteropMixin):
             probability densities, so values will be low for high-dimensional
             data.
         """
-        if not hasattr(self, "_X"):
-            raise NotFittedError()
+        check_is_fitted(self)
+        check_features(self, X)
 
         X = input_to_cuml_array(
             X,
@@ -463,8 +468,7 @@ class KernelDensity(Base, InteropMixin):
         X : cupy array of shape (n_samples, n_features)
             List of samples.
         """
-        if not hasattr(self, "_X"):
-            raise NotFittedError()
+        check_is_fitted(self)
 
         supported_kernels = ["gaussian", "tophat"]
         if self.kernel not in supported_kernels:

@@ -2,22 +2,26 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
-import cudf.pandas
 import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing._label import LabelEncoder
-
-cudf_pandas_active = cudf.pandas.LOADED
 
 
 def _df_to_similarity_mat(df):
     arr = df.to_numpy().reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
+
+
+def test_label_encoder_no_features():
+    """Ensure the features infra is never applied to LabelEncoder"""
+    y = cp.asarray([1, 2, 1, 2, 1, 0])
+    model = LabelEncoder().fit(y)
+    assert not hasattr(model, "n_features_in_")
 
 
 @pytest.mark.parametrize("length", [10, 1000])
@@ -70,11 +74,6 @@ def test_labelencoder_unfitted():
         le.transform(df)
 
 
-@pytest.mark.xfail(
-    cudf_pandas_active,
-    reason="rapidsai/cudf#21695: cudf.Series.astype(str) raises TypeError under cudf.pandas",
-    strict=True,
-)
 @pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
     "orig_label, ord_label, expected_reverted, bad_ord_label",

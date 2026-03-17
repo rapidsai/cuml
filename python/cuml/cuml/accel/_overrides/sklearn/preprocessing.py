@@ -121,46 +121,14 @@ class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 
     def _gpu_fit(self, X, y, **kwargs):
-        """Fit with independent mode for sklearn compatibility.
-
-        sklearn's TargetEncoder always encodes features independently,
-        so we force independent mode when using cuml.accel.
-        """
         # Check for unsupported inputs (triggers CPU fallback)
         _check_unsupported_inputs(X, y, self._cpu)
-
-        # Ensure independent mode is set for sklearn compatibility
-        self._gpu.multi_feature_mode = "independent"
-        result = self._gpu.fit(X, y, **kwargs)
-
-        # Sync sklearn-expected attributes to the proxy
-        if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
-        if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
-
-        return result
+        return self._gpu.fit(X, y, **kwargs)
 
     def _gpu_fit_transform(self, X, y, **kwargs):
-        """Fit-transform with independent mode for sklearn compatibility.
-
-        sklearn's TargetEncoder always encodes features independently,
-        so we force independent mode when using cuml.accel.
-        """
         # Check for unsupported inputs (triggers CPU fallback)
         _check_unsupported_inputs(X, y, self._cpu)
-
-        # Ensure independent mode is set for sklearn compatibility
-        self._gpu.multi_feature_mode = "independent"
-        result = self._gpu.fit_transform(X, y, **kwargs)
-
-        # Sync sklearn-expected attributes to the proxy
-        if hasattr(self._gpu, "feature_names_in_"):
-            self.feature_names_in_ = self._gpu.feature_names_in_
-        if hasattr(self._gpu, "n_features_in_"):
-            self.n_features_in_ = self._gpu.n_features_in_
-
-        return result
+        return self._gpu.fit_transform(X, y, **kwargs)
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.

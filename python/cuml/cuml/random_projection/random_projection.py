@@ -13,7 +13,11 @@ from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
@@ -119,6 +123,9 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     @reflect
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
+        check_is_fitted(self)
+        check_features(self, X)
+
         # Coerce X to a cupy array or cupyx sparse matrix
         index = None
         if sp.issparse(X):

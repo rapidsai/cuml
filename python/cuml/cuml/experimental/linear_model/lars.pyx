@@ -267,9 +267,6 @@ class Lars(Base, RegressorMixin):
         Fit the model with X and y.
 
         """
-        self._set_n_features_in(X)
-        self._set_output_type(X)
-
         X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
             X, check_dtype=[np.float32, np.float64], order='F')
 
