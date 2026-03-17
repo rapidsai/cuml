@@ -642,11 +642,18 @@ class CumlArray:
             if self.index is None:
                 out_index = None
             elif output_mem_type is not self.mem_type:
-                out_index = (
-                    cudf.Index(self.index)
-                    if output_mem_type is MemoryType.device
-                    else cudf_to_pandas(self.index)
-                )
+                if output_mem_type is MemoryType.device:
+                    out_index = (
+                        self.index
+                        if isinstance(self.index, cudf.Index)
+                        else cudf.Index(self.index)
+                    )
+                else:
+                    out_index = (
+                        self.index
+                        if isinstance(self.index, pd.Index)
+                        else cudf_to_pandas(self.index)
+                    )
             else:
                 out_index = self.index
             if output_mem_type is MemoryType.device:
