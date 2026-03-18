@@ -368,7 +368,7 @@ jobs:
   wheel-build-libcuml:
     needs: checks
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
     with:
       build_type: pull-request
       branch: ${{ inputs.branch }}
@@ -383,7 +383,7 @@ jobs:
   wheel-build-cuml:
     needs: [checks, wheel-build-libcuml]
     secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@build-wheels-old-ctk
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.04
     with:
       build_type: pull-request
       node_type: cpu8
