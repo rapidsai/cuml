@@ -16,12 +16,8 @@ namespace {
 raft::linalg::paramsTSVD to_raft_params(const paramsTSVD& ml_prms)
 {
   raft::linalg::paramsTSVD prms;
-  prms.n_rows       = ml_prms.n_rows;
-  prms.n_cols       = ml_prms.n_cols;
-  prms.gpu_id       = ml_prms.gpu_id;
   prms.tol          = ml_prms.tol;
   prms.n_iterations = ml_prms.n_iterations;
-  prms.n_components = ml_prms.n_components;
   prms.algorithm    = ml_prms.algorithm;
   return prms;
 }

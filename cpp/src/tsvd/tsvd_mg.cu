@@ -52,9 +52,6 @@ void fit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> explained_var_all(prms.n_cols, streams[0]);
 
   raft::linalg::paramsTSVD raft_prms;
-  raft_prms.n_rows       = prms.n_rows;
-  raft_prms.n_cols       = prms.n_cols;
-  raft_prms.n_components = prms.n_components;
   raft_prms.algorithm    = prms.algorithm;
   raft_prms.tol          = prms.tol;
   raft_prms.n_iterations = prms.n_iterations;

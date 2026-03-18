@@ -17,12 +17,8 @@ namespace ML {
 raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
 {
   raft::linalg::paramsPCA prms;
-  prms.n_rows       = ml_prms.n_rows;
-  prms.n_cols       = ml_prms.n_cols;
-  prms.gpu_id       = ml_prms.gpu_id;
   prms.tol          = ml_prms.tol;
   prms.n_iterations = ml_prms.n_iterations;
-  prms.n_components = ml_prms.n_components;
   prms.algorithm    = ml_prms.algorithm;
   prms.copy         = ml_prms.copy;
   prms.whiten       = ml_prms.whiten;

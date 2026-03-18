@@ -59,9 +59,6 @@ void fit_impl(raft::handle_t& handle,
   MLCommon::Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
   raft::linalg::paramsPCA raft_prms;
-  raft_prms.n_rows       = prms.n_rows;
-  raft_prms.n_cols       = prms.n_cols;
-  raft_prms.n_components = prms.n_components;
   raft_prms.algorithm    = prms.algorithm;
   raft_prms.tol          = prms.tol;
   raft_prms.n_iterations = prms.n_iterations;
@@ -79,7 +76,8 @@ void fit_impl(raft::handle_t& handle,
       components, prms.n_components, prms.n_cols),
     raft::make_device_vector_view<T, std::size_t>(explained_var, prms.n_components),
     raft::make_device_vector_view<T, std::size_t>(explained_var_ratio, prms.n_components),
-    raft::make_device_scalar_view<T, std::size_t>(noise_vars));
+    raft::make_device_scalar_view<T, std::size_t>(noise_vars),
+    prms.n_rows);
 
   T scalar = (prms.n_rows - 1);
   raft::matrix::weighted_sqrt(handle_stream_zero,
