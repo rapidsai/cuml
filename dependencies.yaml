@@ -425,7 +425,8 @@ dependencies:
       # but check at https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html
       - output_types: [requirements, pyproject]
         matrices:
-          # skip this whole group if explicitly opting out of CUDA wheels
+          # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
+          # (e.g. for DLFW and pip devcontainers)
           - matrix:
               use_cuda_wheels: "false"
             packages:
