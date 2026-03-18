@@ -159,10 +159,30 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         comms.destroy()
 
-        models = [res.result() for res in kmeans_fit]
-        first = models[0]
-        first.labels_ = cp.concatenate([model.labels_ for model in models])
-        first.inertia_ = sum(model.inertia_ for model in models)
+        # Collect the full model from only the first worker (for
+        # cluster_centers_ etc). Extract labels_ and inertia_ from the
+        # remaining workers remotely to avoid pulling N redundant copies
+        # of cluster_centers_ back to the client.
+        first = kmeans_fit[0].result()
+
+        remote_labels = [
+            self.client.submit(getattr, f, "labels_", workers=[w])
+            for f, (w, _) in zip(
+                kmeans_fit[1:], list(data.worker_to_parts.items())[1:]
+            )
+        ]
+        remote_inertias = [
+            self.client.submit(getattr, f, "inertia_", workers=[w])
+            for f, (w, _) in zip(
+                kmeans_fit[1:], list(data.worker_to_parts.items())[1:]
+            )
+        ]
+
+        all_labels = [first.labels_] + self.client.gather(remote_labels)
+        all_inertias = [first.inertia_] + self.client.gather(remote_inertias)
+
+        first.labels_ = cp.concatenate(all_labels)
+        first.inertia_ = sum(all_inertias)
         self._set_internal_model(first)
 
         return self
