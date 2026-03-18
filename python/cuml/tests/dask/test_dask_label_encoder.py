@@ -9,7 +9,7 @@ from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
+from cuml.dask.preprocessing._label import LabelEncoder
 
 
 def _arr_to_similarity_mat(arr):
