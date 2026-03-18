@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -101,10 +101,10 @@ _parameter_possible_values = [
 _return_values_docstrings = {
     "dense": "{name} : cuDF, CuPy or NumPy object depending on cuML's output type configuration, shape = {shape}\n"  # noqa
     "    {description}\n\n    For more information on how to configure cuML's output type,\n"  # noqa
-    "    refer to: `Output Data Type Configuration`_.",  # noqa
+    "    refer to: :ref:`output-data-type-configuration`.",  # noqa
     "dense_sparse": "{name} : cuDF, CuPy or NumPy object depending on cuML's output type configuration, cupyx.scipy.sparse for sparse output, shape = {shape}\n"  # noqa
     "    {description}\n\n    For more information on how to configure cuML's dense output type,\n"  # noqa
-    "    refer to: `Output Data Type Configuration`_.",  # noqa
+    "    refer to: :ref:`output-data-type-configuration`.",  # noqa
     "dense_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
     "configuration, shape ={shape}",
     "dense_sparse_datatype": "cuDF, CuPy or NumPy object depending on cuML's output type"
