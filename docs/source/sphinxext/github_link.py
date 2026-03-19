@@ -1,7 +1,7 @@
 # This contains code with copyright by the scikit-learn project, subject to the
 # license in /thirdparty/LICENSES/LICENSE.scikit_learn
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 #
 
@@ -90,6 +90,8 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
 
     if not fn:
         # Possibly Cython code. Search docstring for source
+        if obj.__doc__ is None:
+            return
         m = source_regex.search(obj.__doc__)
 
         if m is not None:

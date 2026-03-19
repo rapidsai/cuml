@@ -54,7 +54,7 @@ class LabelEncoder(
         >>> # There are two functionally equivalent ways to do this
         >>> le = LabelEncoder()
         >>> le.fit(ddf.cat_col)  # le = le.fit(data.category) also works
-        <cuml.dask.preprocessing.LabelEncoder.LabelEncoder object at 0x...>
+        <cuml.dask.preprocessing._label.LabelEncoder object at 0x...>
         >>> encoded = le.transform(ddf.cat_col)
         >>> print(encoded.compute())
         0    0

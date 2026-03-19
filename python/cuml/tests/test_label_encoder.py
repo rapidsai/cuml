@@ -9,7 +9,7 @@ import pytest
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.validation import check_is_fitted
 
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing._label import LabelEncoder
 
 
 def _df_to_similarity_mat(df):
