@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -104,7 +104,19 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() const { return false; }
+  bool alloc_knn_graph() const
+  {
+    cudaPointerAttributes attr;
+    cudaPointerGetAttributes(&attr, knn_graph.knn_indices);
+    if (attr.devicePointer == nullptr ||
+        (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
+      return true;
+    cudaPointerGetAttributes(&attr, knn_graph.knn_dists);
+    if (attr.devicePointer == nullptr ||
+        (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
+      return true;
+    return false;
+  }
 };
 
 };  // end namespace ML
