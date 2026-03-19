@@ -15,7 +15,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
 from cuml.internals.validation import check_features, check_is_fitted
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing._label import LabelEncoder
 
 
 class BaseEncoder(Base):

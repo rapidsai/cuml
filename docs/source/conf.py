@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is execfile()d with the current directory set to its
@@ -62,7 +62,7 @@ ipython_mplbackend = "str"
 templates_path = ["_templates"]
 
 # generate autosummary even if no references
-# autosummary_generate = True
+autosummary_generate = True
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -267,3 +267,13 @@ linkcode_resolve = make_linkcode_resolve(
 # backticks`) to be a python object. See
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-default_role
 default_role = "py:obj"
+
+# rst_prolog is prepended to every RST file. We define the :py: role here so
+# that docstrings using :py:`code` for inline Python-highlighted code render
+# correctly on all pages. This role was previously defined only in the old
+# monolithic api.rst.
+rst_prolog = """
+.. role:: py(code)
+   :language: python
+   :class: highlight
+"""
