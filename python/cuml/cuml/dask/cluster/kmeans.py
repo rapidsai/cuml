@@ -181,7 +181,9 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             for f, w in zip(kmeans_fit[1:], workers[1:])
         ]
 
-        first.inertia_ += sum(self.client.gather(remote_inertias))
+        self.inertia_ = first.inertia_ + sum(
+            self.client.gather(remote_inertias)
+        )
 
         labels_dtype = first.labels_.dtype
         label_chunks = [
@@ -200,9 +202,10 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             )
             for f in remote_labels
         ]
-        first.labels_ = da.concatenate(
+        self.labels_ = da.concatenate(
             label_chunks, allow_unknown_chunksizes=True
         )
+
         self._set_internal_model(first)
 
         return self
