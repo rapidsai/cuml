@@ -3,7 +3,6 @@
 #
 
 import cupy as cp
-import dask
 import dask.array as da
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
@@ -17,6 +16,10 @@ from cuml.dask.common.base import (
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.validation import check_random_seed
+
+
+def _get_inertia_and_n_samples(estimator):
+    return (estimator.inertia_, len(estimator.labels_))
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -165,48 +168,33 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         # cluster_centers_ etc). Since cluster centers are synchronized
         # via NCCL, all workers have identical copies — pulling more
         # than one would waste memory (N * n_clusters * n_features * 4B).
-        #
-        # Labels stay distributed as a dask.array to avoid transferring
-        # per-sample data to the client. Only the scalar inertia values
-        # are gathered.
         first = kmeans_fit[0].result()
+        self._set_internal_model(first)
+
         workers = list(data.worker_to_parts.keys())
 
-        remote_labels = [
-            self.client.submit(getattr, f, "labels_", workers=[w])
-            for f, w in zip(kmeans_fit[1:], workers[1:])
-        ]
-        remote_inertias = [
-            self.client.submit(getattr, f, "inertia_", workers=[w])
-            for f, w in zip(kmeans_fit[1:], workers[1:])
-        ]
-
-        self.inertia_ = first.inertia_ + sum(
-            self.client.gather(remote_inertias)
+        # Compute and store the total inertia_
+        inertia_and_lengths = self.client.gather(
+            [
+                self.client.submit(_get_inertia_and_n_samples, f, workers=[w])
+                for f, w in zip(kmeans_fit, workers)
+            ]
         )
+        self.inertia_ = sum(inertia for inertia, _ in inertia_and_lengths)
 
-        labels_dtype = first.labels_.dtype
-        label_chunks = [
-            da.from_delayed(
-                dask.delayed(first.labels_, pure=True, traverse=False),
-                shape=(first.labels_.shape[0],),
-                dtype=labels_dtype,
-                meta=cp.zeros(0, dtype=labels_dtype),
-            )
-        ] + [
-            da.from_delayed(
-                f,
-                shape=(float("nan"),),
-                dtype=labels_dtype,
-                meta=cp.zeros(0, dtype=labels_dtype),
-            )
-            for f in remote_labels
+        # Store labels_ as a distributed dask array. This attribute scales with
+        # n_samples, and shouldn't be pulled back to a local node.
+        labels_meta = cp.zeros(0, dtype=first.labels_.dtype)
+        labels = [
+            self.client.submit(getattr, f, "labels_", workers=[w])
+            for f, w in zip(kmeans_fit, workers)
         ]
         self.labels_ = da.concatenate(
-            label_chunks, allow_unknown_chunksizes=True
+            [
+                da.from_delayed(f, shape=(length,), meta=labels_meta)
+                for f, (_, length) in zip(labels, inertia_and_lengths)
+            ]
         )
-
-        self._set_internal_model(first)
 
         return self
 
