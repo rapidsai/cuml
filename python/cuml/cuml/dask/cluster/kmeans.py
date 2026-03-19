@@ -165,21 +165,18 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         # of cluster_centers_ back to the client.
         first = kmeans_fit[0].result()
 
-        remote_labels = [
-            self.client.submit(getattr, f, "labels_", workers=[w])
-            for f, (w, _) in zip(
-                kmeans_fit[1:], list(data.worker_to_parts.items())[1:]
+        remote_results = [
+            self.client.submit(
+                lambda m: (m.labels_, m.inertia_), f, workers=[w]
             )
-        ]
-        remote_inertias = [
-            self.client.submit(getattr, f, "inertia_", workers=[w])
             for f, (w, _) in zip(
                 kmeans_fit[1:], list(data.worker_to_parts.items())[1:]
             )
         ]
 
-        all_labels = [first.labels_] + self.client.gather(remote_labels)
-        all_inertias = [first.inertia_] + self.client.gather(remote_inertias)
+        results = self.client.gather(remote_results)
+        all_labels = [first.labels_] + [r[0] for r in results]
+        all_inertias = [first.inertia_] + [r[1] for r in results]
 
         first.labels_ = cp.concatenate(all_labels)
         first.inertia_ = sum(all_inertias)
