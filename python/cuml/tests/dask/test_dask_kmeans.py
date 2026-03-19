@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,7 +29,7 @@ from cuml.testing.utils import quality_param, stress_param, unit_param
 def test_end_to_end(
     nrows, ncols, nclusters, n_parts, delayed_predict, input_type, client
 ):
-    from cuml.dask.cluster import KMeans as cumlKMeans
+    from cuml.dask.cluster import KMeans
     from cuml.dask.datasets import make_blobs
 
     X, y = make_blobs(
@@ -47,15 +47,15 @@ def test_end_to_end(
     elif input_type == "array":
         X_train, y_train = X, y
 
-    cumlModel = cumlKMeans(
+    model = KMeans(
         init="k-means||",
         n_clusters=nclusters,
         random_state=10,
         n_init="auto",
     )
 
-    cumlModel.fit(X_train)
-    cumlLabels = cumlModel.predict(X_train, delayed=delayed_predict)
+    dask_fit_predict_labels = model.fit_predict(X_train)
+    dask_predict_labels = model.predict(X_train, delayed=delayed_predict)
 
     n_workers = len(list(client.has_what().keys()))
 
@@ -66,19 +66,24 @@ def test_end_to_end(
         parts_len = n_workers
 
     if input_type == "dataframe":
-        assert cumlLabels.npartitions == parts_len
-        cumlPred = cumlLabels.compute().values
+        assert dask_predict_labels.npartitions == parts_len
+        pred_labels = dask_predict_labels.compute().values
+        fit_pred_labels = dask_fit_predict_labels.compute().values
         labels = y_train.compute().values
     elif input_type == "array":
-        assert len(cumlLabels.chunks[0]) == parts_len
-        cumlPred = cp.array(cumlLabels.compute())
+        assert len(dask_predict_labels.chunks[0]) == parts_len
+        pred_labels = cp.array(dask_predict_labels.compute())
+        fit_pred_labels = cp.array(dask_fit_predict_labels.compute())
         labels = cp.squeeze(y_train.compute())
 
-    assert cumlPred.shape[0] == nrows
-    assert cp.max(cumlPred) == nclusters - 1
-    assert cp.min(cumlPred) == 0
+    assert pred_labels.shape[0] == nrows
+    assert cp.max(pred_labels) == nclusters - 1
+    assert cp.min(pred_labels) == 0
 
-    score = adjusted_rand_score(labels, cumlPred)
+    # Assert fit_predict(X) and fit(X).predict(X) have same result
+    cp.testing.assert_array_equal(pred_labels, fit_pred_labels)
+
+    score = adjusted_rand_score(labels, pred_labels)
 
     assert 1.0 == score
 

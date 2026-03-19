@@ -4,6 +4,7 @@
 
 import cupy as cp
 import dask.array as da
+import dask.dataframe as dd
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
 
@@ -189,12 +190,15 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             self.client.submit(getattr, f, "labels_", workers=[w])
             for f, w in zip(kmeans_fit, workers)
         ]
-        self.labels_ = da.concatenate(
-            [
-                da.from_delayed(f, shape=(length,), meta=labels_meta)
-                for f, (_, length) in zip(labels, inertia_and_lengths)
-            ]
-        )
+        if self.datatype == "cudf":
+            self.labels_ = dd.from_delayed(labels)
+        else:
+            self.labels_ = da.concatenate(
+                [
+                    da.from_delayed(f, shape=(length,), meta=labels_meta)
+                    for f, (_, length) in zip(labels, inertia_and_lengths)
+                ]
+            )
 
         return self
 
@@ -213,9 +217,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             Distributed object containing predictions
 
         """
-        return self.fit(X, sample_weight=sample_weight).predict(
-            X, delayed=delayed
-        )
+        self.fit(X, sample_weight=sample_weight)
+        return self.labels_ if delayed else self.labels_.persist()
 
     def predict(self, X, delayed=True):
         """
