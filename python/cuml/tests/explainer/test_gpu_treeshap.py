@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -16,9 +16,9 @@ from hypothesis import strategies as st
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier as sklrfc
 from sklearn.ensemble import RandomForestRegressor as sklrfr
+from sklearn.exceptions import NotFittedError
 
 import cuml
-from cuml.common.exceptions import NotFittedError
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer

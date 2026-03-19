@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cudf
 import cupy as cp
 import dask_cudf
 import numpy as np
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
-from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
+from cuml.dask.preprocessing._label import LabelEncoder
 
 
 def _arr_to_similarity_mat(arr):

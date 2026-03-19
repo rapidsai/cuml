@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -497,7 +497,7 @@ def test_dbscan_no_calc_core_point_indices():
 
 
 def test_dbscan_on_empty_array():
-    X = np.array([])
+    X = np.array([[]])
     cuml_dbscan = cuDBSCAN()
 
     with pytest.raises(ValueError):

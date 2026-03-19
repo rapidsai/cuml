@@ -14,7 +14,7 @@ from cuml.dask.common.base import (
 )
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):

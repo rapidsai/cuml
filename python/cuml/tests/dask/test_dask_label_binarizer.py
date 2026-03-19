@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
@@ -8,6 +8,10 @@ import pytest
 
 from cuml.dask.preprocessing import LabelBinarizer
 from cuml.testing.utils import array_equal
+
+
+def _get_block(x):
+    return x.get()
 
 
 @pytest.mark.parametrize(
@@ -40,7 +44,7 @@ def test_basic_functions(labels, multipart, client):
 
     xformed = binarizer.transform(df2)
 
-    xformed = xformed.map_blocks(lambda x: x.get(), dtype=cp.float32)
+    xformed = xformed.map_blocks(_get_block, dtype=cp.float32)
     xformed.compute_chunk_sizes()
 
     assert xformed.compute().shape[1] == binarizer.classes_.shape[0]

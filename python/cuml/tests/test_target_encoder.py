@@ -7,7 +7,7 @@ import numpy as np
 import pandas
 import pytest
 
-from cuml.preprocessing.TargetEncoder import TargetEncoder
+from cuml.preprocessing._target_encoder import TargetEncoder
 from cuml.testing.utils import array_equal
 
 # Filter the combination mode deprecation warning for all tests in this module
@@ -15,37 +15,62 @@ pytestmark = pytest.mark.filterwarnings(
     "ignore:TargetEncoder currently returns 1D output:FutureWarning"
 )
 
+# TODO: many of these tests use `output_type="numpy"` to work around
+# https://github.com/rapidsai/cuml/issues/7893. These can be
+# reverted once that's resolved.
 
-def test_targetencoder_fit_transform():
-    train = cudf.DataFrame(
+
+def test_targetencoder_deprecated_1d_input():
+    df = cudf.DataFrame(
         {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
     )
-    encoder = TargetEncoder()
-    train_encoded = encoder.fit_transform(train.category, train.label)
-    answer = np.array([1.0, 1.0, 0.0, 1.0])
+
+    # Warns in fit_transform
+    encoder = TargetEncoder(output_type="numpy")
+    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
+        encoded = encoder.fit_transform(df.category, df.label)
+    answer = np.array([1.0, 1.0, 0.0, 1.0])[:, None]
+    assert array_equal(encoded, answer)
+
+    # Warns in fit
+    encoder = TargetEncoder(output_type="numpy")
+    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
+        encoder.fit(df.category, df.label)
+
+    # Warns in tarnsform
+    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
+        encoded = encoder.transform(df.category)
+    assert array_equal(encoded, answer)
+
+
+def test_targetencoder_fit_transform():
+    train = cudf.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = cudf.Series([1, 0, 1, 1])
+    encoder = TargetEncoder(output_type="numpy")
+    train_encoded = encoder.fit_transform(train, label)
+    answer = np.array([1.0, 1.0, 0.0, 1.0])[:, None]
     assert array_equal(train_encoded, answer)
 
-    encoder = TargetEncoder()
-    encoder.fit(train.category, train.label)
-    train_encoded = encoder.transform(train.category)
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit(train, label)
+    train_encoded = encoder.transform(train)
 
     assert array_equal(train_encoded, answer)
 
 
 def test_targetencoder_transform():
-    train = cudf.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
+    train = cudf.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = cudf.Series([1, 0, 1, 1])
     test = cudf.DataFrame({"category": ["b", "b", "a", "b"]})
-    encoder = TargetEncoder()
-    encoder.fit_transform(train.category, train.label)
-    test_encoded = encoder.transform(test.category)
-    answer = np.array([0.5, 0.5, 1.0, 0.5])
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit_transform(train, label)
+    test_encoded = encoder.transform(test)
+    answer = np.array([0.5, 0.5, 1.0, 0.5])[:, None]
     assert array_equal(test_encoded, answer)
 
-    encoder = TargetEncoder()
-    encoder.fit(train.category, train.label)
-    test_encoded = encoder.transform(test.category)
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit(train, label)
+    test_encoded = encoder.transform(test)
     assert array_equal(test_encoded, answer)
 
 
@@ -58,8 +83,8 @@ def test_targetencoder_random(n_samples, dtype, stat):
     xt = cp.random.randint(0, 1000, n_samples).astype(dtype)
 
     encoder = TargetEncoder(stat=stat)
-    encoder.fit_transform(x, y)
-    test_encoded = encoder.transform(xt)
+    encoder.fit_transform(x[:, None], y)
+    test_encoded = encoder.transform(xt[:, None])
 
     df_train = cudf.DataFrame({"x": x, "y": y})
     dg = df_train.groupby("x", as_index=False).agg({"y": stat})
@@ -67,7 +92,7 @@ def test_targetencoder_random(n_samples, dtype, stat):
     df_test["row_id"] = cp.arange(len(df_test))
     df_test = df_test.merge(dg, on="x", how="left")
     df_test = df_test.sort_values("row_id")
-    answer = df_test["y"].fillna(eval(f"cp.{stat}")(y).item()).values
+    answer = df_test["y"].fillna(getattr(cp, stat)(y).item()).values[:, None]
     assert array_equal(test_encoded, answer)
 
 
@@ -85,17 +110,19 @@ def test_targetencoder_multi_column():
     test = cudf.DataFrame(
         {"cat_1": ["b", "b", "a", "b"], "cat_2": [1, 2, 1, 2]}
     )
-    encoder = TargetEncoder()
+    encoder = TargetEncoder(output_type="numpy")
     train_encoded = encoder.fit_transform(
         train[["cat_1", "cat_2"]], train.label
     )
     test_encoded = encoder.transform(test[["cat_1", "cat_2"]])
-    train_answer = np.array([2.0 / 3, 2.0 / 3, 1.0, 2.0 / 3, 2.0 / 3, 1.0])
-    test_answer = np.array([0.0, 1.0, 0.5, 1.0])
+    train_answer = np.array([2.0 / 3, 2.0 / 3, 1.0, 2.0 / 3, 2.0 / 3, 1.0])[
+        :, None
+    ]
+    test_answer = np.array([0.0, 1.0, 0.5, 1.0])[:, None]
     assert array_equal(train_encoded, train_answer)
     assert array_equal(test_encoded, test_answer)
 
-    encoder = TargetEncoder()
+    encoder = TargetEncoder(output_type="numpy")
     encoder.fit(train[["cat_1", "cat_2"]], train.label)
     train_encoded = encoder.transform(train[["cat_1", "cat_2"]])
     test_encoded = encoder.transform(test[["cat_1", "cat_2"]])
@@ -108,35 +135,33 @@ def test_targetencoder_newly_encountered():
     Note that there are newly-encountered values in test,
     namely, 'c' and 'd'.
     """
-    train = cudf.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
+    train = cudf.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = cudf.Series([1, 0, 1, 1])
     test = cudf.DataFrame({"category": ["c", "b", "a", "d"]})
-    encoder = TargetEncoder()
-    encoder.fit_transform(train.category, train.label)
-    test_encoded = encoder.transform(test.category)
-    answer = np.array([0.75, 0.5, 1.0, 0.75])
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit_transform(train, label)
+    test_encoded = encoder.transform(test)
+    answer = np.array([0.75, 0.5, 1.0, 0.75])[:, None]
     assert array_equal(test_encoded, answer)
 
-    encoder = TargetEncoder()
-    encoder.fit(train.category, train.label)
-    test_encoded = encoder.transform(test.category)
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit(train, label)
+    test_encoded = encoder.transform(test)
     assert array_equal(test_encoded, answer)
 
 
 def test_one_category():
-    train = cudf.DataFrame(
-        {"category": ["a", "a", "a", "a"], "label": [3, 0, 0, 3]}
-    )
+    train = cudf.DataFrame({"category": ["a", "a", "a", "a"]})
+    label = cudf.Series([3, 0, 0, 3])
     test = cudf.DataFrame({"category": ["c", "b", "a", "d"]})
 
-    encoder = TargetEncoder()
-    train_encoded = encoder.fit_transform(train.category, train.label)
-    answer = np.array([1.0, 2.0, 2.0, 1.0])
+    encoder = TargetEncoder(output_type="numpy")
+    train_encoded = encoder.fit_transform(train, label)
+    answer = np.array([1.0, 2.0, 2.0, 1.0])[:, None]
     assert array_equal(train_encoded, answer)
 
-    test_encoded = encoder.transform(test.category)
-    answer = np.array([1.5, 1.5, 1.5, 1.5])
+    test_encoded = encoder.transform(test)
+    answer = np.array([1.5, 1.5, 1.5, 1.5])[:, None]
     assert array_equal(test_encoded, answer)
 
 
@@ -145,17 +170,14 @@ def test_targetencoder_pandas():
     Note that there are newly-encountered values in test,
     namely, 'c' and 'd'.
     """
-    train = pandas.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
+    train = pandas.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = pandas.Series([1, 0, 1, 1])
     test = pandas.DataFrame({"category": ["c", "b", "a", "d"]})
-    encoder = TargetEncoder()
-    encoder.fit_transform(train.category, train.label)
-    test_encoded = encoder.transform(test.category)
-    answer = np.array([0.75, 0.5, 1.0, 0.75])
+    encoder = TargetEncoder(output_type="numpy")
+    encoder.fit_transform(train, label)
+    test_encoded = encoder.transform(test)
+    answer = np.array([0.75, 0.5, 1.0, 0.75])[:, None]
     assert array_equal(test_encoded, answer)
-    print(type(test_encoded))
-    assert isinstance(test_encoded, pandas.Series)
 
 
 def test_targetencoder_numpy():
@@ -163,15 +185,14 @@ def test_targetencoder_numpy():
     Note that there are newly-encountered values in x_test,
     namely, 3 and 4.
     """
-    x_train = np.array([1, 2, 2, 1])
+    x_train = np.array([1, 2, 2, 1])[:, None]
     y_train = np.array([1, 0, 1, 1])
-    x_test = np.array([1, 2, 3, 4])
+    x_test = np.array([1, 2, 3, 4])[:, None]
     encoder = TargetEncoder()
     encoder.fit_transform(x_train, y_train)
     test_encoded = encoder.transform(x_test)
-    answer = np.array([1.0, 0.5, 0.75, 0.75])
+    answer = np.array([1.0, 0.5, 0.75, 0.75])[:, None]
     assert array_equal(test_encoded, answer)
-    print(type(test_encoded))
     assert isinstance(test_encoded, np.ndarray)
 
 
@@ -180,22 +201,20 @@ def test_targetencoder_cupy():
     Note that there are newly-encountered values in x_test,
     namely, 3 and 4.
     """
-    x_train = cp.array([1, 2, 2, 1])
+    x_train = cp.array([1, 2, 2, 1])[:, None]
     y_train = cp.array([1, 0, 1, 1])
-    x_test = cp.array([1, 2, 3, 4])
+    x_test = cp.array([1, 2, 3, 4])[:, None]
     encoder = TargetEncoder()
     encoder.fit_transform(x_train, y_train)
     test_encoded = encoder.transform(x_test)
-    answer = np.array([1.0, 0.5, 0.75, 0.75])
+    answer = np.array([1.0, 0.5, 0.75, 0.75])[:, None]
     assert array_equal(test_encoded, answer)
-    print(type(test_encoded))
     assert isinstance(test_encoded, cp.ndarray)
 
 
 def test_targetencoder_smooth():
-    train = cudf.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
+    train = cudf.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = cudf.Series([1, 0, 1, 1])
     answers = np.array(
         [
             [1.0, 1.0, 0.0, 1.0],
@@ -207,12 +226,12 @@ def test_targetencoder_smooth():
     smooths = [0, 1, 2, 10000]
     for smooth, answer in zip(smooths, answers):
         encoder = TargetEncoder(smooth=smooth)
-        train_encoded = encoder.fit_transform(train.category, train.label)
+        train_encoded = encoder.fit_transform(train, label)
         assert array_equal(train_encoded, answer)
 
         encoder = TargetEncoder(smooth=smooth)
-        encoder.fit(train.category, train.label)
-        train_encoded = encoder.transform(train.category)
+        encoder.fit(train, label)
+        train_encoded = encoder.transform(train)
 
         assert array_equal(train_encoded, answer)
 
@@ -224,36 +243,32 @@ def test_targetencoder_customized_fold_id():
     the 2nd and 3rd sample belongs to `fold 1`
     and the 4th sample belongs to `fold 2`
     """
-    train = cudf.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
+    train = cudf.DataFrame({"category": ["a", "b", "b", "a"]})
+    label = cudf.Series([1, 0, 1, 1])
     fold_ids = [0, 1, 1, 2]
-    encoder = TargetEncoder(split_method="customize")
-    train_encoded = encoder.fit_transform(
-        train.category, train.label, fold_ids=fold_ids
-    )
-    answer = np.array([1.0, 0.75, 0.75, 1.0])
+    encoder = TargetEncoder(split_method="customize", output_type="numpy")
+    train_encoded = encoder.fit_transform(train, label, fold_ids=fold_ids)
+    answer = np.array([1.0, 0.75, 0.75, 1.0])[:, None]
     assert array_equal(train_encoded, answer)
 
-    encoder = TargetEncoder(split_method="customize")
-    encoder.fit(train.category, train.label, fold_ids=fold_ids)
-    train_encoded = encoder.transform(train.category)
+    encoder = TargetEncoder(split_method="customize", output_type="numpy")
+    encoder.fit(train, label, fold_ids=fold_ids)
+    train_encoded = encoder.transform(train)
 
     assert array_equal(train_encoded, answer)
 
 
 def test_targetencoder_var():
-    train = cudf.DataFrame(
-        {"category": ["a", "b", "b", "b"], "label": [1, 0, 1, 1]}
-    )
-    encoder = TargetEncoder(stat="var")
-    train_encoded = encoder.fit_transform(train.category, train.label)
-    answer = np.array([0.25, 0.0, 0.5, 0.5])
+    train = cudf.DataFrame({"category": ["a", "b", "b", "b"]})
+    label = cudf.Series([1, 0, 1, 1])
+    encoder = TargetEncoder(stat="var", output_type="numpy")
+    train_encoded = encoder.fit_transform(train, label)
+    answer = np.array([0.25, 0.0, 0.5, 0.5])[:, None]
     assert array_equal(train_encoded, answer)
 
-    encoder = TargetEncoder(stat="var")
-    encoder.fit(train.category, train.label)
-    train_encoded = encoder.transform(train.category)
+    encoder = TargetEncoder(stat="var", output_type="numpy")
+    encoder.fit(train, label)
+    train_encoded = encoder.transform(train)
 
     assert array_equal(train_encoded, answer)
 
@@ -263,15 +278,14 @@ def test_transform_with_index():
         {"a": [1, 1, 2, 3], "b": [True, False, False, True]},
         index=[9, 4, 5, 3],
     )
+    X = df[["a"]]
+    y = df["b"]
 
-    t_enc = TargetEncoder()
+    t_enc = TargetEncoder(output_type="numpy")
 
-    t_enc.fit(df.a, y=df.b)
-    train_encoded = t_enc.transform(df.a)
-    ans = cp.asarray([0, 1, 0.5, 0.5])
-    assert array_equal(train_encoded, ans)
-
-    train_encoded = t_enc.transform(df[["a"]])
+    t_enc.fit(X, y)
+    train_encoded = t_enc.transform(X)
+    ans = cp.asarray([0, 1, 0.5, 0.5])[:, None]
     assert array_equal(train_encoded, ans)
 
 
@@ -290,18 +304,18 @@ def test_get_params():
 
 def test_targetencoder_median():
     train = cudf.DataFrame(
-        {
-            "category": ["a", "a", "a", "a", "b", "b", "b", "b"],
-            "label": [1, 22, 15, 17, 70, 9, 99, 56],
-        }
+        {"category": ["a", "a", "a", "a", "b", "b", "b", "b"]}
     )
-    encoder = TargetEncoder(stat="median")
-    train_encoded = encoder.fit_transform(train.category, train.label)
-    answer = np.array([17.0, 15.0, 17.0, 15.0, 56.0, 70.0, 56.0, 70.0])
+    label = cudf.Series([1, 22, 15, 17, 70, 9, 99, 56])
+    encoder = TargetEncoder(stat="median", output_type="numpy")
+    train_encoded = encoder.fit_transform(train, label)
+    answer = np.array([17.0, 15.0, 17.0, 15.0, 56.0, 70.0, 56.0, 70.0])[
+        :, None
+    ]
     assert array_equal(train_encoded, answer)
 
-    encoder = TargetEncoder(stat="median")
-    encoder.fit(train.category, train.label)
-    train_encoded = encoder.transform(train.category)
+    encoder = TargetEncoder(stat="median", output_type="numpy")
+    encoder.fit(train, label)
+    train_encoded = encoder.transform(train)
 
     assert array_equal(train_encoded, answer)

@@ -10,6 +10,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.svm.svm_base import SVMBase
 
 
@@ -213,6 +214,9 @@ class SVR(SVMBase, RegressorMixin):
         number of samples used during fit.
 
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         dtype = self.support_vectors_.dtype
 
         # For precomputed kernels, check that columns match training set size
