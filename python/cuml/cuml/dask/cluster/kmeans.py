@@ -3,6 +3,8 @@
 #
 
 import cupy as cp
+import dask
+import dask.array as da
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
 
@@ -160,26 +162,47 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         comms.destroy()
 
         # Collect the full model from only the first worker (for
-        # cluster_centers_ etc). Extract labels_ and inertia_ from the
-        # remaining workers remotely to avoid pulling N redundant copies
-        # of cluster_centers_ back to the client.
+        # cluster_centers_ etc). Since cluster centers are synchronized
+        # via NCCL, all workers have identical copies — pulling more
+        # than one would waste memory (N * n_clusters * n_features * 4B).
+        #
+        # Labels stay distributed as a dask.array to avoid transferring
+        # per-sample data to the client. Only the scalar inertia values
+        # are gathered.
         first = kmeans_fit[0].result()
+        workers = list(data.worker_to_parts.keys())
 
-        remote_results = [
-            self.client.submit(
-                lambda m: (m.labels_, m.inertia_), f, workers=[w]
-            )
-            for f, (w, _) in zip(
-                kmeans_fit[1:], list(data.worker_to_parts.items())[1:]
-            )
+        remote_labels = [
+            self.client.submit(getattr, f, "labels_", workers=[w])
+            for f, w in zip(kmeans_fit[1:], workers[1:])
+        ]
+        remote_inertias = [
+            self.client.submit(getattr, f, "inertia_", workers=[w])
+            for f, w in zip(kmeans_fit[1:], workers[1:])
         ]
 
-        results = self.client.gather(remote_results)
-        all_labels = [first.labels_] + [r[0] for r in results]
-        all_inertias = [first.inertia_] + [r[1] for r in results]
+        first.inertia_ += sum(self.client.gather(remote_inertias))
 
-        first.labels_ = cp.concatenate(all_labels)
-        first.inertia_ = sum(all_inertias)
+        labels_dtype = first.labels_.dtype
+        label_chunks = [
+            da.from_delayed(
+                dask.delayed(first.labels_, pure=True, traverse=False),
+                shape=(first.labels_.shape[0],),
+                dtype=labels_dtype,
+                meta=cp.zeros(0, dtype=labels_dtype),
+            )
+        ] + [
+            da.from_delayed(
+                f,
+                shape=(float("nan"),),
+                dtype=labels_dtype,
+                meta=cp.zeros(0, dtype=labels_dtype),
+            )
+            for f in remote_labels
+        ]
+        first.labels_ = da.concatenate(
+            label_chunks, allow_unknown_chunksizes=True
+        )
         self._set_internal_model(first)
 
         return self
