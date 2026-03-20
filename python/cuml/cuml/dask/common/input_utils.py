@@ -114,6 +114,8 @@ class DistributedDataHandler:
 
     def _fetch_worker_sizes(self):
         """Fetch per-partition row counts and drop workers with zero rows."""
+        if self._worker_sizes is not None:
+            return
         if not self.worker_to_parts:
             self._worker_sizes = {}
             return

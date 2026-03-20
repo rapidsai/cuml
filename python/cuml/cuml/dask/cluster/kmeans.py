@@ -137,6 +137,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         kwargs = self.kwargs.copy()
         kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
 
+        data._fetch_worker_sizes()
+
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
