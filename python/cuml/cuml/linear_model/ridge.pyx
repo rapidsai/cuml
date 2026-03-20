@@ -557,7 +557,7 @@ class Ridge(Base,
 
         if X_is_sparse and solver != "lsmr":
             raise ValueError(
-                "solver={solver!r} doesn't support sparse X, please select "
+                f"solver={solver!r} doesn't support sparse X, please select "
                 "solver='lsmr' or solver='auto' instead"
             )
 

@@ -278,7 +278,9 @@ def test_invalid_sparse_solver(solver):
     X, y = make_regression(random_state=42)
     X = sp.csr_matrix(X)
     model = cuml.Ridge(solver=solver)
-    with pytest.raises(ValueError, match="doesn't support sparse X"):
+    with pytest.raises(
+        ValueError, match=f"solver={solver!r} doesn't support sparse X"
+    ):
         model.fit(X, y)
 
 
