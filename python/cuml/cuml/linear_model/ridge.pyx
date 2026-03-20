@@ -18,7 +18,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import LinearPredictMixin, center_and_scale
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -253,46 +253,20 @@ class Ridge(Base,
         sample_weight = (
             None if sample_weight_m is None else sample_weight_m.to_output("cupy")
         )
+        y_1d = y.ndim == 1
 
-        # Ensure 2D
-        if X.ndim == 1:
-            X = X[:, None]
-        if (y_1d := y.ndim == 1):
-            y = y[:, None]
+        X, y, X_offset, y_offset, _ = center_and_scale(
+            X,
+            y,
+            sample_weight=sample_weight,
+            fit_intercept=self.fit_intercept,
+            may_mutate_X=X_is_copy or not self.copy_X,
+            may_mutate_y=y_is_copy,
+        )
 
         # Normalize alpha to a cupy array of shape (n_targets,)
         if cp.isscalar(alpha):
             alpha = cp.full(y.shape[1], alpha, dtype=X.dtype)
-
-        if self.fit_intercept:
-            if sample_weight is not None:
-                # Offset by weighted mean
-                den = sample_weight.sum()
-                X_offset = (X * sample_weight[:, None]).sum(axis=0) / den
-                y_offset = (y * sample_weight[:, None]).sum(axis=0) / den
-            else:
-                # Offset by mean
-                X_offset = X.mean(axis=0)
-                y_offset = y.mean(axis=0)
-            # Subtract offset, reusing existing buffers when possible
-            X = cp.subtract(
-                X,
-                X_offset,
-                out=X if X_is_copy or not self.copy_X else None,
-            )
-            y = cp.subtract(y, y_offset, out=y if y_is_copy else None)
-            X_is_copy = y_is_copy = True
-
-        if sample_weight is not None:
-            # Weights are always copied, can mutate buffer
-            sqrt_weight = cp.sqrt(sample_weight, out=sample_weight)
-            # Multiply by sqrt(weight), reusing existing buffers when possible
-            X = cp.multiply(
-                X,
-                sqrt_weight[:, None],
-                out=X if X_is_copy or not self.copy_X else None,
-            )
-            y = cp.multiply(y, sqrt_weight[:, None], out=y if y_is_copy else None)
 
         # Solve using SVD method
         u, s, vh = cp.linalg.svd(X, full_matrices=False)
