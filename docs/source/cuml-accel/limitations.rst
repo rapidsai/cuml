@@ -106,6 +106,21 @@ KMeans
 - If a callable ``init`` is provided.
 - If ``X`` is sparse.
 
+SpectralClustering
+^^^^^^^^^^^^^^^^^^
+
+``SpectralClustering`` will fall back to CPU in the following cases:
+
+- If ``assign_labels`` is not ``"kmeans"``.
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+  Note that the default value of ``affinity`` in scikit-learn is ``"rbf"``,
+  which is not GPU-accelerated.
+- If ``X`` is sparse.
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+
 DBSCAN
 ^^^^^^
 
@@ -535,6 +550,10 @@ Additional notes:
   which can lead to difference in the results between CPU and GPU in general.
 
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
+
+- We have observed compatibility isuess with UMAP for numba versions 0.62.0 and
+  above. For best stability, we recommend using numba versions earlier than
+  0.62.0 when accelerating UMAP with cuml.accel.
 
 While the exact numerical output for UMAP may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as

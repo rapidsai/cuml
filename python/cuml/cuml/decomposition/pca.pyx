@@ -10,7 +10,6 @@ import cuml.internals
 from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
@@ -22,6 +21,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.validation import check_features, check_is_fitted
 from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
@@ -610,7 +610,7 @@ class PCA(Base,
         In other words, return an input X_original whose transform would be X.
 
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
         if is_sparse(X):
             return self._inverse_transform_sparse(
                 X, return_sparse=return_sparse, sparse_tol=sparse_tol
@@ -701,14 +701,9 @@ class PCA(Base,
         from a training set.
 
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+        check_features(self, X)
 
         if is_sparse(X):
             return self._transform_sparse(X)
         return self._transform_dense(X, convert_dtype=convert_dtype)
-
-    def _check_is_fitted(self):
-        if not hasattr(self, "components_"):
-            msg = ("This instance is not fitted yet. Call 'fit' "
-                   "with appropriate arguments before using this estimator.")
-            raise NotFittedError(msg)

@@ -12,30 +12,18 @@
 
 set -eu
 
-UMAP_TAG="release-0.5.7"
-
-# Skip tests for scikit-learn >= 1.8 -- umap-learn is not compatible with scikit-learn 1.8 yet
-python -c "
-import sys
-from packaging.version import Version
-import sklearn
-sys.exit(
-    int(
-        Version(sklearn.__version__) >= Version('1.8')
-    )
-)
-" || {
-    echo "Skipping umap tests for scikit-learn >= 1.8"
-    exit 0
-}
+UMAP_VERSION=$(python -c "import umap; print(umap.__version__)")
+UMAP_TAG="release-${UMAP_VERSION}"
 
 THIS_DIRECTORY=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 UMAP_REPO="${THIS_DIRECTORY}/umap-upstream"
 
-# Shallow clone the tag if not already cloned
+# Clone if not already present, then check out the matching tag
 if [ ! -d "$UMAP_REPO" ]; then
-    git clone --branch $UMAP_TAG --depth 1 "https://github.com/lmcinnes/umap.git" "$UMAP_REPO"
+    git clone "https://github.com/lmcinnes/umap.git" "$UMAP_REPO"
 fi
+git -C "$UMAP_REPO" fetch --tags
+git -C "$UMAP_REPO" checkout "$UMAP_TAG"
 
 # Run upstream tests
 pytest -p cuml.accel \

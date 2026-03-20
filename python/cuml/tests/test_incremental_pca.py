@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,8 +7,8 @@ import cupy as cp
 import cupyx
 import pytest
 from sklearn.decomposition import IncrementalPCA as skIPCA
+from sklearn.exceptions import NotFittedError
 
-from cuml.common.exceptions import NotFittedError
 from cuml.datasets import make_blobs
 from cuml.decomposition import IncrementalPCA as cuIPCA
 from cuml.decomposition.incremental_pca import _svd_flip
@@ -28,7 +28,6 @@ from cuml.testing.utils import array_equal
         (500, 250, 14, True, 0.07, "csr", 1, True),
     ],
 )
-@pytest.mark.no_bad_cuml_array_check
 def test_fit(
     nrows,
     ncols,
@@ -92,7 +91,6 @@ def test_fit(
         (5000, 4, 2, 0.1, 100, False),
     ],
 )
-@pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(
     nrows, ncols, n_components, density, batch_size_divider, whiten
 ):
@@ -127,6 +125,7 @@ def test_exceptions():
         ipca.partial_fit(X)
 
     X = X.toarray()
+    ipca = cuIPCA()
     with pytest.raises(NotFittedError):
         ipca.transform(X)
 

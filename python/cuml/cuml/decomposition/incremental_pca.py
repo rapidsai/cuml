@@ -15,6 +15,7 @@ from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_features, check_is_fitted
 
 
 class IncrementalPCA(PCA):
@@ -271,6 +272,25 @@ class IncrementalPCA(PCA):
             Returns the instance itself.
 
         """
+        if getattr(self, "n_samples_seen_", 0) == 0:
+            # This instance hasn't been fit yet
+            self._set_output_type(X)
+            check_features(self, X, reset=True)
+
+            self.n_samples_seen_ = 0
+            mean = 0.0
+            var = 0.0
+            singular_values = None
+            components = None
+        else:
+            check_features(self, X)
+
+            with cuml.using_output_type("cupy"):
+                mean = self.mean_
+                var = self.var_
+                singular_values = self.singular_values_
+                components = self.components_
+
         if check_input:
             if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
                 raise TypeError(
@@ -279,28 +299,11 @@ class IncrementalPCA(PCA):
                     "or use IncrementalPCA.fit to do so in batches."
                 )
 
-            self._set_output_type(X)
-            self._set_n_features_in(X)
-
             X, n_samples, n_features, _ = input_to_cupy_array(
                 X, order="K", check_dtype=[cp.float32, cp.float64]
             )
         else:
             n_samples, n_features = X.shape
-
-        if getattr(self, "n_samples_seen_", 0) == 0:
-            # This is the first partial_fit
-            self.n_samples_seen_ = 0
-            mean = 0.0
-            var = 0.0
-            singular_values = None
-            components = None
-        else:
-            with cuml.using_output_type("cupy"):
-                mean = self.mean_
-                var = self.var_
-                singular_values = self.singular_values_
-                components = self.components_
 
         if self.n_components is None:
             if components is None:
@@ -418,6 +421,8 @@ class IncrementalPCA(PCA):
         X_new : array-like, shape (n_samples, n_components)
 
         """
+        check_is_fitted(self)
+        check_features(self, X)
 
         if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
             X = _validate_sparse_input(X)

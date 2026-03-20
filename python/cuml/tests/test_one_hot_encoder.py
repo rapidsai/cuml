@@ -165,7 +165,11 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
     assert_inverse_equal(inv_ohe, X)
 
 
-@pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
+@pytest.mark.parametrize(
+    "as_array",
+    [True, False],
+    ids=["cupy", "cudf"],
+)
 def test_onehot_drop_idx_first(as_array):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
@@ -184,7 +188,11 @@ def test_onehot_drop_idx_first(as_array):
     assert_inverse_equal(inv, X)
 
 
-@pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
+@pytest.mark.parametrize(
+    "as_array",
+    [True, False],
+    ids=["cupy", "cudf"],
+)
 def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
     drop = dict({"chars": "b", "int": 2, "letters": "b"})

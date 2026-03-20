@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cudf
@@ -6,15 +6,22 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.exceptions import NotFittedError
+from sklearn.utils.validation import check_is_fitted
 
-from cuml._thirdparty.sklearn.utils.validation import check_is_fitted
-from cuml.common.exceptions import NotFittedError
 from cuml.preprocessing.LabelEncoder import LabelEncoder
 
 
 def _df_to_similarity_mat(df):
     arr = df.to_numpy().reshape(1, -1)
     return np.pad(arr, [(arr.shape[1] - 1, 0), (0, 0)], "edge")
+
+
+def test_label_encoder_no_features():
+    """Ensure the features infra is never applied to LabelEncoder"""
+    y = cp.asarray([1, 2, 1, 2, 1, 0])
+    model = LabelEncoder().fit(y)
+    assert not hasattr(model, "n_features_in_")
 
 
 @pytest.mark.parametrize("length", [10, 1000])

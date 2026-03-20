@@ -14,7 +14,7 @@ from sklearn.model_selection import (
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import check_random_seed
 
 
 def train_test_split(
