@@ -760,7 +760,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         sparse array (preferably CSR/COO). This feature allows
         the precomputation of the KNN outside of UMAP
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings. For most efficient
+        should match the metric used to train the UMAP embeddings. For most efficient
         memory usage, the precomputed knn graph should be CPU-accessible arrays
         such as numpy arrays.
     random_state : int, RandomState instance or None, optional (default=None)
@@ -1171,7 +1171,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             sparse array (preferably CSR/COO). This feature allows
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeedings.
+            should match the metric used to train the UMAP embeddings.
             Takes precedence over the precomputed_knn parameter. For most efficient
             memory usage, the precomputed knn graph should be CPU-accessible arrays
             such as numpy arrays.
@@ -1396,7 +1396,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             sparse array (preferably CSR/COO). This feature allows
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeedings.
+            should match the metric used to train the UMAP embeddings.
             Takes precedence over the precomputed_knn parameter. For most efficient
             memory usage, the precomputed knn graph should be CPU-accessible arrays
             such as numpy arrays.

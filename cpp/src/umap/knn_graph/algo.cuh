@@ -218,9 +218,9 @@ inline void launcher(const raft::handle_t& handle,
                      cudaStream_t stream)
 {
   if (inputsA.alloc_knn_graph()) {
-    // if new space for the knn graph is allocated, copy the data from the precomputed knn graph
-    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, inputsA.n * n_neighbors, stream);
-    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, inputsA.n * n_neighbors, stream);
+    size_t num_elements = static_cast<size_t>(inputsA.n) * n_neighbors;
+    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, num_elements, stream);
+    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, num_elements, stream);
   } else {
     out.knn_indices = inputsA.knn_graph.knn_indices;
     out.knn_dists   = inputsA.knn_graph.knn_dists;
@@ -238,9 +238,9 @@ inline void launcher(const raft::handle_t& handle,
                      cudaStream_t stream)
 {
   if (inputsA.alloc_knn_graph()) {
-    // if new space for the knn graph is allocated, copy the data from the precomputed knn graph
-    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, inputsA.n * n_neighbors, stream);
-    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, inputsA.n * n_neighbors, stream);
+    size_t num_elements = static_cast<size_t>(inputsA.n) * n_neighbors;
+    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, num_elements, stream);
+    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, num_elements, stream);
   } else {
     out.knn_indices = inputsA.knn_graph.knn_indices;
     out.knn_dists   = inputsA.knn_graph.knn_dists;

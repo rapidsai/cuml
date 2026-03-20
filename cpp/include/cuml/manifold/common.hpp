@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <raft/core/error.hpp>
+
 #include <stdint.h>
 
 namespace ML {
@@ -107,11 +109,11 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
   bool alloc_knn_graph() const
   {
     cudaPointerAttributes attr;
-    cudaPointerGetAttributes(&attr, knn_graph.knn_indices);
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, knn_graph.knn_indices));
     if (attr.devicePointer == nullptr ||
         (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
       return true;
-    cudaPointerGetAttributes(&attr, knn_graph.knn_dists);
+    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, knn_graph.knn_dists));
     if (attr.devicePointer == nullptr ||
         (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
       return true;
