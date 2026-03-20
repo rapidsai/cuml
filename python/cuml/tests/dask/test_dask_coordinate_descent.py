@@ -1,17 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
 import pytest
-from packaging.version import Version
 
 from cuml.dask.datasets import make_regression
 from cuml.dask.linear_model import ElasticNet, Lasso
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
-
-numpy_gte_24 = Version(np.__version__) >= Version("2.4.0")
 
 
 @pytest.mark.mg
@@ -21,17 +17,7 @@ numpy_gte_24 = Version(np.__version__) >= Version("2.4.0")
 @pytest.mark.parametrize(
     "nrows",
     [
-        pytest.param(
-            50,
-            marks=[
-                pytest.mark.unit,
-                pytest.mark.xfail(
-                    numpy_gte_24,
-                    reason="Fails with numpy >=2.4.*",
-                    strict=True,
-                ),
-            ],
-        ),
+        unit_param(50),
         quality_param(5000),
         stress_param(500000),
     ],
@@ -120,17 +106,7 @@ def test_lasso_default(dtype, nrows, column_info, n_parts, client):
 @pytest.mark.parametrize(
     "nrows",
     [
-        pytest.param(
-            500,
-            marks=[
-                pytest.mark.unit,
-                pytest.mark.xfail(
-                    numpy_gte_24,
-                    reason="Fails with numpy >=2.4.*",
-                    strict=True,
-                ),
-            ],
-        ),
+        unit_param(500),
         quality_param(5000),
         stress_param(500000),
     ],

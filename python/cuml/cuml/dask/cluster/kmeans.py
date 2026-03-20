@@ -3,6 +3,8 @@
 #
 
 import cupy as cp
+import dask.array as da
+import dask.dataframe as dd
 from dask.distributed import get_worker
 from raft_dask.common.comms import Comms, get_raft_comm_state
 
@@ -15,6 +17,10 @@ from cuml.dask.common.base import (
 from cuml.dask.common.input_utils import DistributedDataHandler, concatenate
 from cuml.dask.common.utils import wait_and_raise_from_futures
 from cuml.internals.validation import check_random_seed
+
+
+def _get_inertia_and_n_samples(estimator):
+    return (estimator.inertia_, len(estimator.labels_))
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -159,11 +165,40 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         comms.destroy()
 
-        models = [res.result() for res in kmeans_fit]
-        first = models[0]
-        first.labels_ = cp.concatenate([model.labels_ for model in models])
-        first.inertia_ = sum(model.inertia_ for model in models)
+        # Collect the full model from only the first worker (for
+        # cluster_centers_ etc). Since cluster centers are synchronized
+        # via NCCL, all workers have identical copies — pulling more
+        # than one would waste memory (N * n_clusters * n_features * 4B).
+        first = kmeans_fit[0].result()
         self._set_internal_model(first)
+
+        workers = list(data.worker_to_parts.keys())
+
+        # Compute and store the total inertia_
+        inertia_and_lengths = self.client.gather(
+            [
+                self.client.submit(_get_inertia_and_n_samples, f, workers=[w])
+                for f, w in zip(kmeans_fit, workers)
+            ]
+        )
+        self.inertia_ = sum(inertia for inertia, _ in inertia_and_lengths)
+
+        # Store labels_ as a distributed dask array. This attribute scales with
+        # n_samples, and shouldn't be pulled back to a local node.
+        labels_meta = cp.zeros(0, dtype=first.labels_.dtype)
+        labels = [
+            self.client.submit(getattr, f, "labels_", workers=[w])
+            for f, w in zip(kmeans_fit, workers)
+        ]
+        if self.datatype == "cudf":
+            self.labels_ = dd.from_delayed(labels)
+        else:
+            self.labels_ = da.concatenate(
+                [
+                    da.from_delayed(f, shape=(length,), meta=labels_meta)
+                    for f, (_, length) in zip(labels, inertia_and_lengths)
+                ]
+            )
 
         return self
 
@@ -182,9 +217,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
             Distributed object containing predictions
 
         """
-        return self.fit(X, sample_weight=sample_weight).predict(
-            X, delayed=delayed
-        )
+        self.fit(X, sample_weight=sample_weight)
+        return self.labels_ if delayed else self.labels_.persist()
 
     def predict(self, X, delayed=True):
         """
