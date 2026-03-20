@@ -65,4 +65,26 @@ typedef paramsPCATemplate<> paramsPCA;
 typedef paramsPCATemplate<mg_solver> paramsPCAMG;
 typedef paramsTSVDTemplate<mg_solver> paramsTSVDMG;
 
+template <typename enum_solver>
+inline raft::linalg::paramsTSVD to_raft_params(const paramsTSVDTemplate<enum_solver>& ml_prms)
+{
+  raft::linalg::paramsTSVD prms;
+  prms.tol          = ml_prms.tol;
+  prms.n_iterations = ml_prms.n_iterations;
+  prms.algorithm    = ml_prms.algorithm;
+  return prms;
+}
+
+template <typename enum_solver>
+inline raft::linalg::paramsPCA to_raft_params(const paramsPCATemplate<enum_solver>& ml_prms)
+{
+  raft::linalg::paramsPCA prms;
+  prms.tol          = ml_prms.tol;
+  prms.n_iterations = ml_prms.n_iterations;
+  prms.algorithm    = ml_prms.algorithm;
+  prms.copy         = ml_prms.copy;
+  prms.whiten       = ml_prms.whiten;
+  return prms;
+}
+
 };  // end namespace ML

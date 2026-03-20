@@ -11,20 +11,6 @@
 
 namespace ML {
 
-/**
- * @brief Convert ML::paramsPCA to raft::linalg::paramsPCA.
- */
-raft::linalg::paramsPCA to_raft_params(const paramsPCA& ml_prms)
-{
-  raft::linalg::paramsPCA prms;
-  prms.tol          = ml_prms.tol;
-  prms.n_iterations = ml_prms.n_iterations;
-  prms.algorithm    = ml_prms.algorithm;
-  prms.copy         = ml_prms.copy;
-  prms.whiten       = ml_prms.whiten;
-  return prms;
-}
-
 template <typename math_t>
 void pca_fit_impl(const raft::handle_t& handle,
                   math_t* input,

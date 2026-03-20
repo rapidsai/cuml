@@ -13,15 +13,6 @@ namespace ML {
 
 namespace {
 
-raft::linalg::paramsTSVD to_raft_params(const paramsTSVD& ml_prms)
-{
-  raft::linalg::paramsTSVD prms;
-  prms.tol          = ml_prms.tol;
-  prms.n_iterations = ml_prms.n_iterations;
-  prms.algorithm    = ml_prms.algorithm;
-  return prms;
-}
-
 template <typename math_t>
 void tsvd_fit_impl(const raft::handle_t& handle,
                    math_t* input,

@@ -51,10 +51,7 @@ void fit_impl(raft::handle_t& handle,
   rmm::device_uvector<T> components_all(len, streams[0]);
   rmm::device_uvector<T> explained_var_all(prms.n_cols, streams[0]);
 
-  raft::linalg::paramsTSVD raft_prms;
-  raft_prms.algorithm    = prms.algorithm;
-  raft_prms.tol          = prms.tol;
-  raft_prms.n_iterations = prms.n_iterations;
+  auto raft_prms = to_raft_params(prms);
 
   raft::resources handle_stream_zero;
   raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);

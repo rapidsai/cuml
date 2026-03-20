@@ -58,12 +58,7 @@ void fit_impl(raft::handle_t& handle,
 
   MLCommon::Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
-  raft::linalg::paramsPCA raft_prms;
-  raft_prms.algorithm    = prms.algorithm;
-  raft_prms.tol          = prms.tol;
-  raft_prms.n_iterations = prms.n_iterations;
-  raft_prms.whiten       = prms.whiten;
-  raft_prms.copy         = prms.copy;
+  auto raft_prms = to_raft_params(prms);
   raft::resources handle_stream_zero;
   raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
 
