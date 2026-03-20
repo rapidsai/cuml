@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
+import cupyx.scipy.sparse.linalg
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
@@ -16,7 +19,11 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.mixins import (
+    FMajorInputTagMixin,
+    RegressorMixin,
+    SparseInputTagMixin,
+)
 from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin, center_and_scale
 
@@ -66,6 +73,7 @@ _SOLVER_CUML_TO_SKLEARN = {
     "auto": "auto",
     "svd": "svd",
     "eig": "cholesky",
+    "lsmr": "lsqr",
 }
 
 
@@ -73,7 +81,8 @@ class Ridge(Base,
             InteropMixin,
             RegressorMixin,
             LinearPredictMixin,
-            FMajorInputTagMixin):
+            FMajorInputTagMixin,
+            SparseInputTagMixin):
     """Linear least squares with L2 regularization.
 
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -86,20 +95,30 @@ class Ridge(Base,
     alpha : float or array of shape (n_targets,), default=1.0
         Regularization strength - must be a positive float. Larger values
         specify stronger regularization.
-    solver : {'auto', 'eig', 'svd'}, default='auto'
-        The solver to use when fitting:
-
-        - 'auto': will select 'eig' if supported, and 'svd' otherwise.
-
-        - 'eig': uses an eigendecomposition of the covariance matrix. It is
-          fast but potentially unstable. It also doesn't support multi-target
-          ``y`` or array-like ``alpha``.
-
-        - 'svd': uses an SVD decomposition. It's slower, but stable and
-          supports all options.
     fit_intercept : bool, default=True
         If True, Ridge tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
+    solver : {'auto', 'eig', 'svd', 'lsmr'}, default='auto'
+        The solver to use when fitting:
+
+        - 'auto': will select 'eig' if supported, falling back to 'lsmr' if X
+          is sparse, and 'svd' otherwise.
+
+        - 'eig': uses an eigendecomposition of the covariance matrix. It is
+          faster than SVD, but potentially unstable. It doesn't support
+          multi-target ``y`` or sparse ``X`.
+
+        - 'svd': uses an SVD decomposition. It's slower, but stable. It doesn't
+          support sparse ``X``.
+
+        - 'lsmr': uses ``cupyx.scipy.sparse.linalg.lsmr``, an iterative algorithm.
+          It is typically the fastest, and supports all options.
+
+    tol : float, default=1e-4
+        The tolerance used by the ``lsmr`` solver. Has no impact on other solvers.
+    max_iter : int, default=None
+        Maximum number of iterations for the ``lsmr`` solver. Defaults to ``None``
+        for no limit. Has no impact on other solvers.
     copy_X: bool, default=True
         If True, X will never be mutated. Setting to False may reduce memory
         usage, at the cost of potentially mutating X.
@@ -165,6 +184,8 @@ class Ridge(Base,
             "alpha",
             "fit_intercept",
             "solver",
+            "tol",
+            "max_iter",
             "copy_X",
         ]
 
@@ -175,6 +196,8 @@ class Ridge(Base,
 
         if model.solver == "svd":
             solver = "svd"
+        elif model.solver == "lsqr":
+            solver = "lsmr"
         elif model.solver == "lbfgs":
             # lbfgs only works in sklearn for positive=True, since we don't
             # support that parameter we want to fallback so sklearn
@@ -187,6 +210,8 @@ class Ridge(Base,
             "alpha": model.alpha,
             "fit_intercept": model.fit_intercept,
             "solver": solver,
+            "tol": model.tol,
+            "max_iter": model.max_iter,
             "copy_X": model.copy_X,
         }
 
@@ -196,14 +221,18 @@ class Ridge(Base,
             "alpha": self.alpha,
             "fit_intercept": self.fit_intercept,
             "solver": solver,
+            "tol": self.tol,
+            "max_iter": self.max_iter,
             "copy_X": self.copy_X,
         }
 
     def _attrs_from_cpu(self, model):
+        solver = {"svd": "svd", "lsqr": "lsmr"}.get(model.solver_, "eig")
         return {
             "intercept_": to_gpu(model.intercept_),
             "coef_": to_gpu(model.coef_),
-            "solver_": "svd" if model.solver_ == "svd" else "eig",
+            "n_iter_": model.n_iter_,
+            "solver_": solver,
             **super()._attrs_from_cpu(model),
         }
 
@@ -217,7 +246,7 @@ class Ridge(Base,
             "intercept_": to_cpu(self.intercept_),
             "coef_": to_cpu(self.coef_),
             "solver_": solver,
-            "n_iter_": None,
+            "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
 
@@ -227,6 +256,8 @@ class Ridge(Base,
         *,
         fit_intercept=True,
         solver="auto",
+        tol=1e-4,
+        max_iter=None,
         copy_X=True,
         output_type=None,
         verbose=False,
@@ -235,9 +266,63 @@ class Ridge(Base,
         self.alpha = alpha
         self.fit_intercept = fit_intercept
         self.solver = solver
+        self.tol = tol
+        self.max_iter = max_iter
         self.copy_X = copy_X
 
-    def _fit_svd(
+    def _solve_lsmr(
+        self,
+        X,
+        y,
+        alpha,
+        X_offset,
+        sqrt_weight,
+    ):
+        """Solve an already centered/scaled ridge regression with LSMR"""
+        if cupyx.scipy.sparse.issparse(X) and self.fit_intercept:
+            if sqrt_weight is None:
+                A = cupyx.scipy.sparse.linalg.LinearOperator(
+                    shape=X.shape,
+                    matvec=lambda w: X.dot(w) - w.dot(X_offset),
+                    rmatvec=lambda w: X.T.dot(w) - X_offset * w.sum(),
+                )
+            else:
+                A = cupyx.scipy.sparse.linalg.LinearOperator(
+                    shape=X.shape,
+                    matvec=lambda w: X.dot(w) - sqrt_weight * w.dot(X_offset),
+                    rmatvec=lambda w: X.T.dot(w) - X_offset * w.dot(sqrt_weight),
+                )
+        else:
+            A = X
+
+        coef = cp.empty((y.shape[1], X.shape[1]), dtype=X.dtype)
+        n_iter = cp.empty(y.shape[1], dtype=cp.int32)
+        damp = cp.sqrt(alpha)
+
+        for i in range(y.shape[1]):
+            b = y[:, i]
+            info = cupyx.scipy.sparse.linalg.lsmr(
+                A,
+                b,
+                damp=damp[i],
+                atol=self.tol,
+                btol=self.tol,
+                maxiter=self.max_iter,
+            )
+            coef[i] = info[0]
+            n_iter[i] = info[2]
+
+        return coef, n_iter
+
+    def _solve_svd(self, X, y, alpha):
+        """Solve an already centered/scaled ridge regression with SVD"""
+        # Solve using SVD method
+        u, s, vh = cp.linalg.svd(X, full_matrices=False)
+        temp = _ridge_transform(u.T.dot(y), s[:, None], alpha)
+        coef = vh.T.dot(temp).T
+        return coef, None
+
+    def _fit_cupy(
         self,
         X_m,
         y_m,
@@ -246,8 +331,9 @@ class Ridge(Base,
         alpha,
         X_is_copy,
         y_is_copy,
+        use_svd=True,
     ):
-        """Fit a Ridge regression using SVD."""
+        """Fit a Ridge regression using SVD or LSMR."""
         X = X_m.to_output("cupy")
         y = y_m.to_output("cupy")
         sample_weight = (
@@ -255,7 +341,7 @@ class Ridge(Base,
         )
         y_1d = y.ndim == 1
 
-        X, y, X_offset, y_offset, _ = center_and_scale(
+        X, y, X_offset, y_offset, sqrt_weight = center_and_scale(
             X,
             y,
             sample_weight=sample_weight,
@@ -268,10 +354,10 @@ class Ridge(Base,
         if cp.isscalar(alpha):
             alpha = cp.full(y.shape[1], alpha, dtype=X.dtype)
 
-        # Solve using SVD method
-        u, s, vh = cp.linalg.svd(X, full_matrices=False)
-        temp = _ridge_transform(u.T.dot(y), s[:, None], alpha)
-        coef = vh.T.dot(temp).T
+        if use_svd:
+            coef, n_iter = self._solve_svd(X, y, alpha)
+        else:
+            coef, n_iter = self._solve_lsmr(X, y, alpha, X_offset, sqrt_weight)
 
         if self.fit_intercept:
             intercept = y_offset - cp.dot(X_offset, coef.T)
@@ -283,7 +369,7 @@ class Ridge(Base,
             intercept = 0.0
         coef = CumlArray(data=(coef.ravel() if y.shape[1] == 1 else coef))
 
-        return coef, intercept
+        return coef, intercept, n_iter
 
     def _fit_eig(
         self,
@@ -370,7 +456,7 @@ class Ridge(Base,
         else:
             intercept = 0.0
 
-        return coef, intercept
+        return coef, intercept, None
 
     @generate_docstring()
     @reflect(reset=True)
@@ -378,12 +464,20 @@ class Ridge(Base,
         """
         Fit the model with X and y.
         """
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="K",
-        )
+        if X_is_sparse := is_sparse(X):
+            X_m = SparseCumlArray(
+                X, convert_to_dtype=np.float32 if X.dtype.kind != "f" else None
+            )
+            n_rows, n_cols = X_m.shape
+            X_is_copy = False
+        else:
+            X_m, n_rows, n_cols, _ = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                order="K",
+            )
+            X_is_copy = cuda_ptr(X) != X_m.ptr
 
         if n_cols < 1:
             raise ValueError(
@@ -399,17 +493,18 @@ class Ridge(Base,
 
         y_m, _, n_targets, _ = input_to_cuml_array(
             y,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
+            check_dtype=X_m.dtype,
+            convert_to_dtype=(X_m.dtype if convert_dtype else None),
             check_rows=n_rows,
             order="K",
         )
+        y_is_copy = cuda_ptr(y) != y_m.ptr
 
         if sample_weight is not None:
             sample_weight_m = input_to_cuml_array(
                 sample_weight,
-                check_dtype=dtype,
-                convert_to_dtype=(dtype if convert_dtype else None),
+                check_dtype=X_m.dtype,
+                convert_to_dtype=(X_m.dtype if convert_dtype else None),
                 check_rows=n_rows,
                 check_cols=1,
                 deepcopy=True,
@@ -417,16 +512,13 @@ class Ridge(Base,
         else:
             sample_weight_m = None
 
-        X_is_copy = cuda_ptr(X) != X_m.ptr
-        y_is_copy = cuda_ptr(y) != y_m.ptr
-
         # Validate alpha
         if cp.isscalar(self.alpha):
             alpha = self.alpha
             if self.alpha < 0.0:
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
         else:
-            alpha = cp.asarray(self.alpha, dtype=dtype).ravel()
+            alpha = cp.asarray(self.alpha, dtype=X_m.dtype).ravel()
             if (alpha < 0).any():
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
             if alpha.shape[0] == 1:
@@ -438,7 +530,7 @@ class Ridge(Base,
                 )
 
         # Validate and select solver
-        _SUPPORTED_SOLVERS = ["auto", "eig", "svd"]
+        _SUPPORTED_SOLVERS = ["auto", "eig", "svd", "lsmr"]
         if (solver := self.solver) not in _SUPPORTED_SOLVERS:
             raise ValueError(
                 f"Expected `solver` to be one of {_SUPPORTED_SOLVERS}, got {solver!r}"
@@ -456,21 +548,43 @@ class Ridge(Base,
                     "solver='svd' or solver='auto' instead"
                 )
         elif solver == "auto":
-            solver = "svd" if n_cols == 1 or n_targets != 1 else "eig"
+            if X_is_sparse:
+                solver = "lsmr"
+            elif n_cols == 1 or n_targets != 1:
+                solver = "svd"
+            else:
+                solver = "eig"
+
+        if X_is_sparse and solver != "lsmr":
+            raise ValueError(
+                "solver={solver!r} doesn't support sparse X, please select "
+                "solver='lsmr' or solver='auto' instead"
+            )
 
         # Perform fit
-        solver_func = self._fit_svd if solver == "svd" else self._fit_eig
-        coef, intercept = solver_func(
-            X_m,
-            y_m,
-            sample_weight_m,
-            alpha=alpha,
-            X_is_copy=X_is_copy,
-            y_is_copy=y_is_copy,
-        )
+        if solver == "eig":
+            coef, intercept, n_iter = self._fit_eig(
+                X_m,
+                y_m,
+                sample_weight_m,
+                alpha=alpha,
+                X_is_copy=X_is_copy,
+                y_is_copy=y_is_copy,
+            )
+        else:
+            coef, intercept, n_iter = self._fit_cupy(
+                X_m,
+                y_m,
+                sample_weight_m,
+                alpha=alpha,
+                X_is_copy=X_is_copy,
+                y_is_copy=y_is_copy,
+                use_svd=(solver == "svd")
+            )
 
         self.coef_ = coef
         self.intercept_ = intercept
+        self.n_iter_ = n_iter
         self.solver_ = solver
 
         return self

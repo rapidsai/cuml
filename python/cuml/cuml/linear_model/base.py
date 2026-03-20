@@ -29,25 +29,27 @@ class LinearPredictMixin:
         check_is_fitted(self)
         check_features(self, X)
 
-        X = input_to_cuml_array(
-            X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
-            order="K",
-        ).array
-        X_cp = X.to_output("cupy")
+        if is_sparse(X):
+            X_m = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype)
+        else:
+            X_m = input_to_cuml_array(
+                X,
+                check_dtype=self.coef_.dtype,
+                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
+                check_cols=self.n_features_in_,
+                order="K",
+            ).array
 
+        X = X_m.to_output("cupy")
         coef = self.coef_.to_output("cupy")
-
         intercept = self.intercept_
         if isinstance(intercept, CumlArray):
             intercept = intercept.to_output("cupy")
 
-        out = X_cp @ coef.T
+        out = X @ coef.T
         out += intercept
 
-        return CumlArray(out, index=X.index)
+        return CumlArray(out, index=X_m.index)
 
 
 class LinearClassifierMixin:
@@ -67,10 +69,7 @@ class LinearClassifierMixin:
         check_features(self, X)
 
         if is_sparse(X):
-            X = SparseCumlArray(
-                X, convert_to_dtype=self.coef_.dtype
-            ).to_output("cupy")
-            out_index = None
+            X_m = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype)
         else:
             X_m = input_to_cuml_array(
                 X,
@@ -79,9 +78,8 @@ class LinearClassifierMixin:
                 check_cols=self.n_features_in_,
                 order="K",
             ).array
-            out_index = X_m.index
-            X = X_m.to_output("cupy")
 
+        X = X_m.to_output("cupy")
         coef = self.coef_.to_output("cupy")
         intercept = self.intercept_
         if isinstance(intercept, CumlArray):
@@ -93,7 +91,7 @@ class LinearClassifierMixin:
         if out.ndim > 1 and out.shape[1] == 1:
             out = out.reshape(-1)
 
-        return CumlArray(out, index=out_index)
+        return CumlArray(out, index=X_m.index)
 
 
 def center_and_scale(
