@@ -11,7 +11,9 @@
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/core/operators.hpp>
+#include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/stats/meanvar.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -98,31 +100,6 @@ CUML_KERNEL void compute_ro_scatter_kernel(
 }
 
 /**
- * Normalize ro: ro[v] = log(eps + ro[v] / mu_sum[v])
- */
-template <typename T, int TPB_X = 256>
-CUML_KERNEL void normalize_ro_kernel(T* ro, const T* mu_sum, int n)
-{
-  int idx = blockIdx.x * TPB_X + threadIdx.x;
-  if (idx >= n) return;
-
-  T epsilon = T(1e-8);
-  ro[idx]   = log(epsilon + (ro[idx] / mu_sum[idx]));
-}
-
-/**
- * Standardize in-place: data[v] = (data[v] - mean) / std
- */
-template <typename T, int TPB_X = 256>
-CUML_KERNEL void standardize_kernel(T* data, T mean, T std_val, int n)
-{
-  int idx = blockIdx.x * TPB_X + threadIdx.x;
-  if (idx >= n) return;
-
-  data[idx] = (data[idx] - mean) / std_val;
-}
-
-/**
  * Precompute densMAP original-space density data from the (trimmed) COO graph
  * and the raw input data X.
  *
@@ -167,12 +144,13 @@ std::unique_ptr<DensMapData<T>> densmap_precompute(const T* X,
   }
 
   // 3. Normalize ro = log(eps + ro / mu_sum)
-  {
-    dim3 grid(raft::ceildiv(n_vertices, TPB_X), 1, 1);
-    dim3 blk(TPB_X, 1, 1);
-    normalize_ro_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(dm->R, mu_sum.data(), n_vertices);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-  }
+  raft::linalg::binaryOp(
+    dm->R,
+    dm->R,
+    mu_sum.data(),
+    n_vertices,
+    [] __device__(T ro_val, T mu_val) { return log(T(1e-8) + ro_val / mu_val); },
+    stream);
 
   // 4. Compute mean and std of ro (stored in R), then standardize R = (ro - mean) / std
   {
@@ -188,10 +166,13 @@ std::unique_ptr<DensMapData<T>> densmap_precompute(const T* X,
     T ro_std = std::sqrt(static_cast<float>(ro_var));
     if (ro_std < T(1e-10)) ro_std = T(1e-10);
 
-    dim3 grid(raft::ceildiv(n_vertices, TPB_X), 1, 1);
-    dim3 blk(TPB_X, 1, 1);
-    standardize_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(dm->R, ro_mean, ro_std, n_vertices);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
+    T inv_std = T(1) / ro_std;
+    raft::linalg::unaryOp(
+      dm->R,
+      dm->R,
+      n_vertices,
+      [ro_mean, inv_std] __device__(T x) { return (x - ro_mean) * inv_std; },
+      stream);
   }
 
   // 5. Compute mu_tot = sum(mu_sum) / 2
@@ -268,22 +249,6 @@ CUML_KERNEL void densmap_epoch_init_scatter_kernel(const T* __restrict__ head_em
 }
 
 /**
- * Normalize re_sum: re_sum[v] = log(eps + re_sum[v] / phi_sum[v])
- * and precompute exp_neg[v] = exp(-re_sum[v]) to avoid per-edge exp() calls.
- */
-template <typename T, int TPB_X = 256>
-CUML_KERNEL void densmap_normalize_re_kernel(T* re_sum, const T* phi_sum, T* exp_neg_re_sum, int n)
-{
-  int idx = blockIdx.x * TPB_X + threadIdx.x;
-  if (idx >= n) return;
-
-  T epsilon           = T(1e-8);
-  T val               = log(epsilon + (re_sum[idx] / phi_sum[idx]));
-  re_sum[idx]         = val;
-  exp_neg_re_sum[idx] = exp(-val);
-}
-
-/**
  * Run the per-epoch densMAP init: compute re_sum and phi_sum from the
  * current embedding.
  */
@@ -311,10 +276,16 @@ void densmap_epoch_init(T* head_embedding,
     head_embedding, tail_embedding, head, tail, nnz, n_components, a, b, re_sum, phi_sum);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-  dim3 grid_n(raft::ceildiv(n_vertices, TPB_X), 1, 1);
-  densmap_normalize_re_kernel<T, TPB_X>
-    <<<grid_n, blk, 0, stream>>>(re_sum, phi_sum, exp_neg_re_sum, n_vertices);
-  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  // Normalize: re_sum = log(eps + re_sum / phi_sum), then exp_neg = exp(-re_sum)
+  raft::linalg::binaryOp(
+    re_sum,
+    re_sum,
+    phi_sum,
+    n_vertices,
+    [] __device__(T r, T p) { return log(T(1e-8) + r / p); },
+    stream);
+  raft::linalg::unaryOp(
+    exp_neg_re_sum, re_sum, n_vertices, [] __device__(T v) { return exp(-v); }, stream);
 }
 
 /**
