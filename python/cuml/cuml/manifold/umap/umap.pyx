@@ -982,6 +982,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if model.unique:
             raise UnsupportedOnGPU("`unique=True` is not supported")
 
+        if getattr(model, "output_dens", False):
+            raise UnsupportedOnGPU("`output_dens=True` is not supported")
+
+        if getattr(model, "densmap", False):
+            output_metric = getattr(model, "output_metric", "euclidean")
+            if output_metric not in ("euclidean", "l2"):
+                raise UnsupportedOnGPU(
+                    "Non-Euclidean output metric not supported for densMAP"
+                )
+
         precomputed_knn = model.precomputed_knn[:2]
         if all(item is None for item in precomputed_knn):
             precomputed_knn = None
@@ -1623,6 +1633,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         if self._sparse_data:
             raise ValueError("Inverse transform not available for sparse input.")
+        if getattr(self, "densmap", False):
+            raise ValueError("Inverse transform not available for densMAP.")
         if self.n_components >= 8:
             warnings.warn(
                 "Inverse transform works best with low dimensional embeddings."
