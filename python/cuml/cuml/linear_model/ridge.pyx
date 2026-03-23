@@ -106,7 +106,7 @@ class Ridge(Base,
 
         - 'eig': uses an eigendecomposition of the covariance matrix. It is
           faster than SVD, but potentially unstable. It doesn't support
-          multi-target ``y`` or sparse ``X`.
+          multi-target ``y`` or sparse ``X``.
 
         - 'svd': uses an SVD decomposition. It's slower, but stable. It doesn't
           support sparse ``X``.
