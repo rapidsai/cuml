@@ -95,13 +95,15 @@ class DistributedDataHandler:
 
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
-        return DistributedDataHandler(
+        handler = DistributedDataHandler(
             gpu_futures=gpu_futures,
             workers=workers,
             datatype=datatype,
             multiple=multiple,
             client=client,
         )
+        handler._fetch_worker_sizes()
+        return handler
 
     """ Methods to calculate further attributes """
 

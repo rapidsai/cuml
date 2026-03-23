@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -39,8 +39,6 @@ class DecompositionSyncFitMixin(object):
 
         data = DistributedDataHandler.create(data=X, client=self.client)
         self.datatype = data.datatype
-
-        data._fetch_worker_sizes()
 
         if "svd_solver" in self.kwargs and self.kwargs["svd_solver"] == "tsqr":
             comms = Comms(comms_p2p=True)
