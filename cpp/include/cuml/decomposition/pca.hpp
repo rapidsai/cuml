@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,7 +13,7 @@ class handle_t;
 
 namespace ML {
 
-void pcaFit(raft::handle_t& handle,
+void pcaFit(const raft::handle_t& handle,
             float* input,
             float* components,
             float* explained_var,
@@ -23,7 +23,7 @@ void pcaFit(raft::handle_t& handle,
             float* noise_vars,
             const paramsPCA& prms,
             bool flip_signs_based_on_U);
-void pcaFit(raft::handle_t& handle,
+void pcaFit(const raft::handle_t& handle,
             double* input,
             double* components,
             double* explained_var,
@@ -33,7 +33,7 @@ void pcaFit(raft::handle_t& handle,
             double* noise_vars,
             const paramsPCA& prms,
             bool flip_signs_based_on_U);
-void pcaFitTransform(raft::handle_t& handle,
+void pcaFitTransform(const raft::handle_t& handle,
                      float* input,
                      float* trans_input,
                      float* components,
@@ -44,7 +44,7 @@ void pcaFitTransform(raft::handle_t& handle,
                      float* noise_vars,
                      const paramsPCA& prms,
                      bool flip_signs_based_on_U);
-void pcaFitTransform(raft::handle_t& handle,
+void pcaFitTransform(const raft::handle_t& handle,
                      double* input,
                      double* trans_input,
                      double* components,
@@ -55,28 +55,28 @@ void pcaFitTransform(raft::handle_t& handle,
                      double* noise_vars,
                      const paramsPCA& prms,
                      bool flip_signs_based_on_U);
-void pcaInverseTransform(raft::handle_t& handle,
+void pcaInverseTransform(const raft::handle_t& handle,
                          float* trans_input,
                          float* components,
                          float* singular_vals,
                          float* mu,
                          float* input,
                          const paramsPCA& prms);
-void pcaInverseTransform(raft::handle_t& handle,
+void pcaInverseTransform(const raft::handle_t& handle,
                          double* trans_input,
                          double* components,
                          double* singular_vals,
                          double* mu,
                          double* input,
                          const paramsPCA& prms);
-void pcaTransform(raft::handle_t& handle,
+void pcaTransform(const raft::handle_t& handle,
                   float* input,
                   float* components,
                   float* trans_input,
                   float* singular_vals,
                   float* mu,
                   const paramsPCA& prms);
-void pcaTransform(raft::handle_t& handle,
+void pcaTransform(const raft::handle_t& handle,
                   double* input,
                   double* components,
                   double* trans_input,
