@@ -123,7 +123,7 @@ def center_and_scale(
 
     Returns
     -------
-    X : cupy.ndarray or cupx.scipy.sparse.sp_matrix, shape (n_samples, n_features)
+    X : cupy.ndarray or cupyx.scipy.sparse.sp_matrix, shape (n_samples, n_features)
         Rescaled by sample weights. Also centered if dense.
     y : cupy.ndarray, shape (n_samples, 1) or (n_samples, n_targets)
         Rescaled by sample weights and centered.

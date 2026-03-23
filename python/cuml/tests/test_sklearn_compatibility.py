@@ -174,6 +174,7 @@ XFAILS = {
         "check_fit1d": "Ridge does not raise ValueError for 1D input",
         "check_fit2d_predict1d": "Ridge does not handle 1D prediction input gracefully",
         "check_requires_y_none": "Ridge does not handle y=None",
+        "check_non_transformer_estimators_n_iter": "Ridge `n_iter_` may be `None`",
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

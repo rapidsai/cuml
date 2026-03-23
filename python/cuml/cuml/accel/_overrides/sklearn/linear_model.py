@@ -8,7 +8,9 @@ from packaging.version import Version
 
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.outputs import using_output_type
 
 __all__ = (
@@ -45,6 +47,15 @@ class Ridge(ProxyBase):
     _gpu_class = cuml.linear_model.Ridge
 
     def _gpu_fit(self, X, y, sample_weight=None):
+        if is_sparse(X) and (
+            self.solver not in ("auto", "lsqr", "lbfgs", "sparse_cg")
+        ):
+            # cuml.Ridge's sparse solver is iterative. For maximum compatibility,
+            # we only proxy through iterative sparse solvers.
+            raise UnsupportedOnGPU(
+                f"Sparse inputs are not supported with solver={self.solver!r}"
+            )
+
         self._gpu.fit(X, y, sample_weight=sample_weight)
 
         # XXX: sklearn 1.6 changed the shape of `coef_` when fit with a 1

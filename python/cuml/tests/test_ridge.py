@@ -164,7 +164,7 @@ def test_ridge_sparse(dtype, fit_intercept, weighted, n_targets):
         solver="lsqr", fit_intercept=fit_intercept
     )
     sk_model.fit(X, y, sample_weight=sample_weight)
-    sk_pred = sk_model.predict(X)
+    sk_pred = sk_model.predict(X).reshape(cu_pred.shape)
 
     # Check shapes and dtypes
     assert cu_model.coef_.dtype == dtype
@@ -184,6 +184,11 @@ def test_ridge_sparse(dtype, fit_intercept, weighted, n_targets):
 
     # Check predictions are close
     np.testing.assert_allclose(cu_pred, sk_pred, atol=1e-2)
+
+    # Check fit metadata
+    assert isinstance(cu_model.n_iter_, np.ndarray)
+    assert cu_model.n_iter_.shape == (n_targets or 1,)
+    assert cu_model.solver_ == "lsmr"
 
 
 def test_ridge_and_least_squares_equal_when_alpha_is_0():

@@ -141,6 +141,9 @@ class Ridge(Base,
         an array when fit on multi-target y, otherwise will be a float.
     solver_ : str
         The solver that was used at fit time.
+    n_iter_ : numpy.ndarray or None, shape (n_targets,)
+        The number of iterations the solver ran per-target if the ``'lsmr'``
+        solver was used, or ``None`` for other solvers.
 
     Notes
     -----
@@ -278,8 +281,11 @@ class Ridge(Base,
         X_offset,
         sqrt_weight,
     ):
-        """Solve an already centered/scaled ridge regression with LSMR"""
+        """Solve a ridge regression with LSMR"""
         if cupyx.scipy.sparse.issparse(X) and self.fit_intercept:
+            # To keep sparsity, sparse inputs aren't already centered when
+            # fitting an intercept. We handle removing the offset within the
+            # fit via a LinearOperator.
             if sqrt_weight is None:
                 A = cupyx.scipy.sparse.linalg.LinearOperator(
                     shape=X.shape,
@@ -296,7 +302,7 @@ class Ridge(Base,
             A = X
 
         coef = cp.empty((y.shape[1], X.shape[1]), dtype=X.dtype)
-        n_iter = cp.empty(y.shape[1], dtype=cp.int32)
+        n_iter = np.empty(y.shape[1], dtype=np.int32)
         damp = cp.sqrt(alpha)
 
         for i in range(y.shape[1]):
@@ -315,7 +321,7 @@ class Ridge(Base,
         return coef, n_iter
 
     def _solve_svd(self, X, y, alpha):
-        """Solve an already centered/scaled ridge regression with SVD"""
+        """Solve a ridge regression with SVD"""
         # Solve using SVD method
         u, s, vh = cp.linalg.svd(X, full_matrices=False)
         temp = _ridge_transform(u.T.dot(y), s[:, None], alpha)
