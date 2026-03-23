@@ -108,16 +108,18 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   bool alloc_knn_graph() const
   {
-    cudaPointerAttributes attr;
-    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, knn_graph.knn_indices));
-    if (attr.devicePointer == nullptr ||
-        (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
-      return true;
-    RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, knn_graph.knn_dists));
-    if (attr.devicePointer == nullptr ||
-        (attr.type != cudaMemoryTypeDevice && attr.type != cudaMemoryTypeManaged))
-      return true;
-    return false;
+    auto is_device_mem = [](const void* ptr) {
+      cudaPointerAttributes attr;
+      RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
+      return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
+    };
+
+    if (is_device_mem(knn_graph.knn_indices) && is_device_mem(knn_graph.knn_dists)) return false;
+
+    // On HMM/ATS systems, non-device pointers may be device-accessible but
+    // cudaPointerGetAttributes reports them as unregistered/host. Always copy
+    // to avoid slow page-fault-driven access from GPU kernels.
+    return true;
   }
 };
 
