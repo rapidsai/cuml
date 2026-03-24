@@ -21,7 +21,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -72,15 +72,6 @@ class Algo(enum.IntEnum):
         if out is None:
             raise ValueError("algorithm {name!r} is not supported")
         return out
-
-
-# 1e-10 chosen to match C++ implementation
-_divide_non_zero = cp.ElementwiseKernel(
-    "T x, T y",
-    "T z",
-    "z = abs(y) < 1e-10 ? x : x / y",
-    "divide_non_zero"
-)
 
 
 class LinearRegression(Base,
@@ -207,8 +198,8 @@ class LinearRegression(Base,
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
     """
 
-    coef_ = CumlArrayDescriptor(order="F")
-    intercept_ = CumlArrayDescriptor(order="F")
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
 
     _cpu_class_path = "sklearn.linear_model.LinearRegression"
 
@@ -239,8 +230,8 @@ class LinearRegression(Base,
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": to_gpu(model.intercept_, order="F"),
-            "coef_": to_gpu(model.coef_, order="F"),
+            "intercept_": to_gpu(model.intercept_),
+            "coef_": to_gpu(model.coef_),
             **super()._attrs_from_cpu(model),
         }
 
@@ -289,6 +280,78 @@ class LinearRegression(Base,
                 algo = Algo.SVD
         return algo
 
+    def _fit_libcuml(
+        self, int algo, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False
+    ):
+        """Fit a LinearRegression using a libcuml solver"""
+        # All libcuml solvers mutate the inputs. Here we make a copy requested
+        # (and one wasn't already made).
+        if not X_is_copy and self.copy_X:
+            X_m = input_to_cuml_array(X_m, deepcopy=True).array
+        if not y_is_copy:
+            y_m = input_to_cuml_array(y_m, deepcopy=True).array
+
+        coef = CumlArray.zeros(
+            (X_m.shape[1],) if y_m.ndim == 1 else (1, X_m.shape[1]),
+            dtype=X_m.dtype,
+        )
+
+        cdef size_t n_rows = X_m.shape[0]
+        cdef size_t n_cols = X_m.shape[1]
+        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t y_ptr = y_m.ptr
+        cdef uintptr_t sample_weight_ptr = (
+            0 if sample_weight_m is None else sample_weight_m.ptr
+        )
+        cdef uintptr_t coef_ptr = coef.ptr
+        cdef bool is_float32 = X_m.dtype == np.float32
+        cdef float intercept_f32
+        cdef double intercept_f64
+        # Always use 2 streams to expose concurrency in the eig computation
+        handle = get_handle(n_streams=2)
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef bool fit_intercept = self.fit_intercept
+
+        with nogil:
+            if is_float32:
+                olsFit(
+                    handle_[0],
+                    <float*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*>y_ptr,
+                    <float*>coef_ptr,
+                    &intercept_f32,
+                    fit_intercept,
+                    algo,
+                    <float*>sample_weight_ptr,
+                )
+            else:
+                olsFit(
+                    handle_[0],
+                    <double*>X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*>y_ptr,
+                    <double*>coef_ptr,
+                    &intercept_f64,
+                    fit_intercept,
+                    algo,
+                    <double*>sample_weight_ptr,
+                )
+        handle.sync()
+
+        if self.fit_intercept:
+            intercept = intercept_f32 if is_float32 else intercept_f64
+            if y_m.ndim == 1:
+                intercept = X_m.dtype.type(intercept)
+            else:
+                intercept = CumlArray.full((1,), intercept, dtype=X_m.dtype)
+        else:
+            intercept = 0.0
+
+        return coef, intercept
+
     @generate_docstring()
     @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
@@ -336,114 +399,29 @@ class LinearRegression(Base,
 
         if y_m.ndim > 1 and y_m.shape[1] > 1:
             # Fallback to cupy SVD implementation for multi-target problems
-            self._fit_multi_target(
-                X_m, y_m, sample_weight, X_is_copy=X_is_copy, y_is_copy=y_is_copy
+            coef, intercept, _ = fit_least_squares(
+                X_m.to_output("cupy"),
+                y_m.to_output("cupy"),
+                sample_weight=(
+                    None if sample_weight is None else sample_weight.to_output("cupy")
+                ),
+                fit_intercept=self.fit_intercept,
+                alpha=0.0,
+                may_mutate_X=X_is_copy or not self.copy_X,
+                may_mutate_y=y_is_copy,
             )
-            return self
-
-        # All libcuml solvers mutate the inputs. Here we make a copy requested
-        # (and one wasn't already made).
-        if not X_is_copy and self.copy_X:
-            X_m = input_to_cuml_array(X_m, deepcopy=True).array
-        if not y_is_copy:
-            y_m = input_to_cuml_array(y_m, deepcopy=True).array
-
-        coef = CumlArray.zeros(X_m.shape[1], dtype=X_m.dtype)
-
-        cdef size_t n_rows = X_m.shape[0]
-        cdef size_t n_cols = X_m.shape[1]
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t y_ptr = y_m.ptr
-        cdef uintptr_t sample_weight_ptr = (
-            0 if sample_weight is None else sample_weight.ptr
-        )
-        cdef uintptr_t coef_ptr = coef.ptr
-        cdef bool is_float32 = X_m.dtype == np.float32
-        cdef float intercept_f32
-        cdef double intercept_f64
-        # Always use 2 streams to expose concurrency in the eig computation
-        handle = get_handle(n_streams=2)
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef bool fit_intercept = self.fit_intercept
-
-        with nogil:
-            if is_float32:
-                olsFit(
-                    handle_[0],
-                    <float*>X_ptr,
-                    n_rows,
-                    n_cols,
-                    <float*>y_ptr,
-                    <float*>coef_ptr,
-                    &intercept_f32,
-                    fit_intercept,
-                    algo,
-                    <float*>sample_weight_ptr,
-                )
-            else:
-                olsFit(
-                    handle_[0],
-                    <double*>X_ptr,
-                    n_rows,
-                    n_cols,
-                    <double*>y_ptr,
-                    <double*>coef_ptr,
-                    &intercept_f64,
-                    fit_intercept,
-                    algo,
-                    <double*>sample_weight_ptr,
-                )
-        handle.sync()
-
-        self.intercept_ = intercept_f32 if is_float32 else intercept_f64
-        self.coef_ = coef
-
-        return self
-
-    def _fit_multi_target(
-        self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False,
-    ):
-        X = X_m.to_output("cupy")
-        y = y_m.to_output("cupy")
-
-        if self.fit_intercept:
-            # Add column containing ones to fit intercept.
-            nrow, ncol = X.shape
-            X_temp = cp.empty_like(X, shape=(nrow, ncol + 1))
-            X_temp[:, :ncol] = X
-            X_temp[:, ncol] = 1.
-            X = X_temp
-            X_is_copy = True
-
-        if sample_weight_m is not None:
-            sample_weight = sample_weight_m.to_output("cupy")
-            # Weights are always copied, can mutate buffer
-            weight_sqrt = cp.sqrt(sample_weight, out=sample_weight)
-            # Multiply by weights, reusing existing buffers when possible
-            X = cp.multiply(
-                X,
-                weight_sqrt[:, None],
-                out=X if X_is_copy or not self.copy_X else None,
-            )
-            y = cp.multiply(
-                y,
-                weight_sqrt[:, None],
-                out=y if y_is_copy else None
-            )
-
-        u, s, vh = cp.linalg.svd(X, full_matrices=False)
-        temp = _divide_non_zero(u.T.dot(y), s[:, None])
-        coef = vh.T.dot(temp)
-
-        if self.fit_intercept:
-            intercept = CumlArray(data=coef[-1])
-            coef = CumlArray(data=coef[:-1].T)
+            if not cp.isscalar(intercept):
+                intercept = CumlArray(data=intercept)
+            coef = CumlArray(data=coef)
         else:
-            intercept = 0.0
-            coef = CumlArray(data=coef.T)
+            coef, intercept = self._fit_libcuml(
+                algo, X_m, y_m, sample_weight, X_is_copy=X_is_copy, y_is_copy=y_is_copy
+            )
 
         self.coef_ = coef
         self.intercept_ = intercept
+
+        return self
 
     @staticmethod
     def _more_static_tags():
