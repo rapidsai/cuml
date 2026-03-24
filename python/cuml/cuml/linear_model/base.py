@@ -203,9 +203,9 @@ _ridge_transform = cp.ElementwiseKernel(
     "_ridge_transform",
 )
 _ridge_transform_zero_alpha = cp.ElementwiseKernel(
-    "T x, T y",
-    "T z",
-    "z = abs(y) < 1e-10 ? x : x / y",
+    "T x, T s",
+    "T out",
+    "out = s < 1e-10 ? 0 : x / s",
     "_ridge_transform_zero_alpha",
 )
 
