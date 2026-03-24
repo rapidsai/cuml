@@ -171,47 +171,50 @@ def test_getattr(client):
     assert isinstance(nb_model.feature_count_, cupy.ndarray)
 
 
-def _make_ddh_with_empty_worker(client):
-    """Build a DDH where one worker holds real data and another holds an
-    empty (0-row) partition.  Requires at least 2 workers."""
+def _make_dask_data_with_empty_worker(client):
+    """Build a dask_cudf DataFrame where one worker holds real data and
+    another holds a 0-row partition.  Requires at least 2 workers.
+
+    Uses ``dask_cudf.from_delayed`` (rather than ``da.concatenate``, which
+    can optimise away 0-size chunks) so that ``_extract_partitions`` sees
+    the empty partition.
+    """
     workers = list(client.scheduler_info()["workers"].keys())
     if len(workers) < 2:
         pytest.skip(
             "Need at least 2 workers to test empty-partition filtering"
         )
 
-    real = cupy.random.randn(100, 5).astype(np.float32)
-    empty = cupy.empty((0, 5), dtype=np.float32)
-
-    real_f = client.scatter(real, workers=[workers[0]])
-    empty_f = client.scatter(empty, workers=[workers[1]])
-
-    gpu_futures = [(workers[0], real_f), (workers[1], empty_f)]
-    return DistributedDataHandler(
-        gpu_futures=gpu_futures,
-        workers=tuple(workers[:2]),
-        datatype="cupy",
-        multiple=False,
-        client=client,
+    X_real = cudf.DataFrame(
+        np.random.randn(100, 5).astype(np.float32),
     )
+    X_empty = X_real.iloc[:0]
+
+    real_f = client.scatter(X_real, workers=[workers[0]])
+    empty_f = client.scatter(X_empty, workers=[workers[1]])
+
+    return dask_cudf.from_delayed([real_f, empty_f], meta=X_empty)
 
 
 def test_ddh_warns_on_empty_partitions(client):
-    """_fetch_worker_sizes should warn when a worker has zero rows."""
-    ddh = _make_ddh_with_empty_worker(client)
+    """DistributedDataHandler.create should warn when a worker has zero rows."""
+    X = _make_dask_data_with_empty_worker(client)
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        ddh._fetch_worker_sizes()
+        DistributedDataHandler.create(X, client=client)
         user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
         assert len(user_warnings) == 1
         assert "no data" in str(user_warnings[0].message)
 
 
 def test_ddh_filters_empty_workers(client):
-    """After _fetch_worker_sizes, workers with 0 rows should be removed."""
-    ddh = _make_ddh_with_empty_worker(client)
-    ddh._fetch_worker_sizes()
+    """After create, workers with 0 rows should be removed."""
+    X = _make_dask_data_with_empty_worker(client)
+
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        ddh = DistributedDataHandler.create(X, client=client)
 
     assert len(ddh.workers) == 1
     assert len(ddh.worker_to_parts) == 1
@@ -222,8 +225,11 @@ def test_ddh_filters_empty_workers(client):
 
 def test_ddh_total_rows_after_filtering(client):
     """Total rows should reflect only the non-empty worker's data."""
-    ddh = _make_ddh_with_empty_worker(client)
-    ddh._fetch_worker_sizes()
+    X = _make_dask_data_with_empty_worker(client)
+
+    with warnings.catch_warnings(record=True):
+        warnings.simplefilter("always")
+        ddh = DistributedDataHandler.create(X, client=client)
 
     total = sum(t for _, (_, t) in ddh._worker_sizes.items())
     assert total == 100
