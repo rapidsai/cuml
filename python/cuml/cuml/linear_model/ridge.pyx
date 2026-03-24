@@ -482,7 +482,7 @@ class Ridge(Base,
             )
             if not cp.isscalar(intercept):
                 intercept = CumlArray(intercept)
-            if y.ndim == 2 and y.shape[1] == 1:
+            if y_m.ndim == 2 and y_m.shape[1] == 1:
                 coef = coef.ravel()
             coef = CumlArray(coef)
 
