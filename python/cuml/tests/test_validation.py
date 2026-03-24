@@ -97,9 +97,13 @@ def test_get_n_features():
     ],
 )
 def test_get_n_features_1D(X):
-    with pytest.warns(FutureWarning, match="non-2-dimensional"):
-        n_features = _get_n_features(X)
-    assert n_features == 1
+    if isinstance(X, (pd.Series, cudf.Series)):
+        match = "Expected a 2-dimensional container"
+    else:
+        match = "Expected 2D array"
+
+    with pytest.raises(ValueError, match=match):
+        _get_n_features(X)
 
 
 def test_get_feature_names():

@@ -83,9 +83,7 @@ def _get_n_features(X):
 
     ndim = len(shape)
 
-    if ndim != 2:
-        import cuml.accel
-
+    if ndim < 2:
         if isinstance(X, (cudf.Series, pd.Series)):
             msg = (
                 f"Expected a 2-dimensional container but got {type(X).__name__} "
@@ -100,18 +98,10 @@ def _get_n_features(X):
                 "using array.reshape(-1, 1) if your data has a single feature, "
                 "or array.reshape(1, -1) if it contains a single sample."
             )
+        raise ValueError(msg)
+    elif ndim > 2:
+        raise ValueError(f"Expected 2D array, got {ndim}D array instead.")
 
-        if cuml.accel.enabled() or ndim > 2:
-            raise ValueError(msg)
-        else:
-            warnings.warn(
-                "Support for passing non-2-dimensional X was deprecated in 26.04 "
-                "and will be removed in version 26.06 of cuML. In version 26.06 this will error "
-                f"with the following message:\n\n{msg}",
-                FutureWarning,
-            )
-            # Fallback to 1 feature until the deprecation is completed
-            return 1
     return shape[1]
 
 
