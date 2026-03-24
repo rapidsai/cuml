@@ -34,16 +34,12 @@ jobs:
       secrets: inherit
 
     get-release-version:
-      # Determines the release version based on target branch
-      # - release/* branches: extract version from branch name (e.g., release/26.02 -> 26.02), always override
-      # - main branch: read VERSION file, preserve existing values (no override)
-      # - other branches: skip update
+      # release/*: version from branch name; main: first two segments of VERSION on main. Other bases: no output.
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       runs-on: ubuntu-latest
       outputs:
         release-version: ${{ steps.determine-version.outputs.release-version }}
-        override-item: ${{ steps.determine-version.outputs.override-item }}
       steps:
         - name: Checkout main branch if needed
           if: ${{ github.event.pull_request.base.ref == 'main' }}
@@ -56,19 +52,16 @@ jobs:
             if [[ "$BASE_BRANCH" == release/* ]]; then
               release="${BASE_BRANCH#release/}"
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
-              echo "override-item=true" >> "$GITHUB_OUTPUT"
             elif [ "$BASE_BRANCH" = "main" ] && [ -f VERSION ]; then
               release=$(head -n 1 VERSION | cut -d. -f1,2)
               echo "release-version=$release" >> "$GITHUB_OUTPUT"
-              echo "override-item=false" >> "$GITHUB_OUTPUT"
             fi
           env:
             BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
 
     update-release:
       # This job sets the PR's Release field based on the target branch
-      # - For release/* branches: always override the field
-      # - For main branch: only set if not already set (preserve manual values)
+      # Only sets the field if it is not already set.
       uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@release/26.04
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.release-version != '' }}
       needs: [get-project-id, get-release-version]
@@ -80,6 +73,6 @@ jobs:
         ITEM_PROJECT_ID: "${{ needs.get-project-id.outputs.ITEM_PROJECT_ID }}"
         ITEM_NODE_ID: "${{ github.event.pull_request.node_id }}"
         UPDATE_ITEM: true
-        OVERRIDE_ITEM: ${{ needs.get-release-version.outputs.override-item == 'true' }}
+        OVERRIDE_ITEM: false
         UPDATE_LINKED_ISSUES: false
       secrets: inherit
