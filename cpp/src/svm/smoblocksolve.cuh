@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -126,7 +126,7 @@ namespace SVM {
  * @param [in] f_array optimality indicator vector, size [n_train]
  * @param [in] kernel kernel function calculated between the working set and all
  *   other training vectors, size [n_ws * n_ws]
- * @param [in] ws_idx indices of traning vectors in the working set, size [n_ws]
+ * @param [in] ws_idx indices of training vectors in the working set, size [n_ws]
  * @param [in] C_vec penalty parameter vector including class and sample weights
  *   size [n_train]
  * @param [in] eps tolerance, iterations will stop if the duality gap is smaller

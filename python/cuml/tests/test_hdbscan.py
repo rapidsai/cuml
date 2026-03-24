@@ -302,7 +302,7 @@ def test_hdbscan_sklearn_extract_clusters(
 
     sk_agg.fit(supervised_learning_dataset)
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         sk_agg.condensed_tree_.to_numpy(),
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -311,7 +311,7 @@ def test_hdbscan_sklearn_extract_clusters(
     )
 
     assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
-    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
+    np.testing.assert_allclose(probabilities, sk_agg.probabilities_, rtol=1e-5)
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -406,7 +406,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     )
     sk_agg.fit(X)
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         sk_agg.condensed_tree_.to_numpy(),
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -415,7 +415,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     )
 
     assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
-    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
+    np.testing.assert_allclose(probabilities, sk_agg.probabilities_, rtol=1e-5)
 
 
 def test_hdbscan_core_dists_bug_4054():
@@ -465,7 +465,7 @@ def test_hdbscan_empty_cluster_tree():
     raw_tree["lambda_val"] = [1.0, 1.0, 1.0, 1.0, 1.0]
     raw_tree["child_size"] = [1, 1, 1, 1, 1]
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         raw_tree,
         allow_single_cluster=True,
         cluster_selection_method="eom",

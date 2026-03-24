@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -42,7 +42,7 @@ typedef enum cumlSvmKernelType { LINEAR, POLYNOMIAL, RBF, TANH } cumlSvmKernelTy
  * @param [out] dual_coefs non-zero dual coefficients, size [n_support].
  * @param [out] x_support support vectors in column major format.
  *    Size [n_support x n_cols].
- * @param [out] support_idx indices (from the traning set) of the support
+ * @param [out] support_idx indices (from the training set) of the support
  *    vectors, size [n_support].
  * @param [out] n_classes number of classes found in the input labels
  * @param [out] unique_labels device pointer for the unique classes,
