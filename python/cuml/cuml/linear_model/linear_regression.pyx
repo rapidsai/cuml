@@ -356,6 +356,11 @@ class LinearRegression(Base,
                 deepcopy=True,
             ).array
 
+        if self.algorithm not in (
+            "auto", "eig", "svd", "lsmr", "qr", "svd-qr", "svd-jacobi"
+        ):
+            raise ValueError(f"algorithm={self.algorithm!r} is not supported")
+
         # Determine the solver to use
         fallback_reason = None
         if self.algorithm == "lsmr":

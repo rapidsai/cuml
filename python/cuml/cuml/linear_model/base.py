@@ -235,7 +235,7 @@ def fit_least_squares(
         The sample weights.
     fit_intercept : bool
         Whether to fit an intercept.
-    alpha : float or array-like
+    alpha : float or cp.ndarray
         Ridge regularization strength. Must be a non-negative float. Defaults
         to 0 for no regularization (a LinearRegression).
     solver : {'svd', 'lsmr'}
