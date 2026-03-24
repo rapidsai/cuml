@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "pca.cuh"
-
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
@@ -15,8 +13,13 @@
 
 #include <raft/core/comms.hpp>
 #include <raft/core/handle.hpp>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/pca.cuh>
 #include <raft/linalg/transpose.cuh>
-#include <raft/matrix/math.cuh>
+#include <raft/linalg/tsvd.cuh>
+#include <raft/matrix/sqrt.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -55,11 +58,30 @@ void fit_impl(raft::handle_t& handle,
 
   MLCommon::Stats::opg::cov(handle, cov, input_data, input_desc, mu_data, true, streams, n_streams);
 
-  ML::truncCompExpVars<T, mg_solver>(
-    handle, cov.ptr, components, explained_var, explained_var_ratio, noise_vars, prms, streams[0]);
+  auto raft_prms = to_raft_params(prms);
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+
+  raft::linalg::trunc_comp_exp_vars(
+    handle_stream_zero,
+    raft_prms,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      cov.ptr, prms.n_cols, prms.n_cols),
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+      components, prms.n_components, prms.n_cols),
+    raft::make_device_vector_view<T, std::size_t>(explained_var, prms.n_components),
+    raft::make_device_vector_view<T, std::size_t>(explained_var_ratio, prms.n_components),
+    raft::make_device_scalar_view<T, std::size_t>(noise_vars),
+    prms.n_rows);
 
   T scalar = (prms.n_rows - 1);
-  raft::matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, streams[0], true);
+  raft::matrix::weighted_sqrt(handle_stream_zero,
+                              raft::make_device_matrix_view<const T, std::size_t, raft::row_major>(
+                                explained_var, std::size_t(1), prms.n_components),
+                              raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+                                singular_vals, std::size_t(1), prms.n_components),
+                              raft::make_host_scalar_view(&scalar),
+                              true);
 
   MLCommon::Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
@@ -78,15 +100,14 @@ void fit_impl(raft::handle_t& handle,
     for (std::uint32_t i = 0; i < n_streams; i++) {
       handle.sync_stream(streams[i]);
     }
-    signFlipComponents(handle,
-                       input_data[0]->ptr,
-                       components,
-                       prms.n_rows,
-                       prms.n_cols,
-                       prms.n_components,
-                       streams[0],
-                       true,
-                       false);
+    raft::linalg::sign_flip_components(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+        input_data[0]->ptr, prms.n_rows, prms.n_cols),
+      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+        components, prms.n_components, prms.n_cols),
+      true,
+      false);
   }
 }
 
@@ -173,8 +194,13 @@ void transform_impl(raft::handle_t& handle,
     T scalar = T(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
       components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
-    raft::matrix::matrixVectorBinaryDivSkipZero<true, true>(
-      components, singular_vals, prms.n_cols, prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+        components, prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
   }
 
   for (std::size_t i = 0; i < input.size(); i++) {
@@ -204,8 +230,13 @@ void transform_impl(raft::handle_t& handle,
   }
 
   if (prms.whiten) {
-    raft::matrix::matrixVectorBinaryMultSkipZero<true, true>(
-      components, singular_vals, prms.n_cols, prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+    raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+        components, prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
       components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
@@ -297,9 +328,14 @@ void inverse_transform_impl(raft::handle_t& handle,
   if (prms.whiten) {
     T scalar = T(1 / sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, streams[0]);
-    raft::matrix::matrixVectorBinaryMultSkipZero<true, true>(
-      components, singular_vals, prms.n_rows, prms.n_components, streams[0]);
+      components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+    raft::linalg::binary_mult_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+        components, prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
   }
 
   for (std::size_t i = 0; i < local_blocks.size(); i++) {
@@ -326,11 +362,16 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   if (prms.whiten) {
-    raft::matrix::matrixVectorBinaryDivSkipZero<true, true>(
-      components, singular_vals, prms.n_rows, prms.n_components, streams[0]);
+    raft::resources handle_stream_zero;
+    raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+      handle_stream_zero,
+      raft::make_device_matrix_view<T, std::size_t, raft::row_major>(
+        components, prms.n_cols, prms.n_components),
+      raft::make_device_vector_view<const T, std::size_t>(singular_vals, prms.n_components));
     T scalar = T(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, streams[0]);
+      components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {

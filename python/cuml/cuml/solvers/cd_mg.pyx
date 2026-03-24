@@ -65,7 +65,9 @@ class CDMG(MGFitMixin, CD):
         cdef bool use_f32 = self.dtype == np.float32
         cdef bool fit_intercept = self.fit_intercept
         cdef int max_iter = self.max_iter
-        cdef double alpha = self.alpha
+        cdef double alpha = (
+            self.alpha if np.isscalar(self.alpha) else self.alpha.item()
+        )
         cdef double l1_ratio = self.l1_ratio
         cdef bool shuffle = self.shuffle
         cdef double tol = self.tol

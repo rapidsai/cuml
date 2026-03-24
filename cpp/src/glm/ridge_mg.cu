@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,9 +10,12 @@
 #include <cuml/prims/opg/stats/mean.hpp>
 
 #include <raft/core/comms.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/matrix/math.cuh>
+#include <raft/linalg/matrix_vector.cuh>
+#include <raft/linalg/power.cuh>
+#include <raft/matrix/threshold.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -44,17 +47,29 @@ void ridgeSolve(const raft::handle_t& handle,
   T beta  = T(0);
   T thres = T(1e-10);
 
-  raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
+  raft::resources handle_stream_zero;
+  raft::resource::set_cuda_stream(handle_stream_zero, streams[0]);
+  raft::matrix::zero_small_values(
+    handle_stream_zero,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(S, std::size_t(1), UDesc.N),
+    thres);
 
   rmm::device_uvector<T> S_nnz_vector(UDesc.N, streams[0]);
   S_nnz = S_nnz_vector.data();
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
-  raft::matrix::power(S_nnz, UDesc.N, streams[0]);
+  raft::linalg::powerScalar(S_nnz, S_nnz, T(2), UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
-  raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-    S, S_nnz, size_t(1), UDesc.N, streams[0], true);
 
-  raft::matrix::matrixVectorBinaryMult<false, true>(V, S, UDesc.N, UDesc.N, streams[0]);
+  raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+    handle_stream_zero,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(S, std::size_t(1), UDesc.N),
+    raft::make_device_vector_view<const T, std::size_t>(S_nnz, UDesc.N),
+    true);
+
+  raft::linalg::binary_mult<raft::Apply::ALONG_ROWS>(
+    handle_stream_zero,
+    raft::make_device_matrix_view<T, std::size_t, raft::col_major>(V, UDesc.N, UDesc.N),
+    raft::make_device_vector_view<const T, std::size_t>(S, UDesc.N));
 
   MLCommon::Matrix::Data<T> S_nnz_data;
   S_nnz_data.totalSize = UDesc.N;

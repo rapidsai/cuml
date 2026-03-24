@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,7 +17,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -168,9 +168,18 @@ void sgdFit(const raft::handle_t& handle,
       if (cbs == 0) break;
 
       raft::update_device(indices.data(), &rand_indices[j], cbs, stream);
-      raft::matrix::copyRows(
-        input, n_rows, n_cols, input_batch.data(), indices.data(), cbs, stream);
-      raft::matrix::copyRows(labels, n_rows, 1, labels_batch.data(), indices.data(), cbs, stream);
+      auto input_view =
+        raft::make_device_matrix_view<const math_t, int, raft::col_major>(input, n_rows, n_cols);
+      auto input_batch_view = raft::make_device_matrix_view<math_t, int, raft::col_major>(
+        input_batch.data(), cbs, n_cols);
+      auto indices_view = raft::make_device_vector_view<const int, int>(indices.data(), cbs);
+      raft::matrix::copy_rows(handle, input_view, input_batch_view, indices_view);
+
+      auto labels_view =
+        raft::make_device_matrix_view<const math_t, int, raft::col_major>(labels, n_rows, 1);
+      auto labels_batch_view =
+        raft::make_device_matrix_view<math_t, int, raft::col_major>(labels_batch.data(), cbs, 1);
+      raft::matrix::copy_rows(handle, labels_view, labels_batch_view, indices_view);
 
       if (loss == ML::loss_funct::SQRD_LOSS) {
         Functions::linearRegLossGrads(handle,

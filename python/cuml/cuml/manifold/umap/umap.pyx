@@ -15,7 +15,6 @@ import scipy.spatial
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect
@@ -31,7 +30,11 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.utils import check_random_seed
+from cuml.internals.validation import (
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -163,14 +166,21 @@ def _compute_inverse_neighborhoods(embedding_np, X_np, min_vertices):
     # Find starting vertices (first vertex of simplex containing each point)
     simplex_indices = deltri.find_simplex(X_np)
     out_of_hull_mask = simplex_indices == -1
+
+    start_vertices = np.empty(X_np.shape[0], dtype=np.intp)
+    in_hull = ~out_of_hull_mask
+    start_vertices[in_hull] = deltri.simplices[simplex_indices[in_hull]][:, 0]
+
+    # For points outside the convex hull (can happen due to floating-point
+    # precision even when inverse-transforming the training embedding),
+    # fall back to the nearest embedding vertex.
     if np.any(out_of_hull_mask):
-        n_outside = out_of_hull_mask.sum()
-        raise ValueError(
-            f"{n_outside} point(s) are outside the convex hull of the embedding "
-            "and cannot be inverse transformed. Ensure all points to inverse "
-            "transform lie within the range of the original embedding."
+        ooh_points = X_np[out_of_hull_mask]
+        dists = np.linalg.norm(
+            embedding_np[np.newaxis, :, :] - ooh_points[:, np.newaxis, :],
+            axis=2,
         )
-    start_vertices = deltri.simplices[simplex_indices][:, 0]
+        start_vertices[out_of_hull_mask] = np.argmin(dists, axis=1)
 
     # Build adjacency matrix from simplices
     simplices = deltri.simplices
@@ -532,6 +542,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
+    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -759,6 +770,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -892,6 +911,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric",
             "hash_input",
             "random_state",
+            "force_serial_epochs",
             "callback",
             "metric",
             "metric_kwds",
@@ -947,6 +967,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
+            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1090,6 +1111,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
+        force_serial_epochs=False,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
@@ -1121,6 +1143,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
+        self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
@@ -1396,6 +1419,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
         """
+        check_is_fitted(self)
+        check_features(self, X)
+
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: X should be two dimensional")
 
@@ -1530,11 +1556,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
-        if not hasattr(self, "embedding_") or self.embedding_ is None:
-            raise NotFittedError(
-                "This UMAP instance is not fitted yet. Call 'fit' with "
-                "appropriate arguments before using 'inverse_transform'."
-            )
+        check_is_fitted(self)
+
         if self._sparse_data:
             raise ValueError("Inverse transform not available for sparse input.")
         if self.n_components >= 8:
@@ -1776,6 +1799,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
+    force_serial_epochs=False,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1823,6 +1847,14 @@ def simplicial_set_embedding(
             * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
+    force_serial_epochs: bool, optional (default=False)
+        If ``True``, optimization epochs will be executed with reduced GPU
+        parallelism. This is only relevant when ``random_state`` is set.
+        Enable this if you observe outliers in the resulting embeddings
+        with ``random_state`` configured. This may slow the optimization
+        step by more than 2x, but end-to-end runtime is typically similar
+        since optimization step is not the bottleneck. Use this to resolve rare
+        edge cases where the default heuristics do not trigger.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1871,6 +1903,7 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
+    params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)

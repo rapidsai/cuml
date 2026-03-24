@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -744,3 +744,18 @@ def test_output_cudf_maintain_nan():
     # to_cupy would raise if NaN was converted to null
     result = CumlArray.from_input(expected).to_output("cudf").to_cupy()
     assert cp.array_equal(result, expected, equal_nan=True)
+
+
+@pytest.mark.parametrize("output_type", ["pandas", "cudf"])
+def test_output_with_mismatched_index_mem_type(output_type):
+    """CumlArray with device data but a host (pandas) index should still
+    convert to pandas/cudf output without error."""
+    data = cp.random.rand(10, 3).astype(cp.float32)
+    arr = CumlArray(data=data, index=pd.RangeIndex(10))
+
+    result = arr.to_output(output_type)
+    if output_type == "pandas":
+        assert isinstance(result, pd.DataFrame)
+    else:
+        assert isinstance(result, cudf.DataFrame)
+    assert result.shape == (10, 3)

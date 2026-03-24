@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -109,10 +109,10 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
         dtype=np.float64,
     )
 
-    cupca = daskPCA(n_components=30, whiten=False)
+    cupca = daskPCA(n_components=10, whiten=False)
     res = cupca.fit_transform(X_cudf)
     res = res.compute()
-    assert res.shape[0] == nrows and res.shape[1] == 30
+    assert res.shape[0] == nrows and res.shape[1] == 10
 
 
 @pytest.mark.mg

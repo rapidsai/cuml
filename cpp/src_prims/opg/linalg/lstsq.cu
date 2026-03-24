@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,8 +9,7 @@
 #include <cuml/prims/opg/linalg/svd.hpp>
 
 #include <raft/linalg/gemv.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -71,8 +70,11 @@ void lstsqEig_impl(const raft::handle_t& handle,
 
   mv_aTb(handle, w_out, U, ADesc, b, streams, n_streams);
 
-  raft::matrix::matrixVectorBinaryDivSkipZero<false, true>(
-    tmp_vector.data(), S.data(), size_t(1), ADesc.N, streams[0]);
+  raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_ROWS>(
+    handle,
+    raft::make_device_matrix_view<T, size_t, raft::col_major>(
+      tmp_vector.data(), size_t(1), ADesc.N),
+    raft::make_device_vector_view<const T, size_t>(S.data(), ADesc.N));
 
   raft::linalg::gemv(handle, V.data(), ADesc.N, ADesc.N, tmp_vector.data(), w, false, streams[0]);
 }

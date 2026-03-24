@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -70,6 +70,38 @@ void rbc_knn_query(const raft::handle_t& handle,
                    int64_t dim,
                    int64_t* out_inds,
                    float* out_dists);
+
+/**
+ * @brief Perform a radius neighbors query on the fit index.
+ *
+ * A single query requires two calls to this API:
+ * - The first call should pass adj_indices=nullptr and nnz=0. This will
+ *   fill in adj_indptr, letting you get the size needed for adj_indices.
+ * - The second call should pass adj_indices and nnz, an array of size
+ *   nnz=adj_indptr[-1]. This will fill in adj_indices.
+ *
+ * @param[in] handle: RAFT handle
+ * @param[in] rbc_index: the fit RBC index
+ * @param[in] query: the query points as a C-contiguous array
+ * @param[in] n_query: number of rows in the query
+ * @param[in] dim: number of columns in the query
+ * @param[in] radius: the neighborhood radius
+ * @param[out] adj_indptr: the indptr array in output CSR adjacency matrix,
+ *            of shape n_query + 1.
+ * @param[out] adj_indices: the indices array in the output CSR adjacency
+ *            matrix, of shape adj_indptr[-1]. Should be NULL on the first
+ *            call.
+ * @param[in] nnz: the number of elements in adj_indices, or 0 on the first call.
+ */
+void rbc_radius_neighbors_graph(const raft::handle_t& handle,
+                                const std::uintptr_t& rbc_index,
+                                const float* query,
+                                int64_t n_query,
+                                int64_t dim,
+                                float radius,
+                                int64_t* adj_indptr,
+                                int64_t* adj_indices = nullptr,
+                                int64_t nnz          = 0);
 
 /**
  * @brief Free the RBC index

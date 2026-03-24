@@ -24,12 +24,13 @@ rapids-logger "===== Testing BERTopic Integration ====="
 # Step 1: Install cuML wheels first (two-step workaround for issue #7374)
 rapids-logger "Installing cuML wheels"
 rapids-pip-retry install \
+  --prefer-binary \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "${CUML_WHEELHOUSE}"/cuml*.whl
 
 # Step 2: Install BERTopic
 rapids-logger "Installing BERTopic"
-rapids-pip-retry install bertopic
+rapids-pip-retry install --prefer-binary bertopic
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"

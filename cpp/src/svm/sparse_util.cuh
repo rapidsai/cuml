@@ -10,7 +10,7 @@
 #include <raft/core/device_resources.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/linalg/norm.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/copy.cuh>
 #include <raft/sparse/linalg/norm.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -598,14 +598,13 @@ void extractRows(raft::device_matrix_view<math_t, int, LayoutPolicyIn> matrix_in
   ASSERT(matrix_in.stride(0) == 1, "Matrix needs to be column major");
   ASSERT(matrix_in.stride(1) == matrix_in.extent(0), "No padding supported");
 
-  raft::matrix::copyRows<math_t, int, size_t>(matrix_in.data_handle(),
-                                              matrix_in.extent(0),
-                                              matrix_in.extent(1),
-                                              matrix_out,
-                                              row_indices,
-                                              num_indices,
-                                              handle.get_stream(),
-                                              false);
+  // Use col_major explicitly since the asserts above verify col_major layout
+  auto in_view = raft::make_device_matrix_view<const math_t, int, raft::col_major>(
+    matrix_in.data_handle(), matrix_in.extent(0), matrix_in.extent(1));
+  auto out_view = raft::make_device_matrix_view<math_t, int, raft::col_major>(
+    matrix_out, num_indices, matrix_in.extent(1));
+  auto indices_view = raft::make_device_vector_view<const int, int>(row_indices, num_indices);
+  raft::matrix::copy_rows(handle, in_view, out_view, indices_view);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 

@@ -63,6 +63,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         MetricType target_metric,
         float target_weight,
         uint64_t random_state,
+        bool force_serial_epochs,
         bool deterministic,
         DistanceType metric,
         float p,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,11 +11,11 @@
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/lstsq.cuh>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/power.cuh>
 #include <raft/linalg/sqrt.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
@@ -81,8 +81,10 @@ void olsFit(const raft::handle_t& handle,
 
   if (sample_weight != nullptr) {
     raft::linalg::sqrt(sample_weight, sample_weight, n_rows, stream);
-    raft::matrix::matrixVectorBinaryMult<false, false>(
-      input, sample_weight, n_rows, n_cols, stream);
+    raft::linalg::binary_mult<raft::Apply::ALONG_COLUMNS>(
+      handle,
+      raft::make_device_matrix_view<math_t, size_t, raft::col_major>(input, n_rows, n_cols),
+      raft::make_device_vector_view<const math_t, size_t>(sample_weight, n_rows));
     raft::linalg::map_k(
       labels,
       n_rows,
@@ -110,8 +112,10 @@ void olsFit(const raft::handle_t& handle,
   raft::common::nvtx::pop_range();
 
   if (sample_weight != nullptr) {
-    raft::matrix::matrixVectorBinaryDivSkipZero<false, false>(
-      input, sample_weight, n_rows, n_cols, stream);
+    raft::linalg::binary_div_skip_zero<raft::Apply::ALONG_COLUMNS>(
+      handle,
+      raft::make_device_matrix_view<math_t, size_t, raft::col_major>(input, n_rows, n_cols),
+      raft::make_device_vector_view<const math_t, size_t>(sample_weight, n_rows));
     raft::linalg::map_k(
       labels,
       n_rows,

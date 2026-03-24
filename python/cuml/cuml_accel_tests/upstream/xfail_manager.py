@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 
 class QuoteTestID(str):
@@ -358,13 +358,14 @@ class XfailManager:
         errors = []
         for i, group in enumerate(self.groups):
             if group.condition:
-                try:
-                    Requirement(group.condition)
-                except Exception as e:
-                    errors.append(
-                        f"Group {i} has invalid condition "
-                        f"'{group.condition}': {e}"
-                    )
+                for clause in group.condition.split(" and "):
+                    try:
+                        Requirement(clause.strip())
+                    except InvalidRequirement as e:
+                        errors.append(
+                            f"Group {i} has invalid condition "
+                            f"'{group.condition}': {e}"
+                        )
         return errors
 
     def _merge_identical_groups(self) -> int:

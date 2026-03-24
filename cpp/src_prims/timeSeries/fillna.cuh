@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,9 +17,9 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/iterator>
 #include <cuda_runtime.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <thrust/iterator/transform_iterator.h>
 
 #include <linalg/batched/matrix.cuh>
 
@@ -117,16 +117,8 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   FillnaOp scan_op;
 
   // Iterators wrapping the data with metadata (valid, first of its series)
-  thrust::transform_iterator<FillnaTempMaker<true, T>,
-                             thrust::counting_iterator<int>,
-                             thrust::use_default,
-                             FillnaTemp>
-    itr_fwd(counting, transform_op_fwd);
-  thrust::transform_iterator<FillnaTempMaker<false, T>,
-                             thrust::counting_iterator<int>,
-                             thrust::use_default,
-                             FillnaTemp>
-    itr_bwd(counting, transform_op_bwd);
+  cuda::transform_iterator itr_fwd(counting, transform_op_fwd);
+  cuda::transform_iterator itr_bwd(counting, transform_op_bwd);
 
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;

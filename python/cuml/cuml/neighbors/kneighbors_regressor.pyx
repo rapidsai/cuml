@@ -10,7 +10,7 @@ from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
+from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -32,7 +32,7 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
     ) except +
 
 
-class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NearestNeighbors):
+class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
     """
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying

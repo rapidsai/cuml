@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <cuml/prims/opg/comm_utils.h>
 #include <cuml/prims/opg/matrix/math.hpp>
 
+#include <raft/core/device_mdspan.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
+#include <raft/core/resources.hpp>
 #include <raft/linalg/divide.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/linalg/matrix_vector.cuh>
 
 namespace MLCommon {
 namespace Matrix {
@@ -27,9 +29,23 @@ void matrixVectorBinaryDivSkipZero_impl(std::vector<Matrix::Data<T>*>& data,
 
   std::vector<Matrix::RankSizePair*> localBlocks = dataDesc.blocksOwnedBy(rank);
 
+  using layout_t       = std::conditional_t<rowMajor, raft::row_major, raft::col_major>;
+  constexpr auto apply = bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
+
+  raft::resources handle;
   for (size_t i = 0; i < localBlocks.size(); i++) {
-    raft::matrix::matrixVectorBinaryDivSkipZero<rowMajor, bcastAlongRows>(
-      data[i]->ptr, vec.ptr, localBlocks[i]->size, dataDesc.N, streams[i], return_zero);
+    auto n_rows = static_cast<int>(localBlocks[i]->size);
+    auto n_cols = static_cast<int>(dataDesc.N);
+
+    auto matrix_view =
+      raft::make_device_matrix_view<T, int, layout_t>(data[i]->ptr, n_rows, n_cols);
+
+    auto vec_size = bcastAlongRows ? n_cols : n_rows;
+    auto vec_view = raft::make_device_vector_view<const T, int>(vec.ptr, vec_size);
+
+    raft::resource::set_cuda_stream(handle, streams[i % n_streams]);
+
+    raft::linalg::binary_div_skip_zero<apply>(handle, matrix_view, vec_view, return_zero);
   }
 
   for (int i = 0; i < n_streams; i++) {
@@ -49,9 +65,23 @@ void matrixVectorBinaryMult_impl(std::vector<Matrix::Data<T>*>& data,
 
   std::vector<Matrix::RankSizePair*> localBlocks = dataDesc.blocksOwnedBy(rank);
 
+  using layout_t       = std::conditional_t<rowMajor, raft::row_major, raft::col_major>;
+  constexpr auto apply = bcastAlongRows ? raft::Apply::ALONG_ROWS : raft::Apply::ALONG_COLUMNS;
+
+  raft::resources handle;
   for (size_t i = 0; i < localBlocks.size(); i++) {
-    raft::matrix::matrixVectorBinaryMult<rowMajor, bcastAlongRows>(
-      data[i]->ptr, vec.ptr, localBlocks[i]->size, dataDesc.N, streams[i]);
+    auto n_rows = static_cast<int>(localBlocks[i]->size);
+    auto n_cols = static_cast<int>(dataDesc.N);
+
+    auto matrix_view =
+      raft::make_device_matrix_view<T, int, layout_t>(data[i]->ptr, n_rows, n_cols);
+
+    auto vec_size = bcastAlongRows ? n_cols : n_rows;
+    auto vec_view = raft::make_device_vector_view<const T, int>(vec.ptr, vec_size);
+
+    raft::resource::set_cuda_stream(handle, streams[i % n_streams]);
+
+    raft::linalg::binary_mult<apply>(handle, matrix_view, vec_view);
   }
 
   for (int i = 0; i < n_streams; i++) {

@@ -624,7 +624,7 @@ void call_optimize_batch_kernel(T* head_embedding,
     // manner (which is crucial for avoiding outliers), and the resulting embedding is deterministic
     // because we use buffers.
     size_t chunk_size = static_cast<size_t>(TPB_X) * static_cast<size_t>(grid.x);
-    for (size_t offset = 0; offset < nnz; offset += chunk_size) {
+    for (size_t offset = 0; offset < static_cast<size_t>(nnz); offset += chunk_size) {
       launch_kernel(offset);
       sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
                                                       head_buffer,

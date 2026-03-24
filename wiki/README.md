@@ -7,3 +7,5 @@ also encouraged to read through our Python [developer guide](python/DEVELOPER_GU
 [developer guide](cpp/DEVELOPER_GUIDE.md) to gain an understanding for how we design our algorithms.
 
 We have criteria for defining our [definition of done](DEFINITION_OF_DONE_CRITERIA.md) to allow us to provide high performance, maintainable and overall high quality implementations, while giving as much transparency as possible about the status of our algorithms with our users.
+
+For running the benchmark suite (with or without cuML installed), see [BENCHMARK.md](BENCHMARK.md).
