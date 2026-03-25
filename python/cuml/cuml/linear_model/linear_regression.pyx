@@ -346,7 +346,10 @@ class LinearRegression(Base,
         ).array
         y_is_copy = cuda_ptr(y) != y_m.ptr
 
-        if sample_weight is not None:
+        if cp.isscalar(sample_weight):
+            # sample_weight as a scalar is equivalent to unweighted
+            sample_weight = None
+        elif sample_weight is not None:
             sample_weight = input_to_cuml_array(
                 sample_weight,
                 check_dtype=X_m.dtype,
