@@ -287,7 +287,6 @@ Ridge
 ``Ridge`` will fall back to CPU in the following cases:
 
 - If ``positive=True`` or ``solver="lbfgs"``.
-- If ``X`` is sparse.
 
 Lasso
 ^^^^^

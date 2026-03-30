@@ -16,6 +16,8 @@
     "nofile=500000"
   ],
   "hostRequirements": {"gpu": "optional"},
+  // TODO: remove the PYTHON_VERSION override when all of cuml's dependencies have Python 3.14 support
+  "containerEnv": {"PYTHON_VERSION": "3.13"},
   "features": {
     "ghcr.io/rapidsai/devcontainers/features/cuda:26.6": {
       "version": "12.9",

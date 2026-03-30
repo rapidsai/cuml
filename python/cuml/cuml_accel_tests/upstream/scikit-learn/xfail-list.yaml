@@ -846,6 +846,7 @@
   - "sklearn.manifold.tests.test_t_sne::test_optimization_minimizes_kl_divergence"
   - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_uniform_grid[exact]"
+  - "sklearn.model_selection.tests.test_search::test_random_search_cv_results_multimetric"
   - "sklearn.model_selection.tests.test_search::test_unsupervised_grid_search"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_array]"
   - "sklearn.model_selection.tests.test_validation::test_cross_val_predict[coo_matrix]"
@@ -1428,6 +1429,7 @@
   - "sklearn.linear_model.tests.test_ridge::test_n_iter"
 - reason: Ridge tests too strict of tolerances due to solver differences
   condition: scikit-learn>=1.8
+  strict: false
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-cholesky-None]"
   - "sklearn.linear_model.tests.test_ridge::test_solver_consistency[42-20-float32-0.1-lsqr-None]"

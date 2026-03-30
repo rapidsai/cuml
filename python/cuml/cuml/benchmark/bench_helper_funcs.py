@@ -148,7 +148,8 @@ def _build_fil_classifier(m, data, args, tmpdir):
         "silent": 1,
         "eval_metric": "error",
         "objective": "binary:logistic",
-        "tree_method": "gpu_hist",
+        "tree_method": "hist",
+        "device": "cuda",
     }
     params.update(args)
     max_depth = args["max_depth"]
@@ -210,7 +211,8 @@ def _build_optimized_fil_classifier(m, data, args, tmpdir):
             "silent": 1,
             "eval_metric": "error",
             "objective": "binary:logistic",
-            "tree_method": "gpu_hist",
+            "tree_method": "hist",
+            "device": "cuda",
         }
         params.update(args)
         max_depth = args["max_depth"]

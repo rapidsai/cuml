@@ -80,7 +80,7 @@ license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "cuda-python>=13.0.1,<14.0",
-    "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse,nvjitlink]>=12,<14",
+    "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*",
     "cudf==26.6.*,>=0.0.0a0",
     "cupy-cuda13x>=13.6.0",
     "joblib>=0.11",
@@ -88,6 +88,7 @@ dependencies = [
     "numba-cuda>=0.22.2,<0.29.0",
     "numba>=0.60.0,<0.65.0",
     "numpy>=1.23,<3.0",
+    "nvidia-nvjitlink>=13.0,<14",
     "packaging",
     "pylibraft==26.6.*,>=0.0.0a0",
     "rich",
