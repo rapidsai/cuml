@@ -47,13 +47,8 @@ A few additional general notes:
   On very small datasets you might see only a small speedup (or even
   potentially a slowdown).
 
-- For most algorithms, ``y`` must already be converted to numeric values;
-  arrays of strings are not supported. Pre-encode string labels into numerical
-  or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
-  processing.
-
-- The accelerator is tested to be compatible with scikit-learn versions 1.4
-  through 1.7. This ensures that cuML's implementation of scikit-learn
+- The accelerator is tested to be compatible with scikit-learn versions 1.5
+  through 1.8. This ensures that cuML's implementation of scikit-learn
   compatible APIs works as expected.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
