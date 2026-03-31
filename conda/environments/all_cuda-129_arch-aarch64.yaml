@@ -37,6 +37,7 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libcuvs==26.4.*,>=0.0.0a0
+- libopenblas<=0.3.30
 - libraft==26.4.*,>=0.0.0a0
 - librmm==26.4.*,>=0.0.0a0
 - matplotlib-base
