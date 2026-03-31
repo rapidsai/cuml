@@ -98,7 +98,7 @@ def test_linear_regression_model(
 @given(
     ntargets=st.integers(min_value=1, max_value=2),
     datatype=dataset_dtypes(),
-    algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr"]),
+    algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr", "lsmr"]),
     fit_intercept=st.booleans(),
     distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
 )
@@ -115,6 +115,13 @@ def test_linear_regression_model(
     algorithm="svd",
     fit_intercept=False,
     distribution="lognormal",
+)
+@example(
+    ntargets=2,
+    datatype=np.float32,
+    algorithm="lsmr",
+    fit_intercept=True,
+    distribution="uniform",
 )
 def test_weighted_linear_regression(
     ntargets, datatype, algorithm, fit_intercept, distribution
