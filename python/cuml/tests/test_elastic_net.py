@@ -4,13 +4,57 @@
 
 import numpy as np
 import pytest
+from hypothesis import example, given
+from hypothesis import strategies as st
 from sklearn.datasets import make_regression
 from sklearn.linear_model import ElasticNet, Lasso
 from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml.metrics import r2_score
+from cuml.testing.datasets import make_regression_dataset
+from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import quality_param, stress_param, unit_param
+
+
+@given(
+    datatype=dataset_dtypes(),
+    alpha=st.sampled_from([0.1, 1.0, 10.0]),
+    l1_ratio=st.sampled_from([0.1, 0.5, 0.9]),
+    nrows=st.integers(min_value=1000, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
+)
+@example(
+    datatype=np.float32,
+    alpha=0.1,
+    l1_ratio=0.1,
+    nrows=1000,
+    column_info=[20, 10],
+)
+@example(
+    datatype=np.float64,
+    alpha=10.0,
+    l1_ratio=0.9,
+    nrows=5000,
+    column_info=[100, 50],
+)
+def test_elastic_net_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info
+    )
+
+    kwargs = {"alpha": alpha, "l1_ratio": l1_ratio}
+    cd = cuml.ElasticNet(solver="cd", **kwargs)
+    cd.fit(X_train, y_train)
+    cd_res = cd.predict(X_test)
+
+    qn = cuml.ElasticNet(solver="qn", **kwargs)
+    qn.fit(X_train, y_train)
+    # the results of the two models should be close (even if both are bad)
+    assert qn.score(X_test, cd_res) > 0.90
+    # coefficients of the two models should be close
+    assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

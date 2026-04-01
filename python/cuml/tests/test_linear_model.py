@@ -14,13 +14,11 @@ from hypothesis import strategies as st
 from hypothesis import target
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
-from sklearn.linear_model import ElasticNet as skElasticNet
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import LogisticRegression as skLog
 from sklearn.model_selection import train_test_split
 
 import cuml
-from cuml import ElasticNet as cuElasticNet
 from cuml import LinearRegression as cuLinearRegression
 from cuml import LogisticRegression as cuLog
 from cuml.testing.datasets import (
@@ -859,46 +857,6 @@ def test_logistic_regression_max_iter_n_iter(penalty):
     assert model.n_iter_.max() == 10
 
 
-@given(
-    datatype=dataset_dtypes(),
-    alpha=st.sampled_from([0.1, 1.0, 10.0]),
-    l1_ratio=st.sampled_from([0.1, 0.5, 0.9]),
-    nrows=st.integers(min_value=1000, max_value=5000),
-    column_info=st.sampled_from([[20, 10], [100, 50]]),
-)
-@example(
-    datatype=np.float32,
-    alpha=0.1,
-    l1_ratio=0.1,
-    nrows=1000,
-    column_info=[20, 10],
-)
-@example(
-    datatype=np.float64,
-    alpha=10.0,
-    l1_ratio=0.9,
-    nrows=5000,
-    column_info=[100, 50],
-)
-def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info
-    )
-
-    kwargs = {"alpha": alpha, "l1_ratio": l1_ratio}
-    cd = cuElasticNet(solver="cd", **kwargs)
-    cd.fit(X_train, y_train)
-    cd_res = cd.predict(X_test)
-
-    qn = cuElasticNet(solver="qn", **kwargs)
-    qn.fit(X_train, y_train)
-    # the results of the two models should be close (even if both are bad)
-    assert qn.score(X_test, cd_res) > 0.90
-    # coefficients of the two models should be close
-    assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
-
-
 @pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
     algo=st.sampled_from(["eig", "qr", "svd", "svd-qr", "lsmr"]),
@@ -1024,58 +982,3 @@ def test_linear_regression_sparse(dtype, fit_intercept, weighted, n_targets):
 
     # Check predictions are close
     np.testing.assert_allclose(cu_pred, sk_pred, atol=1e-2)
-
-
-@given(
-    ntargets=st.integers(min_value=1, max_value=2),
-    datatype=dataset_dtypes(),
-    solver=st.sampled_from(["cd", "qn"]),
-    nrows=st.integers(min_value=1000, max_value=5000),
-    column_info=st.sampled_from([[20, 10], [100, 50]]),
-)
-@example(
-    ntargets=1,
-    datatype=np.float32,
-    solver="cd",
-    nrows=1000,
-    column_info=[20, 10],
-)
-@example(
-    ntargets=2,
-    datatype=np.float64,
-    solver="qn",
-    nrows=5000,
-    column_info=[100, 50],
-)
-def test_elasticnet_model(datatype, solver, nrows, column_info, ntargets):
-    ncols, n_info = column_info
-    X_train, X_test, y_train, y_test = make_regression_dataset(
-        datatype, nrows, ncols, n_info, n_targets=ntargets
-    )
-
-    # Initialization of cuML's elastic net model
-    cuelastic = cuElasticNet(alpha=0.1, l1_ratio=0.5, solver=solver)
-
-    if ntargets > 1:
-        with pytest.raises(ValueError, match="Expected 1 columns"):
-            cuelastic.fit(X_train, y_train)
-        return
-
-    # fit and predict cuml elastic net model
-    cuelastic.fit(X_train, y_train)
-    cuelastic_predict = cuelastic.predict(X_test)
-
-    if nrows < 500000:
-        # sklearn elastic net model initialization, fit and predict
-        skelastic = skElasticNet(alpha=0.1, l1_ratio=0.5)
-        skelastic.fit(X_train, y_train)
-
-        skelastic_predict = skelastic.predict(X_test)
-
-        assert array_equal(
-            skelastic_predict,
-            cuelastic_predict,
-            3e-0,
-            total_tol=1e-0,
-            with_sign=True,
-        )
