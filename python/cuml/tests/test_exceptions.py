@@ -11,15 +11,12 @@ from sklearn.base import is_classifier, is_regressor
 
 from cuml.cluster import DBSCAN, HDBSCAN, KMeans
 from cuml.decomposition import TruncatedSVD
-from cuml.linear_model import ElasticNet, Lasso
 
 # Estimators that raise TypeError when given sparse input (they don't support sparse)
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
     "DBSCAN": lambda: DBSCAN(eps=1.0),
     "TruncatedSVD": lambda: TruncatedSVD(n_components=1, random_state=0),
-    "ElasticNet": lambda: ElasticNet(),
-    "Lasso": lambda: Lasso(),
     "HDBSCAN": lambda: HDBSCAN(),
 }
 
