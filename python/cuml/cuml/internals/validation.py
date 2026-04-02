@@ -83,9 +83,7 @@ def _get_n_features(X):
 
     ndim = len(shape)
 
-    if ndim != 2:
-        import cuml.accel
-
+    if ndim < 2:
         if isinstance(X, (cudf.Series, pd.Series)):
             msg = (
                 f"Expected a 2-dimensional container but got {type(X).__name__} "
@@ -100,35 +98,11 @@ def _get_n_features(X):
                 "using array.reshape(-1, 1) if your data has a single feature, "
                 "or array.reshape(1, -1) if it contains a single sample."
             )
+        raise ValueError(msg)
+    elif ndim > 2:
+        raise ValueError(f"Expected 2D array, got {ndim}D array instead.")
 
-        if cuml.accel.enabled() or ndim > 2:
-            raise ValueError(msg)
-        else:
-            warnings.warn(
-                "Support for passing non-2-dimensional X was deprecated in 26.04 "
-                "and will be removed in 26.06. In cuml 26.06 this will error "
-                f"with the following message:\n\n{msg}",
-                FutureWarning,
-            )
-            # Fallback to 1 feature until the deprecation is completed
-            return 1
     return shape[1]
-
-
-def _warn_or_error(exc_cls, msg):
-    """Errors if running in cuml.accel, otherwise warns that an error will be
-    raised in the future."""
-    import cuml.accel
-
-    if cuml.accel.enabled():
-        raise exc_cls(msg)
-    else:
-        warnings.warn(
-            "cuml is adding support for `feature_names_in_` for validating "
-            "the feature names of dataframe-like inputs. In cuml 26.06 this "
-            f"will error with the following message:\n\n{msg}",
-            FutureWarning,
-        )
 
 
 def _get_feature_names(X):
@@ -157,7 +131,7 @@ def _get_feature_names(X):
     if len(types) == 1 and types[0] == "str":
         return feature_names
     elif len(types) > 1 and "str" in types:
-        msg = (
+        raise TypeError(
             "Feature names are only supported if all input features have string names, "
             f"but your input has {types} as feature name / column name types. "
             "If you want feature names to be stored and validated, you must convert "
@@ -165,7 +139,6 @@ def _get_feature_names(X):
             "example. Otherwise you can remove feature / column names from your input "
             "data, or convert them all to a non-string data type."
         )
-        _warn_or_error(TypeError, msg)
 
     return None
 
@@ -241,7 +214,7 @@ def check_features(estimator, X, reset=False) -> None:
                 )
 
             msg = "\n".join(parts)
-            _warn_or_error(ValueError, msg)
+            raise ValueError(msg)
 
     # Then check n_features_in_
     if n_features != estimator.n_features_in_:

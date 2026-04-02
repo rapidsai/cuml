@@ -7,6 +7,8 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse
+import sklearn.linear_model
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from hypothesis import target
@@ -41,7 +43,7 @@ from cuml.testing.utils import array_difference, array_equal
 
 @given(
     datatype=dataset_dtypes(),
-    algorithm=st.sampled_from(["eig", "svd"]),
+    algorithm=st.sampled_from(["eig", "svd", "lsmr"]),
     nrows=st.integers(min_value=1000, max_value=5000),
     column_info=st.sampled_from([[20, 10], [100, 50]]),
     ntargets=st.integers(min_value=1, max_value=2),
@@ -60,17 +62,17 @@ from cuml.testing.utils import array_difference, array_equal
     column_info=[100, 50],
     ntargets=2,
 )
+@example(
+    datatype=np.float32,
+    algorithm="lsmr",
+    nrows=3000,
+    column_info=[50, 20],
+    ntargets=3,
+)
 def test_linear_regression_model(
     datatype, algorithm, nrows, column_info, ntargets
 ):
-    if algorithm == "svd" and nrows > 46340:
-        pytest.skip(
-            "svd solver is not supported for the data that has more"
-            "than 46340 rows or columns if you are using CUDA version"
-            "10.x"
-        )
-    if 1 < ntargets and algorithm != "svd":
-        pytest.skip("The multi-target fit only supports using the svd solver.")
+    assume(ntargets == 1 or algorithm in ("svd", "lsmr"))
 
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_regression_dataset(
@@ -84,20 +86,19 @@ def test_linear_regression_model(
     cuols.fit(X_train, y_train)
     cuols_predict = cuols.predict(X_test)
 
-    if nrows < 500000:
-        # sklearn linear regression model initialization, fit and predict
-        skols = skLinearRegression(fit_intercept=True)
-        skols.fit(X_train, y_train)
+    # sklearn linear regression model initialization, fit and predict
+    skols = skLinearRegression(fit_intercept=True)
+    skols.fit(X_train, y_train)
 
-        skols_predict = skols.predict(X_test)
+    skols_predict = skols.predict(X_test)
 
-        assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
+    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
 
 
 @given(
     ntargets=st.integers(min_value=1, max_value=2),
     datatype=dataset_dtypes(),
-    algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr"]),
+    algorithm=st.sampled_from(["eig", "svd", "qr", "svd-qr", "lsmr"]),
     fit_intercept=st.booleans(),
     distribution=st.sampled_from(["lognormal", "exponential", "uniform"]),
 )
@@ -115,6 +116,13 @@ def test_linear_regression_model(
     fit_intercept=False,
     distribution="lognormal",
 )
+@example(
+    ntargets=2,
+    datatype=np.float32,
+    algorithm="lsmr",
+    fit_intercept=True,
+    distribution="uniform",
+)
 def test_weighted_linear_regression(
     ntargets, datatype, algorithm, fit_intercept, distribution
 ):
@@ -122,8 +130,7 @@ def test_weighted_linear_regression(
     max_weight = 10
     noise = 20
 
-    if 1 < ntargets and algorithm != "svd":
-        pytest.skip("The multi-target fit only supports using the svd solver.")
+    assume(ntargets == 1 or algorithm in ("svd", "lsmr"))
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info, noise=noise, n_targets=ntargets
@@ -894,7 +901,7 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 
 @pytest.mark.filterwarnings("ignore:Changing solver.*:UserWarning")
 @given(
-    algo=st.sampled_from(["eig", "qr", "svd", "svd-qr"]),
+    algo=st.sampled_from(["eig", "qr", "svd", "svd-qr", "lsmr"]),
     n_targets=st.integers(min_value=1, max_value=2),
     fit_intercept=st.booleans(),
     weighted=st.booleans(),
@@ -904,6 +911,8 @@ def test_elasticnet_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
 @example(algo="svd-qr", n_targets=1, fit_intercept=True, weighted=False)
 @example(algo="svd", n_targets=1, fit_intercept=True, weighted=False)
 @example(algo="svd", n_targets=2, fit_intercept=False, weighted=True)
+@example(algo="lsmr", n_targets=1, fit_intercept=True, weighted=False)
+@example(algo="lsmr", n_targets=2, fit_intercept=False, weighted=False)
 def test_linear_regression_input_mutation(
     algo, n_targets, fit_intercept, weighted
 ):
@@ -911,10 +920,10 @@ def test_linear_regression_input_mutation(
     - Never mutates y and sample_weight
     - Only sometimes mutates X
     """
-    # Only algo="svd" supports n_targets > 1. While we do fallback to svd
+    # Only "svd" and "lsmr" support n_targets > 1. While we do fallback
     # automatically (with a warning), there's no need to have hypothesis
     # explore those cases.
-    assume(n_targets == 1 or algo == "svd")
+    assume(n_targets == 1 or algo in ("lsmr", "svd"))
 
     X, y = make_regression(n_targets=n_targets, random_state=42)
     if weighted:
@@ -957,12 +966,64 @@ def test_linear_regression_input_mutation(
         # `eig` sometimes mutates and sometimes doesn't, the others always do
         if algo != "eig":
             assert not cp.array_equal(X, X_orig)
-    elif n_targets > 1 and not fit_intercept and weighted:
-        # The fallback solver also mutates in this case
+    elif algo in ("svd", "lsmr") and (fit_intercept or weighted):
+        # The cupy solvers also mutates in this case
         assert not cp.array_equal(X, X_orig)
     else:
         # All other options don't mutate
         cp.testing.assert_array_equal(X, X_orig)
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("weighted", [True, False])
+@pytest.mark.parametrize("n_targets", [0, 1, 3])
+def test_linear_regression_sparse(dtype, fit_intercept, weighted, n_targets):
+    n_samples, n_features = 3000, 500
+    rng = np.random.default_rng(42)
+    coef = rng.random((n_features, n_targets) if n_targets else n_features)
+    if fit_intercept:
+        intercept = rng.uniform(-10, 10, size=n_targets or ())
+    else:
+        intercept = 0.0
+    X = scipy.sparse.rand(
+        n_samples, n_features, density=0.2, random_state=42, dtype=dtype
+    )
+    y = (X.dot(coef) + intercept).astype(dtype)
+
+    if weighted:
+        sample_weight = rng.uniform(0.5, 1, size=n_samples).astype(dtype)
+    else:
+        sample_weight = None
+
+    cu_model = cuml.LinearRegression(fit_intercept=fit_intercept)
+    cu_model.fit(X, y, sample_weight=sample_weight)
+    cu_pred = cu_model.predict(X)
+
+    sk_model = sklearn.linear_model.LinearRegression(
+        fit_intercept=fit_intercept
+    )
+    sk_model.fit(X, y, sample_weight=sample_weight)
+    sk_pred = sk_model.predict(X).reshape(cu_pred.shape)
+
+    # Check shapes and dtypes
+    assert cu_model.coef_.dtype == dtype
+    assert cu_model.coef_.shape == (
+        (n_targets, n_features) if n_targets >= 1 else (n_features,)
+    )
+    if fit_intercept:
+        assert cu_model.intercept_.dtype == dtype
+        assert cu_model.intercept_.shape == (
+            (n_targets,) if n_targets > 0 else ()
+        )
+    else:
+        assert cu_model.intercept_ == 0.0
+    assert cu_pred.shape == (
+        (n_samples, n_targets) if n_targets >= 1 else (n_samples,)
+    )
+
+    # Check predictions are close
+    np.testing.assert_allclose(cu_pred, sk_pred, atol=1e-2)
 
 
 @given(
