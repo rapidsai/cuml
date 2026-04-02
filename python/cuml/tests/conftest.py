@@ -276,7 +276,6 @@ def pytest_configure(config):
     )
     if not _is_xdist_controller(config):
         _ensure_gpu_libraries()
-        cp.cuda.set_allocator(None)
         # max_gpu_memory: Capacity of the GPU memory in GB
         pytest.max_gpu_memory = _get_gpu_memory()
     else:
