@@ -1,21 +1,74 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import os
+import tempfile
 from datetime import timedelta
 from math import ceil
 
-import cudf.pandas
-import cupy as cp
 import hypothesis
 import numpy as np
-import pynvml
 import pytest
 from sklearn import datasets
 
-from cuml.testing.datasets import make_text_classification_dataset
+# GPU-related libraries (CuPy, NVML, cudf.pandas) are imported lazily via
+# _ensure_gpu_libraries() so the pytest-xdist controller process does not
+# initialize CUDA while only collecting tests. Workers and non-parallel runs
+# load these in pytest_configure (or on first use below).
+
+cp = None
+pynvml = None
+cudf_pandas = None
+_gpu_libraries_initialized = False
+
+
+def _is_xdist_controller(config):
+    """Match pytest_xdist.plugin.is_xdist_controller without importing xdist."""
+    dist = getattr(config.option, "dist", "no")
+    return dist != "no" and not hasattr(config, "workerinput")
+
+
+def _set_cuda_cache_path_per_xdist_worker(config):
+    """Use a dedicated CUDA JIT cache directory per pytest-xdist worker.
+
+    Avoids concurrent access to the same cache from multiple worker processes.
+    Must run before any CUDA runtime initialization.
+    """
+    workerinput = getattr(config, "workerinput", None)
+    if workerinput is None:
+        return
+    workerid = workerinput["workerid"]
+    safe = "".join(
+        c if c.isalnum() or c in "-_" else "_" for c in str(workerid)
+    )
+    if existing := os.environ.get("CUDA_CACHE_PATH"):
+        cache_dir = os.path.join(existing, safe)
+    else:
+        cache_dir = os.path.join(
+            tempfile.gettempdir(),
+            "cuml-pytest-cuda-cache",
+            safe,
+        )
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ["CUDA_CACHE_PATH"] = cache_dir
+
+
+def _ensure_gpu_libraries():
+    """Import GPU stack once; safe to call from workers or single-process runs."""
+    global cp, pynvml, cudf_pandas, _gpu_libraries_initialized
+    if _gpu_libraries_initialized:
+        return
+    import cudf.pandas as _cudf_pandas
+    import cupy as _cp
+    import pynvml as _pynvml
+
+    cp = _cp
+    pynvml = _pynvml
+    cudf_pandas = _cudf_pandas
+    _gpu_libraries_initialized = True
+
 
 # =============================================================================
 # Pytest Configuration
@@ -216,13 +269,18 @@ def pytest_configure(config):
     2. Records the available GPU memory
     3. Loads appropriate hypothesis profiles based on test execution context
     """
+    _set_cuda_cache_path_per_xdist_worker(config)
     config.addinivalue_line(
         "markers",
         "cudf_pandas: mark test as requiring the cudf.pandas wrapper",
     )
-    cp.cuda.set_allocator(None)
-    # max_gpu_memory: Capacity of the GPU memory in GB
-    pytest.max_gpu_memory = _get_gpu_memory()
+    if not _is_xdist_controller(config):
+        _ensure_gpu_libraries()
+        cp.cuda.set_allocator(None)
+        # max_gpu_memory: Capacity of the GPU memory in GB
+        pytest.max_gpu_memory = _get_gpu_memory()
+    else:
+        pytest.max_gpu_memory = None
     pytest.adapt_stress_test = "CUML_ADAPT_STRESS_TESTS" in os.environ
 
     # Load special hypothesis profiles for either quality or stress tests.
@@ -243,8 +301,12 @@ def pytest_pyfunc_call(pyfuncitem):
     Tests marked with `@pytest.mark.cudf_pandas` will only be run if the
     cudf.pandas accelerator is enabled via the `cudf.pandas` plugin.
     """
-    if "cudf_pandas" in pyfuncitem.keywords and not cudf.pandas.LOADED:
+    if "cudf_pandas" not in pyfuncitem.keywords:
+        return None
+    _ensure_gpu_libraries()
+    if not cudf_pandas.LOADED:
         pytest.skip("Test requires cudf.pandas accelerator")
+    return None
 
 
 def _get_pynvml_device_handle(device_id=0):
@@ -384,6 +446,9 @@ def sparse_text_dataset():
     tuple
         (X, Y) where X is a sparse feature matrix and Y is a cupy target vector
     """
+    _ensure_gpu_libraries()
+    from cuml.testing.datasets import make_text_classification_dataset
+
     X, y = make_text_classification_dataset()
     return X, cp.array(y)
 
