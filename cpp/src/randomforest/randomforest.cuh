@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -19,8 +19,8 @@
 
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
-#include <thrust/sequence.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/sequence.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
