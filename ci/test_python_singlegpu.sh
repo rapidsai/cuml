@@ -22,12 +22,14 @@ set +e
 
 rapids-logger "pytest cuml single GPU"
 timeout 1h ./ci/run_cuml_singlegpu_pytests.sh \
+  --verbosity=2 \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
   rapids-logger "pytest cuml accelerator"
 timeout 15m ./ci/run_cuml_singlegpu_accel_pytests.sh \
+  --verbosity=2 \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml"
