@@ -33,10 +33,16 @@
   tests:
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_coordinate_descent[Lasso-1-kwargs1]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_warm_start_convergence"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-True-Lasso]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-False-ElasticNet]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-True-Lasso]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-False-ElasticNet]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_enet_coordinate_descent[csc_array]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_enet_coordinate_descent[csc_matrix]"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_array]"
   - "sklearn.manifold.tests.test_t_sne::test_pca_initialization_not_compatible_with_sparse_input[csr_matrix]"
 - reason: Test should fail with cuml.accel
@@ -236,7 +242,6 @@
   - "sklearn.linear_model.tests.test_base::test_linear_regression_pd_sparse_dataframe_warning"
   - "sklearn.linear_model.tests.test_common::test_balance_property[42-True-LogisticRegression]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_elasticnet_precompute_gram_weighted_samples"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max[sample_weight0-False-True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_copy_X_False_check_input_False"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_float_precision"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_multitarget"
@@ -742,6 +747,7 @@
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
   tests:
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max_sample_weight[sample_weight0-False-True]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_hstacked_X[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-cholesky]"
@@ -754,6 +760,8 @@
   - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[ball_tree-nn_model0]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[brute-nn_model0]"
   - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[kd_tree-nn_model0]"
+  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_sample_weight_equivalence_on_sparse_data]"
+  - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Ridge()-check_non_transformer_estimators_n_iter]"
@@ -1094,7 +1102,6 @@
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_dtype_object]"
@@ -1120,7 +1127,6 @@
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_dtype_object]"
@@ -1292,6 +1298,10 @@
   tests:
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-temperature]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-temperature]"
+- reason: ElasticNet sample_weight handling is a bit off
+  condition: scikit-learn>=1.8
+  tests:
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max[sample_weight0-False-True]"
 - reason: Elasticnet scores attribute layout differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
