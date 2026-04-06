@@ -8,7 +8,7 @@ from cupyx.scipy.sparse import issparse as is_cp_sparse
 from sklearn.pipeline import Pipeline
 from sklearn.utils.metaestimators import available_if
 
-from cuml.accel.estimator_proxy import is_proxy
+from cuml.accel.estimator_proxy import supports_device_data
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import using_output_type
 
@@ -40,7 +40,7 @@ def get_output_type(pipeline, reverse=False):
 
     # Skip over any non-cupy producing steps
     for step in step_iter:
-        if is_proxy(step):
+        if supports_device_data(step):
             break
     else:
         # No steps produce cupy
@@ -48,7 +48,7 @@ def get_output_type(pipeline, reverse=False):
 
     # If any remaining steps don't consume cupy, we need to fallback to numpy
     for step in step_iter:
-        if not is_proxy(step):
+        if not supports_device_data(step):
             return "numpy"
     # Tail of the pipeline supports cupy, we can use cupy
     return "cupy"

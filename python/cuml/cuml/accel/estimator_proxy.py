@@ -37,6 +37,22 @@ def is_proxy(instance_or_class) -> bool:
     return issubclass(cls, ProxyBase)
 
 
+def supports_device_data(instance_or_class) -> bool:
+    """Check if an estimator can produce and consume device (cupy) arrays.
+
+    Returns True for ProxyBase estimators and for sklearn classes whose
+    methods have been patched to use array-API dispatch on the GPU
+    (marked with ``_cuml_accel_patched = True``).
+    """
+    if isinstance(instance_or_class, type):
+        cls = instance_or_class
+    else:
+        cls = type(instance_or_class)
+    return issubclass(cls, ProxyBase) or getattr(
+        cls, "_cuml_accel_patched", False
+    )
+
+
 def ensure_host(x):
     """Convert any cupy/cupyx.scipy.sparse inputs to their host equivalents"""
     return x.get() if (isinstance(x, cp.ndarray) or is_cp_sparse(x)) else x
