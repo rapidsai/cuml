@@ -747,7 +747,6 @@
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
   tests:
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max_sample_weight[sample_weight0-False-True]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_hstacked_X[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-cholesky]"
@@ -1298,6 +1297,10 @@
   tests:
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[False-temperature]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-temperature]"
+- reason: ElasticNet sample_weight handling is a bit off
+  condition: scikit-learn>=1.6,<1.8
+  tests:
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max_sample_weight[sample_weight0-False-True]"
 - reason: ElasticNet sample_weight handling is a bit off
   condition: scikit-learn>=1.8
   tests:
