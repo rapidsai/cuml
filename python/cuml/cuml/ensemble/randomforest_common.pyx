@@ -220,12 +220,10 @@ class BaseRandomForestModel(Base, InteropMixin):
         elif model.max_samples is not None:
             conditional_params["max_samples"] = model.max_samples
 
-        if model.max_depth is not None:
-            conditional_params["max_depth"] = model.max_depth
-
         return {
             "n_estimators": model.n_estimators,
             "split_criterion": split_criterion,
+            "max_depth": model.max_depth,
             "min_samples_split": model.min_samples_split,
             "min_samples_leaf": model.min_samples_leaf,
             "max_features": model.max_features,
@@ -418,8 +416,16 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
-        if self.max_depth <= 0:
-            raise ValueError("Must specify max_depth > 0")
+        cdef int max_depth_c
+        if self.max_depth is None:
+            max_depth_c = np.iinfo(np.int32).max
+        elif not isinstance(self.max_depth, int) or self.max_depth <= 0:
+            raise ValueError(
+                f"max_depth must be a positive integer or None (unlimited); "
+                f"got {self.max_depth!r}"
+            )
+        else:
+            max_depth_c = self.max_depth
 
         # Validate OOB score parameter
         if callable(self.oob_score):
@@ -456,7 +462,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             n_bins = self.n_bins
 
         cdef RF_params params = set_rf_params(
-            self.max_depth,
+            max_depth_c,
             self.max_leaves,
             max_features,
             n_bins,

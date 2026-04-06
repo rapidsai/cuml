@@ -64,8 +64,7 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT max_depth,
-                           const IdxT min_samples_leaf,
+void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const IdxT min_samples_split,
                            const IdxT max_leaves,
                            const DataT min_impurity_decrease,
@@ -388,7 +387,6 @@ template <typename DataT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
                               IdxT n_bins,
-                              IdxT max_depth,
                               IdxT min_samples_split,
                               IdxT max_leaves,
                               const Dataset<DataT, LabelT, IdxT>& dataset,

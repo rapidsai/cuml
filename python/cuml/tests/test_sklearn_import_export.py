@@ -772,9 +772,13 @@ def test_random_forest_classifier(random_state, oob_score):
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
 
-    cu_model = cuml.RandomForestClassifier(oob_score=oob_score).fit(X, y)
+    cu_model = cuml.RandomForestClassifier(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
     sk_model = sklearn.ensemble.RandomForestClassifier(
-        oob_score=oob_score
+        oob_score=oob_score,
+        max_depth=None,
     ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
@@ -819,10 +823,14 @@ def test_random_forest_regressor(random_state, oob_score):
     X, y = make_regression(n_samples=200, random_state=random_state)
     X = X.astype("float32")
 
-    cu_model = cuml.RandomForestRegressor(oob_score=oob_score).fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestRegressor(oob_score=oob_score).fit(
-        X, y
-    )
+    cu_model = cuml.RandomForestRegressor(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
@@ -964,9 +972,6 @@ def test_linear_svc(random_state):
     assert sk_score > 0.7
 
 
-@pytest.mark.filterwarnings(
-    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
-)
 def test_target_encoder(random_state):
     # Create simple categorical data
     X = np.array(

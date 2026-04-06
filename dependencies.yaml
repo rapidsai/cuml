@@ -567,6 +567,16 @@ dependencies:
               - *skl2onnx
           - matrix:
             packages:
+      # TODO: we're seeing test failures with openblas > 0.3.30 on aarch64. For
+      # now we pin openblas in tests on that architecture.
+      - output_types: [conda]
+        matrices:
+          - matrix:
+              arch: aarch64
+            packages:
+              - libopenblas<=0.3.30
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
