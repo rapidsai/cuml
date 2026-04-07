@@ -866,10 +866,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         if self._state is not None:
             hdbscan = import_hdbscan()
             if hdbscan_at_least("0.8.41"):
-                return hdbscan.plots.CondensedTree(
-                    self._condensed_tree,
-                    self.labels_,
-                )
+                with cuml.using_output_type("numpy"):
+                    labels = self.labels_
+                return hdbscan.plots.CondensedTree(self._condensed_tree, labels)
             else:
                 return hdbscan.plots.CondensedTree(
                     self._condensed_tree,
