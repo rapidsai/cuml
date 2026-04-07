@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import importlib.metadata
+
 import cupy as cp
 import hdbscan
 import numpy as np
@@ -24,10 +26,13 @@ from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
 
-if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-    pytest.skip(
-        "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
-    )
+if Version(sklearn.__version__) >= Version("1.8.0"):
+    if Version(importlib.metadata.version("hdbscan")) < Version("0.8.41"):
+        pytest.skip(
+            "hdbscan < 0.8.41 requires sklearn < 1.8.0",
+            allow_module_level=True,
+        )
+
 
 # Ignore FutureWarning from third-party hdbscan package calling
 # sklearn.utils.validation.check_array with deprecated 'force_all_finite'
