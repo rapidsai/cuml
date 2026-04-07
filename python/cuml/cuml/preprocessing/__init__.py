@@ -16,7 +16,6 @@ from cuml._thirdparty.sklearn.preprocessing import (
     QuantileTransformer,
     RobustScaler,
     SimpleImputer,
-    StandardScaler,
     add_dummy_feature,
     binarize,
     maxabs_scale,
@@ -30,6 +29,7 @@ from cuml._thirdparty.sklearn.preprocessing import (
 from cuml.model_selection import train_test_split
 from cuml.preprocessing import text
 from cuml.preprocessing._label import LabelEncoder
+from cuml.preprocessing._standard_scaler import StandardScaler
 from cuml.preprocessing._target_encoder import TargetEncoder
 from cuml.preprocessing.encoders import OneHotEncoder, OrdinalEncoder
 from cuml.preprocessing.label import LabelBinarizer, label_binarize
