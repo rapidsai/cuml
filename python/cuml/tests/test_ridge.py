@@ -1,10 +1,12 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import hypothesis.strategies as st
 import numpy as np
 import pytest
+import scipy.sparse as sp
 import sklearn.linear_model
 from hypothesis import assume, example, given
 from sklearn.datasets import make_regression
@@ -28,7 +30,7 @@ def reg_example(**kwargs):
 
 
 @given(
-    solver=st.sampled_from(["eig", "svd"]),
+    solver=st.sampled_from(["eig", "svd", "lsmr"]),
     fit_intercept=st.booleans(),
     weighted=st.booleans(),
     n_targets=st.integers(min_value=1, max_value=3),
@@ -54,8 +56,8 @@ def test_ridge_regression(
     n_features,
     dtype,
 ):
-    # only svd solver supports multi-target
-    assume(n_targets == 1 or solver == "svd")
+    # eig solver doesn't support multi-target
+    assume(n_targets == 1 or solver != "eig")
 
     X, y = make_regression(
         n_samples=n_samples,
@@ -78,7 +80,7 @@ def test_ridge_regression(
     else:
         sample_weight = None
 
-    opts = {"fit_intercept": fit_intercept, "alpha": 15.2}
+    opts = {"fit_intercept": fit_intercept, "alpha": 15.2, "tol": 1e-6}
 
     cu_model = cuml.Ridge(solver=solver, **opts)
     cu_model.fit(X_train, y_train, sample_weight=sample_weight)
@@ -92,7 +94,7 @@ def test_ridge_regression(
     np.testing.assert_allclose(cu_pred, sk_pred, atol=1e-2)
 
 
-@pytest.mark.parametrize("solver", ["eig", "svd"])
+@pytest.mark.parametrize("solver", ["eig", "svd", "lsmr"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_ridge_coef_and_intercept_shape(solver, dtype):
     n_samples, n_features, n_targets = 33, 7, 3
@@ -132,6 +134,63 @@ def test_ridge_coef_and_intercept_shape(solver, dtype):
     assert isinstance(model.intercept_, float)
 
 
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("fit_intercept", [True, False])
+@pytest.mark.parametrize("weighted", [True, False])
+@pytest.mark.parametrize("n_targets", [0, 1, 3])
+def test_ridge_sparse(dtype, fit_intercept, weighted, n_targets):
+    n_samples, n_features = 3000, 500
+    rng = np.random.default_rng(42)
+    coef = rng.random((n_features, n_targets) if n_targets else n_features)
+    if fit_intercept:
+        intercept = rng.uniform(-10, 10, size=n_targets or ())
+    else:
+        intercept = 0.0
+    X = sp.rand(
+        n_samples, n_features, density=0.2, random_state=42, dtype=dtype
+    )
+    y = (X.dot(coef) + intercept).astype(dtype)
+
+    if weighted:
+        sample_weight = rng.uniform(0.5, 1, size=n_samples).astype(dtype)
+    else:
+        sample_weight = None
+
+    cu_model = cuml.Ridge(tol=1e-6, fit_intercept=fit_intercept)
+    cu_model.fit(X, y, sample_weight=sample_weight)
+    cu_pred = cu_model.predict(X)
+
+    sk_model = sklearn.linear_model.Ridge(
+        solver="lsqr", fit_intercept=fit_intercept
+    )
+    sk_model.fit(X, y, sample_weight=sample_weight)
+    sk_pred = sk_model.predict(X).reshape(cu_pred.shape)
+
+    # Check shapes and dtypes
+    assert cu_model.coef_.dtype == dtype
+    assert cu_model.coef_.shape == (
+        (n_targets, n_features) if n_targets > 1 else (n_features,)
+    )
+    if fit_intercept:
+        assert cu_model.intercept_.dtype == dtype
+        assert cu_model.intercept_.shape == (
+            (n_targets,) if n_targets > 0 else ()
+        )
+    else:
+        assert cu_model.intercept_ == 0.0
+    assert cu_pred.shape == (
+        (n_samples, n_targets) if n_targets > 1 else (n_samples,)
+    )
+
+    # Check predictions are close
+    np.testing.assert_allclose(cu_pred, sk_pred, atol=1e-2)
+
+    # Check fit metadata
+    assert isinstance(cu_model.n_iter_, np.ndarray)
+    assert cu_model.n_iter_.shape == (n_targets or 1,)
+    assert cu_model.solver_ == "lsmr"
+
+
 def test_ridge_and_least_squares_equal_when_alpha_is_0():
     X, y = make_regression(n_samples=5, n_features=4, random_state=42)
 
@@ -154,7 +213,13 @@ def test_ridge_predict_dtype(train_dtype, test_dtype):
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize(
     "solver, n_alpha, n_targets",
-    [("eig", 1, 1), ("svd", 1, 1), ("svd", 1, 3), ("svd", 3, 3)],
+    [
+        ("eig", 1, 1),
+        ("svd", 1, 1),
+        ("svd", 1, 3),
+        ("svd", 3, 3),
+        ("lsmr", 3, 3),
+    ],
 )
 def test_ridge_alpha_array(
     arr_type, fit_intercept, solver, n_alpha, n_targets
@@ -169,12 +234,16 @@ def test_ridge_alpha_array(
     )
     sk_model.fit(X, y)
     cu_model = cuml.Ridge(
-        solver=solver, alpha=arr_type(alpha), fit_intercept=fit_intercept
+        solver=solver,
+        alpha=arr_type(alpha),
+        fit_intercept=fit_intercept,
+        tol=1e-6,
     )
     cu_model.fit(X, y)
-    np.testing.assert_allclose(cu_model.coef_, sk_model.coef_, atol=1e-4)
+    atol = 1e-3 if solver == "lsmr" else 1e-4
+    np.testing.assert_allclose(cu_model.coef_, sk_model.coef_, atol=atol)
     np.testing.assert_allclose(
-        cu_model.intercept_, sk_model.intercept_, atol=1e-4
+        cu_model.intercept_, sk_model.intercept_, atol=atol
     )
 
 
@@ -209,6 +278,17 @@ def test_eig_solver_invalid():
         model.fit(X, y)
 
 
+@pytest.mark.parametrize("solver", ["eig", "svd"])
+def test_invalid_sparse_solver(solver):
+    X, y = make_regression(random_state=42)
+    X = sp.csr_matrix(X)
+    model = cuml.Ridge(solver=solver)
+    with pytest.raises(
+        ValueError, match=f"solver={solver!r} doesn't support sparse X"
+    ):
+        model.fit(X, y)
+
+
 def test_solver_auto():
     # 1 feature defaults to svd
     X, y = make_regression(n_features=1, random_state=42)
@@ -220,17 +300,23 @@ def test_solver_auto():
     model = cuml.Ridge().fit(X, y)
     assert model.solver_ == "svd"
 
+    # sparse defaults to lsmr
+    model = cuml.Ridge().fit(sp.csr_matrix(X), y)
+    assert model.solver_ == "lsmr"
+    model = cuml.Ridge().fit(cp_sp.csr_matrix(cp.asarray(X)), y)
+    assert model.solver_ == "lsmr"
+
     # otherwise defaults to eig
     X, y = make_regression(random_state=42)
     model = cuml.Ridge().fit(X, y)
     assert model.solver_ == "eig"
 
 
-@pytest.mark.parametrize("solver", ["eig", "svd"])
+@pytest.mark.parametrize("solver", ["eig", "svd", "lsmr"])
 def test_more_features_than_samples(solver):
     X, y = make_regression(n_features=200, n_samples=100, random_state=42)
 
-    cu_model = cuml.Ridge(solver=solver).fit(X, y)
+    cu_model = cuml.Ridge(solver=solver, tol=1e-6).fit(X, y)
     cu_preds = cu_model.predict(X)
 
     sk_model = sklearn.linear_model.Ridge().fit(X, y)
@@ -240,7 +326,7 @@ def test_more_features_than_samples(solver):
 
 
 @given(
-    solver=st.sampled_from(["svd", "eig"]),
+    solver=st.sampled_from(["svd", "eig", "lsmr"]),
     n_targets=st.integers(min_value=1, max_value=2),
     fit_intercept=st.booleans(),
     weighted=st.booleans(),
@@ -254,9 +340,8 @@ def test_ridge_input_mutation(solver, n_targets, fit_intercept, weighted):
     - Never mutates y and sample_weight
     - Only sometimes mutates X
     """
-    # Only solver="svd" supports n_targets > 1. While we do fallback to svd
-    # automatically, there's no need to have hypothesis explore those cases.
-    assume(n_targets == 1 or solver == "svd")
+    # solver='eig' doesn't support n_targets > 1
+    assume(n_targets == 1 or solver != "eig")
 
     X, y = make_regression(n_targets=n_targets, random_state=42)
     if weighted:
@@ -271,7 +356,7 @@ def test_ridge_input_mutation(solver, n_targets, fit_intercept, weighted):
 
     # The eig solver expects fortran-ordered inputs, and will always copy C
     # ordered inputs. Mutation can only happen for F-ordered inputs.
-    # The svd solver accepts either, but we'll only use C for simplicity.
+    # The other solvers accept either, but we'll only use C for simplicity.
     X = cp.asarray(X, order="F", dtype="float32")
     y = cp.asarray(y, order="F", dtype="float32")
     X_orig = X.copy()

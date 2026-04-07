@@ -37,7 +37,7 @@ repos:
             types_or: [c, c++, cuda]
             args: ["-fallback-style=none", "-style=file", "-i"]
     - repo: https://github.com/codespell-project/codespell
-      rev: v2.2.2
+      rev: v2.4.1
       hooks:
           - id: codespell
             additional_dependencies: [tomli]
@@ -181,7 +181,7 @@ repos:
               ^conda/environments/|
               (^|/)VERSION$|
               (^|/)RAPIDS_BRANCH$|
-              [.](md|rst|avro|parquet|png|orc|gz|pkl|sas7bdat)$
+              [.](csv|json|md|rst|avro|parquet|png|orc|gz|pkl|sas7bdat)$
     - repo: https://github.com/rapidsai/dependency-file-generator
       rev: v1.20.0
       hooks:

@@ -98,8 +98,6 @@ XFAILS = {
         "check_dtype_object": "KMeans does not handle object dtype",
         "check_estimators_nan_inf": "KMeans does not check for NaN and inf",
         "check_transformer_data_not_an_array": "KMeans does not handle non-array data",
-        "check_fit1d": "KMeans does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "KMeans does not handle 1D prediction input gracefully",
     },
     KernelRidge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -115,8 +113,6 @@ XFAILS = {
         "check_regressor_data_not_an_array": "KernelRidge does not handle non-array data",
         "check_supervised_y_2d": "KernelRidge does not handle 2D y",
         "check_supervised_y_no_nan": "KernelRidge does not check for NaN in y",
-        "check_fit1d": "KernelRidge does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "KernelRidge does not handle 1D prediction input gracefully",
         "check_requires_y_none": "KernelRidge does not handle y=None",
     },
     LogisticRegression: {
@@ -136,8 +132,6 @@ XFAILS = {
         "check_supervised_y_2d": "LogisticRegression does not handle 2D y",
         "check_class_weight_classifiers": "LogisticRegression does not handle class weights properly",
         "check_fit2d_1sample": "LogisticRegression does not handle single sample",
-        "check_fit1d": "LogisticRegression does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "LogisticRegression does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LogisticRegression does not handle y=None",
     },
     LinearRegression: {
@@ -146,16 +140,12 @@ XFAILS = {
         "check_sample_weights_list": "LinearRegression does not handle list sample weights",
         "check_all_zero_sample_weights_error": "LinearRegression does not validate all-zero sample weights",
         "check_dtype_object": "LinearRegression does not handle object dtype",
-        "check_estimators_empty_data_messages": "LinearRegression does not handle empty data",
         "check_estimators_nan_inf": "LinearRegression does not check for NaN and inf",
         "check_regressors_train": "LinearRegression does not handle list inputs",
         "check_regressors_train(readonly_memmap=True)": "LinearRegression does not handle readonly memmap",
         "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "LinearRegression does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "LinearRegression does not handle non-array data",
         "check_supervised_y_no_nan": "LinearRegression does not check for NaN in y",
-        "check_fit2d_1sample": "LinearRegression does not handle single sample",
-        "check_fit1d": "LinearRegression does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "LinearRegression does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LinearRegression does not handle y=None",
     },
     Ridge: {
@@ -171,9 +161,8 @@ XFAILS = {
         "check_regressor_data_not_an_array": "Ridge does not handle non-array data",
         "check_supervised_y_2d": "Ridge does not handle 2D y",
         "check_supervised_y_no_nan": "Ridge does not check for NaN in y",
-        "check_fit1d": "Ridge does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "Ridge does not handle 1D prediction input gracefully",
         "check_requires_y_none": "Ridge does not handle y=None",
+        "check_non_transformer_estimators_n_iter": "Ridge `n_iter_` may be `None`",
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -188,8 +177,6 @@ XFAILS = {
         "check_supervised_y_2d": "RandomForestRegressor does not handle 2D y",
         "check_supervised_y_no_nan": "RandomForestRegressor does not check for NaN in y",
         "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
-        "check_fit1d": "RandomForestRegressor does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "RandomForestRegressor does not handle 1D prediction input gracefully",
         "check_requires_y_none": "RandomForestRegressor does not handle y=None",
     },
     KNeighborsClassifier: {
@@ -202,7 +189,6 @@ XFAILS = {
         "check_classifiers_train": "KNeighborsClassifier does not validate input data properly",
         "check_supervised_y_no_nan": "KNeighborsClassifier does not check for NaN in y",
         "check_supervised_y_2d": "KNeighborsClassifier does not handle 2D y",
-        "check_fit2d_predict1d": "KNeighborsClassifier does not handle 1D prediction input gracefully",
         "check_requires_y_none": "KNeighborsClassifier does not handle y=None",
     },
     RandomForestClassifier: {
@@ -218,8 +204,6 @@ XFAILS = {
         "check_supervised_y_no_nan": "RandomForestClassifier does not check for NaN in y",
         "check_supervised_y_2d": "RandomForestClassifier does not handle 2D y",
         "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
-        "check_fit1d": "RandomForestClassifier does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "RandomForestClassifier does not handle 1D prediction input gracefully",
         "check_requires_y_none": "RandomForestClassifier does not handle y=None",
     },
     KNeighborsRegressor: {
@@ -234,7 +218,6 @@ XFAILS = {
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
         "check_supervised_y_no_nan": "KNeighborsRegressor does not check for NaN in y",
-        "check_fit2d_predict1d": "KNeighborsRegressor does not handle 1D prediction input gracefully",
         "check_requires_y_none": "KNeighborsRegressor does not handle y=None",
     },
     NearestNeighbors: {
@@ -256,8 +239,6 @@ XFAILS = {
         "check_classifiers_train(readonly_memmap=True)": "LinearSVC does not handle readonly memmap",
         "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "LinearSVC does not handle readonly memmap with float32",
         "check_supervised_y_2d": "LinearSVC does not handle 2D y",
-        "check_fit1d": "LinearSVC does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "LinearSVC does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LinearSVC does not handle y=None",
     },
     LinearSVR: {
@@ -274,8 +255,6 @@ XFAILS = {
         "check_regressor_data_not_an_array": "LinearSVR does not handle non-array data",
         "check_supervised_y_2d": "LinearSVR does not handle 2D y",
         "check_supervised_y_no_nan": "LinearSVR does not check for NaN in y",
-        "check_fit1d": "LinearSVR does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "LinearSVR does not handle 1D prediction input gracefully",
         "check_requires_y_none": "LinearSVR does not handle y=None",
     },
     SVC: {
@@ -293,7 +272,6 @@ XFAILS = {
         "check_requires_y_none": "SVC does not handle y=None",
         "check_sample_weights_list": "SVC does not handle list sample weights",
         "check_supervised_y_2d": "SVC does not warn on 1 column 2D y",
-        "check_fit2d_predict1d": "SVC doesn't raise the expected error",
     },
     SVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -310,7 +288,6 @@ XFAILS = {
         "check_regressor_data_not_an_array": "SVR does not handle non-array data",
         "check_supervised_y_2d": "SVR does not handle 2D y",
         "check_supervised_y_no_nan": "SVR does not check for NaN in y",
-        "check_fit2d_predict1d": "SVR does not handle 1D prediction input gracefully",
         "check_requires_y_none": "SVR does not handle y=None",
     },
     PCA: {
@@ -321,8 +298,6 @@ XFAILS = {
         "check_transformer_data_not_an_array": "PCA does not handle non-array data",
         "check_fit2d_1sample": "PCA does not handle single sample",
         "check_fit2d_1feature": "PCA does not handle single feature",
-        "check_fit1d": "PCA does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "PCA does not handle 1D prediction input gracefully",
     },
     IncrementalPCA: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -330,7 +305,6 @@ XFAILS = {
         "check_estimators_empty_data_messages": "IncrementalPCA does not handle empty data",
         "check_estimators_nan_inf": "IncrementalPCA does not check for NaN and inf",
         "check_transformer_data_not_an_array": "IncrementalPCA does not handle non-array data",
-        "check_fit2d_predict1d": "IncrementalPCA does not handle 1D prediction input gracefully",
     },
     TruncatedSVD: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -340,8 +314,6 @@ XFAILS = {
         "check_transformer_data_not_an_array": "TruncatedSVD does not handle non-array data",
         "check_fit2d_1sample": "TruncatedSVD does not handle single sample",
         "check_fit2d_1feature": "TruncatedSVD does not handle single feature",
-        "check_fit1d": "TruncatedSVD does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "TruncatedSVD does not handle 1D prediction input gracefully",
     },
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -354,7 +326,7 @@ XFAILS = {
         "check_methods_subset_invariance": "TSNE results depend on data subset",
         "check_fit2d_1sample": "TSNE does not handle single sample",
         "check_fit2d_1feature": "TSNE does not handle single feature",
-        "check_fit2d_predict1d": "TSNE does not handle 1D prediction input gracefully",
+        "check_fit2d_predict1d": "TSNE only supports n_components = 2",
     },
     UMAP: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -363,7 +335,6 @@ XFAILS = {
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
         "check_methods_subset_invariance": "UMAP results depend on data subset",
-        "check_fit2d_predict1d": "UMAP doesn't raise the expected error",
     },
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -378,9 +349,8 @@ XFAILS = {
         "check_regressor_data_not_an_array": "Lasso does not handle non-array data",
         "check_supervised_y_2d": "Lasso does not handle 2D y",
         "check_supervised_y_no_nan": "Lasso does not check for NaN in y",
-        "check_fit1d": "Lasso does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "Lasso does not handle 1D prediction input gracefully",
         "check_requires_y_none": "Lasso does not handle y=None",
+        "check_sample_weight_equivalence_on_sparse_data": "Lasso QN solver has issues with sample weights",
     },
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -395,9 +365,8 @@ XFAILS = {
         "check_regressor_data_not_an_array": "ElasticNet does not handle non-array data",
         "check_supervised_y_2d": "ElasticNet does not handle 2D y",
         "check_supervised_y_no_nan": "ElasticNet does not check for NaN in y",
-        "check_fit1d": "ElasticNet does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "ElasticNet does not handle 1D prediction input gracefully",
         "check_requires_y_none": "ElasticNet does not handle y=None",
+        "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -406,7 +375,6 @@ XFAILS = {
         "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",
         "check_dtype_object": "KernelDensity does not handle object dtype",
         "check_estimators_nan_inf": "KernelDensity does not check for NaN and inf",
-        "check_fit1d": "KernelDensity does not raise ValueError for 1D input",
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -422,7 +390,6 @@ XFAILS = {
         "check_dtype_object": "DBSCAN does not handle object dtype",
         "check_estimators_empty_data_messages": "DBSCAN does not handle empty data",
         "check_estimators_nan_inf": "DBSCAN does not check for NaN and inf",
-        "check_fit1d": "DBSCAN does not raise ValueError for 1D input",
     },
     HDBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -430,13 +397,11 @@ XFAILS = {
         "check_estimators_empty_data_messages": "HDBSCAN does not handle empty data",
         "check_estimators_nan_inf": "HDBSCAN does not check for NaN and inf",
         "check_fit2d_1sample": "HDBSCAN does not handle single sample properly",
-        "check_fit1d": "HDBSCAN does not raise ValueError for 1D input",
     },
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
         "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
-        "check_fit1d": "AgglomerativeClustering does not raise ValueError for 1D input",
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -462,8 +427,6 @@ XFAILS = {
         "check_classifiers_regression_target": "GaussianNB does not handle regression targets",
         "check_supervised_y_no_nan": "GaussianNB does not check for NaN in y",
         "check_supervised_y_2d": "GaussianNB does not handle 2D y",
-        "check_fit1d": "GaussianNB does not raise ValueError for 1D input",
-        "check_fit2d_predict1d": "GaussianNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "GaussianNB does not handle y=None",
         "check_sample_weights_list": "GaussianNB does not handle list sample weights",
     },
@@ -474,7 +437,6 @@ XFAILS = {
         "check_estimators_empty_data_messages": "GaussianRandomProjection doesn't check for empty data",
         "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
-        "check_fit2d_predict1d": "GaussianRandomProjection does not handle 1D prediction input gracefully",
     },
     SparseRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -483,7 +445,6 @@ XFAILS = {
         "check_estimators_empty_data_messages": "SparseRandomProjection doesn't check for empty data",
         "check_estimators_nan_inf": "SparseRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "SparseRandomProjection does not handle non-array data",
-        "check_fit2d_predict1d": "SparseRandomProjection does not handle 1D prediction input gracefully",
     },
     BernoulliNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -504,7 +465,6 @@ XFAILS = {
         "check_classifiers_regression_target": "BernoulliNB does not validate target is classification",
         "check_supervised_y_no_nan": "BernoulliNB does not check for NaN in y",
         "check_supervised_y_2d": "BernoulliNB does not handle 2D y input gracefully",
-        "check_fit2d_predict1d": "BernoulliNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "BernoulliNB does not require y for fit",
     },
     ComplementNB: {
@@ -526,7 +486,6 @@ XFAILS = {
         "check_classifiers_regression_target": "ComplementNB does not validate target is classification",
         "check_supervised_y_no_nan": "ComplementNB does not check for NaN in y",
         "check_supervised_y_2d": "ComplementNB does not handle 2D y input gracefully",
-        "check_fit2d_predict1d": "ComplementNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "ComplementNB does not require y for fit",
     },
     CategoricalNB: {
@@ -548,7 +507,6 @@ XFAILS = {
         "check_classifiers_regression_target": "CategoricalNB does not validate target is classification",
         "check_supervised_y_no_nan": "CategoricalNB does not check for NaN in y",
         "check_supervised_y_2d": "CategoricalNB does not handle 2D y input gracefully",
-        "check_fit2d_predict1d": "CategoricalNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "CategoricalNB does not require y for fit",
     },
     MultinomialNB: {
@@ -570,7 +528,6 @@ XFAILS = {
         "check_classifiers_regression_target": "MultinomialNB does not validate target is classification",
         "check_supervised_y_no_nan": "MultinomialNB does not check for NaN in y",
         "check_supervised_y_2d": "MultinomialNB does not handle 2D y input gracefully",
-        "check_fit2d_predict1d": "MultinomialNB does not handle 1D prediction input gracefully",
         "check_requires_y_none": "MultinomialNB does not require y for fit",
     },
 }

@@ -8,9 +8,12 @@ cpp/               @rapidsai/cuml-cpp-codeowners
 /CONTRIBUTING.md @rapidsai/cuml-python-codeowners
 /README.md       @rapidsai/cuml-python-codeowners
 /docs/           @rapidsai/cuml-python-codeowners
+/wiki/           @rapidsai/cuml-python-codeowners
+/wiki/cpp        @rapidsai/cuml-cpp-codeowners
 
 #python code owners
 python/            @rapidsai/cuml-python-codeowners
+/notebooks/        @rapidsai/cuml-python-codeowners
 
 #cmake code owners
 CMakeLists.txt @rapidsai/cuml-cmake-codeowners

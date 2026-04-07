@@ -246,7 +246,6 @@ LinearRegression
 ``LinearRegression`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -270,7 +269,6 @@ ElasticNet
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -282,7 +280,6 @@ Ridge
 ``Ridge`` will fall back to CPU in the following cases:
 
 - If ``positive=True`` or ``solver="lbfgs"``.
-- If ``X`` is sparse.
 
 Lasso
 ^^^^^
@@ -292,7 +289,6 @@ Lasso
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 

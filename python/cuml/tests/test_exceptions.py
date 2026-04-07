@@ -11,29 +11,12 @@ from sklearn.base import is_classifier, is_regressor
 
 from cuml.cluster import DBSCAN, HDBSCAN, KMeans
 from cuml.decomposition import TruncatedSVD
-from cuml.kernel_ridge import KernelRidge  # noqa: F401
-from cuml.linear_model import (  # noqa: F401
-    ElasticNet,
-    Lasso,
-    LinearRegression,
-    LogisticRegression,
-    Ridge,
-)
-from cuml.neighbors import (  # noqa: F401
-    KNeighborsClassifier,
-    KNeighborsRegressor,
-    NearestNeighbors,
-)
 
 # Estimators that raise TypeError when given sparse input (they don't support sparse)
 estimators = {
     "KMeans": lambda: KMeans(n_clusters=2, random_state=0),
     "DBSCAN": lambda: DBSCAN(eps=1.0),
     "TruncatedSVD": lambda: TruncatedSVD(n_components=1, random_state=0),
-    "LinearRegression": lambda: LinearRegression(),
-    "ElasticNet": lambda: ElasticNet(),
-    "Ridge": lambda: Ridge(),
-    "Lasso": lambda: Lasso(),
     "HDBSCAN": lambda: HDBSCAN(),
 }
 
@@ -46,16 +29,11 @@ def test_sparse_not_implemented_exception(estimator_name):
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
     with pytest.raises(TypeError, match="sparse"):
-        if isinstance(
-            estimator, (KMeans, DBSCAN, TruncatedSVD, NearestNeighbors)
-        ):
+        if isinstance(estimator, (KMeans, DBSCAN, TruncatedSVD)):
             if hasattr(estimator, "fit_transform"):
                 estimator.fit_transform(X_sparse)
             else:
-                if isinstance(estimator, KNeighborsClassifier):
-                    estimator.fit(X_sparse, y_class)
-                else:
-                    estimator.fit(X_sparse)
+                estimator.fit(X_sparse)
         else:
             # For classifiers and regressors, decide which y to provide
             if is_classifier(estimator):

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -41,7 +41,7 @@ namespace Lars {
  *    Size [max_iter * max_iter].
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns, ld_X >= n_rows).
- * @param ld_G leading dimesion of G (ld_G >= n_cols)
+ * @param ld_G leading dimension of G (ld_G >= n_cols)
  * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>

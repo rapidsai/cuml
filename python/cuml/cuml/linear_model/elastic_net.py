@@ -2,8 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupyx.scipy.sparse
+
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -12,7 +15,11 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.mixins import (
+    FMajorInputTagMixin,
+    RegressorMixin,
+    SparseInputTagMixin,
+)
 from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.cd import fit_coordinate_descent
@@ -20,7 +27,12 @@ from cuml.solvers.qn import fit_qn
 
 
 class ElasticNet(
-    Base, InteropMixin, LinearPredictMixin, RegressorMixin, FMajorInputTagMixin
+    Base,
+    InteropMixin,
+    LinearPredictMixin,
+    RegressorMixin,
+    SparseInputTagMixin,
+    FMajorInputTagMixin,
 ):
     """
     Linear regression with combined L1 and L2 priors as regularizer.
@@ -48,11 +60,12 @@ class ElasticNet(
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    solver : {'cd', 'qn'}, default='cd'
-        Choose an algorithm:
+    solver : {'auto', 'cd', 'qn'}, default='auto'
+        The solver to use.
 
-          * 'cd' - coordinate descent
-          * 'qn' - quasi-newton
+        - 'auto': uses 'cd' for dense inputs, and 'qn' for sparse inputs
+        - 'cd': uses coordinate descent. Only supports dense inputs.
+        - 'qn': uses quasi-newton methods. Supports sparse and dense inputs.
 
         You may find the alternative 'qn' algorithm is faster when the number
         of features is sufficiently large but the sample size is small.
@@ -76,6 +89,8 @@ class ElasticNet(
     ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
+    sparse_coef_ : sparse matrix, shape (n_targets, n_features)
+        Sparse matrix representation of `coef_`.
     intercept_ : float
         The independent term, will be 0 if `fit_intercept` is False.
     n_iter_ : int
@@ -192,7 +207,7 @@ class ElasticNet(
         fit_intercept=True,
         max_iter=1000,
         tol=1e-3,
-        solver="cd",
+        solver="auto",
         selection="cyclic",
         output_type=None,
         verbose=False,
@@ -206,6 +221,12 @@ class ElasticNet(
         self.tol = tol
         self.solver = solver
         self.selection = selection
+
+    @property
+    @reflect
+    def sparse_coef_(self):
+        """Sparse representation of the fitted `coef_`."""
+        return cupyx.scipy.sparse.csr_matrix(self.coef_.to_output("cupy"))
 
     @generate_docstring()
     @reflect(reset=True)
@@ -225,7 +246,11 @@ class ElasticNet(
                 f"Expected 0.0 <= l1_ratio <= 1.0, got {self.l1_ratio}"
             )
 
-        if self.solver == "qn":
+        solver = self.solver
+        if solver == "auto":
+            solver = "qn" if is_sparse(X) else "cd"
+
+        if solver == "qn":
             coef, intercept, n_iter, _ = fit_qn(
                 X,
                 y,
@@ -242,7 +267,12 @@ class ElasticNet(
             )
             coef = CumlArray(data=coef.to_output("cupy").flatten())
             intercept = intercept.item()
-        elif self.solver == "cd":
+        elif solver == "cd":
+            if is_sparse(X):
+                raise ValueError(
+                    "solver='cd' doesn't support sparse inputs, please use "
+                    "solver='auto' or solver='qn' instead"
+                )
             coef, intercept, n_iter = fit_coordinate_descent(
                 X,
                 y,
@@ -256,7 +286,7 @@ class ElasticNet(
                 tol=self.tol,
             )
         else:
-            raise ValueError(f"solver {self.solver} is not supported")
+            raise ValueError(f"solver={solver!r} is not supported")
 
         self.coef_ = coef
         self.intercept_ = intercept

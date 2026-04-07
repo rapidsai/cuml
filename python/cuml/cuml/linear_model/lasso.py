@@ -30,14 +30,15 @@ class Lasso(ElasticNet):
         The tolerance for the optimization: if the updates are smaller than
         tol, the optimization code checks the dual gap for optimality and
         continues until it is smaller than tol.
-    solver : {'cd', 'qn'} (default='cd')
-        Choose an algorithm:
+    solver : {'auto', 'cd', 'qn'}, default='auto'
+        The solver to use.
 
-          * 'cd' - coordinate descent
-          * 'qn' - quasi-newton
+        - 'auto': uses 'cd' for dense inputs, and 'qn' for sparse inputs
+        - 'cd': uses coordinate descent. Only supports dense inputs.
+        - 'qn': uses quasi-newton methods. Supports sparse and dense inputs.
 
         You may find the alternative 'qn' algorithm is faster when the number
-        of features is sufficiently large, but the sample size is small.
+        of features is sufficiently large but the sample size is small.
     selection : {'cyclic', 'random'} (default='cyclic')
         If set to 'random', a random coefficient is updated every iteration
         rather than looping over features sequentially by default.
@@ -57,6 +58,8 @@ class Lasso(ElasticNet):
     ----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
+    sparse_coef_ : sparse matrix, shape (n_targets, n_features)
+        Sparse matrix representation of `coef_`.
     intercept_ : array
         The independent term. If `fit_intercept` is False, will be 0.
     n_iter_ : int
@@ -119,7 +122,7 @@ class Lasso(ElasticNet):
         fit_intercept=True,
         max_iter=1000,
         tol=1e-3,
-        solver="cd",
+        solver="auto",
         selection="cyclic",
         output_type=None,
         verbose=False,

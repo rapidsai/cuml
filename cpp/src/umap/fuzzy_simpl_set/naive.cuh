@@ -74,7 +74,7 @@ CUML_KERNEL void smooth_knn_dist_kernel(const value_t* knn_dists,
                                         int n,
                                         float mean_dist,
                                         value_t* sigmas,
-                                        value_t* rhos,  // Size of n, iniitalized to zeros
+                                        value_t* rhos,  // Size of n, initialized to zeros
                                         int n_neighbors,
                                         float local_connectivity = 1.0,
                                         int n_iter               = 64,
