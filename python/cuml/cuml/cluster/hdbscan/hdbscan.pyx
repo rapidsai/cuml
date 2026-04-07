@@ -43,7 +43,7 @@ def import_hdbscan():
 
 
 def hdbscan_at_least(min_version):
-    """Get the version of hdbscan installed"""
+    """Check if the version of `hdbscan` installed is >= min_version"""
     # hdbscan doesn't have `hdbscan.__version__`, so we have to
     # check the package metadata
     from importlib.metadata import version
