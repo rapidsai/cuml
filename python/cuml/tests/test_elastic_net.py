@@ -345,7 +345,7 @@ def test_set_params(cls):
 def test_max_iter_n_iter(cls, solver):
     X, y = make_regression(random_state=42)
 
-    model = cls(max_iter=2).fit(X, y)
+    model = cls(max_iter=2, solver=solver).fit(X, y)
     assert model.n_iter_ == 2
 
 
