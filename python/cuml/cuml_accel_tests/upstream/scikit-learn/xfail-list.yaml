@@ -234,8 +234,6 @@
   - "sklearn.linear_model.tests.test_base::test_inplace_data_preprocessing[42-True-None]"
   - "sklearn.linear_model.tests.test_base::test_linear_regression"
   - "sklearn.linear_model.tests.test_base::test_linear_regression_pd_sparse_dataframe_warning"
-  - "sklearn.linear_model.tests.test_base::test_raises_value_error_if_sample_weights_greater_than_1d[2-3]"
-  - "sklearn.linear_model.tests.test_base::test_raises_value_error_if_sample_weights_greater_than_1d[3-2]"
   - "sklearn.linear_model.tests.test_common::test_balance_property[42-True-LogisticRegression]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_check_input_false"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_elasticnet_precompute_gram_weighted_samples"
@@ -414,8 +412,6 @@
   marker: cuml_accel_bugs
   condition: scikit-learn<1.6
   tests:
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[False-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[False-sigmoid]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_zeros_sample_weights_equivalence[True-isotonic]"
@@ -720,12 +716,6 @@
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.6
   tests:
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape0]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape1]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-False-None-X_shape2]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape0]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape1]"
-  - "sklearn.linear_model.tests.test_base::test_linear_regression_sample_weight_consistency[42-True-None-X_shape2]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_hstacked_X[42-wide-True-svd]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-cholesky]"
@@ -1111,9 +1101,7 @@
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_sample_weights_not_an_array]"

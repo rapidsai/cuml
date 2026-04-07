@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -265,7 +265,7 @@ class DelayedParallelFunc(object):
 
         delayed : bool return a lazy (delayed) object?
 
-        output_futures : bool returns the futures pointing the to the resuls
+        output_futures : bool returns the futures pointing the to the results
                          of the parallel function executions on the workers,
                          rather than a dask collection object.
 

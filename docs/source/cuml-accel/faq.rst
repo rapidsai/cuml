@@ -88,7 +88,7 @@ the cuML Githb repository.
 4. Will I get the same results as I do without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``cuml.accel`` is designed to provide *equivalent* results to the estimators
-it acelerates, but the output may have small numerical differences. To be more
+it accelerates, but the output may have small numerical differences. To be more
 specific, measures of the quality of the results (accuracy,
 trustworthiness, etc.) should be approximately as good or better than those
 obtained without ``cuml.accel``, even if the exact output varies.

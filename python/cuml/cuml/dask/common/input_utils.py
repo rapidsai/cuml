@@ -1,9 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 
+import warnings
 from collections import OrderedDict
 from collections.abc import Sequence
 from functools import reduce
@@ -63,6 +64,7 @@ class DistributedDataHandler:
         self.total_rows = None
         self.ranks = None
         self.parts_to_sizes = None
+        self._worker_sizes = None
 
     @classmethod
     def get_client(cls, client=None):
@@ -93,13 +95,15 @@ class DistributedDataHandler:
 
         workers = tuple(set(map(lambda x: x[0], gpu_futures)))
 
-        return DistributedDataHandler(
+        handler = DistributedDataHandler(
             gpu_futures=gpu_futures,
             workers=workers,
             datatype=datatype,
             multiple=multiple,
             client=client,
         )
+        handler._fetch_worker_sizes()
+        return handler
 
     """ Methods to calculate further attributes """
 
@@ -110,35 +114,68 @@ class DistributedDataHandler:
         for w, futures in self.worker_to_parts.items():
             self.ranks[w] = self.worker_info[w]["rank"]
 
-    def calculate_parts_to_sizes(self, comms=None, ranks=None):
-        if self.worker_info is None and comms is not None:
-            self.calculate_worker_and_rank_info(comms)
-
-        self.total_rows = 0
-
-        self.parts_to_sizes = dict()
-
+    def _fetch_worker_sizes(self):
+        """Fetch per-partition row counts and drop workers with zero rows."""
+        if self._worker_sizes is not None:
+            return
+        if not self.worker_to_parts:
+            self._worker_sizes = {}
+            return
         parts = [
             (
-                wf[0],
+                w,
                 self.client.submit(
                     _get_rows,
-                    wf[1],
+                    p,
                     self.multiple,
-                    workers=[wf[0]],
+                    workers=[w],
                     pure=False,
                 ),
             )
-            for idx, wf in enumerate(self.worker_to_parts.items())
+            for w, p in self.worker_to_parts.items()
         ]
-
-        wfs, sizes_futures = zip(*parts)
+        wfs, sizes_futures = zip(*parts, strict=True)
         all_sizes = self.client.compute(sizes_futures, sync=True)
+        self._worker_sizes = dict(zip(wfs, all_sizes, strict=True))
 
-        for w, sizes_parts in zip(wfs, all_sizes):
-            sizes, total = sizes_parts
+        empty_workers = {
+            w for w, (_, total) in self._worker_sizes.items() if total == 0
+        }
+        if empty_workers:
+            warnings.warn(
+                f"Data was not split among all workers. "
+                f"{len(empty_workers)} worker(s) have no data and "
+                f"will not participate in training. This can happen "
+                f"when there are more workers than data partitions.",
+                UserWarning,
+            )
+            for w in empty_workers:
+                del self.worker_to_parts[w]
+                del self._worker_sizes[w]
+            self.gpu_futures = [
+                (w, f) for w, f in self.gpu_futures if w not in empty_workers
+            ]
+            self.workers = tuple(
+                w for w in self.workers if w not in empty_workers
+            )
+            if not self.workers:
+                raise ValueError(
+                    "All workers have zero rows after pruning empty "
+                    "partitions. Cannot proceed with an empty dataset."
+                )
+
+    def calculate_parts_to_sizes(self, comms=None):
+        if self.worker_info is None and comms is not None:
+            self.calculate_worker_and_rank_info(comms)
+
+        if self._worker_sizes is None:
+            self._fetch_worker_sizes()
+
+        self.total_rows = 0
+        self.parts_to_sizes = dict()
+
+        for w, (sizes, total) in self._worker_sizes.items():
             self.parts_to_sizes[self.worker_info[w]["rank"]] = sizes
-
             self.total_rows += total
 
 
