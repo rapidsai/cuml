@@ -25,7 +25,7 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-64=14.*
 - graphviz
-- hdbscan>=0.8.39,<0.8.40
+- hdbscan>=0.8.39
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython

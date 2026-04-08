@@ -760,7 +760,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         sparse array (preferably CSR/COO). This feature allows
         the precomputation of the KNN outside of UMAP
         and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeedings.
+        should match the metric used to train the UMAP embeddings. For most efficient
+        memory usage, the precomputed knn graph should be CPU-accessible arrays
+        such as numpy arrays.
     random_state : int, RandomState instance or None, optional (default=None)
         Seed used by the random number generator for embedding initialization
         and optimizer sampling. Setting a random_state enables reproducible
@@ -1169,8 +1171,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             sparse array (preferably CSR/COO). This feature allows
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            should match the metric used to train the UMAP embeddings.
+            Takes precedence over the precomputed_knn parameter. For most efficient
+            memory usage, the precomputed knn graph should be CPU-accessible arrays
+            such as numpy arrays.
         """
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
@@ -1249,6 +1253,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
                 self._n_neighbors,
+                mem_type=False,     # mirrors the input graph mem type
             )
             if X_is_sparse:
                 knn_indices = input_to_cuml_array(
@@ -1391,8 +1396,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             sparse array (preferably CSR/COO). This feature allows
             the precomputation of the KNN outside of UMAP
             and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeedings.
-            Takes precedence over the precomputed_knn parameter.
+            should match the metric used to train the UMAP embeddings.
+            Takes precedence over the precomputed_knn parameter. For most efficient
+            memory usage, the precomputed knn graph should be CPU-accessible arrays
+            such as numpy arrays.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_

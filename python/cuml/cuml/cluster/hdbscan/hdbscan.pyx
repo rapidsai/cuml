@@ -42,6 +42,16 @@ def import_hdbscan():
         ) from exc
 
 
+def hdbscan_at_least(min_version):
+    """Check if the version of `hdbscan` installed is >= min_version"""
+    # hdbscan doesn't have `hdbscan.__version__`, so we have to
+    # check the package metadata
+    from importlib.metadata import version
+
+    from packaging.version import Version
+    return Version(version("hdbscan")) >= Version(min_version)
+
+
 _metrics_mapping = {
     "l2": DistanceType.L2SqrtExpanded,
     "euclidean": DistanceType.L2SqrtExpanded,
@@ -855,11 +865,16 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
     def condensed_tree_(self):
         if self._state is not None:
             hdbscan = import_hdbscan()
-            return hdbscan.plots.CondensedTree(
-                self._condensed_tree,
-                self.cluster_selection_method,
-                self.allow_single_cluster
-            )
+            if hdbscan_at_least("0.8.41"):
+                with cuml.using_output_type("numpy"):
+                    labels = self.labels_
+                return hdbscan.plots.CondensedTree(self._condensed_tree, labels)
+            else:
+                return hdbscan.plots.CondensedTree(
+                    self._condensed_tree,
+                    self.cluster_selection_method,
+                    self.allow_single_cluster
+                )
         raise AttributeError("No condensed tree was generated; try running fit first.")
 
     @property
