@@ -1,1 +1,45 @@
-[]
+- reason: 'cuml.accel bug: implicit CuPy-to-NumPy conversion not handled in ColumnTransformer/Pipeline'
+  marker: cuml_accel_bugs
+  tests:
+  - "linear_model::plot_poisson_regression_non_normal_loss"
+  - "release_highlights::plot_release_highlights_1_1_0"
+- reason: 'cuml.accel bug: native crash in cuml PCA'
+  marker: cuml_accel_bugs
+  tests:
+  - "decomposition::plot_pca_vs_fa_model_selection"
+- reason: 'cuml.accel bug: treelite export does not set classes_ on DecisionTreeClassifier sub-estimators'
+  marker: cuml_accel_bugs
+  tests:
+  - "ensemble::plot_forest_iris"
+- reason: 'cuml.accel bug: unhashable kernel object passed to pairwise_kernels'
+  marker: cuml_accel_bugs
+  tests:
+  - "gaussian_process::plot_compare_gpr_krr"
+- reason: 'Missing optional dependency: plotly'
+  tests:
+  - "model_selection::plot_grid_search_text_feature_extraction"
+- reason: 'Missing optional dependency: polars'
+  tests:
+  - "applications::plot_time_series_lagged_features"
+  - "compose::plot_digits_pipe"
+  - "gaussian_process::plot_gpr_co2"
+  - "model_selection::plot_grid_search_refit_callable"
+  - "release_highlights::plot_release_highlights_1_4_0"
+- reason: 'Missing optional dependency: pooch (required by scipy.datasets)'
+  tests:
+  - "cluster::plot_face_compress"
+  - "decomposition::plot_image_denoising"
+- reason: 'Missing optional dependency: scikit-image'
+  tests:
+  - "cluster::plot_coin_segmentation"
+  - "cluster::plot_coin_ward_segmentation"
+- reason: 'Timeout: example exceeds 600s under cuml.accel'
+  strict: false
+  tests:
+  - "applications::plot_cyclical_feature_engineering"
+  - "compose::plot_compare_reduction"
+  - "ensemble::plot_forest_hist_grad_boosting_comparison"
+  - "model_selection::plot_cost_sensitive_learning"
+  - "preprocessing::plot_target_encoder_cross_val"
+  - "semi_supervised::plot_self_training_varying_threshold"
+  - "svm::plot_svm_scale_c"
