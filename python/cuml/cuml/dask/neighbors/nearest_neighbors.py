@@ -105,8 +105,6 @@ class NearestNeighbors(BaseEstimator):
 
     @staticmethod
     def _build_comms(index_handler, query_handler, streams_per_handle):
-        # Communicator clique needs to include the union of workers hosting
-        # query and index partitions
         workers = set(index_handler.workers)
         workers.update(query_handler.workers)
 

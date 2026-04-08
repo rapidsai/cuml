@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import cupyx.scipy.sparse.linalg
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -25,7 +24,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
 )
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import LinearPredictMixin, center_and_scale
+from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -59,14 +58,6 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
                        bool fit_intercept,
                        int algo,
                        double *sample_weight) except +
-
-
-_ridge_transform = cp.ElementwiseKernel(
-    "T x, T s, T alpha",
-    "T out",
-    "out = s < 1e-10 ? 0 : x * s / (s * s + alpha)",
-    "_ridge_transform"
-)
 
 
 _SOLVER_CUML_TO_SKLEARN = {
@@ -273,110 +264,6 @@ class Ridge(Base,
         self.max_iter = max_iter
         self.copy_X = copy_X
 
-    def _solve_lsmr(
-        self,
-        X,
-        y,
-        alpha,
-        X_offset,
-        sqrt_weight,
-    ):
-        """Solve a ridge regression with LSMR"""
-        if cupyx.scipy.sparse.issparse(X) and self.fit_intercept:
-            # To keep sparsity, sparse inputs aren't already centered when
-            # fitting an intercept. We handle removing the offset within the
-            # fit via a LinearOperator.
-            if sqrt_weight is None:
-                A = cupyx.scipy.sparse.linalg.LinearOperator(
-                    shape=X.shape,
-                    matvec=lambda w: X.dot(w) - w.dot(X_offset),
-                    rmatvec=lambda w: X.T.dot(w) - X_offset * w.sum(),
-                )
-            else:
-                A = cupyx.scipy.sparse.linalg.LinearOperator(
-                    shape=X.shape,
-                    matvec=lambda w: X.dot(w) - sqrt_weight * w.dot(X_offset),
-                    rmatvec=lambda w: X.T.dot(w) - X_offset * w.dot(sqrt_weight),
-                )
-        else:
-            A = X
-
-        coef = cp.empty((y.shape[1], X.shape[1]), dtype=X.dtype)
-        n_iter = np.empty(y.shape[1], dtype=np.int32)
-        damp = cp.sqrt(alpha)
-
-        for i in range(y.shape[1]):
-            b = y[:, i]
-            info = cupyx.scipy.sparse.linalg.lsmr(
-                A,
-                b,
-                damp=damp[i],
-                atol=self.tol,
-                btol=self.tol,
-                maxiter=self.max_iter,
-            )
-            coef[i] = info[0]
-            n_iter[i] = info[2]
-
-        return coef, n_iter
-
-    def _solve_svd(self, X, y, alpha):
-        """Solve a ridge regression with SVD"""
-        # Solve using SVD method
-        u, s, vh = cp.linalg.svd(X, full_matrices=False)
-        temp = _ridge_transform(u.T.dot(y), s[:, None], alpha)
-        coef = vh.T.dot(temp).T
-        return coef, None
-
-    def _fit_cupy(
-        self,
-        X_m,
-        y_m,
-        sample_weight_m,
-        *,
-        alpha,
-        X_is_copy,
-        y_is_copy,
-        use_svd=True,
-    ):
-        """Fit a Ridge regression using SVD or LSMR."""
-        X = X_m.to_output("cupy")
-        y = y_m.to_output("cupy")
-        sample_weight = (
-            None if sample_weight_m is None else sample_weight_m.to_output("cupy")
-        )
-        y_1d = y.ndim == 1
-
-        X, y, X_offset, y_offset, sqrt_weight = center_and_scale(
-            X,
-            y,
-            sample_weight=sample_weight,
-            fit_intercept=self.fit_intercept,
-            may_mutate_X=X_is_copy or not self.copy_X,
-            may_mutate_y=y_is_copy,
-        )
-
-        # Normalize alpha to a cupy array of shape (n_targets,)
-        if cp.isscalar(alpha):
-            alpha = cp.full(y.shape[1], alpha, dtype=X.dtype)
-
-        if use_svd:
-            coef, n_iter = self._solve_svd(X, y, alpha)
-        else:
-            coef, n_iter = self._solve_lsmr(X, y, alpha, X_offset, sqrt_weight)
-
-        if self.fit_intercept:
-            intercept = y_offset - cp.dot(X_offset, coef.T)
-            if y_1d:
-                intercept = coef.dtype.type(intercept.item())
-            else:
-                intercept = CumlArray(data=intercept)
-        else:
-            intercept = 0.0
-        coef = CumlArray(data=(coef.ravel() if y.shape[1] == 1 else coef))
-
-        return coef, intercept, n_iter
-
     def _fit_eig(
         self,
         X_m,
@@ -578,15 +465,26 @@ class Ridge(Base,
                 y_is_copy=y_is_copy,
             )
         else:
-            coef, intercept, n_iter = self._fit_cupy(
-                X_m,
-                y_m,
-                sample_weight_m,
+            coef, intercept, n_iter = fit_least_squares(
+                X_m.to_output("cupy"),
+                y_m.to_output("cupy"),
+                sample_weight=(
+                    None if sample_weight_m is None
+                    else sample_weight_m.to_output("cupy")
+                ),
+                fit_intercept=self.fit_intercept,
                 alpha=alpha,
-                X_is_copy=X_is_copy,
-                y_is_copy=y_is_copy,
-                use_svd=(solver == "svd")
+                tol=self.tol,
+                max_iter=self.max_iter,
+                may_mutate_X=X_is_copy or not self.copy_X,
+                may_mutate_y=y_is_copy,
+                solver=solver,
             )
+            if not cp.isscalar(intercept):
+                intercept = CumlArray(intercept)
+            if y_m.ndim == 2 and y_m.shape[1] == 1:
+                coef = coef.ravel()
+            coef = CumlArray(coef)
 
         self.coef_ = coef
         self.intercept_ = intercept

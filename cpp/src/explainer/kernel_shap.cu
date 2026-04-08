@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,7 +16,7 @@ namespace ML {
 namespace Explainer {
 
 /*
-* Kernel distrubutes exact part of the kernel shap dataset
+* Kernel distributes exact part of the kernel shap dataset
 * Each block scatters the data of a row of `observations` into the (number of rows of
 * background) in `dataset`, based on the row of `X`.
 * So, given:

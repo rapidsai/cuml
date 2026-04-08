@@ -25,7 +25,7 @@ dependencies:
 - doxygen=1.9.1
 - gcc_linux-aarch64=14.*
 - graphviz
-- hdbscan>=0.8.39,<0.8.40
+- hdbscan>=0.8.39
 - hypothesis>=6.0,<7
 - ipykernel
 - ipython
@@ -37,6 +37,7 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libcuvs==26.6.*,>=0.0.0a0
+- libopenblas<=0.3.30
 - libraft==26.6.*,>=0.0.0a0
 - librmm==26.6.*,>=0.0.0a0
 - matplotlib-base

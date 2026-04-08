@@ -200,7 +200,8 @@ intersphinx_mapping = {
     "cudf": ("https://docs.rapids.ai/api/cudf/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "python": ("https://docs.python.org/3", None),
-    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    # TODO: re-enable once scipy docs are more reliable
+    # "scipy": ("https://docs.scipy.org/doc/scipy", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
 }
 

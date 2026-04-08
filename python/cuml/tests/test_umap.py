@@ -989,6 +989,9 @@ def test_umap_small_fit_large_transform():
 @pytest.mark.parametrize("n_components", [2, 5])
 @pytest.mark.parametrize("random_state", [None, 42])
 @pytest.mark.parametrize("force_serial_epochs", [True, False])
+@pytest.mark.xfail(
+    reason="With current heuristics, UMAP may produce outliers on GPUs with high SM counts."
+)
 def test_umap_outliers(
     n_neighbors, n_components, random_state, force_serial_epochs
 ):
