@@ -43,3 +43,8 @@
   - "preprocessing::plot_target_encoder_cross_val"
   - "semi_supervised::plot_self_training_varying_threshold"
   - "svm::plot_svm_scale_c"
+- reason: 'Timeout: example exceeds 600s under cuml.accel with sklearn 1.7.2+'
+  condition: scikit-learn>=1.7.2
+  strict: false
+  tests:
+  - "model_selection::plot_successive_halving_heatmap"
