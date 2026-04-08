@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -64,8 +64,7 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT max_depth,
-                           const IdxT min_samples_leaf,
+void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const IdxT min_samples_split,
                            const IdxT max_leaves,
                            const DataT min_impurity_decrease,
@@ -140,7 +139,7 @@ struct CustomDifference {
  * @brief Generates 'k' unique samples of features from 'n' feature sample-space.
  *        Does this for each work-item (node), feeding a unique seed for each (treeid, nodeid
  * (=blockIdx.x), threadIdx.x). Method used is a random, parallel, sampling with replacement of
- * excess of 'k' samples (hence the name) and then eliminating the dupicates by ordering them. The
+ * excess of 'k' samples (hence the name) and then eliminating the duplicates by ordering them. The
  * excess number of samples (=`n_parallel_samples`) is calculated such that after ordering there is
  * at least 'k' uniques.
  */
@@ -388,7 +387,6 @@ template <typename DataT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
                               IdxT n_bins,
-                              IdxT max_depth,
                               IdxT min_samples_split,
                               IdxT max_leaves,
                               const Dataset<DataT, LabelT, IdxT>& dataset,

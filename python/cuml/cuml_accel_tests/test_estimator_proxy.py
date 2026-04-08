@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib
@@ -18,6 +18,7 @@ from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_blobs, make_classification, make_regression
 from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
     ElasticNet,
@@ -532,7 +533,7 @@ def test_fit_unsupported_args():
     )
     X_dense[X_dense < 2.5] = 0.0
     X = scipy.sparse.coo_matrix(X_dense)
-    model = LinearRegression(fit_intercept=True)
+    model = RandomForestRegressor()
     assert model.fit(X, y) is model
     # Fit happened on CPU
     check_is_fitted(model)

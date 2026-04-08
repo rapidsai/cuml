@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -58,7 +58,7 @@ DI T batchedWarpReduce(T val)
  *
  * @param val  input value
  * @param smem shared memory region needed for storing intermediate results. It
- *             must alteast be of size: `sizeof(T) * nWarps * NThreads`
+ *             must at least be of size: `sizeof(T) * nWarps * NThreads`
  * @return     for the first "group" of threads in the block, the reduced value.
  *             All others will contain unusable values!
  *

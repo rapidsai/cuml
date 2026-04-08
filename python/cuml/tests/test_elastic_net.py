@@ -4,13 +4,59 @@
 
 import numpy as np
 import pytest
+import scipy.sparse
+import sklearn.linear_model
+from hypothesis import example, given
+from hypothesis import strategies as st
 from sklearn.datasets import make_regression
 from sklearn.linear_model import ElasticNet, Lasso
 from sklearn.model_selection import train_test_split
 
 import cuml
 from cuml.metrics import r2_score
+from cuml.testing.datasets import make_regression_dataset
+from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import quality_param, stress_param, unit_param
+
+
+@given(
+    datatype=dataset_dtypes(),
+    alpha=st.sampled_from([0.1, 1.0, 10.0]),
+    l1_ratio=st.sampled_from([0.1, 0.5, 0.9]),
+    nrows=st.integers(min_value=1000, max_value=5000),
+    column_info=st.sampled_from([[20, 10], [100, 50]]),
+)
+@example(
+    datatype=np.float32,
+    alpha=0.1,
+    l1_ratio=0.1,
+    nrows=1000,
+    column_info=[20, 10],
+)
+@example(
+    datatype=np.float64,
+    alpha=10.0,
+    l1_ratio=0.9,
+    nrows=5000,
+    column_info=[100, 50],
+)
+def test_elastic_net_solvers_eq(datatype, alpha, l1_ratio, nrows, column_info):
+    ncols, n_info = column_info
+    X_train, X_test, y_train, y_test = make_regression_dataset(
+        datatype, nrows, ncols, n_info
+    )
+
+    kwargs = {"alpha": alpha, "l1_ratio": l1_ratio}
+    cd = cuml.ElasticNet(solver="cd", **kwargs)
+    cd.fit(X_train, y_train)
+    cd_res = cd.predict(X_test)
+
+    qn = cuml.ElasticNet(solver="qn", **kwargs)
+    qn.fit(X_train, y_train)
+    # the results of the two models should be close (even if both are bad)
+    assert qn.score(X_test, cd_res) > 0.90
+    # coefficients of the two models should be close
+    assert np.corrcoef(cd.coef_, qn.coef_)[0, 1] > 0.98
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -299,5 +345,56 @@ def test_set_params(cls):
 def test_max_iter_n_iter(cls, solver):
     X, y = make_regression(random_state=42)
 
-    model = cls(max_iter=2).fit(X, y)
+    model = cls(max_iter=2, solver=solver).fit(X, y)
     assert model.n_iter_ == 2
+
+
+def make_sparse_regression(
+    n_samples=1000, n_features=100, n_informative=10, seed=42, dtype="float64"
+):
+    rng = np.random.default_rng(seed)
+
+    w = rng.normal(size=(n_features, 1))
+    w[n_informative:] = 0.0
+
+    X = rng.normal(size=(n_samples, n_features))
+    rnd = rng.uniform(size=(n_samples, n_features))
+    X[rnd > 0.5] = 0.0
+
+    y = np.dot(X, w).ravel().astype(dtype)
+    X = scipy.sparse.csr_matrix(X).astype(dtype)
+    return X, y
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("alpha", [0.2, 0.7])
+@pytest.mark.parametrize("model_name", ["ElasticNet", "Lasso"])
+def test_sparse(dtype, alpha, model_name):
+    X, y = make_sparse_regression(dtype=dtype)
+
+    cu_cls = getattr(cuml.linear_model, model_name)
+    sk_cls = getattr(sklearn.linear_model, model_name)
+
+    cu_model = cu_cls(alpha=alpha, tol=1e-10).fit(X, y)
+    sk_model = sk_cls(alpha=alpha).fit(X, y)
+
+    np.testing.assert_allclose(cu_model.coef_, sk_model.coef_, atol=1e-3)
+    np.testing.assert_allclose(
+        cu_model.intercept_, sk_model.intercept_, atol=1e-3
+    )
+
+    assert isinstance(cu_model.sparse_coef_, scipy.sparse.csr_matrix)
+
+    cu_score = cu_model.score(X, y)
+    sk_score = sk_model.score(X, y)
+    assert cu_score >= sk_score - 0.1
+
+
+def test_solver_errors():
+    X, y = make_sparse_regression()
+
+    with pytest.raises(ValueError, match="solver='bad' is not supported"):
+        cuml.ElasticNet(solver="bad").fit(X, y)
+
+    with pytest.raises(ValueError, match="solver='cd' doesn't support sparse"):
+        cuml.ElasticNet(solver="cd").fit(X, y)

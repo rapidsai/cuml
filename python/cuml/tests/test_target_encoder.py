@@ -10,37 +10,9 @@ import pytest
 from cuml.preprocessing._target_encoder import TargetEncoder
 from cuml.testing.utils import array_equal
 
-# Filter the combination mode deprecation warning for all tests in this module
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
-)
-
 # TODO: many of these tests use `output_type="numpy"` to work around
 # https://github.com/rapidsai/cuml/issues/7893. These can be
 # reverted once that's resolved.
-
-
-def test_targetencoder_deprecated_1d_input():
-    df = cudf.DataFrame(
-        {"category": ["a", "b", "b", "a"], "label": [1, 0, 1, 1]}
-    )
-
-    # Warns in fit_transform
-    encoder = TargetEncoder(output_type="numpy")
-    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
-        encoded = encoder.fit_transform(df.category, df.label)
-    answer = np.array([1.0, 1.0, 0.0, 1.0])[:, None]
-    assert array_equal(encoded, answer)
-
-    # Warns in fit
-    encoder = TargetEncoder(output_type="numpy")
-    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
-        encoder.fit(df.category, df.label)
-
-    # Warns in tarnsform
-    with pytest.warns(FutureWarning, match="non-2-dimensional X"):
-        encoded = encoder.transform(df.category)
-    assert array_equal(encoded, answer)
 
 
 def test_targetencoder_fit_transform():

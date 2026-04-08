@@ -776,6 +776,39 @@ def test_create_classification_model(
     assert params["n_bins"] == verfiy_params["n_bins"]
 
 
+def test_unlimited_max_depth_classifier():
+    X, y = make_classification(n_samples=500, n_features=10, random_state=42)
+
+    clf = curfc(n_estimators=10, max_depth=None, random_state=42)
+    clf.fit(X, y)
+    preds = clf.predict(X)
+    assert len(preds) == len(y)
+
+    params = clf.get_params()
+    assert params["max_depth"] is None
+    clf2 = curfc()
+    clf2.set_params(**params)
+    assert clf2.get_params()["max_depth"] is None
+
+    shallow = curfc(n_estimators=10, max_depth=2, random_state=42)
+    shallow.fit(X, y)
+    assert accuracy_score(y, preds) >= accuracy_score(y, shallow.predict(X))
+
+
+def test_unlimited_max_depth_regressor():
+    X, y = make_regression(n_samples=500, n_features=10, random_state=42)
+
+    reg = curfr(n_estimators=10, max_depth=None, random_state=42)
+    reg.fit(X, y)
+    assert len(reg.predict(X)) == len(y)
+
+    params = reg.get_params()
+    assert params["max_depth"] is None
+    reg2 = curfr()
+    reg2.set_params(**params)
+    assert reg2.get_params()["max_depth"] is None
+
+
 @pytest.mark.parametrize("n_estimators", [10, 20, 100])
 @pytest.mark.parametrize("n_bins", [8, 9, 10])
 def test_multiple_fits_classification(large_clf, n_estimators, n_bins):
