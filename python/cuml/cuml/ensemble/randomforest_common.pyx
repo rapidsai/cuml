@@ -326,6 +326,23 @@ class BaseRandomForestModel(Base, InteropMixin):
     ):
         super().__init__(verbose=verbose, output_type=output_type)
 
+        # Only allow positive numbers or None
+        if max_depth is not None and max_depth <= 0:
+            raise ValueError("max_depth must be > 0 or None")
+
+        if max_depth == 16:
+            warnings.warn(
+            "The default value of 'max_depth' will change from 16 to " 
+            "None (unlimited depth) in release 26.08. To suppress this "
+            "warning, set 'max_depth' explicitly.", 
+            FutureWarning
+            )
+        
+        # Map None to -1 for the backend
+        if max_depth is None:
+            max_depth = -1
+
+
         self.split_criterion = split_criterion
         self.n_estimators = n_estimators
         self.bootstrap = bootstrap
@@ -418,8 +435,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
-        if self.max_depth <= 0:
-            raise ValueError("Must specify max_depth > 0")
+        if self.max_depth <= 0 and self.max_depth != -1:
+            raise ValueError("Must specify max_depth > 0 or None")
 
         # Validate OOB score parameter
         if callable(self.oob_score):

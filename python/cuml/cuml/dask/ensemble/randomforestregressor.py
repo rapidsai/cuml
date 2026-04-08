@@ -58,12 +58,12 @@ class RandomForestRegressor(
          * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = 16)
-        Maximum tree depth. Must be greater than 0.
-        Unlimited depth (i.e, until leaves are pure)
-        is not supported.\n
-        .. note:: This default differs from scikit-learn's
-          random forest, which defaults to unlimited depth.
+    max_depth : int or None (default = 16)
+        Maximum tree depth. Must be greater than 0 or -1 (None covers -1).
+        Unlimited depth (i.e., until leaves are pure) is supported by
+        providing None or -1.\n
+        .. versionchanged:: 26.08
+          The default of `max_depth` will change from `16` to `None`.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited, If ``-1``.
     max_features : float (default = 'auto')

@@ -1,3 +1,10 @@
+# cuml 26.04.00 (In Development)
+
+### 🚨 Breaking Changes
+* Deprecate `max_depth=16` default in `RandomForestClassifier` and
+`RandomForestRegressor` (both single-GPU and Dask variants). The default will change to `None` (unlimited depth) in release 26.08
+
+
 # cuml 26.02.00 (4 Feb 2026)
 
 ### 🚨 Breaking Changes
