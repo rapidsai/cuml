@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test script outside the script directory
@@ -11,6 +11,12 @@ source ./ci/test_python_common.sh
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
+
+# Run scikit-learn examples under cuml.accel
+rapids-logger "scikit-learn examples"
+timeout 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
+  -n auto --dist worksteal \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
 
 # Run UMAP tests
 rapids-logger "UMAP test suite"

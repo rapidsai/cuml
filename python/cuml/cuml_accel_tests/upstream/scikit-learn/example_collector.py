@@ -1,0 +1,114 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Pytest plugin that discovers scikit-learn example scripts and runs each
+# one in an isolated subprocess under ``python -m cuml.accel``.
+#
+# Loaded via: pytest -p example_collector ...
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+
+class ExampleFailed(Exception):
+    """Raised when a scikit-learn example script exits with non-zero status."""
+
+
+class _FakeModule:
+    """Minimal module-like object so the cuml.accel xfail plugin can read
+    ``item.module.__name__`` without crashing on custom test items."""
+
+    def __init__(self, name):
+        self.__name__ = name
+
+
+class ExampleFile(pytest.File):
+    """Collector that wraps a single scikit-learn example script."""
+
+    def collect(self):
+        yield ExampleItem.from_parent(self, name=self.path.stem)
+
+
+class ExampleItem(pytest.Item):
+    """Test item that runs a scikit-learn example under ``cuml.accel``.
+
+    Each example is executed in an isolated subprocess via
+    ``python -m cuml.accel <script>``.  The test passes if the process
+    exits with code 0.
+    """
+
+    def __init__(self, name, parent, **kwargs):
+        super().__init__(name, parent, **kwargs)
+        examples_dir = Path(self.config.getoption("examples_dir")).resolve()
+        rel = self.path.relative_to(examples_dir)
+        # Expose a module-like attribute so the cuml.accel xfail plugin
+        # (which reads item.module.__name__) works for these items.
+        # For "cluster/plot_hdbscan.py" -> module name "cluster",
+        # giving xfail IDs like "cluster::plot_hdbscan".
+        self.module = _FakeModule(str(rel.parent).replace(os.sep, "."))
+
+    def runtest(self):
+        timeout = self.config.getoption("example_timeout")
+        env = {
+            **os.environ,
+            "MPLBACKEND": "Agg",
+            "PLOTLY_RENDERER": "json",
+        }
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "cuml.accel", str(self.path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            raise ExampleFailed(
+                f"Example timed out after {timeout}s: {self.path.name}"
+            )
+        if result.returncode != 0:
+            stderr = result.stderr
+            if len(stderr) > 4000:
+                stderr = "...\n" + stderr[-4000:]
+            raise ExampleFailed(stderr)
+
+    def repr_failure(self, excinfo):
+        if isinstance(excinfo.value, ExampleFailed):
+            return str(excinfo.value)
+        return super().repr_failure(excinfo)
+
+    def reportinfo(self):
+        return self.path, None, self.nodeid
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--examples-dir",
+        action="store",
+        default=None,
+        help="Path to scikit-learn examples/ directory",
+    )
+    parser.addoption(
+        "--example-timeout",
+        action="store",
+        default=600,
+        type=int,
+        help="Timeout per example script in seconds (default: 600)",
+    )
+
+
+def pytest_collect_file(parent, file_path):
+    examples_dir = parent.config.getoption("examples_dir", default=None)
+    if not examples_dir:
+        return None
+    examples_dir = Path(examples_dir).resolve()
+    if file_path.suffix == ".py" and file_path.resolve().is_relative_to(
+        examples_dir
+    ):
+        return ExampleFile.from_parent(parent, path=file_path)
+    return None
