@@ -46,12 +46,12 @@ class BaseRandomForestModel(object):
             )
         self.workers = workers
         self._set_internal_model(None)
-        if kwargs.get('max_depth',16) == 16:
+        if 'max_depth' not in kwargs:
             warnings.warn(
                 "The default value of 'max_depth' will change from 16 to "
                 "None (unlimited depth) in release 26.08. To suppress this "
                 "warning, set 'max_depth' explicitly.", 
-                FutureWarning 
+                FutureWarning, stacklevel=2
             )
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions

@@ -166,6 +166,7 @@ def compute_max_features(
             f"['sqrt', 'log2']. Got {max_features!r} instead."
         )
 
+_DEPRECATED_MAX_DEPTH_DEFAULT = object()
 
 class BaseRandomForestModel(Base, InteropMixin):
 
@@ -300,6 +301,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         # available in sklearn models created via treelite export
         return attrs
 
+
     def __init__(
         self,
         *,
@@ -307,7 +309,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         n_estimators=100,
         bootstrap=True,
         max_samples=1.0,
-        max_depth=16,
+        max_depth=_DEPRECATED_MAX_DEPTH_DEFAULT,
         max_leaves=-1,
         max_features='sqrt',
         n_bins=128,
@@ -324,21 +326,18 @@ class BaseRandomForestModel(Base, InteropMixin):
     ):
         super().__init__(verbose=verbose, output_type=output_type)
 
+        if max_depth is _DEPRECATED_MAX_DEPTH_DEFAULT:
+            warnings.warn(
+                "The default value of 'max_depth' will change from 16 to "
+                "None (unlimited depth) in release 26.08. To suppress this "
+                "warning, set 'max_depth' explicitly.",
+                FutureWarning, stacklevel=2)
+            max_depth = 16
+
         # Only allow positive numbers or None
         if max_depth is not None and max_depth <= 0:
             raise ValueError("max_depth must be > 0 or None")
 
-        if max_depth == 16:
-            warnings.warn(
-            "The default value of 'max_depth' will change from 16 to " 
-            "None (unlimited depth) in release 26.08. To suppress this "
-            "warning, set 'max_depth' explicitly.", 
-            FutureWarning
-            )
-        
-        # Map None to -1 for the backend
-        if max_depth is None:
-            max_depth = -1
 
 
         self.split_criterion = split_criterion
