@@ -1,4 +1,4 @@
-# cuml 26.04.00 (In Development)
+# cuml 26.06.00 (In Development)
 
 ### 🚨 Breaking Changes
 * Deprecate `max_depth=16` default in RandomForest estimators; default will change to `None` in 26.08
