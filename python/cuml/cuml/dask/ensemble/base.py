@@ -53,6 +53,8 @@ class BaseRandomForestModel(object):
                 "warning, set 'max_depth' explicitly.", 
                 FutureWarning, stacklevel=2
             )
+            kwargs['max_depth'] = 16
+            
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions
         self.n_estimators = n_estimators

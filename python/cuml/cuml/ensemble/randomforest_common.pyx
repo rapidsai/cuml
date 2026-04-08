@@ -335,8 +335,12 @@ class BaseRandomForestModel(Base, InteropMixin):
             max_depth = 16
 
         # Only allow positive numbers or None
-        if max_depth is not None and max_depth <= 0:
-            raise ValueError("max_depth must be > 0 or None")
+        if max_depth is not None:
+            if not isinstance(max_depth, int) or max_depth <= 0:
+                raise ValueError(
+                    "max_depth must be > 0 or None; "
+                    f"got {max_depth!r}"
+                )
 
 
 
