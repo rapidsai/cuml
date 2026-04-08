@@ -53,7 +53,7 @@ struct manifold_inputs_t {
 
   manifold_inputs_t(T* y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 
-  virtual bool alloc_knn_graph() const = 0;
+  virtual bool needs_device_knn_graph() const = 0;
 };
 
 /**
@@ -66,7 +66,7 @@ struct manifold_dense_inputs_t : public manifold_inputs_t<T> {
 
   manifold_dense_inputs_t(T* x_, T* y_, int n_, int d_) : manifold_inputs_t<T>(y_, n_, d_), X(x_) {}
 
-  bool alloc_knn_graph() const { return true; }
+  bool needs_device_knn_graph() const { return true; }
 };
 
 /**
@@ -88,7 +88,7 @@ struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
   {
   }
 
-  bool alloc_knn_graph() const { return true; }
+  bool needs_device_knn_graph() const { return true; }
 };
 
 /**
@@ -106,7 +106,7 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() const
+  bool needs_device_knn_graph() const
   {
     auto is_device_mem = [](const void* ptr) {
       cudaPointerAttributes attr;
