@@ -269,7 +269,6 @@ ElasticNet
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -290,7 +289,6 @@ Lasso
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 

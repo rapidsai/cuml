@@ -520,11 +520,13 @@ dependencies:
             packages:
               - scikit-learn==1.5.0
               - umap-learn==0.5.7
+              - hdbscan==0.8.39
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
               - umap-learn==0.5.8
               - ipython==8.10.0
+              - hdbscan==0.8.41
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
@@ -532,6 +534,7 @@ dependencies:
           - matrix:
             packages:
               - *scikit_learn
+              - hdbscan>=0.8.39
               - ipython>=7.32.0
       # ipython for "oldest" is split: conda uses 8.x (7.x has no Python 3.11+ packages),
       # pip uses 7.34.0 from PyPI (which supports Python 3.11+)
@@ -582,7 +585,6 @@ dependencies:
         packages:
           - certifi
           - *cython
-          - hdbscan>=0.8.39,<0.8.40
           - hypothesis>=6.0,<7
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
