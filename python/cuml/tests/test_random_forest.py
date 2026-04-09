@@ -1287,9 +1287,7 @@ def test_rf_oob_score_disabled():
     """Test that OOB score attributes don't exist when oob_score=False"""
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
-    clf = curfc(
-        n_estimators=10, oob_score=False, max_depth=16, random_state=42
-    )
+    clf = curfc(n_estimators=10, oob_score=False, max_depth=16, random_state=42)
 
     # Capture and verify expected warning
     warning_msg = (
@@ -1309,11 +1307,7 @@ def test_rf_oob_without_bootstrap():
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
     clf = curfc(
-        n_estimators=10,
-        oob_score=True,
-        bootstrap=False,
-        max_depth=16,
-        random_state=42,
+        n_estimators=10, oob_score=True, bootstrap=False, max_depth=16, random_state=42
     )
 
     # Should raise ValueError when oob_score=True but bootstrap=False

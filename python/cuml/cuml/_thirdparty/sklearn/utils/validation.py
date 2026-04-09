@@ -37,23 +37,10 @@ from ....thirdparty_adapters import check_array
 FLOAT_DTYPES = (np.float64, np.float32, np.float16)
 
 
-def check_X_y(
-    X,
-    y,
-    accept_sparse=False,
-    *,
-    accept_large_sparse=True,
-    dtype="numeric",
-    order=None,
-    copy=False,
-    force_all_finite=True,
-    ensure_2d=True,
-    allow_nd=False,
-    multi_output=False,
-    ensure_min_samples=1,
-    ensure_min_features=1,
-    y_numeric=False,
-):
+def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
+              dtype="numeric", order=None, copy=False, force_all_finite=True,
+              ensure_2d=True, allow_nd=False, multi_output=False,
+              ensure_min_samples=1, ensure_min_features=1, y_numeric=False):
     """Input validation for standard estimators.
 
     Checks X and y for consistent length, enforces X to be 2D and y 1D. By
@@ -144,39 +131,26 @@ def check_X_y(
     if y is None:
         raise ValueError("y cannot be None")
 
-    X = check_array(
-        X,
-        accept_sparse=accept_sparse,
-        accept_large_sparse=accept_large_sparse,
-        dtype=dtype,
-        order=order,
-        copy=copy,
-        force_all_finite=force_all_finite,
-        ensure_2d=ensure_2d,
-        allow_nd=allow_nd,
-        ensure_min_samples=ensure_min_samples,
-        ensure_min_features=ensure_min_features,
-    )
+    X = check_array(X, accept_sparse=accept_sparse,
+                    accept_large_sparse=accept_large_sparse,
+                    dtype=dtype, order=order, copy=copy,
+                    force_all_finite=force_all_finite,
+                    ensure_2d=ensure_2d, allow_nd=allow_nd,
+                    ensure_min_samples=ensure_min_samples,
+                    ensure_min_features=ensure_min_features)
 
-    y = check_array(
-        y,
-        accept_sparse="csr",
-        force_all_finite=True,
-        ensure_2d=False,
-        dtype="numeric" if y_numeric else None,
-    )
+    y = check_array(y, accept_sparse='csr', force_all_finite=True,
+                    ensure_2d=False, dtype='numeric' if y_numeric else None)
 
     if not multi_output and y.ndim > 1:
         if y.shape[1] > 1:
             raise ValueError(
                 "y should be a 1d array, "
-                "got an array of shape {} instead.".format(y.shape)
-            )
+                "got an array of shape {} instead.".format(y.shape))
 
     if X.shape[0] != y.shape[0]:
-        raise ValueError(
-            "Found input variables with inconsistent numbers of samples"
-        )
+        raise ValueError("Found input variables with inconsistent numbers of"
+                         " samples")
 
     return X, y
 
@@ -197,9 +171,8 @@ def check_random_state(seed):
         return np.random.RandomState(seed)
     if isinstance(seed, np.random.RandomState):
         return seed
-    raise ValueError(
-        "%r cannot be used to seed a numpy.random.RandomState instance" % seed
-    )
+    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
+                     ' instance' % seed)
 
 
 def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
@@ -229,14 +202,10 @@ def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
         y = y.tocsr()
         x.sum_duplicates()
         y.sum_duplicates()
-        return (
-            cp.array_equal(x.indices, y.indices)
-            and cp.array_equal(x.indptr, y.indptr)
-            and cp.allclose(x.data, y.data, rtol=rtol, atol=atol)
-        )
+        return (cp.array_equal(x.indices, y.indices) and
+                cp.array_equal(x.indptr, y.indptr) and
+                cp.allclose(x.data, y.data, rtol=rtol, atol=atol))
     elif not sp.issparse(x) and not sp.issparse(y):
         return cp.allclose(x, y, rtol=rtol, atol=atol)
-    raise ValueError(
-        "Can only compare two sparse matrices, not a sparse "
-        "matrix and an array"
-    )
+    raise ValueError("Can only compare two sparse matrices, not a sparse "
+                     "matrix and an array")

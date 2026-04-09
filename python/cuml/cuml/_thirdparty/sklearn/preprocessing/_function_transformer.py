@@ -18,7 +18,8 @@ from ..utils.validation import _allclose_dense_sparse
 
 
 def _identity(X):
-    """The identity function."""
+    """The identity function.
+    """
     return X
 
 
@@ -73,16 +74,8 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
            [1.0986..., 1.3862...]])
     """
 
-    def __init__(
-        self,
-        *,
-        func=None,
-        inverse_func=None,
-        accept_sparse=False,
-        check_inverse=True,
-        kw_args=None,
-        inv_kw_args=None,
-    ):
+    def __init__(self, *, func=None, inverse_func=None, accept_sparse=False,
+                 check_inverse=True, kw_args=None, inv_kw_args=None):
         self.func = func
         self.inverse_func = inverse_func
         self.accept_sparse = accept_sparse
@@ -100,13 +93,10 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         with cuml.using_output_type("cupy"):
             X_round_trip = self.inverse_transform(self.transform(X[selection]))
             if not _allclose_dense_sparse(X[selection], X_round_trip):
-                warnings.warn(
-                    "The provided functions are not strictly"
-                    " inverse of each other. If you are sure you"
-                    " want to proceed regardless, set"
-                    " 'check_inverse=False'.",
-                    UserWarning,
-                )
+                warnings.warn("The provided functions are not strictly"
+                              " inverse of each other. If you are sure you"
+                              " want to proceed regardless, set"
+                              " 'check_inverse=False'.", UserWarning)
 
     @reflect(reset=True)
     def fit(self, X, y=None) -> "FunctionTransformer":
@@ -122,9 +112,8 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         self
         """
         X = self._check_input(X)
-        if self.check_inverse and not (
-            self.func is None or self.inverse_func is None
-        ):
+        if (self.check_inverse and not (self.func is None or
+                                        self.inverse_func is None)):
             self._check_inverse_transform(X)
         return self
 
@@ -158,9 +147,8 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         X_out : {array-like, sparse matrix}, shape (n_samples, n_features)
             Transformed input.
         """
-        return self._transform(
-            X, func=self.inverse_func, kw_args=self.inv_kw_args
-        )
+        return self._transform(X, func=self.inverse_func,
+                               kw_args=self.inv_kw_args)
 
     def _transform(self, X, func=None, kw_args=None):
         X = self._check_input(X)
@@ -171,4 +159,5 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         return func(X, **(kw_args if kw_args else {}))
 
     def _more_tags(self):
-        return {"stateless": True, "requires_y": False}
+        return {'stateless': True,
+                'requires_y': False}

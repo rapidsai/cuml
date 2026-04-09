@@ -46,11 +46,9 @@ from ..utils.skl_dependencies import (
     TransformerMixin,
 )
 
-_ERR_MSG_1DCOLUMN = (
-    "1D data passed to a transformer that expects 2D data. "
-    "Try to specify the column selection as a list of one "
-    "item instead of a scalar."
-)
+_ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
+                     "Try to specify the column selection as a list of one "
+                     "item instead of a scalar.")
 
 
 def issparse(X):
@@ -73,21 +71,13 @@ def _determine_key_type(key, accept_slice=True):
     dtype : {'int', 'str', 'bool', None}
         Returns the data type of key.
     """
-    err_msg = (
-        "No valid specification of the columns. Only a scalar, list or "
-        "slice of all integers or all strings, or boolean mask is "
-        "allowed"
-    )
+    err_msg = ("No valid specification of the columns. Only a scalar, list or "
+               "slice of all integers or all strings, or boolean mask is "
+               "allowed")
 
-    dtype_to_str = {int: "int", str: "str", bool: "bool", np.bool_: "bool"}
-    array_dtype_to_str = {
-        "i": "int",
-        "u": "int",
-        "b": "bool",
-        "O": "str",
-        "U": "str",
-        "S": "str",
-    }
+    dtype_to_str = {int: 'int', str: 'str', bool: 'bool', np.bool_: 'bool'}
+    array_dtype_to_str = {'i': 'int', 'u': 'int', 'b': 'bool', 'O': 'str',
+                          'U': 'str', 'S': 'str'}
 
     if key is None:
         return None
@@ -99,8 +89,8 @@ def _determine_key_type(key, accept_slice=True):
     if isinstance(key, slice):
         if not accept_slice:
             raise TypeError(
-                "Only array-like or scalar are supported. "
-                "A Python slice was given."
+                'Only array-like or scalar are supported. '
+                'A Python slice was given.'
             )
         if key.start is None and key.stop is None:
             return None
@@ -120,7 +110,7 @@ def _determine_key_type(key, accept_slice=True):
         if len(key_type) != 1:
             raise ValueError(err_msg)
         return key_type.pop()
-    if hasattr(key, "dtype"):
+    if hasattr(key, 'dtype'):
         try:
             return array_dtype_to_str[key.dtype.kind]
         except KeyError:
@@ -129,7 +119,8 @@ def _determine_key_type(key, accept_slice=True):
 
 
 def _get_column_indices(X, key):
-    """Get feature column indices for input data X and key."""
+    """Get feature column indices for input data X and key.
+    """
     n_columns = X.shape[1]
 
     key_dtype = _determine_key_type(key)
@@ -137,25 +128,22 @@ def _get_column_indices(X, key):
     if isinstance(key, (list, tuple)) and not key:
         # we get an empty list
         return []
-    elif key_dtype in ("bool", "int"):
+    elif key_dtype in ('bool', 'int'):
         # Convert key into positive indexes
         try:
             idx = _safe_indexing(np.arange(n_columns), key)
         except IndexError as e:
             raise ValueError(
-                "all features must be in [0, {}] or [-{}, 0]".format(
-                    n_columns - 1, n_columns
-                )
+                'all features must be in [0, {}] or [-{}, 0]'
+                .format(n_columns - 1, n_columns)
             ) from e
         return np.atleast_1d(idx).tolist()
-    elif key_dtype == "str":
+    elif key_dtype == 'str':
         try:
             all_columns = X.columns
         except AttributeError:
-            raise ValueError(
-                "Specifying the columns using strings is only "
-                "supported for pandas DataFrames"
-            )
+            raise ValueError("Specifying the columns using strings is only "
+                             "supported for pandas DataFrames")
         if isinstance(key, str):
             columns = [key]
         elif isinstance(key, slice):
@@ -176,10 +164,8 @@ def _get_column_indices(X, key):
             for col in columns:
                 col_idx = all_columns.get_loc(col)
                 if not isinstance(col_idx, numbers.Integral):
-                    raise ValueError(
-                        f"Selected columns, {columns}, are not "
-                        "unique in dataframe"
-                    )
+                    raise ValueError(f"Selected columns, {columns}, are not "
+                                     "unique in dataframe")
                 column_indices.append(col_idx)
 
         except KeyError as e:
@@ -189,11 +175,9 @@ def _get_column_indices(X, key):
 
         return column_indices
     else:
-        raise ValueError(
-            "No valid specification of the columns. Only a "
-            "scalar, list or slice of all integers or all "
-            "strings, or boolean mask is allowed"
-        )
+        raise ValueError("No valid specification of the columns. Only a "
+                         "scalar, list or slice of all integers or all "
+                         "strings, or boolean mask is allowed")
 
 
 def _safe_indexing(X, indices, *, axis=0):
@@ -245,8 +229,10 @@ def _safe_indexing(X, indices, *, axis=0):
 
     indices_dtype = _determine_key_type(indices)
 
-    if axis == 0 and indices_dtype == "str":
-        raise ValueError("String indexing is not supported with 'axis=0'")
+    if axis == 0 and indices_dtype == 'str':
+        raise ValueError(
+            "String indexing is not supported with 'axis=0'"
+        )
 
     if axis == 1 and X.ndim != 2:
         raise ValueError(
@@ -255,7 +241,7 @@ def _safe_indexing(X, indices, *, axis=0):
             "Got {} instead with {} dimension(s).".format(type(X), X.ndim)
         )
 
-    if axis == 1 and indices_dtype == "str" and not hasattr(X, "loc"):
+    if axis == 1 and indices_dtype == 'str' and not hasattr(X, 'loc'):
         raise ValueError(
             "Specifying the columns using strings is only supported for "
             "pandas DataFrames"
@@ -273,7 +259,7 @@ def _array_indexing(array, key, key_dtype, axis):
     """Index an array or a sparse array"""
     if issparse(array):
         # check if we have an boolean array-likes to make the proper indexing
-        if key_dtype == "bool":
+        if key_dtype == 'bool':
             key = np.asarray(key)
     if isinstance(key, tuple):
         key = list(key)
@@ -284,7 +270,7 @@ def _array_indexing(array, key, key_dtype, axis):
 
 def _pandas_indexing(X, key, key_dtype, axis):
     """Index a dataframe or a series"""
-    if hasattr(key, "shape"):
+    if hasattr(key, 'shape'):
         # Work-around for indexing with read-only key in pandas
         # FIXME: solved in pandas 0.25
         key = key.to_numpy()
@@ -292,7 +278,7 @@ def _pandas_indexing(X, key, key_dtype, axis):
     elif isinstance(key, tuple):
         key = list(key)
     # check whether we should index with loc or iloc
-    indexer = X.iloc if key_dtype == "int" else X.loc
+    indexer = X.iloc if key_dtype == 'int' else X.loc
     return indexer[:, key] if axis else indexer[key]
 
 
@@ -301,7 +287,7 @@ def _list_indexing(X, key, key_dtype):
     if np.isscalar(key) or isinstance(key, slice):
         # key is a slice or a scalar
         return X[key]
-    if key_dtype == "bool":
+    if key_dtype == 'bool':
         # key is a boolean array-like
         return list(compress(X, key))
     # key is a integer array-like of key
@@ -318,9 +304,13 @@ def _transform_one(transformer, X, y, weight, **fit_params):
     return res * weight
 
 
-def _fit_transform_one(
-    transformer, X, y, weight, message_clsname="", message=None, **fit_params
-):
+def _fit_transform_one(transformer,
+                       X,
+                       y,
+                       weight,
+                       message_clsname='',
+                       message=None,
+                       **fit_params):
     """
     Fits ``transformer`` to ``X`` and ``y``. The transformed result is returned
     with the fitted transformer. If ``weight`` is not ``None``, the result will
@@ -329,7 +319,7 @@ def _fit_transform_one(
     with _print_elapsed_time(message_clsname, message):
         with cuml.using_output_type("cupy"):
             transformer.accept_sparse = True
-            if hasattr(transformer, "fit_transform"):
+            if hasattr(transformer, 'fit_transform'):
                 res = transformer.fit_transform(X, y, **fit_params)
             else:
                 res = transformer.fit(X, y, **fit_params).transform(X)
@@ -344,8 +334,7 @@ def _name_estimators(estimators):
 
     names = [
         estimator
-        if isinstance(estimator, str)
-        else type(estimator).__name__.lower()
+        if isinstance(estimator, str) else type(estimator).__name__.lower()
         for estimator in estimators
     ]
     namecount = defaultdict(int)
@@ -367,16 +356,14 @@ def _name_estimators(estimators):
 
 def delayed(function):
     """Decorator used to capture the arguments of a function."""
-
     @functools.wraps(function)
     def delayed_function(*args, **kwargs):
         return _FuncWrapper(function), args, kwargs
-
     return delayed_function
 
 
 class _FuncWrapper:
-    """ "Load the global configuration before calling the function."""
+    """"Load the global configuration before calling the function."""
 
     def __init__(self, function):
         self.function = function
@@ -408,8 +395,8 @@ def _print_elapsed_time(source, message=None):
         start = timeit.default_timer()
         yield
         print(
-            _message_with_time(source, message, timeit.default_timer() - start)
-        )
+            _message_with_time(source, message,
+                               timeit.default_timer() - start))
 
 
 def _message_with_time(source, message, time):
@@ -432,8 +419,8 @@ def _message_with_time(source, message, time):
     else:
         time_str = " %5.1fs" % time
     end_message = " %s, total=%s" % (message, time_str)
-    dots_len = 70 - len(start_message) - len(end_message)
-    return "%s%s%s" % (start_message, dots_len * ".", end_message)
+    dots_len = (70 - len(start_message) - len(end_message))
+    return "%s%s%s" % (start_message, dots_len * '.', end_message)
 
 
 class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
@@ -566,21 +553,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
            [0.5, 0.5, 0. , 1. ]])
 
     """
+    _required_parameters = ['transformers']
 
-    _required_parameters = ["transformers"]
-
-    def __init__(
-        self,
-        transformers=None,
-        *,
-        remainder="drop",
-        sparse_threshold=0.3,
-        n_jobs=None,
-        transformer_weights=None,
-        verbose=False,
-    ):
+    def __init__(self,
+                 transformers=None,
+                 *,
+                 remainder='drop',
+                 sparse_threshold=0.3,
+                 n_jobs=None,
+                 transformer_weights=None,
+                 verbose=False):
         if not transformers:
-            warnings.warn("Transformers are required")
+            warnings.warn('Transformers are required')
         self.transformers = transformers
         self.remainder = remainder
         self.sparse_threshold = sparse_threshold
@@ -601,9 +585,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
     @_transformers.setter
     def _transformers(self, value):
         self.transformers = [
-            (name, trans, col)
-            for ((name, trans), (_, _, col)) in zip(value, self.transformers)
-        ]
+            (name, trans, col) for ((name, trans), (_, _, col))
+            in zip(value, self.transformers)]
 
     def get_params(self, deep=True):
         """Get parameters for this estimator.
@@ -623,7 +606,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         params : dict
             Parameter names mapped to their values.
         """
-        return self._get_params("_transformers", deep=deep)
+        return self._get_params('_transformers', deep=deep)
 
     def set_params(self, **kwargs):
         """Set the parameters of this estimator.
@@ -636,7 +619,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         -------
         self
         """
-        self._set_params("_transformers", **kwargs)
+        self._set_params('_transformers', **kwargs)
         return self
 
     def _iter(self, fitted=False, replace_strings=False):
@@ -653,10 +636,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         else:
             # interleave the validated column specifiers
             transformers = [
-                (name, trans, column)
-                for (name, trans, _), column in zip(
-                    self.transformers, self._columns
-                )
+                (name, trans, column) for (name, trans, _), column
+                in zip(self.transformers, self._columns)
             ]
             # add transformer tuple for remainder
             if self._remainder[2] is not None:
@@ -667,12 +648,11 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             if replace_strings:
                 # replace 'passthrough' with identity transformer and
                 # skip in case of 'drop'
-                if trans == "passthrough":
+                if trans == 'passthrough':
                     with cuml.using_output_type("cupy"):
-                        trans = FunctionTransformer(
-                            accept_sparse=True, check_inverse=False
-                        )
-                elif trans == "drop":
+                        trans = FunctionTransformer(accept_sparse=True,
+                                                    check_inverse=False)
+                elif trans == 'drop':
                     continue
                 elif _is_empty_column_selection(column):
                     continue
@@ -690,16 +670,14 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         # validate estimators
         for t in transformers:
-            if t in ("drop", "passthrough"):
+            if t in ('drop', 'passthrough'):
                 continue
-            if not (
-                hasattr(t, "fit") or hasattr(t, "fit_transform")
-            ) or not hasattr(t, "transform"):
-                raise TypeError(
-                    "All estimators should implement fit and "
-                    "transform, or can be 'drop' or 'passthrough' "
-                    "specifiers. '%s' (type %s) doesn't." % (t, type(t))
-                )
+            if (not (hasattr(t, "fit") or hasattr(t, "fit_transform")) or not
+                    hasattr(t, "transform")):
+                raise TypeError("All estimators should implement fit and "
+                                "transform, or can be 'drop' or 'passthrough' "
+                                "specifiers. '%s' (type %s) doesn't." %
+                                (t, type(t)))
 
     def _validate_column_callables(self, X):
         """
@@ -717,25 +695,20 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         Validates ``remainder`` and defines ``_remainder`` targeting
         the remaining columns.
         """
-        is_transformer = (
-            hasattr(self.remainder, "fit")
-            or hasattr(self.remainder, "fit_transform")
-        ) and hasattr(self.remainder, "transform")
-        if (
-            self.remainder not in ("drop", "passthrough")
-            and not is_transformer
-        ):
+        is_transformer = ((hasattr(self.remainder, "fit")
+                           or hasattr(self.remainder, "fit_transform"))
+                          and hasattr(self.remainder, "transform"))
+        if (self.remainder not in ('drop', 'passthrough')
+                and not is_transformer):
             raise ValueError(
                 "The remainder keyword needs to be one of 'drop', "
-                "'passthrough', or estimator. '%s' was passed instead"
-                % self.remainder
-            )
+                "'passthrough', or estimator. '%s' was passed instead" %
+                self.remainder)
 
         # Make it possible to check for reordered named columns on transform
-        self._has_str_cols = any(
-            _determine_key_type(cols) == "str" for cols in self._columns
-        )
-        if hasattr(X, "columns"):
+        self._has_str_cols = any(_determine_key_type(cols) == 'str'
+                                 for cols in self._columns)
+        if hasattr(X, 'columns'):
             self._df_columns = X.columns
 
         self._n_features = X.shape[1]
@@ -744,7 +717,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             cols.extend(_get_column_indices(X, columns))
 
         remaining_idx = sorted(set(range(self._n_features)) - set(cols))
-        self._remainder = ("remainder", self.remainder, remaining_idx or None)
+        self._remainder = ('remainder', self.remainder, remaining_idx or None)
 
     @property
     def named_transformers_(self):
@@ -756,7 +729,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         """
         # Use Bunch object to improve autocomplete
-        return Bunch(**{name: trans for name, trans, _ in self.transformers_})
+        return Bunch(**{name: trans for name, trans, _
+                        in self.transformers_})
 
     def get_feature_names(self):
         """Get feature names from all transformers.
@@ -769,31 +743,26 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         check_is_fitted(self)
         feature_names = []
         for name, trans, column, _ in self._iter(fitted=True):
-            if trans == "drop" or (
-                hasattr(column, "__len__") and not len(column)
-            ):
+            if trans == 'drop' or (
+                    hasattr(column, '__len__') and not len(column)):
                 continue
-            if trans == "passthrough":
-                if hasattr(self, "_df_columns"):
-                    if (not isinstance(column, slice)) and all(
-                        isinstance(col, str) for col in column
-                    ):
+            if trans == 'passthrough':
+                if hasattr(self, '_df_columns'):
+                    if ((not isinstance(column, slice))
+                            and all(isinstance(col, str) for col in column)):
                         feature_names.extend(column)
                     else:
                         feature_names.extend(self._df_columns[column])
                 else:
                     indices = np.arange(self._n_features)
-                    feature_names.extend(["x%d" % i for i in indices[column]])
+                    feature_names.extend(['x%d' % i for i in indices[column]])
                 continue
-            if not hasattr(trans, "get_feature_names"):
-                raise AttributeError(
-                    "Transformer %s (type %s) does not "
-                    "provide get_feature_names."
-                    % (str(name), type(trans).__name__)
-                )
-            feature_names.extend(
-                [name + "__" + f for f in trans.get_feature_names()]
-            )
+            if not hasattr(trans, 'get_feature_names'):
+                raise AttributeError("Transformer %s (type %s) does not "
+                                     "provide get_feature_names."
+                                     % (str(name), type(trans).__name__))
+            feature_names.extend([name + "__" + f for f in
+                                  trans.get_feature_names()])
         return feature_names
 
     def _update_fitted_transformers(self, transformers):
@@ -802,13 +771,13 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         transformers_ = []
 
         for name, old, column, _ in self._iter():
-            if old == "drop":
-                trans = "drop"
-            elif old == "passthrough":
+            if old == 'drop':
+                trans = 'drop'
+            elif old == 'passthrough':
                 # FunctionTransformer is present in list of transformers,
                 # so get next transformer, but save original string
                 next(fitted_transformers)
-                trans = "passthrough"
+                trans = 'passthrough'
             elif _is_empty_column_selection(column):
                 trans = old
             else:
@@ -824,21 +793,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         Ensure that the output of each transformer is 2D. Otherwise
         hstack can raise an error or produce incorrect results.
         """
-        names = [
-            name
-            for name, _, _, _ in self._iter(fitted=True, replace_strings=True)
-        ]
+        names = [name for name, _, _, _ in self._iter(fitted=True,
+                                                      replace_strings=True)]
         for Xs, name in zip(result, names):
-            if not getattr(Xs, "ndim", 0) == 2:
+            if not getattr(Xs, 'ndim', 0) == 2:
                 raise ValueError(
                     "The output of the '{0}' transformer should be 2D (scipy "
-                    "matrix, array, or pandas DataFrame).".format(name)
-                )
+                    "matrix, array, or pandas DataFrame).".format(name))
 
     def _log_message(self, name, idx, total):
         if not self.verbose:
             return None
-        return "(%d of %d) Processing %s" % (idx, total, name)
+        return '(%d of %d) Processing %s' % (idx, total, name)
 
     def _fit_transform(self, X, y, func, fitted=False):
         """
@@ -848,7 +814,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         on the passed function.
         ``fitted=True`` ensures the fitted transformers are used.
         """
-        transformers = list(self._iter(fitted=fitted, replace_strings=True))
+        transformers = list(
+            self._iter(fitted=fitted, replace_strings=True))
         try:
             return Parallel(n_jobs=self.n_jobs)(
                 delayed(func)(
@@ -856,13 +823,10 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                     X=_safe_indexing(X, column, axis=1),
                     y=y,
                     weight=weight,
-                    message_clsname="ColumnTransformer",
-                    message=self._log_message(name, idx, len(transformers)),
-                )
+                    message_clsname='ColumnTransformer',
+                    message=self._log_message(name, idx, len(transformers)))
                 for idx, (name, trans, column, weight) in enumerate(
-                    self._iter(fitted=fitted, replace_strings=True), 1
-                )
-            )
+                    self._iter(fitted=fitted, replace_strings=True), 1))
         except ValueError as e:
             if "Expected 2D array, got 1D array instead" in str(e):
                 raise ValueError(_ERR_MSG_1DCOLUMN) from e
@@ -932,9 +896,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         # determine if concatenated output will be sparse or not
         if any(issparse(X) for X in Xs):
             nnz = sum(X.nnz if issparse(X) else X.size for X in Xs)
-            total = sum(
-                X.shape[0] * X.shape[1] if issparse(X) else X.size for X in Xs
-            )
+            total = sum(X.shape[0] * X.shape[1] if issparse(X)
+                        else X.size for X in Xs)
             density = nnz / total
             self.sparse_output_ = density < self.sparse_threshold
         else:
@@ -990,10 +953,10 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                 # since all columns should be numeric before stacking them
                 # in a sparse matrix, `check_array` is used for the
                 # dtype conversion if necessary.
-                converted_Xs = [
-                    check_array(X, accept_sparse=True, force_all_finite=False)
-                    for X in Xs
-                ]
+                converted_Xs = [check_array(X,
+                                            accept_sparse=True,
+                                            force_all_finite=False)
+                                for X in Xs]
             except ValueError as e:
                 raise ValueError(
                     "For a sparse output, all columns should "
@@ -1012,14 +975,12 @@ def _is_empty_column_selection(column):
     boolean array).
 
     """
-    if hasattr(column, "dtype") and np.issubdtype(column.dtype, np.bool_):
+    if hasattr(column, 'dtype') and np.issubdtype(column.dtype, np.bool_):
         return not column.any()
-    elif hasattr(column, "__len__"):
-        return (
-            len(column) == 0
-            or all(isinstance(col, bool) for col in column)
-            and not any(column)
-        )
+    elif hasattr(column, '__len__'):
+        return (len(column) == 0 or
+                all(isinstance(col, bool) for col in column)
+                and not any(column))
     else:
         return False
 
@@ -1036,13 +997,11 @@ def _get_transformer_list(estimators):
     return transformer_list
 
 
-def make_column_transformer(
-    *transformers,
-    remainder="drop",
-    sparse_threshold=0.3,
-    n_jobs=None,
-    verbose=False,
-):
+def make_column_transformer(*transformers,
+                            remainder='drop',
+                            sparse_threshold=0.3,
+                            n_jobs=None,
+                            verbose=False):
     """Construct a ColumnTransformer from the given transformers.
 
     This is a shorthand for the ColumnTransformer constructor; it does not
@@ -1127,13 +1086,10 @@ def make_column_transformer(
     # transformer_weights keyword is not passed through because the user
     # would need to know the automatically generated names of the transformers
     transformer_list = _get_transformer_list(transformers)
-    return ColumnTransformer(
-        transformer_list,
-        n_jobs=n_jobs,
-        remainder=remainder,
-        sparse_threshold=sparse_threshold,
-        verbose=verbose,
-    )
+    return ColumnTransformer(transformer_list, n_jobs=n_jobs,
+                             remainder=remainder,
+                             sparse_threshold=sparse_threshold,
+                             verbose=verbose)
 
 
 class make_column_selector:
@@ -1191,23 +1147,20 @@ class make_column_selector:
            [ 0.90453403,  0.        ,  0.        ,  1.        ]])
     """
 
-    def __init__(
-        self, pattern=None, *, dtype_include=None, dtype_exclude=None
-    ):
+    def __init__(self, pattern=None, *, dtype_include=None,
+                 dtype_exclude=None):
         self.pattern = pattern
         self.dtype_include = dtype_include
         self.dtype_exclude = dtype_exclude
 
     def __call__(self, df):
-        if not hasattr(df, "iloc"):
-            raise ValueError(
-                "make_column_selector can only be applied to pandas dataframes"
-            )
+        if not hasattr(df, 'iloc'):
+            raise ValueError("make_column_selector can only be applied to "
+                             "pandas dataframes")
         df_row = df.iloc[:1]
         if self.dtype_include is not None or self.dtype_exclude is not None:
-            df_row = df_row.select_dtypes(
-                include=self.dtype_include, exclude=self.dtype_exclude
-            )
+            df_row = df_row.select_dtypes(include=self.dtype_include,
+                                          exclude=self.dtype_exclude)
         cols = df_row.columns
         if self.pattern is not None:
             cols = cols[cols.str.contains(self.pattern, regex=True)]
