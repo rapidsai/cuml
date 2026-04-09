@@ -31,13 +31,11 @@ from ....thirdparty_adapters.sparsefuncs_fast import (
 
 
 def iscsr(X):
-    return isinstance(X, cpu_sp.csr_matrix) \
-        or isinstance(X, gpu_sp.csr_matrix)
+    return isinstance(X, cpu_sp.csr_matrix) or isinstance(X, gpu_sp.csr_matrix)
 
 
 def iscsc(X):
-    return isinstance(X, cpu_sp.csc_matrix) \
-        or isinstance(X, gpu_sp.csc_matrix)
+    return isinstance(X, cpu_sp.csc_matrix) or isinstance(X, gpu_sp.csc_matrix)
 
 
 def issparse(X):
@@ -54,7 +52,8 @@ def _raise_typeerror(X):
 def _raise_error_wrong_axis(axis):
     if axis not in (0, 1):
         raise ValueError(
-            "Unknown axis value: %d. Use 0 for rows, or 1 for columns" % axis)
+            "Unknown axis value: %d. Use 0 for rows, or 1 for columns" % axis
+        )
 
 
 def inplace_csr_column_scale(X, scale):
@@ -78,7 +77,7 @@ def inplace_csr_column_scale(X, scale):
 
 
 def inplace_csr_row_scale(X, scale):
-    """ Inplace row scaling of a CSR matrix.
+    """Inplace row scaling of a CSR matrix.
 
     Scale each sample of the data matrix by multiplying with specific scale
     provided by the caller assuming a (n_samples, n_features) shape.
@@ -155,10 +154,10 @@ def mean_variance_axis(X, axis):
 
 
 ufunc_dic = {
-    'min': np.min,
-    'max': np.max,
-    'nanmin': np.nanmin,
-    'nanmax': np.nanmax
+    "min": np.min,
+    "max": np.max,
+    "nanmin": np.nanmin,
+    "nanmax": np.nanmax,
 }
 
 
@@ -187,24 +186,30 @@ def _min_or_max_axis(X, axis, min_or_max):
     mat.sum_duplicates()
     major_index, value = _minor_reduce(mat, min_or_max)
     not_full = np.diff(mat.indptr)[major_index] < N
-    if 'min' in min_or_max:
+    if "min" in min_or_max:
         fminmax = np.fmin
     else:
         fminmax = np.fmax
     is_nan = np.isnan(value)
     value[not_full] = fminmax(value[not_full], 0)
-    if 'nan' not in min_or_max:
+    if "nan" not in min_or_max:
         value[is_nan] = np.nan
     mask = value != 0
     major_index = np.compress(mask, major_index)
     value = np.compress(mask, value)
 
     if axis == 0:
-        res = gpu_sp.coo_matrix((value, (np.zeros(len(value)), major_index)),
-                                dtype=X.dtype, shape=(1, M))
+        res = gpu_sp.coo_matrix(
+            (value, (np.zeros(len(value)), major_index)),
+            dtype=X.dtype,
+            shape=(1, M),
+        )
     else:
-        res = gpu_sp.coo_matrix((value, (major_index, np.zeros(len(value)))),
-                                dtype=X.dtype, shape=(M, 1))
+        res = gpu_sp.coo_matrix(
+            (value, (major_index, np.zeros(len(value)))),
+            dtype=X.dtype,
+            shape=(M, 1),
+        )
     return res.A.ravel()
 
 
@@ -217,10 +222,10 @@ def _sparse_min_or_max(X, axis, min_or_max):
         fminmax = ufunc_dic[min_or_max]
         m = fminmax(X.data)
         if np.isnan(m):
-            if 'nan' in min_or_max:
+            if "nan" in min_or_max:
                 m = 0
         elif X.nnz != cpu_np.prod(X.shape):
-            if 'min' in min_or_max:
+            if "min" in min_or_max:
                 m = m if m <= 0 else 0
             else:
                 m = m if m >= 0 else 0
@@ -234,13 +239,17 @@ def _sparse_min_or_max(X, axis, min_or_max):
 
 
 def _sparse_min_max(X, axis):
-    return (_sparse_min_or_max(X, axis, 'min'),
-            _sparse_min_or_max(X, axis, 'max'))
+    return (
+        _sparse_min_or_max(X, axis, "min"),
+        _sparse_min_or_max(X, axis, "max"),
+    )
 
 
 def _sparse_nan_min_max(X, axis):
-    return(_sparse_min_or_max(X, axis, 'nanmin'),
-           _sparse_min_or_max(X, axis, 'nanmax'))
+    return (
+        _sparse_min_or_max(X, axis, "nanmin"),
+        _sparse_min_or_max(X, axis, "nanmax"),
+    )
 
 
 def min_max_axis(X, axis, ignore_nan=False):

@@ -24,8 +24,8 @@ def test_class_enumerator():
         module=SomeModule,
         exclude_classes=[SomeModule.ExcludedClass],
         custom_constructors={
-            "CustomConstructorClass": lambda: SomeModule.CustomConstructorClass(
-                some_parameter=1
+            "CustomConstructorClass": lambda: (
+                SomeModule.CustomConstructorClass(some_parameter=1)
             )
         },
     )

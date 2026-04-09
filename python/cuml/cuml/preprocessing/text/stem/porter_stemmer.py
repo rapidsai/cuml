@@ -564,8 +564,10 @@ class PorterStemmer:
                 (
                     "ion",
                     "",
-                    lambda stem: measure_gt_n(stem, 1)
-                    & last_char_in(stem, characters=["s", "t"]),
+                    lambda stem: (
+                        measure_gt_n(stem, 1)
+                        & last_char_in(stem, characters=["s", "t"])
+                    ),
                 ),
                 ("ou", "", measure_gt_1),
                 ("ism", "", measure_gt_1),

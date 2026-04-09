@@ -42,8 +42,9 @@ class BaseEstimator(Base):
 
         cls.__init__ = init
 
-    def _validate_data(self, X, y=None, reset=True,
-                       validate_separately=False, **check_params):
+    def _validate_data(
+        self, X, y=None, reset=True, validate_separately=False, **check_params
+    ):
         """Validate input data and set or check the `n_features_in_` attribute.
 
         Parameters
@@ -72,7 +73,7 @@ class BaseEstimator(Base):
         out : {ndarray, sparse matrix} or tuple of these
             The validated input. A tuple is returned if `y` is not None.
         """
-        if check_params.get('ensure_2d', True) and not reset:
+        if check_params.get("ensure_2d", True) and not reset:
             # The `reset=True` case is always handled by the mandatory
             # `reflect(reset=True)` decorators currently. To avoid
             # duplicate calls, we avoid `check_features(self, X, reset=True)`
@@ -80,7 +81,7 @@ class BaseEstimator(Base):
             check_features(self, X)
 
         if y is None:
-            if self._get_tags()['requires_y']:
+            if self._get_tags()["requires_y"]:
                 raise ValueError(
                     f"This {self.__class__.__name__} estimator "
                     f"requires y to be passed, but the target y is None."
@@ -140,8 +141,7 @@ class TransformerMixin:
 
 
 class BaseComposition:
-    """Handles parameter management for classifiers composed of named estimators.
-    """
+    """Handles parameter management for classifiers composed of named estimators."""
 
     def _get_params(self, attr, deep=True):
         out = super().get_params(deep=deep)
@@ -150,9 +150,9 @@ class BaseComposition:
         estimators = getattr(self, attr)
         out.update(estimators)
         for name, estimator in estimators:
-            if hasattr(estimator, 'get_params'):
+            if hasattr(estimator, "get_params"):
                 for key, value in estimator.get_params(deep=True).items():
-                    out['%s__%s' % (name, key)] = value
+                    out["%s__%s" % (name, key)] = value
         return out
 
     def _set_params(self, attr, **params):
@@ -166,7 +166,7 @@ class BaseComposition:
         if items:
             names, _ = zip(*items)
         for name in list(params.keys()):
-            if '__' not in name and name in names:
+            if "__" not in name and name in names:
                 self._replace_estimator(attr, name, params.pop(name))
         # 3. Step parameters and other initialisation arguments
         super().set_params(**params)
@@ -183,13 +183,19 @@ class BaseComposition:
 
     def _validate_names(self, names):
         if len(set(names)) != len(names):
-            raise ValueError('Names provided are not unique: '
-                             '{0!r}'.format(list(names)))
+            raise ValueError(
+                "Names provided are not unique: {0!r}".format(list(names))
+            )
         invalid_names = set(names).intersection(self.get_params(deep=False))
         if invalid_names:
-            raise ValueError('Estimator names conflict with constructor '
-                             'arguments: {0!r}'.format(sorted(invalid_names)))
-        invalid_names = [name for name in names if '__' in name]
+            raise ValueError(
+                "Estimator names conflict with constructor "
+                "arguments: {0!r}".format(sorted(invalid_names))
+            )
+        invalid_names = [name for name in names if "__" in name]
         if invalid_names:
-            raise ValueError('Estimator names must not contain __: got '
-                             '{0!r}'.format(invalid_names))
+            raise ValueError(
+                "Estimator names must not contain __: got {0!r}".format(
+                    invalid_names
+                )
+            )

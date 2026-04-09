@@ -299,8 +299,9 @@ def fit_least_squares(
                 A = cupyx.scipy.sparse.linalg.LinearOperator(
                     shape=X.shape,
                     matvec=lambda w: X.dot(w) - sqrt_weight * w.dot(X_offset),
-                    rmatvec=lambda w: X.T.dot(w)
-                    - X_offset * w.dot(sqrt_weight),
+                    rmatvec=lambda w: (
+                        X.T.dot(w) - X_offset * w.dot(sqrt_weight)
+                    ),
                 )
         else:
             A = X

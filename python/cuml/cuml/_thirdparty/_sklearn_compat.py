@@ -40,12 +40,15 @@ from __future__ import annotations
 import sklearn
 from sklearn.utils.fixes import parse_version
 
-sklearn_version = parse_version(parse_version(sklearn.__version__).base_version)
+sklearn_version = parse_version(
+    parse_version(sklearn.__version__).base_version
+)
 
 
 ########################################################################################
 # The following code does not depend on the sklearn version
 ########################################################################################
+
 
 def get_tags(estimator):
     """Get estimator tags in a consistent format across different sklearn versions.

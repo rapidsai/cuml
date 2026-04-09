@@ -27,8 +27,6 @@
 # Authors mentioned above do not endorse or promote this production.
 
 
-
-
 import cupy as np
 import cupyx
 from cupyx.scipy import sparse
@@ -55,15 +53,16 @@ def row_norms(X, squared=False):
         The row-wise (squared) Euclidean norm of X.
     """
     if sparse.issparse(X):
-        if isinstance(X, (sparse.csr_matrix, sparse.csc_matrix,
-                          sparse.coo_matrix)):
+        if isinstance(
+            X, (sparse.csr_matrix, sparse.csc_matrix, sparse.coo_matrix)
+        ):
             X_copy = X.copy()
             X_copy.data = np.square(X_copy.data)
             norms = X_copy.sum(axis=1).squeeze()
         else:
-            raise ValueError('Sparse matrix not compatible')
+            raise ValueError("Sparse matrix not compatible")
     else:
-        norms = np.einsum('ij,ij->i', X, X)
+        norms = np.einsum("ij,ij->i", X, X)
 
     if not squared:
         np.sqrt(norms, norms)
@@ -131,15 +130,19 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         updated_variance = None
     else:
         new_unnormalized_variance = (
-            _safe_accumulator_op(np.nanvar, X, axis=0) * new_sample_count)
+            _safe_accumulator_op(np.nanvar, X, axis=0) * new_sample_count
+        )
         last_unnormalized_variance = last_variance * last_sample_count
 
         with cupyx.errstate(divide=None, invalid=None):
             last_over_new_count = last_sample_count / new_sample_count
             updated_unnormalized_variance = (
-                last_unnormalized_variance + new_unnormalized_variance +
-                last_over_new_count / updated_sample_count *
-                (last_sum / last_over_new_count - new_sum) ** 2)
+                last_unnormalized_variance
+                + new_unnormalized_variance
+                + last_over_new_count
+                / updated_sample_count
+                * (last_sum / last_over_new_count - new_sum) ** 2
+            )
 
         zeros = last_sample_count == 0
         updated_unnormalized_variance[zeros] = new_unnormalized_variance[zeros]
