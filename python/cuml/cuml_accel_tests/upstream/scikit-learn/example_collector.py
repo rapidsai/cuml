@@ -50,7 +50,9 @@ class ExampleItem(pytest.Item):
         # (which reads item.module.__name__) works for these items.
         # For "cluster/plot_hdbscan.py" -> module name "cluster",
         # giving xfail IDs like "cluster::plot_hdbscan".
-        self.module = _FakeModule(str(rel.parent).replace(os.sep, "."))
+        parent_str = str(rel.parent).replace(os.sep, ".")
+        module_name = "" if parent_str in (".", "") else parent_str
+        self.module = _FakeModule(module_name)
 
     def runtest(self):
         timeout = self.config.getoption("example_timeout")
