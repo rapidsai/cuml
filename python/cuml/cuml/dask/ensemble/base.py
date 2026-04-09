@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -46,15 +46,16 @@ class BaseRandomForestModel(object):
             )
         self.workers = workers
         self._set_internal_model(None)
-        if 'max_depth' not in kwargs:
+        if "max_depth" not in kwargs:
             warnings.warn(
                 "The default value of 'max_depth' will change from 16 to "
                 "None (unlimited depth) in release 26.08. To suppress this "
-                "warning, set 'max_depth' explicitly.", 
-                FutureWarning, stacklevel=2
+                "warning, set 'max_depth' explicitly.",
+                FutureWarning,
+                stacklevel=2,
             )
-            kwargs['max_depth'] = 16
-            
+            kwargs["max_depth"] = 16
+
         self.active_workers = list()
         self.ignore_empty_partitions = ignore_empty_partitions
         self.n_estimators = n_estimators

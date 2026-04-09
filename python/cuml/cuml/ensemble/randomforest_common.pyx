@@ -166,7 +166,9 @@ def compute_max_features(
             f"['sqrt', 'log2']. Got {max_features!r} instead."
         )
 
+
 _DEPRECATED_MAX_DEPTH_DEFAULT = object()
+
 
 class BaseRandomForestModel(Base, InteropMixin):
 
@@ -301,7 +303,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         # available in sklearn models created via treelite export
         return attrs
 
-
     def __init__(
         self,
         *,
@@ -341,8 +342,6 @@ class BaseRandomForestModel(Base, InteropMixin):
                     "max_depth must be > 0 or None; "
                     f"got {max_depth!r}"
                 )
-
-
 
         self.split_criterion = split_criterion
         self.n_estimators = n_estimators
