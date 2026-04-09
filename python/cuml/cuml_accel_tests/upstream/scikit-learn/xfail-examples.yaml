@@ -1,3 +1,8 @@
+- reason: 'cuml.accel bug: CUDA OOM in PCA.fit during concurrent test execution'
+  marker: cuml_accel_bugs
+  strict: false
+  tests:
+  - "decomposition::plot_faces_decomposition"
 - reason: 'cuml.accel bug: implicit CuPy-to-NumPy conversion not handled in ColumnTransformer/Pipeline'
   marker: cuml_accel_bugs
   tests:
@@ -23,7 +28,6 @@
   - "applications::plot_time_series_lagged_features"
   - "compose::plot_digits_pipe"
   - "gaussian_process::plot_gpr_co2"
-  - "model_selection::plot_grid_search_refit_callable"
   - "release_highlights::plot_release_highlights_1_4_0"
 - reason: 'Missing optional dependency: pooch (required by scipy.datasets)'
   tests:
@@ -39,8 +43,16 @@
   - "applications::plot_cyclical_feature_engineering"
   - "compose::plot_compare_reduction"
   - "ensemble::plot_forest_hist_grad_boosting_comparison"
+  - "ensemble::plot_hgbt_regression"
+  - "ensemble::plot_monotonic_constraints"
+  - "exercises::plot_iris_exercise"
+  - "feature_selection::plot_select_from_model_diabetes"
+  - "inspection::plot_partial_dependence"
   - "model_selection::plot_cost_sensitive_learning"
+  - "preprocessing::plot_target_encoder"
   - "preprocessing::plot_target_encoder_cross_val"
+  - "release_highlights::plot_release_highlights_0_23_0"
+  - "release_highlights::plot_release_highlights_1_3_0"
   - "semi_supervised::plot_self_training_varying_threshold"
   - "svm::plot_svm_scale_c"
 - reason: 'Timeout: example exceeds 600s under cuml.accel with sklearn 1.7.2+'
@@ -48,3 +60,7 @@
   strict: false
   tests:
   - "model_selection::plot_successive_halving_heatmap"
+- reason: numpy<2.0 does not accept newshape as a keyword argument in np.reshape
+  condition: numpy<2.0
+  tests:
+  - "gaussian_process::plot_gpr_noisy"
