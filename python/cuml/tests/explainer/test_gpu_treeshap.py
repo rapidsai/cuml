@@ -903,7 +903,13 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10, max_depth=16).fit(
+        curfr(
+            max_features=1.0,
+            random_state=0,
+            n_streams=1,
+            n_bins=10,
+            max_depth=16,
+        ).fit(
             np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
         ),
         np.ones(10, dtype=np.float32),
