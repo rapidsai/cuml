@@ -769,7 +769,7 @@ def test_create_classification_model(
         max_depth=max_depth,
     )
     params = cuml_model.get_params()
-    cuml_model2 = curfc()
+    cuml_model2 = curfc(max_depth=16)
     cuml_model2.set_params(**params)
     verfiy_params = cuml_model2.get_params()
     assert params["max_features"] == verfiy_params["max_features"]
@@ -788,7 +788,7 @@ def test_unlimited_max_depth_classifier():
 
     params = clf.get_params()
     assert params["max_depth"] is None
-    clf2 = curfc()
+    clf2 = curfc(max_depth=16)
     clf2.set_params(**params)
     assert clf2.get_params()["max_depth"] is None
 
@@ -806,7 +806,7 @@ def test_unlimited_max_depth_regressor():
 
     params = reg.get_params()
     assert params["max_depth"] is None
-    reg2 = curfr()
+    reg2 = curfr(max_depth=16)
     reg2.set_params(**params)
     assert reg2.get_params()["max_depth"] is None
 
@@ -879,7 +879,7 @@ def test_rf_nbins_small(small_clf):
     )
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc()
+    cuml_model = curfc(max_depth=16)
 
     # display warning when nbins less than samples
     with warnings.catch_warnings(record=True) as w:
@@ -1219,6 +1219,7 @@ def test_rf_oob_score_classifier(datatype):
         oob_score=True,
         bootstrap=True,
         max_samples=0.8,
+        max_depth=16,
         random_state=42,
     )
     clf.fit(X, y)
@@ -1265,6 +1266,7 @@ def test_rf_oob_score_regressor(datatype):
         oob_score=True,
         bootstrap=True,
         max_samples=0.8,
+        max_depth=16,
         random_state=42,
     )
     reg.fit(X, y)
@@ -1285,7 +1287,7 @@ def test_rf_oob_score_disabled():
     """Test that OOB score attributes don't exist when oob_score=False"""
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
-    clf = curfc(n_estimators=10, oob_score=False, random_state=42)
+    clf = curfc(n_estimators=10, oob_score=False, max_depth=16, random_state=42)
 
     # Capture and verify expected warning
     warning_msg = (
@@ -1305,7 +1307,7 @@ def test_rf_oob_without_bootstrap():
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
     clf = curfc(
-        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
+        n_estimators=10, oob_score=True, bootstrap=False, max_depth=16, random_state=42
     )
 
     # Should raise ValueError when oob_score=True but bootstrap=False
