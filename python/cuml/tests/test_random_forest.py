@@ -184,8 +184,10 @@ def special_reg(request):
 
 
 def test_default_parameters():
-    reg_params = curfr().get_params()
-    clf_params = curfc().get_params()
+    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
+        reg_params = curfr().get_params()
+    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
+        clf_params = curfc().get_params()
 
     # Different default max_features
     assert reg_params["max_features"] == 1.0
@@ -450,12 +452,12 @@ def test_rf_classification_seed(small_clf, datatype):
     for i in range(8):
         seed = random.randint(100, 10**5)
 
-        cu_class = curfc(random_state=seed, n_streams=1)
+        cu_class = curfc(random_state=seed, n_streams=1, max_depth=16)
         cu_class.fit(X_train, y_train)
         preds_orig = cu_class.predict(X_test)
         acc_orig = accuracy_score(y_test, preds_orig)
 
-        cu_class2 = curfc(random_state=seed, n_streams=1)
+        cu_class2 = curfc(random_state=seed, n_streams=1, max_depth=16)
         cu_class2.fit(X_train, y_train)
         preds_rerun = cu_class2.predict(X_test)
         acc_rerun = accuracy_score(y_test, preds_rerun)
@@ -485,7 +487,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
     )
     X_test = X_test.astype(datatype[1])
 
-    cuml_model = curfc()
+    cuml_model = curfc(max_depth=16)
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
@@ -517,7 +519,7 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
     X_test = X_test.astype(datatype[1])
     y_test = y_test.astype(datatype[1])
 
-    cuml_model = curfr()
+    cuml_model = curfr(max_depth=16)
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test, convert_dtype=True)
     r2 = r2_score(y_test, preds)
@@ -1012,7 +1014,7 @@ def test_rf_predict_returns_int():
         "used for training"
     )
     with pytest.warns(UserWarning, match=warning_msg):
-        clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
+        clf = cuml.ensemble.RandomForestClassifier(max_depth=16).fit(X, y)
 
     pred = clf.predict(X)
     assert pred.dtype == np.int64
@@ -1020,7 +1022,7 @@ def test_rf_predict_returns_int():
 
 def test_ensemble_estimator_length():
     X, y = make_classification()
-    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
+    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3, max_depth=16)
 
     # Capture and verify expected warning
     warning_msg = (

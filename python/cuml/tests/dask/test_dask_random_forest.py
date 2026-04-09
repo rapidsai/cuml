@@ -258,7 +258,7 @@ def test_rf_concatenation_dask(client, model_type):
     else:
         y = y.astype(np.float32)
     n_estimators = 40
-    cu_rf_params = {"n_estimators": n_estimators}
+    cu_rf_params = {"n_estimators": n_estimators, "max_depth": 16}
 
     X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=2)
 
@@ -284,7 +284,9 @@ def test_single_input_regression(client, ignore_empty_partitions):
 
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
     cu_rf_mg = cuRFR_mg(
-        n_bins=1, ignore_empty_partitions=ignore_empty_partitions
+        n_bins=1,
+        ignore_empty_partitions=ignore_empty_partitions,
+        max_depth=16,
     )
 
     if (

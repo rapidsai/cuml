@@ -728,13 +728,13 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
     elif learner == "rf":
         if task == "regression":
             model = cuml.ensemble.RandomForestRegressor(
-                n_estimators=n_estimators
+                n_estimators=n_estimators, max_depth=16
             )
             model.fit(X, y)
             pred = model.predict(X)
         elif task == "classification":
             model = cuml.ensemble.RandomForestClassifier(
-                n_estimators=n_estimators
+                n_estimators=n_estimators, max_depth=16
             )
             model.fit(X, y)
             pred = model.predict_proba(X)
@@ -939,7 +939,7 @@ def test_with_hypothesis(params, interactions_method):
 def test_wrong_inputs():
     X = np.array([[0.0, 2.0], [1.0, 0.5]])
     y = np.array([0, 1])
-    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
 
     # background/X different dtype
     with pytest.raises(
@@ -972,7 +972,7 @@ def test_different_algorithms_different_output():
     rng = np.random.RandomState(3)
     X = rng.normal(size=(100, 10))
     y = rng.normal(size=100)
-    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
     interventional_explainer = TreeExplainer(model=model, data=X)
     explainer = TreeExplainer(model=model)
     assert not np.all(
@@ -992,6 +992,6 @@ def test_input_types(input_type):
     X = np.array([[0.0, 2.0], [1.0, 0.5]])
     y = np.array([0, 1])
     X, y = as_type(input_type, X, y)
-    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
     explainer = TreeExplainer(model=model)
     explainer.shap_values(X)
