@@ -979,7 +979,9 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
     # Check that min_samples leaf is works with a small float
     # Non-regression test for gh-4613
     X, y = make_data(random_state=0)
-    clf = estimator(min_samples_split=0.0001, random_state=0, n_estimators=2)
+    clf = estimator(
+        min_samples_split=0.0001, random_state=0, n_estimators=2, max_depth=16
+    )
 
     # Capture and verify expected warning
     warning_msg = (

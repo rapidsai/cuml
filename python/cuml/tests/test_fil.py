@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -978,7 +978,9 @@ def test_wide_data():
     X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
     y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
 
-    clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
+    clf = RandomForestClassifier(
+        max_features="sqrt", n_estimators=10, max_depth=16
+    )
     clf.fit(X, y)
 
     # Inference should run without crashing
