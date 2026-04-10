@@ -7,7 +7,7 @@ import cupy as cp
 import numpy as np
 import scipy.sparse
 import sklearn
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from cuml.accel._patches.sklearn._utils import enable_scipy_array_api
 from cuml.accel.core import logger
@@ -15,7 +15,7 @@ from cuml.accel.estimator_proxy import ensure_host
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import using_output_type
 
-__all__ = ("StandardScaler",)
+__all__ = ("MinMaxScaler", "StandardScaler")
 
 _FITTED_ATTRS = ("mean_", "var_", "scale_", "n_samples_seen_")
 
@@ -249,3 +249,196 @@ _patch_fit_transform(StandardScaler)
 _patch_inverse_transform(StandardScaler)
 
 StandardScaler._cuml_accel_patched = True
+
+# ---------------------------------------------------------------------------
+# MinMaxScaler patches
+# ---------------------------------------------------------------------------
+
+_MINMAX_FITTED_ATTRS = (
+    "scale_",
+    "min_",
+    "data_min_",
+    "data_max_",
+    "data_range_",
+    "n_samples_seen_",
+)
+
+
+def _minmax_ensure_fitted_on_host(self):
+    if GlobalSettings().output_type in (None, "numpy"):
+        for attr in _MINMAX_FITTED_ATTRS:
+            val = getattr(self, attr, None)
+            if val is not None:
+                setattr(self, attr, ensure_host(val))
+
+
+def _minmax_promote_fitted_to_device(self):
+    for attr in _MINMAX_FITTED_ATTRS:
+        val = getattr(self, attr, None)
+        if val is not None and isinstance(val, np.ndarray):
+            setattr(self, attr, cp.asarray(val))
+
+
+@contextlib.contextmanager
+def _minmax_fitted_attrs_on_device(self):
+    saved = {}
+    for attr in _MINMAX_FITTED_ATTRS:
+        val = getattr(self, attr, None)
+        if val is not None and isinstance(val, np.ndarray):
+            saved[attr] = val
+            setattr(self, attr, cp.asarray(val))
+    try:
+        yield
+    finally:
+        for attr, val in saved.items():
+            setattr(self, attr, val)
+
+
+def _patch_minmax_fit(cls):
+    orig_fit = cls.fit
+
+    @functools.wraps(orig_fit)
+    def fit(self, X, y=None):
+        if not _can_accelerate(X):
+            logger.debug("`MinMaxScaler.fit` not optimized: unsupported input")
+            return orig_fit(self, X, y)
+
+        logger.debug("`MinMaxScaler.fit` input data moved to GPU")
+
+        with (
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_fit(self, _to_cupy(X), y)
+
+        _minmax_ensure_fitted_on_host(self)
+        return out
+
+    cls.fit = fit
+
+
+def _patch_minmax_partial_fit(cls):
+    orig_partial_fit = cls.partial_fit
+
+    @functools.wraps(orig_partial_fit)
+    def partial_fit(self, X, y=None):
+        if not _can_accelerate(X):
+            logger.debug(
+                "`MinMaxScaler.partial_fit` not optimized: unsupported input"
+            )
+            return orig_partial_fit(self, X, y)
+
+        logger.debug("`MinMaxScaler.partial_fit` input data moved to GPU")
+
+        _minmax_promote_fitted_to_device(self)
+        with (
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_partial_fit(self, _to_cupy(X), y)
+
+        _minmax_ensure_fitted_on_host(self)
+        return out
+
+    cls.partial_fit = partial_fit
+
+
+def _patch_minmax_transform(cls):
+    orig_transform = cls.transform
+
+    @functools.wraps(orig_transform)
+    def transform(self, X):
+        if not _can_accelerate(X):
+            logger.debug(
+                "`MinMaxScaler.transform` not optimized: unsupported input"
+            )
+            return orig_transform(self, X)
+
+        logger.debug("`MinMaxScaler.transform` input data moved to GPU")
+
+        with (
+            _minmax_fitted_attrs_on_device(self),
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_transform(self, _to_cupy(X))
+
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.transform = transform
+
+
+def _patch_minmax_fit_transform(cls):
+    orig_fit_transform = cls.fit_transform
+
+    @functools.wraps(orig_fit_transform)
+    def fit_transform(self, X, y=None, **fit_params):
+        if not _can_accelerate(X):
+            logger.debug(
+                "`MinMaxScaler.fit_transform` not optimized: unsupported input"
+            )
+            return orig_fit_transform(self, X, y, **fit_params)
+
+        logger.debug("`MinMaxScaler.fit_transform` input data moved to GPU")
+
+        with (
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_fit_transform(self, _to_cupy(X), y, **fit_params)
+
+        _minmax_ensure_fitted_on_host(self)
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.fit_transform = fit_transform
+
+
+def _patch_minmax_inverse_transform(cls):
+    orig_inverse_transform = cls.inverse_transform
+
+    @functools.wraps(orig_inverse_transform)
+    def inverse_transform(self, X):
+        if not _can_accelerate(X):
+            logger.debug(
+                "`MinMaxScaler.inverse_transform` not optimized: "
+                "unsupported input"
+            )
+            return orig_inverse_transform(self, X)
+
+        logger.debug(
+            "`MinMaxScaler.inverse_transform` input data moved to GPU"
+        )
+
+        with (
+            _minmax_fitted_attrs_on_device(self),
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_inverse_transform(self, _to_cupy(X))
+
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.inverse_transform = inverse_transform
+
+
+_patch_minmax_fit(MinMaxScaler)
+_patch_minmax_partial_fit(MinMaxScaler)
+_patch_minmax_transform(MinMaxScaler)
+_patch_minmax_fit_transform(MinMaxScaler)
+_patch_minmax_inverse_transform(MinMaxScaler)
+
+MinMaxScaler._cuml_accel_patched = True
