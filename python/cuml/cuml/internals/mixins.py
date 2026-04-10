@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -15,7 +15,7 @@ from cuml.internals.outputs import run_in_internal_context
 ###############################################################################
 
 
-# Default tags for estimators inheritting from Base.
+# Default tags for estimators inheriting from Base.
 # tag system based on experimental tag system from Scikit-learn >=0.21
 # https://scikit-learn.org/stable/developers/develop.html#estimator-tags
 _default_tags = {
@@ -77,7 +77,7 @@ class TagsMixin:
     def _get_tags(cls):
         """
         Method that collects all the static tags associated to any
-        inheritting class. The Base class for cuML's estimators already
+        inheriting class. The Base class for cuML's estimators already
         uses this mixin, so most estimators don't need to use this Mixin
         directly.
 
@@ -102,7 +102,7 @@ class TagsMixin:
 
         - Mixin Usage
 
-        If your class is not inheritting from cuml's Base
+        If your class is not inheriting from cuml's Base
         then your class can use composition from this Mixin to get the tags
         behavior. If you want your class to have default tags different than
         the ones defined in this file, then implement the `_default_tags`
@@ -149,7 +149,7 @@ class TagsMixin:
         Method to add dynamic tags capability to objects. Useful for cases
         where a tag depends on a value of an instantiated object. Dynamic tags
         will override class static tags, and can be defined with the
-        _more_tags method in inheritting classes like:
+        _more_tags method in inheriting classes like:
 
         def _more_tags(self):
             return {'no_validation': not self.validate}

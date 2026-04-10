@@ -108,7 +108,7 @@ classifiers = [
 test = [
     "certifi",
     "cython>=3.2.2",
-    "hdbscan>=0.8.39,<0.8.40",
+    "hdbscan>=0.8.39",
     "hypothesis>=6.0,<7",
     "ipython>=7.32.0",
     "nltk",

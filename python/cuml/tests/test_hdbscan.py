@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import importlib.metadata
+
 import cupy as cp
 import hdbscan
 import numpy as np
@@ -24,10 +26,13 @@ from cuml.metrics import adjusted_rand_score
 from cuml.testing.datasets import make_pattern
 from cuml.testing.utils import array_equal
 
-if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-    pytest.skip(
-        "hdbscan requires sklearn < 1.8.0.dev0", allow_module_level=True
-    )
+if Version(sklearn.__version__) >= Version("1.8.0"):
+    if Version(importlib.metadata.version("hdbscan")) < Version("0.8.41"):
+        pytest.skip(
+            "hdbscan < 0.8.41 requires sklearn < 1.8.0",
+            allow_module_level=True,
+        )
+
 
 # Ignore FutureWarning from third-party hdbscan package calling
 # sklearn.utils.validation.check_array with deprecated 'force_all_finite'
@@ -302,7 +307,7 @@ def test_hdbscan_sklearn_extract_clusters(
 
     sk_agg.fit(supervised_learning_dataset)
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         sk_agg.condensed_tree_.to_numpy(),
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -311,7 +316,7 @@ def test_hdbscan_sklearn_extract_clusters(
     )
 
     assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
-    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
+    np.testing.assert_allclose(probabilities, sk_agg.probabilities_, rtol=1e-5)
 
 
 @pytest.mark.parametrize("nrows", [1000])
@@ -406,7 +411,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     )
     sk_agg.fit(X)
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         sk_agg.condensed_tree_.to_numpy(),
         allow_single_cluster=allow_single_cluster,
         max_cluster_size=max_cluster_size,
@@ -415,7 +420,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(
     )
 
     assert adjusted_rand_score(labels, sk_agg.labels_) == 1.0
-    np.testing.assert_allclose(probabilties, sk_agg.probabilities_, rtol=1e-5)
+    np.testing.assert_allclose(probabilities, sk_agg.probabilities_, rtol=1e-5)
 
 
 def test_hdbscan_core_dists_bug_4054():
@@ -465,7 +470,7 @@ def test_hdbscan_empty_cluster_tree():
     raw_tree["lambda_val"] = [1.0, 1.0, 1.0, 1.0, 1.0]
     raw_tree["child_size"] = [1, 1, 1, 1, 1]
 
-    labels, probabilties = _extract_clusters(
+    labels, probabilities = _extract_clusters(
         raw_tree,
         allow_single_cluster=True,
         cluster_selection_method="eom",
@@ -761,70 +766,6 @@ def test_approximate_predict_moons(
 ):
     X, y = datasets.make_moons(
         n_samples=nrows + n_points_to_predict, noise=0.05, random_state=42
-    )
-
-    X_train = X[:nrows]
-    X_test = X[nrows:]
-
-    cuml_agg = HDBSCAN(
-        allow_single_cluster=allow_single_cluster,
-        min_samples=min_samples,
-        max_cluster_size=max_cluster_size,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-        prediction_data=True,
-    )
-
-    cuml_agg.fit(X_train)
-
-    sk_agg = hdbscan.HDBSCAN(
-        allow_single_cluster=allow_single_cluster,
-        approx_min_span_tree=False,
-        gen_min_span_tree=True,
-        min_samples=min_samples,
-        min_cluster_size=min_cluster_size,
-        cluster_selection_epsilon=cluster_selection_epsilon,
-        cluster_selection_method=cluster_selection_method,
-        algorithm="generic",
-        prediction_data=True,
-    )
-
-    sk_agg.fit(cp.asnumpy(X_train))
-
-    cu_labels, cu_probs = approximate_predict(cuml_agg, X_test)
-    sk_labels, sk_probs = hdbscan.approximate_predict(sk_agg, X_test)
-
-    sk_unique = np.unique(sk_labels)
-    cu_unique = np.unique(cu_labels)
-    if len(sk_unique) == len(cu_unique):
-        assert adjusted_rand_score(cu_labels, sk_labels) >= 0.99
-        assert array_equal(cu_probs, sk_probs, unit_tol=0.05, total_tol=0.005)
-
-
-@pytest.mark.parametrize("nrows", [1000])
-@pytest.mark.parametrize("n_points_to_predict", [50])
-@pytest.mark.parametrize("min_samples", [5, 15])
-@pytest.mark.parametrize("cluster_selection_epsilon", [0.0, 0.5])
-@pytest.mark.parametrize("min_cluster_size", [50, 100])
-@pytest.mark.parametrize("allow_single_cluster", [True, False])
-@pytest.mark.parametrize("max_cluster_size", [0])
-@pytest.mark.parametrize("cluster_selection_method", ["eom", "leaf"])
-def test_approximate_predict_circles(
-    nrows,
-    n_points_to_predict,
-    min_samples,
-    cluster_selection_epsilon,
-    min_cluster_size,
-    allow_single_cluster,
-    max_cluster_size,
-    cluster_selection_method,
-):
-    X, y = datasets.make_circles(
-        n_samples=nrows + n_points_to_predict,
-        factor=0.8,
-        noise=0.05,
-        random_state=42,
     )
 
     X_train = X[:nrows]

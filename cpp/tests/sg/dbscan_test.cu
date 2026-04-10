@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -347,7 +347,7 @@ const std::vector<float> test2d1_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0}
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
 const std::vector<int64_t> test2d1_l  = {0, 0, 0, 0, 0, -1, -1};
 const std::vector<int64_t> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
-// modified for weighted samples --> wheights are shifted so that
+// modified for weighted samples --> weights are shifted so that
 // the rightmost point will be a core point as well
 const std::vector<float> test2d1w_f = {1, 2, 1, 1, -1, 1, 3};
 const std::vector<double> test2d1w_d(test2d1w_f.begin(), test2d1w_f.end());
@@ -365,7 +365,7 @@ const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0,
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
 const std::vector<int64_t> test2d2_l  = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
 const std::vector<int64_t> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
-// modified for weighted samples --> wheight for the right center
+// modified for weighted samples --> weight for the right center
 // is negative that the whole right star is noise
 const std::vector<float> test2d2w_f = {1, 1, 1, 1, 1, 1, -2, 1, 1, 1};
 const std::vector<double> test2d2w_d(test2d2w_f.begin(), test2d2w_f.end());

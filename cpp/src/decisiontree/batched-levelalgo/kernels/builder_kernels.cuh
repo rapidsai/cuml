@@ -139,7 +139,7 @@ struct CustomDifference {
  * @brief Generates 'k' unique samples of features from 'n' feature sample-space.
  *        Does this for each work-item (node), feeding a unique seed for each (treeid, nodeid
  * (=blockIdx.x), threadIdx.x). Method used is a random, parallel, sampling with replacement of
- * excess of 'k' samples (hence the name) and then eliminating the dupicates by ordering them. The
+ * excess of 'k' samples (hence the name) and then eliminating the duplicates by ordering them. The
  * excess number of samples (=`n_parallel_samples`) is calculated such that after ordering there is
  * at least 'k' uniques.
  */

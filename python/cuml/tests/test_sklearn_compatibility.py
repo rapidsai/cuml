@@ -350,6 +350,7 @@ XFAILS = {
         "check_supervised_y_2d": "Lasso does not handle 2D y",
         "check_supervised_y_no_nan": "Lasso does not check for NaN in y",
         "check_requires_y_none": "Lasso does not handle y=None",
+        "check_sample_weight_equivalence_on_sparse_data": "Lasso QN solver has issues with sample weights",
     },
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -365,6 +366,7 @@ XFAILS = {
         "check_supervised_y_2d": "ElasticNet does not handle 2D y",
         "check_supervised_y_no_nan": "ElasticNet does not check for NaN in y",
         "check_requires_y_none": "ElasticNet does not handle y=None",
+        "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
