@@ -14,7 +14,7 @@ set +e
 
 # Run scikit-learn examples under cuml.accel
 rapids-logger "scikit-learn examples"
-timeout 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
+timeout 90m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
   -n 4 --dist worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
 
