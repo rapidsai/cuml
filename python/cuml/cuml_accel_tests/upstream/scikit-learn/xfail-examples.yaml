@@ -28,6 +28,7 @@
   - "applications::plot_time_series_lagged_features"
   - "compose::plot_digits_pipe"
   - "gaussian_process::plot_gpr_co2"
+  - "model_selection::plot_grid_search_refit_callable"
   - "release_highlights::plot_release_highlights_1_4_0"
 - reason: 'Missing optional dependency: pooch (required by scipy.datasets)'
   tests:
