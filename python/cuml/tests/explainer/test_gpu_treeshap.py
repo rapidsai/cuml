@@ -10,6 +10,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+
 import treelite
 from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
@@ -24,6 +25,9 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.testing.utils import as_type
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 shap = pytest.importorskip("shap")
 
 
@@ -247,7 +251,6 @@ def test_degenerate_cases():
         n_streams=1,
         n_estimators=10,
         max_leaves=-1,
-        max_depth=16,
     )
     # Attempt to import un-fitted model
     with pytest.raises(NotFittedError):
@@ -291,7 +294,6 @@ def test_cuml_rf_regressor(input_type):
         n_streams=1,
         n_estimators=10,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X, y)
     pred = cuml_model.predict(X).squeeze()
@@ -340,7 +342,6 @@ def test_cuml_rf_classifier(n_classes, input_type):
         n_streams=1,
         n_estimators=10,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X, y)
     pred = cuml_model.predict_proba(X)
@@ -379,7 +380,6 @@ def test_sklearn_rf_regressor():
         min_samples_leaf=2,
         random_state=123,
         n_estimators=10,
-        max_depth=16,
     )
     skl_model.fit(X, y)
 
@@ -413,7 +413,6 @@ def test_sklearn_rf_classifier(n_classes):
         min_samples_leaf=2,
         random_state=123,
         n_estimators=10,
-        max_depth=16,
     )
     skl_model.fit(X, y)
 
@@ -728,13 +727,13 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
     elif learner == "rf":
         if task == "regression":
             model = cuml.ensemble.RandomForestRegressor(
-                n_estimators=n_estimators, max_depth=16
+                n_estimators=n_estimators
             )
             model.fit(X, y)
             pred = model.predict(X)
         elif task == "classification":
             model = cuml.ensemble.RandomForestClassifier(
-                n_estimators=n_estimators, max_depth=16
+                n_estimators=n_estimators
             )
             model.fit(X, y)
             pred = model.predict_proba(X)
@@ -756,6 +755,7 @@ def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
     elif learner == "lgbm":
         try:
             import lightgbm as lgb
+
         except ImportError:
             assume(False)
             return None, None
@@ -908,7 +908,6 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             random_state=0,
             n_streams=1,
             n_bins=10,
-            max_depth=16,
         ).fit(
             np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
         ),
@@ -945,7 +944,7 @@ def test_with_hypothesis(params, interactions_method):
 def test_wrong_inputs():
     X = np.array([[0.0, 2.0], [1.0, 0.5]])
     y = np.array([0, 1])
-    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
 
     # background/X different dtype
     with pytest.raises(
@@ -978,7 +977,7 @@ def test_different_algorithms_different_output():
     rng = np.random.RandomState(3)
     X = rng.normal(size=(100, 10))
     y = rng.normal(size=100)
-    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
     interventional_explainer = TreeExplainer(model=model, data=X)
     explainer = TreeExplainer(model=model)
     assert not np.all(
@@ -998,6 +997,6 @@ def test_input_types(input_type):
     X = np.array([[0.0, 2.0], [1.0, 0.5]])
     y = np.array([0, 1])
     X, y = as_type(input_type, X, y)
-    model = cuml.ensemble.RandomForestRegressor(max_depth=16).fit(X, y)
+    model = cuml.ensemble.RandomForestRegressor().fit(X, y)
     explainer = TreeExplainer(model=model)
     explainer.shap_values(X)

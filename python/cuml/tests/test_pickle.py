@@ -6,6 +6,7 @@ import pickle
 
 import numpy as np
 import pytest
+
 import scipy.sparse as scipy_sparse
 from sklearn.base import clone, is_classifier
 from sklearn.datasets import (
@@ -29,6 +30,9 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
@@ -190,7 +194,7 @@ def test_rf_regression_pickle(
                 datatype, nrows, ncols, n_info, n_classes
             )
 
-        model = rf_models[key](max_depth=16)
+        model = rf_models[key]()
 
         model.fit(X_train, y_train)
         result["rf_res"] = model.predict(X_test)

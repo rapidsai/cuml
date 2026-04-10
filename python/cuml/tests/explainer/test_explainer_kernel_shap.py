@@ -8,6 +8,7 @@ import math
 import cupy as cp
 import numpy as np
 import pytest
+
 import scipy.special
 import sklearn.neighbors
 from sklearn.datasets import make_regression
@@ -18,6 +19,10 @@ from cuml import KernelExplainer, Lasso
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
 
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
@@ -213,9 +218,9 @@ def test_kernel_regression_dataset():
     y_train = y_train.astype(np.float32)
     y_test = y_test.astype(np.float32)
 
-    cumodel = cuml.RandomForestRegressor(
-        max_features="sqrt", max_depth=16
-    ).fit(X_train, y_train)
+    cumodel = cuml.RandomForestRegressor(max_features="sqrt").fit(
+        X_train, y_train
+    )
 
     explainer = KernelExplainer(
         model=cumodel.predict, data=X_train[:100], output_type="numpy"

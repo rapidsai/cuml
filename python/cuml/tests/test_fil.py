@@ -10,6 +10,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+
 import sklearn
 import treelite
 from packaging.version import Version
@@ -40,6 +41,11 @@ from cuml.testing.utils import (  # noqa: E402
     quality_param,
     stress_param,
     unit_param,
+)
+
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
 )
 
 
@@ -978,9 +984,7 @@ def test_wide_data():
     X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
     y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
 
-    clf = RandomForestClassifier(
-        max_features="sqrt", n_estimators=10, max_depth=16
-    )
+    clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
     clf.fit(X, y)
 
     # Inference should run without crashing

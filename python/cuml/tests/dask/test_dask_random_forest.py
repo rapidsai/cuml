@@ -9,6 +9,7 @@ import dask_cudf
 import numpy as np
 import pandas as pd
 import pytest
+
 import treelite
 from dask.array import from_array
 from dask.distributed import Client
@@ -23,6 +24,11 @@ from cuml.dask.ensemble import RandomForestClassifier as cuRFC_mg
 from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.ensemble import RandomForestClassifier as cuRFC_sg
 from cuml.ensemble import RandomForestRegressor as cuRFR_sg
+
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -234,7 +240,7 @@ def test_rf_classification_dask_fil_predict_proba(
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-    sk_model = skrfc(n_estimators=40, max_depth=16, random_state=10)
+    sk_model = skrfc(n_estimators=40, random_state=10)
     sk_model.fit(X_train, y_train)
     sk_preds_proba = sk_model.predict_proba(X_test)
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
@@ -286,7 +292,6 @@ def test_single_input_regression(client, ignore_empty_partitions):
     cu_rf_mg = cuRFR_mg(
         n_bins=1,
         ignore_empty_partitions=ignore_empty_partitions,
-        max_depth=16,
     )
 
     if (

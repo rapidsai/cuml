@@ -52,7 +52,7 @@ class BaseRandomForestModel(object):
                 "None (unlimited depth) in release 26.08. To suppress this "
                 "warning, set 'max_depth' explicitly.",
                 FutureWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
             kwargs["max_depth"] = 16
 

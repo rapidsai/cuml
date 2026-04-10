@@ -6,6 +6,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+
 from sklearn.linear_model import LinearRegression as skreg
 
 import cuml
@@ -21,6 +22,10 @@ from cuml.explainer.common import (
 )
 from cuml.testing.utils import ClassEnumerator
 
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
@@ -178,7 +183,7 @@ def create_dummy_model(model):
     try:
         model_name = model.__name__
         if "RandomForest" in model_name:
-            mod = model(max_depth=16)
+            mod = model()
         else:
             mod = model()
     except TypeError:

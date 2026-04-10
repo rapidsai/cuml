@@ -11,6 +11,7 @@ import warnings
 import cudf
 import numpy as np
 import pytest
+
 import treelite
 from cudf.pandas import LOADED as cudf_pandas_active
 from sklearn.datasets import (
@@ -35,6 +36,11 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
+
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 
 
 @pytest.fixture(
@@ -189,6 +195,13 @@ def test_default_parameters():
     with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
         clf_params = curfc().get_params()
 
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        curfr(max_depth=16).get_params()
+        curfr(max_depth=None).get_params()
+        curfc(max_depth=16).get_params()
+        curfc(max_depth=None).get_params()
+
     # Different default max_features
     assert reg_params["max_features"] == 1.0
     assert clf_params["max_features"] == "sqrt"
@@ -299,7 +312,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
         n_streams=1,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
 
@@ -308,7 +320,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     if X.shape[0] < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -349,7 +360,6 @@ def test_rf_classification_unorder(
         n_streams=1,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
 
@@ -358,7 +368,6 @@ def test_rf_classification_unorder(
     if X.shape[0] < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -413,7 +422,6 @@ def test_rf_regression(
         n_streams=1,
         n_estimators=50,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test)
@@ -423,7 +431,6 @@ def test_rf_regression(
     if X.shape[0] < 1000:  # mode != "stress"
         sk_model = skrfr(
             n_estimators=50,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -452,12 +459,12 @@ def test_rf_classification_seed(small_clf, datatype):
     for i in range(8):
         seed = random.randint(100, 10**5)
 
-        cu_class = curfc(random_state=seed, n_streams=1, max_depth=16)
+        cu_class = curfc(random_state=seed, n_streams=1)
         cu_class.fit(X_train, y_train)
         preds_orig = cu_class.predict(X_test)
         acc_orig = accuracy_score(y_test, preds_orig)
 
-        cu_class2 = curfc(random_state=seed, n_streams=1, max_depth=16)
+        cu_class2 = curfc(random_state=seed, n_streams=1)
         cu_class2.fit(X_train, y_train)
         preds_rerun = cu_class2.predict(X_test)
         acc_rerun = accuracy_score(y_test, preds_rerun)
@@ -487,12 +494,12 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
     )
     X_test = X_test.astype(datatype[1])
 
-    cuml_model = curfc(max_depth=16)
+    cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
-        sk_model = skrfc(max_depth=16, random_state=10)
+        sk_model = skrfc(random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
@@ -519,12 +526,12 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
     X_test = X_test.astype(datatype[1])
     y_test = y_test.astype(datatype[1])
 
-    cuml_model = curfr(max_depth=16)
+    cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test, convert_dtype=True)
     r2 = r2_score(y_test, preds)
     if X.shape[0] < 500000:
-        sk_model = skrfr(max_depth=16, random_state=10)
+        sk_model = skrfr(random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_preds)
@@ -566,7 +573,6 @@ def rf_classification(
         random_state=999,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
         n_streams=1,
     )
     if array_type == "dataframe":
@@ -590,7 +596,6 @@ def rf_classification(
     if y.size < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -769,7 +774,7 @@ def test_create_classification_model(
         max_depth=max_depth,
     )
     params = cuml_model.get_params()
-    cuml_model2 = curfc(max_depth=16)
+    cuml_model2 = curfc()
     cuml_model2.set_params(**params)
     verfiy_params = cuml_model2.get_params()
     assert params["max_features"] == verfiy_params["max_features"]
@@ -788,7 +793,7 @@ def test_unlimited_max_depth_classifier():
 
     params = clf.get_params()
     assert params["max_depth"] is None
-    clf2 = curfc(max_depth=16)
+    clf2 = curfc()
     clf2.set_params(**params)
     assert clf2.get_params()["max_depth"] is None
 
@@ -806,7 +811,7 @@ def test_unlimited_max_depth_regressor():
 
     params = reg.get_params()
     assert params["max_depth"] is None
-    reg2 = curfr(max_depth=16)
+    reg2 = curfr()
     reg2.set_params(**params)
     assert reg2.get_params()["max_depth"] is None
 
@@ -879,7 +884,7 @@ def test_rf_nbins_small(small_clf):
     )
     # Initialize, fit and predict using cuML's
     # random forest classification model
-    cuml_model = curfc(max_depth=16)
+    cuml_model = curfc()
 
     # display warning when nbins less than samples
     with warnings.catch_warnings(record=True) as w:
@@ -979,9 +984,7 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
     # Check that min_samples leaf is works with a small float
     # Non-regression test for gh-4613
     X, y = make_data(random_state=0)
-    clf = estimator(
-        min_samples_split=0.0001, random_state=0, n_estimators=2, max_depth=16
-    )
+    clf = estimator(min_samples_split=0.0001, random_state=0, n_estimators=2)
 
     # Capture and verify expected warning
     warning_msg = (
@@ -1016,7 +1019,7 @@ def test_rf_predict_returns_int():
         "used for training"
     )
     with pytest.warns(UserWarning, match=warning_msg):
-        clf = cuml.ensemble.RandomForestClassifier(max_depth=16).fit(X, y)
+        clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
 
     pred = clf.predict(X)
     assert pred.dtype == np.int64
@@ -1024,7 +1027,7 @@ def test_rf_predict_returns_int():
 
 def test_ensemble_estimator_length():
     X, y = make_classification()
-    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3, max_depth=16)
+    clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
 
     # Capture and verify expected warning
     warning_msg = (
@@ -1221,7 +1224,6 @@ def test_rf_oob_score_classifier(datatype):
         oob_score=True,
         bootstrap=True,
         max_samples=0.8,
-        max_depth=16,
         random_state=42,
     )
     clf.fit(X, y)
@@ -1268,7 +1270,6 @@ def test_rf_oob_score_regressor(datatype):
         oob_score=True,
         bootstrap=True,
         max_samples=0.8,
-        max_depth=16,
         random_state=42,
     )
     reg.fit(X, y)
@@ -1289,9 +1290,7 @@ def test_rf_oob_score_disabled():
     """Test that OOB score attributes don't exist when oob_score=False"""
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
-    clf = curfc(
-        n_estimators=10, oob_score=False, max_depth=16, random_state=42
-    )
+    clf = curfc(n_estimators=10, oob_score=False, random_state=42)
 
     # Capture and verify expected warning
     warning_msg = (
@@ -1314,7 +1313,6 @@ def test_rf_oob_without_bootstrap():
         n_estimators=10,
         oob_score=True,
         bootstrap=False,
-        max_depth=16,
         random_state=42,
     )
 

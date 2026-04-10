@@ -167,7 +167,7 @@ def compute_max_features(
         )
 
 
-_DEPRECATED_MAX_DEPTH_DEFAULT = object()
+_DEPRECATED_MAX_DEPTH_DEFAULT = "deprecated"
 
 
 class BaseRandomForestModel(Base, InteropMixin):
@@ -247,7 +247,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         return {
             "n_estimators": self.n_estimators,
             "criterion": criterion,
-            "max_depth": self.max_depth,
+            "max_depth": 16 if self.max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT else self.max_depth,
             "min_samples_split": self.min_samples_split,
             "min_samples_leaf": self.min_samples_leaf,
             "max_features": self.max_features,
@@ -326,22 +326,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
-
-        if max_depth is _DEPRECATED_MAX_DEPTH_DEFAULT:
-            warnings.warn(
-                "The default value of 'max_depth' will change from 16 to "
-                "None (unlimited depth) in release 26.08. To suppress this "
-                "warning, set 'max_depth' explicitly.",
-                FutureWarning, stacklevel=2)
-            max_depth = 16
-
-        # Only allow positive numbers or None
-        if max_depth is not None:
-            if not isinstance(max_depth, int) or max_depth <= 0:
-                raise ValueError(
-                    "max_depth must be > 0 or None; "
-                    f"got {max_depth!r}"
-                )
 
         self.split_criterion = split_criterion
         self.n_estimators = n_estimators
@@ -436,15 +420,25 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
         cdef int max_depth_c
-        if self.max_depth is None:
+        max_depth = self.max_depth
+
+        if max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT:
+            warnings.warn(
+                "The default value of 'max_depth' will change from 16 to "
+                "None (unlimited depth) in release 26.08. To suppress this "
+                "warning, set 'max_depth' explicitly.",
+                FutureWarning, stacklevel=3)
+            max_depth = 16
+
+        if max_depth is None:
             max_depth_c = np.iinfo(np.int32).max
-        elif not isinstance(self.max_depth, int) or self.max_depth <= 0:
+        elif not isinstance(max_depth, int) or max_depth <= 0:
             raise ValueError(
                 f"max_depth must be a positive integer or None (unlimited); "
-                f"got {self.max_depth!r}"
+                f"got {max_depth!r}"
             )
         else:
-            max_depth_c = self.max_depth
+            max_depth_c = max_depth
 
         # Validate OOB score parameter
         if callable(self.oob_score):
