@@ -69,7 +69,7 @@ def test_pipeline_with_regression(
     X_train, X_test, y_train, y_test = regression_dataset
     model_const = models[model_key]
     if model_key == "RandomForestRegressor":
-        model = model_const(n_bins=2)
+        model = model_const(n_bins=2, max_depth=16)
     else:
         model = model_const()
 
@@ -99,7 +99,7 @@ def test_pipeline_with_classification(
     X_train, X_test, y_train, y_test = classification_dataset
     model_const = models[model_key]
     if model_key == "RandomForestClassifier":
-        model = model_const(n_bins=2)
+        model = model_const(n_bins=2, max_depth=16)
     else:
         model = model_const()
     if instantiation == "Pipeline":

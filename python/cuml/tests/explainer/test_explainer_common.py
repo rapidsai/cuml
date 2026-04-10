@@ -176,7 +176,11 @@ def test_get_link_fn_from_fn():
 
 def create_dummy_model(model):
     try:
-        mod = model()
+        model_name = model.__name__
+        if "RandomForest" in model_name:
+            mod = model(max_depth=16)
+        else:
+            mod = model()
     except TypeError:
         mod = model(np.zeros(10))
     return mod

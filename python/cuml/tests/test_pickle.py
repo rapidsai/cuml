@@ -190,7 +190,7 @@ def test_rf_regression_pickle(
                 datatype, nrows, ncols, n_info, n_classes
             )
 
-        model = rf_models[key]()
+        model = rf_models[key](max_depth=16)
 
         model.fit(X_train, y_train)
         result["rf_res"] = model.predict(X_test)
@@ -370,6 +370,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
