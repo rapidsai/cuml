@@ -8,10 +8,16 @@ FROM ${BASE} as pip-base
 ENV DEFAULT_VIRTUAL_ENV=rapids
 ENV RAPIDS_LIBUCX_PREFER_SYSTEM_LIBRARY=true
 
-RUN apt update -y \
- && DEBIAN_FRONTEND=noninteractive apt install -y \
-    libblas-dev liblapack-dev \
- && rm -rf /tmp/* /var/tmp/* /var/cache/apt/* /var/lib/apt/lists/*;
+RUN set -eux; \
+    rm -rf /var/lib/apt/lists/*; \
+    apt-get clean; \
+    for i in 1 2 3 4 5; do \
+      apt-get -o Acquire::Retries=3 update && break; \
+      sleep $((i*10)); \
+    done; \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      libblas-dev liblapack-dev; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /var/cache/apt/*
 
 FROM ${BASE} as conda-base
 
