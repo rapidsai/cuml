@@ -45,7 +45,6 @@
   - "ensemble::plot_forest_hist_grad_boosting_comparison"
   - "ensemble::plot_hgbt_regression"
   - "ensemble::plot_monotonic_constraints"
-  - "exercises::plot_iris_exercise"
   - "feature_selection::plot_select_from_model_diabetes"
   - "inspection::plot_partial_dependence"
   - "model_selection::plot_cost_sensitive_learning"
@@ -55,6 +54,11 @@
   - "release_highlights::plot_release_highlights_1_3_0"
   - "semi_supervised::plot_self_training_varying_threshold"
   - "svm::plot_svm_scale_c"
+- reason: 'Timeout: example exceeds 600s under cuml.accel with sklearn 1.5.0'
+  condition: scikit-learn==1.5.0
+  strict: false
+  tests:
+  - "exercises::plot_iris_exercise"
 - reason: 'Timeout: example exceeds 600s under cuml.accel with sklearn 1.7.2+'
   condition: scikit-learn>=1.7.2
   strict: false
