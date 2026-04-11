@@ -240,7 +240,11 @@ def test_rf_classification_dask_fil_predict_proba(
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-    sk_model = skrfc(n_estimators=40, random_state=10)
+    sk_model = skrfc(
+        n_estimators=cu_rf_params["n_estimators"],
+        max_depth=cu_rf_params["max_depth"],
+        random_state=10,
+    )
     sk_model.fit(X_train, y_train)
     sk_preds_proba = sk_model.predict_proba(X_test)
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
