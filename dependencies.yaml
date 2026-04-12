@@ -274,9 +274,9 @@ dependencies:
     common:
       - output_types: [conda, requirements]
         packages:
-          - clang==20.1.4
-          - clang-tools==20.1.4
-          - llvm-openmp==20.1.4
+          - clang==20.1.8
+          - clang-tools==20.1.8
+          - llvm-openmp==20.1.8
           - ninja
           - tomli
   common_build:
