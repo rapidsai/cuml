@@ -16,6 +16,7 @@ from cuml.internals.validation import (
     check_all_finite,
     check_consistent_length,
     check_features,
+    check_non_negative,
     check_random_seed,
 )
 
@@ -320,3 +321,33 @@ def test_check_all_finite_host_fallback():
         ValueError, match="Input array contains infinite values"
     ):
         check_all_finite(x_inf, allow_nan=True)
+
+
+@pytest.mark.parametrize("device", [True, False])
+@pytest.mark.parametrize("sparse_format", [None, "csr", "coo"])
+def test_check_non_negative(device, sparse_format):
+    def array(values, dtype=None):
+        x = cp.array(values, dtype=dtype)
+        if sparse_format is not None:
+            x = getattr(cp_sp, f"{sparse_format}_matrix")(x)
+        if not device:
+            x = x.get()
+        return x
+
+    f32_empty = array([], dtype="float32")
+    f32_good = array([0, 1, 2], dtype="float32")
+    f64_good_nan = array([0, float("nan"), 1], dtype="float64")
+    f32_bad = array([-1, 1, 2], dtype="float32")
+    f64_bad_nan = array([-1, float("nan"), 1], dtype="float64")
+
+    check_non_negative(f32_empty)
+    check_non_negative(f32_good)
+    check_non_negative(f64_good_nan)
+
+    with pytest.raises(ValueError, match="Negative values in data"):
+        check_non_negative(f32_bad)
+
+    with pytest.raises(
+        ValueError, match="Negative values in data passed to X"
+    ):
+        check_non_negative(f64_bad_nan, input_name="X")

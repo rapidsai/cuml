@@ -18,6 +18,8 @@ __all__ = (
     "check_random_seed",
     "check_features",
     "check_consistent_length",
+    "check_all_finite",
+    "check_non_negative",
 )
 
 
@@ -312,3 +314,21 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
         raise ValueError(
             f"Input {input_name or 'array'} contains {kind} values"
         )
+
+
+def check_non_negative(array, *, input_name=None):
+    """Check if all input values are non-negative.
+
+    Parameters
+    ----------
+    array : dense or sparse array
+        The array to check.
+    input_name : str or None, default=None
+        The input parameter name to use in error messages.
+    """
+    if cp_sp.issparse(array) or sp.issparse(array):
+        array = array.data
+    xp = cp if isinstance(array, cp.ndarray) else np
+    if array.size != 0 and xp.nanmin(array) < 0:
+        suffix = f" passed to {input_name}" if input_name is not None else ""
+        raise ValueError(f"Negative values in data{suffix}")
