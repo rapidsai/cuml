@@ -43,6 +43,6 @@
   - "cluster::plot_coin_segmentation"
   - "cluster::plot_coin_ward_segmentation"
 - reason: numpy>=2.4 no longer accepts newshape as a keyword argument in np.reshape (deprecated in 2.1)
-  condition: numpy>=2.4
+  condition: numpy>=2.4 and scikit-learn<1.6
   tests:
   - "gaussian_process::plot_gpr_noisy"
