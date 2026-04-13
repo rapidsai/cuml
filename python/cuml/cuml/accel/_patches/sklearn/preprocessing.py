@@ -88,6 +88,35 @@ def _fitted_attrs_on_device(estimator, fitted_attrs):
 
 
 # ---------------------------------------------------------------------------
+# Method-flag inference
+# ---------------------------------------------------------------------------
+
+_TRANSFORMER_METHODS = (
+    "fit",
+    "partial_fit",
+    "transform",
+    "fit_transform",
+    "inverse_transform",
+)
+
+
+def _infer_method_flags(method_name):
+    """Derive _make_method_patch flags from a method name.
+
+    Covers the standard transformer method vocabulary:
+    fit, partial_fit, transform, fit_transform, inverse_transform.
+    """
+    is_fit = "fit" in method_name
+    is_transform = "transform" in method_name
+    return dict(
+        is_fitting=is_fit,
+        promotes_fitted=(method_name == "partial_fit"),
+        uses_fitted_ctx=(is_transform and not is_fit),
+        returns_output=is_transform,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Generic method-patch factory
 # ---------------------------------------------------------------------------
 
@@ -166,7 +195,7 @@ def _make_method_patch(
 # ---------------------------------------------------------------------------
 
 
-def patch_estimator(cls, fitted_attrs, methods):
+def patch_estimator(cls, fitted_attrs, methods=None):
     """Monkey-patch *cls* to dispatch its methods through CuPy.
 
     Parameters
@@ -176,11 +205,15 @@ def patch_estimator(cls, fitted_attrs, methods):
     fitted_attrs : tuple[str, ...]
         Names of fitted attributes that need to be migrated between CPU and
         GPU across method calls.
-    methods : dict[str, dict]
-        Mapping from method name to a dict of keyword arguments forwarded
-        to ``_make_method_patch``.
+    methods : sequence of str or None
+        Names of methods to patch.  When *None* (default), all methods in
+        ``_TRANSFORMER_METHODS`` that exist on *cls* are patched
+        automatically, with flags inferred by ``_infer_method_flags``.
     """
-    for method_name, flags in methods.items():
+    if methods is None:
+        methods = [m for m in _TRANSFORMER_METHODS if hasattr(cls, m)]
+    for method_name in methods:
+        flags = _infer_method_flags(method_name)
         orig = getattr(cls, method_name)
         patched = _make_method_patch(orig, cls.__name__, fitted_attrs, **flags)
         setattr(cls, method_name, patched)
@@ -191,21 +224,10 @@ def patch_estimator(cls, fitted_attrs, methods):
 # Per-estimator configuration and registration
 # ---------------------------------------------------------------------------
 
-patch_estimator(
-    StandardScaler,
-    fitted_attrs=("mean_", "var_", "scale_", "n_samples_seen_"),
-    methods={
-        "fit": dict(is_fitting=True),
-        "partial_fit": dict(is_fitting=True, promotes_fitted=True),
-        "transform": dict(uses_fitted_ctx=True, returns_output=True),
-        "fit_transform": dict(is_fitting=True, returns_output=True),
-        "inverse_transform": dict(uses_fitted_ctx=True, returns_output=True),
-    },
-)
-
+patch_estimator(StandardScaler, ("mean_", "var_", "scale_", "n_samples_seen_"))
 patch_estimator(
     MinMaxScaler,
-    fitted_attrs=(
+    (
         "scale_",
         "min_",
         "data_min_",
@@ -213,22 +235,5 @@ patch_estimator(
         "data_range_",
         "n_samples_seen_",
     ),
-    methods={
-        "fit": dict(is_fitting=True),
-        "partial_fit": dict(is_fitting=True, promotes_fitted=True),
-        "transform": dict(uses_fitted_ctx=True, returns_output=True),
-        "fit_transform": dict(is_fitting=True, returns_output=True),
-        "inverse_transform": dict(uses_fitted_ctx=True, returns_output=True),
-    },
 )
-
-patch_estimator(
-    LabelEncoder,
-    fitted_attrs=("classes_",),
-    methods={
-        "fit": dict(is_fitting=True),
-        "fit_transform": dict(is_fitting=True, returns_output=True),
-        "transform": dict(uses_fitted_ctx=True, returns_output=True),
-        "inverse_transform": dict(uses_fitted_ctx=True, returns_output=True),
-    },
-)
+patch_estimator(LabelEncoder, ("classes_",))
