@@ -24,6 +24,21 @@ class ExampleTimedOut(UserWarning):
     """Issued when a scikit-learn example exceeds the configured timeout."""
 
 
+class ExampleNetworkError(UserWarning):
+    """Issued when a scikit-learn example fails due to a network error."""
+
+
+_NETWORK_ERROR_PATTERNS = (
+    "urllib.error.HTTPError",
+    "urllib.error.URLError",
+    "http.client.IncompleteRead",
+    "ConnectionError",
+    "ConnectionResetError",
+    "TimeoutError",
+    "socket.timeout",
+)
+
+
 class _FakeModule:
     """Minimal module-like object so the cuml.accel xfail plugin can read
     ``item.module.__name__`` without crashing on custom test items."""
@@ -82,6 +97,14 @@ class ExampleItem(pytest.Item):
             pytest.xfail(reason=f"Timeout: example exceeded {timeout}s")
         if result.returncode != 0:
             stderr = result.stderr
+            for pattern in _NETWORK_ERROR_PATTERNS:
+                if pattern in stderr:
+                    warnings.warn(
+                        f"Example {self.path.name} failed due to network error"
+                        f" ({pattern})",
+                        ExampleNetworkError,
+                    )
+                    pytest.xfail(reason=f"Network error: {pattern}")
             if len(stderr) > 4000:
                 stderr = "...\n" + stderr[-4000:]
             raise ExampleFailed(stderr)
