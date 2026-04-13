@@ -21,6 +21,7 @@ __all__ = (
     "check_consistent_length",
     "check_all_finite",
     "check_non_negative",
+    "check_array",
 )
 
 
@@ -91,13 +92,13 @@ def _check_shape(
     if ndim == 0 or ndim == 1 and ensure_2d:
         if issubclass(array_type, (cudf.Series, pd.Series)):
             msg = (
-                f"Expected a 2-dimensional container but got {array_type.__name__} "
+                f"Expected a 2-dimensional container but got {array_type} "
                 "instead. Pass a DataFrame containing a single row (i.e. "
                 "single sample) or a single column (i.e. single feature) "
                 "instead."
             )
         else:
-            kind = "scalar" if ndim == 0 else f"{ndim}D"
+            kind = "scalar" if ndim == 0 else "1D"
             msg = (
                 f"Expected 2D array, got {kind} array instead. Reshape your data "
                 "using array.reshape(-1, 1) if your data has a single feature, "
@@ -403,3 +404,289 @@ def check_non_negative(array, *, input_name=None) -> None:
     if array.size != 0 and xp.nanmin(array) < 0:
         suffix = f" passed to {input_name}" if input_name is not None else ""
         raise ValueError(f"Negative values in data{suffix}")
+
+
+def check_array(
+    array,
+    *,
+    accept_sparse=False,
+    accept_large_sparse=False,
+    dtype=None,
+    convert_dtype=True,
+    mem_type="device",
+    order=None,
+    ensure_all_finite=True,
+    ensure_non_negative=False,
+    ensure_2d=True,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    input_name=None,
+    return_index=False,
+):
+    """Validate and coerce an array-like to a supported type.
+
+    Parameters
+    ----------
+    array : array-like
+        The array-like input to validate.
+    accept_sparse : bool, str, list[str], default=False
+        The sparse matrix format(s) to support. If the input is sparse
+        but not in a supported format, it will be converted to the first
+        listed format. Pass True to support any input format. The default
+        of False will raise an error on sparse inputs.
+    accept_large_sparse : bool, default=False
+        Whether large (int64) indices are supported for sparse containers with
+        CSR/CSC/COO/BSR formats. If not supported, an appropriate error will be
+        raised if the sparse indices aren't int32.
+    dtype : None, dtype, list[dtype], default=None
+        The dtype(s) to support. By default no dtype validation is performed.
+        Pass a dtype or a list of supported dtypes to enforce a dtype for the
+        output. If the input doesn't have a supported dtype, it will be
+        converted to the first listed dtype.
+    convert_dtype : bool, default=True
+        Whether to support dtype conversion. If False, an error will be raised
+        if the input isn't a supported dtype.
+    mem_type : {'device', 'host'} or None, default='device'
+        The memory type use for the output. If 'device', the output will be a
+        ``cupy.ndarray`` if dense, or a ``cupyx.scipy.sparse.spmatrix`` if
+        sparse. If 'host', the output will be a ``numpy.ndarray`` if dense, or
+        a ``scipy.sparse.spmatrix`` if sparse. If ``None``, the output will
+        have the same memory type as the input (i.e. device if already on
+        device, host otherwise).
+    order : {'F', 'C', 'A', None}, default=None
+        The order and contiguity to enforce for dense outputs. Use 'F' for
+        F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
+        C contiguous, or `None` for no contiguity requirements.
+    ensure_all_finite : bool or 'allow-nan', default=True
+        If True, an error will be raised if non-finite values are found in the
+        input. If 'allow-nan', an error will be raised if infinite values are
+        found (but not for NaN). If False then ``check_all_finite`` is skipped.
+    ensure_non_negative : bool, default=False
+        If True, an error will be raised if negative values are found in the
+        input. By default ``check_non_negative`` is skipped.
+    ensure_2d : bool, default=True
+        If True, the input must be 2D. If False, 1D or 2D inputs are accepted.
+    ensure_min_samples : int, default=1
+        A minimum number of samples to require. Set to 0 for no minimum.
+    ensure_min_features : int, default=1
+        A minimum number of features to require for 2D inputs. Set to 0 for no
+        minimum.
+    input_name : str or None, default=None
+        The input parameter name to use in error messages.
+    return_index : bool, default=False
+        Whether to return the index of ``array`` (if a dataframe-like value).
+        This is useful for functions that need to return an output with a
+        dataframe index aligned with the input.
+
+    Returns
+    -------
+    array : dense or sparse array
+        The converted and validated array. Depending on input and parameters,
+        will be one of ``cupy.ndarray``, ``numpy.ndarray``,
+        ``cupyx.scipy.sparse.spmatrix``, or ``scipy.sparse.spmatrix``.
+    index : pandas.Index, cudf.Index, or None
+        The index of the input if a dataframe-like, or None if no index. The
+        index will be converted to match ``mem_type``. Only returned if
+        ``return_index=True``.
+    """
+    # Normalize and validate arguments
+    if mem_type not in ("device", "host", None):
+        raise ValueError(f"Unsupported {mem_type=!r}")
+    if order not in ("F", "C", "A", None):
+        raise ValueError(f"Unsupported {order=!r}")
+
+    if isinstance(dtype, (list, tuple)):
+        dtype = [np.dtype(dt) for dt in dtype]
+    elif dtype is not None:
+        dtype = np.dtype(dtype)
+
+    # Extract original array type and dtype (when possible)
+    array_type = type(array)
+    if isinstance(array, (cudf.DataFrame, pd.DataFrame)):
+        if all(isinstance(dt, np.dtype) for dt in array.dtypes):
+            array_dtype = np.result_type(*array.dtypes)
+        elif any(dt == "object" for dt in array.dtypes):
+            array_dtype = np.dtype("object")
+        else:
+            array_dtype = None
+    else:
+        array_dtype = getattr(array, "dtype", None)
+        if not isinstance(array_dtype, np.dtype):
+            array_dtype = None
+
+    # Infer proper output dtype
+    if array_dtype is not None:
+        # Check for complex inputs before conversion when possible
+        if np.isdtype(array_dtype, "complex floating"):
+            raise ValueError("Complex data not supported")
+        if dtype is None:
+            dtype = array_dtype
+        else:
+            accept_dtypes = dtype if isinstance(dtype, list) else [dtype]
+            if array_dtype not in accept_dtypes:
+                if convert_dtype:
+                    # Convert to first provided dtype
+                    dtype = accept_dtypes[0]
+                else:
+                    raise ValueError(
+                        f"Expected array with dtype in {[str(d) for d in accept_dtypes]} "
+                        f"but got {str(array_dtype)!r}"
+                    )
+            else:
+                dtype = array_dtype
+    elif isinstance(dtype, (list, tuple)):
+        # No original dtype, use first dtype in list inputs
+        dtype = dtype[0]
+
+    # Coerce `array` to numpy/cupy/scipy.sparse/cupyx.scipy.sparse values as
+    # requested. For dataframe-like inputs also extract the index for later use.
+    index = None
+    if cp_sp.issparse(array) or sp.issparse(array):
+        # Handle sparse inputs
+        if isinstance(accept_sparse, str):
+            accept_sparse = [accept_sparse]
+        elif accept_sparse is True:
+            # Only support formats cupyx.scipy.sparse supports
+            accept_sparse = ["csr", "coo", "csc", "dia"]
+
+        if not accept_sparse:
+            padded_input = f" for {input_name}" if input_name else ""
+            raise TypeError(
+                f"Sparse data was passed{padded_input}, but dense data is required. "
+                "Use '.toarray()' to convert to a dense array."
+            )
+        if not accept_large_sparse:
+            if array.format == "coo":
+                index_keys = ["col", "row"]
+            elif array.format in ["csr", "csc", "bsr"]:
+                index_keys = ["indices", "indptr"]
+            else:
+                index_keys = []
+
+            for key in index_keys:
+                indices_dtype = getattr(array, key).dtype
+                if indices_dtype != "int32":
+                    raise ValueError(
+                        "Only sparse matrices with int32 indices are currently "
+                        f"supported. Found {indices_dtype} indices instead."
+                    )
+
+        # Coerce to accepted format if needed
+        if array.format not in accept_sparse:
+            array = array.asformat(accept_sparse[0])
+
+        # Validate dimensions and shape are as expected. We do this here
+        # _before_ host/device conversion, since cupyx doesn't have a sparse
+        # array type and thus only supports 2D inputs.
+        _check_shape(
+            array.shape,
+            array_type=array_type,
+            ensure_2d=ensure_2d,
+            ensure_min_samples=ensure_min_samples,
+            ensure_min_features=ensure_min_features,
+        )
+
+        # Coerce data to accepted dtype if needed
+        if dtype is not None and array.dtype != dtype:
+            array = array.astype(dtype)
+
+        # Coerce to device or host if needed
+        if mem_type == "device" and not cp_sp.issparse(array):
+            if array.ndim != 2:
+                raise ValueError("cupyx.scipy.sparse only supports 2D arrays")
+            array = getattr(cp_sp, f"{array.format}_matrix")(array)
+        elif mem_type == "host" and not sp.issparse(array):
+            array = array.get()
+    else:
+        # Handle dense inputs
+        if isinstance(array, (cudf.DataFrame, cudf.Series)):
+            # Handle cudf inputs
+            index = array.index
+            if mem_type == "host":
+                array = np.asarray(
+                    array.to_numpy(dtype=dtype), dtype=dtype, order=order
+                )
+            else:
+                # XXX: the dtype keyword to `to_cupy` is buggy, and also
+                # doesn't support all dtype coercions. For now we do a
+                # manual cast to handle any coercions.
+                # See https://github.com/rapidsai/cudf/issues/22136.
+                if dtype is not None:
+                    array = array.astype(dtype, copy=False)
+                array = cp.asarray(array.to_cupy(), dtype=dtype, order=order)
+        elif isinstance(array, (pd.DataFrame, pd.Series)):
+            # Handle pandas inputs
+            index = array.index
+            array = array.to_numpy(dtype=dtype)
+            if mem_type == "device":
+                array = cp.asarray(array, dtype=dtype, order=order)
+            elif mem_type is None and cudf.pandas.LOADED:
+                # With cudf.pandas, the array is already on device
+                array = cp.asarray(array, dtype=dtype, order=order)
+            else:
+                array = np.asarray(array, dtype=dtype, order=order)
+        elif hasattr(array, "__cuda_array_interface__"):
+            # Handle device-backed array-like inputs
+            if mem_type == "host":
+                array = cp.asnumpy(array, order=order or "A")
+                # Possible 2nd copy done on host for dtype enforcement
+                array = np.asarray(array, dtype=dtype, order=order)
+            else:
+                array = cp.asarray(array, dtype=dtype, order=order)
+        else:
+            # Handle all other inputs
+            if mem_type == "device":
+                array = cp.asarray(array, dtype=dtype, order=order)
+            else:
+                array = np.asarray(array, dtype=dtype, order=order)
+
+        # XXX: order="A" isn't consistently handled by cupy or numpy. If a copy
+        # was made, the output will definitely already be contiguous. If no
+        # copy was already made though, we may need to make one to enforce
+        # contiguity (here we default to F-contiguous, mirroring what _most_
+        # code paths do with `order="A"`).
+        if order == "A" and not (
+            array.flags["F_CONTIGUOUS"] or array.flags["C_CONTIGUOUS"]
+        ):
+            array = (
+                cp.asarray(array, order="F")
+                if isinstance(array, cp.ndarray)
+                else np.asarray(array, order="F")
+            )
+
+        # Validate dimensions and shape are as expected
+        _check_shape(
+            array.shape,
+            array_type=array_type,
+            ensure_2d=ensure_2d,
+            ensure_min_samples=ensure_min_samples,
+            ensure_min_features=ensure_min_features,
+        )
+
+    # Check for complex inputs after conversion for cases when `dtype=None`
+    if np.isdtype(array.dtype, "complex floating"):
+        raise ValueError("Complex data not supported")
+
+    # Validate data meets expected value requirements
+    if ensure_all_finite:
+        check_all_finite(
+            array,
+            allow_nan=ensure_all_finite == "allow-nan",
+            input_name=input_name,
+        )
+    if ensure_non_negative:
+        check_non_negative(array, input_name=input_name)
+
+    # Process index if requested, then return
+    if return_index:
+        if isinstance(index, cudf.Index) and mem_type == "host":
+            index = (
+                cudf.pandas.as_proxy_object(index)
+                if cudf.pandas.LOADED
+                else index.to_pandas()
+            )
+        elif isinstance(index, pd.Index) and mem_type == "device":
+            index = cudf.Index(index)
+        return array, index
+    else:
+        return array

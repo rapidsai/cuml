@@ -7,20 +7,186 @@ from contextlib import contextmanager
 import cudf
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
+import hypothesis.strategies as st
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse as sp
 import sklearn
+from hypothesis import assume, example, given
 
 from cuml.internals.validation import (
     _get_feature_names,
     _get_n_features,
     check_all_finite,
+    check_array,
     check_consistent_length,
     check_features,
     check_non_negative,
     check_random_seed,
 )
+
+
+@st.composite
+def dense_arrays(
+    draw,
+    kind=None,
+    dtype=None,
+    order=None,
+    ndim=2,
+    n_samples=5,
+    n_features=4,
+):
+    """A strategy for generating dense array inputs.
+
+    Parameters
+    ----------
+    kind : {'cupy', 'numpy', 'list', 'pandas', 'cudf'} or list
+        The input kind(s) to select from.
+    dtype : dtype-like or list[dtype]
+        The dtype(s) to select from.
+    order : {'C', 'F', None} or list
+        The contiguity order requirement(s) to select from.
+    ndim : {1, 2} or list
+        The number of dimensions to select from.
+    n_samples : int
+        The number of samples to generate
+    n_features : int
+        The number of features to generate (if ndim=2).
+    """
+
+    def select(value, choices, cast=None):
+        if value is None:
+            value = choices
+        if isinstance(value, (list, tuple)):
+            value = draw(st.sampled_from(value))
+        if cast is not None:
+            value = cast(value)
+        assert value in choices
+        return value
+
+    kind = select(kind, ("cupy", "numpy", "list", "pandas", "cudf"))
+    dtype = select(
+        dtype,
+        ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8"),
+        cast=np.dtype,
+    )
+    assume(not (kind == "cudf" and dtype == "float16"))
+
+    ndim = select(ndim, (1, 2))
+    shape = (n_samples, n_features) if ndim == 2 else (n_samples,)
+
+    if kind in ("cupy", "numpy", "pandas"):
+        order = select(order, ("C", "F", None) if ndim == 2 else ("C", None))
+        if order is None:
+            # generate a non-contiguous strided input if order=None
+            shape = (
+                (n_samples * 2, n_features) if ndim == 2 else (n_samples * 2,)
+            )
+    else:
+        # Other containers don't have flexible contiguity
+        order = None
+
+    rng = np.random.default_rng(42)
+    if dtype.kind == "f":
+        data = rng.uniform(0, 100, size=shape)
+    else:
+        data = rng.integers(0, 100, size=shape)
+
+    if kind == "cupy":
+        out = cp.asarray(data, dtype=dtype, order=order)
+        return out[::2] if order is None else out
+    elif kind == "numpy":
+        out = np.asarray(data, dtype=dtype, order=order)
+        return out[::2] if order is None else out
+    elif kind == "list":
+        return data.tolist()
+    elif kind == "pandas":
+        out = pd.Series(data) if ndim == 1 else pd.DataFrame(data)
+        return out[::2] if order is None else out
+    elif kind == "cudf":
+        return cudf.Series(data) if ndim == 1 else cudf.DataFrame(data)
+
+
+@st.composite
+def sparse_arrays(
+    draw,
+    kind=None,
+    dtype=None,
+    format=None,
+    n_samples=5,
+    n_features=4,
+    density=0.5,
+):
+    """A strategy for generating sparse array inputs.
+
+    Parameters
+    ----------
+    kind : {'cupy', 'scipy', 'scipy-array'} or list
+        The input kind(s) to select from.
+    dtype : dtype-like or list[dtype]
+        The dtype(s) to select from.
+    format : sparse format or list
+        The format(s) to select from.
+    n_samples : int
+        The number of samples to generate
+    n_features : int
+        The number of features to generate
+    density : float
+        The density of the sparse matrix to generate
+    """
+
+    def select(value, choices, cast=None):
+        if value is None:
+            value = choices
+        if isinstance(value, (list, tuple)):
+            value = draw(st.sampled_from(value))
+        if cast is not None:
+            value = cast(value)
+        assume(value in choices)
+        return value
+
+    kind = select(kind, ("cupy", "scipy", "scipy-array"))
+    mem_type = "device" if kind == "cupy" else "host"
+
+    DTYPES = ("f4", "f8")
+    FORMATS = ("csr", "csc", "coo", "dia")
+    if mem_type == "host":
+        DTYPES += ("i4", "i8")
+        FORMATS += ("bsr", "dok", "lil")
+
+    dtype = select(dtype, DTYPES, cast=np.dtype)
+    format = select(format, FORMATS)
+
+    rng = np.random.default_rng(42)
+    array = sp.random(
+        n_samples,
+        n_features,
+        density=density,
+        format=format,
+        dtype=dtype,
+        data_rvs=(
+            (lambda n: rng.uniform(0, 100, size=n))
+            if dtype.kind == "f"
+            else (lambda n: rng.integers(0, 100, size=n))
+        ),
+        random_state=42,
+    )
+    if kind == "cupy":
+        array = getattr(cp_sp, f"{format}_matrix")(array)
+    elif kind == "scipy-array":
+        array = getattr(sp, f"{format}_array")(array)
+
+    return array
+
+
+def as_cupy(array, dtype=None, order=None):
+    """Coerce an array to cupy"""
+    if isinstance(array, (cudf.Series, cudf.DataFrame)):
+        if dtype is not None:
+            array = array.astype(dtype, copy=False)
+        array = array.to_cupy()
+    return cp.asarray(array, dtype=dtype, order=order)
 
 
 @contextmanager
@@ -374,3 +540,441 @@ def test_check_non_negative(device, sparse_format):
         ValueError, match="Negative values in data passed to X"
     ):
         check_non_negative(f64_bad_nan, input_name="X")
+
+
+def test_check_array_bad_args():
+    with pytest.raises(ValueError, match="Unsupported mem_type='bad'"):
+        check_array([1, 2, 3], mem_type="bad")
+
+    with pytest.raises(ValueError, match="Unsupported order='bad'"):
+        check_array([1, 2, 3], order="bad")
+
+    # Exception raised by `np.dtype`, we don't really care what it is
+    with pytest.raises(Exception, match="'bad'"):
+        check_array([1, 2, 3], dtype="bad")
+    with pytest.raises(Exception, match="'bad'"):
+        check_array([1, 2, 3], dtype=("int32", "bad"))
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        pytest.param(lambda x: x, id="list"),
+        pytest.param(np.array, id="numpy"),
+        pytest.param(cp.array, id="cupy"),
+        pytest.param(
+            lambda x: cp_sp.csr_matrix(cp.asarray(x)), id="cupyx.sparse"
+        ),
+        pytest.param(
+            lambda x: sp.csr_matrix(np.asarray(x)), id="scipy.sparse"
+        ),
+    ],
+)
+def test_check_array_complex_errors(func):
+    array = func([[complex(1), complex(2, 3)]])
+    with pytest.raises(ValueError, match="Complex data not supported"):
+        check_array(array)
+
+
+@example(array=np.asarray([1, 2, 3]), mem_type=None)
+@example(array=np.asarray([[1, 2], [3, 4]]), mem_type="device")
+@example(array=cp.asarray([[1, 2], [3, 4]]), mem_type="host")
+@given(
+    array=dense_arrays(dtype="float32", order="C"),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_mem_type(array, mem_type):
+    out = check_array(array, mem_type=mem_type, ensure_2d=False)
+    if mem_type is None:
+        cls = (
+            cp.ndarray
+            if isinstance(array, (cp.ndarray, cudf.DataFrame, cudf.Series))
+            else np.ndarray
+        )
+    else:
+        cls = cp.ndarray if mem_type == "device" else np.ndarray
+
+    assert isinstance(out, cls)
+    cp.testing.assert_allclose(as_cupy(array), as_cupy(out))
+
+
+@example(
+    array=cp.asarray([[1, 2], [3, 4]], order="C"),
+    order="F",
+    mem_type="device",
+)
+@example(
+    array=cp.asarray([[1, 2], [3, 4]], order="F"),
+    order="C",
+    mem_type="device",
+)
+@example(
+    array=np.array([[1, 2], [3, 4], [5, 6]])[::2],
+    order="A",
+    mem_type="host",
+)
+@given(
+    array=dense_arrays(dtype="float32"),
+    order=st.sampled_from(["C", "F", "A"]),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_order(array, order, mem_type):
+    out = check_array(array, ensure_2d=False, order=order, mem_type=mem_type)
+    cp.testing.assert_allclose(cp.asarray(out), as_cupy(array))
+    if order == "A":
+        assert out.flags["C_CONTIGUOUS"] or out.flags["F_CONTIGUOUS"]
+    elif order == "C":
+        assert out.flags["C_CONTIGUOUS"]
+    elif order == "F":
+        assert out.flags["F_CONTIGUOUS"]
+
+
+@example(array=[[1, 2]], mem_type="device")
+@example(array=cp.array([[1, 2]]), mem_type="host")
+@example(array=np.array([[1, 2]]), mem_type="device")
+@example(array=cudf.DataFrame([[1, 2]]), mem_type="device")
+@example(array=pd.DataFrame([[1, 2]]), mem_type="device")
+@given(
+    array=dense_arrays(ndim=2, dtype="int32"),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_dtype(array, mem_type):
+    """Generate arrays with definitive different dtype, and ensure
+    they're all cast appropriately. Checks that `dtype` is passed properly
+    in all code paths."""
+
+    # By default the input dtype is kept the same
+    out = check_array(array, dtype=None, mem_type=mem_type)
+    if hasattr(array, "dtype"):
+        assert out.dtype == array.dtype
+
+        out = check_array(array, dtype=array.dtype, mem_type=mem_type)
+        assert out.dtype == array.dtype
+
+        # If a sequence, no coercion done if dtype already valid
+        out = check_array(
+            array, dtype=("float32", array.dtype), mem_type=mem_type
+        )
+        assert out.dtype == array.dtype
+
+    # Coercion to a specific dtype
+    out = check_array(array, dtype="float32", mem_type=mem_type)
+    assert out.dtype == "float32"
+    cp.testing.assert_allclose(cp.asarray(out), as_cupy(array, "float32"))
+
+    out = check_array(array, dtype="float64", mem_type=mem_type)
+    assert out.dtype == "float64"
+    cp.testing.assert_allclose(cp.asarray(out), as_cupy(array, "float64"))
+
+    # If a sequence, the first dtype is used when coercion needed
+    out = check_array(array, dtype=("float32", "float64"), mem_type=mem_type)
+    assert out.dtype == "float32"
+
+
+def test_check_array_convert_dtype():
+    array = cp.array([[1, 2, 3]], dtype="float32")
+
+    with pytest.raises(
+        ValueError,
+        match=r"Expected array with dtype in \['int32'\] but got 'float32'",
+    ):
+        check_array(array, dtype="int32", convert_dtype=False)
+
+    array = pd.DataFrame({"x": [1, 2, 3], "y": [1.5, 2.5, 3.5]})
+    with pytest.raises(ValueError, match=r"\['int32'\] but got 'float64'"):
+        check_array(array, dtype="int32", convert_dtype=False)
+
+    array = pd.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "a"]})
+    with pytest.raises(ValueError, match=r"\['int32'\] but got 'object'"):
+        check_array(array, dtype="int32", convert_dtype=False)
+
+
+@pytest.mark.parametrize("kind", ["cudf", "pandas"])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
+    xdf = cudf if kind == "cudf" else pd
+
+    df = xdf.DataFrame(
+        {
+            "x": [1, 2, 3, 4, 5],
+            "y": [2.5, 3.5, 4.5, 5.5, 6.5],
+            "z": ["1", "2", "3.5", "4", "5"],
+        }
+    )
+    # Non-numeric columns -> object dtype by default
+    if mem_type == "device" or mem_type is None and kind == "cudf":
+        # cupy doesn't support object dtypes
+        with pytest.raises((ValueError, TypeError), match="object"):
+            check_array(df, mem_type=mem_type)
+    else:
+        # dtype=None does no conversion by default
+        out = check_array(df, mem_type=mem_type)
+        assert out.dtype == "object"
+
+    # Can coerce all columns to specified dtype
+    out = check_array(df, mem_type=mem_type, dtype=("float32", "float64"))
+    assert out.dtype == "float32"
+    np.testing.assert_allclose(cp.asnumpy(out), df.to_numpy(dtype="float32"))
+
+    # Subset of numeric columns -> numeric by default
+    df2 = df[["x", "y"]]
+    out = check_array(df2, mem_type=mem_type)
+    assert out.dtype == df2.y.dtype
+    np.testing.assert_allclose(cp.asnumpy(out), df2.to_numpy())
+
+
+@pytest.mark.parametrize("kind", ["cudf", "pandas"])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_dataframe_non_numpy_dtype(kind, mem_type):
+    xdf = cudf if kind == "cudf" else pd
+
+    df = xdf.DataFrame({"x": ["1", "2", "1", "3"]}).astype("category")
+    # Can coerce all columns to specified dtype
+    out = check_array(df, mem_type=mem_type, dtype=("float32", "float64"))
+    assert out.dtype == "float32"
+    np.testing.assert_allclose(cp.asnumpy(out), df.to_numpy(dtype="float32"))
+
+
+@pytest.mark.parametrize("kind", ["cudf", "pandas"])
+@pytest.mark.parametrize("ndim", [1, 2])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_return_index(kind, ndim, mem_type):
+    xdf = cudf if kind == "cudf" else pd
+    if ndim == 2:
+        array = xdf.DataFrame({"x": [1, 2, 3]}, index=[1, 3, 5])
+    else:
+        array = xdf.Series([1, 2, 3], index=[1, 3, 5])
+
+    out, index = check_array(
+        array, ensure_2d=False, return_index=True, mem_type=mem_type
+    )
+    if mem_type is None:
+        out_xdf = xdf
+    else:
+        out_xdf = cudf if mem_type == "device" else pd
+    assert isinstance(index, out_xdf.Index)
+    assert (cp.asnumpy(index) == np.array([1, 3, 5])).all()
+
+
+@pytest.mark.parametrize("kind", ["numpy", "cudf", "pandas"])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_object_dtype(kind, mem_type):
+    array = np.array(["1.5", "2.5", "3.5"], dtype="object")
+    if kind == "cudf":
+        array = cudf.Series(array)
+    elif kind == "pandas":
+        array = pd.Series(array)
+
+    if mem_type == "device" or mem_type is None and kind == "cudf":
+        # cupy doesn't support object dtypes
+        with pytest.raises((ValueError, TypeError), match="object"):
+            check_array(array, mem_type=mem_type, ensure_2d=False)
+    else:
+        out = check_array(array, mem_type=mem_type, ensure_2d=False)
+        assert out.dtype == "object"
+
+    # Can coerce to numeric if specified
+    out = check_array(
+        array, mem_type=mem_type, dtype=("float32", "float64"), ensure_2d=False
+    )
+    assert out.dtype == "float32"
+    cp.testing.assert_allclose(cp.asarray(out), as_cupy(array, "float32"))
+
+
+@pytest.mark.parametrize(
+    "array",
+    [
+        pytest.param(cp_sp.csr_matrix(cp.array([[1.0, 0]])), id="cupy matrix"),
+        pytest.param(sp.csr_matrix(np.array([[1.0, 0]])), id="scipy matrix"),
+        pytest.param(sp.csr_array(np.array([[1.0, 0]])), id="scipy array"),
+    ],
+)
+def test_check_array_sparse_not_supported(array):
+    with pytest.raises(
+        TypeError, match="Sparse data was passed, but dense data is required"
+    ):
+        check_array(array)
+
+    with pytest.raises(
+        TypeError,
+        match="Sparse data was passed for X, but dense data is required",
+    ):
+        check_array(array, input_name="X")
+
+
+@example(array=cp_sp.csr_matrix(cp.array([[1.0, 0], [0, 0]])), mem_type="host")
+@example(array=sp.csr_matrix(np.array([[1.0, 0], [0, 0]])), mem_type="device")
+@given(
+    array=sparse_arrays(),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_sparse_input(array, mem_type):
+    if mem_type is None:
+        ns = cp_sp if cp_sp.issparse(array) else sp
+    else:
+        ns = cp_sp if mem_type == "device" else sp
+
+    # dtype=None case
+    if (
+        mem_type == "device"
+        and array.dtype.kind != "f"
+        and array.format != "dia"
+    ):
+        # cupy only supports floating dtypes for these inputs. We let cupy
+        # itself raise an exception, we don't really care what it is.
+        with pytest.raises(ValueError, match="float32"):
+            check_array(array, accept_sparse=True, mem_type=mem_type)
+    else:
+        out = check_array(array, accept_sparse=True, mem_type=mem_type)
+        assert ns.issparse(out)
+        assert out.dtype == array.dtype
+
+    # Coerce to specified dtypes
+    out = check_array(
+        array, accept_sparse=True, dtype="float32", mem_type=mem_type
+    )
+    assert ns.issparse(out)
+    assert out.dtype == "float32"
+
+
+@example(
+    array=cp_sp.csr_matrix(cp.array([[1.0, 0], [0, 0]])),
+    mem_type="host",
+    format="coo",
+)
+@example(
+    array=sp.csr_matrix(np.array([[1.0, 0], [0, 0]])),
+    mem_type="device",
+    format="coo",
+)
+@given(
+    array=sparse_arrays(dtype="float32"),
+    mem_type=st.sampled_from(["device", "host", None]),
+    format=st.sampled_from(["csr", "csc", "coo"]),
+)
+def test_check_array_sparse_input_format(array, mem_type, format):
+    if mem_type is None:
+        ns = cp_sp if cp_sp.issparse(array) else sp
+    else:
+        ns = cp_sp if mem_type == "device" else sp
+
+    out = check_array(array, accept_sparse=True, mem_type=mem_type)
+    assert ns.issparse(out)
+    assert out.dtype == array.dtype
+    # Format unchanged unless not a format cupy supports
+    if array.format in ["csr", "coo", "csc", "dia"]:
+        assert out.format == array.format
+    else:
+        assert out.format == "csr"
+
+    # Coerce to specified formats
+    out = check_array(array, accept_sparse=format, mem_type=mem_type)
+    assert ns.issparse(out)
+    assert out.dtype == array.dtype
+    assert out.format == format
+
+    out = check_array(array, accept_sparse=[format, "csc"], mem_type=mem_type)
+    assert ns.issparse(out)
+    assert out.dtype == array.dtype
+    assert out.format == (
+        array.format if array.format in [format, "csc"] else format
+    )
+
+
+@pytest.mark.parametrize("format", ["csr", "csc", "coo", "bsr"])
+def test_check_array_accept_large_sparse(format):
+    array = sp.random(20, 10, density=0.5, format=format, random_state=42)
+    if array.format == "coo":
+        array.coords = tuple(v.astype("int64") for v in array.coords)
+    else:
+        for name in ["indices", "indptr"]:
+            setattr(array, name, getattr(array, name).astype("int64"))
+
+    with pytest.raises(ValueError, match="sparse matrices with int32 indices"):
+        check_array(array, accept_sparse=True)
+
+    check_array(
+        array, accept_sparse=True, accept_large_sparse=True, mem_type="host"
+    )
+
+
+@example(array=np.ones((3, 2)))
+@example(array=cp_sp.csr_matrix(cp.ones((3, 2))))
+@given(
+    array=st.one_of(
+        dense_arrays(dtype="float32", ndim=2, n_samples=3, n_features=2),
+        sparse_arrays(dtype="float32", n_samples=3, n_features=2),
+    )
+)
+def test_check_array_ensure_min_samples_and_ensure_min_features(array):
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"Found array with 3 sample\(s\) \(shape=\(3, 2\)\) while a "
+            "minimum of 6 is required"
+        ),
+    ):
+        check_array(array, ensure_min_samples=6, accept_sparse=True)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"Found array with 2 feature\(s\) \(shape=\(3, 2\)\) while a "
+            "minimum of 5 is required"
+        ),
+    ):
+        check_array(array, ensure_min_features=5, accept_sparse=True)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        pytest.param(lambda x: x, id="list"),
+        pytest.param(np.asarray, id="numpy"),
+        pytest.param(cp.asarray, id="cupy"),
+        pytest.param(cudf.Series, id="cudf"),
+        pytest.param(pd.Series, id="pandas"),
+        pytest.param(sp.csr_array, id="scipy.sparse.csr_array"),
+    ],
+)
+def test_check_array_ensure_2d(func):
+    array = func([1.5, 2.5, 3.5])
+    if isinstance(array, (pd.Series, cudf.Series)):
+        err_msg = "Expected a 2-dimensional container"
+    else:
+        err_msg = "Expected 2D array, got 1D array instead"
+    with pytest.raises(ValueError, match=err_msg):
+        check_array(array, accept_sparse=True)
+
+
+def test_check_array_ensure_all_finite():
+    """Tests plumbing of check_array -> check_all_finite"""
+    f32_nan = np.array([[1.5, float("nan"), 2.5]], dtype="float32")
+    f64_both = np.array([[1.5, float("inf"), float("nan")]], dtype="float64")
+
+    # No errors
+    check_array(f32_nan, ensure_all_finite="allow-nan")
+    check_array(f64_both, ensure_all_finite=False)
+
+    with pytest.raises(
+        ValueError, match="Input X contains NaN or infinite values"
+    ):
+        check_array(f32_nan, input_name="X")
+
+    with pytest.raises(
+        ValueError, match="Input array contains NaN or infinite values"
+    ):
+        check_array(f64_both)
+
+
+def test_check_array_ensure_non_negative():
+    """Tests plumbing of check_array -> check_non_negative"""
+    array = np.array([[-1, 1, 2]], dtype="float32")
+
+    # No error, check disabled by default
+    check_array(array)
+
+    with pytest.raises(
+        ValueError, match="Negative values in data passed to X"
+    ):
+        check_array(array, input_name="X", ensure_non_negative=True)
