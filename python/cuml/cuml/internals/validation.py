@@ -61,6 +61,68 @@ def check_random_seed(random_state) -> int:
     return int(randint(low=0, high=2**32, dtype=np.uint32))
 
 
+def _check_shape(
+    shape,
+    *,
+    ensure_2d=True,
+    ensure_min_samples=0,
+    ensure_min_features=0,
+    array_type=None,
+) -> None:
+    """Check that an input shape is as expected.
+
+    Parameters
+    ----------
+    shape : tuple
+        The array shape.
+    ensure_2d : bool, default=True
+        If True, only 2D arrays are accepted. Otherwise accepts 1D or 2D
+        arrays.
+    ensure_min_samples : int, default=0
+        A minimum number of samples to require. Defaults to 0 for no minimum.
+    ensure_min_features : int, default=0
+        A minimum number of features to require. Defaults to 0 for no minimum.
+    array_type : type or None, default=None
+        The type of the array-like object. Used in error messages.
+    """
+    ndim = len(shape)
+
+    if ndim == 0 or ndim == 1 and ensure_2d:
+        if issubclass(array_type, (cudf.Series, pd.Series)):
+            msg = (
+                f"Expected a 2-dimensional container but got {array_type.__name__} "
+                "instead. Pass a DataFrame containing a single row (i.e. "
+                "single sample) or a single column (i.e. single feature) "
+                "instead."
+            )
+        else:
+            kind = "scalar" if ndim == 0 else f"{ndim}D"
+            msg = (
+                f"Expected 2D array, got {kind} array instead. Reshape your data "
+                "using array.reshape(-1, 1) if your data has a single feature, "
+                "or array.reshape(1, -1) if it contains a single sample."
+            )
+        raise ValueError(msg)
+    elif ndim > 2:
+        raise ValueError(f"Expected 2D array, got {ndim}D array instead.")
+
+    if ensure_min_samples > 0:
+        n_samples = shape[0]
+        if n_samples < ensure_min_samples:
+            raise ValueError(
+                f"Found array with {n_samples} sample(s) (shape={shape}) "
+                f"while a minimum of {ensure_min_samples} is required."
+            )
+
+    if ensure_min_features > 0 and ndim == 2:
+        n_features = shape[1]
+        if n_features < ensure_min_features:
+            raise ValueError(
+                f"Found array with {n_features} feature(s) (shape={shape}) "
+                f"while a minimum of {ensure_min_features} is required."
+            )
+
+
 def _get_n_features(X):
     if isinstance(X, (list, tuple)):
         if len(X) == 0:
@@ -86,26 +148,7 @@ def _get_n_features(X):
     else:
         shape = np.asarray(X).shape
 
-    ndim = len(shape)
-
-    if ndim < 2:
-        if isinstance(X, (cudf.Series, pd.Series)):
-            msg = (
-                f"Expected a 2-dimensional container but got {type(X).__name__} "
-                "instead. Pass a DataFrame containing a single row (i.e. "
-                "single sample) or a single column (i.e. single feature) "
-                "instead."
-            )
-        else:
-            kind = "scalar" if ndim == 0 else f"{ndim}D"
-            msg = (
-                f"Expected 2D array, got {kind} array instead. Reshape your data "
-                "using array.reshape(-1, 1) if your data has a single feature, "
-                "or array.reshape(1, -1) if it contains a single sample."
-            )
-        raise ValueError(msg)
-    elif ndim > 2:
-        raise ValueError(f"Expected 2D array, got {ndim}D array instead.")
+    _check_shape(shape, ensure_2d=True, array_type=type(X))
 
     return shape[1]
 
@@ -316,7 +359,7 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
         )
 
 
-def check_non_negative(array, *, input_name=None):
+def check_non_negative(array, *, input_name=None) -> None:
     """Check if all input values are non-negative.
 
     Parameters
