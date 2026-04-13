@@ -15,6 +15,7 @@ __all__ = (
     "check_is_fitted",
     "check_random_seed",
     "check_features",
+    "check_consistent_length",
 )
 
 
@@ -221,4 +222,20 @@ def check_features(estimator, X, reset=False) -> None:
         raise ValueError(
             f"X has {n_features} features, but {estimator.__class__.__name__} "
             f"is expecting {estimator.n_features_in_} features as input."
+        )
+
+
+def check_consistent_length(*arrays) -> None:
+    """Check whether all inputs have the same number of samples.
+
+    Parameters
+    ----------
+    *arrays : array or None
+        The input variables to validate. None-values are ignored.
+    """
+    lengths = [X.shape[0] for X in arrays if X is not None]
+    if len(set(lengths)) > 1:
+        raise ValueError(
+            f"Found input variables with inconsistent number of samples: "
+            f"{sorted(int(n) for n in lengths)}"
         )

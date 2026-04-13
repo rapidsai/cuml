@@ -12,6 +12,7 @@ import pytest
 from cuml.internals.validation import (
     _get_feature_names,
     _get_n_features,
+    check_consistent_length,
     check_features,
     check_random_seed,
 )
@@ -239,3 +240,21 @@ def test_feature_names_mismatch_errors():
     with pytest.raises(ValueError, match="The feature names") as rec:
         model.predict(bad)
     assert "Feature names must be in the same order" in str(rec.value)
+
+
+def test_check_consistent_length():
+    y3 = np.empty(3)
+    y4 = np.empty(4)
+    x34 = np.empty((3, 4))
+
+    check_consistent_length()
+    check_consistent_length(None)
+    check_consistent_length(x34)
+    check_consistent_length(x34, y3)
+    check_consistent_length(x34, None, y3)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found input variables with inconsistent number of samples: \[3, 4\]",
+    ):
+        check_consistent_length(x34, y4)
