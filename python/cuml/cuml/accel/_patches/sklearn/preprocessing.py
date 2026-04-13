@@ -7,7 +7,7 @@ import cupy as cp
 import numpy as np
 import scipy.sparse
 import sklearn
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
 from cuml.accel._patches.sklearn._utils import enable_scipy_array_api
 from cuml.accel.core import logger
@@ -15,7 +15,7 @@ from cuml.accel.estimator_proxy import ensure_host
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import using_output_type
 
-__all__ = ("MinMaxScaler", "StandardScaler")
+__all__ = ("LabelEncoder", "MinMaxScaler", "StandardScaler")
 
 _FITTED_ATTRS = ("mean_", "var_", "scale_", "n_samples_seen_")
 
@@ -442,3 +442,161 @@ _patch_minmax_fit_transform(MinMaxScaler)
 _patch_minmax_inverse_transform(MinMaxScaler)
 
 MinMaxScaler._cuml_accel_patched = True
+
+# ---------------------------------------------------------------------------
+# LabelEncoder patches
+# ---------------------------------------------------------------------------
+
+_LABEL_FITTED_ATTRS = ("classes_",)
+
+
+def _label_ensure_fitted_on_host(self):
+    if GlobalSettings().output_type in (None, "numpy"):
+        for attr in _LABEL_FITTED_ATTRS:
+            val = getattr(self, attr, None)
+            if val is not None:
+                setattr(self, attr, ensure_host(val))
+
+
+def _label_promote_fitted_to_device(self):
+    for attr in _LABEL_FITTED_ATTRS:
+        val = getattr(self, attr, None)
+        if val is not None and isinstance(val, np.ndarray):
+            setattr(self, attr, cp.asarray(val))
+
+
+@contextlib.contextmanager
+def _label_fitted_attrs_on_device(self):
+    saved = {}
+    for attr in _LABEL_FITTED_ATTRS:
+        val = getattr(self, attr, None)
+        if val is not None and isinstance(val, np.ndarray):
+            saved[attr] = val
+            setattr(self, attr, cp.asarray(val))
+    try:
+        yield
+    finally:
+        for attr, val in saved.items():
+            setattr(self, attr, val)
+
+
+def _patch_label_fit(cls):
+    orig_fit = cls.fit
+
+    @functools.wraps(orig_fit)
+    def fit(self, y):
+        if not _can_accelerate(y):
+            logger.debug("`LabelEncoder.fit` not optimized: unsupported input")
+            return orig_fit(self, y)
+
+        logger.debug("`LabelEncoder.fit` input data moved to GPU")
+
+        with (
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_fit(self, _to_cupy(y))
+
+        _label_ensure_fitted_on_host(self)
+        return out
+
+    cls.fit = fit
+
+
+def _patch_label_fit_transform(cls):
+    orig_fit_transform = cls.fit_transform
+
+    @functools.wraps(orig_fit_transform)
+    def fit_transform(self, y):
+        if not _can_accelerate(y):
+            logger.debug(
+                "`LabelEncoder.fit_transform` not optimized: unsupported input"
+            )
+            return orig_fit_transform(self, y)
+
+        logger.debug("`LabelEncoder.fit_transform` input data moved to GPU")
+
+        with (
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_fit_transform(self, _to_cupy(y))
+
+        _label_ensure_fitted_on_host(self)
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.fit_transform = fit_transform
+
+
+def _patch_label_transform(cls):
+    orig_transform = cls.transform
+
+    @functools.wraps(orig_transform)
+    def transform(self, y):
+        if not _can_accelerate(y):
+            logger.debug(
+                "`LabelEncoder.transform` not optimized: unsupported input"
+            )
+            return orig_transform(self, y)
+
+        logger.debug("`LabelEncoder.transform` input data moved to GPU")
+
+        with (
+            _label_fitted_attrs_on_device(self),
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_transform(self, _to_cupy(y))
+
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.transform = transform
+
+
+def _patch_label_inverse_transform(cls):
+    orig_inverse_transform = cls.inverse_transform
+
+    @functools.wraps(orig_inverse_transform)
+    def inverse_transform(self, y):
+        if not _can_accelerate(y):
+            logger.debug(
+                "`LabelEncoder.inverse_transform` not optimized: "
+                "unsupported input"
+            )
+            return orig_inverse_transform(self, y)
+
+        logger.debug(
+            "`LabelEncoder.inverse_transform` input data moved to GPU"
+        )
+
+        with (
+            _label_fitted_attrs_on_device(self),
+            enable_scipy_array_api(),
+            sklearn.config_context(array_api_dispatch=True),
+            using_output_type("cupy"),
+        ):
+            out = orig_inverse_transform(self, _to_cupy(y))
+
+        if GlobalSettings().output_type in (None, "numpy"):
+            out = ensure_host(out)
+
+        return out
+
+    cls.inverse_transform = inverse_transform
+
+
+_patch_label_fit(LabelEncoder)
+_patch_label_fit_transform(LabelEncoder)
+_patch_label_transform(LabelEncoder)
+_patch_label_inverse_transform(LabelEncoder)
+
+LabelEncoder._cuml_accel_patched = True
