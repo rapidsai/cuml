@@ -39,34 +39,47 @@ def _to_cupy(X):
 
 
 # ---------------------------------------------------------------------------
-# Generic fitted-attribute helpers (parameterized by attribute-name tuple)
+# Generic fitted-attribute helpers
 # ---------------------------------------------------------------------------
 
 
-def _ensure_fitted_on_host(estimator, fitted_attrs):
+def _get_fitted_attrs(estimator):
+    """Discover fitted attributes by sklearn's trailing-underscore convention."""
+    return [
+        attr
+        for attr in vars(estimator)
+        if attr.endswith("_") and not attr.startswith("_")
+    ]
+
+
+def _ensure_fitted_on_host(estimator):
     """Convert fitted attributes to host arrays when output_type is numpy."""
     if GlobalSettings().output_type in (None, "numpy"):
-        for attr in fitted_attrs:
+        for attr in _get_fitted_attrs(estimator):
             val = getattr(estimator, attr, None)
             if val is not None:
                 setattr(estimator, attr, ensure_host(val))
 
 
-def _promote_fitted_to_device(estimator, fitted_attrs):
+def _promote_fitted_to_device(estimator):
     """Convert any numpy fitted attributes to cupy in-place.
 
     After fit, fitted attrs are stored as numpy (for user convenience).
     sklearn's array-API code path needs them in the same namespace as
     the cupy input.
     """
-    for attr in fitted_attrs:
+    for attr in _get_fitted_attrs(estimator):
         val = getattr(estimator, attr, None)
-        if val is not None and isinstance(val, np.ndarray):
+        if (
+            val is not None
+            and isinstance(val, np.ndarray)
+            and np.issubdtype(val.dtype, np.number)
+        ):
             setattr(estimator, attr, cp.asarray(val))
 
 
 @contextlib.contextmanager
-def _fitted_attrs_on_device(estimator, fitted_attrs):
+def _fitted_attrs_on_device(estimator):
     """Temporarily move fitted attributes to cupy for a computation.
 
     Use this for read-only methods (transform, inverse_transform) that
@@ -75,9 +88,13 @@ def _fitted_attrs_on_device(estimator, fitted_attrs):
     directly and let ``_ensure_fitted_on_host`` convert back afterward.
     """
     saved = {}
-    for attr in fitted_attrs:
+    for attr in _get_fitted_attrs(estimator):
         val = getattr(estimator, attr, None)
-        if val is not None and isinstance(val, np.ndarray):
+        if (
+            val is not None
+            and isinstance(val, np.ndarray)
+            and np.issubdtype(val.dtype, np.number)
+        ):
             saved[attr] = val
             setattr(estimator, attr, cp.asarray(val))
     try:
@@ -124,7 +141,6 @@ def _infer_method_flags(method_name):
 def _make_method_patch(
     orig_method,
     class_name,
-    fitted_attrs,
     *,
     is_fitting=False,
     promotes_fitted=False,
@@ -139,8 +155,6 @@ def _make_method_patch(
         The original (unpatched) method.
     class_name : str
         Used in log messages.
-    fitted_attrs : tuple[str, ...]
-        Names of the estimator's fitted attributes to manage across CPU/GPU.
     is_fitting : bool
         If True, call ``_ensure_fitted_on_host`` after the method runs.
     promotes_fitted : bool
@@ -165,13 +179,11 @@ def _make_method_patch(
         logger.debug(f"{log_prefix} input data moved to GPU")
 
         if promotes_fitted:
-            _promote_fitted_to_device(self, fitted_attrs)
+            _promote_fitted_to_device(self)
 
         with contextlib.ExitStack() as stack:
             if uses_fitted_ctx:
-                stack.enter_context(
-                    _fitted_attrs_on_device(self, fitted_attrs)
-                )
+                stack.enter_context(_fitted_attrs_on_device(self))
             stack.enter_context(enable_scipy_array_api())
             stack.enter_context(
                 sklearn.config_context(array_api_dispatch=True)
@@ -180,7 +192,7 @@ def _make_method_patch(
             out = orig_method(self, _to_cupy(data), *args, **kwargs)
 
         if is_fitting:
-            _ensure_fitted_on_host(self, fitted_attrs)
+            _ensure_fitted_on_host(self)
 
         if returns_output and GlobalSettings().output_type in (None, "numpy"):
             out = ensure_host(out)
@@ -195,16 +207,13 @@ def _make_method_patch(
 # ---------------------------------------------------------------------------
 
 
-def patch_estimator(cls, fitted_attrs, methods=None):
+def patch_estimator(cls, methods=None):
     """Monkey-patch *cls* to dispatch its methods through CuPy.
 
     Parameters
     ----------
     cls : type
         The sklearn estimator class to patch.
-    fitted_attrs : tuple[str, ...]
-        Names of fitted attributes that need to be migrated between CPU and
-        GPU across method calls.
     methods : sequence of str or None
         Names of methods to patch.  When *None* (default), all methods in
         ``_TRANSFORMER_METHODS`` that exist on *cls* are patched
@@ -215,7 +224,7 @@ def patch_estimator(cls, fitted_attrs, methods=None):
     for method_name in methods:
         flags = _infer_method_flags(method_name)
         orig = getattr(cls, method_name)
-        patched = _make_method_patch(orig, cls.__name__, fitted_attrs, **flags)
+        patched = _make_method_patch(orig, cls.__name__, **flags)
         setattr(cls, method_name, patched)
     cls._cuml_accel_patched = True
 
@@ -224,16 +233,6 @@ def patch_estimator(cls, fitted_attrs, methods=None):
 # Per-estimator configuration and registration
 # ---------------------------------------------------------------------------
 
-patch_estimator(StandardScaler, ("mean_", "var_", "scale_", "n_samples_seen_"))
-patch_estimator(
-    MinMaxScaler,
-    (
-        "scale_",
-        "min_",
-        "data_min_",
-        "data_max_",
-        "data_range_",
-        "n_samples_seen_",
-    ),
-)
-patch_estimator(LabelEncoder, ("classes_",))
+patch_estimator(StandardScaler)
+patch_estimator(MinMaxScaler)
+patch_estimator(LabelEncoder)
