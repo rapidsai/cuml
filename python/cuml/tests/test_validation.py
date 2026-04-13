@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 import cudf
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,6 +13,7 @@ import pytest
 from cuml.internals.validation import (
     _get_feature_names,
     _get_n_features,
+    check_all_finite,
     check_consistent_length,
     check_features,
     check_random_seed,
@@ -258,3 +260,63 @@ def test_check_consistent_length():
         match=r"Found input variables with inconsistent number of samples: \[3, 4\]",
     ):
         check_consistent_length(x34, y4)
+
+
+@pytest.mark.parametrize("device", [True, False])
+@pytest.mark.parametrize("sparse_format", [None, "csr", "coo"])
+def test_check_all_finite(device, sparse_format):
+    def array(values, dtype=None):
+        x = cp.array(values, dtype=dtype)
+        if sparse_format is not None:
+            x = getattr(cp_sp, f"{sparse_format}_matrix")(x)
+        if not device:
+            x = x.get()
+        return x
+
+    non_floating = array([True, False, True], dtype="bool")
+    f32_empty = array([], dtype="float32")
+    f32_good = array([1.5, -1.5, 2.5], dtype="float32")
+    f32_nan = array([1.5, float("nan"), 2.5], dtype="float32")
+    f32_inf = array([1.5, float("inf"), 2.5], dtype="float32")
+    f64_both = array([[1.5, float("inf"), float("nan")]], dtype="float64")
+
+    check_all_finite(non_floating)
+    check_all_finite(f32_empty)
+    check_all_finite(f32_good, allow_nan=False)
+    check_all_finite(f32_good, allow_nan=True)
+    check_all_finite(f32_nan, allow_nan=True)
+
+    with pytest.raises(
+        ValueError, match="Input X contains NaN or infinite values"
+    ):
+        check_all_finite(f32_nan, allow_nan=False, input_name="X")
+
+    with pytest.raises(
+        ValueError, match="Input array contains infinite values"
+    ):
+        check_all_finite(f32_inf, allow_nan=True)
+
+    with pytest.raises(
+        ValueError, match="Input array contains NaN or infinite values"
+    ):
+        check_all_finite(f64_both)
+
+
+def test_check_all_finite_host_fallback():
+    x_good = np.array([1e307] * 100, dtype="float64")
+    x_nan = np.array([1e307] * 99 + [float("nan")], dtype="float64")
+    x_inf = np.array([1e307] * 99 + [float("inf")], dtype="float64")
+
+    check_all_finite(x_good)
+    check_all_finite(x_good, allow_nan=True)
+    check_all_finite(x_nan, allow_nan=True)
+
+    with pytest.raises(
+        ValueError, match="Input array contains NaN or infinite values"
+    ):
+        check_all_finite(x_nan)
+
+    with pytest.raises(
+        ValueError, match="Input array contains infinite values"
+    ):
+        check_all_finite(x_inf, allow_nan=True)

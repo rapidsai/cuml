@@ -7,8 +7,10 @@ import warnings
 
 import cudf
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
+import scipy.sparse as sp
 from sklearn.utils.validation import check_is_fitted
 
 __all__ = (
@@ -238,4 +240,75 @@ def check_consistent_length(*arrays) -> None:
         raise ValueError(
             f"Found input variables with inconsistent number of samples: "
             f"{sorted(int(n) for n in lengths)}"
+        )
+
+
+_cupy_all_finite = cp.ReductionKernel(
+    "T x",
+    "bool out",
+    "isfinite(x)",
+    "a && b",
+    "out = a",
+    "true",
+    "all_finite",
+)
+
+
+_cupy_all_finite_or_nan = cp.ReductionKernel(
+    "T x",
+    "bool out",
+    "isinf(x)",
+    "a || b",
+    "out = !a",
+    "false",
+    "all_finite_or_nan",
+)
+
+
+def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
+    """Check if all input values are finite.
+
+    Parameters
+    ----------
+    array : dense or sparse array
+        The array to check.
+    allow_nan : bool, default=False
+        Whether to allow NaN values.
+    input_name : str or None, default=None
+        The input parameter name to use in error messages.
+    """
+    if not np.isdtype(array.dtype, "real floating"):
+        # No-op for non floating inputs
+        return
+
+    if cp_sp.issparse(array) or sp.issparse(array):
+        array = array.data
+
+    if not array.size:
+        # No-op for empty inputs
+        return
+
+    if isinstance(array, cp.ndarray):
+        if allow_nan:
+            ok = _cupy_all_finite_or_nan(array)
+        else:
+            ok = _cupy_all_finite(array)
+    else:
+        # First try an O(1) space solution for the common case
+        with np.errstate(over="ignore"):
+            x_sum = array.sum()
+        if np.isfinite(x_sum):
+            ok = True
+        elif not allow_nan and np.isnan(x_sum):
+            ok = False
+        else:
+            # Maybe overflow or nan in data, fallback to O(n) path
+            if allow_nan:
+                ok = not np.isinf(array).any()
+            else:
+                ok = np.isfinite(array).all()
+    if not ok:
+        kind = "infinite" if allow_nan else "NaN or infinite"
+        raise ValueError(
+            f"Input {input_name or 'array'} contains {kind} values"
         )
