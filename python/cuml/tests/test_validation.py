@@ -9,6 +9,7 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 
 from cuml.internals.validation import (
     _get_feature_names,
@@ -321,6 +322,13 @@ def test_check_all_finite_host_fallback():
         ValueError, match="Input array contains infinite values"
     ):
         check_all_finite(x_inf, allow_nan=True)
+
+
+def test_check_all_finite_assume_finite():
+    bad = cp.array([1.5, float("nan"), 2.5], dtype="float32")
+    # No errors for bad inputs if `assume_finite=True` configured
+    with sklearn.config_context(assume_finite=True):
+        check_all_finite(bad)
 
 
 @pytest.mark.parametrize("device", [True, False])

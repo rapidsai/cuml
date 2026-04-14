@@ -11,6 +11,7 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+import sklearn
 from sklearn.utils.validation import check_is_fitted
 
 __all__ = (
@@ -313,6 +314,9 @@ _cupy_all_finite_or_nan = cp.ReductionKernel(
 def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     """Check if all input values are finite.
 
+    This check is skipped if scikit-learn's ``assume_finite`` option is
+    configured via ``sklearn.set_config(assume_finite=True)``.
+
     Parameters
     ----------
     array : dense or sparse array
@@ -324,6 +328,10 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     """
     if not np.isdtype(array.dtype, "real floating"):
         # No-op for non floating inputs
+        return
+
+    if sklearn.get_config()["assume_finite"]:
+        # no-op if assume_finite configured
         return
 
     if cp_sp.issparse(array) or sp.issparse(array):
