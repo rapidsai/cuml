@@ -340,9 +340,12 @@ jobs:
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
+      # TEMPORARY DEBUGGING: using nightly matrix_type and matrix_filter to match test.yaml config.
+      # TODO: revert matrix_type and matrix_filter once debugging is complete.
+      matrix_type: nightly
       script: "ci/test_python_cuml_accel_upstream.sh"
-      # One run for each dependencies config on amd64, breaking ties by highest Python version
-      matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+      # TEMPORARY DEBUGGING: replaced PR matrix_filter with nightly one (one job per CUDA major version).
+      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     secrets: inherit
