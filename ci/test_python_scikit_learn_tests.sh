@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test script outside the script directory
@@ -9,21 +9,19 @@ source ./ci/test_python_common.sh
 
 rapids-logger "Running scikit-learn tests with cuML acceleration"
 
-# Do not immediately exit on error
+EXITCODE=0
+trap "EXITCODE=1" ERR
 set +e
 
 timeout 1h ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh \
     --numprocesses=8 \
     --dist=worksteal \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
-TEST_EXITCODE=$?
 
 rapids-logger "Analyzing test results"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
     --config ./python/cuml/cuml_accel_tests/upstream/scikit-learn/test_config.yaml \
     "${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"
-
-EXITCODE=$TEST_EXITCODE
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
