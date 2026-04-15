@@ -14,6 +14,7 @@ import pytest
 import scipy.sparse as sp
 import sklearn
 from hypothesis import assume, example, given
+from sklearn.exceptions import DataConversionWarning
 
 from cuml.internals.validation import (
     _get_feature_names,
@@ -24,7 +25,46 @@ from cuml.internals.validation import (
     check_features,
     check_non_negative,
     check_random_seed,
+    check_y,
 )
+
+
+def gen_dense_array(
+    *,
+    kind="cupy",
+    dtype="float32",
+    order="C",
+    ndim=2,
+    n_samples=5,
+    n_features=4,
+):
+    """Generate a suitable dense array input."""
+    shape = (n_samples, n_features) if ndim == 2 else (n_samples,)
+    dtype = np.dtype(dtype)
+
+    if kind in ("cupy", "numpy", "pandas") and order is None:
+        # generate a non-contiguous strided input if order=None
+        shape = (n_samples * 2, n_features) if ndim == 2 else (n_samples * 2,)
+
+    rng = np.random.default_rng(42)
+    if dtype.kind == "f":
+        data = rng.uniform(0, 100, size=shape).astype(dtype)
+    else:
+        data = rng.integers(0, 100, size=shape).astype(dtype)
+
+    if kind == "cupy":
+        out = cp.asarray(data, dtype=dtype, order=order)
+        return out[::2] if order is None else out
+    elif kind == "numpy":
+        out = np.asarray(data, dtype=dtype, order=order)
+        return out[::2] if order is None else out
+    elif kind == "list":
+        return data.tolist()
+    elif kind == "pandas":
+        out = pd.Series(data) if ndim == 1 else pd.DataFrame(data)
+        return out[::2] if order is None else out
+    elif kind == "cudf":
+        return cudf.Series(data) if ndim == 1 else cudf.DataFrame(data)
 
 
 @st.composite
@@ -74,38 +114,21 @@ def dense_arrays(
     assume(not (kind == "cudf" and dtype == "float16"))
 
     ndim = select(ndim, (1, 2))
-    shape = (n_samples, n_features) if ndim == 2 else (n_samples,)
 
     if kind in ("cupy", "numpy", "pandas"):
         order = select(order, ("C", "F", None) if ndim == 2 else ("C", None))
-        if order is None:
-            # generate a non-contiguous strided input if order=None
-            shape = (
-                (n_samples * 2, n_features) if ndim == 2 else (n_samples * 2,)
-            )
     else:
         # Other containers don't have flexible contiguity
         order = None
 
-    rng = np.random.default_rng(42)
-    if dtype.kind == "f":
-        data = rng.uniform(0, 100, size=shape)
-    else:
-        data = rng.integers(0, 100, size=shape)
-
-    if kind == "cupy":
-        out = cp.asarray(data, dtype=dtype, order=order)
-        return out[::2] if order is None else out
-    elif kind == "numpy":
-        out = np.asarray(data, dtype=dtype, order=order)
-        return out[::2] if order is None else out
-    elif kind == "list":
-        return data.tolist()
-    elif kind == "pandas":
-        out = pd.Series(data) if ndim == 1 else pd.DataFrame(data)
-        return out[::2] if order is None else out
-    elif kind == "cudf":
-        return cudf.Series(data) if ndim == 1 else cudf.DataFrame(data)
+    return gen_dense_array(
+        kind=kind,
+        dtype=dtype,
+        order=order,
+        ndim=ndim,
+        n_samples=n_samples,
+        n_features=n_features,
+    )
 
 
 @st.composite
@@ -187,6 +210,16 @@ def as_cupy(array, dtype=None, order=None):
             array = array.astype(dtype, copy=False)
         array = array.to_cupy()
     return cp.asarray(array, dtype=dtype, order=order)
+
+
+def assert_contiguity(array, order):
+    """Assert an array has the proper contiguity"""
+    if order == "A":
+        assert array.flags["C_CONTIGUOUS"] or array.flags["F_CONTIGUOUS"]
+    elif order == "C":
+        assert array.flags["C_CONTIGUOUS"]
+    elif order == "F":
+        assert array.flags["F_CONTIGUOUS"]
 
 
 @contextmanager
@@ -621,12 +654,7 @@ def test_check_array_mem_type(array, mem_type):
 def test_check_array_order(array, order, mem_type):
     out = check_array(array, ensure_2d=False, order=order, mem_type=mem_type)
     cp.testing.assert_allclose(cp.asarray(out), as_cupy(array))
-    if order == "A":
-        assert out.flags["C_CONTIGUOUS"] or out.flags["F_CONTIGUOUS"]
-    elif order == "C":
-        assert out.flags["C_CONTIGUOUS"]
-    elif order == "F":
-        assert out.flags["F_CONTIGUOUS"]
+    assert_contiguity(out, order)
 
 
 @example(array=[[1, 2]], mem_type="device")
@@ -978,3 +1006,234 @@ def test_check_array_ensure_non_negative():
         ValueError, match="Negative values in data passed to X"
     ):
         check_array(array, input_name="X", ensure_non_negative=True)
+
+
+@example(y=cp.asarray([[1, 2], [3, 4]], order="F"), order="C", mem_type="host")
+@example(
+    y=np.asarray([[1, 2], [3, 4]], order="C"), order="F", mem_type="device"
+)
+@given(
+    y=dense_arrays(ndim=(1, 2), dtype="int64"),
+    order=st.sampled_from(["C", "F", "A"]),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_y(y, mem_type, order):
+    if mem_type == "device":
+        exp_type = cp.ndarray
+    elif mem_type == "host":
+        exp_type = np.ndarray
+    else:
+        exp_type = (
+            cp.ndarray
+            if isinstance(y, (cp.ndarray, cudf.DataFrame, cudf.Series))
+            else np.ndarray
+        )
+
+    out = check_y(y, mem_type=mem_type, order=order, accept_multi_output=True)
+    if hasattr(y, "dtype"):
+        assert out.dtype == y.dtype
+    assert isinstance(out, exp_type)
+    assert_contiguity(out, order)
+    cp.testing.assert_allclose(as_cupy(out), as_cupy(y))
+
+    # Check that if dtype specified it's properly converted
+    out = check_y(
+        y,
+        mem_type=mem_type,
+        order=order,
+        accept_multi_output=True,
+        dtype="float32",
+    )
+    assert out.dtype == "float32"
+    assert isinstance(out, exp_type)
+    assert_contiguity(out, order)
+    cp.testing.assert_allclose(as_cupy(out), as_cupy(y, "float32"))
+
+    # Sequence of dtypes also works
+    out = check_y(
+        y,
+        accept_multi_output=True,
+        dtype=("int32", "int64"),
+    )
+    assert out.dtype in ("int32", "int64")
+
+
+@pytest.mark.parametrize("kind", ["array", "dataframe"])
+def test_check_y_accept_multi_output(kind):
+    if kind == "array":
+        y_2d_1col = np.array([1, 2, 3])[:, None]
+        y_2d = np.array([[1, 2, 3], [4, 5, 6]])
+    else:
+        y_2d_1col = pd.DataFrame({"x": [1, 2, 3]})
+        y_2d = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+
+    # 2d with 1 column warns, but still returns 2D
+    with pytest.warns(DataConversionWarning, match="A column-vector y"):
+        out = check_y(y_2d_1col)
+    assert out.ndim == 2
+
+    # 2d with multiple columns just errors
+    with pytest.raises(ValueError, match="y should be a 1d"):
+        check_y(y_2d)
+
+    # With accept_multi_output=True, no cases error or warn
+    out = check_y(y_2d_1col, accept_multi_output=True)
+    assert out.ndim == 2
+    out = check_y(y_2d, accept_multi_output=True)
+    assert out.ndim == 2
+
+
+@example(
+    kind="cupy",
+    label_dtype="int32",
+    n_classes=2,
+    mem_type="host",
+    dtype=None,
+    order=None,
+)
+@example(
+    kind="pandas",
+    label_dtype="O",
+    n_classes=(2, 4),
+    mem_type="device",
+    dtype="int32",
+    order="F",
+)
+@example(
+    kind="list",
+    label_dtype="O",
+    n_classes=2,
+    mem_type=None,
+    dtype=None,
+    order="A",
+)
+@given(
+    kind=st.sampled_from(["cupy", "numpy", "pandas", "cudf", "list"]),
+    label_dtype=st.sampled_from(["int32", "int64", "bool", "O", "U"]),
+    n_classes=st.sampled_from([2, 4, (3,), (2, 4)]),
+    mem_type=st.sampled_from(["device", "host", None]),
+    dtype=st.sampled_from([None, "int32", "int64", "float32"]),
+    order=st.sampled_from(["C", "F", "A", None]),
+)
+def test_check_y_return_classes(
+    kind, label_dtype, n_classes, mem_type, dtype, order
+):
+    # Construct input data
+    if label_dtype in ("O", "U"):
+        if mem_type is None:
+            assume(kind not in ("cudf", "cupy"))
+        else:
+            assume(not (kind == "cupy" or mem_type == "device"))
+        labels = np.array(["a", "b", "c", "d"], dtype=label_dtype)
+    elif label_dtype == "bool":
+        labels = np.array([True, False])
+    else:
+        labels = np.array([5, 10, 15, 20], dtype=label_dtype)
+
+    rng = np.random.default_rng(42)
+    if isinstance(n_classes, int):
+        assume(n_classes < len(labels))
+        inds = rng.integers(n_classes, size=100)
+    else:
+        assume(all(n < len(labels) for n in n_classes))
+        inds = np.stack([rng.integers(n, size=100) for n in n_classes]).T
+
+    y = labels.take(inds)
+    if kind == "cupy":
+        y = cp.asarray(y)
+    elif kind == "pandas":
+        y = pd.DataFrame(y) if inds.ndim == 2 else pd.Series(y)
+    elif kind == "cudf":
+        y = cudf.DataFrame(y) if inds.ndim == 2 else cudf.Series(y)
+    elif kind == "list":
+        y = y.tolist()
+
+    # Construct the expected outputs
+    sol = inds.flatten() if inds.ndim == 2 and inds.shape[1] == 1 else inds
+    if dtype is not None:
+        sol = sol.astype(dtype)
+    if mem_type == "device" or mem_type is None and kind in ("cupy", "cudf"):
+        sol = cp.asarray(sol)
+
+    y2 = check_array(y, mem_type="host", ensure_2d=False)
+    if inds.ndim == 2 and inds.shape[1] != 1:
+        sol_classes = [np.unique(y2[:, i]) for i in range(y2.shape[1])]
+    else:
+        sol_classes = np.unique(y2)
+
+    # Helper function so we don't have to repeat args below
+    def check(accept_multi_output=False):
+        return check_y(
+            y,
+            order=order,
+            dtype=dtype,
+            mem_type=mem_type,
+            accept_multi_output=accept_multi_output,
+            return_classes=True,
+        )
+
+    # Check the calls warn/raise appropriately and return expected types
+    if inds.ndim == 2:
+        if inds.shape[1] == 1:
+            # For classifiers this always warns, even if multi-output accepted
+            with pytest.warns(
+                DataConversionWarning, match="A column-vector y"
+            ):
+                out, classes = check()
+            assert out.ndim == 1
+            assert isinstance(classes, np.ndarray)
+            with pytest.warns(
+                DataConversionWarning, match="A column-vector y"
+            ):
+                out, classes = check(True)
+        else:
+            with pytest.raises(ValueError, match="y should be a 1d"):
+                check()
+            out, classes = check(True)
+    else:
+        out, classes = check()
+
+    # Assert encoded y is correct
+    assert_contiguity(out, order)
+    if dtype is None:
+        assert out.dtype.kind in "iu"  # default to some integral type
+    else:
+        assert out.dtype == dtype
+    assert out.shape == sol.shape
+    assert isinstance(out, type(sol))
+    np.testing.assert_allclose(cp.asnumpy(out), cp.asnumpy(sol))
+
+    # Assert classes are correct
+    if isinstance(sol_classes, list):
+        assert isinstance(classes, list)
+        assert len(classes) == len(sol_classes)
+        for c, s in zip(classes, sol_classes):
+            assert c.dtype == s.dtype
+            assert (c == s).all()
+    else:
+        assert classes.dtype == sol_classes.dtype
+        assert (classes == sol_classes).all()
+
+
+def test_check_y_classifier_on_floating_input():
+    # integral floating values are accepted
+    good = np.array([1.0, 2.0, 1.0])
+    out, classes = check_y(good, return_classes=True)
+    assert classes.dtype == good.dtype
+    np.testing.assert_array_equal(classes, np.unique(good))
+    np.testing.assert_array_equal(cp.asnumpy(out), np.array([0, 1, 0]))
+
+    # Non integral values error
+    bad = [
+        np.array([1.5, 2.5, 3.5]),
+        cp.array([1.0, float("nan"), 3.0]),
+        np.array([1.0, float("inf"), 3.0]),
+    ]
+    for array in bad:
+        with pytest.raises(ValueError, match="Unknown label type: continuous"):
+            check_y(array, return_classes=True)
+
+
+def test_check_y_none():
+    with pytest.raises(ValueError, match="This estimator requires y"):
+        check_y(None)

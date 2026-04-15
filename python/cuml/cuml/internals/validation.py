@@ -6,12 +6,14 @@ import numbers
 import warnings
 
 import cudf
+import cudf.pandas
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import sklearn
+from sklearn.exceptions import DataConversionWarning
 from sklearn.utils.validation import check_is_fitted
 
 __all__ = (
@@ -22,6 +24,7 @@ __all__ = (
     "check_all_finite",
     "check_non_negative",
     "check_array",
+    "check_y",
 )
 
 
@@ -494,11 +497,10 @@ def check_array(
         raise ValueError(f"Unsupported {mem_type=!r}")
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
-
-    if isinstance(dtype, (list, tuple)):
-        dtype = [np.dtype(dt) for dt in dtype]
-    elif dtype is not None:
-        dtype = np.dtype(dtype)
+    if dtype is not None:
+        if not isinstance(dtype, (list, tuple)):
+            dtype = [dtype]
+        dtype = [np.dtype(i) for i in dtype]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
@@ -521,20 +523,18 @@ def check_array(
             raise ValueError("Complex data not supported")
         if dtype is None:
             dtype = array_dtype
-        else:
-            accept_dtypes = dtype if isinstance(dtype, list) else [dtype]
-            if array_dtype not in accept_dtypes:
-                if convert_dtype:
-                    # Convert to first provided dtype
-                    dtype = accept_dtypes[0]
-                else:
-                    raise ValueError(
-                        f"Expected array with dtype in {[str(d) for d in accept_dtypes]} "
-                        f"but got {str(array_dtype)!r}"
-                    )
+        elif array_dtype not in dtype:
+            if convert_dtype:
+                # Convert to first provided dtype
+                dtype = dtype[0]
             else:
-                dtype = array_dtype
-    elif isinstance(dtype, (list, tuple)):
+                raise ValueError(
+                    f"Expected array with dtype in {[str(d) for d in dtype]} "
+                    f"but got {str(array_dtype)!r}"
+                )
+        else:
+            dtype = array_dtype
+    elif dtype is not None:
         # No original dtype, use first dtype in list inputs
         dtype = dtype[0]
 
@@ -690,3 +690,192 @@ def check_array(
         return array, index
     else:
         return array
+
+
+_is_integral = cp.ReductionKernel(
+    "T x",
+    "bool out",
+    "isfinite(x) && (ceilf(x) == x)",
+    "a && b",
+    "out = a",
+    "true",
+    "is_integral",
+)
+
+
+def check_y(
+    y,
+    *,
+    dtype=None,
+    convert_dtype=True,
+    mem_type="device",
+    order=None,
+    accept_multi_output=False,
+    return_classes=False,
+):
+    """Validate and coerce ``y`` to a supported type.
+
+    Parameters
+    ----------
+    y : array-like
+        The array-like input to validate.
+    dtype : None, dtype, list[dtype], default=None
+        The dtype(s) to support. By default no dtype enforcement is performed;
+        for classifiers the output will be a suitable integral type, otherwise
+        the input dtype will be used. Pass a dtype or a list of supported
+        dtypes to enforce a dtype for the output. If the input doesn't have a
+        supported dtype, it will be converted to the first listed dtype.
+    convert_dtype : bool, default=True
+        Whether to support dtype conversion. If False, an error will be raised
+        if the input isn't a supported dtype.
+    mem_type : {'device', 'host'} or None, default='device'
+        The memory type use for the output. If 'device', the output will be a
+        ``cupy.ndarray``. If 'host', the output will be a ``numpy.ndarray``. If
+        ``None``, the output will have the same memory type as the input (i.e.
+        device if already on device, host otherwise).
+    order : {'F', 'C', 'A', None}, default=None
+        The order and contiguity to enforce for dense outputs. Use 'F' for
+        F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
+        C contiguous, or `None` for no contiguity requirements.
+    accept_multi_output : bool, default=False
+        Whether multi-output y is accepted. By default only 1D inputs (or 2D
+        inputs with a single column) are accepted. Set to True to accept
+        multi-column inputs as well.
+    return_classes : bool, default=False
+        Set to True to also label encode ``y`` and return the ``classes``.
+
+    Returns
+    -------
+    y : cupy.ndarray or numpy.ndarray
+        The converted and validated array.
+    classes : numpy.ndarray or list[numpy.ndarray]
+        The collected classes for a classifier input. Only returned if
+        ``return_classes=True``.
+    """
+    if y is None:
+        raise ValueError(
+            "This estimator requires y to be passed, but the target y is None"
+        )
+
+    # Normalize `dtype` arg
+    if dtype is not None:
+        if not isinstance(dtype, (list, tuple)):
+            dtype = [dtype]
+        dtype = [np.dtype(i) for i in dtype]
+
+    # Coerce `y` to a supported array type
+    if return_classes:
+        # cudf may coerce the dtype, store the original so we can cast back later
+        input_dtype = y.dtype if isinstance(y, np.ndarray) else None
+
+        # No cuda container supports all dtypes. Here we coerce to cupy when
+        # possible, falling back to cudf Series/DataFrame otherwise.
+        if not isinstance(y, (cudf.DataFrame, cudf.Series)):
+            y = check_array(
+                y,
+                mem_type=None,
+                ensure_2d=False,
+                ensure_min_samples=0,
+                ensure_all_finite=False,
+                input_name="y",
+            )
+            # If no original dtype found on input, use the coerced one instead
+            if input_dtype is None:
+                input_dtype = y.dtype
+            if mem_type is None:
+                mem_type = "host" if isinstance(y, np.ndarray) else "device"
+            if y.dtype.kind in "iufb":
+                y = cp.asarray(y)
+            else:
+                y = (cudf.DataFrame if y.ndim == 2 else cudf.Series)(
+                    y, dtype=(np.dtype("O") if y.dtype.kind in "U" else None)
+                )
+        elif mem_type is None:
+            mem_type = "device"
+    else:
+        y = check_array(
+            y,
+            dtype=dtype,
+            convert_dtype=convert_dtype,
+            mem_type=mem_type,
+            order=order,
+            ensure_2d=False,
+            ensure_min_samples=0,
+            input_name="y",
+        )
+
+    # Warn/error appropriately for 2D inputs
+    if y.ndim == 2:
+        if y.shape[1] == 1 and (return_classes or not accept_multi_output):
+            warnings.warn(
+                "A column-vector y was passed when a 1d array was expected. "
+                "Please change the shape of y to (n_samples,), for example "
+                "using ravel().",
+                DataConversionWarning,
+            )
+            if return_classes:
+                y = (
+                    y.iloc[:, 0]
+                    if isinstance(y, cudf.DataFrame)
+                    else y.ravel()
+                )
+        elif not accept_multi_output:
+            raise ValueError(
+                f"y should be a 1d array, got an array of shape {y.shape} instead."
+            )
+
+    if not return_classes:
+        return y
+
+    # For classifiers, we label encode y and return the integral labels as well
+    # as the classes.
+    def _encode(y):
+        """Encode `y` to codes and classes"""
+        if y.dtype.kind == "f" and not _is_integral(y):
+            raise ValueError(
+                "Unknown label type: continuous. Maybe you are trying to fit a "
+                "classifier, which expects discrete classes on a regression target "
+                "with continuous values."
+            )
+        if isinstance(y, cudf.Series):
+            y = y.astype("category")
+            codes = cp.asarray(y.cat.codes)
+            classes = y.cat.categories.to_numpy()
+            # cudf will sometimes translate non-numeric dtypes. Coerce back to
+            # the input dtype if the input was originally a numpy array.
+            if input_dtype is not None:
+                classes = classes.astype(input_dtype, copy=False)
+        else:
+            classes, codes = cp.unique(y, return_inverse=True)
+            classes = classes.get()
+        return codes, classes
+
+    # Return C order if C requested, otherwise F.
+    if order != "C":
+        order = "F"
+
+    if y.ndim == 1:
+        y, classes = _encode(y)
+        if dtype is not None and y.dtype not in dtype:
+            y = y.astype(dtype[0])
+    else:
+        getter = y.iloc if isinstance(y, cudf.DataFrame) else y
+        encoded_cols, classes = zip(
+            *(_encode(getter[:, i]) for i in range(y.shape[1]))
+        )
+        classes = list(classes)
+        # Infer output dtype
+        out_dtype = cp.result_type(*(c.dtype for c in encoded_cols))
+        if dtype is not None and out_dtype not in dtype:
+            dtype = dtype[0]
+        else:
+            dtype = out_dtype
+        y = cp.empty(shape=y.shape, dtype=dtype, order=order)
+        for i, col in enumerate(encoded_cols):
+            y[:, i] = col
+
+    if mem_type == "host":
+        # convert back to host if needed
+        y = y.get(order=order)
+
+    return y, classes
