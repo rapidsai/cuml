@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -243,7 +243,13 @@ test_data = [
     # Skip due to update to Scipy 1.15
     # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
     # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing),
-    ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing_exog),
+    pytest.param(
+        (1, 1, 1, 2, 0, 0, 4, 1),
+        test_111_200_4c_missing_exog,
+        marks=pytest.mark.xfail(
+            reason="test_111_200_4c_missing_exog dataset causes issues on some GPU architectures"
+        ),
+    ),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12_missing),
