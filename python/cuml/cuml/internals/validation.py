@@ -620,8 +620,12 @@ def check_array(
             array = array.to_numpy(dtype=dtype)
             if mem_type == "device":
                 array = cp.asarray(array, dtype=dtype, order=order)
-            elif mem_type is None and cudf.pandas.LOADED:
-                # With cudf.pandas, the array is already on device
+            elif (
+                mem_type is None
+                and cudf.pandas.LOADED
+                and np.isdtype(array.dtype, ("numeric", "bool"))
+            ):
+                # With cudf.pandas, supported arrays are already on device
                 array = cp.asarray(array, dtype=dtype, order=order)
             else:
                 array = np.asarray(array, dtype=dtype, order=order)
@@ -784,7 +788,7 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if y.dtype.kind in "iufb":
+            if np.isdtype(y.dtype, ("numeric", "bool")):
                 y = cp.asarray(y)
             else:
                 y = (cudf.DataFrame if y.ndim == 2 else cudf.Series)(

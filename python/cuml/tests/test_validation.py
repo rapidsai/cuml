@@ -29,6 +29,28 @@ from cuml.internals.validation import (
 )
 
 
+def is_cuda_output(mem_type, value=..., kind=...):
+    """Infer if cuda output given `mem_type` and a value or kind"""
+    if mem_type is None:
+        if value is not ...:
+            if cudf.pandas.LOADED:
+                if isinstance(value, pd.DataFrame):
+                    return not any(d == "object" for d in value.dtypes)
+                elif isinstance(value, pd.Series):
+                    return value.dtype != "object"
+            return isinstance(
+                value,
+                (cp.ndarray, cp_sp.spmatrix, cudf.Series, cudf.DataFrame),
+            )
+        elif kind is not ...:
+            if cudf.pandas.LOADED:
+                return kind in ("cupy", "cudf", "pandas")
+            return kind in ("cupy", "cudf")
+        else:
+            raise ValueError("Expected `value` or `kind`")
+    return mem_type == "device"
+
+
 def gen_dense_array(
     *,
     kind="cupy",
@@ -618,15 +640,7 @@ def test_check_array_complex_errors(func):
 )
 def test_check_array_mem_type(array, mem_type):
     out = check_array(array, mem_type=mem_type, ensure_2d=False)
-    if mem_type is None:
-        cls = (
-            cp.ndarray
-            if isinstance(array, (cp.ndarray, cudf.DataFrame, cudf.Series))
-            else np.ndarray
-        )
-    else:
-        cls = cp.ndarray if mem_type == "device" else np.ndarray
-
+    cls = cp.ndarray if is_cuda_output(mem_type, array) else np.ndarray
     assert isinstance(out, cls)
     cp.testing.assert_allclose(as_cupy(array), as_cupy(out))
 
@@ -730,7 +744,7 @@ def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
         }
     )
     # Non-numeric columns -> object dtype by default
-    if mem_type == "device" or mem_type is None and kind == "cudf":
+    if is_cuda_output(mem_type, df):
         # cupy doesn't support object dtypes
         with pytest.raises((ValueError, TypeError), match="object"):
             check_array(df, mem_type=mem_type)
@@ -793,7 +807,7 @@ def test_check_array_object_dtype(kind, mem_type):
     elif kind == "pandas":
         array = pd.Series(array)
 
-    if mem_type == "device" or mem_type is None and kind == "cudf":
+    if is_cuda_output(mem_type, array):
         # cupy doesn't support object dtypes
         with pytest.raises((ValueError, TypeError), match="object"):
             check_array(array, mem_type=mem_type, ensure_2d=False)
@@ -837,11 +851,7 @@ def test_check_array_sparse_not_supported(array):
     mem_type=st.sampled_from(["device", "host", None]),
 )
 def test_check_array_sparse_input(array, mem_type):
-    if mem_type is None:
-        ns = cp_sp if cp_sp.issparse(array) else sp
-    else:
-        ns = cp_sp if mem_type == "device" else sp
-
+    ns = cp_sp if is_cuda_output(mem_type, array) else sp
     # dtype=None case
     if (
         mem_type == "device"
@@ -881,11 +891,7 @@ def test_check_array_sparse_input(array, mem_type):
     format=st.sampled_from(["csr", "csc", "coo"]),
 )
 def test_check_array_sparse_input_format(array, mem_type, format):
-    if mem_type is None:
-        ns = cp_sp if cp_sp.issparse(array) else sp
-    else:
-        ns = cp_sp if mem_type == "device" else sp
-
+    ns = cp_sp if is_cuda_output(mem_type, array) else sp
     out = check_array(array, accept_sparse=True, mem_type=mem_type)
     assert ns.issparse(out)
     assert out.dtype == array.dtype
@@ -1018,17 +1024,7 @@ def test_check_array_ensure_non_negative():
     mem_type=st.sampled_from(["device", "host", None]),
 )
 def test_check_y(y, mem_type, order):
-    if mem_type == "device":
-        exp_type = cp.ndarray
-    elif mem_type == "host":
-        exp_type = np.ndarray
-    else:
-        exp_type = (
-            cp.ndarray
-            if isinstance(y, (cp.ndarray, cudf.DataFrame, cudf.Series))
-            else np.ndarray
-        )
-
+    exp_type = cp.ndarray if is_cuda_output(mem_type, y) else np.ndarray
     out = check_y(y, mem_type=mem_type, order=order, accept_multi_output=True)
     if hasattr(y, "dtype"):
         assert out.dtype == y.dtype
@@ -1120,10 +1116,8 @@ def test_check_y_return_classes(
 ):
     # Construct input data
     if label_dtype in ("O", "U"):
-        if mem_type is None:
-            assume(kind not in ("cudf", "cupy"))
-        else:
-            assume(not (kind == "cupy" or mem_type == "device"))
+        # cupy doesn't support these types
+        assume(not (kind == "cupy" or is_cuda_output(mem_type, kind=kind)))
         labels = np.array(["a", "b", "c", "d"], dtype=label_dtype)
     elif label_dtype == "bool":
         labels = np.array([True, False])
@@ -1152,7 +1146,7 @@ def test_check_y_return_classes(
     sol = inds.flatten() if inds.ndim == 2 and inds.shape[1] == 1 else inds
     if dtype is not None:
         sol = sol.astype(dtype)
-    if mem_type == "device" or mem_type is None and kind in ("cupy", "cudf"):
+    if is_cuda_output(mem_type, kind=kind):
         sol = cp.asarray(sol)
 
     y2 = check_array(y, mem_type="host", ensure_2d=False)
