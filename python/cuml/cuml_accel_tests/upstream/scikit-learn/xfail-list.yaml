@@ -737,10 +737,8 @@
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
@@ -1056,7 +1054,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_supervised_y_no_nan]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
@@ -1115,7 +1112,6 @@
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_estimators_empty_data_messages]"
@@ -1368,10 +1364,8 @@
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_requires_y_none]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_supervised_y_2d]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"

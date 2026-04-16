@@ -7,14 +7,14 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, preprocess_labels
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.validation import check_features
+from cuml.internals.validation import check_features, check_y
 from cuml.metrics import accuracy_score
 
 
@@ -222,15 +222,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
+        y, classes = check_y(y, dtype=cp.int32, return_classes=True)
         X_m = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
             order="F",
+            check_rows=y.shape[0],
         ).array
-        y, classes = preprocess_labels(
-            y, n_samples=X_m.shape[0], dtype=cp.int32
-        )
         self.classes_ = classes
         self.n_classes_ = len(classes)
         y_m = CumlArray(data=y)
