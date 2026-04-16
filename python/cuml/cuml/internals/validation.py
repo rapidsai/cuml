@@ -417,7 +417,7 @@ def check_array(
     dtype=None,
     convert_dtype=True,
     mem_type="device",
-    order=None,
+    order="A",
     ensure_all_finite=True,
     ensure_non_negative=False,
     ensure_2d=True,
@@ -456,10 +456,11 @@ def check_array(
         a ``scipy.sparse.spmatrix`` if sparse. If ``None``, the output will
         have the same memory type as the input (i.e. device if already on
         device, host otherwise).
-    order : {'F', 'C', 'A', None}, default=None
+    order : {'F', 'C', 'A', None}, default='A'
         The order and contiguity to enforce for dense outputs. Use 'F' for
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
-        C contiguous, or `None` for no contiguity requirements.
+        C contiguous, or `None` for no contiguity requirements (may be
+        non-contiguous!).
     ensure_all_finite : bool or 'allow-nan', default=True
         If True, an error will be raised if non-finite values are found in the
         input. If 'allow-nan', an error will be raised if infinite values are
@@ -713,7 +714,7 @@ def check_y(
     dtype=None,
     convert_dtype=True,
     mem_type="device",
-    order=None,
+    order="A",
     accept_multi_output=False,
     return_classes=False,
 ):
@@ -737,10 +738,11 @@ def check_y(
         ``cupy.ndarray``. If 'host', the output will be a ``numpy.ndarray``. If
         ``None``, the output will have the same memory type as the input (i.e.
         device if already on device, host otherwise).
-    order : {'F', 'C', 'A', None}, default=None
+    order : {'F', 'C', 'A', None}, default='A'
         The order and contiguity to enforce for dense outputs. Use 'F' for
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
-        C contiguous, or `None` for no contiguity requirements.
+        C contiguous, or `None` for no contiguity requirements (may be
+        non-contiguous!).
     accept_multi_output : bool, default=False
         Whether multi-output y is accepted. By default only 1D inputs (or 2D
         inputs with a single column) are accepted. Set to True to accept
