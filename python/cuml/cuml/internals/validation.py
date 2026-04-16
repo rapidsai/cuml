@@ -25,6 +25,7 @@ __all__ = (
     "check_non_negative",
     "check_array",
     "check_y",
+    "check_sample_weight",
 )
 
 
@@ -885,3 +886,71 @@ def check_y(
         y = y.get(order=order)
 
     return y, classes
+
+
+def check_sample_weight(
+    sample_weight,
+    *,
+    dtype=None,
+    convert_dtype=True,
+    mem_type="device",
+    order="A",
+    ensure_non_negative=False,
+):
+    """Validate and coerce ``sample_weight`` to a supported type.
+
+    Parameters
+    ----------
+    sample_weight : array-like, scalar, or None
+        The ``sample_weight`` input to validate.
+    dtype : None, dtype, list[dtype], default=None
+        The dtype(s) to support. By default no dtype enforcement is performed;
+        for classifiers the output will be a suitable integral type, otherwise
+        the input dtype will be used. Pass a dtype or a list of supported
+        dtypes to enforce a dtype for the output. If the input doesn't have a
+        supported dtype, it will be converted to the first listed dtype.
+    convert_dtype : bool, default=True
+        Whether to support dtype conversion. If False, an error will be raised
+        if the input isn't a supported dtype.
+    mem_type : {'device', 'host'} or None, default='device'
+        The memory type use for the output. If 'device', the output will be a
+        ``cupy.ndarray``. If 'host', the output will be a ``numpy.ndarray``. If
+        ``None``, the output will have the same memory type as the input (i.e.
+        device if already on device, host otherwise).
+    order : {'F', 'C', 'A', None}, default='A'
+        The order and contiguity to enforce for dense outputs. Use 'F' for
+        F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
+        C contiguous, or `None` for no contiguity requirements (may be
+        non-contiguous!).
+    ensure_non_negative : bool, default=False
+        If True, an error will be raised if negative values are found in the
+        input. By default ``check_non_negative`` is skipped.
+
+    Returns
+    -------
+    sample_weight : cupy.ndarray, numpy.ndarray, or None
+        The converted and validated weights.
+    """
+    if sample_weight is None:
+        return None
+
+    # A uniform sample_weight is the same as unweighted
+    if cp.isscalar(sample_weight):
+        return None
+
+    sample_weight = check_array(
+        sample_weight,
+        dtype=dtype,
+        convert_dtype=convert_dtype,
+        mem_type=mem_type,
+        order=order,
+        ensure_2d=False,
+        ensure_non_negative=ensure_non_negative,
+        input_name="sample_weight",
+    )
+    if sample_weight.ndim != 1:
+        raise ValueError(
+            f"Sample weights must be 1D array or scalar, got "
+            f"{sample_weight.ndim}D array."
+        )
+    return sample_weight

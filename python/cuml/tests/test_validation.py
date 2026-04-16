@@ -25,6 +25,7 @@ from cuml.internals.validation import (
     check_features,
     check_non_negative,
     check_random_seed,
+    check_sample_weight,
     check_y,
 )
 
@@ -1231,3 +1232,65 @@ def test_check_y_classifier_on_floating_input():
 def test_check_y_none():
     with pytest.raises(ValueError, match="This estimator requires y"):
         check_y(None)
+
+
+@example(
+    sample_weight=cp.array([1.5, 2.5, 3.5], dtype="float32"),
+    dtype=None,
+    order="C",
+    mem_type="host",
+)
+@example(
+    sample_weight=np.array([1.5, 2.5, 3.5], dtype="float64")[::2],
+    dtype="float32",
+    order="A",
+    mem_type="device",
+)
+@given(
+    sample_weight=dense_arrays(ndim=1, dtype=("int32", "float32", "float64")),
+    dtype=st.sampled_from(["float32", "float64", None]),
+    order=st.sampled_from(["C", "F", "A", None]),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_sample_weight(sample_weight, dtype, order, mem_type):
+    exp_type = (
+        cp.ndarray if is_cuda_output(mem_type, sample_weight) else np.ndarray
+    )
+    out = check_sample_weight(
+        sample_weight, dtype=dtype, order=order, mem_type=mem_type
+    )
+    if dtype is None and hasattr(sample_weight, "dtype"):
+        assert out.dtype == sample_weight.dtype
+    elif dtype is not None:
+        assert out.dtype == dtype
+    assert isinstance(out, exp_type)
+    assert_contiguity(out, order)
+    cp.testing.assert_allclose(as_cupy(out), as_cupy(sample_weight))
+
+
+@pytest.mark.parametrize("shape", [(4, 5), (4, 1)])
+def test_check_sample_weight_errors_2d(shape):
+    bad = np.ones(shape)
+    with pytest.raises(
+        ValueError, match="Sample weights must be 1D array or scalar"
+    ):
+        check_sample_weight(bad)
+
+
+def test_check_sample_weight_scalar_or_none():
+    assert check_sample_weight(None) is None
+    assert check_sample_weight(1.5) is None
+    assert check_sample_weight(np.float32(1.0)) is None
+
+
+def test_check_sample_weight_ensure_non_negative():
+    """Tests plumbing of check_sample_weight -> check_non_negative"""
+    array = np.array([-1, 1, 2], dtype="float32")
+
+    # No error, check disabled by default
+    check_sample_weight(array)
+
+    with pytest.raises(
+        ValueError, match="Negative values in data passed to sample_weight"
+    ):
+        check_sample_weight(array, ensure_non_negative=True)
