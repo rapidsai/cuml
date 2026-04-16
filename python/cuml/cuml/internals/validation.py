@@ -26,6 +26,7 @@ __all__ = (
     "check_array",
     "check_y",
     "check_sample_weight",
+    "check_inputs",
 )
 
 
@@ -954,3 +955,201 @@ def check_sample_weight(
             f"{sample_weight.ndim}D array."
         )
     return sample_weight
+
+
+def check_inputs(
+    estimator,
+    X,
+    y=...,
+    sample_weight=...,
+    *,
+    accept_sparse=False,
+    accept_large_sparse=False,
+    dtype=None,
+    y_dtype=...,
+    sample_weight_dtype=...,
+    convert_dtype=True,
+    mem_type="device",
+    order="A",
+    ensure_all_finite=True,
+    ensure_non_negative=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    accept_multi_output=False,
+    return_classes=False,
+    return_index=False,
+    reset=False,
+):
+    """Validate and coerce common inputs to an estimator method.
+
+    This plumbs together several common checks. For a method with ``X``, ``y``,
+    and ``sample_weight``, it's roughly equivalent to:
+
+    ```
+    check_features(estimator, X, reset=reset)
+    X = check_array(X, input_name="X", ...)
+    y = check_y(y, ...)
+    sample_weight = check_sample_weight(sample_weight, ...)
+    check_consistent_length(X, y, sample_weight)
+    ```
+
+    If this pattern doesn't work for an estimator, you can call always call
+    some of the individual checks directly.
+
+    Parameters
+    ----------
+    estimator : Base
+        The estimator to check.
+    X : array-like
+        The ``X`` input.
+    y : array-like, default=...
+        The ``y`` input. May be omitted.
+    sample_weight : array-like, scalar, or None
+        The ``sample_weight`` input. May be omitted.
+    accept_sparse : bool, str, list[str], default=False
+        The sparse matrix format(s) to support. If the input is sparse
+        but not in a supported format, it will be converted to the first
+        listed format. Pass True to support any input format. The default
+        of False will raise an error on sparse inputs.
+    accept_large_sparse : bool, default=False
+        Whether large (int64) indices are supported for sparse containers with
+        CSR/CSC/COO/BSR formats. If not supported, an appropriate error will be
+        raised if the sparse indices aren't int32.
+    dtype : None, dtype, list[dtype], default=None
+        The dtype(s) to support for X. By default no dtype validation is performed.
+        Pass a dtype or a list of supported dtypes to enforce a dtype for the
+        output. If the input doesn't have a supported dtype, it will be
+        converted to the first listed dtype.
+    y_dtype : None, dtype, list[dtype], default=...
+        The dtype(s) to support for y. If not specified, defaults to ``None``
+        if ``return_classes=True``, and the output dtype of ``X`` otherwise.
+    sample_weight_dtype : None, dtype, list[dtype], default=...
+        The dtype(s) to support for sample_weight. If not specified, defaults
+        to the output dtype of ``X``.
+    convert_dtype : bool, default=True
+        Whether to support dtype conversion. If False, an error will be raised
+        if the input isn't a supported dtype.
+    mem_type : {'device', 'host'} or None, default='device'
+        The memory type use for the output. If 'device', the output will be a
+        ``cupy.ndarray`` if dense, or a ``cupyx.scipy.sparse.spmatrix`` if
+        sparse. If 'host', the output will be a ``numpy.ndarray`` if dense, or
+        a ``scipy.sparse.spmatrix`` if sparse. If ``None``, the output will
+        have the same memory type as the input (i.e. device if already on
+        device, host otherwise).
+    order : {'F', 'C', 'A', None}, default='A'
+        The order and contiguity to enforce for dense outputs. Use 'F' for
+        F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
+        C contiguous, or `None` for no contiguity requirements (may be
+        non-contiguous!).
+    ensure_all_finite : bool or 'allow-nan', default=True
+        If True, an error will be raised if non-finite values are found in X.
+        If 'allow-nan', an error will be raised if infinite values are
+        found (but not for NaN). If False then ``check_all_finite`` is skipped.
+    ensure_non_negative : bool, default=False
+        If True, an error will be raised if negative values are found in X. By
+        default ``check_non_negative`` is skipped.
+    ensure_min_samples : int, default=1
+        A minimum number of samples to require. Set to 0 for no minimum.
+    ensure_min_features : int, default=1
+        A minimum number of features to require for 2D inputs. Set to 0 for no
+        minimum.
+    accept_multi_output : bool, default=False
+        Whether multi-output y is accepted. By default only 1D inputs (or 2D
+        inputs with a single column) are accepted. Set to True to accept
+        multi-column inputs as well.
+    return_classes : bool, default=False
+        Set to True to also label encode ``y`` and return the ``classes``.
+    return_index : bool, default=False
+        Whether to return the index of ``X`` (if a dataframe-like value).
+        This is useful for functions that need to return an output with a
+        dataframe index aligned with the input.
+    reset : bool, default=False
+        If True, ``n_features_in_`` and ``feature_names_in_`` are set on
+        ``estimator`` to match ``X``. Otherwise ``X`` is checked to match the
+        existing ``n_features_in_`` and ``feature_names_in_``. ``reset=True``
+        should be used for fit-like methods, and False otherwise.
+
+    Returns
+    -------
+    X : dense or sparse array
+        The converted and validated array. Depending on input and parameters,
+        will be one of ``cupy.ndarray``, ``numpy.ndarray``,
+        ``cupyx.scipy.sparse.spmatrix``, or ``scipy.sparse.spmatrix``.
+    y : cupy.ndarray or numpy.ndarry
+        The converted and validated array. Omitted if no ``y`` provided.
+    sample_weight : cupy.ndarray, numpy.ndarray, or None
+        The converted and validated weights. Omitted if no ``sample_weight``
+        provided.
+    classes : numpy.ndarray or list[numpy.ndarray]
+        The collected classes from ``y`` for a classifier input. Only returned
+        if ``return_classes=True``.
+    index : pandas.Index, cudf.Index, or None
+        The index of the input if a dataframe-like, or None if no index. The
+        index will be converted to match ``mem_type``. Only returned if
+        ``return_index=True``.
+    """
+    check_features(estimator, X, reset=reset)
+
+    # Validate X
+    X = check_array(
+        X,
+        accept_sparse=accept_sparse,
+        accept_large_sparse=accept_large_sparse,
+        dtype=dtype,
+        convert_dtype=convert_dtype,
+        mem_type=mem_type,
+        order=order,
+        ensure_all_finite=ensure_all_finite,
+        ensure_non_negative=ensure_non_negative,
+        ensure_min_samples=ensure_min_samples,
+        ensure_min_features=ensure_min_features,
+        return_index=return_index,
+        input_name="X",
+    )
+    if return_index:
+        X, index = X
+    else:
+        index = None
+    out = [X]
+
+    # Validate y
+    classes = None
+    if y is not ...:
+        if y_dtype is ...:
+            # Follow X dtype by default unless a classifier
+            y_dtype = None if return_classes else X.dtype
+        y = check_y(
+            y,
+            dtype=y_dtype,
+            convert_dtype=convert_dtype,
+            mem_type=mem_type,
+            order=order,
+            accept_multi_output=accept_multi_output,
+            return_classes=return_classes,
+        )
+        if return_classes:
+            y, classes = y
+        out.append(y)
+
+    # Validate sample_weight
+    if sample_weight is not ...:
+        if sample_weight_dtype is ...:
+            # Follow X dtype by default
+            sample_weight_dtype = X.dtype
+        sample_weight = check_sample_weight(
+            sample_weight,
+            dtype=sample_weight_dtype,
+            convert_dtype=convert_dtype,
+            mem_type=mem_type,
+            order=order,
+        )
+        out.append(sample_weight)
+
+    check_consistent_length(*out)
+
+    if return_classes:
+        out.append(classes)
+    if return_index:
+        out.append(index)
+
+    return out[0] if len(out) == 1 else tuple(out)

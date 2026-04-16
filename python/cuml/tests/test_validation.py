@@ -23,6 +23,7 @@ from cuml.internals.validation import (
     check_array,
     check_consistent_length,
     check_features,
+    check_inputs,
     check_non_negative,
     check_random_seed,
     check_sample_weight,
@@ -1294,3 +1295,104 @@ def test_check_sample_weight_ensure_non_negative():
         ValueError, match="Negative values in data passed to sample_weight"
     ):
         check_sample_weight(array, ensure_non_negative=True)
+
+
+def test_check_inputs_X():
+    model = MyModel()
+    X = np.arange(6).reshape((3, 2))
+
+    X2 = check_inputs(model, X, reset=True)
+    assert model.n_features_in_ == 2
+    cp.testing.assert_array_equal(X2, cp.asarray(X))
+
+    with pytest.raises(
+        ValueError,
+        match="X has 3 features, but MyModel is expecting 2 features as input",
+    ):
+        check_inputs(model, np.ones((3, 3)))
+
+
+def test_check_inputs_X_y():
+    model = MyModel()
+
+    X = np.arange(6, dtype="float32").reshape((3, 2))
+    y = cp.arange(3, dtype="int32")
+
+    X2, y2 = check_inputs(model, X, y, reset=True)
+    assert model.n_features_in_ == 2
+    assert X2.dtype == "float32"
+    # y defaults to X output dtype
+    assert y2.dtype == "float32"
+    cp.testing.assert_array_equal(X2, cp.asarray(X))
+    cp.testing.assert_array_equal(y2, y.astype("float32"))
+
+    # check y_dtype overrides
+    _, y2 = check_inputs(model, X, y, y_dtype="int32", reset=True)
+    assert y2.dtype == "int32"
+
+
+def test_check_inputs_X_y_sample_weight():
+    model = MyModel()
+    X = np.arange(6, dtype="float32").reshape((3, 2))
+    y = cp.ones(3, dtype="int32")
+    sample_weight = [10, 20, 30]
+
+    X2, y2, sample_weight2 = check_inputs(
+        model, X, y, sample_weight, reset=True
+    )
+    assert model.n_features_in_ == 2
+    assert X2.dtype == "float32"
+    assert y2.dtype == "float32"
+    # sample_weight defaults to X output dtype
+    assert sample_weight2.dtype == "float32"
+    cp.testing.assert_array_equal(X2, cp.asarray(X))
+    cp.testing.assert_array_equal(y2, y.astype("float32"))
+    cp.testing.assert_array_equal(
+        sample_weight2, cp.array(sample_weight, dtype="float32")
+    )
+
+    # check sample_weight_dtype overrides
+    _, _, sample_weight2 = check_inputs(
+        model, X, y, sample_weight, sample_weight_dtype="float64"
+    )
+    assert sample_weight2.dtype == "float64"
+
+    # sample_weight=None is supported
+    _, _, sample_weight2 = check_inputs(model, X, y, None)
+    assert sample_weight2 is None
+
+
+def test_check_inputs_return_classes():
+    model = MyModel()
+    X = cp.ones((3, 2), "float32")
+    y = np.array(["a", "b", "a"], dtype="O")
+
+    _, y2, classes = check_inputs(model, X, y, return_classes=True, reset=True)
+    # y defaults to an integral type
+    assert y2.dtype.kind in "iu"
+    cp.testing.assert_array_equal(y2, cp.array([0, 1, 0]))
+    np.testing.assert_array_equal(classes, np.array(["a", "b"], dtype="O"))
+
+    # check y_dtype overrides
+    _, y2, classes = check_inputs(
+        model, X, y, y_dtype="float32", return_classes=True, reset=True
+    )
+    assert y2.dtype == "float32"
+    cp.testing.assert_array_equal(y2, cp.array([0, 1, 0], dtype="float32"))
+
+
+def test_check_inputs_return_index():
+    model = MyModel()
+    X = pd.DataFrame({"x": [1.0, 2.0, 3.0]}, index=[10, 20, 30])
+    sample_weight = [0, 1, 0]
+
+    X2, sample_weight2, index = check_inputs(
+        model, X, sample_weight=sample_weight, return_index=True, reset=True
+    )
+    assert X2.dtype == sample_weight2.dtype
+    cp.testing.assert_array_equal(X2, cp.asarray(X.to_numpy()))
+    cp.testing.assert_array_equal(
+        sample_weight2, cp.asarray(sample_weight, dtype=X2.dtype)
+    )
+    assert isinstance(index, cudf.Index)
+    assert (index == cudf.Index([10, 20, 30])).all()
