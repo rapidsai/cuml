@@ -26,7 +26,6 @@ import cudf
 import numpy as np
 import pandas as pd
 import pytest
-from cudf.pandas import LOADED as cudf_pandas_active
 from scipy.optimize import approx_fprime
 from sklearn.model_selection import train_test_split
 
@@ -243,13 +242,7 @@ test_data = [
     # Skip due to update to Scipy 1.15
     # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
     # ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing),
-    pytest.param(
-        (1, 1, 1, 2, 0, 0, 4, 1),
-        test_111_200_4c_missing_exog,
-        marks=pytest.mark.xfail(
-            reason="test_111_200_4c_missing_exog dataset causes issues on some GPU architectures"
-        ),
-    ),
+    ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c_missing_exog),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12_missing),
@@ -401,11 +394,10 @@ def fill_interpolation(df_in):
 @pytest.mark.parametrize("dtype", [np.float64])
 def test_integration(key, data, dtype):
     """Full integration test: estimate, fit, forecast"""
-    if (
-        data.dataset == "endog_hourly_earnings_by_industry_missing_exog"
-        and cudf_pandas_active
-    ):
-        pytest.skip(reason="https://github.com/rapidsai/cuml/issues/6209")
+    if data.dataset == "endog_hourly_earnings_by_industry_missing_exog":
+        pytest.xfail(
+            reason="test_111_200_4c_missing_exog dataset causes issues on some GPU architectures (see https://github.com/rapidsai/cuml/issues/6209)"
+        )
     order, seasonal_order, intercept = extract_order(key)
     s = max(1, seasonal_order[3])
 
