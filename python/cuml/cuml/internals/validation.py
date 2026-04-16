@@ -125,6 +125,7 @@ def _check_shape(
 
 
 def _get_n_features(X):
+    """Get the number of features in X."""
     if isinstance(X, (list, tuple)):
         if len(X) == 0:
             return 0
@@ -152,6 +153,22 @@ def _get_n_features(X):
     _check_shape(shape, ensure_2d=True, array_type=type(X))
 
     return shape[1]
+
+
+def _get_n_samples(X):
+    """Get the number of samples in X."""
+
+    if (shape := getattr(X, "shape", None)) is not None:
+        if len(shape) == 0:
+            raise TypeError("Expected array-like, got scalar instead.")
+        return shape[0]
+
+    try:
+        return len(X)
+    except TypeError as exc:
+        raise TypeError(
+            f"Expected array-like, got {type(X)} instead."
+        ) from exc
 
 
 def _get_feature_names(X):
@@ -276,16 +293,19 @@ def check_features(estimator, X, reset=False) -> None:
 def check_consistent_length(*arrays) -> None:
     """Check whether all inputs have the same number of samples.
 
+    Typically should be called after arrays have been validated and normalized
+    by other checks, but also works on typical unvetted user inputs.
+
     Parameters
     ----------
     *arrays : array or None
         The input variables to validate. None-values are ignored.
     """
-    lengths = [X.shape[0] for X in arrays if X is not None]
+    lengths = [_get_n_samples(X) for X in arrays if X is not None]
     if len(set(lengths)) > 1:
         raise ValueError(
             f"Found input variables with inconsistent number of samples: "
-            f"{sorted(int(n) for n in lengths)}"
+            f"{sorted(n for n in lengths)}"
         )
 
 

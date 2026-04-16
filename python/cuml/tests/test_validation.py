@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import re
 import warnings
 from contextlib import contextmanager
 
@@ -257,11 +258,25 @@ def test_check_consistent_length():
     check_consistent_length(x34, y3)
     check_consistent_length(x34, None, y3)
 
+    # Supports non-normalized inputs too
+    check_consistent_length(x34.tolist(), y3, None)
+    check_consistent_length(pd.DataFrame(x34), cudf.Series(y3), None)
+
     with pytest.raises(
         ValueError,
         match=r"Found input variables with inconsistent number of samples: \[3, 4\]",
     ):
         check_consistent_length(x34, y4)
+
+    with pytest.raises(
+        TypeError, match="Expected array-like, got scalar instead"
+    ):
+        check_consistent_length(x34, None, np.array(1.5))
+
+    with pytest.raises(
+        TypeError, match=re.escape(f"Expected array-like, got {int} instead")
+    ):
+        check_consistent_length(x34, None, 1)
 
 
 @pytest.mark.parametrize("device", [True, False])
