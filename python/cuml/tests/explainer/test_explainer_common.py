@@ -6,7 +6,6 @@
 import cupy as cp
 import numpy as np
 import pytest
-
 from sklearn.linear_model import LinearRegression as skreg
 
 import cuml
@@ -21,7 +20,6 @@ from cuml.explainer.common import (
     model_func_call,
 )
 from cuml.testing.utils import ClassEnumerator
-
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
@@ -181,11 +179,7 @@ def test_get_link_fn_from_fn():
 
 def create_dummy_model(model):
     try:
-        model_name = model.__name__
-        if "RandomForest" in model_name:
-            mod = model()
-        else:
-            mod = model()
+        mod = model()
     except TypeError:
         mod = model(np.zeros(10))
     return mod
