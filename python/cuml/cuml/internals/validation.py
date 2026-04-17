@@ -315,25 +315,17 @@ def check_consistent_length(*arrays) -> None:
         )
 
 
-_cupy_all_finite = cp.ReductionKernel(
+# Returns status in a bitfield:
+# 0b01: contains NaN
+# 0b10: contains +/-inf
+_cupy_any_inf_or_nan = cp.ReductionKernel(
     "T x",
-    "bool out",
-    "isfinite(x)",
-    "a && b",
+    "uint8 out",
+    "((unsigned char)isinf(x)) << 1 | ((unsigned char)isnan(x))",
+    "a | b",
     "out = a",
-    "true",
-    "all_finite",
-)
-
-
-_cupy_all_finite_or_nan = cp.ReductionKernel(
-    "T x",
-    "bool out",
-    "isinf(x)",
-    "a || b",
-    "out = !a",
-    "false",
-    "all_finite_or_nan",
+    "0",
+    "any_inf_or_nan",
 )
 
 
@@ -367,30 +359,29 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
         # No-op for empty inputs
         return
 
+    has_nan = has_inf = False
     if isinstance(array, cp.ndarray):
-        if allow_nan:
-            ok = _cupy_all_finite_or_nan(array)
-        else:
-            ok = _cupy_all_finite(array)
+        status = _cupy_any_inf_or_nan(array).item()
+        has_nan = status & 0b01
+        has_inf = status & 0b10
     else:
         # First try an O(1) space solution for the common case
         with np.errstate(over="ignore"):
             x_sum = array.sum()
-        if np.isfinite(x_sum):
-            ok = True
-        elif not allow_nan and np.isnan(x_sum):
-            ok = False
-        else:
-            # Maybe overflow or nan in data, fallback to O(n) path
-            if allow_nan:
-                ok = not np.isinf(array).any()
-            else:
-                ok = np.isfinite(array).all()
-    if not ok:
-        kind = "infinite" if allow_nan else "NaN or infinite"
-        raise ValueError(
-            f"Input {input_name or 'array'} contains {kind} values"
-        )
+        if not np.isfinite(x_sum):
+            has_nan = np.isnan(x_sum)
+            if not has_nan or allow_nan:
+                has_inf = np.isinf(array).any()
+
+    if has_nan and not allow_nan:
+        msg = "NaN"
+    elif has_inf:
+        msg = f"infinity or a value too large for {array.dtype!r}"
+    else:
+        msg = None
+
+    if msg is not None:
+        raise ValueError(f"Input {input_name or 'array'} contains {msg}.")
 
 
 def check_non_negative(array, *, input_name=None) -> None:
@@ -699,15 +690,49 @@ def check_array(
         return array
 
 
-_is_integral = cp.ReductionKernel(
+# Returns status in a bitfield:
+# 0b001: contains NaN
+# 0b010: contains +/-inf
+# 0b100: contains real (non-integral) values
+_cupy_any_inf_or_nan_or_real = cp.ReductionKernel(
     "T x",
-    "bool out",
-    "isfinite(x) && (ceilf(x) == x)",
-    "a && b",
+    "uint8 out",
+    (
+        "((unsigned char)(ceilf(x) != x)) << 2 "
+        "| ((unsigned char)isinf(x)) << 1 "
+        "| ((unsigned char)isnan(x))"
+    ),
+    "a | b",
     "out = a",
-    "true",
-    "is_integral",
+    "0",
+    "any_inf_or_nan_or_real",
 )
+
+
+def _check_classification_targets(y):
+    """Check if `y` is composed of valid class labels.
+
+    Catches NaN, infinity, and non-integral inputs.
+
+    Parameters
+    ----------
+    y : cupy.ndarray
+        The ``y`` input to check.
+    """
+    if y.dtype.kind == "f":
+        status = _cupy_any_inf_or_nan_or_real(y)
+        if status & 0b001:
+            raise ValueError("Input y contains NaN.")
+        elif status & 0b010:
+            raise ValueError(
+                f"Input y contains infinity or a value too large for {y.dtype!r}."
+            )
+        elif status & 0b100:
+            raise ValueError(
+                "Unknown label type: continuous. Maybe you are trying to fit a "
+                "classifier, which expects discrete classes on a regression target "
+                "with continuous values."
+            )
 
 
 def check_y(
@@ -839,12 +864,7 @@ def check_y(
     # as the classes.
     def _encode(y):
         """Encode `y` to codes and classes"""
-        if y.dtype.kind == "f" and not _is_integral(y):
-            raise ValueError(
-                "Unknown label type: continuous. Maybe you are trying to fit a "
-                "classifier, which expects discrete classes on a regression target "
-                "with continuous values."
-            )
+        _check_classification_targets(y)
         if isinstance(y, cudf.Series):
             y = y.astype("category")
             codes = cp.asarray(y.cat.codes)

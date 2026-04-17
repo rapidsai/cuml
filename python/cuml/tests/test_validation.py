@@ -526,19 +526,19 @@ def test_check_all_finite(device, sparse_format):
     check_all_finite(f32_good, allow_nan=True)
     check_all_finite(f32_nan, allow_nan=True)
 
-    with pytest.raises(
-        ValueError, match="Input X contains NaN or infinite values"
-    ):
+    with pytest.raises(ValueError, match="Input X contains NaN."):
         check_all_finite(f32_nan, allow_nan=False, input_name="X")
 
     with pytest.raises(
-        ValueError, match="Input array contains infinite values"
+        ValueError,
+        match=(
+            r"Input array contains infinity or a value too large for "
+            r"dtype\('float32'\)."
+        ),
     ):
         check_all_finite(f32_inf, allow_nan=True)
 
-    with pytest.raises(
-        ValueError, match="Input array contains NaN or infinite values"
-    ):
+    with pytest.raises(ValueError, match="Input array contains NaN."):
         check_all_finite(f64_both)
 
 
@@ -546,20 +546,25 @@ def test_check_all_finite_host_fallback():
     x_good = np.array([1e307] * 100, dtype="float64")
     x_nan = np.array([1e307] * 99 + [float("nan")], dtype="float64")
     x_inf = np.array([1e307] * 99 + [float("inf")], dtype="float64")
+    x_both = np.array(
+        [1e307] * 98 + [float("inf"), float("nan")], dtype="float64"
+    )
 
     check_all_finite(x_good)
     check_all_finite(x_good, allow_nan=True)
     check_all_finite(x_nan, allow_nan=True)
 
-    with pytest.raises(
-        ValueError, match="Input array contains NaN or infinite values"
-    ):
+    with pytest.raises(ValueError, match="Input array contains NaN."):
         check_all_finite(x_nan)
 
-    with pytest.raises(
-        ValueError, match="Input array contains infinite values"
-    ):
-        check_all_finite(x_inf, allow_nan=True)
+    with pytest.raises(ValueError, match="Input array contains infinity"):
+        check_all_finite(x_inf)
+
+    with pytest.raises(ValueError, match="Input array contains NaN."):
+        check_all_finite(x_both)
+
+    with pytest.raises(ValueError, match="Input array contains infinity"):
+        check_all_finite(x_both, allow_nan=True)
 
 
 def test_check_all_finite_assume_finite():
@@ -992,15 +997,11 @@ def test_check_array_ensure_all_finite():
     check_array(f32_nan, ensure_all_finite="allow-nan")
     check_array(f64_both, ensure_all_finite=False)
 
-    with pytest.raises(
-        ValueError, match="Input X contains NaN or infinite values"
-    ):
+    with pytest.raises(ValueError, match="Input X contains NaN."):
         check_array(f32_nan, input_name="X")
 
-    with pytest.raises(
-        ValueError, match="Input array contains NaN or infinite values"
-    ):
-        check_array(f64_both)
+    with pytest.raises(ValueError, match="Input array contains infinity."):
+        check_array(f64_both, ensure_all_finite="allow-nan")
 
 
 def test_check_array_ensure_non_negative():
@@ -1220,14 +1221,15 @@ def test_check_y_classifier_on_floating_input():
     np.testing.assert_array_equal(cp.asnumpy(out), np.array([0, 1, 0]))
 
     # Non integral values error
-    bad = [
-        np.array([1.5, 2.5, 3.5]),
-        cp.array([1.0, float("nan"), 3.0]),
-        np.array([1.0, float("inf"), 3.0]),
-    ]
-    for array in bad:
-        with pytest.raises(ValueError, match="Unknown label type: continuous"):
-            check_y(array, return_classes=True)
+    has_nan = cp.array([1.0, float("nan"), 3.0])
+    has_inf = np.array([1.0, float("inf"), 3.0])
+    non_integral = np.array([1.5, 2.5, 3.5])
+    with pytest.raises(ValueError, match="Input y contains NaN."):
+        check_y(has_nan, return_classes=True)
+    with pytest.raises(ValueError, match="Input y contains infinity"):
+        check_y(has_inf, return_classes=True)
+    with pytest.raises(ValueError, match="Unknown label type: continuous"):
+        check_y(non_integral, return_classes=True)
 
 
 def test_check_y_none():
