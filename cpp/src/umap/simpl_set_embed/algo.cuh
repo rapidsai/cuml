@@ -13,6 +13,7 @@
 
 #include <raft/linalg/init.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -212,12 +213,12 @@ void optimize_layout(T* head_embedding,
   T rounding = create_gradient_rounding_factor<T, nnz_t>(head, nnz, head_n, alpha, stream_view);
 
   auto min_n                = min(head_n, tail_n);
-  int threshold_for_outlier = 1024;  // this is a heuristic value.
+  int threshold_for_outlier = 512;  // this is a heuristic value.
   // for smaller datasets, could be a dense point even with a smaller graph degree
   if (min_n <= 100000) {
-    threshold_for_outlier = 256;
+    threshold_for_outlier = 128;
   } else if (min_n <= 1000000) {
-    threshold_for_outlier = 512;
+    threshold_for_outlier = 256;
   }
 
   int num_chunks = 1;
@@ -227,7 +228,15 @@ void optimize_layout(T* head_embedding,
     has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
   }
 
-  if (has_outlier || params->deterministic) {
+  rmm::device_uvector<nnz_t> row_ptr(0, stream_view);
+  if (params->force_serial_epochs) {
+    row_ptr.resize(static_cast<nnz_t>(head_n) + 1, stream_view);
+    raft::sparse::convert::sorted_coo_to_csr(head, nnz, row_ptr.data(), head_n, stream);
+    RAFT_CUDA_TRY(cudaMemcpyAsync(
+      row_ptr.data() + head_n, &nnz, sizeof(nnz_t), cudaMemcpyHostToDevice, stream));
+  }
+
+  if (!params->force_serial_epochs && (has_outlier || params->deterministic)) {
     // Shuffling is necessary when outliers may be present (i.e., dense points that undergo many
     // updates). It is critical to avoid having too many threads update the same embedding vector
     // simultaneously, as this can affect correctness. By shuffling, potential outlier points are
@@ -259,12 +268,13 @@ void optimize_layout(T* head_embedding,
     // Empirically determined: 100000 edges per chunk provides good balance between determinism and
     // avoiding gradient accumulation issues on large datasets. See benchmarks in
     // https://github.com/rapidsai/cuml/pull/7597
-    // force_serial_epochs is a user-provided flag to enforce serial behavior in deterministic mode.
     if (nnz > 100000) {
-      num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(100000));
+      num_chunks =
+        std::max(num_chunks, static_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(100000))));
     } else if (nnz > 10000) {
       // more fine-grained chunks for smaller number of edges
-      num_chunks = raft::ceildiv(nnz, static_cast<nnz_t>(10000));
+      num_chunks =
+        std::max(num_chunks, static_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(10000))));
     }
   }
 
@@ -326,30 +336,54 @@ void optimize_layout(T* head_embedding,
   uint64_t seed = params->random_state;
 
   for (int n = 0; n < n_epochs; n++) {
-    call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
-                                                d_head_buffer,
-                                                d_head_flags,
-                                                head_n,
-                                                tail_embedding,
-                                                d_tail_buffer,
-                                                d_tail_flags,
-                                                tail_n,
-                                                head,
-                                                tail,
-                                                nnz,
-                                                epochs_per_sample,
-                                                epoch_of_next_negative_sample.data(),
-                                                epoch_of_next_sample.data(),
-                                                alpha,
-                                                gamma,
-                                                seed,
-                                                move_other,
-                                                params,
-                                                n,
-                                                grid,
-                                                blk,
-                                                stream,
-                                                rounding);
+    if (params->force_serial_epochs) {
+      call_optimize_sequential_kernel<T, nnz_t, TPB_X>(head_embedding,
+                                                       d_head_buffer,
+                                                       d_head_flags,
+                                                       head_n,
+                                                       tail_embedding,
+                                                       d_tail_buffer,
+                                                       d_tail_flags,
+                                                       tail_n,
+                                                       row_ptr.data(),
+                                                       tail,
+                                                       epochs_per_sample,
+                                                       epoch_of_next_negative_sample.data(),
+                                                       epoch_of_next_sample.data(),
+                                                       alpha,
+                                                       gamma,
+                                                       seed,
+                                                       move_other,
+                                                       params,
+                                                       n,
+                                                       stream,
+                                                       rounding);
+    } else {
+      call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
+                                                  d_head_buffer,
+                                                  d_head_flags,
+                                                  head_n,
+                                                  tail_embedding,
+                                                  d_tail_buffer,
+                                                  d_tail_flags,
+                                                  tail_n,
+                                                  head,
+                                                  tail,
+                                                  nnz,
+                                                  epochs_per_sample,
+                                                  epoch_of_next_negative_sample.data(),
+                                                  epoch_of_next_sample.data(),
+                                                  alpha,
+                                                  gamma,
+                                                  seed,
+                                                  move_other,
+                                                  params,
+                                                  n,
+                                                  grid,
+                                                  blk,
+                                                  stream,
+                                                  rounding);
+    }
     RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }

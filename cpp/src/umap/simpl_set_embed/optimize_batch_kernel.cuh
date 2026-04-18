@@ -491,6 +491,466 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 }
 
 /**
+ * Each thread processes one vertex and all its edges serially.
+ *
+ * Best when n_components is small enough to keep 3 × N_COMPONENTS floats
+ * in registers without excessive spilling.
+ */
+template <typename T, typename nnz_t, int TPB_X, nnz_t N_COMPONENTS>
+CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embedding,
+                                                              T* head_buffer,
+                                                              uint32_t* head_flags,
+                                                              T const* tail_embedding,
+                                                              T* tail_buffer,
+                                                              uint32_t* tail_flags,
+                                                              const nnz_t* row_ptr,
+                                                              const int* tail,
+                                                              int num_vertices,
+                                                              MLCommon::FastIntDiv tail_n,
+                                                              T const* epochs_per_sample,
+                                                              T* epoch_of_next_negative_sample,
+                                                              T* epoch_of_next_sample,
+                                                              T alpha,
+                                                              int epoch,
+                                                              T gamma,
+                                                              uint64_t seed,
+                                                              bool move_other,
+                                                              UMAPParams params,
+                                                              T nsr_inv,
+                                                              T rounding,
+                                                              size_t vertex_offset = 0)
+{
+  int tid           = blockIdx.x * blockDim.x + threadIdx.x;
+  int total_threads = gridDim.x * blockDim.x;
+
+  // each thread loops over the vertices assigned to it
+  for (int vertex = tid + static_cast<int>(vertex_offset); vertex < num_vertices;
+       vertex += total_threads) {
+    // the csr indices are used to determine the edges to process for the current vertex
+    const nnz_t edge_start = row_ptr[vertex];
+    const nnz_t edge_end   = row_ptr[vertex + 1];
+
+    T current_reg[N_COMPONENTS], other_reg[N_COMPONENTS], original[N_COMPONENTS];
+
+#pragma unroll
+    for (int d = 0; d < N_COMPONENTS; d++) {
+      current_reg[d] = head_embedding[vertex * N_COMPONENTS + d];
+      original[d]    = current_reg[d];
+    }
+
+    // the thread sequentially processes the edges for the current vertex
+    for (nnz_t e = edge_start; e < edge_end; e++) {
+      auto _epoch_of_next_sample = epoch_of_next_sample[e];
+      if (_epoch_of_next_sample > static_cast<T>(epoch)) continue;
+
+      auto _epochs_per_sample         = epochs_per_sample[e];
+      auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
+
+      int k          = tail[e];
+      T* other_write = tail_buffer + (k * N_COMPONENTS);
+
+#pragma unroll
+      for (int d = 0; d < N_COMPONENTS; d++) {
+        other_reg[d] = tail_embedding[k * N_COMPONENTS + d];
+      }
+
+      auto dist_squared          = rdist<T, N_COMPONENTS>(current_reg, other_reg);
+      auto attractive_grad_coeff = T(0.0);
+      if (dist_squared > T(0.0)) {
+        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
+      }
+
+#pragma unroll
+      for (int d = 0; d < N_COMPONENTS; d++) {
+        auto diff      = current_reg[d] - other_reg[d];
+        auto grad_d    = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+        auto step_grad = grad_d * alpha;
+        current_reg[d] += step_grad;
+        if (move_other) {
+          raft::myAtomicAdd(other_write + d, truncate_gradient(rounding, -step_grad));
+        }
+      }
+      if (move_other && tail_flags != nullptr) { set_vertex_modified(tail_flags, k); }
+
+      epoch_of_next_sample[e] = _epoch_of_next_sample + _epochs_per_sample;
+
+      auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[e];
+      int n_neg_samples =
+        static_cast<int>(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
+
+      raft::random::detail::PhiloxGenerator gen(seed, static_cast<nnz_t>(e), 0);
+      for (int p = 0; p < n_neg_samples; p++) {
+        int r;
+        gen.next(r);
+        nnz_t t                  = r % tail_n;
+        T const* negative_sample = tail_embedding + (t * N_COMPONENTS);
+
+#pragma unroll
+        for (int d = 0; d < N_COMPONENTS; d++) {
+          // reuse other_reg for the negative sample
+          other_reg[d] = __ldg(negative_sample + d);
+        }
+
+        dist_squared = rdist<T, N_COMPONENTS>(current_reg, other_reg);
+
+        auto repulsive_grad_coeff = T(0.0);
+        if (dist_squared > T(0.0)) {
+          repulsive_grad_coeff = repulsive_grad<T>(dist_squared, gamma, params);
+        } else if (vertex == static_cast<int>(t))
+          continue;
+
+#pragma unroll
+        for (int d = 0; d < N_COMPONENTS; d++) {
+          auto grad_d = T(0.0);
+          if (repulsive_grad_coeff > T(0.0))
+            grad_d =
+              clip<T>(repulsive_grad_coeff * (current_reg[d] - other_reg[d]), T(-4.0), T(4.0));
+          else
+            grad_d = T(4.0);
+          current_reg[d] += grad_d * alpha;
+        }
+      }
+
+      epoch_of_next_negative_sample[e] =
+        _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
+    }
+
+#pragma unroll
+    for (int d = 0; d < N_COMPONENTS; d++) {
+      T delta = current_reg[d] - original[d];
+      if (delta != T(0)) {
+        raft::myAtomicAdd(&head_buffer[vertex * N_COMPONENTS + d],
+                          truncate_gradient(rounding, delta));
+      }
+    }
+    if (head_flags != nullptr) { set_vertex_modified(head_flags, vertex); }
+
+    if (params.deterministic) return;
+  }
+}
+
+/**
+ * Component-parallel vertex-centric kernel for n_components above the
+ * register-kernel threshold (currently > 21).
+ * Each warp processes one vertex at a time. Edges for each vertexare processed sequentially,
+ * but the per-component work within each edge is split across warp lanes:
+ * lane k handles component (k, k+32, k+64, ...).
+ *
+ * Shared memory per warp: current_smem + original_smem + other_smem (3 * n_components).
+ */
+template <typename T, typename nnz_t, int TPB_X>
+CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedding,
+                                                            T* head_buffer,
+                                                            uint32_t* head_flags,
+                                                            T const* tail_embedding,
+                                                            T* tail_buffer,
+                                                            uint32_t* tail_flags,
+                                                            const nnz_t* row_ptr,
+                                                            const int* tail,
+                                                            int num_vertices,
+                                                            MLCommon::FastIntDiv tail_n,
+                                                            T const* epochs_per_sample,
+                                                            T* epoch_of_next_negative_sample,
+                                                            T* epoch_of_next_sample,
+                                                            T alpha,
+                                                            int epoch,
+                                                            T gamma,
+                                                            uint64_t seed,
+                                                            bool move_other,
+                                                            UMAPParams params,
+                                                            T nsr_inv,
+                                                            T rounding,
+                                                            size_t vertex_offset = 0)
+{
+  extern __shared__ char smem_raw[];
+  const int n_components = params.n_components;
+
+  constexpr unsigned FULL_MASK = 0xffffffff;
+  const int lane_id            = threadIdx.x & 31;
+  const int warp_id            = threadIdx.x >> 5;
+  const int warp_global_id     = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;
+  const int total_warps        = (gridDim.x * blockDim.x) >> 5;
+
+  // Shared memory layout per block:
+  //   [warp0: current | original | other][warp1: current | original | other]...
+  // current_smem:  running head embedding, updated with gradients each edge
+  // original_smem: snapshot of initial values for computing the head delta at the end
+  // other_smem:    neighbor/negative-sample embedding, loaded once per edge and reused
+  T* smem      = reinterpret_cast<T*>(smem_raw);
+  int per_warp = 3 * n_components;
+  T* smem_warp = smem + warp_id * per_warp;
+
+  T* current_smem  = smem_warp;
+  T* original_smem = smem_warp + n_components;
+  T* other_smem    = smem_warp + 2 * n_components;
+
+  // each warp loops over the vertices assigned to it
+  for (int vertex = warp_global_id + static_cast<int>(vertex_offset); vertex < num_vertices;
+       vertex += total_warps) {
+    // the csr indices are used to determine the edges to process for the current vertex
+    const nnz_t edge_start = row_ptr[vertex];
+    const nnz_t edge_end   = row_ptr[vertex + 1];
+
+    for (int d = lane_id; d < n_components; d += 32) {
+      T val            = head_embedding[vertex * n_components + d];
+      current_smem[d]  = val;
+      original_smem[d] = val;
+    }
+
+    // this warp sequentially processes the edges for the current vertex
+    for (nnz_t e = edge_start; e < edge_end; e++) {
+      auto _epoch_of_next_sample = epoch_of_next_sample[e];
+      if (_epoch_of_next_sample > epoch) continue;
+
+      auto _epochs_per_sample         = epochs_per_sample[e];
+      auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
+
+      int k          = tail[e];
+      T* other_write = tail_buffer + (k * n_components);
+
+      for (int d = lane_id; d < n_components; d += 32) {
+        other_smem[d] = tail_embedding[k * n_components + d];
+      }
+
+      T partial_dist = T(0);
+      for (int d = lane_id; d < n_components; d += 32) {
+        T diff = current_smem[d] - other_smem[d];
+        partial_dist += diff * diff;
+      }
+      // Warp-reduce to get full dist_squared in all lanes
+      for (int offset = 16; offset > 0; offset >>= 1)
+        partial_dist += __shfl_xor_sync(FULL_MASK, partial_dist, offset);
+      T dist_squared = partial_dist;
+
+      auto attractive_grad_coeff = T(0.0);
+      if (dist_squared > T(0.0)) {
+        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
+      }
+
+      for (int d = lane_id; d < n_components; d += 32) {
+        T diff   = current_smem[d] - other_smem[d];
+        T grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+        current_smem[d] += grad_d * alpha;
+        if (move_other) {
+          raft::myAtomicAdd(other_write + d, truncate_gradient(rounding, -(grad_d * alpha)));
+        }
+      }
+      if (move_other && tail_flags != nullptr && lane_id == 0) {
+        set_vertex_modified(tail_flags, k);
+      }
+
+      epoch_of_next_sample[e] = _epoch_of_next_sample + _epochs_per_sample;
+
+      auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[e];
+      int n_neg_samples =
+        static_cast<int>(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
+
+      raft::random::detail::PhiloxGenerator gen(seed, static_cast<nnz_t>(e), 0);
+      for (int p = 0; p < n_neg_samples; p++) {
+        int r;
+        gen.next(r);
+        nnz_t t = r % tail_n;
+
+        // reuse other_reg for the negative sample
+        for (int d = lane_id; d < n_components; d += 32) {
+          other_smem[d] = tail_embedding[t * n_components + d];
+        }
+
+        partial_dist = T(0);
+        for (int d = lane_id; d < n_components; d += 32) {
+          T diff = current_smem[d] - other_smem[d];
+          partial_dist += diff * diff;
+        }
+        for (int offset = 16; offset > 0; offset >>= 1)
+          partial_dist += __shfl_xor_sync(FULL_MASK, partial_dist, offset);
+        dist_squared = partial_dist;
+
+        auto repulsive_grad_coeff = T(0.0);
+        if (dist_squared > T(0.0)) {
+          repulsive_grad_coeff = repulsive_grad<T>(dist_squared, gamma, params);
+        } else if (vertex == static_cast<int>(t))
+          continue;
+
+        for (int d = lane_id; d < n_components; d += 32) {
+          T grad_d = T(0.0);
+          if (repulsive_grad_coeff > T(0.0))
+            grad_d =
+              clip<T>(repulsive_grad_coeff * (current_smem[d] - other_smem[d]), T(-4.0), T(4.0));
+          else
+            grad_d = T(4.0);
+          current_smem[d] += grad_d * alpha;
+        }
+      }
+
+      epoch_of_next_negative_sample[e] =
+        _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
+    }
+
+    // Write back accumulated delta
+    for (int d = lane_id; d < n_components; d += 32) {
+      T delta = current_smem[d] - original_smem[d];
+      if (delta != T(0)) {
+        raft::myAtomicAdd(&head_buffer[vertex * n_components + d],
+                          truncate_gradient(rounding, delta));
+      }
+    }
+    if (head_flags != nullptr && lane_id == 0) { set_vertex_modified(head_flags, vertex); }
+
+    if (params.deterministic) return;
+  }
+}
+
+/**
+ * Dispatch wrapper for sequential kernels, based on n_components.
+ *
+ *  n_components <= threshold:
+ *    Per-thread register kernel (optimize_sequential_kernel_vertex_per_thread).
+ *    Each thread processes its own vertices.  All embedding data
+ *    lives in registers. Best for small n_components where register pressure
+ *    is low.
+ *
+ *  n_components > threshold:
+ *    Component-parallel warp kernel (optimize_sequential_kernel_vertex_per_warp).
+ *    Each warp cooperatively processes one vertex. lanes split the per-
+ *    component work (lane k handles components k, k+32, k+64, …).
+ *    Uses 3 * n_components * sizeof(T) bytes of shared memory per warp.
+ */
+template <typename T, typename nnz_t, int TPB_X>
+void call_optimize_sequential_kernel(T* head_embedding,
+                                     T* head_buffer,
+                                     uint32_t* head_flags,
+                                     int head_n,
+                                     T* tail_embedding,
+                                     T* tail_buffer,
+                                     uint32_t* tail_flags,
+                                     int tail_n,
+                                     const nnz_t* row_ptr,
+                                     const int* tail,
+                                     T const* epochs_per_sample,
+                                     T* epoch_of_next_negative_sample,
+                                     T* epoch_of_next_sample,
+                                     T alpha,
+                                     T gamma,
+                                     uint64_t seed,
+                                     bool move_other,
+                                     UMAPParams const* params,
+                                     int epoch,
+                                     cudaStream_t& stream,
+                                     T rounding)
+{
+  T nsr_inv = T(1.0) / params->negative_sample_rate;
+
+  int num_sms = 0;
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, 0));
+
+  // threads_per_vertex: 1 for reg kernel (one thread = one vertex),
+  //                    32 for comp kernel (one warp  = one vertex)
+  auto launch_kernel = [&](auto kernel_fn, int tpb, int smem_size, int threads_per_vertex) {
+    int blocks_per_sm = 0;
+    RAFT_CUDA_TRY(
+      cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, kernel_fn, tpb, smem_size));
+    dim3 grid(num_sms * blocks_per_sm, 1, 1);
+    dim3 blk(tpb, 1, 1);
+
+    auto do_launch = [&](size_t vertex_offset) {
+      kernel_fn<<<grid, blk, smem_size, stream>>>(head_embedding,
+                                                  head_buffer,
+                                                  head_flags,
+                                                  tail_embedding,
+                                                  tail_buffer,
+                                                  tail_flags,
+                                                  row_ptr,
+                                                  tail,
+                                                  head_n,
+                                                  tail_n,
+                                                  epochs_per_sample,
+                                                  epoch_of_next_negative_sample,
+                                                  epoch_of_next_sample,
+                                                  alpha,
+                                                  epoch,
+                                                  gamma,
+                                                  seed,
+                                                  move_other,
+                                                  *params,
+                                                  nsr_inv,
+                                                  rounding,
+                                                  vertex_offset);
+    };
+
+    if (params->deterministic) {
+      size_t chunk_size =
+        static_cast<size_t>(grid.x) * static_cast<size_t>(tpb / threads_per_vertex);
+      for (size_t v_off = 0; v_off < static_cast<size_t>(head_n); v_off += chunk_size) {
+        do_launch(v_off);
+        sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
+                                                        head_buffer,
+                                                        head_flags,
+                                                        head_n,
+                                                        tail_embedding,
+                                                        tail_buffer,
+                                                        tail_flags,
+                                                        tail_n,
+                                                        params,
+                                                        move_other,
+                                                        stream);
+      }
+    } else {
+      do_launch(0);
+    }
+  };
+
+#define LAUNCH_VC_INDEP(NC) \
+  launch_kernel(optimize_sequential_kernel_vertex_per_thread<T, nnz_t, TPB_X, NC>, TPB_X, 0, 1)
+
+  if (params->n_components <= 21) {
+    // 3 register arrays × N_COMPONENTS = 63 registers at N=21.  This keeps occupancy reasonable on
+    // most architectures. This is also heuristically a good threshold.
+    switch (params->n_components) {
+      case 1: LAUNCH_VC_INDEP(1); break;
+      case 2: LAUNCH_VC_INDEP(2); break;
+      case 3: LAUNCH_VC_INDEP(3); break;
+      case 4: LAUNCH_VC_INDEP(4); break;
+      case 5: LAUNCH_VC_INDEP(5); break;
+      case 6: LAUNCH_VC_INDEP(6); break;
+      case 7: LAUNCH_VC_INDEP(7); break;
+      case 8: LAUNCH_VC_INDEP(8); break;
+      case 9: LAUNCH_VC_INDEP(9); break;
+      case 10: LAUNCH_VC_INDEP(10); break;
+      case 11: LAUNCH_VC_INDEP(11); break;
+      case 12: LAUNCH_VC_INDEP(12); break;
+      case 13: LAUNCH_VC_INDEP(13); break;
+      case 14: LAUNCH_VC_INDEP(14); break;
+      case 15: LAUNCH_VC_INDEP(15); break;
+      case 16: LAUNCH_VC_INDEP(16); break;
+      case 17: LAUNCH_VC_INDEP(17); break;
+      case 18: LAUNCH_VC_INDEP(18); break;
+      case 19: LAUNCH_VC_INDEP(19); break;
+      case 20: LAUNCH_VC_INDEP(20); break;
+      case 21: LAUNCH_VC_INDEP(21); break;
+    }
+  } else {
+    // smem/warp = 3 * n_components * sizeof(T).  e.g. for float: max n_components = 4096 with 48
+    // KB.
+    std::size_t smem_per_warp = static_cast<std::size_t>(3) * params->n_components * sizeof(T);
+    std::size_t max_smem      = static_cast<std::size_t>(raft::getSharedMemPerBlock());
+    RAFT_EXPECTS(smem_per_warp <= max_smem,
+                 "n_components=%d requires %zu bytes of shared memory per warp, "
+                 "but device limit is %zu bytes.",
+                 params->n_components,
+                 smem_per_warp,
+                 max_smem);
+    int max_warps_per_block = static_cast<int>(max_smem / smem_per_warp);
+    int tpb                 = min(TPB_X, max_warps_per_block * 32);
+    tpb                     = (tpb / 32) * 32;
+    tpb                     = max(tpb, 32);
+    int smem_size           = static_cast<int>((tpb / 32) * smem_per_warp);
+    launch_kernel(optimize_sequential_kernel_vertex_per_warp<T, nnz_t, TPB_X>, tpb, smem_size, 32);
+  }
+
+#undef LAUNCH_VC_INDEP
+}
+
+/**
  * @param head_buffer: Buffer the gradient update to head_embedding when deterministic
  *                     result is required.  They are the same pointer if random seed is not
  *                     provided.
