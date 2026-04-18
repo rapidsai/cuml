@@ -9,7 +9,6 @@ import dask_cudf
 import numpy as np
 import pandas as pd
 import pytest
-
 import treelite
 from dask.array import from_array
 from dask.distributed import Client
@@ -25,7 +24,7 @@ from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.ensemble import RandomForestClassifier as cuRFC_sg
 from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 
-
+# TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )

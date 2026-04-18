@@ -5,7 +5,6 @@
 
 import cupy
 import pytest
-
 from sklearn.datasets import load_iris
 
 import cuml
@@ -16,7 +15,7 @@ from cuml.preprocessing import StandardScaler
 from cuml.svm import SVC
 from cuml.testing.utils import ClassEnumerator
 
-
+# TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )
