@@ -10,7 +10,6 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-
 import sklearn
 import treelite
 from packaging.version import Version
@@ -43,7 +42,7 @@ from cuml.testing.utils import (  # noqa: E402
     unit_param,
 )
 
-
+# TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )

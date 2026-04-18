@@ -8,7 +8,6 @@ import math
 import cupy as cp
 import numpy as np
 import pytest
-
 import scipy.special
 import sklearn.neighbors
 from sklearn.datasets import make_regression
@@ -19,7 +18,7 @@ from cuml import KernelExplainer, Lasso
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
 
-
+# TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )
