@@ -6,7 +6,6 @@ import pickle
 
 import numpy as np
 import pytest
-
 import scipy.sparse as scipy_sparse
 from sklearn.base import clone, is_classifier
 from sklearn.datasets import (
@@ -30,6 +29,7 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+# TODO(26.08) Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )

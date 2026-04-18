@@ -21,6 +21,7 @@ from cuml.explainer.common import (
 )
 from cuml.testing.utils import ClassEnumerator
 
+# TODO(26.08) Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
 )
