@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -81,7 +81,7 @@ def tree_reduce(objs, func=sum):
     ----------
     func : Python function or dask.delayed function
         Function to use for reduction. The reduction function
-        acceps a list of objects to reduce as an argument and
+        accepts a list of objects to reduce as an argument and
         produces a single reduced object
     objs : array-like of dask.delayed or future
            objects to reduce.

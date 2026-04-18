@@ -1,9 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import os
+import tempfile
 from datetime import timedelta
 from math import ceil
 
@@ -16,6 +17,32 @@ import pytest
 from sklearn import datasets
 
 from cuml.testing.datasets import make_text_classification_dataset
+
+
+def _set_cuda_cache_path_per_xdist_worker(config):
+    """Use a dedicated CUDA JIT cache directory per pytest-xdist worker.
+
+    Avoids concurrent access to the same cache from multiple worker processes.
+    Must run before any CUDA runtime initialization.
+    """
+    workerinput = getattr(config, "workerinput", None)
+    if workerinput is None:
+        return
+    workerid = workerinput["workerid"]
+    safe = "".join(
+        c if c.isalnum() or c in "-_" else "_" for c in str(workerid)
+    )
+    if existing := os.environ.get("CUDA_CACHE_PATH"):
+        cache_dir = os.path.join(existing, safe)
+    else:
+        cache_dir = os.path.join(
+            tempfile.gettempdir(),
+            "cuml-pytest-cuda-cache",
+            safe,
+        )
+    os.makedirs(cache_dir, exist_ok=True)
+    os.environ["CUDA_CACHE_PATH"] = cache_dir
+
 
 # =============================================================================
 # Pytest Configuration
@@ -34,6 +61,8 @@ HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
     "true",
     "1",
 )
+IS_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER") is not None
+
 
 # =============================================================================
 # Hypothesis Configuration
@@ -216,11 +245,11 @@ def pytest_configure(config):
     2. Records the available GPU memory
     3. Loads appropriate hypothesis profiles based on test execution context
     """
+    _set_cuda_cache_path_per_xdist_worker(config)
     config.addinivalue_line(
         "markers",
         "cudf_pandas: mark test as requiring the cudf.pandas wrapper",
     )
-    cp.cuda.set_allocator(None)
     # max_gpu_memory: Capacity of the GPU memory in GB
     pytest.max_gpu_memory = _get_gpu_memory()
     pytest.adapt_stress_test = "CUML_ADAPT_STRESS_TESTS" in os.environ
@@ -313,6 +342,32 @@ def _get_gpu_memory(device_index=0):
         return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
     except pynvml.NVMLError_NotSupported:
         return None
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_logreport(report):
+    """Some CUDA errors are "sticky" and cause subsequent CUDA calls in a
+    process to error.
+
+    When running under pytest-xdist, this hook checks for sticky errors on
+    failed tests, and if present will crash the worker after reporting the
+    failure. pytest-xdist will then start a new worker with a clean CUDA
+    context, avoiding sticky errors.
+
+    This hook is a no-op when run outside of pytest-xdist.
+    """
+    if not IS_XDIST_WORKER:
+        return
+
+    # Only check on failed test runs, not other events
+    if report.when == "call" and report.failed:
+        try:
+            # Try allocating a tiny array to invoke a CUDA API. If this fails,
+            # then the context is definitely corrupted.
+            cp.ones(1)
+        except Exception:
+            # Hardcrash the worker
+            os._exit(1)
 
 
 # =============================================================================

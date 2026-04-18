@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -219,7 +219,7 @@ float get_fitness(const program& prog, const param& params);
 int get_depth(const program& p_out);
 
 /**
- * @brief Build a random program with depth atmost 10
+ * @brief Build a random program with depth at most 10
  *
  * @param p_out   The output program
  * @param params  Training hyperparameters

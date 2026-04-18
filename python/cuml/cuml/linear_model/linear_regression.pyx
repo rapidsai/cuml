@@ -1,7 +1,5 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
 import enum
 import warnings
 
@@ -11,7 +9,9 @@ import numpy as np
 from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
@@ -19,9 +19,13 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.mixins import (
+    FMajorInputTagMixin,
+    RegressorMixin,
+    SparseInputTagMixin,
+)
 from cuml.internals.outputs import reflect
-from cuml.linear_model.base import LinearPredictMixin
+from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -54,7 +58,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
 
 
 class Algo(enum.IntEnum):
-    """The lstsq solver algorithm"""
+    """The libcuml solver algorithm"""
     SVD = 0
     EIG = 1
     QR = 2
@@ -70,103 +74,49 @@ class Algo(enum.IntEnum):
             "svd-jacobi": cls.SVD
         }.get(name)
         if out is None:
-            raise ValueError("algorithm {name!r} is not supported")
+            raise ValueError(f"algorithm {name!r} is not supported")
         return out
-
-
-# 1e-10 chosen to match C++ implementation
-_divide_non_zero = cp.ElementwiseKernel(
-    "T x, T y",
-    "T z",
-    "z = abs(y) < 1e-10 ? x : x / y",
-    "divide_non_zero"
-)
 
 
 class LinearRegression(Base,
                        InteropMixin,
                        LinearPredictMixin,
                        RegressorMixin,
-                       FMajorInputTagMixin):
+                       FMajorInputTagMixin,
+                       SparseInputTagMixin):
     """
-    LinearRegression is a simple machine learning model where the response y is
-    modelled by a linear combination of the predictors in X.
-
-    cuML's LinearRegression can take array-like objects, either in host as
-    NumPy arrays or in device (as Numba or `__cuda_array_interface__`
-    compliant), in addition to cuDF objects.
-    It provides two algorithms: Singular Value
-    Decomposition (SVD) and Eigndecomposition (Eig) to fit a linear model.
-    SVD is more numerically stable, but Eig (the default) is much faster.
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> import cudf
-
-        >>> # Both import methods supported
-        >>> from cuml import LinearRegression
-        >>> from cuml.linear_model import LinearRegression
-        >>> lr = LinearRegression(fit_intercept = True, algorithm = "eig")
-        >>> X = cudf.DataFrame()
-        >>> X['col1'] = cp.array([1,1,2,2], dtype=cp.float32)
-        >>> X['col2'] = cp.array([1,2,2,3], dtype=cp.float32)
-        >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
-        >>> reg = lr.fit(X,y)
-        >>> print(reg.coef_)
-        0   1.0
-        1   2.0
-        dtype: float32
-        >>> print(reg.intercept_)
-        3.0...
-
-        >>> X_new = cudf.DataFrame()
-        >>> X_new['col1'] = cp.array([3,2], dtype=cp.float32)
-        >>> X_new['col2'] = cp.array([5,5], dtype=cp.float32)
-        >>> preds = lr.predict(X_new)
-        >>> print(preds) # doctest: +SKIP
-        0   15.999...
-        1   14.999...
-        dtype: float32
-
+    Ordinary least squares Linear Regression.
 
     Parameters
     ----------
-    algorithm : {'auto', 'svd', 'eig', 'qr', 'svd-qr', 'svd-jacobi'}, (default = 'auto')
-        Choose an algorithm:
+    algorithm : {'auto', 'eig', 'svd', 'lsmr', 'qr', 'svd-qr', 'svd-jacobi'}, default='auto'
+        The algorithm to use when fitting:
 
-          * 'auto' - ``'eig'``, or ``'svd'`` if y multi-target or X has only one column
-          * ``'svd'`` - alias for svd-jacobi
-          * ``'eig'`` - use an eigendecomposition of the covariance matrix
-          * ``'qr'``  - use QR decomposition algorithm and solve `Rx = Q^T y`
-          * ``'svd-qr'`` - compute SVD decomposition using QR algorithm
-          * ``'svd-jacobi'`` - compute SVD decomposition using Jacobi iterations
+        - 'auto': will select 'eig' if supported, falling back to 'lsmr' if X
+          is sparse, and 'svd' otherwise.
 
-        Among these algorithms, only ``'svd-jacobi'`` supports the case when the
-        number of features is larger than the sample size; this algorithm
-        is force-selected automatically in such a case.
+        - 'eig': uses an eigendecomposition of the covariance matrix. It is
+          faster than SVD, but potentially unstable. It doesn't support
+          multi-target ``y`` or sparse ``X``.
 
-        For the broad range of inputs, ``'eig'`` and ``'qr'`` are usually the fastest,
-        followed by ``'svd-jacobi'`` and then ``'svd-qr'``. In theory, `svd`-based
-        algorithms are more numerically stable.
+        - 'svd' or 'svd-jacobi': uses an SVD decomposition. It's slower, but
+          stable. It doesn't support sparse ``X``.
+
+        - 'lsmr': uses ``cupyx.scipy.sparse.linalg.lsmr``, an iterative
+          algorithm. It supports all input types and is typically very fast.
+
+        - 'qr': uses QR decomposition and solves ``Rx = Q^T y``. It's faster
+          than SVD, but doesn't support multi-target ``y`` or sparse ``X``.
+
+        - 'svd-qr': computes SVD decomposition using QR algorithm. It's the
+          slowest option. It doesn't support multi-target ``y`` or sparse ``X``.
+
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     copy_X : boolean, default=True
-        If True, it is guaranteed that a copy of X is created, leaving the
-        original X unchanged. However, if set to False, X may be modified
-        directly, which would reduce the memory usage of the estimator.
-
-        .. versionchanged:: 23.08
-            Starting from version 23.08, the new `copy_X` parameter defaults
-            to ``True``, ensuring a copy of X is created after passing it to
-            `fit()`, preventing any changes to the input, but with increased
-            memory usage. This represents a change in behavior from previous
-            versions. With `copy_X=False` a copy might still be created if
-            necessary.
+        If True, X will never be mutated. Setting to False may reduce memory
+        usage, at the cost of potentially mutating X.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -179,10 +129,11 @@ class LinearRegression(Base,
 
     Attributes
     ----------
-    coef_ : array, shape (n_features)
+    coef_ : array, shape (n_features,) or (n_targets, n_features)
         The estimated coefficients for the linear regression model.
-    intercept_ : array
-        The independent term. If `fit_intercept` is False, will be 0.
+    intercept_ : float or array, shape (n_targets,)
+        The independent term. If `fit_intercept` is False, will be 0. Will be
+        an array when fit on multi-target y, otherwise will be a float.
 
     Notes
     -----
@@ -205,10 +156,21 @@ class LinearRegression(Base,
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/main/notebooks/linear_regression_demo.ipynb>`__.
-    """
 
-    coef_ = CumlArrayDescriptor(order="F")
-    intercept_ = CumlArrayDescriptor(order="F")
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.linear_model import LinearRegression
+    >>> X = cp.array([[1, 1], [1, 2], [2, 2], [2, 3]], dtype=cp.float32)
+    >>> y = cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32)
+    >>> model = LinearRegression().fit(X, y)
+
+    >>> X_test = cp.array([[3, 5], [2, 5]], dtype=cp.float32)
+    >>> model.predict(X_test)  # doctest: +SKIP
+    array([16.      , 14.999999], dtype=float32)
+    """
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
 
     _cpu_class_path = "sklearn.linear_model.LinearRegression"
 
@@ -239,8 +201,8 @@ class LinearRegression(Base,
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": to_gpu(model.intercept_, order="F"),
-            "coef_": to_gpu(model.coef_, order="F"),
+            "intercept_": to_gpu(model.intercept_),
+            "coef_": to_gpu(model.coef_),
             **super()._attrs_from_cpu(model),
         }
 
@@ -265,97 +227,32 @@ class LinearRegression(Base,
         self.fit_intercept = fit_intercept
         self.copy_X = copy_X
 
-    def _select_algo(self, X, y):
-        """Select the solver algorithm based on `algorithm` and problem dimensions"""
-        if X.shape[0] == 1:
-            fallback_reason = "single-column X"
-        elif y.ndim == 2 and y.shape[1] > 1:
-            fallback_reason = "multi-column y"
-        else:
-            fallback_reason = None
+    def _fit_libcuml(
+        self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False
+    ):
+        """Fit a LinearRegression using a libcuml solver"""
+        cdef int algo = (
+            Algo.EIG if self.algorithm == "auto" else Algo.parse(self.algorithm)
+        )
 
-        if self.algorithm == "auto":
-            algo = Algo.SVD if fallback_reason else Algo.EIG
-        else:
-            algo = Algo.parse(self.algorithm)
-            if fallback_reason and algo != Algo.SVD:
-                warnings.warn(
-                    (
-                        "Falling back to `algorithm='svd'` as `algorithm="
-                        "{self.algorithm!r}` doesn't support {fallback_reason}."
-                    ),
-                    UserWarning,
-                )
-                algo = Algo.SVD
-        return algo
-
-    @generate_docstring()
-    @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
-        """
-        Fit the model with X and y.
-
-        """
+        # All libcuml solvers require F-ordered X, and mutate the inputs.
         X_m = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
+            X_m, order="F", deepcopy=(self.copy_X and not X_is_copy)
         ).array
-
-        if X_m.shape[0] < 2:
-            raise ValueError("X matrix must have at least two rows")
-
-        if X_m.shape[1] < 1:
-            raise ValueError("X matrix must have at least one column")
-
-        y_m = input_to_cuml_array(
-            y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
-            order="F",
-        ).array
-
-        if sample_weight is not None:
-            # Always copy the weights, all solvers mutate them
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X_m.dtype,
-                convert_to_dtype=(X_m.dtype if convert_dtype else None),
-                check_rows=X_m.shape[0],
-                check_cols=1,
-                order="F",
-                deepcopy=True,
-            ).array
-
-        cdef int algo = self._select_algo(X_m, y_m)
-
-        X_is_copy = cuda_ptr(X) != X_m.ptr
-        y_is_copy = cuda_ptr(y) != y_m.ptr
-
-        if y_m.ndim > 1 and y_m.shape[1] > 1:
-            # Fallback to cupy SVD implementation for multi-target problems
-            self._fit_multi_target(
-                X_m, y_m, sample_weight, X_is_copy=X_is_copy, y_is_copy=y_is_copy
-            )
-            return self
-
-        # All libcuml solvers mutate the inputs. Here we make a copy requested
-        # (and one wasn't already made).
-        if not X_is_copy and self.copy_X:
-            X_m = input_to_cuml_array(X_m, deepcopy=True).array
         if not y_is_copy:
             y_m = input_to_cuml_array(y_m, deepcopy=True).array
 
-        coef = CumlArray.zeros(X_m.shape[1], dtype=X_m.dtype)
+        coef = CumlArray.zeros(
+            (X_m.shape[1],) if y_m.ndim == 1 else (1, X_m.shape[1]),
+            dtype=X_m.dtype,
+        )
 
         cdef size_t n_rows = X_m.shape[0]
         cdef size_t n_cols = X_m.shape[1]
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t y_ptr = y_m.ptr
         cdef uintptr_t sample_weight_ptr = (
-            0 if sample_weight is None else sample_weight.ptr
+            0 if sample_weight_m is None else sample_weight_m.ptr
         )
         cdef uintptr_t coef_ptr = coef.ptr
         cdef bool is_float32 = X_m.dtype == np.float32
@@ -395,55 +292,129 @@ class LinearRegression(Base,
                 )
         handle.sync()
 
-        self.intercept_ = intercept_f32 if is_float32 else intercept_f64
-        self.coef_ = coef
-
-        return self
-
-    def _fit_multi_target(
-        self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False,
-    ):
-        X = X_m.to_output("cupy")
-        y = y_m.to_output("cupy")
-
         if self.fit_intercept:
-            # Add column containing ones to fit intercept.
-            nrow, ncol = X.shape
-            X_temp = cp.empty_like(X, shape=(nrow, ncol + 1))
-            X_temp[:, :ncol] = X
-            X_temp[:, ncol] = 1.
-            X = X_temp
-            X_is_copy = True
-
-        if sample_weight_m is not None:
-            sample_weight = sample_weight_m.to_output("cupy")
-            # Weights are always copied, can mutate buffer
-            weight_sqrt = cp.sqrt(sample_weight, out=sample_weight)
-            # Multiply by weights, reusing existing buffers when possible
-            X = cp.multiply(
-                X,
-                weight_sqrt[:, None],
-                out=X if X_is_copy or not self.copy_X else None,
-            )
-            y = cp.multiply(
-                y,
-                weight_sqrt[:, None],
-                out=y if y_is_copy else None
-            )
-
-        u, s, vh = cp.linalg.svd(X, full_matrices=False)
-        temp = _divide_non_zero(u.T.dot(y), s[:, None])
-        coef = vh.T.dot(temp)
-
-        if self.fit_intercept:
-            intercept = CumlArray(data=coef[-1])
-            coef = CumlArray(data=coef[:-1].T)
+            intercept = intercept_f32 if is_float32 else intercept_f64
+            if y_m.ndim == 1:
+                intercept = X_m.dtype.type(intercept)
+            else:
+                intercept = CumlArray.full((1,), intercept, dtype=X_m.dtype)
         else:
             intercept = 0.0
-            coef = CumlArray(data=coef.T)
+
+        return coef, intercept
+
+    @generate_docstring()
+    @reflect(reset=True)
+    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
+        """
+        Fit the model with X and y.
+
+        """
+        if X_is_sparse := is_sparse(X):
+            X_m = SparseCumlArray(
+                X, convert_to_dtype=np.float32 if X.dtype.kind != "f" else None
+            )
+            X_is_copy = False
+        else:
+            X_m = input_to_cuml_array(
+                X,
+                convert_to_dtype=(np.float32 if convert_dtype else None),
+                check_dtype=[np.float32, np.float64],
+                order="K",
+            ).array
+            X_is_copy = cuda_ptr(X) != X_m.ptr
+
+        n_rows, n_cols = X_m.shape
+
+        if X_m.shape[0] < 2:
+            raise ValueError(
+                f"Found array with {n_rows} sample(s) (shape={X_m.shape}) while "
+                f"a minimum of 2 is required."
+            )
+        if X_m.shape[1] < 1:
+            raise ValueError(
+                f"Found array with {n_cols} feature(s) (shape={X_m.shape}) while "
+                f"a minimum of 1 is required."
+            )
+
+        y_m = input_to_cuml_array(
+            y,
+            check_dtype=X_m.dtype,
+            convert_to_dtype=(X_m.dtype if convert_dtype else None),
+            check_rows=n_rows,
+            order="K",
+        ).array
+        y_is_copy = cuda_ptr(y) != y_m.ptr
+
+        if cp.isscalar(sample_weight):
+            # sample_weight as a scalar is equivalent to unweighted
+            sample_weight = None
+        elif sample_weight is not None:
+            sample_weight = input_to_cuml_array(
+                sample_weight,
+                check_dtype=X_m.dtype,
+                convert_to_dtype=(X_m.dtype if convert_dtype else None),
+                check_rows=n_rows,
+                check_cols=1,
+                deepcopy=True,
+            ).array
+
+        if self.algorithm not in (
+            "auto", "eig", "svd", "lsmr", "qr", "svd-qr", "svd-jacobi"
+        ):
+            raise ValueError(f"algorithm={self.algorithm!r} is not supported")
+
+        # Determine the solver to use
+        fallback_reason = None
+        if self.algorithm == "lsmr":
+            solver = "lsmr"
+        elif X_is_sparse:
+            solver = "lsmr"
+            fallback_reason = "sparse X"
+        elif X_m.shape[1] == 1:
+            solver = "svd"
+            fallback_reason = "single-column X"
+        elif y_m.ndim == 2 and y_m.shape[1] > 1:
+            solver = "svd"
+            fallback_reason = "multi-column y"
+        else:
+            solver = "libcuml"
+
+        # Warn if falling back to a different solver
+        if fallback_reason is not None and self.algorithm not in ("auto", solver):
+            warnings.warn(
+                (
+                    f"Falling back to `algorithm={solver!r}` as `algorithm="
+                    f"{self.algorithm!r}` doesn't support {fallback_reason}."
+                ),
+                UserWarning,
+            )
+
+        if solver == "libcuml":
+            coef, intercept = self._fit_libcuml(
+                X_m, y_m, sample_weight, X_is_copy=X_is_copy, y_is_copy=y_is_copy
+            )
+        else:
+            coef, intercept, _ = fit_least_squares(
+                X_m.to_output("cupy"),
+                y_m.to_output("cupy"),
+                sample_weight=(
+                    None if sample_weight is None else sample_weight.to_output("cupy")
+                ),
+                fit_intercept=self.fit_intercept,
+                alpha=0.0,
+                may_mutate_X=X_is_copy or not self.copy_X,
+                may_mutate_y=y_is_copy,
+                solver=solver,
+            )
+            if not cp.isscalar(intercept):
+                intercept = CumlArray(data=intercept)
+            coef = CumlArray(data=coef)
 
         self.coef_ = coef
         self.intercept_ = intercept
+
+        return self
 
     @staticmethod
     def _more_static_tags():

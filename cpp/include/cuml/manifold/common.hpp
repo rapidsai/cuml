@@ -1,9 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+
+#include <raft/core/error.hpp>
 
 #include <stdint.h>
 
@@ -51,7 +53,7 @@ struct manifold_inputs_t {
 
   manifold_inputs_t(T* y_, int n_, int d_) : y(y_), n(n_), d(d_) {}
 
-  virtual bool alloc_knn_graph() const = 0;
+  virtual bool needs_device_knn_graph() const = 0;
 };
 
 /**
@@ -64,7 +66,7 @@ struct manifold_dense_inputs_t : public manifold_inputs_t<T> {
 
   manifold_dense_inputs_t(T* x_, T* y_, int n_, int d_) : manifold_inputs_t<T>(y_, n_, d_), X(x_) {}
 
-  bool alloc_knn_graph() const { return true; }
+  bool needs_device_knn_graph() const { return true; }
 };
 
 /**
@@ -86,7 +88,7 @@ struct manifold_sparse_inputs_t : public manifold_inputs_t<T> {
   {
   }
 
-  bool alloc_knn_graph() const { return true; }
+  bool needs_device_knn_graph() const { return true; }
 };
 
 /**
@@ -104,7 +106,21 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
 
   knn_graph<value_idx, value_t> knn_graph;
 
-  bool alloc_knn_graph() const { return false; }
+  bool needs_device_knn_graph() const
+  {
+    auto is_device_mem = [](const void* ptr) {
+      cudaPointerAttributes attr;
+      RAFT_CUDA_TRY(cudaPointerGetAttributes(&attr, ptr));
+      return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
+    };
+
+    if (is_device_mem(knn_graph.knn_indices) && is_device_mem(knn_graph.knn_dists)) return false;
+
+    // On HMM/ATS systems, non-device pointers may be device-accessible but
+    // cudaPointerGetAttributes reports them as unregistered/host. Always copy
+    // to avoid slow page-fault-driven access from GPU kernels.
+    return true;
+  }
 };
 
 };  // end namespace ML

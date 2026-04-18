@@ -97,9 +97,13 @@ def test_get_n_features():
     ],
 )
 def test_get_n_features_1D(X):
-    with pytest.warns(FutureWarning, match="non-2-dimensional"):
-        n_features = _get_n_features(X)
-    assert n_features == 1
+    if isinstance(X, (pd.Series, cudf.Series)):
+        match = "Expected a 2-dimensional container"
+    else:
+        match = "Expected 2D array"
+
+    with pytest.raises(ValueError, match=match):
+        _get_n_features(X)
 
 
 def test_get_feature_names():
@@ -142,9 +146,10 @@ def test_get_feature_names():
 
     # Mixed str & non-str names warn
     df_mixed = pd.DataFrame({"a": [1, 2], 1: [3, 4]})
-    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+    with pytest.raises(
+        TypeError, match="all input features have string names"
+    ):
         _get_feature_names(df_mixed)
-    assert "all input features have string names" in str(rec[0].message)
 
 
 class MyModel:
@@ -209,7 +214,7 @@ def test_fit_and_predict_with_and_without_feature_names_warnings():
         est_named.predict(X_unnamed)
 
 
-def test_feature_names_mismatch_warnings():
+def test_feature_names_mismatch_errors():
     X = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
 
     # Correct names are fine
@@ -219,24 +224,18 @@ def test_feature_names_mismatch_warnings():
 
     # Missing column
     bad = pd.DataFrame({"a": [1], "b": [2]})
-    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
-        # TODO: in 26.06 the FutureWarning will become an error,
-        # and this raises check can go away.
-        with pytest.raises(ValueError, match="X has 2 features"):
-            model.predict(bad)
-    assert "Feature names seen at fit time" in str(rec[0].message)
+    with pytest.raises(ValueError, match="The feature names") as rec:
+        model.predict(bad)
+    assert "Feature names seen at fit time" in str(rec.value)
 
     # Extra column
     bad = pd.DataFrame({"a": [1], "b": [2], "c": [3], "d": [4]})
-    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
-        # TODO: in 26.06 the FutureWarning will become an error,
-        # and this raises check can go away.
-        with pytest.raises(ValueError, match="X has 4 features"):
-            model.predict(bad)
-    assert "Feature names unseen at fit time" in str(rec[0].message)
+    with pytest.raises(ValueError, match="The feature names") as rec:
+        model.predict(bad)
+    assert "Feature names unseen at fit time" in str(rec.value)
 
     # Reordered columns
     bad = pd.DataFrame({"a": [1], "c": [3], "b": [2]})
-    with pytest.warns(FutureWarning, match="feature_names_in_") as rec:
+    with pytest.raises(ValueError, match="The feature names") as rec:
         model.predict(bad)
-    assert "Feature names must be in the same order" in str(rec[0].message)
+    assert "Feature names must be in the same order" in str(rec.value)

@@ -186,7 +186,8 @@ struct Registrar {
       if (!testName.empty()) oss << "/" << testName;
       oss << "/" << counter;
       auto testFullName = oss.str();
-      auto* b = ::benchmark::internal::RegisterBenchmarkInternal(new Class(testFullName, param));
+      auto* b           = ::benchmark::internal::RegisterBenchmarkInternal(
+        std::make_unique<Class>(testFullName, param));
       ///@todo: expose a currying-like interface to the final macro
       b->UseManualTime();
       b->Unit(benchmark::kMillisecond);

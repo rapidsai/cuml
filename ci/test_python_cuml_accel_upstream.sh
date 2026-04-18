@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test script outside the script directory
@@ -14,7 +14,7 @@ set +e
 
 # Run UMAP tests
 rapids-logger "UMAP test suite"
-timeout 15m ./python/cuml/cuml_accel_tests/upstream/umap/run-tests.sh
+timeout -v 15m ./python/cuml/cuml_accel_tests/upstream/umap/run-tests.sh
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
