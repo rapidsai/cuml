@@ -247,7 +247,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         return {
             "n_estimators": self.n_estimators,
             "criterion": criterion,
-            "max_depth": 16 if self.max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT else self.max_depth,
+            "max_depth": (
+                16 if self.max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT else self.max_depth
+            ),
             "min_samples_split": self.min_samples_split,
             "min_samples_leaf": self.min_samples_leaf,
             "max_features": self.max_features,
