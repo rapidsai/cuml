@@ -30,6 +30,8 @@ from cuml.internals.validation import (
     check_y,
 )
 
+DTYPES = ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8")
+
 
 def is_cuda_output(mem_type, value=..., kind=...):
     """Infer if cuda output given `mem_type` and a value or kind"""
@@ -130,11 +132,7 @@ def dense_arrays(
         return value
 
     kind = select(kind, ("cupy", "numpy", "list", "pandas", "cudf"))
-    dtype = select(
-        dtype,
-        ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8"),
-        cast=np.dtype,
-    )
+    dtype = select(dtype, DTYPES, cast=np.dtype)
     assume(not (kind == "cudf" and dtype == "float16"))
 
     ndim = select(ndim, (1, 2))
@@ -718,6 +716,34 @@ def test_check_array_dtype(array, mem_type):
     # If a sequence, the first dtype is used when coercion needed
     out = check_array(array, dtype=("float32", "float64"), mem_type=mem_type)
     assert out.dtype == "float32"
+
+
+@example(mem_type="device", dtype="int32", order="C", shape=(3, 4))
+@example(mem_type="host", dtype="float32", order="F", shape=(3,))
+@given(
+    mem_type=st.sampled_from(["device", "host"]),
+    dtype=st.sampled_from(DTYPES),
+    order=st.sampled_from(["C", "F"]),
+    shape=st.sampled_from([(3, 4), (3,)]),
+)
+def test_check_array_no_copy_needed(mem_type, dtype, order, shape):
+    """Ensure no copy made for fast paths."""
+    xp = cp if mem_type == "device" else np
+    array = xp.ones(shape, dtype=dtype, order=order)
+
+    if len(shape) == 1:
+        # all orders are equivalent for 1D inputs
+        orders = ("C", "F", "A", None)
+    else:
+        orders = (order, "A", None)
+
+    for dtype, mem_type, order in zip((dtype, None), (mem_type, None), orders):
+        out = check_array(
+            array, dtype=dtype, mem_type=mem_type, order=order, ensure_2d=False
+        )
+        assert xp.may_share_memory(out, array), (
+            f"{dtype=}, {mem_type=}, {order=}"
+        )
 
 
 def test_check_array_convert_dtype():
@@ -1362,6 +1388,32 @@ def test_check_inputs_X_y_sample_weight():
     # sample_weight=None is supported
     _, _, sample_weight2 = check_inputs(model, X, y, None)
     assert sample_weight2 is None
+
+
+def test_check_inputs_check_consistent_length():
+    model = MyModel()
+
+    x34 = np.ones((3, 4))
+    y3 = np.ones(3)
+    y4 = np.ones(4)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found input variables with inconsistent number of samples: \[3, 4\]",
+    ):
+        check_inputs(model, x34, y4, None, reset=True)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found input variables with inconsistent number of samples: \[3, 4\]",
+    ):
+        check_inputs(model, x34, sample_weight=y4, reset=True)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Found input variables with inconsistent number of samples: \[3, 3, 4\]",
+    ):
+        check_inputs(model, x34, y3, sample_weight=y4, reset=True)
 
 
 def test_check_inputs_return_classes():
