@@ -1422,17 +1422,25 @@ def test_check_inputs_return_classes():
     y = np.array(["a", "b", "a"], dtype="O")
 
     _, y2, classes = check_inputs(model, X, y, return_classes=True, reset=True)
-    # y defaults to an integral type
+    # y defaults to X dtype
+    assert y2.dtype == "float32"
+    cp.testing.assert_array_equal(y2, cp.array([0, 1, 0]))
+    np.testing.assert_array_equal(classes, np.array(["a", "b"], dtype="O"))
+
+    # check y_dtype=None results in an integral type
+    _, y2, classes = check_inputs(
+        model, X, y, y_dtype=None, return_classes=True, reset=True
+    )
     assert y2.dtype.kind in "iu"
     cp.testing.assert_array_equal(y2, cp.array([0, 1, 0]))
     np.testing.assert_array_equal(classes, np.array(["a", "b"], dtype="O"))
 
     # check y_dtype overrides
     _, y2, classes = check_inputs(
-        model, X, y, y_dtype="float32", return_classes=True, reset=True
+        model, X, y, y_dtype="float64", return_classes=True, reset=True
     )
-    assert y2.dtype == "float32"
-    cp.testing.assert_array_equal(y2, cp.array([0, 1, 0], dtype="float32"))
+    assert y2.dtype == "float64"
+    cp.testing.assert_array_equal(y2, cp.array([0, 1, 0], dtype="float64"))
 
 
 def test_check_inputs_return_index():

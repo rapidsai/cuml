@@ -1041,8 +1041,8 @@ def check_inputs(
         output. If the input doesn't have a supported dtype, it will be
         converted to the first listed dtype.
     y_dtype : None, dtype, list[dtype], default=...
-        The dtype(s) to support for y. If not specified, defaults to ``None``
-        if ``return_classes=True``, and the output dtype of ``X`` otherwise.
+        The dtype(s) to support for y. If not specified, defaults to
+        the output dtype of ``X``.
     sample_weight_dtype : None, dtype, list[dtype], default=...
         The dtype(s) to support for sample_weight. If not specified, defaults
         to the output dtype of ``X``.
@@ -1136,8 +1136,7 @@ def check_inputs(
     classes = None
     if y is not ...:
         if y_dtype is ...:
-            # Follow X dtype by default unless a classifier
-            y_dtype = None if return_classes else X.dtype
+            y_dtype = X.dtype
         y = check_y(
             y,
             dtype=y_dtype,
@@ -1154,7 +1153,6 @@ def check_inputs(
     # Validate sample_weight
     if sample_weight is not ...:
         if sample_weight_dtype is ...:
-            # Follow X dtype by default
             sample_weight_dtype = X.dtype
         sample_weight = check_sample_weight(
             sample_weight,
