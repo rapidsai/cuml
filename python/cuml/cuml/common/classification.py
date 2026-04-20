@@ -4,8 +4,7 @@ import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.internals.array import CumlArray, cuda_ptr
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.array import CumlArray
 from cuml.internals.output_utils import cudf_to_pandas
 
 
@@ -100,7 +99,7 @@ def process_class_weight(
     y_ind,
     class_weight,
     sample_weight=None,
-    float64=False,
+    dtype=None,
     balanced_with_sample_weight=True,
 ):
     """Processes the `class_weight` argument to classifiers.
@@ -117,11 +116,11 @@ def process_class_weight(
         If `"balanced"`, classes are weighted by the inverse of their
         (weighted) counts. If a dict, keys are classes and values are
         corresponding weights. If `None`, the class weights will be uniform.
-    sample_weight : array-like, optional
-        An optional array of weights assigned to individual samples. May
-        be unvalidated user-provided data.
-    float64 : bool, optional
-        Whether to use float64 for the weights, default False.
+    sample_weight : cp.ndarray, optional
+        An optional array of weights assigned to individual samples.
+    dtype : dtype-like, optional
+        The dtype to use for the output weights. Defaults to the dtype of
+        `sample_weight` (if provided), or float32 otherwise.
     balanced_with_sample_weight : bool, optional
         Whether to incorporate `sample_weight` when handling
         `class_weight='balanced'`. Statistically it makes sense to do this, but
@@ -133,24 +132,17 @@ def process_class_weight(
     class_weight: np.ndarray, shape (n_classes,)
         Array of the applied weights, with `class_weight[i]` being the weight
         for the i-th class.
-    sample_weight: CumlArray or None
+    sample_weight: cp.ndarray or None
         The resulting sample weights, or None if uniformly weighted.
     """
-    dtype = np.float64 if float64 else np.float32
-    n_samples = len(y_ind)
     n_classes = len(classes)
+    if dtype is None:
+        dtype = getattr(sample_weight, "dtype", np.float32)
+    else:
+        dtype = np.dtype(dtype)
 
-    sample_weight_cp = (
-        None
-        if sample_weight is None
-        else input_to_cupy_array(
-            sample_weight,
-            check_cols=1,
-            check_rows=n_samples,
-            check_dtype=dtype,
-            convert_to_dtype=dtype,
-        ).array
-    )
+    if sample_weight is not None:
+        sample_weight = sample_weight.astype(dtype, copy=False)
 
     if class_weight is None:
         # Uniform class weights
@@ -158,9 +150,7 @@ def process_class_weight(
     elif class_weight == "balanced":
         counts = cp.bincount(
             y_ind,
-            weights=(
-                sample_weight_cp if balanced_with_sample_weight else None
-            ),
+            weights=(sample_weight if balanced_with_sample_weight else None),
         ).get()
         weights = (counts.sum() / (n_classes * counts)).astype(
             dtype, copy=False
@@ -180,16 +170,11 @@ def process_class_weight(
             )
 
     if (weights != 1).any():
-        if sample_weight_cp is None:
-            sample_weight_cp = cp.asarray(weights, dtype=dtype).take(y_ind)
+        if sample_weight is None:
+            sample_weight = cp.asarray(weights, dtype=dtype).take(y_ind)
         else:
-            if cuda_ptr(sample_weight) == cuda_ptr(sample_weight_cp):
-                # Need to make a copy
-                sample_weight_cp = sample_weight_cp.copy()
+            sample_weight = sample_weight.copy()
             for ind, weight in enumerate(weights):
-                sample_weight_cp[y_ind == ind] *= weight
-
-    if sample_weight_cp is not None:
-        sample_weight = CumlArray(data=sample_weight_cp)
+                sample_weight[y_ind == ind] *= weight
 
     return weights, sample_weight

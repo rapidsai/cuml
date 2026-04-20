@@ -20,7 +20,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.validation import check_y
+from cuml.internals.validation import check_sample_weight, check_y
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
@@ -308,8 +308,8 @@ class LogisticRegression(
             classes,
             y,
             class_weight=self.class_weight,
-            sample_weight=sample_weight,
-            float64=(getattr(X, "dtype", np.float32) == np.float64),
+            sample_weight=check_sample_weight(sample_weight),
+            dtype="f4" if getattr(X, "dtype", "f4") == "f4" else "f8",
         )
 
         l1_strength, l2_strength = self._get_l1_l2_strength()
