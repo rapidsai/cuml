@@ -87,3 +87,4 @@ pytest.ini
 
 # testing
 python/cuml/cuml_accel_tests/upstream/umap/umap-upstream
+python/cuml/cuml_accel_tests/upstream/scikit-learn/sklearn-upstream

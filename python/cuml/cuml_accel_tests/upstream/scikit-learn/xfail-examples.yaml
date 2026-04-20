@@ -1,0 +1,48 @@
+- reason: 'cuml.accel bug: CUDA OOM in PCA.fit during concurrent test execution'
+  marker: cuml_accel_bugs
+  strict: false
+  tests:
+  - "decomposition::plot_faces_decomposition"
+- reason: 'cuml.accel bug: implicit CuPy-to-NumPy conversion not handled in ColumnTransformer/Pipeline'
+  marker: cuml_accel_bugs
+  tests:
+  - "linear_model::plot_poisson_regression_non_normal_loss"
+  - "release_highlights::plot_release_highlights_1_1_0"
+- reason: 'cuml.accel bug: native crash in cuml PCA'
+  marker: cuml_accel_bugs
+  tests:
+  - "decomposition::plot_pca_vs_fa_model_selection"
+- reason: 'cuml.accel bug: treelite export does not set classes_ on DecisionTreeClassifier sub-estimators'
+  marker: cuml_accel_bugs
+  tests:
+  - "ensemble::plot_forest_iris"
+- reason: 'cuml.accel bug: unhashable kernel object passed to pairwise_kernels'
+  marker: cuml_accel_bugs
+  tests:
+  - "gaussian_process::plot_compare_gpr_krr"
+- reason: 'Missing optional dependency: plotly'
+  strict: false
+  tests:
+  - "model_selection::plot_grid_search_text_feature_extraction"
+- reason: 'Missing optional dependency: polars'
+  strict: false
+  tests:
+  - "applications::plot_time_series_lagged_features"
+  - "compose::plot_digits_pipe"
+  - "gaussian_process::plot_gpr_co2"
+  - "model_selection::plot_grid_search_refit_callable"
+  - "release_highlights::plot_release_highlights_1_4_0"
+- reason: 'Missing optional dependency: pooch (required by scipy.datasets)'
+  strict: false
+  tests:
+  - "cluster::plot_face_compress"
+  - "decomposition::plot_image_denoising"
+- reason: 'Missing optional dependency: scikit-image'
+  strict: false
+  tests:
+  - "cluster::plot_coin_segmentation"
+  - "cluster::plot_coin_ward_segmentation"
+- reason: numpy>=2.4 no longer accepts newshape as a keyword argument in np.reshape (deprecated in 2.1)
+  condition: numpy>=2.4 and scikit-learn<1.6
+  tests:
+  - "gaussian_process::plot_gpr_noisy"
