@@ -188,6 +188,9 @@ def special_reg(request):
     return X, y
 
 
+@pytest.mark.filterwarnings(
+    "default:The default value of 'max_depth':FutureWarning"
+)
 def test_default_parameters():
     with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
         reg_params = curfr().get_params()
