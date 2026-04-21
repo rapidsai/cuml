@@ -246,8 +246,6 @@
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_float_precision"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_multitarget"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_nonfinite_params"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-None-False-0.01-False]"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-None-False-0.01-True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_array-False-0.01-False]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_array-False-0.01-True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-False]"
@@ -269,7 +267,6 @@
   - "sklearn.linear_model.tests.test_ransac::test_ransac_no_valid_data"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_no_valid_model"
   - "sklearn.linear_model.tests.test_ransac::test_ransac_warn_exceed_max_skips"
-  - "sklearn.linear_model.tests.test_ridge::test_raises_value_error_if_sample_weights_greater_than_1d"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-None-False]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-csr_array-False]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_sample_weight_consistency[42-sag-tall-csr_matrix-False]"
@@ -728,12 +725,6 @@
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-isotonic]"
   - "sklearn.tests.test_calibration::test_calibrated_classifier_cv_double_sample_weights_equivalence[True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_class_weight_classifiers]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sparsify_coefficients]"
   - "sklearn.tests.test_multioutput::test_multiclass_multioutput_estimator_predict_proba"
 - reason: Test should fail with cuml.accel (scikit-learn 1.6+)
@@ -1092,12 +1083,6 @@
   - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
@@ -1115,21 +1100,9 @@
   - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KernelDensity()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Lasso()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[LedoitWolf()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearRegression()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_nan_inf]"
@@ -1149,12 +1122,6 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[Ridge()-check_supervised_y_no_nan]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[SpectralEmbedding()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
@@ -1547,10 +1514,6 @@
   - "sklearn.linear_model.tests.test_logistic::test_warm_start_newton_solver[42-inf-False-newton-cholesky]"
   - "sklearn.linear_model.tests.test_logistic::test_warm_start_newton_solver[42-inf-True-newton-cg]"
   - "sklearn.linear_model.tests.test_logistic::test_warm_start_newton_solver[42-inf-True-newton-cholesky]"
-- reason: cuML doesn't validate NaN input in the same way as sklearn
-  condition: scikit-learn>=1.8
-  tests:
-  - "sklearn.linear_model.tests.test_logistic::test_nan"
 - reason: cuML proxy doesn't replicate sklearn warnings in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
@@ -1581,13 +1544,6 @@
   - "sklearn.linear_model.tests.test_logistic::test_dtype_match[csr_array-True-liblinear]"
   - "sklearn.linear_model.tests.test_logistic::test_dtype_match[csr_matrix-False-liblinear]"
   - "sklearn.linear_model.tests.test_logistic::test_dtype_match[csr_matrix-True-liblinear]"
-- reason: cuPy sparse matrices don't support int64 dtype in decision_function output
-  condition: scikit-learn>=1.8
-  tests:
-  - "sklearn.linear_model.tests.test_logistic::test_predict_2_classes[csr_array]"
-  - "sklearn.linear_model.tests.test_logistic::test_predict_2_classes[csr_matrix]"
-  - "sklearn.linear_model.tests.test_logistic::test_predict_3_classes[csr_array]"
-  - "sklearn.linear_model.tests.test_logistic::test_predict_3_classes[csr_matrix]"
 - reason: cuml.accel handles sparse input differently in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
@@ -1600,8 +1556,6 @@
 - reason: l1_min_c calculation differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-log-csr_array]"
-  - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-log-csr_matrix]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-squared_hinge-array]"
 - reason: liblinear solver behavior differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
