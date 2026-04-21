@@ -1,0 +1,1560 @@
+version: 1
+
+suite:
+  name: single_gpu
+  tier: single_gpu
+  description: Canonical single-GPU regression manifest
+
+profiles:
+  default:
+    include_tags: [default-profile]
+  extended:
+    include_tags: [default-profile, extended-profile]
+  nightly:
+    include_tags: [default-profile, extended-profile, nightly-only]
+  all:
+    include_tags: [default-profile, extended-profile, nightly-only]
+
+defaults:
+  input_type: cupy
+  dtype: fp32
+  n_reps: 3
+  random_state: 42
+  test_split: 0.1
+  run_cpu: true
+  run_gpu: true
+  raise_on_error: true
+  enabled: true
+  tags: [single-gpu]
+  comparison:
+    mode: relative_regression
+    tolerance_pct: 15
+
+benchmarks:
+  - &logreg_fit_narrow_default
+    id: logreg_fit_narrow_default
+    algorithm: LogisticRegression
+    dataset: classification
+    operation: fit
+    rows: [84000000]
+    features: [16]
+    tags: [default-profile, narrow, linear, classification]
+  - <<: *logreg_fit_narrow_default
+    id: logreg_fit_narrow_extended
+    rows: [126000000]
+    tags: [extended-profile, narrow, linear, classification]
+  - <<: *logreg_fit_narrow_default
+    id: logreg_fit_narrow_nightly
+    rows: [168000000]
+    tags: [nightly-only, narrow, linear, classification]
+
+  - &logreg_fit_medium_default
+    id: logreg_fit_medium_default
+    algorithm: LogisticRegression
+    dataset: classification
+    operation: fit
+    rows: [10500000]
+    features: [128]
+    tags: [default-profile, medium, linear, classification]
+  - <<: *logreg_fit_medium_default
+    id: logreg_fit_medium_extended
+    rows: [21000000]
+    tags: [extended-profile, medium, linear, classification]
+  - <<: *logreg_fit_medium_default
+    id: logreg_fit_medium_nightly
+    rows: [42000000]
+    tags: [nightly-only, medium, linear, classification]
+
+  - &logreg_fit_wide_default
+    id: logreg_fit_wide_default
+    algorithm: LogisticRegression
+    dataset: classification
+    operation: fit
+    rows: [2600000]
+    features: [512]
+    tags: [default-profile, wide, linear, classification]
+  - <<: *logreg_fit_wide_default
+    id: logreg_fit_wide_extended
+    rows: [5200000]
+    tags: [extended-profile, wide, linear, classification]
+  - <<: *logreg_fit_wide_default
+    id: logreg_fit_wide_nightly
+    rows: [10400000]
+    tags: [nightly-only, wide, linear, classification]
+
+  - &linreg_fit_narrow_default
+    id: linreg_fit_narrow_default
+    algorithm: LinearRegression
+    dataset: regression
+    operation: fit
+    rows: [84000000]
+    features: [16]
+    tags: [default-profile, narrow, linear, regression]
+  - <<: *linreg_fit_narrow_default
+    id: linreg_fit_narrow_extended
+    rows: [126000000]
+    tags: [extended-profile, narrow, linear, regression]
+  - <<: *linreg_fit_narrow_default
+    id: linreg_fit_narrow_nightly
+    rows: [168000000]
+    tags: [nightly-only, narrow, linear, regression]
+
+  - &linreg_fit_medium_default
+    id: linreg_fit_medium_default
+    algorithm: LinearRegression
+    dataset: regression
+    operation: fit
+    rows: [10500000]
+    features: [128]
+    tags: [default-profile, medium, linear, regression]
+  - <<: *linreg_fit_medium_default
+    id: linreg_fit_medium_extended
+    rows: [21000000]
+    tags: [extended-profile, medium, linear, regression]
+  - <<: *linreg_fit_medium_default
+    id: linreg_fit_medium_nightly
+    rows: [42000000]
+    tags: [nightly-only, medium, linear, regression]
+
+  - &linreg_fit_wide_default
+    id: linreg_fit_wide_default
+    algorithm: LinearRegression
+    dataset: regression
+    operation: fit
+    rows: [2600000]
+    features: [512]
+    tags: [default-profile, wide, linear, regression]
+  - <<: *linreg_fit_wide_default
+    id: linreg_fit_wide_extended
+    rows: [5200000]
+    tags: [extended-profile, wide, linear, regression]
+  - <<: *linreg_fit_wide_default
+    id: linreg_fit_wide_nightly
+    rows: [10400000]
+    tags: [nightly-only, wide, linear, regression]
+
+  - &ridge_fit_narrow_default
+    id: ridge_fit_narrow_default
+    algorithm: Ridge
+    dataset: regression
+    operation: fit
+    rows: [84000000]
+    features: [16]
+    tags: [default-profile, narrow, linear, regression]
+  - <<: *ridge_fit_narrow_default
+    id: ridge_fit_narrow_extended
+    rows: [126000000]
+    tags: [extended-profile, narrow, linear, regression]
+  - <<: *ridge_fit_narrow_default
+    id: ridge_fit_narrow_nightly
+    rows: [168000000]
+    tags: [nightly-only, narrow, linear, regression]
+
+  - &ridge_fit_medium_default
+    id: ridge_fit_medium_default
+    algorithm: Ridge
+    dataset: regression
+    operation: fit
+    rows: [10500000]
+    features: [128]
+    tags: [default-profile, medium, linear, regression]
+  - <<: *ridge_fit_medium_default
+    id: ridge_fit_medium_extended
+    rows: [21000000]
+    tags: [extended-profile, medium, linear, regression]
+  - <<: *ridge_fit_medium_default
+    id: ridge_fit_medium_nightly
+    rows: [42000000]
+    tags: [nightly-only, medium, linear, regression]
+
+  - &ridge_fit_wide_default
+    id: ridge_fit_wide_default
+    algorithm: Ridge
+    dataset: regression
+    operation: fit
+    rows: [2600000]
+    features: [512]
+    tags: [default-profile, wide, linear, regression]
+  - <<: *ridge_fit_wide_default
+    id: ridge_fit_wide_extended
+    rows: [5200000]
+    tags: [extended-profile, wide, linear, regression]
+  - <<: *ridge_fit_wide_default
+    id: ridge_fit_wide_nightly
+    rows: [10400000]
+    tags: [nightly-only, wide, linear, regression]
+
+  - &elasticnet_fit_narrow_default
+    id: elasticnet_fit_narrow_default
+    algorithm: ElasticNet
+    dataset: regression
+    operation: fit
+    rows: [168000000]
+    features: [16]
+    tags: [default-profile, narrow, linear, regression]
+  - <<: *elasticnet_fit_narrow_default
+    id: elasticnet_fit_narrow_extended
+    rows: [252000000]
+    tags: [extended-profile, narrow, linear, regression]
+  - <<: *elasticnet_fit_narrow_default
+    id: elasticnet_fit_narrow_nightly
+    rows: [336000000]
+    tags: [nightly-only, narrow, linear, regression]
+
+  - &elasticnet_fit_medium_default
+    id: elasticnet_fit_medium_default
+    algorithm: ElasticNet
+    dataset: regression
+    operation: fit
+    rows: [21000000]
+    features: [128]
+    tags: [default-profile, medium, linear, regression]
+  - <<: *elasticnet_fit_medium_default
+    id: elasticnet_fit_medium_extended
+    rows: [42000000]
+    tags: [extended-profile, medium, linear, regression]
+  - <<: *elasticnet_fit_medium_default
+    id: elasticnet_fit_medium_nightly
+    rows: [84000000]
+    tags: [nightly-only, medium, linear, regression]
+
+  - &elasticnet_fit_wide_default
+    id: elasticnet_fit_wide_default
+    algorithm: ElasticNet
+    dataset: regression
+    operation: fit
+    rows: [5200000]
+    features: [512]
+    tags: [default-profile, wide, linear, regression]
+  - <<: *elasticnet_fit_wide_default
+    id: elasticnet_fit_wide_extended
+    rows: [10400000]
+    tags: [extended-profile, wide, linear, regression]
+  - <<: *elasticnet_fit_wide_default
+    id: elasticnet_fit_wide_nightly
+    rows: [20800000]
+    tags: [nightly-only, wide, linear, regression]
+
+  - &lasso_fit_narrow_default
+    id: lasso_fit_narrow_default
+    algorithm: Lasso
+    dataset: regression
+    operation: fit
+    rows: [168000000]
+    features: [16]
+    tags: [default-profile, narrow, linear, regression]
+  - <<: *lasso_fit_narrow_default
+    id: lasso_fit_narrow_extended
+    rows: [252000000]
+    tags: [extended-profile, narrow, linear, regression]
+  - <<: *lasso_fit_narrow_default
+    id: lasso_fit_narrow_nightly
+    rows: [336000000]
+    tags: [nightly-only, narrow, linear, regression]
+
+  - &lasso_fit_medium_default
+    id: lasso_fit_medium_default
+    algorithm: Lasso
+    dataset: regression
+    operation: fit
+    rows: [21000000]
+    features: [128]
+    tags: [default-profile, medium, linear, regression]
+  - <<: *lasso_fit_medium_default
+    id: lasso_fit_medium_extended
+    rows: [42000000]
+    tags: [extended-profile, medium, linear, regression]
+  - <<: *lasso_fit_medium_default
+    id: lasso_fit_medium_nightly
+    rows: [84000000]
+    tags: [nightly-only, medium, linear, regression]
+
+  - &lasso_fit_wide_default
+    id: lasso_fit_wide_default
+    algorithm: Lasso
+    dataset: regression
+    operation: fit
+    rows: [5200000]
+    features: [512]
+    tags: [default-profile, wide, linear, regression]
+  - <<: *lasso_fit_wide_default
+    id: lasso_fit_wide_extended
+    rows: [10400000]
+    tags: [extended-profile, wide, linear, regression]
+  - <<: *lasso_fit_wide_default
+    id: lasso_fit_wide_nightly
+    rows: [20800000]
+    tags: [nightly-only, wide, linear, regression]
+
+  - &kmeans_fitpredict_narrow_default
+    id: kmeans_fitpredict_narrow_default
+    algorithm: KMeans
+    dataset: blobs
+    operation: fit_predict
+    rows: [40000000]
+    features: [16]
+    dataset_params:
+      centers: 8
+    tags: [default-profile, narrow, clustering]
+  - <<: *kmeans_fitpredict_narrow_default
+    id: kmeans_fitpredict_narrow_extended
+    rows: [80000000]
+    tags: [extended-profile, narrow, clustering]
+  - <<: *kmeans_fitpredict_narrow_default
+    id: kmeans_fitpredict_narrow_nightly
+    rows: [160000000]
+    tags: [nightly-only, narrow, clustering]
+
+  - &kmeans_fitpredict_medium_default
+    id: kmeans_fitpredict_medium_default
+    algorithm: KMeans
+    dataset: blobs
+    operation: fit_predict
+    rows: [5000000]
+    features: [128]
+    dataset_params:
+      centers: 8
+    tags: [default-profile, medium, clustering]
+  - <<: *kmeans_fitpredict_medium_default
+    id: kmeans_fitpredict_medium_extended
+    rows: [10000000]
+    tags: [extended-profile, medium, clustering]
+  - <<: *kmeans_fitpredict_medium_default
+    id: kmeans_fitpredict_medium_nightly
+    rows: [20000000]
+    tags: [nightly-only, medium, clustering]
+
+  - &kmeans_fitpredict_wide_default
+    id: kmeans_fitpredict_wide_default
+    algorithm: KMeans
+    dataset: blobs
+    operation: fit_predict
+    rows: [1500000]
+    features: [512]
+    dataset_params:
+      centers: 8
+    tags: [default-profile, wide, clustering]
+  - <<: *kmeans_fitpredict_wide_default
+    id: kmeans_fitpredict_wide_extended
+    rows: [3000000]
+    tags: [extended-profile, wide, clustering]
+  - <<: *kmeans_fitpredict_wide_default
+    id: kmeans_fitpredict_wide_nightly
+    rows: [6000000]
+    tags: [nightly-only, wide, clustering]
+
+  - &neighbors_fitkneighbors_narrow_default
+    id: neighbors_fitkneighbors_narrow_default
+    algorithm: NearestNeighbors
+    dataset: blobs
+    operation: fit_kneighbors
+    rows: [800000]
+    features: [16]
+    tags: [default-profile, narrow, neighbors]
+  - <<: *neighbors_fitkneighbors_narrow_default
+    id: neighbors_fitkneighbors_narrow_extended
+    rows: [1600000]
+    tags: [extended-profile, narrow, neighbors]
+  - <<: *neighbors_fitkneighbors_narrow_default
+    id: neighbors_fitkneighbors_narrow_nightly
+    rows: [3200000]
+    tags: [nightly-only, narrow, neighbors]
+
+  - &neighbors_fitkneighbors_medium_default
+    id: neighbors_fitkneighbors_medium_default
+    algorithm: NearestNeighbors
+    dataset: blobs
+    operation: fit_kneighbors
+    rows: [500000]
+    features: [128]
+    tags: [default-profile, medium, neighbors]
+  - <<: *neighbors_fitkneighbors_medium_default
+    id: neighbors_fitkneighbors_medium_extended
+    rows: [1000000]
+    tags: [extended-profile, medium, neighbors]
+  - <<: *neighbors_fitkneighbors_medium_default
+    id: neighbors_fitkneighbors_medium_nightly
+    rows: [2000000]
+    tags: [nightly-only, medium, neighbors]
+
+  - &neighbors_fitkneighbors_wide_default
+    id: neighbors_fitkneighbors_wide_default
+    algorithm: NearestNeighbors
+    dataset: blobs
+    operation: fit_kneighbors
+    rows: [160000]
+    features: [512]
+    tags: [default-profile, wide, neighbors]
+  - <<: *neighbors_fitkneighbors_wide_default
+    id: neighbors_fitkneighbors_wide_extended
+    rows: [320000]
+    tags: [extended-profile, wide, neighbors]
+  - <<: *neighbors_fitkneighbors_wide_default
+    id: neighbors_fitkneighbors_wide_nightly
+    rows: [640000]
+    tags: [nightly-only, wide, neighbors]
+
+  - &pca_fit_narrow_default
+    id: pca_fit_narrow_default
+    algorithm: PCA
+    dataset: blobs
+    operation: fit
+    rows: [24000000]
+    features: [32]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, narrow, decomposition]
+  - <<: *pca_fit_narrow_default
+    id: pca_fit_narrow_extended
+    rows: [48000000]
+    tags: [extended-profile, narrow, decomposition]
+  - <<: *pca_fit_narrow_default
+    id: pca_fit_narrow_nightly
+    rows: [96000000]
+    tags: [nightly-only, narrow, decomposition]
+
+  - &pca_fit_medium_default
+    id: pca_fit_medium_default
+    algorithm: PCA
+    dataset: blobs
+    operation: fit
+    rows: [12000000]
+    features: [128]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, medium, decomposition]
+  - <<: *pca_fit_medium_default
+    id: pca_fit_medium_extended
+    rows: [24000000]
+    tags: [extended-profile, medium, decomposition]
+  - <<: *pca_fit_medium_default
+    id: pca_fit_medium_nightly
+    rows: [48000000]
+    tags: [nightly-only, medium, decomposition]
+
+  - &pca_fit_wide_default
+    id: pca_fit_wide_default
+    algorithm: PCA
+    dataset: blobs
+    operation: fit
+    rows: [4000000]
+    features: [512]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, wide, decomposition]
+  - <<: *pca_fit_wide_default
+    id: pca_fit_wide_extended
+    rows: [8000000]
+    tags: [extended-profile, wide, decomposition]
+  - <<: *pca_fit_wide_default
+    id: pca_fit_wide_nightly
+    rows: [16000000]
+    tags: [nightly-only, wide, decomposition]
+
+  - &tsvd_fit_narrow_default
+    id: tsvd_fit_narrow_default
+    algorithm: tSVD
+    dataset: blobs
+    operation: fit
+    rows: [24000000]
+    features: [32]
+    params:
+      n_components: 10
+    tags: [default-profile, narrow, decomposition]
+  - <<: *tsvd_fit_narrow_default
+    id: tsvd_fit_narrow_extended
+    rows: [48000000]
+    tags: [extended-profile, narrow, decomposition]
+  - <<: *tsvd_fit_narrow_default
+    id: tsvd_fit_narrow_nightly
+    rows: [96000000]
+    tags: [nightly-only, narrow, decomposition]
+
+  - &tsvd_fit_medium_default
+    id: tsvd_fit_medium_default
+    algorithm: tSVD
+    dataset: blobs
+    operation: fit
+    rows: [12000000]
+    features: [128]
+    params:
+      n_components: 10
+    tags: [default-profile, medium, decomposition]
+  - <<: *tsvd_fit_medium_default
+    id: tsvd_fit_medium_extended
+    rows: [24000000]
+    tags: [extended-profile, medium, decomposition]
+  - <<: *tsvd_fit_medium_default
+    id: tsvd_fit_medium_nightly
+    rows: [48000000]
+    tags: [nightly-only, medium, decomposition]
+
+  - &tsvd_fit_wide_default
+    id: tsvd_fit_wide_default
+    algorithm: tSVD
+    dataset: blobs
+    operation: fit
+    rows: [4000000]
+    features: [512]
+    params:
+      n_components: 10
+    tags: [default-profile, wide, decomposition]
+  - <<: *tsvd_fit_wide_default
+    id: tsvd_fit_wide_extended
+    rows: [8000000]
+    tags: [extended-profile, wide, decomposition]
+  - <<: *tsvd_fit_wide_default
+    id: tsvd_fit_wide_nightly
+    rows: [16000000]
+    tags: [nightly-only, wide, decomposition]
+
+  - &grp_fit_narrow_default
+    id: grp_fit_narrow_default
+    algorithm: GaussianRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [25000000]
+    features: [32]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, narrow, projection]
+  - <<: *grp_fit_narrow_default
+    id: grp_fit_narrow_extended
+    rows: [50000000]
+    tags: [extended-profile, narrow, projection]
+  - <<: *grp_fit_narrow_default
+    id: grp_fit_narrow_nightly
+    rows: [100000000]
+    tags: [nightly-only, narrow, projection]
+
+  - &grp_fit_medium_default
+    id: grp_fit_medium_default
+    algorithm: GaussianRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [6000000]
+    features: [128]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, medium, projection]
+  - <<: *grp_fit_medium_default
+    id: grp_fit_medium_extended
+    rows: [12000000]
+    tags: [extended-profile, medium, projection]
+  - <<: *grp_fit_medium_default
+    id: grp_fit_medium_nightly
+    rows: [24000000]
+    tags: [nightly-only, medium, projection]
+
+  - &grp_fit_wide_default
+    id: grp_fit_wide_default
+    algorithm: GaussianRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [2000000]
+    features: [512]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, wide, projection]
+  - <<: *grp_fit_wide_default
+    id: grp_fit_wide_extended
+    rows: [4000000]
+    tags: [extended-profile, wide, projection]
+  - <<: *grp_fit_wide_default
+    id: grp_fit_wide_nightly
+    rows: [8000000]
+    tags: [nightly-only, wide, projection]
+
+  - &srp_fit_narrow_default
+    id: srp_fit_narrow_default
+    algorithm: SparseRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [25000000]
+    features: [32]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, narrow, projection, sparse]
+  - <<: *srp_fit_narrow_default
+    id: srp_fit_narrow_extended
+    rows: [50000000]
+    tags: [extended-profile, narrow, projection, sparse]
+  - <<: *srp_fit_narrow_default
+    id: srp_fit_narrow_nightly
+    rows: [100000000]
+    tags: [nightly-only, narrow, projection, sparse]
+
+  - &srp_fit_medium_default
+    id: srp_fit_medium_default
+    algorithm: SparseRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [6000000]
+    features: [128]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, medium, projection, sparse]
+  - <<: *srp_fit_medium_default
+    id: srp_fit_medium_extended
+    rows: [12000000]
+    tags: [extended-profile, medium, projection, sparse]
+  - <<: *srp_fit_medium_default
+    id: srp_fit_medium_nightly
+    rows: [24000000]
+    tags: [nightly-only, medium, projection, sparse]
+
+  - &srp_fit_wide_default
+    id: srp_fit_wide_default
+    algorithm: SparseRandomProjection
+    dataset: blobs
+    operation: fit
+    rows: [2000000]
+    features: [512]
+    param_grid:
+      n_components: [10, 25]
+    tags: [default-profile, wide, projection, sparse]
+  - <<: *srp_fit_wide_default
+    id: srp_fit_wide_extended
+    rows: [4000000]
+    tags: [extended-profile, wide, projection, sparse]
+  - <<: *srp_fit_wide_default
+    id: srp_fit_wide_nightly
+    rows: [8000000]
+    tags: [nightly-only, wide, projection, sparse]
+
+  - &rf_classifier_fit_narrow_default
+    id: rf_classifier_fit_narrow_default
+    algorithm: RandomForestClassifier
+    dataset: classification
+    operation: fit
+    rows: [3300000]
+    features: [16]
+    params:
+      n_estimators: 20
+    tags: [default-profile, narrow, trees, classification]
+  - <<: *rf_classifier_fit_narrow_default
+    id: rf_classifier_fit_narrow_extended
+    rows: [6600000]
+    tags: [extended-profile, narrow, trees, classification]
+  - <<: *rf_classifier_fit_narrow_default
+    id: rf_classifier_fit_narrow_nightly
+    rows: [10000000]
+    tags: [nightly-only, narrow, trees, classification]
+
+  - &rf_classifier_fit_medium_default
+    id: rf_classifier_fit_medium_default
+    algorithm: RandomForestClassifier
+    dataset: classification
+    operation: fit
+    rows: [800000]
+    features: [128]
+    params:
+      n_estimators: 20
+    tags: [default-profile, medium, trees, classification]
+  - <<: *rf_classifier_fit_medium_default
+    id: rf_classifier_fit_medium_extended
+    rows: [1600000]
+    tags: [extended-profile, medium, trees, classification]
+  - <<: *rf_classifier_fit_medium_default
+    id: rf_classifier_fit_medium_nightly
+    rows: [2400000]
+    tags: [nightly-only, medium, trees, classification]
+
+  - &rf_classifier_fit_wide_default
+    id: rf_classifier_fit_wide_default
+    algorithm: RandomForestClassifier
+    dataset: classification
+    operation: fit
+    rows: [200000]
+    features: [512]
+    params:
+      n_estimators: 20
+    tags: [default-profile, wide, trees, classification]
+  - <<: *rf_classifier_fit_wide_default
+    id: rf_classifier_fit_wide_extended
+    rows: [400000]
+    tags: [extended-profile, wide, trees, classification]
+  - <<: *rf_classifier_fit_wide_default
+    id: rf_classifier_fit_wide_nightly
+    rows: [600000]
+    tags: [nightly-only, wide, trees, classification]
+
+  - &rf_regressor_fit_narrow_default
+    id: rf_regressor_fit_narrow_default
+    algorithm: RandomForestRegressor
+    dataset: regression
+    operation: fit
+    rows: [500000]
+    features: [16]
+    params:
+      n_estimators: 20
+    tags: [default-profile, narrow, trees, regression]
+  - <<: *rf_regressor_fit_narrow_default
+    id: rf_regressor_fit_narrow_extended
+    rows: [1000000]
+    tags: [extended-profile, narrow, trees, regression]
+  - <<: *rf_regressor_fit_narrow_default
+    id: rf_regressor_fit_narrow_nightly
+    rows: [2000000]
+    tags: [nightly-only, narrow, trees, regression]
+
+  - &rf_regressor_fit_medium_default
+    id: rf_regressor_fit_medium_default
+    algorithm: RandomForestRegressor
+    dataset: regression
+    operation: fit
+    rows: [125000]
+    features: [128]
+    params:
+      n_estimators: 20
+    tags: [default-profile, medium, trees, regression]
+  - <<: *rf_regressor_fit_medium_default
+    id: rf_regressor_fit_medium_extended
+    rows: [250000]
+    tags: [extended-profile, medium, trees, regression]
+  - <<: *rf_regressor_fit_medium_default
+    id: rf_regressor_fit_medium_nightly
+    rows: [500000]
+    tags: [nightly-only, medium, trees, regression]
+
+  - &rf_regressor_fit_wide_default
+    id: rf_regressor_fit_wide_default
+    algorithm: RandomForestRegressor
+    dataset: regression
+    operation: fit
+    rows: [30000]
+    features: [512]
+    params:
+      n_estimators: 20
+    tags: [default-profile, wide, trees, regression]
+  - <<: *rf_regressor_fit_wide_default
+    id: rf_regressor_fit_wide_extended
+    rows: [60000]
+    tags: [extended-profile, wide, trees, regression]
+  - <<: *rf_regressor_fit_wide_default
+    id: rf_regressor_fit_wide_nightly
+    rows: [120000]
+    tags: [nightly-only, wide, trees, regression]
+
+  - &svc_rbf_fit_narrow_default
+    id: svc_rbf_fit_narrow_default
+    algorithm: SVC-RBF
+    dataset: classification
+    operation: fit
+    rows: [250000]
+    features: [16]
+    tags: [default-profile, narrow, svm, classification]
+  - <<: *svc_rbf_fit_narrow_default
+    id: svc_rbf_fit_narrow_extended
+    rows: [500000]
+    tags: [extended-profile, narrow, svm, classification]
+  - <<: *svc_rbf_fit_narrow_default
+    id: svc_rbf_fit_narrow_nightly
+    rows: [1000000]
+    tags: [nightly-only, narrow, svm, classification]
+
+  - &svc_rbf_fit_medium_default
+    id: svc_rbf_fit_medium_default
+    algorithm: SVC-RBF
+    dataset: classification
+    operation: fit
+    rows: [250000]
+    features: [64]
+    tags: [default-profile, medium, svm, classification]
+  - <<: *svc_rbf_fit_medium_default
+    id: svc_rbf_fit_medium_extended
+    rows: [500000]
+    tags: [extended-profile, medium, svm, classification]
+  - <<: *svc_rbf_fit_medium_default
+    id: svc_rbf_fit_medium_nightly
+    rows: [1000000]
+    tags: [nightly-only, medium, svm, classification]
+
+  - &svc_rbf_fit_wide_default
+    id: svc_rbf_fit_wide_default
+    algorithm: SVC-RBF
+    dataset: classification
+    operation: fit
+    rows: [125000]
+    features: [128]
+    tags: [default-profile, wide, svm, classification]
+  - <<: *svc_rbf_fit_wide_default
+    id: svc_rbf_fit_wide_extended
+    rows: [250000]
+    tags: [extended-profile, wide, svm, classification]
+  - <<: *svc_rbf_fit_wide_default
+    id: svc_rbf_fit_wide_nightly
+    rows: [500000]
+    tags: [nightly-only, wide, svm, classification]
+
+  - &svr_rbf_fit_narrow_default
+    id: svr_rbf_fit_narrow_default
+    algorithm: SVR-RBF
+    dataset: regression
+    operation: fit
+    rows: [125000]
+    features: [16]
+    tags: [default-profile, narrow, svm, regression]
+  - <<: *svr_rbf_fit_narrow_default
+    id: svr_rbf_fit_narrow_extended
+    rows: [250000]
+    tags: [extended-profile, narrow, svm, regression]
+  - <<: *svr_rbf_fit_narrow_default
+    id: svr_rbf_fit_narrow_nightly
+    rows: [500000]
+    tags: [nightly-only, narrow, svm, regression]
+
+  - &svr_rbf_fit_medium_default
+    id: svr_rbf_fit_medium_default
+    algorithm: SVR-RBF
+    dataset: regression
+    operation: fit
+    rows: [125000]
+    features: [64]
+    tags: [default-profile, medium, svm, regression]
+  - <<: *svr_rbf_fit_medium_default
+    id: svr_rbf_fit_medium_extended
+    rows: [250000]
+    tags: [extended-profile, medium, svm, regression]
+  - <<: *svr_rbf_fit_medium_default
+    id: svr_rbf_fit_medium_nightly
+    rows: [500000]
+    tags: [nightly-only, medium, svm, regression]
+
+  - &svr_rbf_fit_wide_default
+    id: svr_rbf_fit_wide_default
+    algorithm: SVR-RBF
+    dataset: regression
+    operation: fit
+    rows: [125000]
+    features: [128]
+    tags: [default-profile, wide, svm, regression]
+  - <<: *svr_rbf_fit_wide_default
+    id: svr_rbf_fit_wide_extended
+    rows: [250000]
+    tags: [extended-profile, wide, svm, regression]
+  - <<: *svr_rbf_fit_wide_default
+    id: svr_rbf_fit_wide_nightly
+    rows: [500000]
+    tags: [nightly-only, wide, svm, regression]
+
+  - &linearsvc_fit_narrow_default
+    id: linearsvc_fit_narrow_default
+    algorithm: LinearSVC
+    dataset: classification
+    operation: fit
+    rows: [80000000]
+    features: [16]
+    tags: [default-profile, narrow, svm, classification]
+  - <<: *linearsvc_fit_narrow_default
+    id: linearsvc_fit_narrow_extended
+    rows: [160000000]
+    tags: [extended-profile, narrow, svm, classification]
+  - <<: *linearsvc_fit_narrow_default
+    id: linearsvc_fit_narrow_nightly
+    rows: [320000000]
+    tags: [nightly-only, narrow, svm, classification]
+
+  - &linearsvc_fit_medium_default
+    id: linearsvc_fit_medium_default
+    algorithm: LinearSVC
+    dataset: classification
+    operation: fit
+    rows: [40000000]
+    features: [64]
+    tags: [default-profile, medium, svm, classification]
+  - <<: *linearsvc_fit_medium_default
+    id: linearsvc_fit_medium_extended
+    rows: [80000000]
+    tags: [extended-profile, medium, svm, classification]
+  - <<: *linearsvc_fit_medium_default
+    id: linearsvc_fit_medium_nightly
+    rows: [160000000]
+    tags: [nightly-only, medium, svm, classification]
+
+  - &linearsvc_fit_wide_default
+    id: linearsvc_fit_wide_default
+    algorithm: LinearSVC
+    dataset: classification
+    operation: fit
+    rows: [20000000]
+    features: [128]
+    tags: [default-profile, wide, svm, classification]
+  - <<: *linearsvc_fit_wide_default
+    id: linearsvc_fit_wide_extended
+    rows: [40000000]
+    tags: [extended-profile, wide, svm, classification]
+  - <<: *linearsvc_fit_wide_default
+    id: linearsvc_fit_wide_nightly
+    rows: [80000000]
+    tags: [nightly-only, wide, svm, classification]
+
+  - &linearsvr_fit_narrow_default
+    id: linearsvr_fit_narrow_default
+    algorithm: LinearSVR
+    dataset: regression
+    operation: fit
+    rows: [50000000]
+    features: [16]
+    tags: [default-profile, narrow, svm, regression]
+  - <<: *linearsvr_fit_narrow_default
+    id: linearsvr_fit_narrow_extended
+    rows: [100000000]
+    tags: [extended-profile, narrow, svm, regression]
+  - <<: *linearsvr_fit_narrow_default
+    id: linearsvr_fit_narrow_nightly
+    rows: [200000000]
+    tags: [nightly-only, narrow, svm, regression]
+
+  - &linearsvr_fit_medium_default
+    id: linearsvr_fit_medium_default
+    algorithm: LinearSVR
+    dataset: regression
+    operation: fit
+    rows: [20000000]
+    features: [64]
+    tags: [default-profile, medium, svm, regression]
+  - <<: *linearsvr_fit_medium_default
+    id: linearsvr_fit_medium_extended
+    rows: [40000000]
+    tags: [extended-profile, medium, svm, regression]
+  - <<: *linearsvr_fit_medium_default
+    id: linearsvr_fit_medium_nightly
+    rows: [80000000]
+    tags: [nightly-only, medium, svm, regression]
+
+  - &linearsvr_fit_wide_default
+    id: linearsvr_fit_wide_default
+    algorithm: LinearSVR
+    dataset: regression
+    operation: fit
+    rows: [10000000]
+    features: [128]
+    tags: [default-profile, wide, svm, regression]
+  - <<: *linearsvr_fit_wide_default
+    id: linearsvr_fit_wide_extended
+    rows: [20000000]
+    tags: [extended-profile, wide, svm, regression]
+  - <<: *linearsvr_fit_wide_default
+    id: linearsvr_fit_wide_nightly
+    rows: [40000000]
+    tags: [nightly-only, wide, svm, regression]
+
+  - &dbscan_fit_narrow_default
+    id: dbscan_fit_narrow_default
+    algorithm: DBSCAN
+    dataset: blobs
+    operation: fit
+    rows: [250000]
+    features: [16]
+    tags: [default-profile, narrow, clustering]
+  - <<: *dbscan_fit_narrow_default
+    id: dbscan_fit_narrow_extended
+    rows: [500000]
+    tags: [extended-profile, narrow, clustering]
+  - <<: *dbscan_fit_narrow_default
+    id: dbscan_fit_narrow_nightly
+    rows: [1000000]
+    tags: [nightly-only, narrow, clustering]
+
+  - &dbscan_fit_medium_default
+    id: dbscan_fit_medium_default
+    algorithm: DBSCAN
+    dataset: blobs
+    operation: fit
+    rows: [500000]
+    features: [128]
+    tags: [default-profile, medium, clustering]
+  - <<: *dbscan_fit_medium_default
+    id: dbscan_fit_medium_extended
+    rows: [1000000]
+    tags: [extended-profile, medium, clustering]
+  - <<: *dbscan_fit_medium_default
+    id: dbscan_fit_medium_nightly
+    rows: [2000000]
+    tags: [nightly-only, medium, clustering]
+
+  - &dbscan_fit_wide_default
+    id: dbscan_fit_wide_default
+    algorithm: DBSCAN
+    dataset: blobs
+    operation: fit
+    rows: [300000]
+    features: [512]
+    tags: [default-profile, wide, clustering]
+  - <<: *dbscan_fit_wide_default
+    id: dbscan_fit_wide_extended
+    rows: [600000]
+    tags: [extended-profile, wide, clustering]
+  - <<: *dbscan_fit_wide_default
+    id: dbscan_fit_wide_nightly
+    rows: [1200000]
+    tags: [nightly-only, wide, clustering]
+
+  - &knn_classifier_fitpredict_narrow_default
+    id: knn_classifier_fitpredict_narrow_default
+    algorithm: KNeighborsClassifier
+    dataset: classification
+    operation: fit_predict
+    rows: [500000]
+    features: [16]
+    tags: [default-profile, narrow, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_narrow_default
+    id: knn_classifier_fitpredict_narrow_extended
+    rows: [1000000]
+    tags: [extended-profile, narrow, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_narrow_default
+    id: knn_classifier_fitpredict_narrow_nightly
+    rows: [2000000]
+    tags: [nightly-only, narrow, neighbors, classification]
+
+  - &knn_classifier_fitpredict_medium_default
+    id: knn_classifier_fitpredict_medium_default
+    algorithm: KNeighborsClassifier
+    dataset: classification
+    operation: fit_predict
+    rows: [250000]
+    features: [128]
+    tags: [default-profile, medium, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_medium_default
+    id: knn_classifier_fitpredict_medium_extended
+    rows: [500000]
+    tags: [extended-profile, medium, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_medium_default
+    id: knn_classifier_fitpredict_medium_nightly
+    rows: [1000000]
+    tags: [nightly-only, medium, neighbors, classification]
+
+  - &knn_classifier_fitpredict_wide_default
+    id: knn_classifier_fitpredict_wide_default
+    algorithm: KNeighborsClassifier
+    dataset: classification
+    operation: fit_predict
+    rows: [100000]
+    features: [512]
+    tags: [default-profile, wide, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_wide_default
+    id: knn_classifier_fitpredict_wide_extended
+    rows: [200000]
+    tags: [extended-profile, wide, neighbors, classification]
+  - <<: *knn_classifier_fitpredict_wide_default
+    id: knn_classifier_fitpredict_wide_nightly
+    rows: [400000]
+    tags: [nightly-only, wide, neighbors, classification]
+
+  - &knn_regressor_fitpredict_narrow_default
+    id: knn_regressor_fitpredict_narrow_default
+    algorithm: KNeighborsRegressor
+    dataset: regression
+    operation: fit_predict
+    rows: [500000]
+    features: [16]
+    tags: [default-profile, narrow, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_narrow_default
+    id: knn_regressor_fitpredict_narrow_extended
+    rows: [1000000]
+    tags: [extended-profile, narrow, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_narrow_default
+    id: knn_regressor_fitpredict_narrow_nightly
+    rows: [2000000]
+    tags: [nightly-only, narrow, neighbors, regression]
+
+  - &knn_regressor_fitpredict_medium_default
+    id: knn_regressor_fitpredict_medium_default
+    algorithm: KNeighborsRegressor
+    dataset: regression
+    operation: fit_predict
+    rows: [250000]
+    features: [128]
+    tags: [default-profile, medium, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_medium_default
+    id: knn_regressor_fitpredict_medium_extended
+    rows: [500000]
+    tags: [extended-profile, medium, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_medium_default
+    id: knn_regressor_fitpredict_medium_nightly
+    rows: [1000000]
+    tags: [nightly-only, medium, neighbors, regression]
+
+  - &knn_regressor_fitpredict_wide_default
+    id: knn_regressor_fitpredict_wide_default
+    algorithm: KNeighborsRegressor
+    dataset: regression
+    operation: fit_predict
+    rows: [100000]
+    features: [512]
+    tags: [default-profile, wide, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_wide_default
+    id: knn_regressor_fitpredict_wide_extended
+    rows: [200000]
+    tags: [extended-profile, wide, neighbors, regression]
+  - <<: *knn_regressor_fitpredict_wide_default
+    id: knn_regressor_fitpredict_wide_nightly
+    rows: [400000]
+    tags: [nightly-only, wide, neighbors, regression]
+
+  - &standardscaler_fittransform_narrow_default
+    id: standardscaler_fittransform_narrow_default
+    algorithm: StandardScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [2100000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *standardscaler_fittransform_narrow_default
+    id: standardscaler_fittransform_narrow_extended
+    rows: [5200000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *standardscaler_fittransform_narrow_default
+    id: standardscaler_fittransform_narrow_nightly
+    rows: [10500000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &standardscaler_fittransform_medium_default
+    id: standardscaler_fittransform_medium_default
+    algorithm: StandardScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [520000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *standardscaler_fittransform_medium_default
+    id: standardscaler_fittransform_medium_extended
+    rows: [1300000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *standardscaler_fittransform_medium_default
+    id: standardscaler_fittransform_medium_nightly
+    rows: [2600000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &standardscaler_fittransform_wide_default
+    id: standardscaler_fittransform_wide_default
+    algorithm: StandardScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [260000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *standardscaler_fittransform_wide_default
+    id: standardscaler_fittransform_wide_extended
+    rows: [650000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *standardscaler_fittransform_wide_default
+    id: standardscaler_fittransform_wide_nightly
+    rows: [1300000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &minmaxscaler_fittransform_narrow_default
+    id: minmaxscaler_fittransform_narrow_default
+    algorithm: MinMaxScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [2100000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *minmaxscaler_fittransform_narrow_default
+    id: minmaxscaler_fittransform_narrow_extended
+    rows: [5200000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *minmaxscaler_fittransform_narrow_default
+    id: minmaxscaler_fittransform_narrow_nightly
+    rows: [10500000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &minmaxscaler_fittransform_medium_default
+    id: minmaxscaler_fittransform_medium_default
+    algorithm: MinMaxScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [520000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *minmaxscaler_fittransform_medium_default
+    id: minmaxscaler_fittransform_medium_extended
+    rows: [1300000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *minmaxscaler_fittransform_medium_default
+    id: minmaxscaler_fittransform_medium_nightly
+    rows: [2600000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &minmaxscaler_fittransform_wide_default
+    id: minmaxscaler_fittransform_wide_default
+    algorithm: MinMaxScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [260000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *minmaxscaler_fittransform_wide_default
+    id: minmaxscaler_fittransform_wide_extended
+    rows: [650000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *minmaxscaler_fittransform_wide_default
+    id: minmaxscaler_fittransform_wide_nightly
+    rows: [1300000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &maxabsscaler_fittransform_narrow_default
+    id: maxabsscaler_fittransform_narrow_default
+    algorithm: MaxAbsScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [2100000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *maxabsscaler_fittransform_narrow_default
+    id: maxabsscaler_fittransform_narrow_extended
+    rows: [5200000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *maxabsscaler_fittransform_narrow_default
+    id: maxabsscaler_fittransform_narrow_nightly
+    rows: [10500000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &maxabsscaler_fittransform_medium_default
+    id: maxabsscaler_fittransform_medium_default
+    algorithm: MaxAbsScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [520000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *maxabsscaler_fittransform_medium_default
+    id: maxabsscaler_fittransform_medium_extended
+    rows: [1300000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *maxabsscaler_fittransform_medium_default
+    id: maxabsscaler_fittransform_medium_nightly
+    rows: [2600000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &maxabsscaler_fittransform_wide_default
+    id: maxabsscaler_fittransform_wide_default
+    algorithm: MaxAbsScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [260000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *maxabsscaler_fittransform_wide_default
+    id: maxabsscaler_fittransform_wide_extended
+    rows: [650000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *maxabsscaler_fittransform_wide_default
+    id: maxabsscaler_fittransform_wide_nightly
+    rows: [1300000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &normalizer_fittransform_narrow_default
+    id: normalizer_fittransform_narrow_default
+    algorithm: Normalizer
+    dataset: classification
+    operation: fit_transform
+    rows: [2000000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *normalizer_fittransform_narrow_default
+    id: normalizer_fittransform_narrow_extended
+    rows: [4000000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *normalizer_fittransform_narrow_default
+    id: normalizer_fittransform_narrow_nightly
+    rows: [8000000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &normalizer_fittransform_medium_default
+    id: normalizer_fittransform_medium_default
+    algorithm: Normalizer
+    dataset: classification
+    operation: fit_transform
+    rows: [600000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *normalizer_fittransform_medium_default
+    id: normalizer_fittransform_medium_extended
+    rows: [1200000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *normalizer_fittransform_medium_default
+    id: normalizer_fittransform_medium_nightly
+    rows: [2400000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &normalizer_fittransform_wide_default
+    id: normalizer_fittransform_wide_default
+    algorithm: Normalizer
+    dataset: classification
+    operation: fit_transform
+    rows: [320000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *normalizer_fittransform_wide_default
+    id: normalizer_fittransform_wide_extended
+    rows: [640000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *normalizer_fittransform_wide_default
+    id: normalizer_fittransform_wide_nightly
+    rows: [1280000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &simpleimputer_fittransform_narrow_default
+    id: simpleimputer_fittransform_narrow_default
+    algorithm: SimpleImputer
+    dataset: classification
+    operation: fit_transform
+    rows: [2100000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *simpleimputer_fittransform_narrow_default
+    id: simpleimputer_fittransform_narrow_extended
+    rows: [5200000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *simpleimputer_fittransform_narrow_default
+    id: simpleimputer_fittransform_narrow_nightly
+    rows: [10500000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &simpleimputer_fittransform_medium_default
+    id: simpleimputer_fittransform_medium_default
+    algorithm: SimpleImputer
+    dataset: classification
+    operation: fit_transform
+    rows: [520000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *simpleimputer_fittransform_medium_default
+    id: simpleimputer_fittransform_medium_extended
+    rows: [1300000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *simpleimputer_fittransform_medium_default
+    id: simpleimputer_fittransform_medium_nightly
+    rows: [2600000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &simpleimputer_fittransform_wide_default
+    id: simpleimputer_fittransform_wide_default
+    algorithm: SimpleImputer
+    dataset: classification
+    operation: fit_transform
+    rows: [260000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *simpleimputer_fittransform_wide_default
+    id: simpleimputer_fittransform_wide_extended
+    rows: [650000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *simpleimputer_fittransform_wide_default
+    id: simpleimputer_fittransform_wide_nightly
+    rows: [1300000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &robustscaler_fittransform_narrow_default
+    id: robustscaler_fittransform_narrow_default
+    algorithm: RobustScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [3000000]
+    features: [128]
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *robustscaler_fittransform_narrow_default
+    id: robustscaler_fittransform_narrow_extended
+    rows: [6000000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *robustscaler_fittransform_narrow_default
+    id: robustscaler_fittransform_narrow_nightly
+    rows: [12000000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &robustscaler_fittransform_medium_default
+    id: robustscaler_fittransform_medium_default
+    algorithm: RobustScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [700000]
+    features: [512]
+    tags: [default-profile, medium, preprocessing]
+  - <<: *robustscaler_fittransform_medium_default
+    id: robustscaler_fittransform_medium_extended
+    rows: [1400000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *robustscaler_fittransform_medium_default
+    id: robustscaler_fittransform_medium_nightly
+    rows: [2800000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &robustscaler_fittransform_wide_default
+    id: robustscaler_fittransform_wide_default
+    algorithm: RobustScaler
+    dataset: classification
+    operation: fit_transform
+    rows: [6000]
+    features: [1024]
+    tags: [default-profile, wide, preprocessing]
+  - <<: *robustscaler_fittransform_wide_default
+    id: robustscaler_fittransform_wide_extended
+    rows: [12000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *robustscaler_fittransform_wide_default
+    id: robustscaler_fittransform_wide_nightly
+    rows: [24000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &polynomialfeatures_fittransform_narrow_default
+    id: polynomialfeatures_fittransform_narrow_default
+    algorithm: PolynomialFeatures
+    dataset: classification
+    operation: fit_transform
+    rows: [2000000]
+    features: [16]
+    params:
+      degree: 2
+    tags: [default-profile, narrow, preprocessing]
+  - <<: *polynomialfeatures_fittransform_narrow_default
+    id: polynomialfeatures_fittransform_narrow_extended
+    rows: [4000000]
+    tags: [extended-profile, narrow, preprocessing]
+  - <<: *polynomialfeatures_fittransform_narrow_default
+    id: polynomialfeatures_fittransform_narrow_nightly
+    rows: [8000000]
+    tags: [nightly-only, narrow, preprocessing]
+
+  - &polynomialfeatures_fittransform_medium_default
+    id: polynomialfeatures_fittransform_medium_default
+    algorithm: PolynomialFeatures
+    dataset: classification
+    operation: fit_transform
+    rows: [500000]
+    features: [32]
+    params:
+      degree: 2
+    tags: [default-profile, medium, preprocessing]
+  - <<: *polynomialfeatures_fittransform_medium_default
+    id: polynomialfeatures_fittransform_medium_extended
+    rows: [1000000]
+    tags: [extended-profile, medium, preprocessing]
+  - <<: *polynomialfeatures_fittransform_medium_default
+    id: polynomialfeatures_fittransform_medium_nightly
+    rows: [2000000]
+    tags: [nightly-only, medium, preprocessing]
+
+  - &polynomialfeatures_fittransform_wide_default
+    id: polynomialfeatures_fittransform_wide_default
+    algorithm: PolynomialFeatures
+    dataset: classification
+    operation: fit_transform
+    rows: [400000]
+    features: [64]
+    params:
+      degree: 2
+    tags: [default-profile, wide, preprocessing]
+  - <<: *polynomialfeatures_fittransform_wide_default
+    id: polynomialfeatures_fittransform_wide_extended
+    rows: [800000]
+    tags: [extended-profile, wide, preprocessing]
+  - <<: *polynomialfeatures_fittransform_wide_default
+    id: polynomialfeatures_fittransform_wide_nightly
+    rows: [1600000]
+    tags: [nightly-only, wide, preprocessing]
+
+  - &tsne_fit_narrow_default
+    id: tsne_fit_narrow_default
+    algorithm: TSNE
+    dataset: blobs
+    operation: fit
+    rows: [150000]
+    features: [16]
+    tags: [default-profile, narrow, manifold]
+  - <<: *tsne_fit_narrow_default
+    id: tsne_fit_narrow_extended
+    rows: [300000]
+    tags: [extended-profile, narrow, manifold]
+  - <<: *tsne_fit_narrow_default
+    id: tsne_fit_narrow_nightly
+    rows: [600000]
+    tags: [nightly-only, narrow, manifold]
+
+  - &tsne_fit_medium_default
+    id: tsne_fit_medium_default
+    algorithm: TSNE
+    dataset: blobs
+    operation: fit
+    rows: [75000]
+    features: [64]
+    tags: [default-profile, medium, manifold]
+  - <<: *tsne_fit_medium_default
+    id: tsne_fit_medium_extended
+    rows: [150000]
+    tags: [extended-profile, medium, manifold]
+  - <<: *tsne_fit_medium_default
+    id: tsne_fit_medium_nightly
+    rows: [300000]
+    tags: [nightly-only, medium, manifold]
+
+  - &tsne_fit_wide_default
+    id: tsne_fit_wide_default
+    algorithm: TSNE
+    dataset: blobs
+    operation: fit
+    rows: [30000]
+    features: [128]
+    tags: [default-profile, wide, manifold]
+  - <<: *tsne_fit_wide_default
+    id: tsne_fit_wide_extended
+    rows: [60000]
+    tags: [extended-profile, wide, manifold]
+  - <<: *tsne_fit_wide_default
+    id: tsne_fit_wide_nightly
+    rows: [120000]
+    tags: [nightly-only, wide, manifold]
+
+  - &multinomialnb_fit_narrow_default
+    id: multinomialnb_fit_narrow_default
+    algorithm: MultinomialNB
+    dataset: zeros
+    operation: fit
+    rows: [20000000]
+    features: [64]
+    tags: [default-profile, narrow, naive-bayes]
+  - <<: *multinomialnb_fit_narrow_default
+    id: multinomialnb_fit_narrow_extended
+    rows: [40000000]
+    tags: [extended-profile, narrow, naive-bayes]
+  - <<: *multinomialnb_fit_narrow_default
+    id: multinomialnb_fit_narrow_nightly
+    rows: [80000000]
+    tags: [nightly-only, narrow, naive-bayes]
+
+  - &multinomialnb_fit_medium_default
+    id: multinomialnb_fit_medium_default
+    algorithm: MultinomialNB
+    dataset: zeros
+    operation: fit
+    rows: [6000000]
+    features: [256]
+    tags: [default-profile, medium, naive-bayes]
+  - <<: *multinomialnb_fit_medium_default
+    id: multinomialnb_fit_medium_extended
+    rows: [12000000]
+    tags: [extended-profile, medium, naive-bayes]
+  - <<: *multinomialnb_fit_medium_default
+    id: multinomialnb_fit_medium_nightly
+    rows: [24000000]
+    tags: [nightly-only, medium, naive-bayes]
+
+  - &multinomialnb_fit_wide_default
+    id: multinomialnb_fit_wide_default
+    algorithm: MultinomialNB
+    dataset: zeros
+    operation: fit
+    rows: [2000000]
+    features: [1024]
+    tags: [default-profile, wide, naive-bayes]
+  - <<: *multinomialnb_fit_wide_default
+    id: multinomialnb_fit_wide_extended
+    rows: [4000000]
+    tags: [extended-profile, wide, naive-bayes]
+  - <<: *multinomialnb_fit_wide_default
+    id: multinomialnb_fit_wide_nightly
+    rows: [8000000]
+    tags: [nightly-only, wide, naive-bayes]
+

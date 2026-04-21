@@ -79,6 +79,18 @@ def build_parser():
         "--quiet", "-q", action="store_false", dest="verbose", default=True
     )
     parser.add_argument("--csv", nargs="?")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to a YAML benchmark config file",
+    )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        help="Named profile to select from a YAML benchmark config",
+    )
     parser.add_argument("--dataset", default="blobs")
     parser.add_argument(
         "--skip-cpu",
