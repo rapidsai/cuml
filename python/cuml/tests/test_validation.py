@@ -1263,14 +1263,28 @@ def test_check_y_return_classes(
         assert (classes == sol_classes).all()
 
 
-def test_check_y_classifier_on_floating_input():
+@pytest.mark.parametrize(
+    "array",
+    [
+        pytest.param(
+            np.array([1.0, 2.0, 1.0], dtype="float32"), id="small-float32"
+        ),
+        pytest.param(
+            np.array([2**24, 2**24 + 1, 2**24 + 2], dtype="float64"),
+            id="big-float64",
+        ),
+    ],
+)
+def test_check_y_classifier_floating_input_accepted(array):
     # integral floating values are accepted
-    good = np.array([1.0, 2.0, 1.0])
-    out, classes = check_y(good, return_classes=True)
-    assert classes.dtype == good.dtype
-    np.testing.assert_array_equal(classes, np.unique(good))
-    np.testing.assert_array_equal(cp.asnumpy(out), np.array([0, 1, 0]))
+    out, classes = check_y(array, return_classes=True)
+    assert classes.dtype == array.dtype
+    sol_classes, sol_ind = np.unique(array, return_inverse=True)
+    np.testing.assert_array_equal(classes, sol_classes)
+    np.testing.assert_array_equal(cp.asnumpy(out), sol_ind)
 
+
+def test_check_y_classifier_floating_input_errors():
     # Non integral values error
     has_nan = cp.array([1.0, float("nan"), 3.0])
     has_inf = np.array([1.0, float("inf"), 3.0])
