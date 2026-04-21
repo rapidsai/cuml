@@ -263,6 +263,10 @@ class Ridge(Base,
         self.max_iter = max_iter
         self.copy_X = copy_X
 
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}
+
     def _fit_eig(
         self,
         X,
