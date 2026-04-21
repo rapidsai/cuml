@@ -819,6 +819,12 @@ def check_y(
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
             if np.isdtype(y.dtype, ("numeric", "bool")):
                 y = cp.asarray(y)
+            elif y.dtype == "object" and not isinstance(y.flat[0], str):
+                raise ValueError(
+                    "Unknown label type: unknown. Maybe you are trying to fit a "
+                    "classifier, which expects discrete classes on a regression target "
+                    "with continuous values."
+                )
             else:
                 y = (cudf.DataFrame if y.ndim == 2 else cudf.Series)(
                     y, dtype=(np.dtype("O") if y.dtype.kind in "U" else None)

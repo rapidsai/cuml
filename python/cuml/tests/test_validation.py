@@ -1258,6 +1258,12 @@ def test_check_y_classifier_on_floating_input():
         check_y(non_integral, return_classes=True)
 
 
+def test_check_y_classifier_on_non_str_object():
+    bad = np.array([1, 2, 0], dtype=object)
+    with pytest.raises(ValueError, match="Unknown label type: unknown"):
+        check_y(bad, return_classes=True)
+
+
 def test_check_y_none():
     with pytest.raises(ValueError, match="This estimator requires y"):
         check_y(None)
