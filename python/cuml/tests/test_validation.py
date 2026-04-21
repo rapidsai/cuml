@@ -948,21 +948,46 @@ def test_check_array_sparse_input_format(array, mem_type, format):
     )
 
 
-@pytest.mark.parametrize("format", ["csr", "csc", "coo", "bsr"])
-def test_check_array_accept_large_sparse(format):
+@pytest.mark.parametrize("format", ["coo", "csr", "csc", "bsr", "dia"])
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+def test_check_array_coerce_large_sparse(format, mem_type):
     array = sp.random(20, 10, density=0.5, format=format, random_state=42)
     if array.format == "coo":
         array.coords = tuple(v.astype("int64") for v in array.coords)
-    else:
-        for name in ["indices", "indptr"]:
-            setattr(array, name, getattr(array, name).astype("int64"))
+    elif array.format in ["csr", "csc", "bsr"]:
+        array.indices = array.indices.astype("int64")
+        array.indptr = array.indptr.astype("int64")
+    else:  # dia
+        array.offsets = array.offsets.astype("int64")
+
+    # Sparse matrices with indices > int32 but _could_ fit in int32 are supported
+    out = check_array(array, accept_sparse=True, mem_type=mem_type)
+    if mem_type == "device":
+        assert cp_sp.issparse(out)
+        out = out.get()
+    assert (out != array).nnz == 0
+
+
+def test_check_array_large_sparse_errors():
+    # Large sparse matrices that truly cannot fit in int32 error by default
+    # This is only possible to efficiently test in CI for COO, other large
+    # sparse matrices also allocate large arrays.
+    array = sp.coo_matrix(
+        (
+            np.array([1.5]),
+            (np.array([0], dtype="int64"), np.array([0], dtype="int64")),
+        ),
+        shape=(2**32, 10),
+    )
 
     with pytest.raises(ValueError, match="sparse matrices with int32 indices"):
         check_array(array, accept_sparse=True)
 
-    check_array(
+    # No error when large sparse matrices are accepted
+    out = check_array(
         array, accept_sparse=True, accept_large_sparse=True, mem_type="host"
     )
+    assert out is array
 
 
 @example(array=np.ones((3, 2)))

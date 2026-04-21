@@ -402,6 +402,63 @@ def check_non_negative(array, *, input_name=None) -> None:
         raise ValueError(f"Negative values in data{suffix}")
 
 
+def _ensure_int32_sparse(array):
+    """Convert sparse array to int32 indices if possible, and error otherwise"""
+    INT32_MAX = (1 << 31) - 1
+
+    # All sparse arrays must have shapes and nnz that fit in an int32. In addition,
+    # CSR, CSC, and BSR must have indices/indptr that fit in an int32.
+    if (
+        any(s > INT32_MAX for s in array.shape)
+        or array.nnz > INT32_MAX
+        or (
+            array.format in ["csr", "csc", "bsr"]
+            and (
+                len(array.indices) > INT32_MAX or len(array.indptr) > INT32_MAX
+            )
+        )
+    ):
+        raise ValueError(
+            "Only sparse matrices with int32 indices are currently supported."
+        )
+
+    # Definitely safe to downscast to int32, but only cast if needed since
+    # the sparse constructors do a little bit of work.
+    if array.format == "coo":
+        if array.row.dtype == "int32" and array.col.dtype == "int32":
+            return array
+        return type(array)(
+            (
+                array.data,
+                (
+                    array.row.astype("int32", copy=False),
+                    array.col.astype("int32", copy=False),
+                ),
+            ),
+            shape=array.shape,
+        )
+    elif array.format == "dia":
+        if array.offsets.dtype == "int32":
+            return array
+        return type(array)(
+            (array.data, array.offsets.astype("int32")), shape=array.shape
+        )
+    elif array.format in ["csr", "csc", "bsr"]:
+        if array.indices.dtype == "int32" and array.indptr.dtype == "int32":
+            return array
+        return type(array)(
+            (
+                array.data,
+                array.indices.astype("int32", copy=False),
+                array.indptr.astype("int32", copy=False),
+            ),
+            shape=array.shape,
+        )
+    else:
+        # Other type without numeric indices, can just return
+        return array
+
+
 def check_array(
     array,
     *,
@@ -549,25 +606,11 @@ def check_array(
                 f"Sparse data was passed{padded_input}, but dense data is required. "
                 "Use '.toarray()' to convert to a dense array."
             )
-        if not accept_large_sparse:
-            if array.format == "coo":
-                index_keys = ["col", "row"]
-            elif array.format in ["csr", "csc", "bsr"]:
-                index_keys = ["indices", "indptr"]
-            else:
-                index_keys = []
-
-            for key in index_keys:
-                indices_dtype = getattr(array, key).dtype
-                if indices_dtype != "int32":
-                    raise ValueError(
-                        "Only sparse matrices with int32 indices are currently "
-                        f"supported. Found {indices_dtype} indices instead."
-                    )
-
         # Coerce to accepted format if needed
         if array.format not in accept_sparse:
             array = array.asformat(accept_sparse[0])
+        if not accept_large_sparse:
+            array = _ensure_int32_sparse(array)
 
         # Validate dimensions and shape are as expected. We do this here
         # _before_ host/device conversion, since cupyx doesn't have a sparse
