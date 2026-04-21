@@ -192,17 +192,26 @@ def special_reg(request):
     "default:The default value of 'max_depth':FutureWarning"
 )
 def test_default_parameters():
+    X = np.array([[1.0, 2.0]], dtype=np.float32)
+    y_reg = np.array([1.0], dtype=np.float32)
+    y_clf = np.array([1], dtype=np.int32)
+
+    reg = curfr()
+    reg_params = reg.get_params()
     with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        reg_params = curfr().get_params()
+        reg.fit(X, y_reg)
+
+    clf = curfc()
+    clf_params = clf.get_params()
     with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        clf_params = curfc().get_params()
+        clf.fit(X, y_clf)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
-        curfr(max_depth=16).get_params()
-        curfr(max_depth=None).get_params()
-        curfc(max_depth=16).get_params()
-        curfc(max_depth=None).get_params()
+        curfr(max_depth=16).fit(X, y_reg).get_params()
+        curfr(max_depth=None).fit(X, y_reg).get_params()
+        curfc(max_depth=16).fit(X, y_clf).get_params()
+        curfc(max_depth=None).fit(X, y_clf).get_params()
 
     # Different default max_features
     assert reg_params["max_features"] == 1.0
