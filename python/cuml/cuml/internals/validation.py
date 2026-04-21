@@ -955,8 +955,12 @@ def check_sample_weight(
     if sample_weight is None:
         return None
 
+    all_zero_msg = "Sample weights must contain at least one non-zero number."
+
     # A uniform sample_weight is the same as unweighted
     if cp.isscalar(sample_weight):
+        if sample_weight == 0:
+            raise ValueError(all_zero_msg)
         return None
 
     sample_weight = check_array(
@@ -974,6 +978,9 @@ def check_sample_weight(
             f"Sample weights must be 1D array or scalar, got "
             f"{sample_weight.ndim}D array."
         )
+
+    if (sample_weight == 0).all():
+        raise ValueError(all_zero_msg)
     return sample_weight
 
 

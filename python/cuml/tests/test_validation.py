@@ -1325,6 +1325,22 @@ def test_check_sample_weight_ensure_non_negative():
         check_sample_weight(array, ensure_non_negative=True)
 
 
+@pytest.mark.parametrize(
+    "sample_weight",
+    [
+        pytest.param(0, id="scalar"),
+        pytest.param(np.zeros(3), id="numpy"),
+        pytest.param(cp.zeros(3), id="cupy"),
+    ],
+)
+def test_check_sample_weight_all_zero(sample_weight):
+    with pytest.raises(
+        ValueError,
+        match="Sample weights must contain at least one non-zero number",
+    ):
+        check_sample_weight(sample_weight)
+
+
 def test_check_inputs_X():
     model = MyModel()
     X = np.arange(6).reshape((3, 2))
