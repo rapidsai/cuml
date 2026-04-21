@@ -516,6 +516,9 @@ def test_check_all_finite(device, sparse_format):
     f32_good = array([1.5, -1.5, 2.5], dtype="float32")
     f32_nan = array([1.5, float("nan"), 2.5], dtype="float32")
     f32_inf = array([1.5, float("inf"), 2.5], dtype="float32")
+    f32_pos_neg_inf = array(
+        [1.5, -float("inf"), float("inf")], dtype="float32"
+    )
     f64_both = array([[1.5, float("inf"), float("nan")]], dtype="float64")
 
     check_all_finite(non_floating)
@@ -535,6 +538,15 @@ def test_check_all_finite(device, sparse_format):
         ),
     ):
         check_all_finite(f32_inf, allow_nan=True)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"Input array contains infinity or a value too large for "
+            r"dtype\('float32'\)."
+        ),
+    ):
+        check_all_finite(f32_pos_neg_inf)
 
     with pytest.raises(ValueError, match="Input array contains NaN."):
         check_all_finite(f64_both)

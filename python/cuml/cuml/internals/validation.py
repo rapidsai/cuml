@@ -366,11 +366,16 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
         has_inf = status & 0b10
     else:
         # First try an O(1) space solution for the common case
-        with np.errstate(over="ignore"):
+        with np.errstate(over="ignore", invalid="ignore"):
             x_sum = array.sum()
         if not np.isfinite(x_sum):
-            has_nan = np.isnan(x_sum)
-            if not has_nan or allow_nan:
+            # We can't infer anything from the value of x_sum being non-finite
+            # - NaN could mean NaN present, or both -inf and inf
+            # - inf could mean inf present, or just overflow
+            # Here we selectively apply O(n) space fallbacks as needed.
+            if allow_nan:
+                has_inf = np.isinf(array).any()
+            elif not (has_nan := np.isnan(array).any()):
                 has_inf = np.isinf(array).any()
 
     if has_nan and not allow_nan:
