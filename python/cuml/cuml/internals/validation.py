@@ -750,7 +750,7 @@ _cupy_any_inf_or_nan_or_real = cp.ReductionKernel(
     "T x",
     "uint8 out",
     (
-        "((unsigned char)(cuda::std::ceil(x) != x)) << 2 "
+        "((unsigned char)(ceil(x) != x)) << 2 "
         "| ((unsigned char)isinf(x)) << 1 "
         "| ((unsigned char)isnan(x))"
     ),
