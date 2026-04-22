@@ -1315,6 +1315,30 @@ def test_check_y_classifier_on_non_str_object():
         check_y(bad, return_classes=True)
 
 
+@pytest.mark.parametrize(
+    "mem_type, dtype",
+    [
+        ("device", "int32"),
+        ("host", "int32"),
+        ("host", "object"),
+    ],
+)
+@pytest.mark.parametrize("return_classes", [False, True])
+def test_check_y_empty(mem_type, dtype, return_classes):
+    xp = cp if mem_type == "device" else np
+    array = xp.array([], dtype=dtype)
+    if return_classes:
+        y, classes = check_y(array, mem_type=None, return_classes=True)
+        assert classes.dtype == dtype
+        assert classes.size == 0
+        assert y.dtype.kind in "iu"
+        assert y.size == 0
+    else:
+        y = check_y(array, mem_type=None)
+        assert y.dtype == array.dtype
+        assert y.size == 0
+
+
 def test_check_y_none():
     with pytest.raises(ValueError, match="This estimator requires y"):
         check_y(None)
@@ -1361,6 +1385,16 @@ def test_check_sample_weight_errors_2d(shape):
         ValueError, match="Sample weights must be 1D array or scalar"
     ):
         check_sample_weight(bad)
+
+
+@pytest.mark.parametrize("mem_type", ["device", "host"])
+@pytest.mark.parametrize("ensure_non_negative", [False, True])
+def test_check_sample_weight_empty(mem_type, ensure_non_negative):
+    xp = cp if mem_type == "device" else np
+    array = xp.array([], dtype="float32")
+    out = check_sample_weight(array, ensure_non_negative=ensure_non_negative)
+    assert out.dtype == array.dtype
+    assert out.size == 0
 
 
 def test_check_sample_weight_scalar_or_none():

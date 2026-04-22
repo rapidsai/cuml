@@ -871,7 +871,11 @@ def check_y(
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
             if np.isdtype(y.dtype, ("numeric", "bool")):
                 y = cp.asarray(y)
-            elif y.dtype == "object" and not isinstance(y.flat[0], str):
+            elif (
+                y.dtype == "object"
+                and y.size
+                and not isinstance(y.flat[0], str)
+            ):
                 raise ValueError(
                     "Unknown label type: unknown. Maybe you are trying to fit a "
                     "classifier, which expects discrete classes on a regression target "
@@ -1034,6 +1038,7 @@ def check_sample_weight(
         mem_type=mem_type,
         order=order,
         ensure_2d=False,
+        ensure_min_samples=0,
         ensure_non_negative=ensure_non_negative,
         input_name="sample_weight",
     )
@@ -1043,7 +1048,7 @@ def check_sample_weight(
             f"{sample_weight.ndim}D array."
         )
 
-    if (sample_weight == 0).all():
+    if sample_weight.size and (sample_weight == 0).all():
         raise ValueError(all_zero_msg)
     return sample_weight
 
