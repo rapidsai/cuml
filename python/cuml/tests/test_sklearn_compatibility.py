@@ -371,12 +371,6 @@ XFAILS = {
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "DBSCAN does not handle non-array sample weights",
-        "check_sample_weights_list": "DBSCAN does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "DBSCAN does not validate all-zero sample weights",
-        "check_dtype_object": "DBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "DBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "DBSCAN does not check for NaN and inf",
     },
     HDBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
