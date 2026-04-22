@@ -253,7 +253,6 @@ XFAILS = {
         "check_sample_weight_equivalence_on_dense_data": "SVC sample weight equivalence not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "SVC does not handle sparse data",
         "check_all_zero_sample_weights_error": "SVC does not validate all-zero sample weights",
-        "check_dtype_object": "SVC does not handle object dtype",
         "check_estimators_nan_inf": "SVC does not check for NaN and inf",
         "check_classifier_data_not_an_array": "SVC does not handle non-array data",
         "check_classifiers_train": "SVC does not handle list inputs",
