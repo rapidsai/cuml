@@ -118,7 +118,7 @@ def test_estimators_all_dtypes(model_name, dtype):
         nrows,
         ncols,
         ninfo,
-        (is_classifier(model) or isinstance(model, cuml.QN),),
+        is_classifier(model) or isinstance(model, cuml.QN),
     )
 
     sign = inspect.signature(model.fit)
