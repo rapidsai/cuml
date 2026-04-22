@@ -841,7 +841,9 @@ void call_optimize_sequential_kernel(T* head_embedding,
   T nsr_inv = T(1.0) / params->negative_sample_rate;
 
   int num_sms = 0;
-  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, 0));
+  int device  = -1;
+  RAFT_CUDA_TRY(cudaGetDevice(&device));
+  RAFT_CUDA_TRY(cudaDeviceGetAttribute(&num_sms, cudaDevAttrMultiProcessorCount, device));
 
   // threads_per_vertex: 1 for reg kernel (one thread = one vertex),
   //                    32 for comp kernel (one warp  = one vertex)
@@ -849,6 +851,11 @@ void call_optimize_sequential_kernel(T* head_embedding,
     int blocks_per_sm = 0;
     RAFT_CUDA_TRY(
       cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, kernel_fn, tpb, smem_size));
+    RAFT_EXPECTS(blocks_per_sm > 0,
+                 "No active blocks for tpb=%d and smem=%d; adjust the sequential-kernel launch "
+                 "configuration.",
+                 tpb,
+                 smem_size);
     dim3 grid(num_sms * blocks_per_sm, 1, 1);
     dim3 blk(tpb, 1, 1);
 
@@ -880,6 +887,7 @@ void call_optimize_sequential_kernel(T* head_embedding,
     if (params->deterministic) {
       size_t chunk_size =
         static_cast<size_t>(grid.x) * static_cast<size_t>(tpb / threads_per_vertex);
+      RAFT_EXPECTS(chunk_size > 0, "Sequential-kernel chunk_size must be > 0.");
       for (size_t v_off = 0; v_off < static_cast<size_t>(head_n); v_off += chunk_size) {
         do_launch(v_off);
         sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
