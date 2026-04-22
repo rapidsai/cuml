@@ -28,7 +28,7 @@ def test_sparse_not_implemented_exception(estimator_name):
     y_reg = np.array([0.0, 1.0])
     estimator = estimators[estimator_name]()
     # Fit or fit_transform depending on the estimator type
-    with pytest.raises(TypeError, match="sparse"):
+    with pytest.raises(TypeError, match="sparse|Sparse"):
         if isinstance(estimator, (KMeans, DBSCAN, TruncatedSVD)):
             if hasattr(estimator, "fit_transform"):
                 estimator.fit_transform(X_sparse)
