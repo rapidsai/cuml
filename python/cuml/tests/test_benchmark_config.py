@@ -7,8 +7,9 @@ from argparse import Namespace
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
-from cuml.benchmark.config import load_and_resolve_config
+from cuml.benchmark.config import BenchmarkConfigError, load_and_resolve_config
 from cuml.benchmark.run_benchmarks import _run_config_benchmarks, main
 
 
@@ -150,6 +151,57 @@ benchmarks:
     assert entry["bench_rows"] is None
     assert entry["bench_dims"] is None
     assert entry["param_override_list"] == [{"C": 0.25}, {"C": 1.0}]
+
+
+@pytest.mark.parametrize(
+    ("defaults_block", "expected_field"),
+    [
+        ("", "dataset"),
+        ("  dataset: classification\n", "input_type"),
+        ("  dataset: classification\n  input_type: numpy\n", "dtype"),
+        (
+            "  dataset: classification\n  input_type: numpy\n  dtype: fp32\n",
+            "n_reps",
+        ),
+        (
+            "  dataset: classification\n"
+            "  input_type: numpy\n"
+            "  dtype: fp32\n"
+            "  n_reps: 2\n",
+            "test_split",
+        ),
+    ],
+)
+def test_load_and_resolve_config_requires_runtime_fields_after_defaults(
+    tmp_path, defaults_block, expected_field
+):
+    config_path = tmp_path / "missing-required.yaml"
+    config_path.write_text(
+        (
+            "version: 1\n\n"
+            "suite:\n"
+            "  name: missing-required\n"
+            "  tier: test\n"
+            "  description: missing field coverage\n\n"
+            "defaults:\n"
+            f"{defaults_block}"
+            "  run_cpu: true\n"
+            "  run_gpu: false\n\n"
+            "benchmarks:\n"
+            "  - id: shaped_logreg\n"
+            "    algorithm: LogisticRegression\n"
+            "    operation: fit\n"
+            "    rows: [100]\n"
+            "    features: [8]\n"
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        BenchmarkConfigError,
+        match=rf"must define .*'{expected_field}'.*after applying defaults",
+    ):
+        load_and_resolve_config(str(config_path))
 
 
 def test_run_config_benchmarks_uses_shape_pairs_without_cartesian_product(

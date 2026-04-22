@@ -457,9 +457,30 @@ def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
         entry, context=f"benchmark '{entry.get('id', entry['algorithm'])}'", require_algorithm=True
     )
 
+    benchmark_name = entry.get("id", entry["algorithm"])
+
+    for field in ("dataset", "input_type", "dtype"):
+        if not isinstance(entry.get(field), str) or not entry[field]:
+            raise BenchmarkConfigError(
+                f"Benchmark '{benchmark_name}' must define a non-empty "
+                f"'{field}' after applying defaults"
+            )
+
+    if not isinstance(entry.get("n_reps"), int):
+        raise BenchmarkConfigError(
+            f"Benchmark '{benchmark_name}' must define integer 'n_reps' "
+            "after applying defaults"
+        )
+
+    if not isinstance(entry.get("test_split"), (int, float)):
+        raise BenchmarkConfigError(
+            f"Benchmark '{benchmark_name}' must define numeric 'test_split' "
+            "after applying defaults"
+        )
+
     if not entry.get("run_cpu", True) and not entry.get("run_gpu", True):
         raise BenchmarkConfigError(
-            f"Benchmark '{entry.get('id', entry['algorithm'])}' cannot "
+            f"Benchmark '{benchmark_name}' cannot "
             "disable both CPU and GPU execution"
         )
 
