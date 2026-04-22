@@ -379,9 +379,6 @@ XFAILS = {
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "SpectralClustering does not handle object dtype",
-        "check_estimators_empty_data_messages": "SpectralClustering does not handle empty data",
-        "check_estimators_nan_inf": "SpectralClustering does not check for NaN and inf",
     },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
