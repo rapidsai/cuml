@@ -387,8 +387,6 @@ XFAILS = {
     },
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
-        "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
