@@ -37,6 +37,18 @@ from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
 
+def _normalize_sk_probability(value):
+    """Coerce the sklearn >=1.9 ``"deprecated"`` sentinel into the bool cuml expects.
+
+    sklearn 1.9 changed the default of ``SVC.probability`` from ``False`` to the
+    sentinel string ``"deprecated"`` as part of the parameter's deprecation. cuml
+    stores ``probability`` as a real bool, so we coerce on ingest.
+    """
+    if value == "deprecated":
+        return False
+    return bool(value)
+
+
 class SVC(SVMBase, ClassifierMixin):
     """
     SVC (C-Support Vector Classification)
@@ -204,7 +216,7 @@ class SVC(SVMBase, ClassifierMixin):
         )  # SVC doesn't expose `epsilon` in the constructor
         params.update(
             {
-                "probability": model.probability,
+                "probability": _normalize_sk_probability(model.probability),
                 "random_state": model.random_state,
                 "class_weight": model.class_weight,
                 "decision_function_shape": model.decision_function_shape,

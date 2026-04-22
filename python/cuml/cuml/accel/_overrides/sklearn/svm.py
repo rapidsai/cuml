@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
@@ -20,7 +20,10 @@ __all__ = (
 
 
 def _has_probability(model):
-    if not model.probability:
+    # sklearn >= 1.9 defaults `probability` to the sentinel string "deprecated",
+    # which is truthy. Treat it the same as False (no calibration requested).
+    prob = getattr(model, "probability", False)
+    if prob == "deprecated" or not prob:
         raise AttributeError(
             "predict_proba is not available when probability=False"
         )
