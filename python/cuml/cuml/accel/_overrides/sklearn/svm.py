@@ -22,8 +22,7 @@ __all__ = (
 def _has_probability(model):
     # sklearn >= 1.9 defaults `probability` to the sentinel string "deprecated",
     # which is truthy. Treat it the same as False (no calibration requested).
-    prob = getattr(model, "probability", False)
-    if prob == "deprecated" or not prob:
+    if model.probability == "deprecated" or not model.probability:
         raise AttributeError(
             "predict_proba is not available when probability=False"
         )

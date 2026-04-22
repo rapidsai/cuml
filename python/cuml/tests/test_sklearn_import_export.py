@@ -375,12 +375,6 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
-# TODO: sklearn 1.11 removes sklearn.svm.SVC(probability=True).
-# At that point the probability=True parametrizations of this test must either
-# (a) have cuml.SVC.as_sklearn() emit CalibratedClassifierCV for probability=True
-#     models and update the counterpart here to match, or
-# (b) drop the probability=True parametrizations entirely.
-# The filter is the only sklearn-1.11-unsafe construct left in the SVM tests.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter was deprecated:FutureWarning"
 )
@@ -406,14 +400,10 @@ def test_svc(random_state, sparse, probability, kernel):
         assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
         # Check inference works after conversion. sklearn 1.9 deprecated the
-        # `probability` parameter.Avoid passing it on the sklearn side when
-        # False (the default) to avoid getting a FutureWarning.
+        # `probability` parameter; avoid passing it on the sklearn side when
+        # False (the default) to avoid the FutureWarning.
         cu_model = cuml.SVC(probability=probability).fit(X, y)
         if probability:
-            # TODO: once sklearn 1.11 lands, sklearn.svm.SVC has no
-            # `probability` parameter and this branch must either drop the
-            # probability=True parametrization or change cuml.SVC.as_sklearn()
-            # to emit CalibratedClassifierCV for probability=True models.
             sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
         else:
             sk_model = sklearn.svm.SVC().fit(X, y)
