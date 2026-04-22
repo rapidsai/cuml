@@ -91,12 +91,7 @@ ESTIMATORS = [
 XFAILS = {
     KMeans: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "KMeans does not handle non-array sample weights",
-        "check_sample_weights_list": "KMeans does not handle list sample weights",
         "check_sample_weight_equivalence_on_dense_data": "KMeans sample weight equivalence not implemented",
-        "check_all_zero_sample_weights_error": "KMeans does not validate all-zero sample weights",
-        "check_dtype_object": "KMeans does not handle object dtype",
-        "check_estimators_nan_inf": "KMeans does not check for NaN and inf",
         "check_transformer_data_not_an_array": "KMeans does not handle non-array data",
     },
     KernelRidge: {
