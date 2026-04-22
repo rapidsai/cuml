@@ -983,11 +983,10 @@ def check_sample_weight(
     sample_weight : array-like, scalar, or None
         The ``sample_weight`` input to validate.
     dtype : None, dtype, list[dtype], default=None
-        The dtype(s) to support. By default no dtype enforcement is performed;
-        for classifiers the output will be a suitable integral type, otherwise
-        the input dtype will be used. Pass a dtype or a list of supported
-        dtypes to enforce a dtype for the output. If the input doesn't have a
-        supported dtype, it will be converted to the first listed dtype.
+        The dtype(s) to support. By default no dtype validation is performed.
+        Pass a dtype or a list of supported dtypes to enforce a dtype for the
+        output. If the input doesn't have a supported dtype, it will be
+        converted to the first listed dtype.
     convert_dtype : bool, default=True
         Whether to support dtype conversion. If False, an error will be raised
         if the input isn't a supported dtype.
