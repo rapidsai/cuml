@@ -176,6 +176,7 @@ def fit_sgd(
         X,
         y,
         dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
         order="F",
         return_classes=return_classes,
         reset=True,

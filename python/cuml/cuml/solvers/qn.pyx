@@ -155,7 +155,7 @@ def fit_qn(
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_to_dtype : bool, default=True
+    convert_dtype : bool, default=True
         When set to True, will convert array inputs to be of the proper dtypes.
     class_weight : dict or 'balanced', default=None
         Weights associated per-classes, or None for uniform weights. If 'balanced',
@@ -187,6 +187,7 @@ def fit_qn(
         y,
         sample_weight,
         dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
         accept_sparse="csr",
         ensure_min_samples=2,
         y_dtype=(None if return_classes else ...),
@@ -241,7 +242,7 @@ def fit_qn(
         coef = cp.zeros(coef_shape, dtype=X.dtype, order="C")
     else:
         coef = check_array(
-            init_coef, dtype=X.dtype, convert_to_dtype=convert_dtype, order="C",
+            init_coef, dtype=X.dtype, convert_dtype=convert_dtype, order="C",
         )
         if coef.shape != coef_shape:
             raise ValueError(f"Expected coef.shape == ({coef_shape}), got {coef.shape}")
