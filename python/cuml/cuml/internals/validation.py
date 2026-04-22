@@ -667,7 +667,11 @@ def check_array(
                 and cudf.pandas.LOADED
                 and np.isdtype(array.dtype, ("numeric", "bool"))
             ):
-                # With cudf.pandas, supported arrays are already on device
+                # We treat pandas objects with supported dtypes as device
+                # memory when running under cudf.pandas. Note that the output
+                # of `to_numpy` in cudf.pandas returns a proxy array that's
+                # remains on device, so we're not paying a device<>host
+                # roundtrip cost here.
                 array = cp.asarray(array, dtype=dtype, order=order)
             else:
                 array = np.asarray(array, dtype=dtype, order=order)
