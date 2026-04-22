@@ -38,12 +38,6 @@ def test_fit(
     batch_size_divider,
     whiten,
 ):
-    if sparse_format == "csc":
-        pytest.skip(
-            "cupyx.scipy.sparse.csc.csc_matrix does not support"
-            " indexing as of cupy 7.6.0"
-        )
-
     if sparse_input:
         X = cupyx.scipy.sparse.random(
             nrows,

@@ -1133,12 +1133,8 @@
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[NearestNeighbors()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_decision_function]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_train(readonly_memmap=True)]"
@@ -1160,12 +1156,8 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_empty_data_messages]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1feature]"
   - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_transformer_data_not_an_array]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   strict: false
