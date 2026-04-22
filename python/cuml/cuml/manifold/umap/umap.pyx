@@ -772,14 +772,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel.  When ``None`` (the default), serial
+        epochs are enabled automatically for ``init='spectral'`` because
+        spectral initialization is more susceptible to outlier artifacts.  Pass
+        ``True`` to force serial epochs regardless of init, or ``False``
+        to disable them.  This ensures stable embeddings at the cost of performance.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -1113,7 +1112,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
-        force_serial_epochs=False,
+        force_serial_epochs=None,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
@@ -1145,7 +1144,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
-        self.force_serial_epochs = force_serial_epochs
+        if force_serial_epochs is None:
+            self.force_serial_epochs = (init == "spectral")
+        else:
+            self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
@@ -1806,7 +1808,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
-    force_serial_epochs=False,
+    force_serial_epochs=None,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1854,14 +1856,13 @@ def simplicial_set_embedding(
             * An array-like with initial embedding positions.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel.  When ``None`` (the default), serial
+        epochs are enabled automatically for ``init='spectral'`` because
+        spectral initialization is more susceptible to outlier artifacts.  Pass
+        ``True`` to force serial epochs regardless of init, or ``False``
+        to disable them.  This ensures stable embeddings at the cost of performance.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1910,7 +1911,10 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
-    params.force_serial_epochs = force_serial_epochs
+    if force_serial_epochs is None:
+        params.force_serial_epochs = (init == "spectral")
+    else:
+        params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)
