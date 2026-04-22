@@ -369,10 +369,6 @@ XFAILS = {
     },
     HDBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "HDBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "HDBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "HDBSCAN does not check for NaN and inf",
-        "check_fit2d_1sample": "HDBSCAN does not handle single sample properly",
     },
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
