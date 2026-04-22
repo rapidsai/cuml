@@ -1011,11 +1011,18 @@ def check_sample_weight(
 
     all_zero_msg = "Sample weights must contain at least one non-zero number."
 
-    # A uniform sample_weight is the same as unweighted
-    if cp.isscalar(sample_weight):
+    if np.isscalar(sample_weight):
         if sample_weight == 0:
             raise ValueError(all_zero_msg)
-        return None
+        elif ensure_non_negative and sample_weight < 0:
+            raise ValueError("Negative values in data passed to sample_weight")
+        elif np.isnan(sample_weight):
+            raise ValueError("Input sample_weight contains NaN")
+        elif np.isinf(sample_weight):
+            raise ValueError("Input sample_weight contains infinity")
+        else:
+            # A uniform sample_weight is the same as unweighted
+            return None
 
     sample_weight = check_array(
         sample_weight,

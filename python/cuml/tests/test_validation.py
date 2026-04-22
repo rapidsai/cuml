@@ -1369,17 +1369,20 @@ def test_check_sample_weight_scalar_or_none():
     assert check_sample_weight(np.float32(1.0)) is None
 
 
-def test_check_sample_weight_ensure_non_negative():
-    """Tests plumbing of check_sample_weight -> check_non_negative"""
-    array = np.array([-1, 1, 2], dtype="float32")
-
-    # No error, check disabled by default
-    check_sample_weight(array)
-
+@pytest.mark.parametrize(
+    "sample_weight",
+    [
+        pytest.param(-1, id="scalar"),
+        pytest.param(np.full(3, -1), id="numpy"),
+        pytest.param(cp.full(3, -1), id="cupy"),
+    ],
+)
+def test_check_sample_weight_ensure_non_negative(sample_weight):
     with pytest.raises(
-        ValueError, match="Negative values in data passed to sample_weight"
+        ValueError,
+        match="Negative values in data passed to sample_weight",
     ):
-        check_sample_weight(array, ensure_non_negative=True)
+        check_sample_weight(sample_weight, ensure_non_negative=True)
 
 
 @pytest.mark.parametrize(
@@ -1396,6 +1399,18 @@ def test_check_sample_weight_all_zero(sample_weight):
         match="Sample weights must contain at least one non-zero number",
     ):
         check_sample_weight(sample_weight)
+
+
+@pytest.mark.parametrize("value", ["NaN", "infinity"])
+def test_check_sample_weight_non_finite(value):
+    scalar = float(value)
+    array = np.array([1.5, scalar, 2.5])
+    msg = f"Input sample_weight contains {value}"
+    with pytest.raises(ValueError, match=msg):
+        check_sample_weight(scalar)
+
+    with pytest.raises(ValueError, match=msg):
+        check_sample_weight(array)
 
 
 def test_check_inputs_X():
