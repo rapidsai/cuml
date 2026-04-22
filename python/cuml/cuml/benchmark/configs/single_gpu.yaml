@@ -1557,4 +1557,3 @@ benchmarks:
     id: multinomialnb_fit_wide_nightly
     rows: [8000000]
     tags: [nightly-only, wide, naive-bayes]
-

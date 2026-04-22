@@ -45,7 +45,9 @@ def test_accuracy_runner_converts_cupy_metric_inputs(monkeypatch):
     monkeypatch.setattr(
         "cuml.benchmark.runners.datagen.gen_data", lambda *args, **kwargs: data
     )
-    monkeypatch.setattr("cuml.benchmark.runners.is_gpu_available", lambda: True)
+    monkeypatch.setattr(
+        "cuml.benchmark.runners.is_gpu_available", lambda: True
+    )
 
     result = runner._run_one_size(
         _MockAlgoPair(),

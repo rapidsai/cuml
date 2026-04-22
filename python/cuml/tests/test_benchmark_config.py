@@ -52,15 +52,15 @@ def test_load_and_resolve_config_default_profile_filters_single_gpu_manifest():
         / "configs"
         / "single_gpu.yaml"
     )
-    resolved = load_and_resolve_config(
-        str(config_path)
-    )
+    resolved = load_and_resolve_config(str(config_path))
 
     benchmark_ids = {entry["benchmark_id"] for entry in resolved["benchmarks"]}
 
     assert resolved["suite_name"] == "single_gpu"
     assert resolved["profile"] == "default"
-    assert all(entry["input_type"] == "cupy" for entry in resolved["benchmarks"])
+    assert all(
+        entry["input_type"] == "cupy" for entry in resolved["benchmarks"]
+    )
     assert "logreg_fit_narrow_default" in benchmark_ids
     assert "logreg_fit_medium_default" in benchmark_ids
     assert "logreg_fit_wide_default" in benchmark_ids
@@ -79,11 +79,15 @@ def test_load_and_resolve_config_single_gpu_profiles_preserve_algorithm_set():
         / "single_gpu.yaml"
     )
 
-    default_resolved = load_and_resolve_config(str(config_path), profile="default")
+    default_resolved = load_and_resolve_config(
+        str(config_path), profile="default"
+    )
     extended_resolved = load_and_resolve_config(
         str(config_path), profile="extended"
     )
-    nightly_resolved = load_and_resolve_config(str(config_path), profile="nightly")
+    nightly_resolved = load_and_resolve_config(
+        str(config_path), profile="nightly"
+    )
 
     default_algorithms = {
         entry["algorithm"] for entry in default_resolved["benchmarks"]
@@ -270,12 +274,14 @@ def test_run_config_benchmarks_uses_shape_pairs_without_cartesian_product(
         ([250], [16]),
     ]
     assert list(results["benchmark_id"]) == ["shape-bench", "shape-bench"]
-    assert set(["config_path", "suite_name", "suite_tier", "profile"]).issubset(
-        results.columns
-    )
+    assert set(
+        ["config_path", "suite_name", "suite_tier", "profile"]
+    ).issubset(results.columns)
 
 
-def test_run_config_benchmarks_applies_only_explicit_cli_overrides(monkeypatch):
+def test_run_config_benchmarks_applies_only_explicit_cli_overrides(
+    monkeypatch,
+):
     calls = []
     setup_calls = []
 
@@ -396,9 +402,9 @@ def test_main_runs_config_smoke_manifest_end_to_end(monkeypatch, tmp_path):
     assert [kwargs["bench_dims"] for _, kwargs in calls] == [[8], [8]]
 
     results = pd.read_csv(csv_path)
-    assert set(["benchmark_id", "config_path", "suite_name", "suite_tier", "profile"]).issubset(
-        results.columns
-    )
+    assert set(
+        ["benchmark_id", "config_path", "suite_name", "suite_tier", "profile"]
+    ).issubset(results.columns)
     assert set(results["benchmark_id"]) == {
         "test_logreg_fit",
         "test_scaler_fittransform",

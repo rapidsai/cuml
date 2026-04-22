@@ -15,12 +15,13 @@ import pandas as pd
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import datagen
-    from cuml.benchmark.gpu_check import is_cuml_available, is_gpu_available
+    from cuml.benchmark.gpu_check import is_gpu_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
     import datagen  # noqa: E402
-    from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
+    from gpu_check import is_gpu_available  # noqa: E402
+
 
 def _metric_array_to_numpy(data):
     """Convert metric inputs to NumPy for sklearn compatibility."""
@@ -350,9 +351,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cpu = cpu_model.transform(X_test)
                 y_test = _metric_array_to_numpy(y_test)
                 y_pred_cpu = _metric_array_to_numpy(y_pred_cpu)
-                cpu_accuracy = algo_pair.accuracy_function(
-                    y_test, y_pred_cpu
-                )
+                cpu_accuracy = algo_pair.accuracy_function(y_test, y_pred_cpu)
 
         if n_samples == 0:
             # Update n_samples = training samples + testing samples

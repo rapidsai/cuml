@@ -264,8 +264,7 @@ def _validate_benchmark_inputs(test_split, input_type, run_gpu):
     """Validate per-benchmark inputs and normalize CPU-only input types."""
     if not 0.0 <= test_split <= 1.0:
         raise ValueError(
-            "test_split: got %f, want a value between 0.0 and 1.0"
-            % test_split
+            "test_split: got %f, want a value between 0.0 and 1.0" % test_split
         )
 
     if run_gpu:
@@ -343,7 +342,12 @@ def _resolved_entry_dimensions(entry, args, explicit_options):
     if "--default-size" in explicit_options:
         return None, [0], [0]
 
-    row_override_flags = {"--min-rows", "--max-rows", "--num-sizes", "--num-rows"}
+    row_override_flags = {
+        "--min-rows",
+        "--max-rows",
+        "--num-sizes",
+        "--num-rows",
+    }
     if "--num-rows" in explicit_options:
         base_rows = [args.num_rows]
     elif row_override_flags.intersection(explicit_options):
@@ -383,7 +387,9 @@ def _run_config_benchmarks(args, explicit_options):
             "profile and filters."
         )
 
-    allow_gpu_runs = is_gpu_available() and "--skip-gpu" not in explicit_options
+    allow_gpu_runs = (
+        is_gpu_available() and "--skip-gpu" not in explicit_options
+    )
     if allow_gpu_runs and any(entry["run_gpu"] for entry in benchmark_entries):
         setup_rmm_allocator(args.rmm_allocator)
 

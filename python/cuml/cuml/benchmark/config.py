@@ -219,7 +219,9 @@ def validate_config(raw_config: dict[str, Any]) -> None:
     defaults = raw_config.get("defaults", {})
     if not isinstance(defaults, dict):
         raise BenchmarkConfigError("Config field 'defaults' must be a mapping")
-    _validate_default_or_entry(defaults, context="defaults", require_algorithm=False)
+    _validate_default_or_entry(
+        defaults, context="defaults", require_algorithm=False
+    )
 
     profiles = raw_config.get("profiles", {})
     if not isinstance(profiles, dict):
@@ -375,7 +377,9 @@ def _validate_default_or_entry(
         )
 
     for numeric_field in ("n_reps", "random_state"):
-        if numeric_field in entry and not isinstance(entry[numeric_field], int):
+        if numeric_field in entry and not isinstance(
+            entry[numeric_field], int
+        ):
             raise BenchmarkConfigError(
                 f"{context} field '{numeric_field}' must be an integer"
             )
@@ -389,7 +393,9 @@ def _validate_default_or_entry(
     if "rows" in entry:
         _normalize_int_list(entry["rows"], field_name=f"{context}.rows")
     if "features" in entry:
-        _normalize_int_list(entry["features"], field_name=f"{context}.features")
+        _normalize_int_list(
+            entry["features"], field_name=f"{context}.features"
+        )
     if "shapes" in entry:
         _normalize_shapes(entry["shapes"], field_name=f"{context}.shapes")
 
@@ -454,7 +460,9 @@ def _apply_defaults(
 
 def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
     _validate_default_or_entry(
-        entry, context=f"benchmark '{entry.get('id', entry['algorithm'])}'", require_algorithm=True
+        entry,
+        context=f"benchmark '{entry.get('id', entry['algorithm'])}'",
+        require_algorithm=True,
     )
 
     benchmark_name = entry.get("id", entry["algorithm"])
@@ -600,7 +608,8 @@ def _apply_algorithm_filter(
 
 
 def _build_override_list(
-    fixed_values: dict[str, Any] | None, grid_values: dict[str, list[Any]] | None
+    fixed_values: dict[str, Any] | None,
+    grid_values: dict[str, list[Any]] | None,
 ) -> list[dict[str, Any]]:
     fixed = deepcopy(fixed_values or {})
     grid = deepcopy(grid_values or {})
@@ -645,9 +654,7 @@ def _normalize_int_list(
     return value
 
 
-def _normalize_shapes(
-    value: Any, *, field_name: str
-) -> list[dict[str, int]]:
+def _normalize_shapes(value: Any, *, field_name: str) -> list[dict[str, int]]:
     if not isinstance(value, list) or not value:
         raise BenchmarkConfigError(
             f"Field '{field_name}' must be a non-empty list"
