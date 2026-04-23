@@ -382,7 +382,8 @@ _METRICS = {
     "hellinger": DistanceType.HellingerExpanded,
     "hamming": DistanceType.HammingUnexpanded,
     "jaccard": DistanceType.JaccardExpanded,
-    "canberra": DistanceType.Canberra
+    "canberra": DistanceType.Canberra,
+    "dice": DistanceType.DiceExpanded,
 }
 
 _SUPPORTED_METRICS = {
@@ -399,6 +400,7 @@ _SUPPORTED_METRICS = {
             DistanceType.Canberra,
             DistanceType.CorrelationExpanded,
             DistanceType.CosineExpanded,
+            DistanceType.DiceExpanded,
             DistanceType.HammingUnexpanded,
             DistanceType.HellingerExpanded,
             DistanceType.JaccardExpanded,
@@ -412,6 +414,7 @@ _SUPPORTED_METRICS = {
             DistanceType.Canberra,
             DistanceType.CorrelationExpanded,
             DistanceType.CosineExpanded,
+            DistanceType.DiceExpanded,
             DistanceType.HammingUnexpanded,
             DistanceType.HellingerExpanded,
             # DistanceType.JaccardExpanded,  # not supported
