@@ -6,7 +6,6 @@
 import numbers
 
 import cupy as cp
-import cupyx
 
 import cuml.internals
 from cuml.common.sparse_utils import is_sparse
@@ -16,6 +15,7 @@ from cuml.internals.base import Base
 from cuml.internals.validation import (
     check_array,
     check_features,
+    check_inputs,
     check_is_fitted,
 )
 
@@ -219,6 +219,8 @@ class IncrementalPCA(PCA):
         self.mean_ = 0.0
         self.var_ = 0.0
 
+        # Sparse inputs are sliced into row batches below; restrict to CSR/CSC
+        # which support that.
         X = check_array(
             X,
             accept_sparse=["csr", "csc"],
@@ -238,7 +240,7 @@ class IncrementalPCA(PCA):
             n_samples, self.batch_size_, min_batch_size=self.n_components or 0
         ):
             X_batch = X[batch]
-            if cupyx.scipy.sparse.issparse(X_batch):
+            if is_sparse(X_batch):
                 X_batch = X_batch.toarray()
 
             self.partial_fit(X_batch, check_input=False)
@@ -412,10 +414,13 @@ class IncrementalPCA(PCA):
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
         if is_sparse(X):
-            X = check_array(
+            # CSR/CSC support fast row slicing for the per-batch projection
+            # below. Validate `X` once here and call `_transform_sparse`
+            # directly per batch to avoid re-validating every slice.
+            X = check_inputs(
+                self,
                 X,
                 accept_sparse=["csr", "csc"],
                 dtype=self.components_.dtype,
@@ -429,11 +434,10 @@ class IncrementalPCA(PCA):
                 self.batch_size_,
                 min_batch_size=self.n_components or 0,
             ):
-                output.append(super().transform(X[batch]))
-            return CumlArray(
-                data=cp.vstack([o.to_output("cupy") for o in output])
-            )
+                output.append(self._transform_sparse(X[batch]))
+            return CumlArray(data=cp.vstack(output))
         else:
+            # `PCA.transform` validates `X` itself, so don't re-check here.
             return super().transform(X)
 
     @classmethod
