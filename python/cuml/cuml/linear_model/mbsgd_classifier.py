@@ -6,10 +6,11 @@ import cupy as cp
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, preprocess_labels
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.internals.validation import check_y
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -179,7 +180,7 @@ class MBSGDClassifier(
         Fit the model with X and y.
 
         """
-        y, classes = preprocess_labels(y)
+        y, classes = check_y(y, return_classes=True)
         if len(classes) > 2:
             raise ValueError(
                 f"MBSGDClassifier only supports binary classification, got "

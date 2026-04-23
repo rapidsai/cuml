@@ -6,11 +6,7 @@ import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.metaestimators import available_if
 
-from cuml.common.classification import (
-    decode_labels,
-    preprocess_labels,
-    process_class_weight,
-)
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
@@ -32,6 +28,7 @@ from cuml.internals.validation import (
     check_features,
     check_is_fitted,
     check_random_seed,
+    check_y,
 )
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -443,7 +440,7 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y, classes = preprocess_labels(y)
+        y, classes = check_y(y, return_classes=True)
         if len(classes) == 1:
             raise ValueError(
                 "This solver needs samples of at least 2 classes in the data, but "
