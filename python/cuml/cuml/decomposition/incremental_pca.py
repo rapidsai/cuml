@@ -219,15 +219,15 @@ class IncrementalPCA(PCA):
         self.mean_ = 0.0
         self.var_ = 0.0
 
-        check_features(self, X, reset=True)
-
         # Sparse inputs are sliced into row batches below; restrict to CSR/CSC
         # which support that.
-        X = check_array(
+        X = check_inputs(
+            self,
             X,
             accept_sparse=["csr", "csc"],
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
+            reset=True,
         )
 
         n_samples, n_features = X.shape
