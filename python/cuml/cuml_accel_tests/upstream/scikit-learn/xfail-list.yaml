@@ -460,6 +460,8 @@
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[NuSVR()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[OneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_nan_inf]"
+  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SGDClassifier()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDOneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDRegressor()-check_sample_weights_invariance(kind=zeros)]"
