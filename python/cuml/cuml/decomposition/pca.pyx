@@ -616,8 +616,8 @@ class PCA(Base,
         )
         if X.shape[1] != self.n_components_:
             raise ValueError(
-                f"X has {X.shape[1]} features, but PCA is expecting "
-                f"{self.n_components_} features as input."
+                f"X has {X.shape[1]} columns, but PCA.inverse_transform "
+                f"expects {self.n_components_} (one per fitted component)."
             )
         if is_sparse(X):
             return self._inverse_transform_sparse(

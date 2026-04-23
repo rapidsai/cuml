@@ -412,21 +412,21 @@ class TruncatedSVD(Base,
         """
         check_is_fitted(self)
 
-        dtype = self.components_.dtype
         X, index = check_array(
             X,
-            dtype=dtype,
+            dtype=self.components_.dtype,
             convert_dtype=convert_dtype,
             order="F",
             return_index=True,
         )
         if X.shape[1] != self.n_components:
             raise ValueError(
-                f"X has {X.shape[1]} features, but TruncatedSVD is expecting "
-                f"{self.n_components} features as input."
+                f"X has {X.shape[1]} columns, but TruncatedSVD.inverse_transform "
+                f"expects {self.n_components} (one per fitted component)."
             )
 
         n_rows = X.shape[0]
+        dtype = X.dtype
 
         cdef paramsTSVD params
         params.n_components = self.n_components
