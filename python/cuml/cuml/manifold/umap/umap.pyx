@@ -969,7 +969,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
-            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
+            "force_serial_epochs": getattr(model, "force_serial_epochs", None),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1146,7 +1146,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.hash_input = hash_input
         self.random_state = random_state
         if force_serial_epochs is None:
-            self.force_serial_epochs = (init == "spectral")
+            self.force_serial_epochs = isinstance(init, str) and init == "spectral"
         else:
             self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
@@ -1913,7 +1913,7 @@ def simplicial_set_embedding(
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
     if force_serial_epochs is None:
-        params.force_serial_epochs = (init == "spectral")
+        params.force_serial_epochs = isinstance(init, str) and init == "spectral"
     else:
         params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
