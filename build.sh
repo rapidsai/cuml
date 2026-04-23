@@ -327,9 +327,9 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
           fi
         fi
         MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
-        if [[ -f "${LIBCUML_BUILD_DIR}/libcuml++.so" ]]; then
-            LIBCUML_FS=$(find "${LIBCUML_BUILD_DIR}" -name libcuml++.so -printf '%s'| awk '{printf "%.2f MB", $1/1024/1024}')
-            MSG="${MSG}<br/>libcuml++.so size: $LIBCUML_FS"
+        if [[ -f "${LIBCUML_BUILD_DIR}/libcuml.so" ]]; then
+            LIBCUML_FS=$(find "${LIBCUML_BUILD_DIR}" -name libcuml.so -printf '%s'| awk '{printf "%.2f MB", $1/1024/1024}')
+            MSG="${MSG}<br/>libcuml.so size: $LIBCUML_FS"
         fi
         BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
         echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"

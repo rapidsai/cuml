@@ -2,7 +2,7 @@
 This subfolder contains an example on how to use cuML kmeans from C++ application
 There are two `CMakeLists.txt` in this folder:
 1. `CMakeLists.txt` (default) which is included when building cuML
-2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml++.so`
+2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml.so`
 
 ## Build
 `kmeans_example` is build as part of cuML. If it should be build as a standalone executable use `CMakeLists_standalone.txt` and configure with:

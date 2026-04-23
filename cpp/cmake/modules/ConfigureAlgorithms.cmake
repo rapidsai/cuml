@@ -11,7 +11,7 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
   set(LINK_CUFFT ON)
   set(LINK_CUVS ON)
   set(all_algo ON)
-  # setting treeshap to ON to get the gputreeshap include in the cuml_cpp_target
+  # setting treeshap to ON to get the gputreeshap include in the cuml target
   set(treeshap_algo ON)
 else()
 

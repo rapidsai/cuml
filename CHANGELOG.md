@@ -1,6 +1,7 @@
 # cuml 26.04.00 (8 Apr 2026)
 
 ### 🚨 Breaking Changes
+* Rename the main CMake target from `cuml++` to `cuml` (imported as `cuml::cuml`); the shared library is now `libcuml.so` on Linux. Update `target_link_libraries` and any scripts that referred to `libcuml++.so` or the `cuml++` build target.
 * FIX Raise `TypeError` when sparse input is not supported by @betatim in https://github.com/rapidsai/cuml/pull/7728
 * Add `cuml.internals.validation`, `check_is_fitted` checks by @jcrist in https://github.com/rapidsai/cuml/pull/7868
 * Add support for `feature_names_in_` by @jcrist in https://github.com/rapidsai/cuml/pull/7877

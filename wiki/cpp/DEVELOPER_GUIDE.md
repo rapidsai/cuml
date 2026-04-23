@@ -56,7 +56,7 @@ The use of threads in third-party libraries is allowed, though they should still
 ## Public cuML interface
 ### Terminology
 We have the following supported APIs:
-1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml++.so`
+1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml.so`
 2. Stateful convenience C++ API - wrapper around core API (WIP)
 
 ### Motivation
@@ -122,7 +122,7 @@ void loadTree(TreeNodeD *&root, std::istream &is);
 It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
 
 ### Stateful C++ API
-This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
+This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
 
 ### File naming convention
 1. An ML algorithm `<algo>` is to be contained inside the folder named `src/<algo>`.
@@ -253,7 +253,7 @@ All external interfaces need to have a complete [doxygen](http://www.doxygen.nl)
 TODO: Add this
 
 ## Device and Host memory allocations
-To enable `libcuml++` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
+To enable `libcuml` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
 ```cpp
 template<typename T>
 void foo(const raft::handle_t& h, cudaStream_t stream, ... )

@@ -1,5 +1,5 @@
 # DBSCAN
-This example code demonstrates use of C++ API of cuML DBSCAN. It requires `libcuml++.so` in order to build.
+This example code demonstrates use of C++ API of cuML DBSCAN. It requires `libcuml.so` in order to build.
 
 ## Build
 

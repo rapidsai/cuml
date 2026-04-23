@@ -46,7 +46,7 @@ set(CUML_ALGORITHMS
 # for libcuml wheels, always compile in the multi-node, multi-GPU functionality
 set(SINGLEGPU OFF)
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_SRC "../../cpp")
 
 # --- cuVS --- #
@@ -68,7 +68,7 @@ set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 add_subdirectory(../../cpp cuml-cpp)
 
-# assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
+# assumes libcuml is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml.so
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
   # starting with CTK 13 wheels, all libraries except NCCL are grouped in this 'nvidia/cu13/lib'
   # directory

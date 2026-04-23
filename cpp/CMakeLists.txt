@@ -102,9 +102,9 @@ set(CUML_ALGORITHMS
     "ALL"
     CACHE
       STRING
-      "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list."
+      "Choose which algorithms are built into libcuml.so. Can specify individual algorithms or groups in a semicolon-separated list."
 )
-message(VERBOSE "CUML_CPP: Building libcuml++ with algorithms: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_CPP: Building libcuml with algorithms: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -137,7 +137,7 @@ endif()
 # ##################################################################################################
 # * Target names -------------------------------------------------------------
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
 set(CUML_MG_TEST_TARGET "ml_mg")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
@@ -194,7 +194,7 @@ set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
 
-# Disabling libcuml++ disables building algorithm tests and examples
+# Disabling the libcuml C++ library disables building algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
@@ -229,13 +229,13 @@ if(NOT BUILD_SHARED_LIBS AND CUML_COMPILE_DYNAMIC_ONLY)
 endif()
 
 set(cuml_compile_mode "both")
-set(_cuml_lib_targets cuml++ cuml++_static)
+set(_cuml_lib_targets ${CUML_CPP_TARGET} ${CUML_CPP_TARGET}_static)
 if(CUML_COMPILE_DYNAMIC_ONLY)
   set(cuml_compile_mode "shared_only")
-  set(_cuml_lib_targets cuml++)
+  set(_cuml_lib_targets ${CUML_CPP_TARGET})
 elseif(NOT BUILD_SHARED_LIBS)
   set(cuml_compile_mode "static_only")
-  set(_cuml_lib_targets cuml++_static)
+  set(_cuml_lib_targets ${CUML_CPP_TARGET}_static)
 endif()
 
 # ##################################################################################################
@@ -282,7 +282,7 @@ if(BUILD_CUML_BENCH)
 endif()
 
 # ##################################################################################################
-# * build libcuml++ shared library -------------------------------------------
+# * build libcuml shared library ---------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
   file(
