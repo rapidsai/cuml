@@ -9,7 +9,7 @@ from packaging.version import Version
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, process_class_weight
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -20,7 +20,6 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.validation import check_y
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
@@ -296,31 +295,22 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LogisticRegression":
         """
         Fit the model with X and y.
         """
-        y, classes = check_y(y, return_classes=True)
-        _, sample_weight = process_class_weight(
-            classes,
-            y,
-            class_weight=self.class_weight,
-            sample_weight=sample_weight,
-            float64=(getattr(X, "dtype", np.float32) == np.float64),
-        )
-
         l1_strength, l2_strength = self._get_l1_l2_strength()
 
-        coef, intercept, n_iter, _ = fit_qn(
+        coef, intercept, n_iter, _, classes = fit_qn(
+            self,
             X,
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
-            n_classes=len(classes),
-            loss=("softmax" if len(classes) > 2 else "sigmoid"),
+            loss="logistic",
             fit_intercept=self.fit_intercept,
             l1_strength=l1_strength,
             l2_strength=l2_strength,
@@ -330,11 +320,13 @@ class LogisticRegression(
             verbose=self._verbose_level,
             lbfgs_memory=self.lbfgs_memory,
             penalty_normalized=self.penalty_normalized,
+            class_weight=self.class_weight,
+            return_classes=True,
         )
 
         self.classes_ = classes
-        self.coef_ = coef
-        self.intercept_ = intercept
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = CumlArray(data=intercept)
         self.n_iter_ = np.asarray([n_iter])
 
         return self

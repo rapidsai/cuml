@@ -3,15 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
+import cupyx.scipy.sparse as sp
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray, cuda_ptr
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -24,6 +22,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
 )
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
 from libc.stdint cimport uintptr_t
@@ -264,32 +263,36 @@ class Ridge(Base,
         self.max_iter = max_iter
         self.copy_X = copy_X
 
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}
+
     def _fit_eig(
         self,
-        X_m,
-        y_m,
-        sample_weight_m,
+        X,
+        y,
+        sample_weight,
         *,
         alpha,
-        X_is_copy,
-        y_is_copy,
+        may_mutate_X,
+        may_mutate_y,
+        may_mutate_sample_weight,
     ):
         """Fit a Ridge regression using the Eig solver."""
-        cdef int n_rows = X_m.shape[0]
-        cdef int n_cols = X_m.shape[1]
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
 
         # The `eig` solver requires X be F-contiguous. Additionally, all inputs
-        # are mutated when weighted or `fit_intercept=True`, so we'll copy if
-        # required (note that sample_weight is always already copied).
-        mutates = self.fit_intercept or sample_weight_m is not None
-        X_m = input_to_cuml_array(
-            X_m, order="F", deepcopy=(mutates and self.copy_X and not X_is_copy)
-        ).array
-        if mutates and not y_is_copy:
-            y_m = input_to_cuml_array(y_m, deepcopy=True).array
+        # are mutated when weighted or `fit_intercept=True`.
+        mutates = self.fit_intercept or sample_weight is not None
+        X = cp.asarray(X, order="F", copy=True if mutates and not may_mutate_X else None)
+        if mutates and not may_mutate_y:
+            y = y.copy()
+        if sample_weight is not None and mutates and not may_mutate_sample_weight:
+            sample_weight = sample_weight.copy()
 
         # Allocate outputs
-        coef = CumlArray.zeros(n_cols, dtype=X_m.dtype)
+        coef = cp.zeros(n_cols, dtype=X.dtype)
 
         cdef float intercept_f32
         cdef double intercept_f64
@@ -298,14 +301,14 @@ class Ridge(Base,
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t y_ptr = y_m.ptr
-        cdef uintptr_t coef_ptr = coef.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
+        cdef uintptr_t coef_ptr = coef.data.ptr
         cdef uintptr_t sample_weight_ptr = (
-            0 if sample_weight_m is None else sample_weight_m.ptr
+            0 if sample_weight is None else sample_weight.data.ptr
         )
         cdef bool fit_intercept = self.fit_intercept
-        cdef bool use_float32 = X_m.dtype == np.float32
+        cdef bool use_float32 = X.dtype == np.float32
 
         with nogil:
             if use_float32:
@@ -342,68 +345,39 @@ class Ridge(Base,
 
         if self.fit_intercept:
             intercept = intercept_f32 if use_float32 else intercept_f64
-            if y_m.ndim == 1:
+            if y.ndim == 1:
                 intercept = coef.dtype.type(intercept)
             else:
-                intercept = CumlArray(data=cp.array([intercept], dtype=coef.dtype))
+                intercept = cp.array([intercept], dtype=coef.dtype)
         else:
             intercept = 0.0
 
         return coef, intercept, None
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.
         """
-        if X_is_sparse := is_sparse(X):
-            X_m = SparseCumlArray(
-                X, convert_to_dtype=np.float32 if X.dtype.kind != "f" else None
-            )
-            n_rows, n_cols = X_m.shape
-            X_is_copy = False
-        else:
-            X_m, n_rows, n_cols, _ = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                order="K",
-            )
-            X_is_copy = cuda_ptr(X) != X_m.ptr
-
-        if n_cols < 1:
-            raise ValueError(
-                f"Found array with {n_cols} feature(s) (shape={X_m.shape}) while "
-                f"a minimum of 1 is required."
-            )
-
-        if n_rows < 2:
-            raise ValueError(
-                f"Found array with {n_rows} sample(s) (shape={X_m.shape}) while a "
-                f"minimum of 2 is required."
-            )
-
-        y_m, _, n_targets, _ = input_to_cuml_array(
+        X_orig, y_orig, sample_weight_orig = X, y, sample_weight
+        X, y, sample_weight = check_inputs(
+            self,
+            X,
             y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=n_rows,
-            order="K",
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            ensure_min_samples=2,
+            accept_sparse=True,
+            accept_multi_output=True,
+            reset=True,
         )
-        y_is_copy = cuda_ptr(y) != y_m.ptr
+        X_is_copy = cuda_ptr(X) != cuda_ptr(X_orig)
+        y_is_copy = cuda_ptr(y) != cuda_ptr(y_orig)
+        sample_weight_is_copy = cuda_ptr(sample_weight) != cuda_ptr(sample_weight_orig)
 
-        if sample_weight is not None:
-            sample_weight_m = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X_m.dtype,
-                convert_to_dtype=(X_m.dtype if convert_dtype else None),
-                check_rows=n_rows,
-                check_cols=1,
-                deepcopy=True,
-            ).array
-        else:
-            sample_weight_m = None
+        n_targets = 1 if y.ndim == 1 else y.shape[1]
 
         # Validate alpha
         if cp.isscalar(self.alpha):
@@ -411,7 +385,7 @@ class Ridge(Base,
             if self.alpha < 0.0:
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
         else:
-            alpha = cp.asarray(self.alpha, dtype=X_m.dtype).ravel()
+            alpha = cp.asarray(self.alpha, dtype=X.dtype).ravel()
             if (alpha < 0).any():
                 raise ValueError(f"alpha must be non-negative, got {self.alpha}")
             if alpha.shape[0] == 1:
@@ -430,7 +404,7 @@ class Ridge(Base,
             )
 
         if solver == "eig":
-            if n_cols == 1:
+            if X.shape[1] == 1:
                 raise ValueError(
                     "solver='eig' doesn't support X with 1 column, please select "
                     "solver='svd' or solver='auto' instead"
@@ -441,14 +415,14 @@ class Ridge(Base,
                     "solver='svd' or solver='auto' instead"
                 )
         elif solver == "auto":
-            if X_is_sparse:
+            if sp.issparse(X):
                 solver = "lsmr"
-            elif n_cols == 1 or n_targets != 1:
+            elif X.shape[1] == 1 or n_targets != 1:
                 solver = "svd"
             else:
                 solver = "eig"
 
-        if X_is_sparse and solver != "lsmr":
+        if sp.issparse(X) and solver != "lsmr":
             raise ValueError(
                 f"solver={solver!r} doesn't support sparse X, please select "
                 "solver='lsmr' or solver='auto' instead"
@@ -457,21 +431,19 @@ class Ridge(Base,
         # Perform fit
         if solver == "eig":
             coef, intercept, n_iter = self._fit_eig(
-                X_m,
-                y_m,
-                sample_weight_m,
+                X,
+                y,
+                sample_weight,
                 alpha=alpha,
-                X_is_copy=X_is_copy,
-                y_is_copy=y_is_copy,
+                may_mutate_X=X_is_copy or not self.copy_X,
+                may_mutate_y=y_is_copy,
+                may_mutate_sample_weight=sample_weight_is_copy,
             )
         else:
             coef, intercept, n_iter = fit_least_squares(
-                X_m.to_output("cupy"),
-                y_m.to_output("cupy"),
-                sample_weight=(
-                    None if sample_weight_m is None
-                    else sample_weight_m.to_output("cupy")
-                ),
+                X,
+                y,
+                sample_weight=sample_weight,
                 fit_intercept=self.fit_intercept,
                 alpha=alpha,
                 tol=self.tol,
@@ -480,13 +452,13 @@ class Ridge(Base,
                 may_mutate_y=y_is_copy,
                 solver=solver,
             )
-            if not cp.isscalar(intercept):
-                intercept = CumlArray(intercept)
-            if y_m.ndim == 2 and y_m.shape[1] == 1:
-                coef = coef.ravel()
-            coef = CumlArray(coef)
 
-        self.coef_ = coef
+        if not cp.isscalar(intercept):
+            intercept = CumlArray(intercept)
+        if y.ndim == 2 and y.shape[1] == 1:
+            coef = coef.ravel()
+
+        self.coef_ = CumlArray(coef)
         self.intercept_ = intercept
         self.n_iter_ = n_iter
         self.solver_ = solver

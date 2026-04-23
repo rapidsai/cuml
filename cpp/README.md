@@ -6,7 +6,7 @@ This folder contains the C++ and CUDA code of the algorithms and ML primitives o
 
 The source code of cuML is divided in three main directories: `src`, `src_prims`, and `comms`.
 
-- `src` contains the source code of the Machine Learning algorithms, and the main cuML C++ API. The main consumable is the shared library `libcuml++`, that can be used stand alone by C++ consumers or is consumed by our Python package `cuml` to provide a Python API.
+- `src` contains the source code of the Machine Learning algorithms, and the main cuML C++ API. The main consumable is the shared library `libcuml`, that can be used stand alone by C++ consumers or is consumed by our Python package `cuml` to provide a Python API.
 - `src_prims` contains most of the common components and computational primitives that form part of the machine learning algorithms in cuML, and can be used individually as well in the form of a header only library.
 - `comms` contains the source code of the communications implementations that enable multi-node multi-GPU algorithms. There are currently two communications implementations. The implementation in the `mpi` directory is for MPI environments. It can also be used for automated tested. The implementation in the `std` directory is required for running cuML in multi-node multi-GPU Dask environments.
 
@@ -22,7 +22,7 @@ The `test` directory has subdirectories that reflect this distinction between th
 
 ### Building cuML:
 
-The main artifact produced by the build system is the shared library libcuml++. Additionally, executables to run tests for the algorithms can be built. To see detailed steps see the [BUILD](../BUILD.md) document of the repository.
+The main artifact produced by the build system is the shared library `libcuml`. Additionally, executables to run tests for the algorithms can be built. To see detailed steps see the [BUILD](../BUILD.md) document of the repository.
 
 Current cmake offers the following configuration options:
 
@@ -30,8 +30,7 @@ Current cmake offers the following configuration options:
 
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
-| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
-| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building the `libcuml` shared library. Setting this variable to `OFF` also forces `BUILD_CUML_TESTS`, `BUILD_CUML_MG_TESTS`, `BUILD_CUML_EXAMPLES`, `BUILD_PRIMS_TESTS`, and `BUILD_CUML_BENCH` to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. See section about additional requirements.|
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
@@ -51,14 +50,14 @@ Current cmake offers the following configuration options:
 | --- | --- | --- | --- |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
-| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml.  |
 
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
 ```bash
-$ cmake --build . -j                        # Build libcuml++ and all tests
+$ cmake --build . -j                        # Build libcuml and all tests
 $ cmake --build . -j --target  sg_benchmark # Build c++ cuml single gpu benchmark
-$ cmake --build . -j --target  cuml++       # Build libcuml++
+$ cmake --build . -j --target  cuml         # Build libcuml
 $ cmake --build . -j --target  ml           # Build ml_test algorithm tests binary
 $ cmake --build . -j --target  ml_mg        # Build ml_mg_test multi GPU algorithms tests binary
 $ cmake --build . -j --target  prims        # Build prims_test ML primitive unit tests binary
@@ -83,8 +82,9 @@ Current external submodules are:
 
 ## Using cuML libraries
 
-After building cuML, you can use its functionality in other C/C++ applications
-by linking against the generated libraries. The following trivial example shows
+After building cuML, you can use its functionality in other C++ applications by
+linking against the generated libraries, or from Python via the `cuml` package.
+The following trivial example shows
 how to make external use of cuML's logger:
 
 ```cpp
@@ -109,7 +109,7 @@ $ nvcc \
        "-L${CONDA_PREFIX}/lib" \
        "-I${CONDA_PREFIX}/include" \
        "-I${CONDA_PREFIX}/include/cuml/raft" \
-       -lcuml++
+       -lcuml
 $ ./cuml_logger_example
 [W] [13:26:43.503068] This is a warning from the cuML logger!
 ```

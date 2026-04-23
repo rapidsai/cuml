@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -37,7 +37,6 @@ function(ConfigureTest)
   target_link_libraries(
     ${_CUML_TEST_NAME}
     PRIVATE ${CUML_CPP_TARGET}
-            $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
@@ -198,10 +197,6 @@ if(all_algo OR umap_algo)
   ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST sg/umap_parametrizable_test.cu ML_INCLUDE)
 endif()
 
-if(BUILD_CUML_C_LIBRARY)
-  ConfigureTest(PREFIX SG NAME HANDLE_TEST sg/handle_test.cu ML_INCLUDE)
-endif()
-
 # ##################################################################################################
 # * build test_ml_mg executable ----------------------------------------------
 
@@ -259,20 +254,3 @@ if(BUILD_PRIMS_TESTS)
 endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libcuml)
-
-# ##################################################################################################
-# * build C-API test library -------------------------------------------------
-
-if(BUILD_CUML_C_LIBRARY)
-
-  enable_language(C)
-
-  add_library(
-    ${CUML_C_TEST_TARGET} SHARED
-    c_api/dbscan_api_test.c c_api/glm_api_test.c c_api/holtwinters_api_test.c c_api/knn_api_test.c
-    c_api/svm_api_test.c
-  )
-
-  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
-
-endif()
