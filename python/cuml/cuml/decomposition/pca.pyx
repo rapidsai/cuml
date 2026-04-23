@@ -381,7 +381,7 @@ class PCA(Base,
                 f"got {self.svd_solver!r}"
             )
 
-        # Allocate output arrays (F-order: libcuml writes column-major)
+        # Allocate output arrays (F-order expected by libcuml))
         components = cp.zeros(
             (self.n_components_, self.n_features_in_), dtype=X.dtype, order="F"
         )
@@ -484,25 +484,15 @@ class PCA(Base,
         Fit the model with X. y is currently ignored.
 
         """
-        if (sparse := is_sparse(X)):
-            X = check_inputs(
-                self,
-                X,
-                accept_sparse=True,
-                dtype=("float32", "float64"),
-                convert_dtype=convert_dtype,
-                reset=True,
-            )
-            X = cupyx.scipy.sparse.coo_matrix(X)
-        else:
-            X = check_inputs(
-                self,
-                X,
-                dtype=("float32", "float64"),
-                convert_dtype=convert_dtype,
-                order="F",
-                reset=True,
-            )
+        X = check_inputs(
+            self,
+            X,
+            accept_sparse=["coo"],
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            reset=True,
+        )
 
         n_rows, n_cols = X.shape
         self.n_samples_ = n_rows
@@ -517,7 +507,7 @@ class PCA(Base,
         else:
             self.n_components_ = self.n_components
 
-        if sparse:
+        if is_sparse(X):
             self._fit_sparse(X)
         else:
             self._fit_dense(X)
