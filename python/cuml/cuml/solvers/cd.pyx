@@ -1,21 +1,22 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
-__all__ = ("fit_coordinate_descent", "CD")
+__all__ = ("fit_cd", "CD")
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
@@ -74,7 +75,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                         int loss) except +
 
 
-def fit_coordinate_descent(
+def fit_cd(
+    estimator,
     X,
     y,
     sample_weight=None,
@@ -92,13 +94,15 @@ def fit_coordinate_descent(
 
     Parameters
     ----------
+    estimator : Base
+        The estimator being fit.
     X : array-like, shape=(n_samples, n_features)
         The training data.
     y : array-like, shape=(n_samples,)
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_to_dtype : bool, default=True
+    convert_dtype : bool, default=True
         When set to True, will convert array inputs to be of the proper dtypes.
     **kwargs
         Remaining keyword arguments match the hyperparameters
@@ -106,7 +110,7 @@ def fit_coordinate_descent(
 
     Returns
     -------
-    coef : CumlArray, shape=(n_features,)
+    coef : cupy.ndarray, shape=(n_features,)
         The fit coefficients
     intercept : float
         The fit intercept, or 0 if `fit_intercept=False`
@@ -123,50 +127,29 @@ def fit_coordinate_descent(
         raise ValueError(f"Expected alpha >= 0, got {alpha}")
 
     # Process and validate input arrays
-    cdef int n_rows, n_cols
-    X, n_rows, n_cols, _ = input_to_cuml_array(
+    X, y, sample_weight = check_inputs(
+        estimator,
         X,
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        check_dtype=[np.float32, np.float64],
-    )
-
-    if n_rows < 2:
-        raise ValueError(
-            f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
-            f"minimum of 2 is required."
-        )
-    if n_cols < 1:
-        raise ValueError(
-            f"Found array with {n_cols} feature(s) (shape={X.shape}) while "
-            f"a minimum of 1 is required."
-        )
-
-    y = input_to_cuml_array(
         y,
-        check_dtype=X.dtype,
-        convert_to_dtype=(X.dtype if convert_dtype else None),
-        check_rows=n_rows,
-        check_cols=1,
-    ).array
-
-    if sample_weight is not None:
-        sample_weight = input_to_cuml_array(
-            sample_weight,
-            check_dtype=X.dtype,
-            convert_to_dtype=(X.dtype if convert_dtype else None),
-            check_rows=n_rows,
-            check_cols=1,
-        ).array
+        sample_weight,
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        order="F",
+        ensure_min_samples=2,
+        reset=True,
+    )
 
     # Allocate outputs
-    coef = CumlArray.zeros(n_cols, dtype=X.dtype)
+    coef = cp.zeros(X.shape[1], dtype=X.dtype)
 
-    cdef uintptr_t X_ptr = X.ptr
-    cdef uintptr_t y_ptr = y.ptr
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
+    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t y_ptr = y.data.ptr
     cdef uintptr_t sample_weight_ptr = (
-        0 if sample_weight is None else sample_weight.ptr
+        0 if sample_weight is None else sample_weight.data.ptr
     )
-    cdef uintptr_t coef_ptr = coef.ptr
+    cdef uintptr_t coef_ptr = coef.data.ptr
 
     cdef float intercept_f32
     cdef double intercept_f64
@@ -328,12 +311,13 @@ class CD(Base, FMajorInputTagMixin):
         self.shuffle = shuffle
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
         """
-        coef, intercept, n_iter = fit_coordinate_descent(
+        coef, intercept, n_iter = fit_cd(
+            self,
             X,
             y,
             sample_weight=sample_weight,
@@ -346,7 +330,7 @@ class CD(Base, FMajorInputTagMixin):
             tol=self.tol,
             shuffle=self.shuffle,
         )
-        self.coef_ = coef
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept
         self.n_iter_ = n_iter
 
@@ -361,18 +345,21 @@ class CD(Base, FMajorInputTagMixin):
         """
         Predicts the y for X.
         """
-        cdef int n_rows, n_cols
-        X, n_rows, n_cols, _ = input_to_cuml_array(
+        check_is_fitted(self)
+
+        X, index = check_inputs(
+            self,
             X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.coef_.shape[0],
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            return_index=True,
         )
+        preds = cp.zeros(X.shape[0], dtype=self.coef_.dtype, order="F")
 
-        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
-
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t preds_ptr = preds.ptr
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t preds_ptr = preds.data.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef double intercept = self.intercept_
         handle = get_handle()
@@ -404,4 +391,4 @@ class CD(Base, FMajorInputTagMixin):
                 )
         handle.sync()
 
-        return preds
+        return CumlArray(data=preds, index=index)

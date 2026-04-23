@@ -25,9 +25,11 @@ from cuml.internals.outputs import (
     run_in_internal_context,
 )
 from cuml.internals.validation import (
+    check_consistent_length,
     check_features,
     check_is_fitted,
     check_random_seed,
+    check_sample_weight,
     check_y,
 )
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
@@ -388,7 +390,7 @@ class SVC(SVMBase, ClassifierMixin):
         X = input_to_host_array_with_sparse_support(X)
 
         if sample_weight is not None:
-            sample_weight = sample_weight.to_output("numpy")
+            sample_weight = sample_weight.get()
 
         y = input_to_host_array(y).array
 
@@ -452,10 +454,11 @@ class SVC(SVMBase, ClassifierMixin):
             classes,
             y,
             class_weight=self.class_weight,
-            sample_weight=sample_weight,
-            float64=(getattr(X, "dtype", np.float32) == np.float64),
+            sample_weight=check_sample_weight(sample_weight),
+            dtype="f8" if getattr(X, "dtype", "f4") == "f8" else "f4",
             balanced_with_sample_weight=False,
         )
+        check_consistent_length(X, y, sample_weight)
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
@@ -502,7 +505,11 @@ class SVC(SVMBase, ClassifierMixin):
         # Encode y to -1/1 (like [0, 1, 0, 1] -> [-1, 1, -1, 1])
         y = CumlArray(data=cp.array([-1, 1], dtype=X.dtype).take(y))
 
-        self._fit(X, y, sample_weight)
+        self._fit(
+            X,
+            y,
+            None if sample_weight is None else CumlArray(data=sample_weight),
+        )
 
         return self
 

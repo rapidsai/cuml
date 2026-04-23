@@ -21,7 +21,13 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_features, check_is_fitted, check_y
+from cuml.internals.validation import (
+    check_consistent_length,
+    check_features,
+    check_is_fitted,
+    check_sample_weight,
+    check_y,
+)
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -255,14 +261,19 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             classes,
             y,
             class_weight=self.class_weight,
-            sample_weight=sample_weight,
-            float64=(X.dtype == np.float64),
+            sample_weight=check_sample_weight(sample_weight),
+            dtype=X.dtype,
         )
+        check_consistent_length(X, y, sample_weight)
 
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
-            sample_weight=sample_weight,
+            sample_weight=(
+                None
+                if sample_weight is None
+                else CumlArray(data=sample_weight)
+            ),
             n_classes=len(classes),
             n_streams=self.n_streams,
             probability=self.probability,
