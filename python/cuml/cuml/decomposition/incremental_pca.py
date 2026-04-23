@@ -219,6 +219,8 @@ class IncrementalPCA(PCA):
         self.mean_ = 0.0
         self.var_ = 0.0
 
+        check_features(self, X, reset=True)
+
         # Sparse inputs are sliced into row batches below; restrict to CSR/CSC
         # which support that.
         X = check_array(
@@ -227,7 +229,6 @@ class IncrementalPCA(PCA):
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
         )
-        check_features(self, X, reset=True)
 
         n_samples, n_features = X.shape
 
