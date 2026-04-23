@@ -527,8 +527,6 @@ class PCA(Base,
         return self.fit(X).transform(X)
 
     def _inverse_transform_sparse(self, X, return_sparse=False, sparse_tol=1e-10):
-        X = cupyx.scipy.sparse.coo_matrix(X)
-
         components = self.components_.to_output("cupy")
         explained_variance = self.explained_variance_.to_output("cupy")
         mean = self.mean_.to_output("cupy")
@@ -608,25 +606,10 @@ class PCA(Base,
 
         """
         check_is_fitted(self)
-        dtype = self.components_.dtype
-        if is_sparse(X):
-            X = check_array(
-                X,
-                accept_sparse=True,
-                dtype=dtype,
-                convert_dtype=convert_dtype,
-            )
-            if X.shape[1] != self.n_components_:
-                raise ValueError(
-                    f"X has {X.shape[1]} features, but PCA is expecting "
-                    f"{self.n_components_} features as input."
-                )
-            return self._inverse_transform_sparse(
-                X, return_sparse=return_sparse, sparse_tol=sparse_tol
-            )
         X, index = check_array(
             X,
-            dtype=dtype,
+            accept_sparse=True,
+            dtype=self.components_.dtype,
             convert_dtype=convert_dtype,
             order="F",
             return_index=True,
@@ -636,11 +619,13 @@ class PCA(Base,
                 f"X has {X.shape[1]} features, but PCA is expecting "
                 f"{self.n_components_} features as input."
             )
+        if is_sparse(X):
+            return self._inverse_transform_sparse(
+                X, return_sparse=return_sparse, sparse_tol=sparse_tol
+            )
         return self._inverse_transform_dense(X, index=index)
 
     def _transform_sparse(self, X):
-        X = cupyx.scipy.sparse.coo_matrix(X)
-
         components = self.components_.to_output("cupy")
         explained_variance = self.explained_variance_.to_output("cupy")
         mean = self.mean_.to_output("cupy")
@@ -715,22 +700,15 @@ class PCA(Base,
         """
         check_is_fitted(self)
 
-        if is_sparse(X):
-            X = check_inputs(
-                self,
-                X,
-                accept_sparse=True,
-                dtype=self.components_.dtype,
-                convert_dtype=convert_dtype,
-            )
-            return self._transform_sparse(X)
-
         X, index = check_inputs(
             self,
             X,
+            accept_sparse=True,
             dtype=self.components_.dtype,
             convert_dtype=convert_dtype,
             order="F",
             return_index=True,
         )
+        if is_sparse(X):
+            return self._transform_sparse(X)
         return self._transform_dense(X, index=index)
