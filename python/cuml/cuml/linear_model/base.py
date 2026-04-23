@@ -7,11 +7,8 @@ import numpy as np
 
 import cuml.internals
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import input_to_cuml_array
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 
 class LinearPredictMixin:
@@ -29,20 +26,17 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        if is_sparse(X):
-            X_m = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype)
-        else:
-            X_m = input_to_cuml_array(
-                X,
-                check_dtype=self.coef_.dtype,
-                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_,
-                order="K",
-            ).array
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            order=None,
+            accept_sparse=True,
+            return_index=True,
+        )
 
-        X = X_m.to_output("cupy")
         coef = self.coef_.to_output("cupy")
         intercept = self.intercept_
         if isinstance(intercept, CumlArray):
@@ -51,7 +45,7 @@ class LinearPredictMixin:
         out = X @ coef.T
         out += intercept
 
-        return CumlArray(out, index=X_m.index)
+        return CumlArray(out, index=index)
 
 
 class LinearClassifierMixin:
@@ -68,20 +62,17 @@ class LinearClassifierMixin:
     def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
         """Predict confidence scores for samples."""
         check_is_fitted(self)
-        check_features(self, X)
 
-        if is_sparse(X):
-            X_m = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype)
-        else:
-            X_m = input_to_cuml_array(
-                X,
-                check_dtype=self.coef_.dtype,
-                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_,
-                order="K",
-            ).array
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            order=None,
+            accept_sparse=True,
+            return_index=True,
+        )
 
-        X = X_m.to_output("cupy")
         coef = self.coef_.to_output("cupy")
         intercept = self.intercept_
         if isinstance(intercept, CumlArray):
@@ -93,7 +84,7 @@ class LinearClassifierMixin:
         if out.ndim > 1 and out.shape[1] == 1:
             out = out.reshape(-1)
 
-        return CumlArray(out, index=X_m.index)
+        return CumlArray(out, index=index)
 
 
 def center_and_scale(

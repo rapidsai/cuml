@@ -8,11 +8,7 @@ from sklearn.utils.metaestimators import available_if
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import (
-    decode_labels,
-    preprocess_labels,
-    process_class_weight,
-)
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -25,7 +21,13 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import (
+    check_consistent_length,
+    check_features,
+    check_is_fitted,
+    check_sample_weight,
+    check_y,
+)
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -246,27 +248,32 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
+        y, classes = check_y(y, return_classes=True)
         X = input_to_cuml_array(
             X,
             convert_to_dtype=(np.float32 if convert_dtype else None),
             check_dtype=[np.float32, np.float64],
+            check_rows=y.shape[0],
             order="F",
         ).array
-
-        y, classes = preprocess_labels(y, n_samples=X.shape[0])
 
         _, sample_weight = process_class_weight(
             classes,
             y,
             class_weight=self.class_weight,
-            sample_weight=sample_weight,
-            float64=(X.dtype == np.float64),
+            sample_weight=check_sample_weight(sample_weight),
+            dtype=X.dtype,
         )
+        check_consistent_length(X, y, sample_weight)
 
         coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
             X,
             CumlArray(data=y.astype(X.dtype, copy=False)),
-            sample_weight=sample_weight,
+            sample_weight=(
+                None
+                if sample_weight is None
+                else CumlArray(data=sample_weight)
+            ),
             n_classes=len(classes),
             n_streams=self.n_streams,
             probability=self.probability,

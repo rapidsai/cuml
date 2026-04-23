@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -27,12 +27,7 @@ test_dtypes_all = [
 linear_models_config = ClassEnumerator(module=cuml.linear_model)
 models = linear_models_config.get_models()
 
-solver_config = ClassEnumerator(
-    module=cuml.solvers,
-    # QN uses softmax here because some of the tests uses multiclass
-    # logistic regression which requires a softmax loss
-    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")},
-)
+solver_config = ClassEnumerator(module=cuml.solvers)
 models.update(solver_config.get_models())
 
 cluster_config = ClassEnumerator(
@@ -116,8 +111,14 @@ def test_estimators_all_dtypes(model_name, dtype):
     else:
         model = models[model_name]()
 
+    # Generate proper data for the model. QN needs classification data in this
+    # configuration, but doesn't identify as a classifier.
     X_train, y_train, X_test = make_dataset(
-        dtype, nrows, ncols, ninfo, is_classifier(model)
+        dtype,
+        nrows,
+        ncols,
+        ninfo,
+        is_classifier(model) or isinstance(model, cuml.QN),
     )
 
     sign = inspect.signature(model.fit)

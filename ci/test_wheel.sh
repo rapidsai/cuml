@@ -53,14 +53,14 @@ rapids-logger "Testing libcuml linkage"
 python -m pytest --cache-clear python/libcuml/tests/test_libcuml_linkage.py -v
 
 rapids-logger "pytest cuml single GPU"
-timeout -v 1h ./ci/run_cuml_singlegpu_pytests.sh \
+timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_singlegpu_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   -k 'not test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
 # Run test_sparse_pca_inputs separately
-timeout -v 10m ./ci/run_cuml_singlegpu_pytests.sh \
+timeout -v --signal=SIGINT --kill-after=60s 10m ./ci/run_cuml_singlegpu_pytests.sh \
   -k 'test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-sparse-pca.xml"
 
