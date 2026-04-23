@@ -2,12 +2,12 @@
 This subfolder contains an example on how perform symbolic regression in cuML (from C++)
 There are two `CMakeLists.txt` in this folder:
 1. `CMakeLists.txt` (default) which is included when building cuML
-2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml.so`
+2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml++.so`
 
 ## Build
 `symreg_example` is built as a part of cuML. To build it as a standalone executable, do
 ```bash
-$ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml.so -DCUML_INCLUDE_DIR=/path/to/cuml/headers
+$ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml++.so -DCUML_INCLUDE_DIR=/path/to/cuml/headers
 ```
 Then build with `make` or `ninja`
 ```

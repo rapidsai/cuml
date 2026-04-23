@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -15,9 +15,8 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
   set(treeshap_algo ON)
 else()
 
-  # Initial configurable version only supports single GPU, no C API and no example compilation
+  # Initial configurable version only supports single GPU and no example compilation
   set(SINGLEGPU ON)
-  set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_BENCH OFF)
   set(BUILD_CUML_EXAMPLES OFF)
   set(CUML_USE_RAFT_NN OFF)

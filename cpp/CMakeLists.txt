@@ -43,7 +43,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
-option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
@@ -75,10 +74,6 @@ option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
 
-message(
-  VERBOSE
-  "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}"
-)
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
 message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_MG_TESTS}")
@@ -144,10 +139,6 @@ endif()
 
 set(CUML_CPP_TARGET "cuml++")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-if(${BUILD_CUML_C_LIBRARY})
-  set(CUML_C_TARGET "cuml")
-endif()
-set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
 set(CUML_MG_TEST_TARGET "ml_mg")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
@@ -203,14 +194,8 @@ set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
 
-# Enabling libcuml enables building libcuml++
-if(BUILD_CUML_C_LIBRARY)
-  set(BUILD_CUML_CPP_LIBRARY ON)
-endif()
-
 # Disabling libcuml++ disables building algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
-  set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
@@ -299,7 +284,7 @@ endif()
 # ##################################################################################################
 # * build libcuml++ shared library -------------------------------------------
 
-if(BUILD_CUML_C_LIBRARY OR BUILD_CUML_CPP_LIBRARY)
+if(BUILD_CUML_CPP_LIBRARY)
   file(
     WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
     [=[
@@ -578,11 +563,7 @@ if(BUILD_CUML_CPP_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_compile_definitions(
-    cuml_objs
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED
-    PRIVATE CUML_CPP_API
-  )
+  target_compile_definitions(cuml_objs PUBLIC DISABLE_CUSPARSE_DEPRECATED)
 
   target_compile_options(
     cuml_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
@@ -665,9 +646,8 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
             "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
   target_compile_definitions(
-    ${CUML_CPP_TARGET}
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
-    PRIVATE CUML_CPP_API
+    ${CUML_CPP_TARGET} PUBLIC DISABLE_CUSPARSE_DEPRECATED
+                              $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
   )
 
   target_compile_options(
@@ -740,9 +720,8 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
   )
   target_compile_definitions(
-    ${CUML_CPP_TARGET}_static
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
-    PRIVATE CUML_CPP_API
+    ${CUML_CPP_TARGET}_static PUBLIC DISABLE_CUSPARSE_DEPRECATED
+                                     $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
   )
 
   target_compile_options(
@@ -786,31 +765,6 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 endif()
 
 # ##################################################################################################
-# * build libcuml C shared library -------------------------------------------
-
-if(BUILD_CUML_C_LIBRARY)
-  add_library(
-    ${CUML_C_TARGET}
-    src/common/cumlHandle.cpp src/common/cuml_api.cpp src/dbscan/dbscan_api.cpp src/glm/glm_api.cpp
-    src/holtwinters/holtwinters_api.cpp src/knn/knn_api.cpp src/svm/svm_api.cpp
-  )
-
-  add_library(cuml::${CUML_C_TARGET} ALIAS ${CUML_C_TARGET})
-
-  target_compile_definitions(${CUML_C_TARGET} PRIVATE CUML_C_API)
-
-  target_include_directories(
-    ${CUML_C_TARGET} PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-  )
-
-  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
-endif()
-
-# ##################################################################################################
 # * build test executables ---------------------------------------------------
 
 if(BUILD_CUML_TESTS)
@@ -829,10 +783,6 @@ endif()
 # # - install targets
 # -------------------------------------------------------------------------------
 include(CPack)
-
-if(BUILD_CUML_C_LIBRARY)
-  list(APPEND _cuml_lib_targets ${CUML_C_TARGET})
-endif()
 
 install(
   TARGETS ${_cuml_lib_targets}
