@@ -9,11 +9,7 @@ from packaging.version import Version
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import (
-    decode_labels,
-    preprocess_labels,
-    process_class_weight,
-)
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
@@ -24,6 +20,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
+from cuml.internals.validation import check_y
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
@@ -306,7 +303,7 @@ class LogisticRegression(
         """
         Fit the model with X and y.
         """
-        y, classes = preprocess_labels(y)
+        y, classes = check_y(y, return_classes=True)
         _, sample_weight = process_class_weight(
             classes,
             y,
