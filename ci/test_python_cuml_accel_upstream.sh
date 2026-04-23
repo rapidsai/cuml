@@ -14,7 +14,7 @@ set +e
 
 # Run UMAP tests
 rapids-logger "UMAP test suite"
-timeout -v 15m ./python/cuml/cuml_accel_tests/upstream/umap/run-tests.sh
+timeout -v --signal=SIGINT --kill-after=60s 15m ./python/cuml/cuml_accel_tests/upstream/umap/run-tests.sh
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
