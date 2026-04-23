@@ -828,18 +828,7 @@
 - reason: KernelRidge input handling and validation
   marker: cuml_accel_kernel_ridge_estimator_checks
   tests:
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_estimators_pickle(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train(readonly_memmap=True)]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train(readonly_memmap=True,X_dtype=float32)]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_regressors_train]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_sample_weights_pandas_series]"
-  - "sklearn.tests.test_common::test_estimators[KernelRidge()-check_supervised_y_no_nan]"
 - reason: cuml.accel does not support callable initialization for KMeans
   marker: cuml_accel_kmeans_callable_init
   tests:
