@@ -310,9 +310,6 @@ XFAILS = {
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "LedoitWolf does not handle object dtype",
-        "check_estimators_empty_data_messages": "LedoitWolf does not handle empty data",
-        "check_estimators_nan_inf": "LedoitWolf does not check for NaN and inf",
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
