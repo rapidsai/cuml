@@ -61,7 +61,7 @@ python run_benchmarks.py \
 The following Python packages are required for standalone mode:
 
 ```bash
-pip install numpy pandas scikit-learn scipy
+pip install numpy pandas pyyaml scikit-learn scipy
 ```
 
 ### CPU-only mode

@@ -153,7 +153,8 @@ def _validate_args(args, run_gpu):
         if args.input_type not in cpu_valid_types:
             warnings.warn(
                 f"--input-type={args.input_type} not available without GPU. "
-                f"Switching to 'numpy'. Available types: {cpu_valid_types}"
+                f"Switching to 'numpy'. Available types: {cpu_valid_types}",
+                stacklevel=2,
             )
             args.input_type = "numpy"
 
@@ -274,7 +275,8 @@ def _validate_benchmark_inputs(test_split, input_type, run_gpu):
     if input_type not in cpu_valid_types:
         warnings.warn(
             f"--input-type={input_type} not available without GPU. "
-            f"Switching to 'numpy'. Available types: {cpu_valid_types}"
+            f"Switching to 'numpy'. Available types: {cpu_valid_types}",
+            stacklevel=2,
         )
         return "numpy"
     return input_type
@@ -387,9 +389,9 @@ def _run_config_benchmarks(args, explicit_options):
             "profile and filters."
         )
 
-    allow_gpu_runs = (
-        is_gpu_available() and "--skip-gpu" not in explicit_options
-    )
+    skip_gpu = args.skip_gpu or "--skip-gpu" in explicit_options
+    skip_cpu = args.skip_cpu or "--skip-cpu" in explicit_options
+    allow_gpu_runs = is_gpu_available() and not skip_gpu
     if allow_gpu_runs and any(entry["run_gpu"] for entry in benchmark_entries):
         setup_rmm_allocator(args.rmm_allocator)
 
@@ -417,7 +419,7 @@ def _run_config_benchmarks(args, explicit_options):
             n_reps = args.n_reps
 
         run_cpu = entry["run_cpu"]
-        if "--skip-cpu" in explicit_options:
+        if skip_cpu:
             run_cpu = False
 
         run_cuml = entry["run_gpu"] and allow_gpu_runs

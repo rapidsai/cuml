@@ -10,7 +10,11 @@ import pandas as pd
 import pytest
 
 from cuml.benchmark.config import BenchmarkConfigError, load_and_resolve_config
-from cuml.benchmark.run_benchmarks import _run_config_benchmarks, main
+from cuml.benchmark.run_benchmarks import (
+    _run_config_benchmarks,
+    main,
+    run_benchmark,
+)
 
 
 def _make_args(**overrides):
@@ -39,6 +43,10 @@ def _make_args(**overrides):
         "cpu_param_sweep": None,
         "dataset_param_sweep": None,
         "csv": None,
+        "print_algorithms": False,
+        "print_datasets": False,
+        "print_status": False,
+        "verbose": True,
     }
     args.update(overrides)
     return Namespace(**args)
@@ -158,6 +166,81 @@ benchmarks:
 
 
 @pytest.mark.parametrize(
+    ("yaml_text", "error_match"),
+    [
+        (
+            """
+version: true
+suite:
+  name: bool-version
+  tier: test
+  description: bool version
+benchmarks:
+  - algorithm: LogisticRegression
+    dataset: classification
+    input_type: numpy
+    dtype: fp32
+    n_reps: 1
+    test_split: 0.1
+    rows: [100]
+    features: [8]
+""".strip(),
+            "Config field 'version' must be an integer",
+        ),
+        (
+            """
+version: 1
+suite:
+  name: bool-rows
+  tier: test
+  description: bool rows
+defaults:
+  dataset: classification
+  input_type: numpy
+  dtype: fp32
+  n_reps: 1
+  test_split: 0.1
+benchmarks:
+  - algorithm: LogisticRegression
+    rows: [true]
+    features: [8]
+""".strip(),
+            "Field 'benchmarks\\[0\\]\\.rows' must contain only integers",
+        ),
+        (
+            """
+version: 1
+suite:
+  name: bool-shapes
+  tier: test
+  description: bool shapes
+defaults:
+  dataset: classification
+  input_type: numpy
+  dtype: fp32
+  n_reps: 1
+  test_split: 0.1
+benchmarks:
+  - algorithm: LogisticRegression
+    shapes:
+      - rows: true
+        features: 8
+""".strip(),
+            "Field 'benchmarks\\[0\\]\\.shapes\\[0\\]' must contain integer 'rows' and 'features'",
+        ),
+    ],
+)
+def test_load_and_resolve_config_rejects_boolean_numeric_values(
+    tmp_path, yaml_text, error_match
+):
+    config_path = tmp_path / "bool-numeric.yaml"
+    config_path.write_text(yaml_text, encoding="utf-8")
+
+    with pytest.raises(BenchmarkConfigError, match=error_match):
+        load_and_resolve_config(str(config_path))
+
+
+@pytest.mark.parametrize(
     ("defaults_block", "expected_field"),
     [
         ("", "dataset"),
@@ -206,6 +289,67 @@ def test_load_and_resolve_config_requires_runtime_fields_after_defaults(
         match=rf"must define .*'{expected_field}'.*after applying defaults",
     ):
         load_and_resolve_config(str(config_path))
+
+
+def test_load_and_resolve_config_rejects_profile_with_zero_matches(tmp_path):
+    config_path = tmp_path / "empty-profile.yaml"
+    config_path.write_text(
+        """
+version: 1
+
+suite:
+  name: empty-profile
+  tier: test
+  description: empty profile coverage
+
+profiles:
+  default:
+    include_tags: [default-profile]
+
+defaults:
+  dataset: classification
+  input_type: numpy
+  dtype: fp32
+  n_reps: 1
+  test_split: 0.1
+  run_cpu: true
+  run_gpu: false
+
+benchmarks:
+  - id: logreg
+    algorithm: LogisticRegression
+    operation: fit
+    rows: [100]
+    features: [8]
+    tags: [other-tag]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        BenchmarkConfigError,
+        match="Profile 'default' did not match any benchmark entries",
+    ):
+        load_and_resolve_config(str(config_path))
+
+
+def test_load_and_resolve_config_algorithm_filter_is_case_insensitive():
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "cuml"
+        / "benchmark"
+        / "configs"
+        / "single_gpu.yaml"
+    )
+
+    resolved = load_and_resolve_config(
+        str(config_path), algorithm_filter=["logisticregression"]
+    )
+
+    assert resolved["benchmarks"]
+    assert {entry["algorithm"] for entry in resolved["benchmarks"]} == {
+        "LogisticRegression"
+    }
 
 
 def test_run_config_benchmarks_uses_shape_pairs_without_cartesian_product(
@@ -357,6 +501,83 @@ def test_run_config_benchmarks_applies_only_explicit_cli_overrides(
     assert call["param_override_list"] == [{"C": 2.0}]
     assert call["run_cuml"] is False
     assert setup_calls == []
+
+
+@pytest.mark.parametrize(
+    ("arg_name", "expected_run_cpu", "expected_run_cuml"),
+    [
+        ("skip_gpu", True, False),
+        ("skip_cpu", False, True),
+    ],
+)
+def test_run_benchmark_config_mode_respects_skip_flags_without_explicit_options(
+    monkeypatch, arg_name, expected_run_cpu, expected_run_cuml
+):
+    calls = []
+    setup_calls = []
+
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.load_and_resolve_config",
+        lambda *args, **kwargs: {
+            "config_path": "/tmp/config.yaml",
+            "suite_name": "test-suite",
+            "suite_tier": "test",
+            "profile": "default",
+            "benchmarks": [
+                {
+                    "benchmark_id": "override-bench",
+                    "algorithm": "LogisticRegression",
+                    "dataset": "classification",
+                    "input_type": "numpy",
+                    "dtype": "fp32",
+                    "n_reps": 1,
+                    "random_state": 42,
+                    "test_split": 0.1,
+                    "run_cpu": True,
+                    "run_gpu": True,
+                    "raise_on_error": True,
+                    "default_size": False,
+                    "shape_pairs": None,
+                    "bench_rows": [200],
+                    "bench_dims": [8],
+                    "operation": "fit",
+                    "comparison": None,
+                    "param_override_list": [{}],
+                    "cuml_param_override_list": [{}],
+                    "cpu_param_override_list": [{}],
+                    "dataset_param_override_list": [{}],
+                    "tags": ["test"],
+                    "enabled": True,
+                    "skip_reason": None,
+                    "metadata": {},
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.algorithms.algorithm_by_name",
+        lambda name: {"name": name},
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.is_gpu_available", lambda: True
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.setup_rmm_allocator",
+        lambda allocator: setup_calls.append(allocator),
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.runners.run_variations",
+        lambda algos, **kwargs: calls.append(kwargs)
+        or pd.DataFrame([{"algo": "LogisticRegression"}]),
+    )
+
+    args = _make_args(config="/tmp/config.yaml", **{arg_name: True})
+    run_benchmark(args)
+
+    [call] = calls
+    assert call["run_cpu"] is expected_run_cpu
+    assert call["run_cuml"] is expected_run_cuml
+    assert bool(setup_calls) is expected_run_cuml
 
 
 def test_main_runs_config_smoke_manifest_end_to_end(monkeypatch, tmp_path):

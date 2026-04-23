@@ -116,6 +116,14 @@ class BenchmarkConfigError(ValueError):
     """Raised when a benchmark config file is invalid."""
 
 
+def _is_int_value(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_numeric_value(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def load_config_file(config_path: str) -> dict[str, Any]:
     """Load a YAML benchmark config file."""
     abs_path = os.path.abspath(config_path)
@@ -199,7 +207,7 @@ def validate_config(raw_config: dict[str, Any]) -> None:
         )
 
     version = raw_config.get("version")
-    if not isinstance(version, int):
+    if not _is_int_value(version):
         raise BenchmarkConfigError("Config field 'version' must be an integer")
 
     suite = raw_config.get("suite")
@@ -377,15 +385,11 @@ def _validate_default_or_entry(
         )
 
     for numeric_field in ("n_reps", "random_state"):
-        if numeric_field in entry and not isinstance(
-            entry[numeric_field], int
-        ):
+        if numeric_field in entry and not _is_int_value(entry[numeric_field]):
             raise BenchmarkConfigError(
                 f"{context} field '{numeric_field}' must be an integer"
             )
-    if "test_split" in entry and not isinstance(
-        entry["test_split"], (int, float)
-    ):
+    if "test_split" in entry and not _is_numeric_value(entry["test_split"]):
         raise BenchmarkConfigError(
             f"{context} field 'test_split' must be numeric"
         )
@@ -474,13 +478,13 @@ def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
                 f"'{field}' after applying defaults"
             )
 
-    if not isinstance(entry.get("n_reps"), int):
+    if not _is_int_value(entry.get("n_reps")):
         raise BenchmarkConfigError(
             f"Benchmark '{benchmark_name}' must define integer 'n_reps' "
             "after applying defaults"
         )
 
-    if not isinstance(entry.get("test_split"), (int, float)):
+    if not _is_numeric_value(entry.get("test_split")):
         raise BenchmarkConfigError(
             f"Benchmark '{benchmark_name}' must define numeric 'test_split' "
             "after applying defaults"
@@ -583,11 +587,16 @@ def _apply_profile_selection(
         return benchmark_entries
 
     include_tags = set(profiles[selected_profile]["include_tags"])
-    return [
+    filtered = [
         entry
         for entry in benchmark_entries
         if include_tags.intersection(entry.get("tags", []))
     ]
+    if not filtered:
+        raise BenchmarkConfigError(
+            f"Profile '{selected_profile}' did not match any benchmark entries"
+        )
+    return filtered
 
 
 def _apply_algorithm_filter(
@@ -597,12 +606,14 @@ def _apply_algorithm_filter(
     if not algorithm_filter:
         return benchmark_entries
 
-    wanted = set(algorithm_filter)
-    filtered = [e for e in benchmark_entries if e["algorithm"] in wanted]
+    wanted = {name.lower() for name in algorithm_filter}
+    filtered = [
+        e for e in benchmark_entries if e["algorithm"].lower() in wanted
+    ]
     if not filtered:
         raise BenchmarkConfigError(
             "Algorithm filter did not match any resolved benchmark entries: "
-            f"{sorted(wanted)}"
+            f"{sorted(algorithm_filter)}"
         )
     return filtered
 
@@ -640,14 +651,14 @@ def _normalize_int_list(
             return None
         raise BenchmarkConfigError(f"Field '{field_name}' is required")
 
-    if isinstance(value, int):
+    if _is_int_value(value):
         return [value]
     if not isinstance(value, list) or not value:
         raise BenchmarkConfigError(
             f"Field '{field_name}' must be an integer or a non-empty list "
             "of integers"
         )
-    if not all(isinstance(v, int) for v in value):
+    if not all(_is_int_value(v) for v in value):
         raise BenchmarkConfigError(
             f"Field '{field_name}' must contain only integers"
         )
@@ -673,7 +684,7 @@ def _normalize_shapes(value: Any, *, field_name: str) -> list[dict[str, int]]:
             )
         rows = shape["rows"]
         features = shape["features"]
-        if not isinstance(rows, int) or not isinstance(features, int):
+        if not _is_int_value(rows) or not _is_int_value(features):
             raise BenchmarkConfigError(
                 f"Field '{field_name}[{idx}]' must contain integer 'rows' "
                 "and 'features'"
