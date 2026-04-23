@@ -82,8 +82,9 @@ Current external submodules are:
 
 ## Using cuML libraries
 
-After building cuML, you can use its functionality in other C/C++ applications
-by linking against the generated libraries. The following trivial example shows
+After building cuML, you can use its functionality in other C++ applications by
+linking against the generated libraries, or from Python via the `cuml` package.
+The following trivial example shows
 how to make external use of cuML's logger:
 
 ```cpp

@@ -194,11 +194,13 @@ set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
 
-# Disabling the libcuml C++ library disables building algorithm tests and examples
+# Disabling the libcuml C++ library: nothing can link to the `cuml` target, so turn off consumers.
 if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
+  set(BUILD_PRIMS_TESTS OFF)
+  set(BUILD_CUML_BENCH OFF)
 endif()
 
 # SingleGPU build disables comms components
@@ -228,14 +230,19 @@ if(NOT BUILD_SHARED_LIBS AND CUML_COMPILE_DYNAMIC_ONLY)
   )
 endif()
 
-set(cuml_compile_mode "both")
-set(_cuml_lib_targets ${CUML_CPP_TARGET} ${CUML_CPP_TARGET}_static)
-if(CUML_COMPILE_DYNAMIC_ONLY)
-  set(cuml_compile_mode "shared_only")
-  set(_cuml_lib_targets ${CUML_CPP_TARGET})
-elseif(NOT BUILD_SHARED_LIBS)
-  set(cuml_compile_mode "static_only")
-  set(_cuml_lib_targets ${CUML_CPP_TARGET}_static)
+if(BUILD_CUML_CPP_LIBRARY)
+  set(cuml_compile_mode "both")
+  set(_cuml_lib_targets ${CUML_CPP_TARGET} ${CUML_CPP_TARGET}_static)
+  if(CUML_COMPILE_DYNAMIC_ONLY)
+    set(cuml_compile_mode "shared_only")
+    set(_cuml_lib_targets ${CUML_CPP_TARGET})
+  elseif(NOT BUILD_SHARED_LIBS)
+    set(cuml_compile_mode "static_only")
+    set(_cuml_lib_targets ${CUML_CPP_TARGET}_static)
+  endif()
+else()
+  set(cuml_compile_mode "none")
+  set(_cuml_lib_targets "")
 endif()
 
 # ##################################################################################################
@@ -784,12 +791,14 @@ endif()
 # -------------------------------------------------------------------------------
 include(CPack)
 
-install(
-  TARGETS ${_cuml_lib_targets}
-  DESTINATION ${lib_dir}
-  EXPORT cuml-exports
-  COMPONENT cuml
-)
+if(_cuml_lib_targets)
+  install(
+    TARGETS ${_cuml_lib_targets}
+    DESTINATION ${lib_dir}
+    EXPORT cuml-exports
+    COMPONENT cuml
+  )
+endif()
 
 install(
   DIRECTORY include/cuml/
@@ -846,26 +855,28 @@ endif()
 
 endif()
 
-rapids_export(
-  INSTALL cuml
-  EXPORT_SET cuml-exports
-  GLOBAL_TARGETS ${_cuml_lib_targets}
-  NAMESPACE cuml::
-  DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string
-)
+if(_cuml_lib_targets)
+  rapids_export(
+    INSTALL cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS ${_cuml_lib_targets}
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+  )
 
-# ##################################################################################################
-# * build export -------------------------------------------------------------------------------
+  # ################################################################################################
+  # * build export -------------------------------------------------------------------------------
 
-rapids_export(
-  BUILD cuml
-  EXPORT_SET cuml-exports
-  GLOBAL_TARGETS ${_cuml_lib_targets}
-  NAMESPACE cuml::
-  DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string
-)
+  rapids_export(
+    BUILD cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS ${_cuml_lib_targets}
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+  )
+endif()
 
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------

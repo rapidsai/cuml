@@ -68,7 +68,10 @@ set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 add_subdirectory(../../cpp cuml-cpp)
 
-# assumes libcuml is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml.so
+# RPATHs below assume the shared library is installed in a wheel layout:
+# .../site-packages/libcuml/lib64/libcuml.so (see python/libcuml/libcuml/load.py and
+# python/libcuml/tests/test_libcuml_linkage.py, which resolve libcuml.so under the libcuml package's
+# lib64 directory).
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
   # starting with CTK 13 wheels, all libraries except NCCL are grouped in this 'nvidia/cu13/lib'
   # directory
