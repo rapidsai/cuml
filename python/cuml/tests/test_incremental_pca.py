@@ -133,6 +133,21 @@ def test_exceptions():
         cuIPCA(n_components=8).fit(X[:, :5])
 
 
+@pytest.mark.parametrize("batch_size", [None, 50])
+def test_partial_fit_then_sparse_transform(batch_size):
+    X_dense, _ = make_blobs(
+        n_samples=200, n_features=10, random_state=0, dtype="float64"
+    )
+    X_sparse = cupyx.scipy.sparse.csr_matrix(X_dense)
+
+    ipca = cuIPCA(n_components=4, batch_size=batch_size)
+    for i in range(0, 200, 50):
+        ipca.partial_fit(X_dense[i : i + 50])
+
+    result = ipca.transform(X_sparse)
+    assert result.shape == (200, 4)
+
+
 def test_svd_flip():
     x = cp.array(range(-10, 80)).reshape((9, 10))
     u, s, v = cp.linalg.svd(x, full_matrices=False)
