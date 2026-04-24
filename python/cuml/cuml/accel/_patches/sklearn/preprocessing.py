@@ -18,28 +18,69 @@ from cuml.internals.outputs import using_output_type
 __all__ = ("LabelEncoder", "MinMaxScaler", "StandardScaler")
 
 
-def _can_accelerate(X, **kwargs):
-    """Check if X is suitable for GPU acceleration."""
-    if kwargs.get("sample_weight") is not None:
+def _is_accelerable_dtype(arr):
+    """True if `arr` has a numeric dtype that the cupy+array_api path can handle.
+
+    Excludes object, character, complex, and float16 (float16 is not reliably
+    supported by sklearn's array_api dispatch path).
+    """
+    if not hasattr(arr, "dtype"):
         return False
-    if hasattr(X, "columns"):
+    dt = arr.dtype
+    if dt == np.object_ or dt == np.float16:
         return False
-    if scipy.sparse.issparse(X):
+    if np.issubdtype(dt, np.complexfloating):
         return False
-    if hasattr(X, "dtype"):
-        if np.issubdtype(X.dtype, np.complexfloating):
-            return False
-        if np.issubdtype(X.dtype, np.character):
-            return False
-        if X.dtype == np.object_:
-            return False
-        if X.dtype == np.float16:
-            return False
-    return True
+    if np.issubdtype(dt, np.character):
+        return False
+    return np.issubdtype(dt, np.floating) or np.issubdtype(dt, np.integer)
 
 
 def _to_cupy(X):
     return X if isinstance(X, cp.ndarray) else cp.asarray(X)
+
+
+def _can_accelerate_standard_scaler(estimator, X, **kwargs):
+    # sample_weight is accepted by (partial_)fit. The cupy+array_api path for
+    # _incremental_mean_and_var has not been validated with cupy sample weights,
+    # so fall back to CPU when one is supplied.
+    if kwargs.get("sample_weight") is not None:
+        return False
+    if hasattr(X, "columns"):
+        return False
+    # sklearn accepts sparse input when with_mean=False, but the cupy+array_api
+    # path does not support scipy sparse matrices.
+    if scipy.sparse.issparse(X):
+        return False
+    return _is_accelerable_dtype(X)
+
+
+def _can_accelerate_min_max_scaler(estimator, X, **kwargs):
+    if hasattr(X, "columns"):
+        return False
+    # sklearn raises TypeError for sparse input; nothing to accelerate there.
+    if scipy.sparse.issparse(X):
+        return False
+    return _is_accelerable_dtype(X)
+
+
+def _can_accelerate_label_encoder(estimator, y, **kwargs):
+    # LabelEncoder operates on 1D y which may contain strings on CPU.
+    # cupy cannot hold string arrays, so only numeric y qualifies.
+    if hasattr(y, "columns"):
+        return False
+    if scipy.sparse.issparse(y):
+        return False
+    if not _is_accelerable_dtype(y):
+        return False
+    # cupy cannot hold string arrays, so if classes_ has a non-numeric dtype
+    # (e.g. the encoder was fitted on strings), any accelerated call will fail:
+    # transform() tries to cast y to classes_.dtype, and inverse_transform()
+    # calls xp.take(classes_, y) where xp=cp cannot handle a numpy string array.
+    classes = getattr(estimator, "classes_", None)
+    if classes is not None and not np.issubdtype(classes.dtype, np.number):
+        return False
+    return True
 
 
 def _has_non_default_output_container(estimator):
@@ -162,6 +203,7 @@ def _make_method_patch(
     orig_method,
     class_name,
     *,
+    can_accelerate,
     is_fitting=False,
     promotes_fitted=False,
     uses_fitted_ctx=False,
@@ -175,6 +217,8 @@ def _make_method_patch(
         The original (unpatched) method.
     class_name : str
         Used in log messages.
+    can_accelerate : callable(estimator, data, **kwargs) -> bool
+        Per-estimator predicate; when False the original method is called.
     is_fitting : bool
         If True, call ``_ensure_fitted_on_host`` after the method runs.
     promotes_fitted : bool
@@ -198,7 +242,7 @@ def _make_method_patch(
             )
             return orig_method(self, data, *args, **kwargs)
 
-        if not _can_accelerate(data, **kwargs):
+        if not can_accelerate(self, data, **kwargs):
             logger.debug(f"{log_prefix} not optimized: unsupported input")
             return orig_method(self, data, *args, **kwargs)
 
@@ -233,13 +277,16 @@ def _make_method_patch(
 # ---------------------------------------------------------------------------
 
 
-def patch_estimator(cls, methods=None):
+def patch_estimator(cls, can_accelerate, methods=None):
     """Monkey-patch *cls* to dispatch its methods through CuPy.
 
     Parameters
     ----------
     cls : type
         The sklearn estimator class to patch.
+    can_accelerate : callable(estimator, data, **kwargs) -> bool
+        Per-estimator predicate used by every patched method to decide
+        whether to route through the cupy+array_api path.
     methods : sequence of str or None
         Names of methods to patch.  When *None* (default), all methods in
         ``_TRANSFORMER_METHODS`` that exist on *cls* are patched
@@ -250,7 +297,9 @@ def patch_estimator(cls, methods=None):
     for method_name in methods:
         flags = _infer_method_flags(method_name)
         orig = getattr(cls, method_name)
-        patched = _make_method_patch(orig, cls.__name__, **flags)
+        patched = _make_method_patch(
+            orig, cls.__name__, can_accelerate=can_accelerate, **flags
+        )
         setattr(cls, method_name, patched)
     cls._cuml_accel_patched = True
 
@@ -259,6 +308,6 @@ def patch_estimator(cls, methods=None):
 # Per-estimator configuration and registration
 # ---------------------------------------------------------------------------
 
-patch_estimator(StandardScaler)
-patch_estimator(MinMaxScaler)
-patch_estimator(LabelEncoder)
+patch_estimator(StandardScaler, _can_accelerate_standard_scaler)
+patch_estimator(MinMaxScaler, _can_accelerate_min_max_scaler)
+patch_estimator(LabelEncoder, _can_accelerate_label_encoder)
