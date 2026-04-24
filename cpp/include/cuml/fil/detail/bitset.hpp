@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -39,12 +39,12 @@ struct bitset {
   // Standard bit-wise mutators and accessor
   HOST DEVICE auto& set(index_type index)
   {
-    data_[bin_from_index(index)] |= mask_in_bin(index);
+    if (index < num_bits_) { data_[bin_from_index(index)] |= mask_in_bin(index); }
     return *this;
   }
   HOST DEVICE auto& clear(index_type index)
   {
-    data_[bin_from_index(index)] &= ~mask_in_bin(index);
+    if (index < num_bits_) { data_[bin_from_index(index)] &= ~mask_in_bin(index); }
     return *this;
   }
   HOST DEVICE auto test(index_type index) const
