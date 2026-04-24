@@ -335,18 +335,10 @@ XFAILS = {
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "GaussianRandomProjection doesn't support complex data",
-        "check_dtype_object": "GaussianRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "GaussianRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
     },
     SparseRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "SparseRandomProjection doesn't support complex data",
-        "check_dtype_object": "SparseRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "SparseRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "SparseRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "SparseRandomProjection does not handle non-array data",
     },
     BernoulliNB: {
