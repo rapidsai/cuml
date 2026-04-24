@@ -185,7 +185,7 @@ suite:
 
 profiles:
   default:
-    include_tags: [default-profile]
+    include_tags: [default]
 
 defaults:
   input_type: cupy
@@ -204,7 +204,7 @@ benchmarks:
     operation: fit
     rows: [100000]
     features: [16]
-    tags: [default-profile, linear, classification]
+    tags: [default, linear, classification]
 ```
 
 ### `suite`
@@ -217,12 +217,12 @@ benchmarks:
 
 ### `profiles`
 
-Profiles allow a single manifest to define multiple run surfaces such as PR, extended, or nightly.
+Profiles allow a single manifest to define multiple run surfaces such as default or nightly.
 
 In `single_gpu.yaml`, the manifest is organized along two axes:
 
 - width class: `narrow`, `medium`, `wide`
-- runtime tier: `default`, `extended`, `nightly`
+- runtime tier: `default`, `nightly`
 
 The width class changes the feature shape of the workload. The runtime tier changes only the row count. Every algorithm should therefore appear as a full `width x tier` grid.
 
@@ -235,17 +235,14 @@ Example:
 ```yaml
 profiles:
   default:
-    include_tags: [default-profile]
-  extended:
-    include_tags: [default-profile, extended-profile]
+    include_tags: [default]
   nightly:
-    include_tags: [default-profile, extended-profile, nightly-only]
+    include_tags: [nightly]
 ```
 
 This means:
 
 - `default` includes `narrow`, `medium`, and `wide` workloads for every algorithm at the smallest row counts
-- `extended` includes the same `narrow`, `medium`, and `wide` workloads with larger row counts
 - `nightly` includes the same `narrow`, `medium`, and `wide` workloads with the largest row counts
 
 Example:
@@ -257,15 +254,15 @@ Example:
   operation: fit
   rows: [500000]
   features: [16]
-  tags: [default-profile, narrow, linear]
+  tags: [default, narrow, linear]
 
-- id: logreg_fit_narrow_extended
+- id: logreg_fit_narrow_nightly
   algorithm: LogisticRegression
   dataset: classification
   operation: fit
-  rows: [1000000]
+  rows: [1500000]
   features: [16]
-  tags: [extended-profile, narrow, linear]
+  tags: [nightly, narrow, linear]
 
 - id: logreg_fit_wide_default
   algorithm: LogisticRegression
@@ -273,52 +270,46 @@ Example:
   operation: fit
   rows: [150000]
   features: [512]
-  tags: [default-profile, wide, linear]
+  tags: [default, wide, linear]
 ```
 
-### YAML anchors and merge keys
+### Compact `variants`
 
-To avoid repeating the same benchmark definition three times for `default`, `extended`, and `nightly`, `single_gpu.yaml` uses standard YAML anchors and merge keys.
+To avoid repeating the same benchmark definition for every `width x tier` combination, a benchmark entry can define `variants`. This expands one compact entry into multiple resolved benchmark entries while preserving the same runtime behavior.
 
 Example:
 
 ```yaml
-- &logreg_fit_narrow_default
-  id: logreg_fit_narrow_default
+- id: logreg_fit
   algorithm: LogisticRegression
   dataset: classification
   operation: fit
-  rows: [500000]
-  features: [16]
-  tags: [default-profile, narrow, linear, classification]
-
-- <<: *logreg_fit_narrow_default
-  id: logreg_fit_narrow_extended
-  rows: [1000000]
-  tags: [extended-profile, narrow, linear, classification]
+  tags: [linear, classification]
+  variants:
+    narrow:
+      features: [16]
+      tiers:
+        default:
+          rows: [500000]
+        nightly:
+          rows: [1500000]
+    wide:
+      features: [512]
+      tiers:
+        default:
+          rows: [150000]
 ```
 
 How this works:
 
-- `&logreg_fit_narrow_default` defines an anchor name for the first mapping
-- `*logreg_fit_narrow_default` references that anchored mapping later
-- `<<:` is the YAML merge key, which copies the anchored fields into the new entry
-- any fields written after `<<:` override the copied values
+- each key under `variants` becomes a width-class suffix and tag, such as `narrow` or `wide`
+- each key under `tiers` becomes a runtime-tier suffix and tag, such as `default` or `nightly`
+- the example above expands to benchmark IDs like `logreg_fit_narrow_default`, `logreg_fit_narrow_nightly`, and `logreg_fit_wide_default`
+- fields from the outer benchmark entry are shared across all expanded entries
+- width-specific fields such as `features` live under the variant
+- tier-specific fields such as `rows` live under the tier
 
-So the extended entry above inherits:
-
-- `algorithm: LogisticRegression`
-- `dataset: classification`
-- `operation: fit`
-- `features: [16]`
-
-and then overrides:
-
-- `id`
-- `rows`
-- `tags`
-
-This keeps the manifest compact while preserving the intended rule that width changes shape and tier changes row count.
+Flat benchmark entries using explicit `rows`, `features`, or `shapes` are still supported. `variants` is just a more compact way to describe repeated width/tier grids.
 
 ### `defaults`
 
@@ -357,6 +348,7 @@ It can also define:
 - `rows` and `features`: lists used as a Cartesian product
 - `shapes`: explicit paired `(rows, features)` combinations when you do not want a Cartesian product
 - `default_size`: use the dataset's natural default size instead of explicit dimensions
+- `variants`: compact expansion for repeated width/tier families
 - `params`: shared estimator parameters
 - `cuml_params`: GPU-only estimator parameters
 - `cpu_params`: CPU-only estimator parameters
@@ -414,9 +406,9 @@ suite:
 
 profiles:
   default:
-    include_tags: [default-profile]
-  extended:
-    include_tags: [default-profile, extended-profile]
+    include_tags: [default]
+  nightly:
+    include_tags: [nightly]
 
 defaults:
   input_type: cupy
@@ -429,39 +421,38 @@ defaults:
   raise_on_error: true
 
 benchmarks:
-  - id: my_logreg_narrow_default
+  - id: my_logreg_fit
     algorithm: LogisticRegression
     dataset: classification
     operation: fit
-    rows: [500000]
-    features: [16]
-    tags: [default-profile, narrow, linear]
+    tags: [linear]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default:
+            rows: [500000]
+          nightly:
+            rows: [1500000]
+      wide:
+        features: [512]
+        tiers:
+          default:
+            rows: [150000]
 
-  - id: my_logreg_narrow_extended
-    algorithm: LogisticRegression
-    dataset: classification
-    operation: fit
-    rows: [1000000]
-    features: [16]
-    tags: [extended-profile, narrow, linear]
-
-  - id: my_logreg_wide_default
-    algorithm: LogisticRegression
-    dataset: classification
-    operation: fit
-    rows: [150000]
-    features: [512]
-    tags: [default-profile, wide, linear]
-
-  - id: my_kmeans_medium_default
+  - id: my_kmeans_fitpredict
     algorithm: KMeans
     dataset: blobs
     operation: fit_predict
-    rows: [50000]
-    features: [128]
     dataset_params:
       centers: 8
-    tags: [default-profile, medium, clustering]
+    tags: [clustering]
+    variants:
+      medium:
+        features: [128]
+        tiers:
+          default:
+            rows: [50000]
 ```
 
 Save it anywhere and run it with:
@@ -470,7 +461,7 @@ Save it anywhere and run it with:
 python -m cuml.benchmark --config /path/to/my_benchmarks.yaml --profile default
 ```
 
-If you also define `extended` or `nightly` profiles, keep the same algorithm and width-class entries, and increase only `rows` for those companion entries.
+If you also define a `nightly` profile, keep the same algorithm and width-class entries, and increase only `rows` for the companion nightly tiers.
 
 ### CLI overrides in config mode
 

@@ -74,7 +74,7 @@ def test_load_and_resolve_config_default_profile_filters_single_gpu_manifest():
     assert "logreg_fit_wide_default" in benchmark_ids
     assert "elasticnet_fit_narrow_default" in benchmark_ids
     assert "tsne_fit_wide_default" in benchmark_ids
-    assert "elasticnet_fit_narrow_extended" not in benchmark_ids
+    assert "elasticnet_fit_narrow_nightly" not in benchmark_ids
     assert "tsne_fit_wide_nightly" not in benchmark_ids
 
 
@@ -90,18 +90,12 @@ def test_load_and_resolve_config_single_gpu_profiles_preserve_algorithm_set():
     default_resolved = load_and_resolve_config(
         str(config_path), profile="default"
     )
-    extended_resolved = load_and_resolve_config(
-        str(config_path), profile="extended"
-    )
     nightly_resolved = load_and_resolve_config(
         str(config_path), profile="nightly"
     )
 
     default_algorithms = {
         entry["algorithm"] for entry in default_resolved["benchmarks"]
-    }
-    extended_algorithms = {
-        entry["algorithm"] for entry in extended_resolved["benchmarks"]
     }
     nightly_algorithms = {
         entry["algorithm"] for entry in nightly_resolved["benchmarks"]
@@ -110,7 +104,7 @@ def test_load_and_resolve_config_single_gpu_profiles_preserve_algorithm_set():
         entry["benchmark_id"] for entry in default_resolved["benchmarks"]
     }
 
-    assert default_algorithms == extended_algorithms == nightly_algorithms
+    assert default_algorithms == nightly_algorithms
     assert "logreg_fit_narrow_default" in default_ids
     assert "logreg_fit_medium_default" in default_ids
     assert "logreg_fit_wide_default" in default_ids
@@ -165,6 +159,78 @@ benchmarks:
     assert entry["param_override_list"] == [{"C": 0.25}, {"C": 1.0}]
 
 
+def test_load_and_resolve_config_expands_compact_variants(tmp_path):
+    config_path = tmp_path / "compact.yaml"
+    config_path.write_text(
+        """
+version: 1
+
+suite:
+  name: compact
+  tier: test
+  description: compact benchmark coverage
+
+profiles:
+  default:
+    include_tags: [default]
+  nightly:
+    include_tags: [nightly]
+
+defaults:
+  dataset: classification
+  input_type: numpy
+  dtype: fp32
+  n_reps: 2
+  random_state: 42
+  test_split: 0.2
+  run_cpu: true
+  run_gpu: false
+  raise_on_error: true
+
+benchmarks:
+  - id: compact_logreg_fit
+    algorithm: LogisticRegression
+    operation: fit
+    tags: [linear]
+    variants:
+      narrow:
+        features: [8]
+        tiers:
+          default:
+            rows: [100]
+          nightly:
+            rows: [200]
+      wide:
+        features: [16]
+        tags: [fat]
+        tiers:
+          default:
+            rows: [50]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    resolved = load_and_resolve_config(str(config_path), profile="default")
+
+    assert [entry["benchmark_id"] for entry in resolved["benchmarks"]] == [
+        "compact_logreg_fit_narrow_default",
+        "compact_logreg_fit_wide_default",
+    ]
+    assert resolved["benchmarks"][0]["bench_rows"] == [100]
+    assert resolved["benchmarks"][0]["bench_dims"] == [8]
+    assert resolved["benchmarks"][0]["tags"] == [
+        "linear",
+        "narrow",
+        "default",
+    ]
+    assert resolved["benchmarks"][1]["tags"] == [
+        "linear",
+        "wide",
+        "fat",
+        "default",
+    ]
+
+
 @pytest.mark.parametrize(
     ("yaml_text", "error_match"),
     [
@@ -186,6 +252,25 @@ benchmarks:
     features: [8]
 """.strip(),
             "Config field 'version' must be an integer",
+        ),
+        (
+            """
+version: 2
+suite:
+  name: version-two
+  tier: test
+  description: unsupported version
+benchmarks:
+  - algorithm: LogisticRegression
+    dataset: classification
+    input_type: numpy
+    dtype: fp32
+    n_reps: 1
+    test_split: 0.1
+    rows: [100]
+    features: [8]
+""".strip(),
+            "Unsupported config version 2",
         ),
         (
             """
@@ -227,6 +312,26 @@ benchmarks:
         features: 8
 """.strip(),
             "Field 'benchmarks\\[0\\]\\.shapes\\[0\\]' must contain integer 'rows' and 'features'",
+        ),
+        (
+            """
+version: 1
+suite:
+  name: bad-test-split
+  tier: test
+  description: bad test split
+defaults:
+  dataset: classification
+  input_type: numpy
+  dtype: fp32
+  n_reps: 1
+  test_split: 1.5
+benchmarks:
+  - algorithm: LogisticRegression
+    rows: [100]
+    features: [8]
+""".strip(),
+            "defaults field 'test_split' must be between 0.0 and 1.0",
         ),
     ],
 )

@@ -61,6 +61,7 @@ BENCHMARK_KEYS = {
     "enabled",
     "skip_reason",
     "metadata",
+    "variants",
 }
 DICT_FIELDS = {
     "params",
@@ -110,6 +111,14 @@ ALLOWED_OPERATIONS = {
     "fit_kneighbors",
     "kneighbors",
 }
+SIZE_FIELDS = {"default_size", "shapes", "rows", "features"}
+COMPACT_VARIANT_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
+    "id_suffix",
+    "tiers",
+}
+COMPACT_TIER_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
+    "id_suffix"
+}
 
 
 class BenchmarkConfigError(ValueError):
@@ -155,9 +164,12 @@ def resolve_config(
     defaults = deepcopy(raw_config.get("defaults", {}))
     profiles = deepcopy(raw_config.get("profiles", {}))
     selected_profile = _select_profile(profiles, profile)
+    expanded_benchmarks = _expand_benchmark_entries(
+        raw_config.get("benchmarks", [])
+    )
 
     benchmark_entries = []
-    for entry in raw_config.get("benchmarks", []):
+    for entry in expanded_benchmarks:
         resolved_entry = _apply_defaults(defaults, entry)
         _validate_post_defaults_entry(resolved_entry)
         if not resolved_entry.get("enabled", True):
@@ -209,6 +221,10 @@ def validate_config(raw_config: dict[str, Any]) -> None:
     version = raw_config.get("version")
     if not _is_int_value(version):
         raise BenchmarkConfigError("Config field 'version' must be an integer")
+    if version != 1:
+        raise BenchmarkConfigError(
+            f"Unsupported config version {version}. Supported versions: [1]"
+        )
 
     suite = raw_config.get("suite")
     if not isinstance(suite, dict):
@@ -277,6 +293,8 @@ def validate_config(raw_config: dict[str, Any]) -> None:
         _validate_default_or_entry(
             entry, context=f"benchmarks[{idx}]", require_algorithm=True
         )
+        if "variants" in entry:
+            _validate_compact_variants(entry, context=f"benchmarks[{idx}]")
         entry_id = entry.get("id")
         if entry_id is not None:
             if entry_id in seen_ids:
@@ -393,6 +411,10 @@ def _validate_default_or_entry(
         raise BenchmarkConfigError(
             f"{context} field 'test_split' must be numeric"
         )
+    if "test_split" in entry and not 0.0 <= entry["test_split"] <= 1.0:
+        raise BenchmarkConfigError(
+            f"{context} field 'test_split' must be between 0.0 and 1.0"
+        )
 
     if "rows" in entry:
         _normalize_int_list(entry["rows"], field_name=f"{context}.rows")
@@ -414,6 +436,101 @@ def _validate_default_or_entry(
             f"{context} cannot define 'default_size: true' together with "
             "'rows', 'features', or 'shapes'"
         )
+
+
+def _validate_compact_variants(entry: dict[str, Any], *, context: str) -> None:
+    if any(field in entry for field in SIZE_FIELDS):
+        raise BenchmarkConfigError(
+            f"{context} cannot define 'variants' together with benchmark-level "
+            "'rows', 'features', 'shapes', or 'default_size'"
+        )
+    if "id" not in entry:
+        raise BenchmarkConfigError(
+            f"{context} must define 'id' when using compact 'variants'"
+        )
+
+    variants = entry.get("variants")
+    if not isinstance(variants, dict) or not variants:
+        raise BenchmarkConfigError(
+            f"{context} field 'variants' must be a non-empty mapping"
+        )
+
+    for variant_name, variant_def in variants.items():
+        if not isinstance(variant_name, str) or not variant_name:
+            raise BenchmarkConfigError(
+                f"{context}.variants contains an invalid variant name"
+            )
+        if not isinstance(variant_def, dict):
+            raise BenchmarkConfigError(
+                f"{context}.variants.{variant_name} must be a mapping"
+            )
+        unknown_variant = set(variant_def) - COMPACT_VARIANT_KEYS
+        if unknown_variant:
+            raise BenchmarkConfigError(
+                f"Unknown keys in {context}.variants.{variant_name}: "
+                f"{sorted(unknown_variant)}"
+            )
+
+        variant_id_suffix = variant_def.get("id_suffix")
+        if variant_id_suffix is not None and (
+            not isinstance(variant_id_suffix, str) or not variant_id_suffix
+        ):
+            raise BenchmarkConfigError(
+                f"{context}.variants.{variant_name}.id_suffix must be a "
+                "non-empty string"
+            )
+
+        variant_tiers = variant_def.get("tiers")
+        if not isinstance(variant_tiers, dict) or not variant_tiers:
+            raise BenchmarkConfigError(
+                f"{context}.variants.{variant_name}.tiers must be a non-empty mapping"
+            )
+
+        variant_overrides = {
+            key: value
+            for key, value in variant_def.items()
+            if key not in {"tiers", "id_suffix"}
+        }
+        _validate_default_or_entry(
+            variant_overrides,
+            context=f"{context}.variants.{variant_name}",
+            require_algorithm=False,
+        )
+
+        for tier_name, tier_def in variant_tiers.items():
+            if not isinstance(tier_name, str) or not tier_name:
+                raise BenchmarkConfigError(
+                    f"{context}.variants.{variant_name}.tiers contains an invalid tier name"
+                )
+            if not isinstance(tier_def, dict):
+                raise BenchmarkConfigError(
+                    f"{context}.variants.{variant_name}.tiers.{tier_name} must be a mapping"
+                )
+            unknown_tier = set(tier_def) - COMPACT_TIER_KEYS
+            if unknown_tier:
+                raise BenchmarkConfigError(
+                    f"Unknown keys in {context}.variants.{variant_name}.tiers.{tier_name}: "
+                    f"{sorted(unknown_tier)}"
+                )
+
+            tier_id_suffix = tier_def.get("id_suffix")
+            if tier_id_suffix is not None and (
+                not isinstance(tier_id_suffix, str) or not tier_id_suffix
+            ):
+                raise BenchmarkConfigError(
+                    f"{context}.variants.{variant_name}.tiers.{tier_name}.id_suffix "
+                    "must be a non-empty string"
+                )
+
+            _validate_default_or_entry(
+                {
+                    key: value
+                    for key, value in tier_def.items()
+                    if key != "id_suffix"
+                },
+                context=f"{context}.variants.{variant_name}.tiers.{tier_name}",
+                require_algorithm=False,
+            )
 
 
 def _apply_defaults(
@@ -462,6 +579,75 @@ def _apply_defaults(
     return resolved
 
 
+def _expand_benchmark_entries(
+    benchmarks: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    expanded = []
+    seen_ids = set()
+
+    for entry in benchmarks:
+        if "variants" not in entry:
+            _append_expanded_entry(expanded, seen_ids, deepcopy(entry))
+            continue
+
+        base_entry = {
+            k: deepcopy(v) for k, v in entry.items() if k != "variants"
+        }
+        base_id = base_entry["id"]
+        for variant_name, variant_def in entry["variants"].items():
+            variant_overrides = {
+                key: deepcopy(value)
+                for key, value in variant_def.items()
+                if key not in {"tiers", "id_suffix"}
+            }
+            variant_overrides["tags"] = _named_tags(
+                variant_name, variant_overrides.get("tags")
+            )
+            variant_resolved = _apply_defaults(base_entry, variant_overrides)
+            variant_suffix = variant_def.get("id_suffix", variant_name)
+
+            for tier_name, tier_def in variant_def["tiers"].items():
+                tier_overrides = {
+                    key: deepcopy(value)
+                    for key, value in tier_def.items()
+                    if key != "id_suffix"
+                }
+                tier_overrides["tags"] = _named_tags(
+                    tier_name, tier_overrides.get("tags")
+                )
+                expanded_entry = _apply_defaults(
+                    variant_resolved, tier_overrides
+                )
+                tier_suffix = tier_def.get("id_suffix", tier_name)
+                expanded_entry["id"] = (
+                    f"{base_id}_{variant_suffix}_{tier_suffix}"
+                )
+                _append_expanded_entry(expanded, seen_ids, expanded_entry)
+
+    return expanded
+
+
+def _append_expanded_entry(
+    expanded: list[dict[str, Any]],
+    seen_ids: set[str],
+    entry: dict[str, Any],
+) -> None:
+    entry_id = entry.get("id")
+    if entry_id is not None:
+        if entry_id in seen_ids:
+            raise BenchmarkConfigError(f"Duplicate benchmark id '{entry_id}'")
+        seen_ids.add(entry_id)
+    expanded.append(entry)
+
+
+def _named_tags(name: str, explicit_tags: Any) -> list[str]:
+    if explicit_tags is None:
+        return [name]
+    if not isinstance(explicit_tags, list):
+        return [name, explicit_tags]
+    return _merge_tags([name], explicit_tags)
+
+
 def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
     _validate_default_or_entry(
         entry,
@@ -488,6 +674,11 @@ def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
         raise BenchmarkConfigError(
             f"Benchmark '{benchmark_name}' must define numeric 'test_split' "
             "after applying defaults"
+        )
+    if not 0.0 <= entry["test_split"] <= 1.0:
+        raise BenchmarkConfigError(
+            f"Benchmark '{benchmark_name}' must define 'test_split' between "
+            "0.0 and 1.0 after applying defaults"
         )
 
     if not entry.get("run_cpu", True) and not entry.get("run_gpu", True):
