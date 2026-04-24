@@ -9,6 +9,7 @@ import scipy.sparse
 import sklearn
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
+from cuml.accel import profilers
 from cuml.accel._patches.sklearn._utils import enable_scipy_array_api
 from cuml.accel.core import logger
 from cuml.accel.estimator_proxy import ensure_host
@@ -233,6 +234,7 @@ def _make_method_patch(
     """
     method_name = orig_method.__name__
     log_prefix = f"`{class_name}.{method_name}`"
+    qualname = f"{class_name}.{method_name}"
 
     @functools.wraps(orig_method)
     def wrapper(self, data, *args, **kwargs):
@@ -240,32 +242,42 @@ def _make_method_patch(
             logger.debug(
                 f"{log_prefix} not optimized: non-default output container"
             )
-            return orig_method(self, data, *args, **kwargs)
+            with profilers.track_cpu_call(
+                qualname, reason="non-default output container"
+            ):
+                return orig_method(self, data, *args, **kwargs)
 
         if not can_accelerate(self, data, **kwargs):
             logger.debug(f"{log_prefix} not optimized: unsupported input")
-            return orig_method(self, data, *args, **kwargs)
+            with profilers.track_cpu_call(
+                qualname, reason="unsupported input"
+            ):
+                return orig_method(self, data, *args, **kwargs)
 
         logger.debug(f"{log_prefix} input data moved to GPU")
 
-        if promotes_fitted:
-            _promote_fitted_to_device(self)
+        with profilers.track_gpu_call(qualname):
+            if promotes_fitted:
+                _promote_fitted_to_device(self)
 
-        with contextlib.ExitStack() as stack:
-            if uses_fitted_ctx:
-                stack.enter_context(_fitted_attrs_on_device(self))
-            stack.enter_context(enable_scipy_array_api())
-            stack.enter_context(
-                sklearn.config_context(array_api_dispatch=True)
-            )
-            stack.enter_context(using_output_type("cupy"))
-            out = orig_method(self, _to_cupy(data), *args, **kwargs)
+            with contextlib.ExitStack() as stack:
+                if uses_fitted_ctx:
+                    stack.enter_context(_fitted_attrs_on_device(self))
+                stack.enter_context(enable_scipy_array_api())
+                stack.enter_context(
+                    sklearn.config_context(array_api_dispatch=True)
+                )
+                stack.enter_context(using_output_type("cupy"))
+                out = orig_method(self, _to_cupy(data), *args, **kwargs)
 
-        if is_fitting:
-            _ensure_fitted_on_host(self)
+            if is_fitting:
+                _ensure_fitted_on_host(self)
 
-        if returns_output and GlobalSettings().output_type in (None, "numpy"):
-            out = ensure_host(out)
+            if returns_output and GlobalSettings().output_type in (
+                None,
+                "numpy",
+            ):
+                out = ensure_host(out)
 
         return out
 

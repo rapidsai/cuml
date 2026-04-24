@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -198,3 +198,60 @@ def test_profile_fallback_in_gpu_method():
     assert fit_stats.cpu_calls == 1
     assert fit_stats.cpu_time > 0
     assert len(fit_stats.fallback_reasons) == 1
+
+
+def test_profile_preprocessing_patch():
+    import numpy as np
+    import scipy.sparse
+    from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+    rng = np.random.default_rng(0)
+    X = rng.random((500, 10)).astype(np.float32)
+
+    # Accelerated path: dense numeric array
+    with profile(quiet=True) as results:
+        scaler = MinMaxScaler()
+        scaler.fit(X)
+        scaler.transform(X)
+
+    assert "MinMaxScaler.fit" in results.method_calls
+    assert "MinMaxScaler.transform" in results.method_calls
+
+    fit_stats = results.method_calls["MinMaxScaler.fit"]
+    assert fit_stats.gpu_calls == 1
+    assert fit_stats.gpu_time > 0
+    assert fit_stats.cpu_calls == 0
+
+    transform_stats = results.method_calls["MinMaxScaler.transform"]
+    assert transform_stats.gpu_calls == 1
+    assert transform_stats.gpu_time > 0
+    assert transform_stats.cpu_calls == 0
+
+    # CPU-fallback path: sparse input is unsupported by MinMaxScaler patch
+    X_sparse = scipy.sparse.csr_matrix(X)
+    with profile(quiet=True) as results_fallback:
+        scaler2 = MinMaxScaler()
+        try:
+            scaler2.fit(X_sparse)
+        except TypeError:
+            # sklearn itself raises TypeError for sparse input to MinMaxScaler;
+            # what matters is that the fallback was recorded before the error.
+            pass
+
+    fit_fallback = results_fallback.method_calls.get("MinMaxScaler.fit")
+    assert fit_fallback is not None
+    assert fit_fallback.cpu_calls == 1
+    assert fit_fallback.gpu_calls == 0
+    assert "unsupported input" in fit_fallback.fallback_reasons
+
+    # CPU-fallback path: sample_weight triggers StandardScaler fallback
+    y_weight = rng.random(500).astype(np.float32)
+    with profile(quiet=True) as results_weight:
+        ss = StandardScaler()
+        ss.fit(X, sample_weight=y_weight)
+
+    fit_weight = results_weight.method_calls.get("StandardScaler.fit")
+    assert fit_weight is not None
+    assert fit_weight.cpu_calls == 1
+    assert fit_weight.gpu_calls == 0
+    assert "unsupported input" in fit_weight.fallback_reasons
