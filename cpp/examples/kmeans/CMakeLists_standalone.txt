@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 cmake_minimum_required(VERSION 3.26.4 FATAL_ERROR)
@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(cuml REQUIRED)
 
 add_executable(kmeans_example kmeans_example.cpp)
-target_link_libraries(kmeans_example PRIVATE cuml::cuml++)
+target_link_libraries(kmeans_example PRIVATE cuml::cuml)
 
 # Need to set linker language to CUDA to link the CUDA Runtime
 set_target_properties(kmeans_example PROPERTIES LINKER_LANGUAGE "CUDA")

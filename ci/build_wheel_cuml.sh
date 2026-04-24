@@ -20,7 +20,7 @@ LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rap
 echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUML_WHEELHOUSE}"/libcuml_*.whl)" >> "${PIP_CONSTRAINT}"
 
 EXCLUDE_ARGS=(
-  --exclude "libcuml++.so"
+  --exclude "libcuml.so"
   --exclude "libcuvs.so"
   --exclude "libraft.so"
   --exclude "libcublas.so.*"

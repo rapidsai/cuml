@@ -91,12 +91,7 @@ ESTIMATORS = [
 XFAILS = {
     KMeans: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "KMeans does not handle non-array sample weights",
-        "check_sample_weights_list": "KMeans does not handle list sample weights",
         "check_sample_weight_equivalence_on_dense_data": "KMeans sample weight equivalence not implemented",
-        "check_all_zero_sample_weights_error": "KMeans does not validate all-zero sample weights",
-        "check_dtype_object": "KMeans does not handle object dtype",
-        "check_estimators_nan_inf": "KMeans does not check for NaN and inf",
         "check_transformer_data_not_an_array": "KMeans does not handle non-array data",
     },
     KernelRidge: {
@@ -307,30 +302,15 @@ XFAILS = {
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "DBSCAN does not handle non-array sample weights",
-        "check_sample_weights_list": "DBSCAN does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "DBSCAN does not validate all-zero sample weights",
-        "check_dtype_object": "DBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "DBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "DBSCAN does not check for NaN and inf",
     },
     HDBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "HDBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "HDBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "HDBSCAN does not check for NaN and inf",
-        "check_fit2d_1sample": "HDBSCAN does not handle single sample properly",
     },
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
-        "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "SpectralClustering does not handle object dtype",
-        "check_estimators_empty_data_messages": "SpectralClustering does not handle empty data",
-        "check_estimators_nan_inf": "SpectralClustering does not check for NaN and inf",
     },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -355,18 +335,10 @@ XFAILS = {
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "GaussianRandomProjection doesn't support complex data",
-        "check_dtype_object": "GaussianRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "GaussianRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
     },
     SparseRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "SparseRandomProjection doesn't support complex data",
-        "check_dtype_object": "SparseRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "SparseRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "SparseRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "SparseRandomProjection does not handle non-array data",
     },
     BernoulliNB: {
@@ -494,14 +466,6 @@ def _check_name(check):
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
-
-    # These estimators lead to additional MemoryErrors in the other
-    # estimators. As a result they are currently skipped.
-    if isinstance(estimator, AgglomerativeClustering):
-        pytest.skip(
-            "Estimator sometimes causes persistent memory errors (gh-7345)"
-        )
-
     check_name = _check_name(check)
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
