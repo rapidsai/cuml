@@ -1010,14 +1010,6 @@
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   tests:
-  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_empty_data_messages]"
-  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[DBSCAN()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_transformer_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_dtype_object]"
   - "sklearn.tests.test_common::test_estimators[KNeighborsClassifier()-check_estimators_empty_data_messages]"

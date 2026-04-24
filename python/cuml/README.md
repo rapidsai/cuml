@@ -21,7 +21,7 @@ The environment variables are:
 | Environment variable | Possible values | Default behavior if not set | Behavior |
 | --- | --- | --- | --- |
 | CUDA_HOME | path/to/cuda_toolkit | Inferred by location of `nvcc` | Optional variable allowing to manually specify location of the CUDA toolkit. |
-| CUML_BUILD_PATH | path/to/libcuml_build_folder | Looked for in path_to_cuml_repo/cpp/build | Optional variable allowing to manually specify location of libcuml++ build folder. |
+| CUML_BUILD_PATH | path/to/libcuml_build_folder | Looked for in path_to_cuml_repo/cpp/build | Optional variable allowing to manually specify location of libcuml build folder. |
 | RAFT_PATH | path/to/raft |  Looked for in path_to_cuml_repo/cpp/build, if not found clone  | Optional variable allowing to manually specify location of the RAFT Repository. |
 
 The command line arguments (i.e. passed alongside `setup.py` when invoking, for
