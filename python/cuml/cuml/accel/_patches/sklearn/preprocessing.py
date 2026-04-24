@@ -22,10 +22,14 @@ def _can_accelerate(X, **kwargs):
     """Check if X is suitable for GPU acceleration."""
     if kwargs.get("sample_weight") is not None:
         return False
+    if hasattr(X, "columns"):
+        return False
     if scipy.sparse.issparse(X):
         return False
     if hasattr(X, "dtype"):
         if np.issubdtype(X.dtype, np.complexfloating):
+            return False
+        if np.issubdtype(X.dtype, np.character):
             return False
         if X.dtype == np.object_:
             return False
@@ -36,6 +40,15 @@ def _can_accelerate(X, **kwargs):
 
 def _to_cupy(X):
     return X if isinstance(X, cp.ndarray) else cp.asarray(X)
+
+
+def _has_non_default_output_container(estimator):
+    """Return True when sklearn output wrapping is configured."""
+    output_config = getattr(estimator, "_sklearn_output_config", {})
+    transform_output = output_config.get("transform")
+    if transform_output is not None:
+        return transform_output != "default"
+    return sklearn.get_config().get("transform_output", "default") != "default"
 
 
 # ---------------------------------------------------------------------------
@@ -53,12 +66,19 @@ def _get_fitted_attrs(estimator):
 
 
 def _ensure_fitted_on_host(estimator):
-    """Convert fitted attributes to host arrays when output_type is numpy."""
-    if GlobalSettings().output_type in (None, "numpy"):
-        for attr in _get_fitted_attrs(estimator):
-            val = getattr(estimator, attr, None)
-            if val is not None:
-                setattr(estimator, attr, ensure_host(val))
+    """Convert fitted attributes to host (numpy) arrays.
+
+    Fitted attrs are stored as numpy regardless of the current
+    ``GlobalSettings().output_type`` so that the unaccelerated fallback
+    path (e.g. when a non-default ``transform_output`` is configured) can
+    operate on them without mixing cupy fitted attrs with a numpy input.
+    Accelerated transform paths temporarily promote these back to the
+    device via :func:`_fitted_attrs_on_device`.
+    """
+    for attr in _get_fitted_attrs(estimator):
+        val = getattr(estimator, attr, None)
+        if val is not None:
+            setattr(estimator, attr, ensure_host(val))
 
 
 def _promote_fitted_to_device(estimator):
@@ -172,6 +192,12 @@ def _make_method_patch(
 
     @functools.wraps(orig_method)
     def wrapper(self, data, *args, **kwargs):
+        if returns_output and _has_non_default_output_container(self):
+            logger.debug(
+                f"{log_prefix} not optimized: non-default output container"
+            )
+            return orig_method(self, data, *args, **kwargs)
+
         if not _can_accelerate(data, **kwargs):
             logger.debug(f"{log_prefix} not optimized: unsupported input")
             return orig_method(self, data, *args, **kwargs)
