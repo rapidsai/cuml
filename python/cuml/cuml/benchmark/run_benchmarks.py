@@ -62,6 +62,7 @@ PrecisionMap = {
     "fp32": np.float32,
     "fp64": np.float64,
 }
+SUPPORTED_BACKENDS = {"cpu", "gpu"}
 
 
 def extract_param_overrides(params_to_sweep):
@@ -136,7 +137,54 @@ def setup_rmm_allocator(allocator_type):
     return True
 
 
-def _validate_args(args, run_gpu):
+def _parse_backends(backends):
+    if backends is None:
+        return None
+    if isinstance(backends, str):
+        values = [part.strip() for part in backends.split(",") if part.strip()]
+    else:
+        values = list(backends)
+    if not values:
+        raise ValueError("--backends must include at least one backend")
+
+    normalized = []
+    seen = set()
+    for backend in values:
+        backend = backend.lower()
+        if backend not in SUPPORTED_BACKENDS:
+            raise ValueError(
+                f"Unsupported backend '{backend}'. "
+                f"Supported backends: {sorted(SUPPORTED_BACKENDS)}"
+            )
+        if backend not in seen:
+            seen.add(backend)
+            normalized.append(backend)
+    return normalized
+
+
+def _selected_backends(args, explicit_options=None, default_backends=None):
+    explicit_options = explicit_options or set()
+    default_backends = default_backends or ["cpu", "gpu"]
+
+    if "--backends" in explicit_options or getattr(args, "backends", None):
+        backends = _parse_backends(args.backends)
+    else:
+        backends = list(default_backends)
+
+    if args.skip_cpu or "--skip-cpu" in explicit_options:
+        backends = [backend for backend in backends if backend != "cpu"]
+    if args.skip_gpu or "--skip-gpu" in explicit_options:
+        backends = [backend for backend in backends if backend != "gpu"]
+
+    if not backends:
+        raise ValueError(
+            "No benchmark backends selected. Use --backends or skip flags "
+            "so at least one backend remains."
+        )
+    return backends
+
+
+def _validate_args(args, run_gpu, selected_backends):
     """Validate CLI args: skip flags, test_split range, and CPU-only input_type."""
     if args.skip_gpu and args.skip_cpu:
         raise ValueError(
@@ -148,7 +196,7 @@ def _validate_args(args, run_gpu):
             "test_split: got %f, want a value between 0.0 and 1.0"
             % args.test_split
         )
-    if not run_gpu:
+    if "gpu" not in selected_backends or not run_gpu:
         cpu_valid_types = ["numpy", "pandas"]
         if args.input_type not in cpu_valid_types:
             warnings.warn(
@@ -389,14 +437,20 @@ def _run_config_benchmarks(args, explicit_options):
             "profile and filters."
         )
 
-    skip_gpu = args.skip_gpu or "--skip-gpu" in explicit_options
-    skip_cpu = args.skip_cpu or "--skip-cpu" in explicit_options
-    allow_gpu_runs = is_gpu_available() and not skip_gpu
-    if allow_gpu_runs and any(entry["run_gpu"] for entry in benchmark_entries):
+    entry_backends = [
+        _selected_backends(
+            args, explicit_options, default_backends=entry["backends"]
+        )
+        for entry in benchmark_entries
+    ]
+    allow_gpu_runs = is_gpu_available()
+    if allow_gpu_runs and any(
+        "gpu" in backends for backends in entry_backends
+    ):
         setup_rmm_allocator(args.rmm_allocator)
 
     all_results = []
-    for entry in benchmark_entries:
+    for entry, selected_backends in zip(benchmark_entries, entry_backends):
         algo = algorithms.algorithm_by_name(entry["algorithm"])
         shape_pairs, bench_rows, bench_dims = _resolved_entry_dimensions(
             entry, args, explicit_options
@@ -418,16 +472,14 @@ def _run_config_benchmarks(args, explicit_options):
         if "--n-reps" in explicit_options:
             n_reps = args.n_reps
 
-        run_cpu = entry["run_cpu"]
-        if skip_cpu:
-            run_cpu = False
+        run_cpu = "cpu" in selected_backends
 
-        run_cuml = entry["run_gpu"] and allow_gpu_runs
+        run_cuml = "gpu" in selected_backends and allow_gpu_runs
 
         if not run_cpu and not run_cuml:
             raise ValueError(
-                f"Benchmark '{entry['benchmark_id']}' disables both CPU and GPU "
-                "execution after applying CLI overrides."
+                f"Benchmark '{entry['benchmark_id']}' has no runnable backends "
+                "after applying CLI overrides and GPU availability."
             )
 
         raise_on_error = entry["raise_on_error"]
@@ -486,12 +538,13 @@ def run_benchmark(args, explicit_options=None):
         _save_results(results_df, args.csv)
         return
 
-    run_gpu = is_gpu_available() and not args.skip_gpu
+    selected_backends = _selected_backends(args, explicit_options)
+    run_gpu = is_gpu_available() and "gpu" in selected_backends
     if run_gpu:
         setup_rmm_allocator(args.rmm_allocator)
     args.dtype = _resolve_dtype(args.dtype)
 
-    _validate_args(args, run_gpu)
+    _validate_args(args, run_gpu, selected_backends)
 
     bench_rows, bench_dims = _resolve_bench_dimensions(args)
     param_lists = _build_param_override_lists(args)
@@ -505,7 +558,7 @@ def run_benchmark(args, explicit_options=None):
         input_type=args.input_type,
         test_fraction=args.test_split,
         dtype=args.dtype,
-        run_cpu=(not args.skip_cpu),
+        run_cpu=("cpu" in selected_backends),
         run_cuml=run_gpu,
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps,

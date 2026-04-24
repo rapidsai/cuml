@@ -90,8 +90,9 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--dataset` | Dataset name: e.g. `blobs`, `classification`, `regression`, `higgs`. Use `--print-datasets` to list all. |
 | `--config` | Path to a YAML benchmark manifest. |
 | `--profile` | Named profile to select from a YAML benchmark manifest. |
-| `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only). |
-| `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only). |
+| `--backends` | Comma-separated backends to run (`cpu`, `gpu`). |
+| `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only); compatibility shortcut. |
+| `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only); compatibility shortcut. |
 | `--csv [FILE]` | Save results to a CSV file. |
 | `--min-rows`, `--max-rows`, `--num-sizes` | Control sample sizes for scaling benchmarks. |
 | `--input-dimensions` | Feature dimensions to test (e.g. `16 256`). |
@@ -193,8 +194,7 @@ defaults:
   n_reps: 3
   random_state: 42
   test_split: 0.1
-  run_cpu: true
-  run_gpu: true
+  backends: [cpu, gpu]
   raise_on_error: true
 
 benchmarks:
@@ -321,7 +321,7 @@ Flat benchmark entries using explicit `rows`, `features`, or `shapes` are still 
 - `n_reps`
 - `random_state`
 - `test_split`
-- `run_cpu`, `run_gpu`
+- `backends`
 - `raise_on_error`
 - `enabled`
 - `tags`
@@ -354,7 +354,7 @@ It can also define:
 - `cpu_params`: CPU-only estimator parameters
 - `dataset_params`: dataset generator parameters
 - `param_grid`, `cuml_param_grid`, `cpu_param_grid`, `dataset_param_grid`: parameter sweeps expanded as Cartesian products
-- `n_reps`, `input_type`, `dtype`, `random_state`, `test_split`, `run_cpu`, `run_gpu`, `raise_on_error`
+- `n_reps`, `input_type`, `dtype`, `random_state`, `test_split`, `backends`, `raise_on_error`
 - `tags`: labels used by profiles
 - `enabled`, `skip_reason`
 - `comparison`, `metadata`
@@ -416,8 +416,7 @@ defaults:
   n_reps: 2
   random_state: 42
   test_split: 0.1
-  run_cpu: true
-  run_gpu: true
+  backends: [cpu, gpu]
   raise_on_error: true
 
 benchmarks:
@@ -471,7 +470,7 @@ Common useful overrides are:
 
 - `--profile`
 - positional algorithm names to restrict which manifest entries run
-- `--skip-gpu` or `--skip-cpu`
+- `--backends`, `--skip-gpu`, or `--skip-cpu`
 - `--num-rows`, `--num-features`, `--input-dimensions`, `--default-size`
 - `--n-reps`, `--dtype`, `--input-type`, `--test-split`
 - `--param-sweep`, `--cuml-param-sweep`, `--cpu-param-sweep`, `--dataset-param-sweep`
@@ -482,7 +481,7 @@ Example:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
   --profile default \
-  --skip-gpu \
+  --backends cpu \
   --num-rows 50000 \
   LogisticRegression
 ```

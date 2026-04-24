@@ -29,6 +29,7 @@ def _make_args(**overrides):
         "n_reps": 1,
         "skip_cpu": False,
         "skip_gpu": False,
+        "backends": None,
         "raise_on_error": False,
         "rmm_allocator": "cuda",
         "min_rows": 10,
@@ -128,8 +129,7 @@ defaults:
   n_reps: 2
   random_state: 42
   test_split: 0.2
-  run_cpu: true
-  run_gpu: false
+  backends: [cpu]
   raise_on_error: true
 
 benchmarks:
@@ -183,8 +183,7 @@ defaults:
   n_reps: 2
   random_state: 42
   test_split: 0.2
-  run_cpu: true
-  run_gpu: false
+  backends: [cpu]
   raise_on_error: true
 
 benchmarks:
@@ -417,8 +416,7 @@ defaults:
   dtype: fp32
   n_reps: 1
   test_split: 0.1
-  run_cpu: true
-  run_gpu: false
+  backends: [cpu]
 
 benchmarks:
   - id: logreg
@@ -481,6 +479,7 @@ def test_run_config_benchmarks_uses_shape_pairs_without_cartesian_product(
                     "test_split": 0.2,
                     "run_cpu": True,
                     "run_gpu": False,
+                    "backends": ["cpu"],
                     "raise_on_error": True,
                     "default_size": False,
                     "shape_pairs": [
@@ -553,6 +552,7 @@ def test_run_config_benchmarks_applies_only_explicit_cli_overrides(
                     "test_split": 0.1,
                     "run_cpu": True,
                     "run_gpu": True,
+                    "backends": ["cpu", "gpu"],
                     "raise_on_error": True,
                     "default_size": False,
                     "shape_pairs": None,
@@ -608,6 +608,76 @@ def test_run_config_benchmarks_applies_only_explicit_cli_overrides(
     assert setup_calls == []
 
 
+def test_run_config_benchmarks_backends_cli_override(monkeypatch):
+    calls = []
+    setup_calls = []
+
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.load_and_resolve_config",
+        lambda *args, **kwargs: {
+            "config_path": "/tmp/backends.yaml",
+            "suite_name": "test-suite",
+            "suite_tier": "test",
+            "profile": "default",
+            "benchmarks": [
+                {
+                    "benchmark_id": "backend-bench",
+                    "algorithm": "LogisticRegression",
+                    "dataset": "classification",
+                    "input_type": "numpy",
+                    "dtype": "fp32",
+                    "n_reps": 1,
+                    "random_state": 42,
+                    "test_split": 0.1,
+                    "backends": ["cpu", "gpu"],
+                    "run_cpu": True,
+                    "run_gpu": True,
+                    "raise_on_error": True,
+                    "default_size": False,
+                    "shape_pairs": None,
+                    "bench_rows": [200],
+                    "bench_dims": [8],
+                    "operation": "fit",
+                    "comparison": None,
+                    "param_override_list": [{}],
+                    "cuml_param_override_list": [{}],
+                    "cpu_param_override_list": [{}],
+                    "dataset_param_override_list": [{}],
+                    "tags": ["test"],
+                    "enabled": True,
+                    "skip_reason": None,
+                    "metadata": {},
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.algorithms.algorithm_by_name",
+        lambda name: {"name": name},
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.is_gpu_available", lambda: True
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.setup_rmm_allocator",
+        lambda allocator: setup_calls.append(allocator),
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.runners.run_variations",
+        lambda algos, **kwargs: calls.append(kwargs)
+        or pd.DataFrame([{"algo": "LogisticRegression"}]),
+    )
+
+    _run_config_benchmarks(
+        _make_args(backends="gpu"), explicit_options={"--backends"}
+    )
+
+    [call] = calls
+    assert call["run_cpu"] is False
+    assert call["run_cuml"] is True
+    assert setup_calls == ["cuda"]
+
+
 @pytest.mark.parametrize(
     ("arg_name", "expected_run_cpu", "expected_run_cuml"),
     [
@@ -640,6 +710,7 @@ def test_run_benchmark_config_mode_respects_skip_flags_without_explicit_options(
                     "test_split": 0.1,
                     "run_cpu": True,
                     "run_gpu": True,
+                    "backends": ["cpu", "gpu"],
                     "raise_on_error": True,
                     "default_size": False,
                     "shape_pairs": None,

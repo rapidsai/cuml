@@ -19,8 +19,7 @@ defaults:
   n_reps: 3
   random_state: 42
   test_split: 0.1
-  run_cpu: true
-  run_gpu: true
+  backends: [cpu, gpu]
   raise_on_error: true
   enabled: true
   tags: [single-gpu]

@@ -42,6 +42,7 @@ BENCHMARK_KEYS = {
     "test_split",
     "run_cpu",
     "run_gpu",
+    "backends",
     "raise_on_error",
     "default_size",
     "shapes",
@@ -96,6 +97,7 @@ SCALAR_FIELDS = {
     "test_split",
     "run_cpu",
     "run_gpu",
+    "backends",
     "raise_on_error",
     "default_size",
     "operation",
@@ -111,6 +113,7 @@ ALLOWED_OPERATIONS = {
     "fit_kneighbors",
     "kneighbors",
 }
+ALLOWED_BACKENDS = {"cpu", "gpu"}
 SIZE_FIELDS = {"default_size", "shapes", "rows", "features"}
 COMPACT_VARIANT_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
     "id_suffix",
@@ -401,6 +404,8 @@ def _validate_default_or_entry(
         raise BenchmarkConfigError(
             f"{context} field 'default_size' must be a boolean"
         )
+    if "backends" in entry:
+        _normalize_backends(entry["backends"], context=context)
 
     for numeric_field in ("n_reps", "random_state"):
         if numeric_field in entry and not _is_int_value(entry[numeric_field]):
@@ -681,7 +686,8 @@ def _validate_post_defaults_entry(entry: dict[str, Any]) -> None:
             "0.0 and 1.0 after applying defaults"
         )
 
-    if not entry.get("run_cpu", True) and not entry.get("run_gpu", True):
+    backends = _resolved_entry_backends(entry)
+    if not backends:
         raise BenchmarkConfigError(
             f"Benchmark '{benchmark_name}' cannot "
             "disable both CPU and GPU execution"
@@ -720,6 +726,8 @@ def _normalize_resolved_entry(entry: dict[str, Any]) -> dict[str, Any]:
             entry.get("features"), field_name="features", allow_none=False
         )
 
+    backends = _resolved_entry_backends(entry)
+
     return {
         "benchmark_id": entry.get("id", entry["algorithm"]),
         "algorithm": entry["algorithm"],
@@ -729,8 +737,9 @@ def _normalize_resolved_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "n_reps": entry.get("n_reps"),
         "random_state": entry.get("random_state"),
         "test_split": entry.get("test_split"),
-        "run_cpu": entry.get("run_cpu", True),
-        "run_gpu": entry.get("run_gpu", True),
+        "backends": backends,
+        "run_cpu": "cpu" in backends,
+        "run_gpu": "gpu" in backends,
         "raise_on_error": entry.get("raise_on_error", False),
         "default_size": default_size,
         "shape_pairs": shape_pairs,
@@ -747,6 +756,18 @@ def _normalize_resolved_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "skip_reason": entry.get("skip_reason"),
         "metadata": deepcopy(entry.get("metadata", {})),
     }
+
+
+def _resolved_entry_backends(entry: dict[str, Any]) -> list[str]:
+    if "backends" in entry:
+        return _normalize_backends(entry["backends"], context="benchmark")
+
+    backends = []
+    if entry.get("run_cpu", True):
+        backends.append("cpu")
+    if entry.get("run_gpu", True):
+        backends.append("gpu")
+    return backends
 
 
 def _select_profile(
@@ -854,6 +875,40 @@ def _normalize_int_list(
             f"Field '{field_name}' must contain only integers"
         )
     return value
+
+
+def _normalize_backends(value: Any, *, context: str) -> list[str]:
+    if isinstance(value, str):
+        values = [part.strip() for part in value.split(",") if part.strip()]
+    elif isinstance(value, list):
+        values = value
+    else:
+        raise BenchmarkConfigError(
+            f"{context} field 'backends' must be a non-empty list of backend names"
+        )
+
+    if not values:
+        raise BenchmarkConfigError(
+            f"{context} field 'backends' must be a non-empty list of backend names"
+        )
+
+    normalized = []
+    seen = set()
+    for backend in values:
+        if not isinstance(backend, str) or not backend:
+            raise BenchmarkConfigError(
+                f"{context} field 'backends' must contain only non-empty strings"
+            )
+        backend = backend.lower()
+        if backend not in ALLOWED_BACKENDS:
+            raise BenchmarkConfigError(
+                f"{context} field 'backends' contains unsupported backend "
+                f"'{backend}'. Supported backends: {sorted(ALLOWED_BACKENDS)}"
+            )
+        if backend not in seen:
+            seen.add(backend)
+            normalized.append(backend)
+    return normalized
 
 
 def _normalize_shapes(value: Any, *, field_name: str) -> list[dict[str, int]]:
