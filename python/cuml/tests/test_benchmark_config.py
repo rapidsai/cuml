@@ -678,6 +678,86 @@ def test_run_config_benchmarks_backends_cli_override(monkeypatch):
     assert setup_calls == ["cuda"]
 
 
+def test_run_config_benchmarks_dispatches_accel_backend(monkeypatch):
+    accel_calls = []
+    runner_calls = []
+
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.load_and_resolve_config",
+        lambda *args, **kwargs: {
+            "config_path": "/tmp/accel.yaml",
+            "suite_name": "test-suite",
+            "suite_tier": "test",
+            "profile": "default",
+            "benchmarks": [
+                {
+                    "benchmark_id": "accel-bench",
+                    "algorithm": "LogisticRegression",
+                    "dataset": "classification",
+                    "input_type": "numpy",
+                    "dtype": "fp32",
+                    "n_reps": 1,
+                    "random_state": 42,
+                    "test_split": 0.1,
+                    "backends": ["accel"],
+                    "run_cpu": False,
+                    "run_gpu": False,
+                    "raise_on_error": True,
+                    "default_size": False,
+                    "shape_pairs": None,
+                    "bench_rows": [200],
+                    "bench_dims": [8],
+                    "operation": "fit",
+                    "comparison": None,
+                    "param_override_list": [{}],
+                    "cuml_param_override_list": [{}],
+                    "cpu_param_override_list": [{}],
+                    "dataset_param_override_list": [{}],
+                    "tags": ["test"],
+                    "enabled": True,
+                    "skip_reason": None,
+                    "metadata": {},
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.algorithms.algorithm_by_name",
+        lambda name: {"name": name},
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.is_gpu_available", lambda: False
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.runners.run_variations",
+        lambda algos, **kwargs: runner_calls.append(kwargs)
+        or pd.DataFrame([{"algo": "LogisticRegression"}]),
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks._run_accel_variations",
+        lambda **kwargs: accel_calls.append(kwargs)
+        or pd.DataFrame(
+            [
+                {
+                    "algo": "LogisticRegression",
+                    "backend": "accel",
+                    "accel_time": 1.0,
+                }
+            ]
+        ),
+    )
+
+    results = _run_config_benchmarks(_make_args(), explicit_options=set())
+
+    assert runner_calls == []
+    assert len(accel_calls) == 1
+    assert accel_calls[0]["algorithm_name"] == "LogisticRegression"
+    assert accel_calls[0]["bench_rows"] == [200]
+    assert accel_calls[0]["bench_dims"] == [8]
+    assert list(results["backend"]) == ["accel"]
+    assert list(results["benchmark_id"]) == ["accel-bench"]
+
+
 @pytest.mark.parametrize(
     ("arg_name", "expected_run_cpu", "expected_run_cuml"),
     [

@@ -106,7 +106,7 @@ def build_parser():
         default=None,
         help=(
             "Comma-separated execution backends to run. Supported values: "
-            "cpu,gpu. Overrides manifest backends in config mode."
+            "cpu,gpu,accel. Overrides manifest backends in config mode."
         ),
     )
     parser.add_argument("--input-type", default="numpy")

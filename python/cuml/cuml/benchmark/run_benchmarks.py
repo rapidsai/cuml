@@ -17,7 +17,9 @@ Modes:
 
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import warnings
 
 import numpy as np
@@ -62,7 +64,7 @@ PrecisionMap = {
     "fp32": np.float32,
     "fp64": np.float64,
 }
-SUPPORTED_BACKENDS = {"cpu", "gpu"}
+SUPPORTED_BACKENDS = {"accel", "cpu", "gpu"}
 
 
 def extract_param_overrides(params_to_sweep):
@@ -380,6 +382,99 @@ def _config_param_lists(entry, args, explicit_options):
     }
 
 
+def _dtype_to_config_value(dtype):
+    if dtype is np.float32:
+        return "fp32"
+    if dtype is np.float64:
+        return "fp64"
+    return dtype
+
+
+def _run_accel_variations(
+    *,
+    algorithm_name,
+    dataset_name,
+    bench_rows,
+    bench_dims,
+    input_type,
+    test_fraction,
+    dtype,
+    raise_on_error,
+    n_reps,
+    param_lists,
+):
+    """Run a benchmark variation in a subprocess with cuml.accel enabled."""
+    with tempfile.NamedTemporaryFile(suffix=".csv") as csv_file:
+        payload = {
+            "algorithm": algorithm_name,
+            "dataset_name": dataset_name,
+            "bench_rows": bench_rows,
+            "bench_dims": bench_dims,
+            "input_type": input_type,
+            "test_fraction": test_fraction,
+            "dtype": _dtype_to_config_value(dtype),
+            "raise_on_error": raise_on_error,
+            "n_reps": n_reps,
+            "param_lists": param_lists,
+            "csv_path": csv_file.name,
+        }
+        script = f"""
+import json
+import numpy as np
+
+from cuml.benchmark import algorithms, runners
+
+payload = json.loads({json.dumps(json.dumps(payload))})
+dtype = {{"fp32": np.float32, "fp64": np.float64}}.get(
+    payload["dtype"], payload["dtype"]
+)
+algo = algorithms.algorithm_by_name(payload["algorithm"])
+if algo is None:
+    raise ValueError(f"Unknown algorithm: {{payload['algorithm']}}")
+
+results_df = runners.run_variations(
+    [algo],
+    dataset_name=payload["dataset_name"],
+    bench_rows=payload["bench_rows"],
+    bench_dims=payload["bench_dims"],
+    input_type=payload["input_type"],
+    test_fraction=payload["test_fraction"],
+    dtype=dtype,
+    run_cpu=True,
+    run_cuml=False,
+    raise_on_error=payload["raise_on_error"],
+    n_reps=payload["n_reps"],
+    **payload["param_lists"],
+)
+if "cpu_time" in results_df:
+    results_df["accel_time"] = results_df["cpu_time"]
+    results_df["cpu_time"] = 0.0
+if "cpu_acc" in results_df:
+    results_df["accel_acc"] = results_df["cpu_acc"]
+    results_df["cpu_acc"] = 0.0
+results_df["backend"] = "accel"
+results_df.to_csv(payload["csv_path"], index=False)
+"""
+        completed = subprocess.run(
+            [sys.executable, "-m", "cuml.accel", "-"],
+            input=script,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            message = (
+                "cuml.accel benchmark subprocess failed with exit code "
+                f"{completed.returncode}\nSTDOUT:\n{completed.stdout}\n"
+                f"STDERR:\n{completed.stderr}"
+            )
+            if raise_on_error:
+                raise RuntimeError(message)
+            warnings.warn(message, stacklevel=2)
+            return pd.DataFrame()
+        return pd.read_csv(csv_file.name)
+
+
 def _resolved_entry_dimensions(entry, args, explicit_options):
     """Resolve benchmark dimensions for a config-backed benchmark entry."""
     if entry["shape_pairs"] is not None:
@@ -473,10 +568,10 @@ def _run_config_benchmarks(args, explicit_options):
             n_reps = args.n_reps
 
         run_cpu = "cpu" in selected_backends
-
+        run_accel = "accel" in selected_backends
         run_cuml = "gpu" in selected_backends and allow_gpu_runs
 
-        if not run_cpu and not run_cuml:
+        if not run_cpu and not run_cuml and not run_accel:
             raise ValueError(
                 f"Benchmark '{entry['benchmark_id']}' has no runnable backends "
                 "after applying CLI overrides and GPU availability."
@@ -493,6 +588,9 @@ def _run_config_benchmarks(args, explicit_options):
         input_type = _validate_benchmark_inputs(
             test_split, input_type, run_cuml
         )
+        accel_input_type = _validate_benchmark_inputs(
+            test_split, input_type, False
+        )
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
 
@@ -503,27 +601,51 @@ def _run_config_benchmarks(args, explicit_options):
         ]
 
         for shape in variation_shapes:
-            results_df = runners.run_variations(
-                [algo],
-                dataset_name=dataset_name,
-                bench_rows=[shape["rows"]],
-                bench_dims=[shape["features"]],
-                input_type=input_type,
-                test_fraction=test_split,
-                dtype=dtype,
-                run_cpu=run_cpu,
-                run_cuml=run_cuml,
-                raise_on_error=raise_on_error,
-                n_reps=n_reps,
-                **param_lists,
-            )
-            results_df["benchmark_id"] = entry["benchmark_id"]
-            results_df["config_path"] = resolved["config_path"]
-            results_df["suite_name"] = resolved["suite_name"]
-            results_df["suite_tier"] = resolved["suite_tier"]
-            results_df["profile"] = resolved["profile"]
-            all_results.append(results_df)
+            if run_cpu or run_cuml:
+                results_df = runners.run_variations(
+                    [algo],
+                    dataset_name=dataset_name,
+                    bench_rows=[shape["rows"]],
+                    bench_dims=[shape["features"]],
+                    input_type=input_type,
+                    test_fraction=test_split,
+                    dtype=dtype,
+                    run_cpu=run_cpu,
+                    run_cuml=run_cuml,
+                    raise_on_error=raise_on_error,
+                    n_reps=n_reps,
+                    **param_lists,
+                )
+                results_df["benchmark_id"] = entry["benchmark_id"]
+                results_df["config_path"] = resolved["config_path"]
+                results_df["suite_name"] = resolved["suite_name"]
+                results_df["suite_tier"] = resolved["suite_tier"]
+                results_df["profile"] = resolved["profile"]
+                all_results.append(results_df)
 
+            if run_accel:
+                accel_results_df = _run_accel_variations(
+                    algorithm_name=entry["algorithm"],
+                    dataset_name=dataset_name,
+                    bench_rows=[shape["rows"]],
+                    bench_dims=[shape["features"]],
+                    input_type=accel_input_type,
+                    test_fraction=test_split,
+                    dtype=dtype,
+                    raise_on_error=raise_on_error,
+                    n_reps=n_reps,
+                    param_lists=param_lists,
+                )
+                if not accel_results_df.empty:
+                    accel_results_df["benchmark_id"] = entry["benchmark_id"]
+                    accel_results_df["config_path"] = resolved["config_path"]
+                    accel_results_df["suite_name"] = resolved["suite_name"]
+                    accel_results_df["suite_tier"] = resolved["suite_tier"]
+                    accel_results_df["profile"] = resolved["profile"]
+                    all_results.append(accel_results_df)
+
+    if not all_results:
+        raise ValueError("No benchmark results were produced.")
     return pd.concat(all_results, ignore_index=True)
 
 
@@ -550,20 +672,47 @@ def run_benchmark(args, explicit_options=None):
     param_lists = _build_param_override_lists(args)
     algos_to_run = _resolve_algorithms(args)
 
-    results_df = runners.run_variations(
-        algos_to_run,
-        dataset_name=args.dataset,
-        bench_rows=bench_rows,
-        bench_dims=bench_dims,
-        input_type=args.input_type,
-        test_fraction=args.test_split,
-        dtype=args.dtype,
-        run_cpu=("cpu" in selected_backends),
-        run_cuml=run_gpu,
-        raise_on_error=args.raise_on_error,
-        n_reps=args.n_reps,
-        **param_lists,
-    )
+    all_results = []
+    if "cpu" in selected_backends or run_gpu:
+        all_results.append(
+            runners.run_variations(
+                algos_to_run,
+                dataset_name=args.dataset,
+                bench_rows=bench_rows,
+                bench_dims=bench_dims,
+                input_type=args.input_type,
+                test_fraction=args.test_split,
+                dtype=args.dtype,
+                run_cpu=("cpu" in selected_backends),
+                run_cuml=run_gpu,
+                raise_on_error=args.raise_on_error,
+                n_reps=args.n_reps,
+                **param_lists,
+            )
+        )
+    if "accel" in selected_backends:
+        accel_input_type = _validate_benchmark_inputs(
+            args.test_split, args.input_type, False
+        )
+        for algo in algos_to_run:
+            accel_results_df = _run_accel_variations(
+                algorithm_name=algo.name,
+                dataset_name=args.dataset,
+                bench_rows=list(bench_rows),
+                bench_dims=list(bench_dims),
+                input_type=accel_input_type,
+                test_fraction=args.test_split,
+                dtype=args.dtype,
+                raise_on_error=args.raise_on_error,
+                n_reps=args.n_reps,
+                param_lists=param_lists,
+            )
+            if not accel_results_df.empty:
+                all_results.append(accel_results_df)
+
+    if not all_results:
+        raise ValueError("No benchmark results were produced.")
+    results_df = pd.concat(all_results, ignore_index=True)
     _save_results(results_df, args.csv)
 
 

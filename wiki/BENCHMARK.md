@@ -90,7 +90,7 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--dataset` | Dataset name: e.g. `blobs`, `classification`, `regression`, `higgs`. Use `--print-datasets` to list all. |
 | `--config` | Path to a YAML benchmark manifest. |
 | `--profile` | Named profile to select from a YAML benchmark manifest. |
-| `--backends` | Comma-separated backends to run (`cpu`, `gpu`). |
+| `--backends` | Comma-separated backends to run (`cpu`, `gpu`, `accel`). |
 | `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only); compatibility shortcut. |
 | `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only); compatibility shortcut. |
 | `--csv [FILE]` | Save results to a CSV file. |
@@ -321,7 +321,7 @@ Flat benchmark entries using explicit `rows`, `features`, or `shapes` are still 
 - `n_reps`
 - `random_state`
 - `test_split`
-- `backends`
+- `backends`: execution backends to run, selected from `cpu`, `gpu`, and `accel`
 - `raise_on_error`
 - `enabled`
 - `tags`
@@ -487,6 +487,17 @@ python -m cuml.benchmark \
 ```
 
 This keeps the manifest-selected benchmark entry but overrides the row count and execution mode for that run.
+
+Use the `accel` backend to run the sklearn/CPU benchmark path in an isolated subprocess with `cuml.accel` enabled:
+
+```bash
+python -m cuml.benchmark \
+  --config python/cuml/cuml/benchmark/configs/test.yaml \
+  --profile default \
+  --backends accel
+```
+
+The subprocess activation keeps `cuml.accel` import-time behavior isolated from regular CPU/GPU benchmark runs.
 
 ## Input types
 
