@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iterator>
 #include <numeric>
 #include <optional>
 #include <vector>
@@ -63,18 +64,17 @@ struct decision_forest_builder {
     auto set_storage = &node_value;
 
     // Ensure that all category indices are non-negative.
-    auto const is_negative = [](typename iter_t::value_type x) { return x < 0; };
+    using cat_t            = typename std::iterator_traits<iter_t>::value_type;
+    auto const is_negative = [](cat_t x) { return x < 0; };
     if (std::any_of(vec_begin, vec_end, is_negative)) {
       throw model_builder_error("Category index must be non-negative");
     }
 
     // Ensure that (max_cat + 1) can be represented as node_type::index_type
     // to prevent integer overflow.
-    auto max_cat                 = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end)
-                                                          : typename iter_t::value_type{0};
+    auto max_cat = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) : cat_t{0};
     auto const max_representable = std::numeric_limits<typename node_type::index_type>::max();
-    if (max_cat == std::numeric_limits<typename iter_t::value_type>::max() ||
-        max_cat >= max_representable) {
+    if (max_cat >= max_representable || max_cat + 1 >= max_representable) {
       throw model_builder_error(
         "Category index exceeds maximum representable value for this model's index type");
     }

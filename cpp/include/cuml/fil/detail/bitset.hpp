@@ -22,6 +22,8 @@ struct bitset {
   using storage_type = storage_t;
   using index_type   = index_t;
 
+  static_assert(std::is_unsigned_v<index_t>, "index_t must be unsigned");
+
   auto constexpr static const bin_width = index_type(sizeof(storage_type) * 8);
 
   HOST DEVICE bitset() : data_{nullptr}, num_bits_{0} {}
