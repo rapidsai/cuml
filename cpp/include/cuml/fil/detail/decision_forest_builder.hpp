@@ -64,10 +64,12 @@ struct decision_forest_builder {
     auto set_storage = &node_value;
 
     // Ensure that all category indices are non-negative.
-    using cat_t            = typename std::iterator_traits<iter_t>::value_type;
-    auto const is_negative = [](cat_t x) { return x < 0; };
-    if (std::any_of(vec_begin, vec_end, is_negative)) {
-      throw model_builder_error("Category index must be non-negative");
+    using cat_t = typename std::iterator_traits<iter_t>::value_type;
+    if constexpr (std::is_signed_v<cat_t>) {
+      auto const is_negative = [](cat_t x) { return x < 0; };
+      if (std::any_of(vec_begin, vec_end, is_negative)) {
+        throw model_builder_error("Category index must be non-negative");
+      }
     }
 
     // Ensure that (max_cat + 1) can be represented as node_type::index_type
