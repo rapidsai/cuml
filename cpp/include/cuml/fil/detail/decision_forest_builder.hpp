@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -57,20 +57,37 @@ struct decision_forest_builder {
     typename node_type::metadata_storage_type feature = typename node_type::metadata_storage_type{},
     typename node_type::offset_type offset            = typename node_type::offset_type{})
   {
-    auto constexpr const bin_width = index_type(sizeof(typename node_type::index_type) * 8);
-    auto node_value                = typename node_type::index_type{};
-    auto set_storage               = &node_value;
-    auto max_node_categories =
-      (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) + 1 : 1;
+    auto constexpr const bin_width =
+      typename node_type::index_type{sizeof(typename node_type::index_type) * 8};
+    auto node_value  = typename node_type::index_type{};
+    auto set_storage = &node_value;
+
+    // Ensure that all category indices are non-negative.
+    auto const is_negative = [](typename iter_t::value_type x) { return x < 0; };
+    if (std::any_of(vec_begin, vec_end, is_negative)) {
+      throw model_builder_error("Category index must be non-negative");
+    }
+
+    // Ensure that (max_cat + 1) can be represented as node_type::index_type
+    // to prevent integer overflow.
+    auto max_cat                 = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end)
+                                                          : typename iter_t::value_type{0};
+    auto const max_representable = std::numeric_limits<typename node_type::index_type>::max();
+    if (max_cat == std::numeric_limits<typename iter_t::value_type>::max() ||
+        max_cat >= max_representable) {
+      throw model_builder_error(
+        "Category index exceeds maximum representable value for this model's index type");
+    }
+    auto max_cat_plus_one =
+      static_cast<typename node_type::index_type>(max_cat) + typename node_type::index_type{1};
     if (max_num_categories_ > bin_width) {
-      // TODO(wphicks): Check for overflow here
       node_value         = categorical_storage_.size();
-      auto bins_required = raft_proto::ceildiv(max_node_categories, bin_width);
-      categorical_storage_.push_back(max_node_categories);
+      auto bins_required = raft_proto::ceildiv(max_cat_plus_one, bin_width);
+      categorical_storage_.push_back(max_cat_plus_one);
       categorical_storage_.resize(categorical_storage_.size() + bins_required);
       set_storage = &(categorical_storage_[node_value + 1]);
     }
-    auto set = bitset{set_storage, max_node_categories};
+    auto set = bitset{set_storage, max_cat_plus_one};
     std::for_each(vec_begin, vec_end, [&set](auto&& cat_index) { set.set(cat_index); });
 
     add_node(
