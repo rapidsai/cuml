@@ -52,6 +52,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
             X,
             y,
             dtype=("float32", "float64"),
+            y_dtype=None,
             accept_sparse=True,
             reset=True,
             mem_type="host",
