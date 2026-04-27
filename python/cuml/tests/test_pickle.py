@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -34,9 +34,8 @@ regression_models = regression_config.get_models()
 
 solver_config = ClassEnumerator(
     module=cuml.solvers,
-    # QN uses softmax here because some of the tests uses multiclass
-    # logistic regression which requires a softmax loss
-    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")},
+    # Customize the loss so QN is a regressor like the other solvers
+    custom_constructors={"QN": lambda: cuml.QN(loss="l2")},
 )
 solver_models = solver_config.get_models()
 

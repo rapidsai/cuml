@@ -16,7 +16,7 @@ SKLEARN_EXAMPLES_JUNITXML="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
 
 # Run scikit-learn examples under cuml.accel
 rapids-logger "scikit-learn examples"
-timeout 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
+timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
     -n 4 --dist worksteal \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 

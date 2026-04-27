@@ -235,7 +235,8 @@ int main(int argc, char* argv[])
 
   // Initialize AST
   auto curr_mr = rmm::mr::get_current_device_resource_ref();
-  d_finalprogs = static_cast<cg::program_t>(curr_mr.allocate(stream, params.population_size));
+  d_finalprogs = static_cast<cg::program_t>(
+    curr_mr.allocate(stream, params.population_size * sizeof(cg::program), alignof(cg::program)));
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
@@ -327,7 +328,8 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  curr_mr.deallocate(stream, d_finalprogs, params.population_size);
+  curr_mr.deallocate(
+    stream, d_finalprogs, params.population_size * sizeof(cg::program), alignof(cg::program));
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   return 0;
