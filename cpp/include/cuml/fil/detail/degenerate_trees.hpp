@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -17,7 +17,7 @@ namespace ML::fil::detail {
 // This function returns a modified copy of a given Treelite model if it contains
 // at least one degenerate tree (a single root node with no child).
 // If the model contains no degenerate tree, then the function returns nullptr.
-std::unique_ptr<treelite::Model> convert_degenerate_trees(treelite::Model const& tl_model)
+inline std::unique_ptr<treelite::Model> convert_degenerate_trees(treelite::Model const& tl_model)
 {
   bool contains_degenerate =
     ML::forest::tree_accumulate(tl_model, false, [](auto&& contains, auto&& tree) {

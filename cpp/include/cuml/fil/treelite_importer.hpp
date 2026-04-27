@@ -430,13 +430,14 @@ struct treelite_importer {
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */
-auto import_from_treelite_model(treelite::Model const& tl_model,
-                                tree_layout layout                       = preferred_tree_layout,
-                                index_type align_bytes                   = index_type{},
-                                std::optional<bool> use_double_precision = std::nullopt,
-                                raft_proto::device_type dev_type = raft_proto::device_type::cpu,
-                                int device                       = 0,
-                                raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
+inline auto import_from_treelite_model(
+  treelite::Model const& tl_model,
+  tree_layout layout                       = preferred_tree_layout,
+  index_type align_bytes                   = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
+  int device                               = 0,
+  raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
 {
   auto result = forest_model{};
   switch (layout) {
@@ -480,13 +481,14 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */
-auto import_from_treelite_handle(TreeliteModelHandle tl_handle,
-                                 tree_layout layout                       = preferred_tree_layout,
-                                 index_type align_bytes                   = index_type{},
-                                 std::optional<bool> use_double_precision = std::nullopt,
-                                 raft_proto::device_type dev_type = raft_proto::device_type::cpu,
-                                 int device                       = 0,
-                                 raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
+inline auto import_from_treelite_handle(
+  TreeliteModelHandle tl_handle,
+  tree_layout layout                       = preferred_tree_layout,
+  index_type align_bytes                   = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
+  int device                               = 0,
+  raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
 {
   return import_from_treelite_model(*static_cast<treelite::Model*>(tl_handle),
                                     layout,
