@@ -21,6 +21,8 @@
 #include <iterator>
 #include <numeric>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace ML {
@@ -33,10 +35,11 @@ namespace detail {
 struct model_builder_error : std::exception {
   model_builder_error() : model_builder_error("Error while building model") {}
   model_builder_error(char const* msg) : msg_{msg} {}
-  virtual char const* what() const noexcept { return msg_; }
+  model_builder_error(std::string msg) : msg_{std::move(msg)} {}
+  virtual char const* what() const noexcept { return msg_.c_str(); }
 
  private:
-  char const* msg_;
+  std::string msg_;
 };
 
 /*
@@ -52,6 +55,7 @@ struct decision_forest_builder {
   void add_categorical_node(
     iter_t vec_begin,
     iter_t vec_end,
+    std::size_t tree_id,
     std::optional<int> tl_node_id                     = std::nullopt,
     std::size_t depth                                 = std::size_t{1},
     bool default_to_distant_child                     = false,
@@ -65,23 +69,23 @@ struct decision_forest_builder {
 
     // Ensure that all category indices are non-negative.
     using cat_t = typename std::iterator_traits<iter_t>::value_type;
-    if constexpr (std::is_signed_v<cat_t>) {
-      auto const is_negative = [](cat_t x) { return x < 0; };
-      if (std::any_of(vec_begin, vec_end, is_negative)) {
-        throw model_builder_error("Category index must be non-negative");
-      }
-    }
+    static_assert(std::is_unsigned_v<cat_t>, "Category value must be an unsigned integer type");
+
+    auto max_cat = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) : cat_t{0};
 
     // Ensure that (max_cat + 1) can be represented as node_type::index_type
     // to prevent integer overflow.
-    auto max_cat = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) : cat_t{0};
-    auto const max_representable = std::numeric_limits<typename node_type::index_type>::max();
-    if (max_cat >= max_representable || max_cat + 1 >= max_representable) {
+    using index_t           = typename node_type::index_type;
+    auto const max_index    = static_cast<std::uintmax_t>(std::numeric_limits<index_t>::max());
+    auto const cat_unsigned = static_cast<std::uintmax_t>(max_cat);
+    if (cat_unsigned >= max_index) {
+      auto node_id_repr =
+        tl_node_id.has_value() ? std::to_string(tl_node_id.value()) : std::string{"n/a"};
       throw model_builder_error(
-        "Category index exceeds maximum representable value for this model's index type");
+        std::string{"Tree "} + std::to_string(tree_id) + ", Node " + node_id_repr +
+        ": Category index exceeds maximum representable value for this model's index type");
     }
-    auto max_cat_plus_one =
-      static_cast<typename node_type::index_type>(max_cat) + typename node_type::index_type{1};
+    auto max_cat_plus_one = static_cast<index_t>(cat_unsigned + 1u);
     if (max_num_categories_ > bin_width) {
       node_value         = categorical_storage_.size();
       auto bins_required = raft_proto::ceildiv(max_cat_plus_one, bin_width);

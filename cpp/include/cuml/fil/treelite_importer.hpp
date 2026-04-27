@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -273,6 +273,7 @@ struct treelite_importer {
                 auto categories = node.get_categories();
                 builder.add_categorical_node(std::begin(categories),
                                              std::end(categories),
+                                             tree_id,
                                              node.get_treelite_id(),
                                              depth,
                                              node.default_distant(),
