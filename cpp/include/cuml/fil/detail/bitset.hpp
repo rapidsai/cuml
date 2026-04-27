@@ -22,6 +22,7 @@ struct bitset {
   using storage_type = storage_t;
   using index_type   = index_t;
 
+  // Ensrue that index_t is unsigned. Bound checks below rely on index_t being unsigned
   static_assert(std::is_unsigned_v<index_t>, "index_t must be unsigned");
 
   auto constexpr static const bin_width = index_type(sizeof(storage_type) * 8);
@@ -41,6 +42,7 @@ struct bitset {
   // Standard bit-wise mutators and accessor
   HOST DEVICE auto& set(index_type index)
   {
+    // Guard against OOB writes; silently ignored to preserve memory safety
     if (index < num_bits_) { data_[bin_from_index(index)] |= mask_in_bin(index); }
     return *this;
   }
