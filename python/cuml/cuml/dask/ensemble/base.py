@@ -46,14 +46,15 @@ class BaseRandomForestModel(object):
             )
         self.workers = workers
         self._set_internal_model(None)
-        if "max_depth" not in kwargs:
-            warnings.warn(
-                "The default value of 'max_depth' will change from 16 to "
-                "None (unlimited depth) in release 26.08. To suppress this "
-                "warning, set 'max_depth' explicitly.",
-                FutureWarning,
-                stacklevel=3,
-            )
+        # TODO(26.08): Drop along with the single-GPU deprecation in
+        # cuml.ensemble.randomforest_common.
+        # Record whether the user explicitly set `max_depth`; the warning is
+        # emitted from `_fit` so it fires at fit time (matching the single-GPU
+        # path) rather than at construction. We still forward an explicit
+        # `max_depth=16` to the per-worker single-GPU estimators so they don't
+        # each emit their own FutureWarning.
+        self._max_depth_user_set = "max_depth" in kwargs
+        if not self._max_depth_user_set:
             kwargs["max_depth"] = 16
 
         self.active_workers = list()
@@ -99,6 +100,17 @@ class BaseRandomForestModel(object):
         return n_estimators_per_worker
 
     def _fit(self, model, dataset, convert_dtype, broadcast_data):
+        # TODO(26.08): Drop along with the single-GPU deprecation in
+        # cuml.ensemble.randomforest_common.
+        if not getattr(self, "_max_depth_user_set", True):
+            warnings.warn(
+                "The default value of 'max_depth' will change from 16 to "
+                "None (unlimited depth) in release 26.08. To suppress this "
+                "warning, set 'max_depth' explicitly.",
+                FutureWarning,
+                stacklevel=3,
+            )
+
         data = DistributedDataHandler.create(dataset, client=self.client)
         self.active_workers = data.workers
         self.datatype = data.datatype
@@ -240,6 +252,10 @@ class BaseRandomForestModel(object):
         return params_of_each_model
 
     def _set_params(self, **params):
+        # TODO(26.08): Drop along with the single-GPU deprecation in
+        # cuml.ensemble.randomforest_common.
+        if "max_depth" in params:
+            self._max_depth_user_set = True
         model_params = list()
         for idx, worker in enumerate(self.workers):
             model_params.append(
