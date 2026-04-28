@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -31,7 +31,6 @@ unset(cuml_FOUND)
 # --- cuML --- #
 set(BUILD_CUML_TESTS OFF)
 set(BUILD_PRIMS_TESTS OFF)
-set(BUILD_CUML_C_LIBRARY OFF)
 set(BUILD_CUML_EXAMPLES OFF)
 set(BUILD_CUML_BENCH OFF)
 
@@ -47,7 +46,7 @@ set(CUML_ALGORITHMS
 # for libcuml wheels, always compile in the multi-node, multi-GPU functionality
 set(SINGLEGPU OFF)
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_SRC "../../cpp")
 
 # --- cuVS --- #
@@ -69,7 +68,10 @@ set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 add_subdirectory(../../cpp cuml-cpp)
 
-# assumes libcuml++ is installed 2 levels deep, e.g. site-packages/cuml/lib64/libcuml++.so
+# RPATHs below assume the shared library is installed in a wheel layout:
+# .../site-packages/libcuml/lib64/libcuml.so (see python/libcuml/libcuml/load.py and
+# python/libcuml/tests/test_libcuml_linkage.py, which resolve libcuml.so under the libcuml package's
+# lib64 directory).
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
   # starting with CTK 13 wheels, all libraries except NCCL are grouped in this 'nvidia/cu13/lib'
   # directory

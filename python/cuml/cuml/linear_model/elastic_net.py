@@ -22,7 +22,7 @@ from cuml.internals.mixins import (
 )
 from cuml.internals.outputs import reflect
 from cuml.linear_model.base import LinearPredictMixin
-from cuml.solvers.cd import fit_coordinate_descent
+from cuml.solvers.cd import fit_cd
 from cuml.solvers.qn import fit_qn
 
 
@@ -229,7 +229,7 @@ class ElasticNet(
         return cupyx.scipy.sparse.csr_matrix(self.coef_.to_output("cupy"))
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "ElasticNet":
@@ -252,6 +252,7 @@ class ElasticNet(
 
         if solver == "qn":
             coef, intercept, n_iter, _ = fit_qn(
+                self,
                 X,
                 y,
                 sample_weight=sample_weight,
@@ -265,7 +266,7 @@ class ElasticNet(
                 penalty_normalized=False,
                 verbose=self._verbose_level,
             )
-            coef = CumlArray(data=coef.to_output("cupy").flatten())
+            coef = coef.flatten()
             intercept = intercept.item()
         elif solver == "cd":
             if is_sparse(X):
@@ -273,7 +274,8 @@ class ElasticNet(
                     "solver='cd' doesn't support sparse inputs, please use "
                     "solver='auto' or solver='qn' instead"
                 )
-            coef, intercept, n_iter = fit_coordinate_descent(
+            coef, intercept, n_iter = fit_cd(
+                self,
                 X,
                 y,
                 sample_weight=sample_weight,
@@ -288,7 +290,7 @@ class ElasticNet(
         else:
             raise ValueError(f"solver={solver!r} is not supported")
 
-        self.coef_ = coef
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept
         self.n_iter_ = n_iter
 

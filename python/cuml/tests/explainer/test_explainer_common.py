@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -21,6 +21,10 @@ from cuml.explainer.common import (
 )
 from cuml.testing.utils import ClassEnumerator
 
+# TODO(26.08) Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 

@@ -38,7 +38,7 @@ set(CUML_ALGORITHMS
       "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list."
 )
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_SRC "../../cpp")
 
 # ##################################################################################################
@@ -74,7 +74,7 @@ find_package(cuml "${RAPIDS_VERSION}" REQUIRED COMPONENTS cuml)
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
-# MNMG code is now built directly into libcuml++
+# MNMG code is now built directly into libcuml
 
 # ##################################################################################################
 # * Build Cython artifacts -----------------------------------------------------

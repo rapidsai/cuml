@@ -6,16 +6,18 @@
 import numbers
 
 import cupy as cp
-import cupyx
-import scipy.sparse
 
 import cuml.internals
-from cuml.common import input_to_cuml_array
+from cuml.common.sparse_utils import is_sparse
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import (
+    check_array,
+    check_features,
+    check_inputs,
+    check_is_fitted,
+)
 
 
 class IncrementalPCA(PCA):
@@ -194,7 +196,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
@@ -217,20 +219,16 @@ class IncrementalPCA(PCA):
         self.mean_ = 0.0
         self.var_ = 0.0
 
-        if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-            X = _validate_sparse_input(X)
-        else:
-            # NOTE: While we cast the input to a cupy array here, we still
-            # respect the `output_type` parameter in the constructor. This
-            # is done by PCA, which IncrementalPCA inherits from. PCA's
-            # transform and inverse transform convert the output to the
-            # required type.
-            X, n_samples, n_features, _ = input_to_cupy_array(
-                X,
-                order="K",
-                convert_to_dtype=(cp.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64],
-            )
+        # Sparse inputs are sliced into row batches below; restrict to CSR/CSC
+        # which support that.
+        X = check_inputs(
+            self,
+            X,
+            accept_sparse=["csr", "csc"],
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            reset=True,
+        )
 
         n_samples, n_features = X.shape
 
@@ -243,7 +241,7 @@ class IncrementalPCA(PCA):
             n_samples, self.batch_size_, min_batch_size=self.n_components or 0
         ):
             X_batch = X[batch]
-            if cupyx.scipy.sparse.issparse(X_batch):
+            if is_sparse(X_batch):
                 X_batch = X_batch.toarray()
 
             self.partial_fit(X_batch, check_input=False)
@@ -272,38 +270,33 @@ class IncrementalPCA(PCA):
             Returns the instance itself.
 
         """
-        if getattr(self, "n_samples_seen_", 0) == 0:
-            # This instance hasn't been fit yet
-            self._set_output_type(X)
-            check_features(self, X, reset=True)
+        if check_input and is_sparse(X):
+            raise TypeError(
+                "IncrementalPCA.partial_fit does not support "
+                "sparse input. Either convert data to dense "
+                "or use IncrementalPCA.fit to do so in batches."
+            )
 
+        if first_call := getattr(self, "n_samples_seen_", 0) == 0:
+            self._set_output_type(X)
+        check_features(self, X, reset=first_call)
+
+        if check_input:
+            X = check_array(X, dtype=("float32", "float64"))
+
+        n_samples, n_features = X.shape
+
+        if first_call:
             self.n_samples_seen_ = 0
             mean = 0.0
             var = 0.0
             singular_values = None
             components = None
         else:
-            check_features(self, X)
-
-            with cuml.using_output_type("cupy"):
-                mean = self.mean_
-                var = self.var_
-                singular_values = self.singular_values_
-                components = self.components_
-
-        if check_input:
-            if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-                raise TypeError(
-                    "IncrementalPCA.partial_fit does not support "
-                    "sparse input. Either convert data to dense "
-                    "or use IncrementalPCA.fit to do so in batches."
-                )
-
-            X, n_samples, n_features, _ = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64]
-            )
-        else:
-            n_samples, n_features = X.shape
+            mean = cp.asarray(self.mean_)
+            var = cp.asarray(self.var_)
+            singular_values = cp.asarray(self.singular_values_)
+            components = cp.asarray(self.components_)
 
         if self.n_components is None:
             if components is None:
@@ -422,10 +415,18 @@ class IncrementalPCA(PCA):
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        if scipy.sparse.issparse(X) or cupyx.scipy.sparse.issparse(X):
-            X = _validate_sparse_input(X)
+        if is_sparse(X):
+            # CSR/CSC support fast row slicing for the per-batch projection
+            # below. Validate `X` once here and call `_transform_sparse`
+            # directly per batch to avoid re-validating every slice.
+            X = check_inputs(
+                self,
+                X,
+                accept_sparse=["csr", "csc"],
+                dtype=self.components_.dtype,
+                convert_dtype=convert_dtype,
+            )
 
             n_samples = X.shape[0]
             output = []
@@ -434,11 +435,10 @@ class IncrementalPCA(PCA):
                 self.batch_size_,
                 min_batch_size=self.n_components or 0,
             ):
-                output.append(super().transform(X[batch]))
-            output, _, _, _ = input_to_cuml_array(cp.vstack(output), order="K")
-
-            return output
+                output.append(self._transform_sparse(X[batch]))
+            return CumlArray(data=cp.vstack(output))
         else:
+            # `PCA.transform` validates `X` itself, so don't re-check here.
             return super().transform(X)
 
     @classmethod
@@ -450,50 +450,6 @@ class IncrementalPCA(PCA):
             "copy",
             "batch_size",
         ]
-
-
-def _validate_sparse_input(X):
-    """
-    Validate the format and dtype of sparse inputs.
-    This function throws an error for any cupyx.scipy.sparse object that is not
-    of type cupyx.scipy.sparse.csr_matrix or cupyx.scipy.sparse.csc_matrix.
-    It also validates the dtype of the input to be 'float32' or 'float64'
-
-    Parameters
-    ----------
-
-    X : scipy.sparse or cupyx.scipy.sparse object
-        A sparse input
-
-    Returns
-    -------
-
-    X : The input converted to a cupyx.scipy.sparse.csr_matrix object
-
-    """
-
-    acceptable_dtypes = ("float32", "float64")
-
-    # NOTE: We can include cupyx.scipy.sparse.csc.csc_matrix
-    # once it supports indexing in cupy 8.0.0b5
-    acceptable_cupy_sparse_formats = cupyx.scipy.sparse.csr_matrix
-
-    if X.dtype not in acceptable_dtypes:
-        raise TypeError(
-            "Expected input to be of type float32 or float64."
-            " Received %s" % X.dtype
-        )
-    if scipy.sparse.issparse(X):
-        return cupyx.scipy.sparse.csr_matrix(X)
-    elif cupyx.scipy.sparse.issparse(X):
-        if not isinstance(X, acceptable_cupy_sparse_formats):
-            raise TypeError(
-                "Expected input to be of type"
-                " cupyx.scipy.sparse.csr_matrix or"
-                " cupyx.scipy.sparse.csc_matrix. Received %s" % type(X)
-            )
-        else:
-            return X
 
 
 def _gen_batches(n, batch_size, min_batch_size=0):

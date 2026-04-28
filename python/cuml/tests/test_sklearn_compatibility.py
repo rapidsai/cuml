@@ -80,8 +80,9 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
-    RandomForestClassifier(),
-    RandomForestRegressor(),
+    # TODO(26.08): Remove explicit default
+    RandomForestClassifier(max_depth=None),
+    RandomForestRegressor(max_depth=None),
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),
@@ -91,12 +92,7 @@ ESTIMATORS = [
 XFAILS = {
     KMeans: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "KMeans does not handle non-array sample weights",
-        "check_sample_weights_list": "KMeans does not handle list sample weights",
         "check_sample_weight_equivalence_on_dense_data": "KMeans sample weight equivalence not implemented",
-        "check_all_zero_sample_weights_error": "KMeans does not validate all-zero sample weights",
-        "check_dtype_object": "KMeans does not handle object dtype",
-        "check_estimators_nan_inf": "KMeans does not check for NaN and inf",
         "check_transformer_data_not_an_array": "KMeans does not handle non-array data",
     },
     KernelRidge: {
@@ -117,49 +113,18 @@ XFAILS = {
     },
     LogisticRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "LogisticRegression does not handle non-array sample weights",
-        "check_sample_weights_list": "LogisticRegression does not handle list sample weights",
         "check_sample_weight_equivalence_on_dense_data": "LogisticRegression sample weight equivalence not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "LogisticRegression does not handle sparse data",
-        "check_all_zero_sample_weights_error": "LogisticRegression does not validate all-zero sample weights",
-        "check_dtype_object": "LogisticRegression does not handle object dtype",
-        "check_estimators_empty_data_messages": "LogisticRegression does not handle empty data",
-        "check_estimators_nan_inf": "LogisticRegression does not check for NaN and inf",
-        "check_classifier_data_not_an_array": "LogisticRegression does not handle non-array data",
-        "check_classifiers_train": "LogisticRegression does not handle list inputs",
-        "check_classifiers_train(readonly_memmap=True)": "LogisticRegression does not handle readonly memmap",
-        "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "LogisticRegression does not handle readonly memmap with float32",
         "check_class_weight_classifiers": "LogisticRegression does not handle class weights properly",
-        "check_fit2d_1sample": "LogisticRegression does not handle single sample",
+        "check_classifier_data_not_an_array": "LogisticRegression does not handle non-array data",
     },
     LinearRegression: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "LinearRegression does not handle non-array sample weights",
-        "check_sample_weights_list": "LinearRegression does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "LinearRegression does not validate all-zero sample weights",
-        "check_dtype_object": "LinearRegression does not handle object dtype",
-        "check_estimators_nan_inf": "LinearRegression does not check for NaN and inf",
-        "check_regressors_train": "LinearRegression does not handle list inputs",
-        "check_regressors_train(readonly_memmap=True)": "LinearRegression does not handle readonly memmap",
-        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "LinearRegression does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "LinearRegression does not handle non-array data",
-        "check_supervised_y_no_nan": "LinearRegression does not check for NaN in y",
-        "check_requires_y_none": "LinearRegression does not handle y=None",
     },
     Ridge: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "Ridge does not handle non-array sample weights",
-        "check_sample_weights_list": "Ridge does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "Ridge does not validate all-zero sample weights",
-        "check_dtype_object": "Ridge does not handle object dtype",
-        "check_estimators_nan_inf": "Ridge does not check for NaN and inf",
-        "check_regressors_train": "Ridge does not handle list inputs",
-        "check_regressors_train(readonly_memmap=True)": "Ridge does not handle readonly memmap",
-        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "Ridge does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "Ridge does not handle non-array data",
-        "check_supervised_y_2d": "Ridge does not handle 2D y",
-        "check_supervised_y_no_nan": "Ridge does not check for NaN in y",
-        "check_requires_y_none": "Ridge does not handle y=None",
         "check_non_transformer_estimators_n_iter": "Ridge `n_iter_` may be `None`",
     },
     RandomForestRegressor: {
@@ -221,7 +186,6 @@ XFAILS = {
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_sample_weights_not_an_array": "LinearSVC does not handle non-array sample weights",
-        "check_sample_weights_list": "LinearSVC does not handle list sample weights",
         "check_sample_weight_equivalence_on_dense_data": "LinearSVC sample weight equivalence not implemented",
         "check_all_zero_sample_weights_error": "LinearSVC does not validate all-zero sample weights",
         "check_dtype_object": "LinearSVC does not handle object dtype",
@@ -258,7 +222,6 @@ XFAILS = {
         "check_classifiers_train": "SVC does not handle list inputs",
         "check_classifiers_train(readonly_memmap=True)": "SVC does not handle readonly memmap",
         "check_classifiers_train(readonly_memmap=True,X_dtype=float32)": "SVC does not handle readonly memmap with float32",
-        "check_sample_weights_list": "SVC does not handle list sample weights",
     },
     SVR: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -279,25 +242,16 @@ XFAILS = {
     },
     PCA: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "PCA does not handle object dtype",
-        "check_estimators_empty_data_messages": "PCA does not handle empty data",
-        "check_estimators_nan_inf": "PCA does not check for NaN and inf",
         "check_transformer_data_not_an_array": "PCA does not handle non-array data",
         "check_fit2d_1sample": "PCA does not handle single sample",
         "check_fit2d_1feature": "PCA does not handle single feature",
     },
     IncrementalPCA: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "IncrementalPCA does not handle object dtype",
-        "check_estimators_empty_data_messages": "IncrementalPCA does not handle empty data",
-        "check_estimators_nan_inf": "IncrementalPCA does not check for NaN and inf",
         "check_transformer_data_not_an_array": "IncrementalPCA does not handle non-array data",
     },
     TruncatedSVD: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "TruncatedSVD does not handle object dtype",
-        "check_estimators_empty_data_messages": "TruncatedSVD does not handle empty data",
-        "check_estimators_nan_inf": "TruncatedSVD does not check for NaN and inf",
         "check_transformer_data_not_an_array": "TruncatedSVD does not handle non-array data",
         "check_fit2d_1sample": "TruncatedSVD does not handle single sample",
         "check_fit2d_1feature": "TruncatedSVD does not handle single feature",
@@ -325,34 +279,12 @@ XFAILS = {
     },
     Lasso: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "Lasso does not handle non-array sample weights",
-        "check_sample_weights_list": "Lasso does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "Lasso does not validate all-zero sample weights",
-        "check_dtype_object": "Lasso does not handle object dtype",
-        "check_estimators_nan_inf": "Lasso does not check for NaN and inf",
-        "check_regressors_train": "Lasso does not handle list inputs",
-        "check_regressors_train(readonly_memmap=True)": "Lasso does not handle readonly memmap",
-        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "Lasso does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "Lasso does not handle non-array data",
-        "check_supervised_y_2d": "Lasso does not handle 2D y",
-        "check_supervised_y_no_nan": "Lasso does not check for NaN in y",
-        "check_requires_y_none": "Lasso does not handle y=None",
         "check_sample_weight_equivalence_on_sparse_data": "Lasso QN solver has issues with sample weights",
     },
     ElasticNet: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "ElasticNet does not handle non-array sample weights",
-        "check_sample_weights_list": "ElasticNet does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "ElasticNet does not validate all-zero sample weights",
-        "check_dtype_object": "ElasticNet does not handle object dtype",
-        "check_estimators_nan_inf": "ElasticNet does not check for NaN and inf",
-        "check_regressors_train": "ElasticNet does not handle list inputs",
-        "check_regressors_train(readonly_memmap=True)": "ElasticNet does not handle readonly memmap",
-        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "ElasticNet does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "ElasticNet does not handle non-array data",
-        "check_supervised_y_2d": "ElasticNet does not handle 2D y",
-        "check_supervised_y_no_nan": "ElasticNet does not check for NaN in y",
-        "check_requires_y_none": "ElasticNet does not handle y=None",
         "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
     },
     KernelDensity: {
@@ -371,30 +303,15 @@ XFAILS = {
     },
     DBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "DBSCAN does not handle non-array sample weights",
-        "check_sample_weights_list": "DBSCAN does not handle list sample weights",
-        "check_all_zero_sample_weights_error": "DBSCAN does not validate all-zero sample weights",
-        "check_dtype_object": "DBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "DBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "DBSCAN does not check for NaN and inf",
     },
     HDBSCAN: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "HDBSCAN does not handle object dtype",
-        "check_estimators_empty_data_messages": "HDBSCAN does not handle empty data",
-        "check_estimators_nan_inf": "HDBSCAN does not check for NaN and inf",
-        "check_fit2d_1sample": "HDBSCAN does not handle single sample properly",
     },
     AgglomerativeClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "AgglomerativeClustering does not handle object dtype",
-        "check_estimators_nan_inf": "AgglomerativeClustering does not check for NaN and inf",
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "SpectralClustering does not handle object dtype",
-        "check_estimators_empty_data_messages": "SpectralClustering does not handle empty data",
-        "check_estimators_nan_inf": "SpectralClustering does not check for NaN and inf",
     },
     GaussianNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -419,18 +336,10 @@ XFAILS = {
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "GaussianRandomProjection doesn't support complex data",
-        "check_dtype_object": "GaussianRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "GaussianRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "GaussianRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
     },
     SparseRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_complex_data": "SparseRandomProjection doesn't support complex data",
-        "check_dtype_object": "SparseRandomProjection doesn't support dtype object",
-        "check_estimators_empty_data_messages": "SparseRandomProjection doesn't check for empty data",
-        "check_estimators_nan_inf": "SparseRandomProjection does not check for NaN and inf",
         "check_transformer_data_not_an_array": "SparseRandomProjection does not handle non-array data",
     },
     BernoulliNB: {
@@ -558,14 +467,6 @@ def _check_name(check):
 def test_sklearn_compatible_estimator(estimator, check):
     # Check that all estimators pass the "common estimator" checks
     # provided by scikit-learn
-
-    # These estimators lead to additional MemoryErrors in the other
-    # estimators. As a result they are currently skipped.
-    if isinstance(estimator, AgglomerativeClustering):
-        pytest.skip(
-            "Estimator sometimes causes persistent memory errors (gh-7345)"
-        )
-
     check_name = _check_name(check)
 
     if check_name in ["check_estimators_nan_inf"] and isinstance(
