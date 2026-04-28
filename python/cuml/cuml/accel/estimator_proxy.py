@@ -60,7 +60,7 @@ class _ReconstructProxy:
         # will always serialize it by value rather than by reference. This allows
         # the saved model to be loaded in an environment without cuml installed,
         # where it will load as the CPU model directly.
-        def reconstruct(cls_path, cpu_model):
+        def reconstruct(cls_path, cpu_model, load_on_gpu):
             """Reconstruct a serialized estimator.
 
             Returns a proxy estimator if `cuml.accel` is installed, falling back
@@ -82,7 +82,7 @@ class _ReconstructProxy:
                 # Return the CPU estimator directly
                 return cpu_model
             # `cuml.accel` is installed, reconstruct a proxy estimator
-            return cls._reconstruct_from_cpu(cpu_model)
+            return cls._reconstruct_from_cpu(cpu_model, load_on_gpu)
 
         return reconstruct
 
@@ -241,7 +241,7 @@ class ProxyBase(BaseEstimator):
             )
 
     @classmethod
-    def _reconstruct_from_cpu(cls, cpu):
+    def _reconstruct_from_cpu(cls, cpu, load_on_gpu=True):
         """Reconstruct a proxy estimator from its CPU counterpart.
 
         Primarily used when unpickling serialized proxy estimators."""
@@ -249,8 +249,9 @@ class ProxyBase(BaseEstimator):
         self = cls.__new__(cls)
         self._cpu = cpu
         self._synced = False
-        if is_fitted(self._cpu):
-            # This is a fit estimator. Try to convert model back to GPU
+        if load_on_gpu and is_fitted(self._cpu):
+            # This estimator is fit and should be loaded on GPU. Try to convert
+            # model back to GPU.
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
             except UnsupportedOnGPU:
@@ -259,7 +260,7 @@ class ProxyBase(BaseEstimator):
                 # Supported on GPU, clear fit attributes from CPU to release host memory
                 self._cpu = sklearn.clone(self._cpu)
         else:
-            # Estimator is unfit, delay GPU init until needed
+            # Estimator is unfit or should remain on CPU
             self._gpu = None
         return self
 
@@ -427,7 +428,11 @@ class ProxyBase(BaseEstimator):
         self._sync_attrs_to_cpu()
         return (
             _reconstruct_proxy,
-            (self._gpu_class._cpu_class_path, self._cpu),
+            (
+                self._gpu_class._cpu_class_path,
+                self._cpu,
+                self._gpu is not None,
+            ),
         )
 
     def __getattr__(self, name: str) -> Any:
