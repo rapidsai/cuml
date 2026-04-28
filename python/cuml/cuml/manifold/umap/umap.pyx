@@ -543,7 +543,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
-    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -557,6 +556,11 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"Expected `init` to be an array or one of {list(_INITS)}, "
             f"got {self.init!r}"
         )
+
+    if self.force_serial_epochs is None:
+        params.force_serial_epochs = (params.init == 1)
+    else:
+        params.force_serial_epochs = self.force_serial_epochs
 
     if self.target_metric in _TARGET_METRICS:
         params.target_metric = _TARGET_METRICS[self.target_metric]
@@ -1145,10 +1149,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         self.target_metric = target_metric
         self.hash_input = hash_input
         self.random_state = random_state
-        if force_serial_epochs is None:
-            self.force_serial_epochs = isinstance(init, str) and init == "spectral"
-        else:
-            self.force_serial_epochs = force_serial_epochs
+        self.force_serial_epochs = force_serial_epochs
         self.precomputed_knn = precomputed_knn
         self.callback = callback
         self.build_algo = build_algo
