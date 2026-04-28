@@ -508,6 +508,79 @@ def _merge_hardware_metadata(detected, overrides):
     return merged
 
 
+def _run_json_command(command):
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return None, str(exc)
+    if completed.returncode != 0:
+        return None, completed.stderr.strip() or completed.stdout.strip()
+    try:
+        return json.loads(completed.stdout), None
+    except json.JSONDecodeError as exc:
+        return None, str(exc)
+
+
+def _conda_package_snapshot(packages):
+    return [
+        {
+            "name": package.get("name"),
+            "version": package.get("version"),
+            "build": package.get("build_string"),
+            "channel": package.get("channel"),
+        }
+        for package in packages
+    ]
+
+
+def _pip_package_snapshot(packages):
+    return [
+        {
+            "name": package.get("name"),
+            "version": package.get("version"),
+        }
+        for package in packages
+    ]
+
+
+def _collect_package_snapshot():
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        packages, error = _run_json_command(["conda", "list", "--json"])
+        if packages is not None:
+            return {
+                "package_snapshot_source": "conda",
+                "conda_prefix": conda_prefix,
+                "packages": _conda_package_snapshot(packages),
+            }
+        conda_error = error
+    else:
+        conda_error = None
+
+    packages, error = _run_json_command(
+        [sys.executable, "-m", "pip", "list", "--format=json"]
+    )
+    if packages is not None:
+        return {
+            "package_snapshot_source": "pip",
+            "conda_prefix": conda_prefix,
+            "packages": _pip_package_snapshot(packages),
+            "conda_error": conda_error,
+        }
+    return {
+        "package_snapshot_source": None,
+        "conda_prefix": conda_prefix,
+        "packages": [],
+        "conda_error": conda_error,
+        "pip_error": error,
+    }
+
+
 def _collect_run_metadata(args):
     git_sha = _git_output(["rev-parse", "HEAD"])
     git_status = _git_output(["status", "--porcelain"])
@@ -535,6 +608,7 @@ def _collect_run_metadata(args):
             "status": get_status_string(),
             "gpu_available": is_gpu_available(),
         },
+        "environment": _collect_package_snapshot(),
         "hardware": hardware,
         "config": {
             "path": getattr(args, "config", None),
@@ -676,7 +750,7 @@ def _write_json_atomic(path, payload):
             delete=False,
         ) as fh:
             temp_path = fh.name
-            json.dump(_json_safe(payload), fh, indent=2, sort_keys=True)
+            json.dump(_json_safe(payload), fh, indent=2)
             fh.write("\n")
             fh.flush()
             os.fsync(fh.fileno())
@@ -694,8 +768,8 @@ def _save_json_results(results_df, output_path, args, dtype):
     if not output_path:
         return
     payload = {
-        "metadata": _collect_run_metadata(args),
         "results": _results_to_json_records(results_df, dtype),
+        "metadata": _collect_run_metadata(args),
     }
     _write_json_atomic(output_path, payload)
     print("Saved JSON results to %s" % output_path)

@@ -1165,3 +1165,65 @@ def test_write_json_atomic_preserves_existing_file_on_failure(
 
     assert json.loads(output_path.read_text(encoding="utf-8")) == {"old": True}
     assert not list(tmp_path.glob(".benchmark-*.json"))
+
+
+def test_collect_package_snapshot_prefers_conda(monkeypatch):
+    from cuml.benchmark import run_benchmarks
+
+    monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
+    monkeypatch.setattr(
+        run_benchmarks,
+        "_run_json_command",
+        lambda command: (
+            [
+                {
+                    "name": "cuml",
+                    "version": "26.06",
+                    "build_string": "cuda13_py313_0",
+                    "channel": "rapidsai-nightly",
+                    "base_url": "https://conda.anaconda.org/rapidsai-nightly",
+                    "platform": "linux-64",
+                }
+            ],
+            None,
+        ),
+    )
+
+    snapshot = run_benchmarks._collect_package_snapshot()
+
+    assert snapshot == {
+        "package_snapshot_source": "conda",
+        "conda_prefix": "/tmp/conda-env",
+        "packages": [
+            {
+                "name": "cuml",
+                "version": "26.06",
+                "build": "cuda13_py313_0",
+                "channel": "rapidsai-nightly",
+            }
+        ],
+    }
+
+
+def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
+    from cuml.benchmark import run_benchmarks
+
+    monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
+
+    def fake_run_json_command(command):
+        if command[:2] == ["conda", "list"]:
+            return None, "conda failed"
+        return [{"name": "cuml", "version": "26.06", "editable_project_location": "/tmp"}], None
+
+    monkeypatch.setattr(
+        run_benchmarks, "_run_json_command", fake_run_json_command
+    )
+
+    snapshot = run_benchmarks._collect_package_snapshot()
+
+    assert snapshot == {
+        "package_snapshot_source": "pip",
+        "conda_prefix": "/tmp/conda-env",
+        "packages": [{"name": "cuml", "version": "26.06"}],
+        "conda_error": "conda failed",
+    }
