@@ -1,9 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
-import cupy as cp
-import numpy as np
-
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -11,10 +8,9 @@ from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.validation import check_features, check_y
+from cuml.internals.validation import check_features, check_inputs
 from cuml.metrics import accuracy_score
 
 
@@ -225,19 +221,20 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        y, classes = check_y(y, dtype=cp.int32, return_classes=True)
-        X_m = input_to_cuml_array(
+        X, y, classes = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
+            y,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
             order="F",
-            check_rows=y.shape[0],
-        ).array
+            y_dtype="int32",
+            return_classes=True,
+            reset=True,
+        )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        y_m = CumlArray(data=y)
-
-        return self._fit_forest(X_m, y_m)
+        return self._fit_forest(X, y)
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
@@ -309,8 +306,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         align_bytes=None,
     ) -> CumlArray:
         """
-        Predicts class probabilities for X. This function uses the GPU
-        implementation of predict.
+        Predicts class probabilities for X.
 
         Parameters
         ----------

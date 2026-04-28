@@ -414,8 +414,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t y_ptr = y.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
