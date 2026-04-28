@@ -236,7 +236,7 @@ class Lars(Base, RegressorMixin):
         if self.fit_path:
             try:
                 coef_path = cp.zeros(
-                    (max_iter, max_iter + 1),
+                    (X.shape[1], max_iter + 1),
                     dtype=X.dtype,
                     order="F",
                 )
@@ -262,7 +262,7 @@ class Lars(Base, RegressorMixin):
         )
         cdef int n_active
         cdef bool use_float32 = X.dtype == cp.float32
-        cdef float eps = cp.finfo(float).eps if self.eps is None else self.eps
+        cdef double eps = cp.finfo(float).eps if self.eps is None else self.eps
         cdef logger.level_enum verbose_level = <logger.level_enum> self._verbose_level
 
         with nogil:
@@ -309,6 +309,8 @@ class Lars(Base, RegressorMixin):
         active = active[:n_active]
         beta = beta[:n_active]
         alphas = alphas[:n_active + 1]
+        if coef_path is not None:
+            coef_path = coef_path[:, :n_active + 1]
 
         coef = cp.zeros(n_cols, dtype=X.dtype)
         coef[active] = beta
