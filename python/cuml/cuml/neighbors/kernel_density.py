@@ -11,13 +11,15 @@ from cupyx.scipy.special import gammainc
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
+    check_array,
+    check_consistent_length,
     check_features,
     check_is_fitted,
     check_random_seed,
+    check_sample_weight,
 )
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
@@ -267,7 +269,7 @@ class KernelDensity(Base, InteropMixin):
         self.metric = metric
         self.metric_params = metric_params
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y=None, sample_weight=None, *, convert_dtype=True
     ) -> "KernelDensity":
@@ -288,53 +290,46 @@ class KernelDensity(Base, InteropMixin):
         self
             Returns the instance itself.
         """
+        if self.kernel not in VALID_KERNELS:
+            raise ValueError(f"kernel={self.kernel!r} is not supported")
+
         if isinstance(self.bandwidth, str):
-            if self.bandwidth == "scott":
-                self.bandwidth_ = X.shape[0] ** (-1 / (X.shape[1] + 4))
-            elif self.bandwidth == "silverman":
-                self.bandwidth_ = (X.shape[0] * (X.shape[1] + 2) / 4) ** (
-                    -1 / (X.shape[1] + 4)
-                )
-            else:
+            if self.bandwidth not in ("scott", "silverman"):
                 raise ValueError(
                     f"Expected bandwidth in ['scott', 'silverman'], got {self.bandwidth!r}"
                 )
         elif self.bandwidth <= 0:
             raise ValueError(f"Expected bandwidth > 0, got {self.bandwidth}")
+
+        check_features(self, X, reset=True)
+        self._X = check_array(
+            X,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="C",
+            input_name="X",
+        )
+
+        if isinstance(self.bandwidth, str):
+            if self.bandwidth == "scott":
+                self.bandwidth_ = self._X.shape[0] ** (
+                    -1 / (self._X.shape[1] + 4)
+                )
+            else:  # silverman
+                self.bandwidth_ = (
+                    self._X.shape[0] * (self._X.shape[1] + 2) / 4
+                ) ** (-1 / (self._X.shape[1] + 4))
         else:
             self.bandwidth_ = self.bandwidth
 
-        if self.kernel not in VALID_KERNELS:
-            raise ValueError(f"kernel={self.kernel!r} is not supported")
-
-        self._X, n_rows, n_cols, _ = input_to_cupy_array(
-            X,
-            order="C",
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[cp.float32, cp.float64],
-        )
-
-        if n_rows < 1:
-            raise ValueError(
-                f"Found array with 0 sample(s) (shape={self._X.shape}) while "
-                f"a minimum of 1 is required by KernelDensity"
-            )
-        if n_cols < 1:
-            raise ValueError(
-                f"Found array with 0 feature(s) (shape={self._X.shape}) while "
-                f"a minimum of 1 is required by KernelDensity"
-            )
-
         if sample_weight is not None:
-            self._sample_weight = input_to_cupy_array(
+            self._sample_weight = check_sample_weight(
                 sample_weight,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64],
-                check_cols=1,
-                check_rows=self._X.shape[0],
-            ).array
-            if self._sample_weight.min() < 0:
-                raise ValueError("sample_weight must have positive values")
+                dtype=self._X.dtype,
+                convert_dtype=convert_dtype,
+                ensure_non_negative=True,
+            )
+            check_consistent_length(self._X, self._sample_weight)
         else:
             self._sample_weight = None
 
@@ -360,12 +355,13 @@ class KernelDensity(Base, InteropMixin):
         check_is_fitted(self)
         check_features(self, X)
 
-        X = input_to_cuml_array(
+        X = check_array(
             X,
-            convert_to_dtype=(self._X.dtype if convert_dtype else None),
-            check_dtype=[self._X.dtype],
-            check_cols=self.n_features_in_,
-        ).array
+            dtype=[self._X.dtype],
+            convert_dtype=convert_dtype,
+            order="C",
+            input_name="X",
+        )
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(

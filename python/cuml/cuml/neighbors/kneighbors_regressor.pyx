@@ -2,14 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.validation import check_consistent_length, check_y
 from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
@@ -164,7 +165,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -176,13 +177,15 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             )
         super().fit(X, convert_dtype=convert_dtype)
 
-        self._y = input_to_cuml_array(
+        y = check_y(
             y,
-            order='F',
-            check_rows=self.n_samples_fit_,
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_multi_output=True,
+        )
+        check_consistent_length(self._fit_X, y)
+        self._y = CumlArray(y)
 
         return self
 
@@ -203,28 +206,18 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
-        cdef size_t n_rows
-        inds, n_rows, _, _ = input_to_cuml_array(
-            knn_indices,
-            order='C',
-            check_dtype=np.int64,
-            convert_to_dtype=(np.int64 if convert_dtype else None),
+        inds_cp = cp.ascontiguousarray(
+            knn_indices.to_output("cupy"), dtype=np.int64
         )
-
-        dists = input_to_cuml_array(
-            knn_distances,
-            order='C',
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
-
-        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
+        dists_cp = knn_distances.to_output("cupy")
+        cdef size_t n_rows = inds_cp.shape[0]
+        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds_cp.data.ptr
 
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
         out = CumlArray.zeros(
-            res_shape, dtype=np.float32, order="C", index=inds.index
+            res_shape, dtype=np.float32, order="C", index=knn_indices.index
         )
 
         cdef float* out_ptr = <float*><uintptr_t>out.ptr
@@ -240,7 +233,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)
-        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        weights_cp = compute_weights(dists_cp, self.weights)
         cdef float* weights_ctype = <float*><uintptr_t>(
             0 if weights_cp is None else weights_cp.data.ptr
         )
