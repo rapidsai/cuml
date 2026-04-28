@@ -460,8 +460,6 @@
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[NuSVR()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[OneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SGDClassifier()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDOneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDRegressor()-check_sample_weights_invariance(kind=zeros)]"
@@ -803,6 +801,11 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
+- reason: This test asserts a copy hasn't happened, but that's not actually guaranteed by the interface.
+  marker: cuml_accel_invalid_sklearn_tests
+  condition: scikit-learn>=1.8
+  tests:
+  - "sklearn.preprocessing.tests.test_data::test_scaler_2d_arrays"
 - reason: KernelRidge input handling and validation
   marker: cuml_accel_kernel_ridge_estimator_checks
   tests:
@@ -1080,10 +1083,6 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-- reason: In-place modification (copy=False) not supported with GPU arrays
-  marker: gpu_limitations
-  tests:
-  - "sklearn.preprocessing.tests.test_data::test_scaler_2d_arrays"
 - reason: Config dispatch with parallel processing not working correctly with StandardScaler proxy
   marker: parallel_config
   tests:
