@@ -96,8 +96,8 @@ class _ReconstructProxy:
 
         return (pickle.loads, (cloudpickle.dumps(self._reconstruct),))
 
-    def __call__(self, cls_path, cpu):
-        return self._reconstruct(cls_path, cpu)
+    def __call__(self, cls_path, cpu, load_on_gpu):
+        return self._reconstruct(cls_path, cpu, load_on_gpu)
 
 
 _reconstruct_proxy = _ReconstructProxy()
