@@ -678,6 +678,78 @@ def test_run_config_benchmarks_backends_cli_override(monkeypatch):
     assert setup_calls == ["cuda"]
 
 
+def test_run_config_benchmarks_splits_mixed_backends_for_gpu_native_inputs(
+    monkeypatch,
+):
+    calls = []
+
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.load_and_resolve_config",
+        lambda *args, **kwargs: {
+            "config_path": "/tmp/backends.yaml",
+            "suite_name": "test-suite",
+            "suite_tier": "test",
+            "profile": "default",
+            "benchmarks": [
+                {
+                    "benchmark_id": "mixed-backend-bench",
+                    "algorithm": "LogisticRegression",
+                    "dataset": "classification",
+                    "input_type": "cupy",
+                    "dtype": "fp32",
+                    "n_reps": 1,
+                    "random_state": 42,
+                    "test_split": 0.1,
+                    "backends": ["cpu", "gpu"],
+                    "run_cpu": True,
+                    "run_gpu": True,
+                    "raise_on_error": True,
+                    "default_size": False,
+                    "shape_pairs": None,
+                    "bench_rows": [200],
+                    "bench_dims": [8],
+                    "operation": "fit",
+                    "comparison": None,
+                    "param_override_list": [{}],
+                    "cuml_param_override_list": [{}],
+                    "cpu_param_override_list": [{}],
+                    "dataset_param_override_list": [{}],
+                    "tags": ["test"],
+                    "enabled": True,
+                    "skip_reason": None,
+                    "metadata": {},
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.algorithms.algorithm_by_name",
+        lambda name: {"name": name},
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.is_gpu_available", lambda: True
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.setup_rmm_allocator",
+        lambda allocator: None,
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.runners.run_variations",
+        lambda algos, **kwargs: calls.append(kwargs)
+        or pd.DataFrame([{"algo": "LogisticRegression"}]),
+    )
+
+    _run_config_benchmarks(_make_args(), explicit_options=set())
+
+    assert [
+        (call["input_type"], call["run_cpu"], call["run_cuml"])
+        for call in calls
+    ] == [
+        ("cupy", False, True),
+        ("numpy", True, False),
+    ]
+
+
 @pytest.mark.parametrize(
     ("arg_name", "expected_run_cpu", "expected_run_cuml"),
     [
