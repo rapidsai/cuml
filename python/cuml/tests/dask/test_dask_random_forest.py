@@ -24,6 +24,11 @@ from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.ensemble import RandomForestClassifier as cuRFC_sg
 from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 
+# TODO(26.08): Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
+
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()
@@ -234,7 +239,11 @@ def test_rf_classification_dask_fil_predict_proba(
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-    sk_model = skrfc(n_estimators=40, max_depth=16, random_state=10)
+    sk_model = skrfc(
+        n_estimators=cu_rf_params["n_estimators"],
+        max_depth=cu_rf_params["max_depth"],
+        random_state=10,
+    )
     sk_model.fit(X_train, y_train)
     sk_preds_proba = sk_model.predict_proba(X_test)
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
@@ -258,7 +267,7 @@ def test_rf_concatenation_dask(client, model_type):
     else:
         y = y.astype(np.float32)
     n_estimators = 40
-    cu_rf_params = {"n_estimators": n_estimators}
+    cu_rf_params = {"n_estimators": n_estimators, "max_depth": 16}
 
     X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=2)
 
@@ -284,7 +293,8 @@ def test_single_input_regression(client, ignore_empty_partitions):
 
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
     cu_rf_mg = cuRFR_mg(
-        n_bins=1, ignore_empty_partitions=ignore_empty_partitions
+        n_bins=1,
+        ignore_empty_partitions=ignore_empty_partitions,
     )
 
     if (

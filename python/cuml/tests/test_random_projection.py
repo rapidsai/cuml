@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
@@ -169,21 +169,12 @@ def test_random_seed_consistency(cls, sparse):
 
 @pytest.mark.parametrize("cls", classes)
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
-def test_components_dtype(cls, dtype):
+def test_components_and_output_dtype(cls, dtype):
     X = random_array(10, 100, dtype=dtype)
-
-    # float32 used by default for all inputs
     model = cls(random_state=42, n_components=5)
     transformed = model.fit_transform(X)
-    assert model.components_.dtype == "float32"
-    assert transformed.dtype == "float32"
-
-    # float64 available if `convert_dtype=False` and float64
-    expected = "float64" if dtype == "float64" else "float32"
-    model = cls(random_state=42, n_components=5)
-    transformed = model.fit_transform(X, convert_dtype=False)
-    assert model.components_.dtype == expected
-    assert transformed.dtype == expected
+    assert model.components_.dtype == dtype
+    assert transformed.dtype == dtype
 
 
 @pytest.mark.parametrize("cls", classes)

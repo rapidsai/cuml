@@ -27,6 +27,12 @@ from cuml.testing.utils import as_type
 shap = pytest.importorskip("shap")
 
 
+# TODO(26.08): Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
+
+
 def make_classification_with_categorical(
     *,
     n_samples,

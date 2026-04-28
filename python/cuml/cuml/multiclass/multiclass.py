@@ -2,14 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cuml
-from cuml.common import (
-    input_to_host_array,
-    input_to_host_array_with_sparse_support,
-)
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.validation import check_inputs
 
 
 class _BaseMulticlassClassifier(Base, ClassifierMixin):
@@ -35,7 +32,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         return self.multiclass_estimator.classes_
 
     @generate_docstring(y="dense_anydtype")
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(self, X, y) -> "_BaseMulticlassClassifier":
         """
         Fit a multiclass classifier.
@@ -50,8 +47,16 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
             raise ValueError(
                 f"Expected `strategy` to be one of {list(opts)}, got {self.strategy}"
             )
-        X = input_to_host_array_with_sparse_support(X)
-        y = input_to_host_array(y).array
+        X, y = check_inputs(
+            self,
+            X,
+            y,
+            dtype=("float32", "float64"),
+            y_dtype=None,
+            accept_sparse=True,
+            reset=True,
+            mem_type="host",
+        )
 
         with cuml.internals.exit_internal_context():
             wrapper = cls(self.estimator, n_jobs=None).fit(X, y)
@@ -72,7 +77,13 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X = input_to_host_array_with_sparse_support(X)
+        X = check_inputs(
+            self,
+            X,
+            dtype=("float32", "float64"),
+            accept_sparse=True,
+            mem_type="host",
+        )
 
         with cuml.internals.exit_internal_context():
             return self.multiclass_estimator.predict(X)
@@ -90,7 +101,13 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X = input_to_host_array_with_sparse_support(X)
+        X = check_inputs(
+            self,
+            X,
+            dtype=("float32", "float64"),
+            accept_sparse=True,
+            mem_type="host",
+        )
         with cuml.internals.exit_internal_context():
             return self.multiclass_estimator.decision_function(X)
 
