@@ -67,25 +67,26 @@ struct decision_forest_builder {
     auto node_value  = typename node_type::index_type{};
     auto set_storage = &node_value;
 
-    // Ensure that all category indices are non-negative.
-    using cat_t = typename std::iterator_traits<iter_t>::value_type;
-    static_assert(std::is_unsigned_v<cat_t>, "Category value must be an unsigned integer type");
+    // Check invariants for data types
+    using cat_t   = typename std::iterator_traits<iter_t>::value_type;
+    using index_t = typename node_type::index_type;
+    static_assert(std::is_same_v<cat_t, std::uint32_t>, "Category value must be uint32_t");
+    static_assert(std::is_same_v<index_t, std::uint32_t> || std::is_same_v<index_t, std::uint64_t>,
+                  "Index type in tree node must be either uint32_t or uint64_t");
 
+    // Ensure that (max_cat + 1) can be represented as index_t to prevent integer overflow.
     auto max_cat = (vec_begin != vec_end) ? *std::max_element(vec_begin, vec_end) : cat_t{0};
-
-    // Ensure that (max_cat + 1) can be represented as node_type::index_type
-    // to prevent integer overflow.
-    using index_t           = typename node_type::index_type;
-    auto const max_index    = static_cast<std::uintmax_t>(std::numeric_limits<index_t>::max());
-    auto const cat_unsigned = static_cast<std::uintmax_t>(max_cat);
-    if (cat_unsigned >= max_index) {
-      auto node_id_repr =
-        tl_node_id.has_value() ? std::to_string(tl_node_id.value()) : std::string{"n/a"};
-      throw model_builder_error(
-        std::string{"Tree "} + std::to_string(tree_id) + ", Node " + node_id_repr +
-        ": Category index exceeds maximum representable value for this model's index type");
+    if constexpr (std::is_same_v<cat_t, index_t>) {
+      if (max_cat == std::numeric_limits<index_t>::max()) {
+        auto node_id_repr =
+          tl_node_id.has_value() ? std::to_string(tl_node_id.value()) : std::string{"n/a"};
+        throw model_builder_error(std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
+                                  node_id_repr + ": Category index must be at most " +
+                                  std::to_string(std::numeric_limits<index_t>::max() - 1));
+      }
     }
-    auto max_cat_plus_one = static_cast<index_t>(cat_unsigned + 1u);
+    auto max_cat_plus_one = static_cast<index_t>(max_cat) + index_t{1};
+
     if (max_num_categories_ > bin_width) {
       node_value         = categorical_storage_.size();
       auto bins_required = raft_proto::ceildiv(max_cat_plus_one, bin_width);
