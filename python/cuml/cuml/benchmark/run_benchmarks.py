@@ -332,6 +332,13 @@ def _validate_benchmark_inputs(test_split, input_type, run_gpu):
     return input_type
 
 
+def _cpu_compatible_input_type(input_type):
+    """Return an input type that sklearn/CPU estimators can consume."""
+    if input_type in ("numpy", "pandas"):
+        return input_type
+    return "numpy"
+
+
 def _has_size_override(explicit_options):
     """Whether the user explicitly requested size-related CLI overrides."""
     return any(
@@ -588,9 +595,12 @@ def _run_config_benchmarks(args, explicit_options):
         input_type = _validate_benchmark_inputs(
             test_split, input_type, run_cuml
         )
-        accel_input_type = _validate_benchmark_inputs(
-            test_split, input_type, False
-        )
+        accel_input_type = None
+        if run_accel:
+            accel_input_type = _validate_benchmark_inputs(
+                test_split, input_type, False
+            )
+        cpu_input_type = _cpu_compatible_input_type(input_type)
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
 
@@ -601,17 +611,30 @@ def _run_config_benchmarks(args, explicit_options):
         ]
 
         for shape in variation_shapes:
-            if run_cpu or run_cuml:
+            run_groups = []
+            if run_cpu and run_cuml and cpu_input_type != input_type:
+                run_groups.extend(
+                    [
+                        (False, True, input_type),
+                        (True, False, cpu_input_type),
+                    ]
+                )
+            else:
+                run_groups.append((run_cpu, run_cuml, input_type))
+
+            for group_run_cpu, group_run_cuml, group_input_type in run_groups:
+                if not group_run_cpu and not group_run_cuml:
+                    continue
                 results_df = runners.run_variations(
                     [algo],
                     dataset_name=dataset_name,
                     bench_rows=[shape["rows"]],
                     bench_dims=[shape["features"]],
-                    input_type=input_type,
+                    input_type=group_input_type,
                     test_fraction=test_split,
                     dtype=dtype,
-                    run_cpu=run_cpu,
-                    run_cuml=run_cuml,
+                    run_cpu=group_run_cpu,
+                    run_cuml=group_run_cuml,
                     raise_on_error=raise_on_error,
                     n_reps=n_reps,
                     **param_lists,
