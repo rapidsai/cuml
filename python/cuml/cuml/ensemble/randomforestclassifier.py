@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -338,6 +339,57 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         check_features(self, X)
         return fil.predict_proba(X)
+
+    @insert_into_docstring(
+        parameters=[("dense", "(n_samples, n_features)")],
+        return_values=[("dense", "(n_samples, 1)")],
+    )
+    @cuml.internals.reflect
+    def predict_log_proba(
+        self,
+        X,
+        *,
+        convert_dtype=True,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+    ) -> CumlArray:
+        """
+        Predicts log class probabilities for X.
+
+        Parameters
+        ----------
+        X : {}
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+
+        Returns
+        -------
+        y : {}
+        """
+        preds = self.predict_proba(
+            X,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
+        out = preds.to_output("cupy")
+        cp.log(out, out=out)
+        return CumlArray(data=out, index=preds.index)
 
     @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
