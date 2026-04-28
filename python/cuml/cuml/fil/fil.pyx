@@ -6,19 +6,21 @@ import itertools
 import pathlib
 from time import perf_counter
 
+import cupy as cp
 import numpy as np
 import treelite.sklearn
+from cuda.bindings import runtime
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.treelite import safe_treelite_call
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -40,8 +42,6 @@ from cuml.internals.treelite cimport (
     TreeliteFreeModel,
     TreeliteModelHandle,
 )
-
-from cuda.bindings import runtime
 
 
 cdef extern from "cuml/fil/forest_model.hpp" namespace "ML::fil" nogil:
@@ -124,12 +124,15 @@ def get_fil_device_type() -> DeviceType:
 
 cdef raft_proto_device_t get_fil_raft_proto_device_type(arr):
     """Get the current FIL device type as a raft_proto_device_t"""
-    cdef raft_proto_device_t dev
-    if arr.mem_type is MemoryType.device:
-        dev = raft_proto_device_t.gpu
+    if isinstance(arr, cp.ndarray):
+        return raft_proto_device_t.gpu
+    elif isinstance(arr, np.ndarray):
+        return raft_proto_device_t.cpu
     else:
-        dev = raft_proto_device_t.cpu
-    return dev
+        if arr.mem_type is MemoryType.device:
+            return raft_proto_device_t.gpu
+        else:
+            return raft_proto_device_t.cpu
 
 
 cdef class ForestInference_impl():
@@ -249,18 +252,22 @@ cdef class ForestInference_impl():
 
     def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
+        mem_type = GlobalSettings().fil_memory_type
 
-        cdef uintptr_t in_ptr
-        in_arr, n_rows, _, _ = input_to_cuml_array(
+        X, index = check_array(
             X,
-            order='C',
-            convert_to_dtype=model_dtype,
-            convert_to_mem_type=GlobalSettings().fil_memory_type,
-            check_dtype=model_dtype
+            dtype=model_dtype,
+            order="C",
+            mem_type=mem_type.name,
+            return_index=True,
+            input_name="X",
         )
-        cdef raft_proto_device_t in_dev
-        in_dev = get_fil_raft_proto_device_type(in_arr)
-        in_ptr = in_arr.ptr
+        n_rows = X.shape[0]
+
+        cdef raft_proto_device_t in_dev = get_fil_raft_proto_device_type(X)
+        cdef uintptr_t in_ptr = (
+            X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
+        )
 
         cdef uintptr_t out_ptr
         cdef infer_kind infer_type_enum
@@ -283,14 +290,14 @@ cdef class ForestInference_impl():
                 output_shape,
                 model_dtype,
                 order='C',
-                index=in_arr.index,
-                mem_type=GlobalSettings().fil_memory_type,
+                index=index,
+                mem_type=mem_type,
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             if preds.shape != output_shape:
                 raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
-            preds.index = in_arr.index
+            preds.index = index
         cdef raft_proto_device_t out_dev
         out_dev = get_fil_raft_proto_device_type(preds)
         out_ptr = preds.ptr
