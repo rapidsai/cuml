@@ -35,6 +35,11 @@ from cuml.accel import is_proxy
 SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
+requires_array_api = pytest.mark.skipif(
+    not SKLEARN_18,
+    reason="scikit-learn >= 1.8 required for array-api enabled estimators",
+)
+
 
 def test_is_proxy():
     class Foo:
@@ -741,6 +746,7 @@ def test_metadata_routing_consumed(metadata_routing):
     search.fit(X, y, sample_weight=weights)
 
 
+@requires_array_api
 def test_array_api_proxy_pandas_inputs():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     df = pd.DataFrame(X, columns=[f"X{i}" for i in range(X.shape[1])])
@@ -763,6 +769,7 @@ def test_array_api_proxy_pandas_inputs():
     assert not hasattr(model._cpu, "n_features_in_")
 
 
+@requires_array_api
 def test_array_api_proxy_global_transform_output():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     model = StandardScaler().fit(X)
@@ -772,6 +779,7 @@ def test_array_api_proxy_global_transform_output():
     assert isinstance(out, pd.DataFrame)
 
 
+@requires_array_api
 def test_array_api_proxy_partial_fit():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     model = StandardScaler().fit(X)
@@ -800,6 +808,7 @@ def test_array_api_proxy_partial_fit():
         pytest.param(lambda x: x.tolist(), id="list"),
     ],
 )
+@requires_array_api
 def test_array_api_proxy_coerce_inputs(transform):
     X, _ = make_blobs(n_features=5, n_samples=10, random_state=42)
     X = transform(X)
@@ -807,6 +816,7 @@ def test_array_api_proxy_coerce_inputs(transform):
     assert model.n_features_in_ == 5
 
 
+@requires_array_api
 def test_array_api_proxy_pickle():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     df = pd.DataFrame(X, columns=[f"X{i}" for i in range(X.shape[1])])
@@ -835,3 +845,13 @@ def test_array_api_proxy_pickle():
     # - Other attributes only set on internal model
     assert not hasattr(model2._gpu, "mean_")
     assert hasattr(model2._gpu._internal_model, "mean_")
+
+
+@pytest.mark.skipif(
+    SKLEARN_18, reason="Test checks fallback for scikit-learn < 1.8"
+)
+def test_array_api_proxy_fallback_older_sklearn():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = StandardScaler().fit(X)
+    # Ran on CPU
+    assert model._gpu is None

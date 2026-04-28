@@ -705,6 +705,11 @@ class _ArrayAPIWrapper(Base, InteropMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if not SKLEARN_18:
+            raise UnsupportedOnGPU(
+                "scikit-learn >= 1.8 is required to run on GPU"
+            )
+
         return model.get_params(deep=False)
 
     def _params_to_cpu(self):
