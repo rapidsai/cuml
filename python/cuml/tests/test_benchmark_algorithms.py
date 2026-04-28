@@ -16,7 +16,9 @@ class _SerialEstimator:
 
 
 def test_default_cpu_parallelism_sets_n_jobs_when_supported():
-    assert _with_default_cpu_parallelism(_ParallelEstimator, {"alpha": 2.0}) == {
+    assert _with_default_cpu_parallelism(
+        _ParallelEstimator, {"alpha": 2.0}
+    ) == {
         "alpha": 2.0,
         "n_jobs": -1,
     }
