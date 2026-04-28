@@ -403,6 +403,7 @@ def run_variations(
     run_cuml=True,
     raise_on_error=False,
     n_reps=1,
+    verbose=False,
 ):
     """
     Runs each algo in `algos` once per
@@ -436,14 +437,18 @@ def run_variations(
       If True, run the cpu-based algorithm for comparison
     run_cuml : boolean
       If True, run the cuml-based algorithm (requires GPU)
+    verbose : boolean
+      If True, print per-run progress and result details.
     """
     # Check GPU availability
     gpu_available = is_gpu_available()
     if not gpu_available:
-        print("Note: Running in CPU-only mode (GPU not available)")
+        if verbose:
+            print("Note: Running in CPU-only mode (GPU not available)")
         run_cuml = False
 
-    print("Running: \n", "\n ".join([str(a.name) for a in algos]))
+    if verbose:
+        print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
         bench_rows,
         bench_dims,
@@ -454,7 +459,8 @@ def run_variations(
     )
     all_results = []
     for algo in algos:
-        print("Running %s..." % (algo.name))
+        if verbose:
+            print("Running %s..." % (algo.name))
         for (
             overrides,
             cuml_overrides,
@@ -476,6 +482,7 @@ def run_variations(
                 run_cpu=run_cpu,
                 run_cuml=run_cuml,
                 raise_on_error=raise_on_error,
+                verbose=verbose,
             )
             for r in results:
                 all_results.append(
@@ -486,8 +493,10 @@ def run_variations(
                     }
                 )
 
-    print("Finished all benchmark runs")
+    if verbose:
+        print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)
-    print(results_df)
+    if verbose:
+        print(results_df)
 
     return results_df

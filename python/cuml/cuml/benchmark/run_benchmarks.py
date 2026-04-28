@@ -16,6 +16,7 @@ Modes:
 """
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -282,6 +283,261 @@ def _save_results(results_df, csv_path):
         print("Saved results to %s" % csv_path)
 
 
+def _human_count(value):
+    """Format counts compactly for progress output."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if math.isnan(value):
+        return "nan"
+    abs_value = abs(value)
+    if abs_value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.1f}B"
+    if abs_value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M"
+    if abs_value >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return str(int(value))
+
+
+def _format_seconds(value):
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or math.isnan(value):
+        return None
+    if value >= 10:
+        return f"{value:.1f}s"
+    if value >= 1:
+        return f"{value:.2f}s"
+    if value >= 0.001:
+        return f"{value:.3f}s"
+    return f"{value * 1000:.2f}ms"
+
+
+def _format_seconds_cell(value):
+    return _format_seconds(value) or "-"
+
+
+def _dtype_itemsize(dtype):
+    try:
+        return np.dtype(dtype).itemsize
+    except TypeError:
+        return np.dtype(_resolve_dtype(dtype)).itemsize
+
+
+def _estimated_input_size_gb(rows, features, dtype):
+    try:
+        return float(rows) * float(features) * _dtype_itemsize(dtype) / 1e9
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _ratio(numerator, denominator):
+    try:
+        numerator = float(numerator)
+        denominator = float(denominator)
+    except (TypeError, ValueError):
+        return None
+    if numerator <= 0 or denominator <= 0 or math.isnan(numerator) or math.isnan(denominator):
+        return None
+    return denominator / numerator
+
+
+def _positive_value(row, key):
+    if key not in row:
+        return None
+    try:
+        value = float(row[key])
+    except (TypeError, ValueError):
+        return None
+    if value <= 0 or math.isnan(value):
+        return None
+    return value
+
+
+def _progress_group_key(row):
+    key_columns = [
+        "benchmark_id",
+        "algo",
+        "n_samples",
+        "n_features",
+    ]
+    ignored_columns = {
+        "input",
+        "cuml_time",
+        "cpu_time",
+        "accel_time",
+        "cuml_acc",
+        "cpu_acc",
+        "accel_acc",
+        "speedup",
+        "backend",
+    }
+    key = [row.get(column, None) for column in key_columns]
+    for column in sorted(set(row.index) - set(key_columns) - ignored_columns):
+        value = row.get(column)
+        if pd.notna(value):
+            key.append((column, value))
+    return tuple(key)
+
+
+def _coalesce_progress_rows(results_df):
+    rows = []
+    for _, group in results_df.groupby(
+        results_df.apply(_progress_group_key, axis=1),
+        sort=False,
+        dropna=False,
+    ):
+        base = group.iloc[0].copy()
+        for column in (
+            "cuml_time",
+            "cpu_time",
+            "accel_time",
+            "cuml_acc",
+            "cpu_acc",
+            "accel_acc",
+        ):
+            if column not in group:
+                continue
+            values = [
+                value
+                for value in group[column]
+                if pd.notna(value) and _positive_value({column: value}, column)
+            ]
+            if values:
+                base[column] = values[0]
+        if "input" in group:
+            inputs = [str(value) for value in group["input"].dropna().unique()]
+            base["input"] = ",".join(inputs)
+        rows.append(base)
+    return pd.DataFrame(rows)
+
+
+def _progress_line(row, index, total, dtype):
+    algo = row.get("algo", "")
+    rows = row.get("n_samples", "")
+    features = row.get("n_features", "")
+    size_gb = _estimated_input_size_gb(rows, features, dtype)
+
+    cpu_time = _positive_value(row, "cpu_time")
+    gpu_time = _positive_value(row, "cuml_time")
+    accel_time = _positive_value(row, "accel_time")
+
+    ratio_parts = []
+    for label, numerator, denominator in (
+        ("gpu_speedup", gpu_time, cpu_time),
+        ("accel_speedup", accel_time, cpu_time),
+        ("accel_overhead", gpu_time, accel_time),
+    ):
+        value = _ratio(numerator, denominator)
+        if value is not None:
+            ratio_parts.append(f"{label}={value:.2f}x")
+
+    metric = ""
+    for metric in ("cuml_acc", "accel_acc", "cpu_acc"):
+        value = _positive_value(row, metric)
+        if value is not None:
+            metric = f"acc={value:.4f}"
+            break
+
+    ratios = " ".join(ratio_parts)
+    details = " ".join(part for part in (ratios, metric) if part)
+
+    return (
+        f"{f'[{index}/{total}]':>9}  "
+        f"{str(algo):<26.26}  "
+        f"{(_human_count(rows) + ' x ' + _human_count(features)):>14}  "
+        f"{('~' + format(size_gb, '.2f') + ' GB') if not math.isnan(size_gb) else '':>10}  "
+        f"{_format_seconds_cell(gpu_time):>9}  "
+        f"{_format_seconds_cell(cpu_time):>9}  "
+        f"{_format_seconds_cell(accel_time):>10}  "
+        f"{details}"
+    ).rstrip()
+
+
+def _progress_header():
+    return (
+        f"{'progress':>9}  "
+        f"{'algorithm':<26}  "
+        f"{'shape':>14}  "
+        f"{'data':>10}  "
+        f"{'gpu_time':>9}  "
+        f"{'cpu_time':>9}  "
+        f"{'accel_time':>10}  "
+        f"{'details'}"
+    )
+
+
+def _print_progress_rows(results_df, start_index, total, dtype, verbose=True):
+    if not verbose or results_df.empty:
+        return start_index
+    if start_index == 1:
+        header = _progress_header()
+        print(header)
+        print("-" * len(header))
+    for _, row in _coalesce_progress_rows(results_df).iterrows():
+        print(_progress_line(row, start_index, total, dtype))
+        start_index += 1
+    return start_index
+
+
+def _median_ratio_by_algorithm(results_df, numerator_column, denominator_column):
+    if numerator_column not in results_df or denominator_column not in results_df:
+        return []
+    rows = []
+    for algo, group in results_df.groupby("algo", dropna=False):
+        ratios = []
+        for _, row in group.iterrows():
+            value = _ratio(row.get(numerator_column), row.get(denominator_column))
+            if value is not None:
+                ratios.append(value)
+        if ratios:
+            rows.append((str(algo), float(np.median(ratios))))
+    return rows
+
+
+def _print_summary(results_df, csv_path=None, verbose=True):
+    if not verbose:
+        return
+    completed = len(results_df)
+    print("")
+    print("Summary:")
+    print(f"  completed: {completed}")
+    if csv_path:
+        print(f"  results: {csv_path}")
+
+    largest_gpu = sorted(
+        _median_ratio_by_algorithm(results_df, "cuml_time", "cpu_time"),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:5]
+    smallest_gpu = sorted(
+        _median_ratio_by_algorithm(results_df, "cuml_time", "cpu_time"),
+        key=lambda item: item[1],
+    )[:5]
+    accel_overhead = sorted(
+        _median_ratio_by_algorithm(results_df, "cuml_time", "accel_time"),
+        key=lambda item: item[1],
+        reverse=True,
+    )[:5]
+
+    if largest_gpu:
+        print("  largest gpu acceleration vs cpu:")
+        for algo, value in largest_gpu:
+            print(f"    {algo}: {value:.2f}x")
+    if smallest_gpu:
+        print("  smallest gpu acceleration vs cpu:")
+        for algo, value in smallest_gpu:
+            print(f"    {algo}: {value:.2f}x")
+    if accel_overhead:
+        print("  largest accel overhead vs gpu:")
+        for algo, value in accel_overhead:
+            print(f"    {algo}: {value:.2f}x")
+
+
 def _extract_explicit_options(argv):
     """Return the set of CLI option names explicitly provided by the user."""
     explicit = set()
@@ -524,6 +780,35 @@ def _resolved_entry_dimensions(entry, args, explicit_options):
     return None, base_rows, base_dims
 
 
+def _variation_shapes(shape_pairs, bench_rows, bench_dims):
+    return shape_pairs or [
+        {"rows": rows, "features": dims}
+        for rows in bench_rows
+        for dims in bench_dims
+    ]
+
+
+def _param_combination_count(param_lists):
+    count = 1
+    for values in param_lists.values():
+        count *= len(values)
+    return count
+
+
+def _planned_config_result_count(benchmark_entries, entry_backends, args, explicit_options):
+    total = 0
+    for entry, _ in zip(benchmark_entries, entry_backends):
+        shape_pairs, bench_rows, bench_dims = _resolved_entry_dimensions(
+            entry, args, explicit_options
+        )
+        param_lists = _config_param_lists(entry, args, explicit_options)
+        total += (
+            len(_variation_shapes(shape_pairs, bench_rows, bench_dims))
+            * _param_combination_count(param_lists)
+        )
+    return total
+
+
 def _run_config_benchmarks(args, explicit_options):
     """Execute benchmarks resolved from a YAML config file."""
     resolved = load_and_resolve_config(
@@ -551,6 +836,10 @@ def _run_config_benchmarks(args, explicit_options):
     ):
         setup_rmm_allocator(args.rmm_allocator)
 
+    progress_total = _planned_config_result_count(
+        benchmark_entries, entry_backends, args, explicit_options
+    )
+    progress_index = 1
     all_results = []
     for entry, selected_backends in zip(benchmark_entries, entry_backends):
         algo = algorithms.algorithm_by_name(entry["algorithm"])
@@ -604,13 +893,10 @@ def _run_config_benchmarks(args, explicit_options):
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
 
-        variation_shapes = shape_pairs or [
-            {"rows": rows, "features": dims}
-            for rows in bench_rows
-            for dims in bench_dims
-        ]
+        variation_shapes = _variation_shapes(shape_pairs, bench_rows, bench_dims)
 
         for shape in variation_shapes:
+            shape_results = []
             run_groups = []
             if run_cpu and run_cuml and cpu_input_type != input_type:
                 run_groups.extend(
@@ -645,6 +931,7 @@ def _run_config_benchmarks(args, explicit_options):
                 results_df["suite_tier"] = resolved["suite_tier"]
                 results_df["profile"] = resolved["profile"]
                 all_results.append(results_df)
+                shape_results.append(results_df)
 
             if run_accel:
                 accel_results_df = _run_accel_variations(
@@ -666,10 +953,22 @@ def _run_config_benchmarks(args, explicit_options):
                     accel_results_df["suite_tier"] = resolved["suite_tier"]
                     accel_results_df["profile"] = resolved["profile"]
                     all_results.append(accel_results_df)
+                    shape_results.append(accel_results_df)
+
+            if shape_results:
+                progress_index = _print_progress_rows(
+                    pd.concat(shape_results, ignore_index=True),
+                    progress_index,
+                    progress_total,
+                    dtype,
+                    verbose=args.verbose,
+                )
 
     if not all_results:
         raise ValueError("No benchmark results were produced.")
-    return pd.concat(all_results, ignore_index=True)
+    results_df = pd.concat(all_results, ignore_index=True)
+    _print_summary(results_df, args.csv, verbose=args.verbose)
+    return results_df
 
 
 def run_benchmark(args, explicit_options=None):
@@ -697,22 +996,21 @@ def run_benchmark(args, explicit_options=None):
 
     all_results = []
     if "cpu" in selected_backends or run_gpu:
-        all_results.append(
-            runners.run_variations(
-                algos_to_run,
-                dataset_name=args.dataset,
-                bench_rows=bench_rows,
-                bench_dims=bench_dims,
-                input_type=args.input_type,
-                test_fraction=args.test_split,
-                dtype=args.dtype,
-                run_cpu=("cpu" in selected_backends),
-                run_cuml=run_gpu,
-                raise_on_error=args.raise_on_error,
-                n_reps=args.n_reps,
-                **param_lists,
-            )
+        results_df = runners.run_variations(
+            algos_to_run,
+            dataset_name=args.dataset,
+            bench_rows=bench_rows,
+            bench_dims=bench_dims,
+            input_type=args.input_type,
+            test_fraction=args.test_split,
+            dtype=args.dtype,
+            run_cpu=("cpu" in selected_backends),
+            run_cuml=run_gpu,
+            raise_on_error=args.raise_on_error,
+            n_reps=args.n_reps,
+            **param_lists,
         )
+        all_results.append(results_df)
     if "accel" in selected_backends:
         accel_input_type = _validate_benchmark_inputs(
             args.test_split, args.input_type, False
@@ -736,6 +1034,10 @@ def run_benchmark(args, explicit_options=None):
     if not all_results:
         raise ValueError("No benchmark results were produced.")
     results_df = pd.concat(all_results, ignore_index=True)
+    _print_progress_rows(
+        results_df, 1, len(results_df), args.dtype, verbose=args.verbose
+    )
+    _print_summary(results_df, args.csv, verbose=args.verbose)
     _save_results(results_df, args.csv)
 
 
