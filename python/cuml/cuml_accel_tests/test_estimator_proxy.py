@@ -28,6 +28,7 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from cuml.accel import is_proxy
 
@@ -738,3 +739,99 @@ def test_metadata_routing_consumed(metadata_routing):
 
     search = GridSearchCV(estimator=lr, param_grid={"C": [0.9, 1]})
     search.fit(X, y, sample_weight=weights)
+
+
+def test_array_api_proxy_pandas_inputs():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    df = pd.DataFrame(X, columns=[f"X{i}" for i in range(X.shape[1])])
+    model = StandardScaler().fit(df)
+
+    # get_feature_names_out works as expected
+    assert (model.get_feature_names_out() == df.columns).all()
+
+    # Can transform pandas input
+    out = model.transform(df)
+    assert isinstance(out, np.ndarray)
+
+    # set_output works as expected
+    model.set_output(transform="pandas")
+    out = model.transform(df)
+    assert isinstance(out, pd.DataFrame)
+    assert (out.columns == df.columns).all()
+
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_array_api_proxy_global_transform_output():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = StandardScaler().fit(X)
+
+    with sklearn.config_context(transform_output="pandas"):
+        out = model.transform(X)
+    assert isinstance(out, pd.DataFrame)
+
+
+def test_array_api_proxy_partial_fit():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = StandardScaler().fit(X)
+
+    model2 = StandardScaler()
+    model2.partial_fit(X[:25])
+    assert model2._gpu._internal_model.n_samples_seen_ == 25
+
+    # 2nd partial fit doesn't reset internal state
+    model2.partial_fit(X[25:])
+    assert model2._gpu._internal_model.n_samples_seen_ == X.shape[0]
+
+    # fit and partial_fit result in close values
+    sol = model.transform(X)
+    res = model2.transform(X)
+    np.testing.assert_allclose(sol, res)
+
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        pytest.param(lambda x: x.astype(str).astype(object), id="object"),
+        pytest.param(lambda x: x.tolist(), id="list"),
+    ],
+)
+def test_array_api_proxy_coerce_inputs(transform):
+    X, _ = make_blobs(n_features=5, n_samples=10, random_state=42)
+    X = transform(X)
+    model = StandardScaler().fit(X)
+    assert model.n_features_in_ == 5
+
+
+def test_array_api_proxy_pickle():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    df = pd.DataFrame(X, columns=[f"X{i}" for i in range(X.shape[1])])
+    model = StandardScaler().fit(df)
+
+    model2 = pickle.loads(pickle.dumps(model))
+
+    # hyperparameters roundtrip
+    assert model2.get_params() == model.get_params()
+
+    # GPU model exists and is fit
+    assert model2._gpu is not None
+    assert model2._gpu._internal_model.mean_ is not None
+
+    # CPU model has fit attributes cleared to reduce host memory
+    assert not hasattr(model2._cpu, "mean_")
+    assert not model2._synced
+
+    # Check location of attribute storage on _ArrayAPIWrapper
+    # - n_features_in_ set on both wrapper and internal model
+    assert model2._gpu.n_features_in_ == model.n_features_in_
+    assert model2._gpu._internal_model.n_features_in_ == model.n_features_in_
+    # - feature_names_in_ only set on wrapper
+    assert (model2._gpu.feature_names_in_ == model.feature_names_in_).all()
+    assert not hasattr(model2._gpu._internal_model, "feature_names_in_")
+    # - Other attributes only set on internal model
+    assert not hasattr(model2._gpu, "mean_")
+    assert hasattr(model2._gpu._internal_model, "mean_")
