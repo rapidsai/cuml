@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -447,7 +447,7 @@ def test_kmeans_n_samples_less_than_n_clusters():
 
 
 def test_kmeans_init_wrong_shape():
-    X = np.empty(shape=(20, 10))
+    X = np.ones(shape=(20, 10))
 
     # init not compatible with X
     model = cuml.KMeans(n_init=1, init=X[:8, :2], n_clusters=8)

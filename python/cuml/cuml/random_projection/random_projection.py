@@ -1,20 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
-import cupyx.scipy.sparse as cp_sp
+import cupyx.scipy.sparse as sp
 import numpy as np
-import scipy.sparse as sp
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import (
-    check_features,
+    check_inputs,
     check_is_fitted,
     check_random_seed,
 )
@@ -82,18 +80,23 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         raise NotImplementedError
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
+        # Use `mem_type=None` & `order=None` to minimize copies or transfers. We
+        # don't need to access the data here, just ensure it's valid and get
+        # the shape/dtype
+        X = check_inputs(
+            self,
+            X,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            mem_type=None,
+            order=None,
+            accept_sparse=True,
+            reset=True,
+        )
         n_samples, n_features = X.shape
-
-        # Prefer float32, unless `convert_dtype=False` and the input is float64
-        if convert_dtype:
-            dtype = np.float32
-        else:
-            dtype = getattr(X, "dtype", np.float32)
-            if dtype not in ("float32", "float64"):
-                dtype = np.float32
 
         if self.n_components == "auto":
             self.n_components_ = johnson_lindenstrauss_min_dim(
@@ -114,7 +117,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
             )
 
         self.components_ = self._gen_random_matrix(
-            self.n_components_, n_features, dtype
+            self.n_components_, n_features, X.dtype
         )
 
         return self
@@ -124,22 +127,14 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
     def transform(self, X, *, convert_dtype=True) -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
         check_is_fitted(self)
-        check_features(self, X)
-
-        # Coerce X to a cupy array or cupyx sparse matrix
-        index = None
-        if sp.issparse(X):
-            X = cp_sp.csr_matrix(X)
-        elif not cp_sp.issparse(X):
-            X_m = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                order="K",
-            ).array
-            index = X_m.index
-            X = X_m.to_output("cupy")
-
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            accept_sparse=("csr", "csc"),
+            return_index=True,
+        )
         components = self.components_.to_output("cupy")
 
         # Compute the output
@@ -150,7 +145,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         if out.dtype != self.components_.dtype:
             out = out.astype(self.components_.dtype)
 
-        if sp.issparse(out) or cp_sp.issparse(out):
+        if sp.issparse(out):
             if not getattr(self, "dense_output", False):
                 # Sparse output
                 return out
@@ -423,7 +418,7 @@ class SparseRandomProjection(_BaseRandomProjection):
         data = cp.multiply(data, factor, dtype=dtype)
 
         return SparseCumlArray(
-            data=cp_sp.coo_matrix(
+            data=sp.coo_matrix(
                 (data, (i, j)), shape=(n_components, n_features)
             ).asformat("csr")
         )

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -14,6 +14,11 @@ from cuml.pipeline import Pipeline, make_pipeline
 from cuml.preprocessing import StandardScaler
 from cuml.svm import SVC
 from cuml.testing.utils import ClassEnumerator
+
+# TODO(26.08): Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 
 
 def test_pipeline():

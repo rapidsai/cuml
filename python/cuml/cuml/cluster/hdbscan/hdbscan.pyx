@@ -4,7 +4,6 @@ import cupy as cp
 import numpy as np
 
 import cuml
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
@@ -16,9 +15,8 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
@@ -103,15 +101,14 @@ cdef class _HDBSCANState:
     # The number of clusters
     cdef public int n_clusters
 
-    # A CumlArray. Either a view of `hdbscan_output`, or memory allocated by
-    # `CumlArray` (if not from a `fit` call). This is also passed to
-    # `PredictionData`, which keeps a view of it (but doesn't do anything to
-    # keep it alive while using it). We keep a reference here to work around
-    # that.
+    # A cupy array. Either a view of `hdbscan_output`, or memory allocated by
+    # cupy (if not from a `fit` call). This is also passed to `PredictionData`,
+    # which keeps a view of it (but doesn't do anything to keep it alive while
+    # using it). We keep a reference here to work around that.
     cdef object core_dists
 
-    # A CumlArray. Either a view of `hdbscan_output`, or memory allocated by
-    # `CumlArray` (if not from a `fit` call).
+    # A cupy array. Either a view of `hdbscan_output`, or memory allocated by
+    # cupy (if not from a `fit` call).
     cdef object inverse_label_map
 
     # A cached numpy array of the condensed tree, or None if a host-array version
@@ -190,10 +187,10 @@ cdef class _HDBSCANState:
         handle = get_handle()
         self._init_from_condensed_tree_array(handle, model._condensed_tree, n_rows)
 
-        self.core_dists = CumlArray.empty(n_rows, dtype=np.float32)
+        self.core_dists = cp.empty(n_rows, dtype=np.float32)
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.ptr
-        cdef float* core_dists_ptr = <float*><uintptr_t>self.core_dists.ptr
+        cdef float* core_dists_ptr = <float*><uintptr_t>self.core_dists.data.ptr
         cdef bool allow_single_cluster = model.allow_single_cluster
         cdef int64_t max_cluster_size = model.max_cluster_size
         cdef float cluster_selection_epsilon = model.cluster_selection_epsilon
@@ -228,16 +225,14 @@ cdef class _HDBSCANState:
         self.n_clusters = temp_buffer.size()
 
         if self.n_clusters > 0:
-            self.inverse_label_map = CumlArray(
-                data=_cupy_array_from_ptr(
-                    <size_t>temp_buffer.data(),
-                    (self.n_clusters,),
-                    np.int64,
-                    self
-                ).copy()
-            )
+            self.inverse_label_map = _cupy_array_from_ptr(
+                <size_t>temp_buffer.data(),
+                (self.n_clusters,),
+                np.int64,
+                self
+            ).copy()
         else:
-            self.inverse_label_map = CumlArray.empty((0,), dtype=np.int64)
+            self.inverse_label_map = cp.empty((0,), dtype=np.int64)
 
         del temp_buffer
 
@@ -262,26 +257,9 @@ cdef class _HDBSCANState:
         """
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
-        children = input_to_cuml_array(
-            dendrogram[:, 0:2],
-            order='C',
-            check_dtype=[np.int64],
-            convert_to_dtype=np.int64,
-        )[0]
-
-        lambdas = input_to_cuml_array(
-            dendrogram[:, 2],
-            order='C',
-            check_dtype=[np.float32],
-            convert_to_dtype=np.float32,
-        )[0]
-
-        sizes = input_to_cuml_array(
-            dendrogram[:, 3],
-            order='C',
-            check_dtype=[np.int64],
-            convert_to_dtype=np.int64,
-        )[0]
+        children = cp.asarray(dendrogram[:, 0:2], order="C", dtype="int64")
+        lambdas = cp.asarray(dendrogram[:, 2], order="C", dtype="float32")
+        sizes = cp.asarray(dendrogram[:, 3], order="C", dtype="int64")
 
         cdef size_t n_leaves = dendrogram.shape[0] + 1
 
@@ -289,9 +267,9 @@ cdef class _HDBSCANState:
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
         self.condensed_tree = new lib.CondensedHierarchy[int64_t, float](handle_[0], n_leaves)
-        cdef int64_t* children_ptr = <int64_t*><uintptr_t>children.ptr
-        cdef float* lambdas_ptr = <float*><uintptr_t>lambdas.ptr
-        cdef int64_t* sizes_ptr = <int64_t*><uintptr_t>sizes.ptr
+        cdef int64_t* children_ptr = <int64_t*><uintptr_t>children.data.ptr
+        cdef float* lambdas_ptr = <float*><uintptr_t>lambdas.data.ptr
+        cdef int64_t* sizes_ptr = <int64_t*><uintptr_t>sizes.data.ptr
         with nogil:
             lib.build_condensed_hierarchy(
                 handle_[0],
@@ -319,35 +297,37 @@ cdef class _HDBSCANState:
         cdef int n_cols = X.shape[1]
 
         # Allocate output structures
-        labels = CumlArray.empty(n_rows, dtype="int64", index=X.index)
-        probabilities = CumlArray.empty(n_rows, dtype="float32")
+        labels = cp.empty(n_rows, dtype="int64")
+        probabilities = cp.empty(n_rows, dtype="float32")
 
-        children = CumlArray.empty((2, n_rows), dtype="int64")
-        lambdas = CumlArray.empty(n_rows, dtype="float32")
-        sizes = CumlArray.empty(n_rows, dtype="int64")
+        children = cp.empty((2, n_rows), order="F", dtype="int64")
+        lambdas = cp.empty(n_rows, dtype="float32")
+        sizes = cp.empty(n_rows, dtype="int64")
 
-        mst_src = CumlArray.empty(n_rows - 1, dtype="int64")
-        mst_dst = CumlArray.empty(n_rows - 1, dtype="int64")
-        mst_weights = CumlArray.empty(n_rows - 1, dtype="float32")
+        mst_src = cp.empty(n_rows - 1, dtype="int64")
+        mst_dst = cp.empty(n_rows - 1, dtype="int64")
+        mst_weights = cp.empty(n_rows - 1, dtype="float32")
 
-        core_dists = CumlArray.empty(n_rows, dtype="float32")
+        core_dists = cp.empty(n_rows, dtype="float32")
 
         handle = get_handle(device_ids=device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
-        cdef float* X_ptr = <float*><uintptr_t>X.ptr
-        cdef float* core_dists_ptr = <float*><uintptr_t>core_dists.ptr
+        cdef float* X_ptr = <float*><uintptr_t>(
+            X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
+        )
+        cdef float* core_dists_ptr = <float*><uintptr_t>core_dists.data.ptr
 
         self.hdbscan_output = new lib.hdbscan_output(
             handle_[0],
             n_rows,
-            <int64_t*><uintptr_t>(labels.ptr),
-            <float*><uintptr_t>(probabilities.ptr),
-            <int64_t*><uintptr_t>(children.ptr),
-            <int64_t*><uintptr_t>(sizes.ptr),
-            <float*><uintptr_t>(lambdas.ptr),
-            <int64_t*><uintptr_t>(mst_src.ptr),
-            <int64_t*><uintptr_t>(mst_dst.ptr),
-            <float*><uintptr_t>(mst_weights.ptr)
+            <int64_t*><uintptr_t>(labels.data.ptr),
+            <float*><uintptr_t>(probabilities.data.ptr),
+            <int64_t*><uintptr_t>(children.data.ptr),
+            <int64_t*><uintptr_t>(sizes.data.ptr),
+            <float*><uintptr_t>(lambdas.data.ptr),
+            <int64_t*><uintptr_t>(mst_src.data.ptr),
+            <int64_t*><uintptr_t>(mst_dst.data.ptr),
+            <float*><uintptr_t>(mst_weights.data.ptr)
         )
 
         # Execute fit
@@ -367,47 +347,43 @@ cdef class _HDBSCANState:
         # Extract and store local state
         self.n_clusters = self.hdbscan_output.get_n_clusters()
         if self.n_clusters > 0:
-            self.inverse_label_map = CumlArray(
-                data=_cupy_array_from_ptr(
-                    <size_t>self.hdbscan_output.get_inverse_label_map(),
-                    (self.n_clusters,),
-                    np.int64,
-                    self
-                )
+            self.inverse_label_map = _cupy_array_from_ptr(
+                <size_t>self.hdbscan_output.get_inverse_label_map(),
+                (self.n_clusters,),
+                np.int64,
+                self
             )
         else:
-            self.inverse_label_map = CumlArray.empty((0,), dtype=np.int64)
+            self.inverse_label_map = cp.empty((0,), dtype=np.int64)
         self.core_dists = core_dists
 
         # Extract and prepare results
         if self.n_clusters > 0:
-            cluster_persistence = CumlArray(
-                data=_cupy_array_from_ptr(
-                    <size_t>self.hdbscan_output.get_stabilities(),
-                    (self.n_clusters,),
-                    np.float32,
-                    self,
-                )
+            cluster_persistence = _cupy_array_from_ptr(
+                <size_t>self.hdbscan_output.get_stabilities(),
+                (self.n_clusters,),
+                np.float32,
+                self,
             )
         else:
-            cluster_persistence = CumlArray.empty((0,), dtype=np.float32)
+            cluster_persistence = cp.empty((0,), dtype=np.float32)
 
         if gen_min_span_tree:
             min_span_tree = np.column_stack(
                 (
-                    mst_src.to_output("numpy", output_dtype=np.float64),
-                    mst_dst.to_output("numpy", output_dtype=np.float64),
-                    mst_weights.to_output("numpy", output_dtype=np.float64),
+                    mst_src.get().astype("float64"),
+                    mst_dst.get().astype("float64"),
+                    mst_weights.get().astype("float64"),
                 )
-            ).astype(np.float64)
+            )
         else:
             min_span_tree = None
 
         single_linkage_tree = np.concatenate(
             (
-                children.to_output("numpy", output_dtype=np.float64),
-                lambdas.to_output("numpy", output_dtype=np.float64)[None, :],
-                sizes.to_output("numpy", output_dtype=np.float64)[None, :],
+                children.get().astype("float64"),
+                lambdas.get().astype("float64")[None, :],
+                sizes.get().astype("float64")[None, :],
             ),
         )[:, :n_rows - 1].T
 
@@ -431,14 +407,16 @@ cdef class _HDBSCANState:
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.ptr
-        cdef int64_t* inverse_label_map_ptr = <int64_t*><uintptr_t>self.inverse_label_map.ptr
+        cdef int64_t* inverse_label_map_ptr = (
+            <int64_t*><uintptr_t>self.inverse_label_map.data.ptr
+        )
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         self.prediction_data = new lib.PredictionData[int64_t, float](
             handle_[0],
             n_rows,
             n_cols,
-            <float*><uintptr_t>(self.core_dists.ptr),
+            <float*><uintptr_t>(self.core_dists.data.ptr),
         )
 
         cdef lib.CondensedHierarchy[int64_t, float] *condensed_tree = self.get_condensed_tree()
@@ -467,7 +445,7 @@ cdef class _HDBSCANState:
         tree = np.recarray(
             shape=(n_condensed_tree_edges,),
             formats=[np.intp, np.intp, np.float64, np.intp],
-            names=('parent', 'child', 'lambda_val', 'child_size'),
+            names=("parent", "child", "lambda_val", "child_size"),
         )
 
         parents = _cupy_array_from_ptr(
@@ -498,10 +476,10 @@ cdef class _HDBSCANState:
             self,
         )
 
-        tree['parent'] = parents.get()
-        tree['child'] = children.get()
-        tree['lambda_val'] = lambdas.get()
-        tree['child_size'] = sizes.get()
+        tree["parent"] = parents.get()
+        tree["child"] = children.get()
+        tree["lambda_val"] = lambdas.get()
+        tree["child_size"] = sizes.get()
 
         self.cached_condensed_tree = tree
 
@@ -817,16 +795,16 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         min_samples=None,
         cluster_selection_epsilon=0.0,
         max_cluster_size=0,
-        metric='euclidean',
+        metric="euclidean",
         alpha=1.0,
         p=None,
-        cluster_selection_method='eom',
+        cluster_selection_method="eom",
         allow_single_cluster=False,
         gen_min_span_tree=False,
         verbose=False,
         output_type=None,
         prediction_data=False,
-        build_algo='brute_force',
+        build_algo="brute_force",
         build_kwds=None,
         device_ids=None,
     ):
@@ -931,7 +909,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
@@ -940,21 +918,25 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         kwds = self.build_kwds or {}
         if kwds.get("knn_n_clusters", 1) > 1:
             logger.warn("Using data on host memory because knn_n_clusters > 1.")
-            convert_to_mem_type = MemoryType.host
+            mem_type = "host"
         else:
             if self.build_algo == "nn_descent":
                 # Keep original input data memory type to avoid unnecessary data transfer
-                convert_to_mem_type = False
+                mem_type = None
             else:
-                convert_to_mem_type = MemoryType.device
+                mem_type = "device"
 
-        self._raw_data = input_to_cuml_array(
+        X, index = check_inputs(
+            self,
             X,
-            order='C',
-            check_dtype=[np.float32],
-            convert_to_dtype=np.float32 if convert_dtype else None,
-            convert_to_mem_type=convert_to_mem_type
-        )[0]
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            mem_type=mem_type,
+            ensure_min_samples=2,
+            return_index=True,
+            reset=True,
+        )
+        self._raw_data = CumlArray(X, index=index)
         self._raw_data_cpu = None
 
         # Validate and prepare hyperparameters
@@ -973,9 +955,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
 
-        if self.cluster_selection_method == 'eom':
+        if self.cluster_selection_method == "eom":
             params.cluster_selection_method = lib.CLUSTER_SELECTION_METHOD.EOM
-        elif self.cluster_selection_method == 'leaf':
+        elif self.cluster_selection_method == "leaf":
             params.cluster_selection_method = lib.CLUSTER_SELECTION_METHOD.LEAF
         else:
             raise ValueError(
@@ -983,12 +965,12 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
                 f"got {self.cluster_selection_method!r}"
             )
 
-        if self.build_algo == 'brute_force':
+        if self.build_algo == "brute_force":
             params.build_algo = lib.GRAPH_BUILD_ALGO.BRUTE_FORCE_KNN
             kwds = self.build_kwds or {}
             params.build_params.n_clusters = <uint64_t> kwds.get("knn_n_clusters", 1)
             params.build_params.overlap_factor = <uint64_t> kwds.get("knn_overlap_factor", 2)
-        elif self.build_algo == 'nn_descent':
+        elif self.build_algo == "nn_descent":
             params.build_algo = lib.GRAPH_BUILD_ALGO.NN_DESCENT
 
             kwds = self.build_kwds or {}
@@ -1061,7 +1043,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
             min_spanning_tree,
             single_linkage_tree,
         ) = _HDBSCANState.init_and_fit(
-            self._raw_data,
+            X,
             params,
             metric,
             self.gen_min_span_tree,
@@ -1071,9 +1053,9 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         # Store state on model
         self._state = state
         self.n_clusters_ = n_clusters
-        self.labels_ = labels
-        self.probabilities_ = probabilities
-        self.cluster_persistence_ = cluster_persistence
+        self.labels_ = CumlArray(data=labels, index=index)
+        self.probabilities_ = CumlArray(data=probabilities)
+        self.cluster_persistence_ = CumlArray(data=cluster_persistence)
         self._min_spanning_tree = min_spanning_tree
         self._single_linkage_tree = single_linkage_tree
 
@@ -1082,10 +1064,10 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
 
         return self
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Cluster indexes',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(return_values={"name": "preds",
+                                       "type": "dense",
+                                       "description": "Cluster indexes",
+                                       "shape": "(n_samples, 1)"})
     @reflect
     def fit_predict(self, X, y=None) -> CumlArray:
         """
@@ -1169,23 +1151,19 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     n_rows = clusterer._raw_data.shape[0]
 
     if clusterer.n_clusters_ == 0:
-        return CumlArray.zeros(
-            n_rows,
-            dtype=np.float32,
-            order="C",
+        return CumlArray(
+            data=cp.zeros(n_rows, dtype=np.float32, order="C"),
             index=clusterer._raw_data.index,
         )
 
-    membership_vec = CumlArray.empty(
-        (n_rows, clusterer.n_clusters_,),
-        dtype="float32",
-        order="C",
-        index=clusterer._raw_data.index,
+    membership_vec = cp.empty(
+        (n_rows, clusterer.n_clusters_,), dtype="float32", order="C",
     )
 
+    raw_data = clusterer._raw_data.to_output("cupy")
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
-    cdef float* X_ptr = <float*><uintptr_t>clusterer._raw_data.ptr
-    cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.ptr
+    cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
+    cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.data.ptr
     cdef DistanceType metric = _metrics_mapping[clusterer.metric]
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -1202,7 +1180,7 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
         )
     handle.sync()
 
-    return membership_vec
+    return CumlArray(data=membership_vec, index=clusterer._raw_data.index)
 
 
 @reflect(model="clusterer", array="points_to_predict")
@@ -1238,38 +1216,30 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         in ``membership_vectors[i, j]``.
     """
     _check_clusterer(clusterer)
-    check_features(clusterer, points_to_predict)
-
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    cdef int n_prediction_points
-    points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
+    points_to_predict, index = check_inputs(
+        clusterer,
         points_to_predict,
-        order="C",
-        check_dtype=[np.float32],
-        convert_to_dtype=(np.float32 if convert_dtype else None)
-    )
-
-    if n_cols != clusterer._raw_data.shape[1]:
-        raise ValueError("New points dimension does not match fit data!")
-
-    if clusterer.n_clusters_ == 0:
-        return CumlArray.zeros(
-            n_prediction_points, dtype=np.float32, index=points_to_predict_m.index
-        )
-
-    membership_vec = CumlArray.empty(
-        (n_prediction_points, clusterer.n_clusters_,),
         dtype="float32",
+        convert_dtype=convert_dtype,
         order="C",
-        index=points_to_predict_m.index,
+        return_index=True,
     )
+    cdef int n_prediction_points = points_to_predict.shape[0]
 
+    membership_vec = cp.empty(
+        (n_prediction_points, clusterer.n_clusters_,), dtype="float32", order="C"
+    )
+    if clusterer.n_clusters_ == 0:
+        return CumlArray(data=membership_vec, index=index)
+
+    raw_data = clusterer._raw_data.to_output("cupy")
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
-    cdef float* X_ptr = <float*><uintptr_t>clusterer._raw_data.ptr
-    cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict_m.ptr
-    cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.ptr
+    cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
+    cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
+    cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.data.ptr
     cdef int min_samples = clusterer.min_samples or clusterer.min_cluster_size
     cdef DistanceType metric = _metrics_mapping[clusterer.metric]
     handle = get_handle()
@@ -1290,7 +1260,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         )
     handle.sync()
 
-    return membership_vec
+    return CumlArray(data=membership_vec, index=index)
 
 
 @reflect(model="clusterer", array="points_to_predict")
@@ -1327,7 +1297,6 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         The soft cluster scores for each of the ``points_to_predict``
     """
     _check_clusterer(clusterer)
-    check_features(clusterer, points_to_predict)
 
     if clusterer.n_clusters_ == 0:
         logger.warn(
@@ -1335,37 +1304,26 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
             "will be automatically predicted as outliers."
         )
 
-    cdef int n_prediction_points
-    points_to_predict_m, n_prediction_points, n_cols, _ = input_to_cuml_array(
+    points_to_predict, index = check_inputs(
+        clusterer,
         points_to_predict,
-        order="C",
-        check_dtype=[np.float32],
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-    )
-
-    if n_cols != clusterer._raw_data.shape[1]:
-        raise ValueError("New points dimension does not match fit data!")
-
-    prediction_labels = CumlArray.empty(
-        (n_prediction_points,),
-        dtype="int64",
-        index=points_to_predict_m.index,
-    )
-    prediction_probs = CumlArray.empty(
-        (n_prediction_points,),
         dtype="float32",
-        index=points_to_predict_m.index,
+        convert_dtype=convert_dtype,
+        order="C",
+        return_index=True,
     )
+    cdef int n_prediction_points = points_to_predict.shape[0]
 
-    with cuml.using_output_type("cuml"):
-        labels = clusterer.labels_
+    prediction_labels = cp.empty(n_prediction_points, dtype="int64")
+    prediction_probs = cp.empty(n_prediction_points, dtype="float32")
 
+    raw_data = clusterer._raw_data.to_output("cupy")
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
-    cdef float* X_ptr = <float*><uintptr_t>clusterer._raw_data.ptr
-    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.ptr
-    cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict_m.ptr
-    cdef int64_t* prediction_labels_ptr = <int64_t*><uintptr_t>prediction_labels.ptr
-    cdef float* prediction_probs_ptr = <float*><uintptr_t>prediction_probs.ptr
+    cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
+    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>clusterer.labels_.ptr
+    cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
+    cdef int64_t* prediction_labels_ptr = <int64_t*><uintptr_t>prediction_labels.data.ptr
+    cdef float* prediction_probs_ptr = <float*><uintptr_t>prediction_probs.data.ptr
     cdef DistanceType metric = _metrics_mapping[clusterer.metric]
     cdef int min_samples = clusterer.min_samples or clusterer.min_cluster_size,
     handle = get_handle()
@@ -1387,7 +1345,10 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         )
     handle.sync()
 
-    return prediction_labels, prediction_probs
+    return (
+        CumlArray(data=prediction_labels, index=index),
+        CumlArray(data=prediction_probs, index=index),
+    )
 
 
 ###########################################################
@@ -1428,35 +1389,16 @@ def _extract_clusters(
     """Extract clusters from a condensed_tree.
 
     Exposed for testing only"""
-    cdef size_t n_leaves = condensed_tree['parent'].min()
+    cdef size_t n_leaves = condensed_tree["parent"].min()
     cdef int n_edges = len(condensed_tree)
 
-    parents = input_to_cuml_array(
-        condensed_tree['parent'],
-        order='C',
-        convert_to_dtype=np.int64,
-    )[0]
+    parents = cp.asarray(condensed_tree["parent"], order="C", dtype="int64")
+    children = cp.asarray(condensed_tree["child"], order="C", dtype="int64")
+    lambdas = cp.asarray(condensed_tree["lambda_val"], order="C", dtype="float32")
+    sizes = cp.asarray(condensed_tree["child_size"], order="C", dtype="int64")
 
-    children = input_to_cuml_array(
-        condensed_tree["child"],
-        order='C',
-        convert_to_dtype=np.int64,
-    )[0]
-
-    lambdas = input_to_cuml_array(
-        condensed_tree['lambda_val'],
-        order='C',
-        convert_to_dtype=np.float32,
-    )[0]
-
-    sizes = input_to_cuml_array(
-        condensed_tree['child_size'],
-        order='C',
-        convert_to_dtype=np.int64,
-    )[0]
-
-    labels = CumlArray.empty(n_leaves, dtype="int64")
-    probabilities = CumlArray.empty(n_leaves, dtype="float32")
+    labels = cp.empty(n_leaves, dtype="int64")
+    probabilities = cp.empty(n_leaves, dtype="float32")
 
     cdef lib.CLUSTER_SELECTION_METHOD cluster_selection_method_val = {
         "eom": lib.CLUSTER_SELECTION_METHOD.EOM,
@@ -1470,12 +1412,12 @@ def _extract_clusters(
         handle_[0],
         n_leaves,
         n_edges,
-        <int64_t*><uintptr_t>(parents.ptr),
-        <int64_t*><uintptr_t>(children.ptr),
-        <float*><uintptr_t>(lambdas.ptr),
-        <int64_t*><uintptr_t>(sizes.ptr),
-        <int64_t*><uintptr_t>(labels.ptr),
-        <float*><uintptr_t>(probabilities.ptr),
+        <int64_t*><uintptr_t>(parents.data.ptr),
+        <int64_t*><uintptr_t>(children.data.ptr),
+        <float*><uintptr_t>(lambdas.data.ptr),
+        <int64_t*><uintptr_t>(sizes.data.ptr),
+        <int64_t*><uintptr_t>(labels.data.ptr),
+        <float*><uintptr_t>(probabilities.data.ptr),
         cluster_selection_method_val,
         <bool> allow_single_cluster,
         <int64_t> max_cluster_size,
@@ -1483,7 +1425,4 @@ def _extract_clusters(
     )
     handle.sync()
 
-    return (
-        labels.to_output("numpy"),
-        probabilities.to_output("numpy"),
-    )
+    return labels.get(), probabilities.get()

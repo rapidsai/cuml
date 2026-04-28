@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -34,7 +34,7 @@ def _load_wheel_installation(soname: str):
 
 
 def load_library():
-    """Dynamically load libcuml++.so and its dependencies"""
+    """Dynamically load libcuml.so and its dependencies"""
     try:
         # These libraries must all be loaded before libcuml
         import libraft
@@ -56,7 +56,7 @@ def load_library():
     )
 
     libs_to_return = []
-    for soname in ["libcuml++.so"]:
+    for soname in ["libcuml.so"]:
         libcuml_lib = None
         if prefer_system_installation:
             # Prefer a system library if one is present to

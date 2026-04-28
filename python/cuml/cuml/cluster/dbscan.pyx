@@ -3,14 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -18,6 +16,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -299,7 +298,7 @@ class DBSCAN(Base,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self,
         X,
@@ -324,43 +323,31 @@ class DBSCAN(Base,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        if out_dtype not in [np.dtype("int32"), np.dtype("int64")]:
+        X, sample_weight, index = check_inputs(
+            self,
+            X,
+            sample_weight=sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="C",
+            return_index=True,
+            reset=True,
+        )
+        cdef int64_t n_rows = X.shape[0]
+        cdef int64_t n_cols = X.shape[1]
+
+        if out_dtype not in (cp.dtype("int32"), cp.dtype("int64")):
             raise ValueError(
                 f"Expected out_dtype to be one of ['int32', 'int64'], got {out_dtype!s}"
             )
-
-        cdef int64_t n_rows, n_cols
-        X, n_rows, n_cols, _ = input_to_cuml_array(
-            X,
-            order='C',
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64]
-        )
-
         if n_rows * n_cols > (2**31 - 1):
             out_dtype = "int64"
             logger.info("Using int64 for out_dtype because n_rows * n_cols >= INT_MAX")
 
-        if n_rows == 0 or n_cols == 0:
-            raise ValueError(
-                f"DBSCAN requires at least one row and one column to fit, "
-                f"got X shape={X.shape}"
-            )
-
-        if sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                convert_to_dtype=(X.dtype if convert_dtype else None),
-                check_dtype=X.dtype,
-                check_rows=n_rows,
-                check_cols=1
-            ).array
-
         # Allocate output arrays
-        labels = CumlArray.empty(n_rows, dtype=out_dtype, index=X.index)
+        labels = cp.empty(n_rows, dtype=out_dtype)
         core_sample_indices = (
-            CumlArray.empty(n_rows, dtype=out_dtype)
-            if self.calc_core_sample_indices else None
+            cp.empty(n_rows, dtype=out_dtype) if self.calc_core_sample_indices else None
         )
 
         # Validate and coerce parameters
@@ -382,19 +369,19 @@ class DBSCAN(Base,
         cdef bool multi_gpu = self._multi_gpu
         cdef size_t max_mbytes_per_batch = self.max_mbytes_per_batch or 0
 
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t labels_ptr = labels.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t labels_ptr = labels.data.ptr
         cdef uintptr_t sample_weight_ptr = (
-            0 if sample_weight is None else sample_weight.ptr
+            0 if sample_weight is None else sample_weight.data.ptr
         )
         cdef uintptr_t core_sample_indices_ptr = (
-            0 if core_sample_indices is None else core_sample_indices.ptr
+            0 if core_sample_indices is None else core_sample_indices.data.ptr
         )
         # XXX: multi-gpu uses handle attribute to manage comms
         handle = self.handle if multi_gpu else get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef bool X_f32 = X.dtype == np.float32
-        cdef bool labels_i32 = labels.dtype == np.int32
+        cdef bool X_f32 = X.dtype == cp.float32
+        cdef bool labels_i32 = labels.dtype == cp.int32
 
         # Perform Fit
         with nogil:
@@ -464,15 +451,13 @@ class DBSCAN(Base,
 
         if core_sample_indices is not None:
             # Trim the core_sample_indices array if necessary. In the common case
-            # `core_sample_indices` will have many trailing `-1` to trim
-            core_sample_indices_cp = core_sample_indices.to_output("cupy")
+            # `core_sample_indices` will have many trailing `-1` to trim.
             # First get the min index. These are monotonically increasing, so
             # the min index should be the first returned -1
-            min_index = cp.argmin(core_sample_indices_cp).item()
-            if not (min_index == 0 and core_sample_indices_cp[0].item() != -1):
-                core_sample_indices_cp = core_sample_indices_cp[:min_index].copy()
-                components = X[core_sample_indices_cp]
-                core_sample_indices = CumlArray(data=core_sample_indices_cp)
+            min_index = cp.argmin(core_sample_indices).item()
+            if not (min_index == 0 and core_sample_indices[0].item() != -1):
+                core_sample_indices = core_sample_indices[:min_index].copy()
+                components = X[core_sample_indices]
             else:
                 # Trimming not necessary, all points are core samples
                 components = X
@@ -480,10 +465,13 @@ class DBSCAN(Base,
             components = None
 
         # Store fitted attributes
-        self.labels_ = labels
-        self.core_sample_indices_ = core_sample_indices
-        self.components_ = components
-
+        self.labels_ = CumlArray(data=labels, index=index)
+        self.core_sample_indices_ = (
+            None if core_sample_indices is None else CumlArray(data=core_sample_indices)
+        )
+        self.components_ = (
+            None if components is None else CumlArray(data=components)
+        )
         return self
 
     @generate_docstring(skip_parameters_heading=True,
@@ -492,15 +480,23 @@ class DBSCAN(Base,
                                        'description': 'Cluster labels',
                                        'shape': '(n_samples, 1)'})
     @reflect
-    def fit_predict(self, X, y=None, sample_weight=None, *, out_dtype="int32") -> CumlArray:
+    def fit_predict(
+        self,
+        X,
+        y=None,
+        sample_weight=None,
+        *,
+        out_dtype="int32",
+        convert_dtype=True,
+    ) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.
 
         Parameters
         ----------
-        out_dtype: dtype Determines the precision of the output labels array.
-            default: "int32". Valid values are { "int32", np.int32,
-            "int64", np.int64}.
+        out_dtype: dtype
+            Determines the precision of the output labels array. Options
+            are int32 or int64, defaults to int32.
 
         sample_weight: array-like of shape (n_samples,), default=None
             Weight of each sample, such that a sample with a weight of at
@@ -508,5 +504,10 @@ class DBSCAN(Base,
             negative weight may inhibit its eps-neighbor from being core.
             default: None (which is equivalent to weight 1 for all samples).
         """
-        self.fit(X, out_dtype=out_dtype, sample_weight=sample_weight)
+        self.fit(
+            X,
+            sample_weight=sample_weight,
+            out_dtype=out_dtype,
+            convert_dtype=convert_dtype
+        )
         return self.labels_
