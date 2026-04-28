@@ -97,19 +97,19 @@ class Lars(Base, RegressorMixin):
 
     Attributes
     ----------
-    alphas_ : array of floats or doubles, shape = [n_alphas + 1]
+    alphas_ : array, shape (n_alphas + 1,)
         The maximum correlation at each step.
-    active_ : array of ints shape = [n_alphas]
+    active_ : array, shape (n_alphas,)
         The indices of the active variables at the end of the path.
-    beta_ : array of floats or doubles [n_asphas]
+    beta_ : array, shape (n_alphas,)
         The active regression coefficients (same as `coef_` but zeros omitted).
-    coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
+    coef_path_ : array, shape (n_features, n_alphas + 1)
         The coefficients along the regularization path. Stored only if
         `fit_path` is True. Note that we only store coefficients for indices
         in the active set (i.e. :py:`coef_path_[:,-1] == coef_[active_]`)
-    coef_ : array, shape (n_features)
+    coef_ : array, shape (n_features,)
         The estimated coefficients for the regression model.
-    intercept_ : scalar, float or double
+    intercept_ : float
         The independent term. If `fit_intercept_` is False, will be 0.
     n_iter_ : int
         The number of iterations taken by the solver.
@@ -330,29 +330,17 @@ class Lars(Base, RegressorMixin):
 
         return self
 
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples,)",
+        }
+    )
     @reflect
     def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts `y` values for `X`.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        -------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
-        """
+        """Predicts `y` values for `X`."""
         check_is_fitted(self)
 
         X, index = check_inputs(
