@@ -223,6 +223,54 @@ Example shape:
 
 Derived comparisons such as GPU speedup are intentionally not stored in JSON. They are computed from raw backend timings for terminal display and downstream analysis.
 
+### JSON result schema
+
+The JSON artifact is versioned separately from the YAML manifest schema. The current output schema is identified by:
+
+```json
+{
+  "metadata": {
+    "result_schema_version": 1
+  }
+}
+```
+
+Top-level fields:
+
+- `results`: list of benchmark result records
+- `metadata`: run-level provenance and environment information
+
+Each entry in `results` represents one logical benchmark variation:
+
+- `benchmark_id`: stable ID from YAML configs, or `null` for ad hoc CLI runs
+- `algorithm`: benchmark algorithm name
+- `dataset`: dataset generator name
+- `operation`: operation name when defined by YAML, otherwise `null`
+- `shape`: row/feature dimensions and estimated dense input size
+- `data`: input type, dtype, and repetition count
+- `params.declared`: parameters explicitly supplied through YAML or CLI sweeps
+- `params.effective`: estimator parameters reported by `get_params()` for each backend when available
+- `backends`: backend-specific result records keyed by `cpu`, `gpu`, and/or `accel`
+
+Backend result records use these fields:
+
+- `status`: `success` or `skipped`
+- `time_sec`: elapsed benchmark time in seconds, present for successful runs
+- `accuracy`: accuracy or score metric when available
+- `reason`: explanation for skipped backends, such as `GPU unavailable`
+
+Run metadata includes:
+
+- `command`: argv and current working directory
+- `python`: Python executable, version, and platform
+- `cuml`: cuML version, git SHA, and dirty-state flag when available
+- `runtime`: GPU/cuML availability status
+- `config`: selected config path, profile, and backend override
+- `hardware`: detected CPU/GPU/OS/memory metadata plus optional effective labels from CLI overrides
+- `environment`: package snapshot from `conda list` or `pip list`
+
+The environment package snapshot is intentionally compact. Conda entries include only `name`, `version`, `build`, and `channel`; pip entries include only `name` and `version`.
+
 Terminal output is a concise progress table, for example:
 
 ```text
