@@ -197,6 +197,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``X`` contains missing values (represented as ``NaN``).
 - If ``y`` is a multi-output target.
 
 RandomForestRegressor
@@ -213,6 +214,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``X`` contains missing values (represented as ``NaN``).
 - If ``y`` is a multi-output target.
 
 
