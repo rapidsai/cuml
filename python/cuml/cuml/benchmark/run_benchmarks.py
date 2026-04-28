@@ -18,10 +18,12 @@ Modes:
 import json
 import math
 import os
+import platform
 import subprocess
 import sys
 import tempfile
 import warnings
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -88,10 +90,19 @@ def extract_param_overrides(params_to_sweep):
     # Expand each arg into a list of (key,value) tuples
     single_param_lists = []
     for p in params_to_sweep:
-        key, val_string = p.split("=")
-        vals = val_string.split(",")
-        # use json loads to convert to correct data type
+        key, val_string = p.split("=", 1)
+        try:
+            vals = json.loads(val_string)
+        except ValueError:
+            vals = val_string.split(",")
+
+        if not isinstance(vals, list):
+            vals = [vals]
+
+        # use json loads to convert comma-separated values to correct data type
         for idx, val in enumerate(vals):
+            if not isinstance(val, str):
+                continue
             try:
                 vals[idx] = json.loads(val)
             except ValueError:
@@ -283,6 +294,413 @@ def _save_results(results_df, csv_path):
         print("Saved results to %s" % csv_path)
 
 
+def _json_safe(value):
+    if value is None:
+        return None
+    if isinstance(value, (str, bool, int, float)):
+        if isinstance(value, float) and math.isnan(value):
+            return None
+        return value
+    if isinstance(value, np.generic):
+        return _json_safe(value.item())
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return str(value)
+
+
+def _git_output(args):
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=os.getcwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip()
+
+
+def _read_first_cpu_model():
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.lower().startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        return platform.processor() or None
+    return platform.processor() or None
+
+
+def _read_total_memory_bytes():
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("MemTotal:"):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError):
+        return None
+    return None
+
+
+def _gpu_hardware_from_nvml():
+    try:
+        import pynvml
+    except ImportError:
+        return None
+
+    try:
+        pynvml.nvmlInit()
+        device_count = pynvml.nvmlDeviceGetCount()
+        devices = []
+        for index in range(device_count):
+            handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+            name = pynvml.nvmlDeviceGetName(handle)
+            uuid = pynvml.nvmlDeviceGetUUID(handle)
+            memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            major, minor = pynvml.nvmlDeviceGetCudaComputeCapability(handle)
+            if isinstance(name, bytes):
+                name = name.decode()
+            if isinstance(uuid, bytes):
+                uuid = uuid.decode()
+            devices.append(
+                {
+                    "index": index,
+                    "name": name,
+                    "uuid": uuid,
+                    "total_memory_bytes": int(memory.total),
+                    "compute_capability": f"{major}.{minor}",
+                }
+            )
+        driver_version = pynvml.nvmlSystemGetDriverVersion()
+        if isinstance(driver_version, bytes):
+            driver_version = driver_version.decode()
+        return {
+            "count": device_count,
+            "devices": devices,
+            "driver_version": driver_version,
+        }
+    except Exception as exc:
+        return {"error": str(exc)}
+    finally:
+        try:
+            pynvml.nvmlShutdown()
+        except Exception:
+            pass
+
+
+def _gpu_hardware_from_nvidia_smi():
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,name,uuid,memory.total,driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0:
+        return None
+
+    devices = []
+    driver_version = None
+    for line in completed.stdout.splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) < 5:
+            continue
+        index, name, uuid, memory_mib, driver_version = parts[:5]
+        try:
+            memory_bytes = int(float(memory_mib) * 1024 * 1024)
+            index = int(index)
+        except ValueError:
+            continue
+        devices.append(
+            {
+                "index": index,
+                "name": name,
+                "uuid": uuid,
+                "total_memory_bytes": memory_bytes,
+                "compute_capability": None,
+            }
+        )
+    return {
+        "count": len(devices),
+        "devices": devices,
+        "driver_version": driver_version,
+    }
+
+
+def _collect_detected_hardware():
+    gpu = _gpu_hardware_from_nvml() or _gpu_hardware_from_nvidia_smi()
+    if gpu is None:
+        gpu = {"count": 0, "devices": [], "driver_version": None}
+    return {
+        "gpu": {"detected": gpu},
+        "cpu": {
+            "detected": {
+                "model": _read_first_cpu_model(),
+                "logical_cores": os.cpu_count(),
+                "physical_cores": None,
+                "architecture": platform.machine(),
+            }
+        },
+        "memory": {
+            "detected": {
+                "total_memory_bytes": _read_total_memory_bytes(),
+            }
+        },
+        "os": {
+            "detected": {
+                "platform": platform.platform(),
+                "system": platform.system(),
+                "release": platform.release(),
+                "kernel": platform.version(),
+            }
+        },
+    }
+
+
+def _hardware_overrides(args):
+    hardware = {}
+    hardware_label = getattr(args, "hardware_label", None)
+    if hardware_label:
+        hardware["label"] = hardware_label
+
+    gpu_effective = {}
+    if getattr(args, "hardware_gpu_name", None):
+        gpu_effective["name"] = args.hardware_gpu_name
+    if getattr(args, "hardware_gpu_memory_gb", None) is not None:
+        gpu_effective["total_memory_bytes"] = int(
+            args.hardware_gpu_memory_gb * 1e9
+        )
+    if gpu_effective:
+        hardware.setdefault("gpu", {})["effective"] = gpu_effective
+
+    cpu_effective = {}
+    if getattr(args, "hardware_cpu_name", None):
+        cpu_effective["model"] = args.hardware_cpu_name
+    if getattr(args, "hardware_cpu_cores", None) is not None:
+        cpu_effective["logical_cores"] = args.hardware_cpu_cores
+    if cpu_effective:
+        hardware.setdefault("cpu", {})["effective"] = cpu_effective
+
+    return hardware
+
+
+def _merge_hardware_metadata(detected, overrides):
+    merged = dict(detected)
+    for section, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(section), dict):
+            section_value = dict(merged[section])
+            section_value.update(value)
+            merged[section] = section_value
+        else:
+            merged[section] = value
+    return merged
+
+
+def _collect_run_metadata(args):
+    git_sha = _git_output(["rev-parse", "HEAD"])
+    git_status = _git_output(["status", "--porcelain"])
+    hardware = _merge_hardware_metadata(
+        _collect_detected_hardware(), _hardware_overrides(args)
+    )
+    return {
+        "result_schema_version": 1,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "command": {
+            "argv": list(getattr(args, "_argv", sys.argv[1:])),
+            "cwd": os.getcwd(),
+        },
+        "python": {
+            "version": platform.python_version(),
+            "executable": sys.executable,
+            "platform": platform.platform(),
+        },
+        "cuml": {
+            "version": getattr(sys.modules.get("cuml"), "__version__", None),
+            "git_sha": git_sha,
+            "git_dirty": bool(git_status) if git_status is not None else None,
+        },
+        "runtime": {
+            "status": get_status_string(),
+            "gpu_available": is_gpu_available(),
+        },
+        "hardware": hardware,
+        "config": {
+            "path": getattr(args, "config", None),
+            "profile": getattr(args, "profile", None),
+            "backends": getattr(args, "backends", None),
+        },
+    }
+
+
+def _backend_result(row, backend):
+    time_column = {
+        "gpu": "cuml_time",
+        "cpu": "cpu_time",
+        "accel": "accel_time",
+    }[backend]
+    acc_column = {
+        "gpu": "cuml_acc",
+        "cpu": "cpu_acc",
+        "accel": "accel_acc",
+    }[backend]
+
+    time_sec = _positive_value(row, time_column)
+    if time_sec is None:
+        requested_backends = row.get("requested_backends")
+        if isinstance(requested_backends, str):
+            requested_backends = [
+                item for item in requested_backends.split(",") if item
+            ]
+        if isinstance(requested_backends, (list, tuple)) and backend in requested_backends:
+            reason = "no successful timing recorded"
+            if backend == "gpu" and not row.get("gpu_available", True):
+                reason = "GPU unavailable"
+            return {"status": "skipped", "reason": reason}
+        return None
+    result = {"status": "success", "time_sec": time_sec}
+    accuracy = _positive_value(row, acc_column)
+    if accuracy is not None:
+        result["accuracy"] = accuracy
+    return result
+
+
+def _declared_params(row):
+    metadata_columns = {
+        "algo",
+        "input",
+        "cuml_time",
+        "cpu_time",
+        "accel_time",
+        "cuml_acc",
+        "cpu_acc",
+        "accel_acc",
+        "cuml_params",
+        "cpu_params",
+        "accel_params",
+        "speedup",
+        "n_samples",
+        "n_features",
+        "benchmark_id",
+        "config_path",
+        "suite_name",
+        "suite_tier",
+        "profile",
+        "dataset",
+        "operation",
+        "dtype",
+        "n_reps",
+        "backend",
+        "requested_backends",
+        "gpu_available",
+    }
+    params = {}
+    for column, value in row.items():
+        if column in metadata_columns or pd.isna(value):
+            continue
+        params[column] = _json_safe(value)
+    return params
+
+
+def _result_record(row, dtype):
+    rows = _json_safe(row.get("n_samples"))
+    features = _json_safe(row.get("n_features"))
+    size_gb = _estimated_input_size_gb(rows, features, dtype)
+    backends = {}
+    for backend in ("gpu", "cpu", "accel"):
+        backend_result = _backend_result(row, backend)
+        if backend_result is not None:
+            backends[backend] = backend_result
+
+    record = {
+        "benchmark_id": _json_safe(row.get("benchmark_id")),
+        "algorithm": _json_safe(row.get("algo")),
+        "dataset": _json_safe(row.get("dataset")),
+        "operation": _json_safe(row.get("operation")),
+        "shape": {
+            "rows": rows,
+            "features": features,
+            "estimated_input_size_bytes": (
+                None if math.isnan(size_gb) else int(size_gb * 1e9)
+            ),
+            "estimated_input_size_gb": None if math.isnan(size_gb) else size_gb,
+        },
+        "data": {
+            "input_type": _json_safe(row.get("input")),
+            "dtype": _json_safe(row.get("dtype", _dtype_to_config_value(dtype))),
+            "n_reps": _json_safe(row.get("n_reps")),
+        },
+        "params": {
+            "declared": _declared_params(row),
+            "effective": {
+                "gpu": _json_safe(row.get("cuml_params")),
+                "cpu": _json_safe(row.get("cpu_params")),
+                "accel": _json_safe(row.get("accel_params")),
+            },
+        },
+        "backends": backends,
+    }
+    return record
+
+
+def _results_to_json_records(results_df, dtype):
+    grouped = _coalesce_progress_rows(results_df)
+    return [
+        _result_record(row, dtype)
+        for _, row in grouped.iterrows()
+    ]
+
+
+def _write_json_atomic(path, payload):
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    os.makedirs(directory, exist_ok=True)
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=".benchmark-",
+            suffix=".json",
+            delete=False,
+        ) as fh:
+            temp_path = fh.name
+            json.dump(_json_safe(payload), fh, indent=2, sort_keys=True)
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(temp_path, path)
+    except Exception:
+        if temp_path is not None:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+        raise
+
+
+def _save_json_results(results_df, output_path, args, dtype):
+    if not output_path:
+        return
+    payload = {
+        "metadata": _collect_run_metadata(args),
+        "results": _results_to_json_records(results_df, dtype),
+    }
+    _write_json_atomic(output_path, payload)
+    print("Saved JSON results to %s" % output_path)
+
+
 def _human_count(value):
     """Format counts compactly for progress output."""
     try:
@@ -373,6 +791,9 @@ def _progress_group_key(row):
         "cuml_acc",
         "cpu_acc",
         "accel_acc",
+        "cuml_params",
+        "cpu_params",
+        "accel_params",
         "speedup",
         "backend",
     }
@@ -715,6 +1136,9 @@ if "cpu_time" in results_df:
 if "cpu_acc" in results_df:
     results_df["accel_acc"] = results_df["cpu_acc"]
     results_df["cpu_acc"] = 0.0
+if "cpu_params" in results_df:
+    results_df["accel_params"] = results_df["cpu_params"]
+    results_df["cpu_params"] = None
 results_df["backend"] = "accel"
 results_df.to_csv(payload["csv_path"], index=False)
 """
@@ -793,6 +1217,15 @@ def _param_combination_count(param_lists):
     for values in param_lists.values():
         count *= len(values)
     return count
+
+
+def _planned_legacy_result_count(algos_to_run, bench_rows, bench_dims, param_lists):
+    return (
+        len(algos_to_run)
+        * len(bench_rows)
+        * len(bench_dims)
+        * _param_combination_count(param_lists)
+    )
 
 
 def _planned_config_result_count(benchmark_entries, entry_backends, args, explicit_options):
@@ -930,6 +1363,12 @@ def _run_config_benchmarks(args, explicit_options):
                 results_df["suite_name"] = resolved["suite_name"]
                 results_df["suite_tier"] = resolved["suite_tier"]
                 results_df["profile"] = resolved["profile"]
+                results_df["dataset"] = dataset_name
+                results_df["operation"] = entry["operation"]
+                results_df["dtype"] = _dtype_to_config_value(dtype)
+                results_df["n_reps"] = n_reps
+                results_df["requested_backends"] = ",".join(selected_backends)
+                results_df["gpu_available"] = allow_gpu_runs
                 all_results.append(results_df)
                 shape_results.append(results_df)
 
@@ -952,6 +1391,14 @@ def _run_config_benchmarks(args, explicit_options):
                     accel_results_df["suite_name"] = resolved["suite_name"]
                     accel_results_df["suite_tier"] = resolved["suite_tier"]
                     accel_results_df["profile"] = resolved["profile"]
+                    accel_results_df["dataset"] = dataset_name
+                    accel_results_df["operation"] = entry["operation"]
+                    accel_results_df["dtype"] = _dtype_to_config_value(dtype)
+                    accel_results_df["n_reps"] = n_reps
+                    accel_results_df["requested_backends"] = ",".join(
+                        selected_backends
+                    )
+                    accel_results_df["gpu_available"] = allow_gpu_runs
                     all_results.append(accel_results_df)
                     shape_results.append(accel_results_df)
 
@@ -979,6 +1426,7 @@ def run_benchmark(args, explicit_options=None):
 
     if args.config:
         results_df = _run_config_benchmarks(args, explicit_options)
+        _save_json_results(results_df, args.output, args, args.dtype)
         _save_results(results_df, args.csv)
         return
 
@@ -993,6 +1441,36 @@ def run_benchmark(args, explicit_options=None):
     bench_rows, bench_dims = _resolve_bench_dimensions(args)
     param_lists = _build_param_override_lists(args)
     algos_to_run = _resolve_algorithms(args)
+    progress_total = _planned_legacy_result_count(
+        algos_to_run, bench_rows, bench_dims, param_lists
+    ) * (
+        int("cpu" in selected_backends or run_gpu)
+        + int("accel" in selected_backends)
+    )
+    progress_index = 1
+
+    def progress_callback(record):
+        nonlocal progress_index
+        progress_df = pd.DataFrame(
+            [
+                {
+                    **record,
+                    "dataset": args.dataset,
+                    "operation": None,
+                    "dtype": _dtype_to_config_value(args.dtype),
+                    "n_reps": args.n_reps,
+                    "requested_backends": ",".join(selected_backends),
+                    "gpu_available": run_gpu,
+                }
+            ]
+        )
+        progress_index = _print_progress_rows(
+            progress_df,
+            progress_index,
+            progress_total,
+            args.dtype,
+            verbose=args.verbose,
+        )
 
     all_results = []
     if "cpu" in selected_backends or run_gpu:
@@ -1008,8 +1486,15 @@ def run_benchmark(args, explicit_options=None):
             run_cuml=run_gpu,
             raise_on_error=args.raise_on_error,
             n_reps=args.n_reps,
+            progress_callback=progress_callback,
             **param_lists,
         )
+        results_df["dataset"] = args.dataset
+        results_df["operation"] = None
+        results_df["dtype"] = _dtype_to_config_value(args.dtype)
+        results_df["n_reps"] = args.n_reps
+        results_df["requested_backends"] = ",".join(selected_backends)
+        results_df["gpu_available"] = run_gpu
         all_results.append(results_df)
     if "accel" in selected_backends:
         accel_input_type = _validate_benchmark_inputs(
@@ -1029,15 +1514,28 @@ def run_benchmark(args, explicit_options=None):
                 param_lists=param_lists,
             )
             if not accel_results_df.empty:
+                accel_results_df["dataset"] = args.dataset
+                accel_results_df["operation"] = None
+                accel_results_df["dtype"] = _dtype_to_config_value(args.dtype)
+                accel_results_df["n_reps"] = args.n_reps
+                accel_results_df["requested_backends"] = ",".join(
+                    selected_backends
+                )
+                accel_results_df["gpu_available"] = run_gpu
                 all_results.append(accel_results_df)
+                progress_index = _print_progress_rows(
+                    accel_results_df,
+                    progress_index,
+                    progress_total,
+                    args.dtype,
+                    verbose=args.verbose,
+                )
 
     if not all_results:
         raise ValueError("No benchmark results were produced.")
     results_df = pd.concat(all_results, ignore_index=True)
-    _print_progress_rows(
-        results_df, 1, len(results_df), args.dtype, verbose=args.verbose
-    )
     _print_summary(results_df, args.csv, verbose=args.verbose)
+    _save_json_results(results_df, args.output, args, args.dtype)
     _save_results(results_df, args.csv)
 
 
@@ -1045,6 +1543,7 @@ def main(argv=None):
     """Parse arguments and run the benchmark. Returns exit code."""
     argv = argv if argv is not None else sys.argv[1:]
     args = build_parser().parse_args(argv)
+    args._argv = list(argv)
     run_benchmark(args, explicit_options=_extract_explicit_options(argv))
     return 0
 

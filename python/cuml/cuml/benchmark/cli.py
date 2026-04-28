@@ -29,7 +29,7 @@ def build_parser():
           # Compare impact of RF parameters and data sets for multiclass
           python run_benchmarks.py --dataset classification  \
                 --max-rows 100000 --min-rows 10000 \
-                --dataset-param-sweep n_classes=[2,8] \
+                --dataset-param-sweep n_classes=[2] \
                 --cuml-param-sweep n_bins=[4,16] n_estimators=[10,100] \
                 --csv results.csv \
                 RandomForestClassifier
@@ -79,6 +79,12 @@ def build_parser():
         "--quiet", "-q", action="store_false", dest="verbose", default=True
     )
     parser.add_argument("--csv", nargs="?")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to write the canonical JSON benchmark results artifact",
+    )
     parser.add_argument(
         "--config",
         type=str,
@@ -193,5 +199,32 @@ def build_parser():
         choices=["cuda", "managed", "prefetched"],
         default="cuda",
         help="RMM memory resource to use (default: cuda). Ignored if --skip-gpu.",
+    )
+    parser.add_argument(
+        "--hardware-label",
+        default=None,
+        help="Optional human-readable hardware label to store in benchmark metadata",
+    )
+    parser.add_argument(
+        "--hardware-gpu-name",
+        default=None,
+        help="Override the effective GPU name stored in benchmark metadata",
+    )
+    parser.add_argument(
+        "--hardware-gpu-memory-gb",
+        type=float,
+        default=None,
+        help="Override the effective GPU memory size in GB stored in metadata",
+    )
+    parser.add_argument(
+        "--hardware-cpu-name",
+        default=None,
+        help="Override the effective CPU name stored in benchmark metadata",
+    )
+    parser.add_argument(
+        "--hardware-cpu-cores",
+        type=int,
+        default=None,
+        help="Override the effective CPU core count stored in metadata",
     )
     return parser

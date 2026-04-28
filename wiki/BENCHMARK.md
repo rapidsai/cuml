@@ -18,6 +18,11 @@ python -m cuml.benchmark --dataset classification LogisticRegression --csv resul
 ```
 
 If a GPU is available, this runs both GPU (cuML) and CPU implementations and reports speedup.
+Use `--output` to write the canonical JSON benchmark artifact:
+
+```bash
+python -m cuml.benchmark --dataset classification LogisticRegression --output results.json
+```
 
 To run a YAML-defined suite:
 
@@ -25,7 +30,7 @@ To run a YAML-defined suite:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
   --profile default \
-  --csv results.csv
+  --output results.json
 ```
 
 To run the tiny harness-validation manifest:
@@ -93,9 +98,13 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--backends` | Comma-separated backends to run (`cpu`, `gpu`, `accel`). |
 | `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only); compatibility shortcut. |
 | `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only); compatibility shortcut. |
-| `--csv [FILE]` | Save results to a CSV file. |
+| `--output FILE` | Save the canonical JSON artifact with metadata and grouped benchmark results. |
+| `--csv [FILE]` | Save a legacy flat CSV export. |
 | `--min-rows`, `--max-rows`, `--num-sizes` | Control sample sizes for scaling benchmarks. |
 | `--input-dimensions` | Feature dimensions to test (e.g. `16 256`). |
+| `--hardware-label` | Override the effective hardware label stored in JSON metadata. |
+| `--hardware-gpu-name`, `--hardware-gpu-memory-gb` | Override effective GPU metadata labels. |
+| `--hardware-cpu-name`, `--hardware-cpu-cores` | Override effective CPU metadata labels. |
 | `--print-algorithms` | List available algorithms and exit. |
 | `--print-datasets` | List available datasets and exit. |
 | `--print-status` | Print GPU/cuML availability and exit. |
@@ -108,14 +117,14 @@ Run a single algorithm at default sizes:
 python -m cuml.benchmark --dataset classification LogisticRegression
 ```
 
-Run with parameter sweeps and save to CSV:
+Run with parameter sweeps and save a JSON artifact:
 
 ```bash
 python -m cuml.benchmark --dataset classification \
   --max-rows 100000 --min-rows 10000 \
-  --dataset-param-sweep n_classes=[2,8] \
+  --dataset-param-sweep n_classes=[2] \
   --cuml-param-sweep n_estimators=[10,100] \
-  --csv results.csv \
+  --output results.json \
   RandomForestClassifier
 ```
 
@@ -154,6 +163,81 @@ python -m cuml.benchmark \
 ```
 
 In config mode, only explicitly provided CLI flags override the manifest. Parser defaults do not silently replace YAML values.
+
+## Output
+
+The recommended output artifact is a single JSON file written with `--output`:
+
+```bash
+python -m cuml.benchmark \
+  --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
+  --profile default \
+  --backends gpu \
+  --output results.json
+```
+
+The JSON file contains:
+
+- `metadata`: run context, command, Python/platform info, cuML/git identity, GPU availability, hardware details, and config/profile provenance
+- `results`: grouped benchmark results, with raw backend timings and statuses under each logical benchmark variation
+
+Example shape:
+
+```json
+{
+  "metadata": {
+    "result_schema_version": 1,
+    "config": {
+      "path": "python/cuml/cuml/benchmark/configs/single_gpu.yaml",
+      "profile": "default"
+    }
+  },
+  "results": [
+    {
+      "benchmark_id": "logreg_fit_narrow_default",
+      "algorithm": "LogisticRegression",
+      "shape": {
+        "rows": 84000000,
+        "features": 16,
+        "estimated_input_size_gb": 5.376
+      },
+      "params": {
+        "declared": {},
+        "effective": {
+          "gpu": {},
+          "cpu": null,
+          "accel": null
+        }
+      },
+      "backends": {
+        "gpu": {
+          "status": "success",
+          "time_sec": 0.91,
+          "accuracy": 0.995
+        }
+      }
+    }
+  ]
+}
+```
+
+Derived comparisons such as GPU speedup are intentionally not stored in JSON. They are computed from raw backend timings for terminal display and downstream analysis.
+
+Terminal output is a concise progress table, for example:
+
+```text
+ progress  algorithm                            shape        data   gpu_time   cpu_time  accel_time  details
+------------------------------------------------------------------------------------------------------------
+   [1/96]  LogisticRegression              84.0M x 16    ~5.38 GB     0.91s          -           -  acc=0.9950
+```
+
+When multiple backends are present, timings are grouped on one row:
+
+```text
+   [1/96]  LogisticRegression              50.0K x 16    ~0.00 GB    12.3ms    18.5ms           -  gpu_speedup=1.50x acc=0.9944
+```
+
+CSV output remains available through `--csv`, but it is a flat compatibility export. Prefer JSON for regression tracking and reproducibility.
 
 ## YAML manifests
 
