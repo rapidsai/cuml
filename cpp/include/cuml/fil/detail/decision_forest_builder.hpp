@@ -230,6 +230,59 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
+    // Validate forest invariants the inference kernel relies on. After this
+    // function returns, the forest is treated as trusted by the kernel.
+
+    // tree_index arithmetic in the kernel uses index_type, so the tree count
+    // must fit without narrowing.
+    if (root_node_indexes_.size() > std::numeric_limits<index_type>::max()) {
+      throw model_import_error{std::string{"Forest has "} +
+                               std::to_string(root_node_indexes_.size()) +
+                               " trees, which exceeds the maximum representable in index_type (" +
+                               std::to_string(std::numeric_limits<index_type>::max()) + ")"};
+    }
+
+    // forest::get_tree_root(tree_index) dereferences nodes_ + root_index.
+    // Ensure each root index points into the nodes buffer.
+    for (auto i = std::size_t{0}; i < root_node_indexes_.size(); ++i) {
+      if (root_node_indexes_[i] >= nodes_.size()) {
+        throw model_import_error{
+          std::string{"Tree "} + std::to_string(i) + ": root node index out of bounds (" +
+          std::to_string(root_node_indexes_[i]) + " >= " + std::to_string(nodes_.size()) + ")"};
+      }
+    }
+
+    auto constexpr const cat_bin_width =
+      typename node_type::index_type{sizeof(typename node_type::index_type) * 8};
+    if (max_num_categories_ > cat_bin_width) {
+      auto const storage_size = categorical_storage_.size();
+      for (auto i = std::size_t{0}; i < nodes_.size(); ++i) {
+        auto const& n = nodes_[i];
+        if (n.is_leaf() || !n.is_categorical()) { continue; }
+        auto const offset = n.index();
+
+        // evaluate_tree_impl() reads categorical_storage[offset] as the number
+        // of categories for this node; offset must be in-range.
+        if (offset >= storage_size) {
+          throw model_import_error{std::string{"Categorical node "} + std::to_string(i) +
+                                   ": storage offset out of bounds (" + std::to_string(offset) +
+                                   " >= " + std::to_string(storage_size) + ")"};
+        }
+        auto const stored_num_cats = categorical_storage_[offset];
+        auto const bins_required   = raft_proto::ceildiv(stored_num_cats, cat_bin_width);
+
+        // evaluate_tree_impl() reconstructs a bitset from
+        // [offset + 1, offset + 1 + bins_required). Compute this range using
+        // size_t to keep the arithmetic explicit and overflow-safe.
+        auto const bits_begin = static_cast<std::size_t>(offset) + std::size_t{1};
+        auto const bits_end   = bits_begin + static_cast<std::size_t>(bins_required);
+        if (bits_end > storage_size) {
+          throw model_import_error{std::string{"Categorical node "} + std::to_string(i) +
+                                   ": bitset extends past categorical_storage end"};
+        }
+      }
+    }
+
     // Safely cast average_factor_ and postproc_constant_ to node_type::threshold_type
     auto average_factor_casted    = typename node_type::threshold_type{};
     auto postproc_constant_casted = typename node_type::threshold_type{};
