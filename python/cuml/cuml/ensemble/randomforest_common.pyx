@@ -345,10 +345,28 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.n_streams = n_streams
         self.oob_score = oob_score
 
+    @property
+    def estimators_(self):
+        """List of GPU-backed DecisionTree proxy objects for each tree.
+
+        Each estimator exposes the same API as sklearn's
+        ``DecisionTreeClassifier`` / ``DecisionTreeRegressor`` and routes
+        inference through FIL on the GPU.
+
+        The list is constructed lazily on first access and cached.
+        """
+        check_is_fitted(self)
+        if (cached := getattr(self, "_estimators_cache", None)) is not None:
+            return cached
+        from cuml.ensemble._gpu_tree import _build_gpu_estimators
+        self._estimators_cache = _build_gpu_estimators(self)
+        return self._estimators_cache
+
     def __getstate__(self):
         state = self.__dict__.copy()
         # FIL model isn't currently pickleable
         state.pop("_fil_model", None)
+        state.pop("_estimators_cache", None)
         return state
 
     def __setstate__(self, state):
@@ -594,8 +612,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
         self.n_outputs_ = 1
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
-        # Ensure cached fil model is reset
+        # Ensure cached models are reset
         self._fil_model = None
+        self._estimators_cache = None
 
         # Compute OOB score if requested
         if self.oob_score:
