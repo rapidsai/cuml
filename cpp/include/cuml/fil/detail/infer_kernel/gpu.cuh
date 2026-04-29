@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -125,59 +125,56 @@ CUML_KERNEL void __launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_BLOCKS_PER_SM) inf
     // work within the loop if the task_index is below the actual task_count.
     auto const task_count_rounded_up = blockDim.x * raft_proto::ceildiv(task_count, blockDim.x);
 
-    // Ensure that tree_index doesn't overflow in the loop below
-    auto max_tree_index = (task_count - 1) / chunk_size;
-    if (max_tree_index < forest.tree_count()) {
-      // Infer on each tree and row
-      for (auto task_index = threadIdx.x; task_index < task_count_rounded_up;
-           task_index += blockDim.x) {
-        auto row_index = task_index % chunk_size;
-        auto real_task = task_index < task_count && row_index < rows_in_this_iteration;
-        row_index *= real_task;
-        auto tree_index  = task_index * real_task / chunk_size;
-        auto grove_index = (threadIdx.x / chunk_size) * (infer_type == infer_kind::default_kind);
+    // Infer on each tree and row
+    for (auto task_index = threadIdx.x; task_index < task_count_rounded_up;
+         task_index += blockDim.x) {
+      auto row_index = task_index % chunk_size;
+      auto real_task = task_index < task_count && row_index < rows_in_this_iteration;
+      row_index *= real_task;
+      auto tree_index  = task_index * real_task / chunk_size;
+      auto grove_index = (threadIdx.x / chunk_size) * (infer_type == infer_kind::default_kind);
 
-        auto tree_output  = std::conditional_t<has_vector_leaves,
-                                               typename node_t::index_type,
-                                               typename node_t::threshold_type>{};
-        auto leaf_node_id = index_type{};
-        if (infer_type == infer_kind::leaf_id) {
-          leaf_node_id =
-            evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, true>(
-              forest, tree_index, input_data + row_index * col_count, categorical_data);
-        } else {
-          tree_output =
-            evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, false>(
-              forest, tree_index, input_data + row_index * col_count, categorical_data);
-        }
-
-        if (infer_type == infer_kind::leaf_id) {
-          output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
-                           grove_index] = static_cast<typename forest_t::io_type>(leaf_node_id);
-        } else {
-          if constexpr (has_vector_leaves) {
-            auto output_offset =
-              (row_index * num_outputs * num_grove +
-               tree_index * default_num_outputs * num_grove * (infer_type == infer_kind::per_tree) +
-               grove_index);
-            for (auto output_index = index_type{}; output_index < default_num_outputs;
-                 ++output_index) {
-              if (real_task) {
-                output_workspace[output_offset + output_index * num_grove] +=
-                  vector_output_p[tree_output * default_num_outputs + output_index];
-              }
-            }
-          } else {
-            auto output_offset =
-              (row_index * num_outputs * num_grove +
-               (tree_index % default_num_outputs) * num_grove *
-                 (infer_type == infer_kind::default_kind) +
-               tree_index * num_grove * (infer_type == infer_kind::per_tree) + grove_index);
-            if (real_task) { output_workspace[output_offset] += tree_output; }
-          }
-        }
-        __syncthreads();
+      auto tree_output  = std::conditional_t<has_vector_leaves,
+                                             typename node_t::index_type,
+                                             typename node_t::threshold_type>{};
+      auto leaf_node_id = index_type{};
+      if (infer_type == infer_kind::leaf_id) {
+        leaf_node_id =
+          evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, true>(
+            forest, tree_index, input_data + row_index * col_count, categorical_data);
+      } else {
+        tree_output =
+          evaluate_tree<has_vector_leaves, has_categorical_nodes, has_nonlocal_categories, false>(
+            forest, tree_index, input_data + row_index * col_count, categorical_data);
       }
+
+      if (infer_type == infer_kind::leaf_id) {
+        output_workspace[row_index * num_outputs * num_grove + tree_index * num_grove +
+                         grove_index] = static_cast<typename forest_t::io_type>(leaf_node_id);
+      } else {
+        if constexpr (has_vector_leaves) {
+          auto output_offset =
+            (row_index * num_outputs * num_grove +
+             tree_index * default_num_outputs * num_grove * (infer_type == infer_kind::per_tree) +
+             grove_index);
+          for (auto output_index = index_type{}; output_index < default_num_outputs;
+               ++output_index) {
+            if (real_task) {
+              output_workspace[output_offset + output_index * num_grove] +=
+                vector_output_p[tree_output * default_num_outputs + output_index];
+            }
+          }
+        } else {
+          auto output_offset =
+            (row_index * num_outputs * num_grove +
+             (tree_index % default_num_outputs) * num_grove *
+               (infer_type == infer_kind::default_kind) +
+             tree_index * num_grove * (infer_type == infer_kind::per_tree) + grove_index);
+          if (real_task) { output_workspace[output_offset] += tree_output; }
+        }
+      }
+
+      __syncthreads();
     }
 
     auto padded_num_groves = raft_proto::padded_size(num_grove, WARP_SIZE);
