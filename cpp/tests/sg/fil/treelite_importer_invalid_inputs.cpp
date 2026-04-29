@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/fil/decision_forest.hpp>
 #include <cuml/fil/exceptions.hpp>
 #include <cuml/fil/tree_layout.hpp>
 #include <cuml/fil/treelite_importer.hpp>
@@ -108,6 +109,72 @@ TEST(TreeliteImporter, large_category_value2)
 
   auto tl_model = model_builder->CommitModel();
   ASSERT_NO_THROW(import_from_treelite_model(*tl_model, tree_layout::breadth_first));
+}
+
+TEST(TreeliteImporter, large_feature_id)
+{
+  // Tree models with 16-bit storage for node metadata should throw
+  // an exception for feature IDs larger than 0x1FFF.
+
+  auto metadata = treelite::model_builder::Metadata{
+    9000,
+    treelite::TaskType::kRegressor,
+    false,
+    1,
+    {1},
+    {1, 1},
+  };
+  auto tree_annotation = treelite::model_builder::TreeAnnotation{1, {0}, {0}};
+  auto model_builder =
+    treelite::model_builder::GetModelBuilder(treelite::TypeInfo::kFloat32,
+                                             treelite::TypeInfo::kFloat32,
+                                             metadata,
+                                             tree_annotation,
+                                             treelite::model_builder::PostProcessorFunc{"identity"},
+                                             {0.0});
+
+  model_builder->StartTree();
+  model_builder->StartNode(0);
+  // Use a "large" feature ID here
+  model_builder->NumericalTest(8999, 0.0, false, treelite::Operator::kGT, 1, 2);
+  model_builder->EndNode();
+
+  model_builder->StartNode(1);
+  model_builder->LeafScalar(1.0);
+  model_builder->EndNode();
+
+  model_builder->StartNode(2);
+  model_builder->LeafScalar(-1.0);
+  model_builder->EndNode();
+
+  model_builder->EndTree();
+
+  auto tl_model = model_builder->CommitModel();
+
+  // Normally, treelite_importer::import() would choose the right size
+  // for the metadata storage, sufficient to hold all given feature IDs.
+  // For this example, it chooses 32-bit storage type (due to the use of feature ID 8999).
+  ASSERT_NO_THROW(import_from_treelite_model(*tl_model, tree_layout::breadth_first));
+
+  // Trick the importer to pick 16-bit storage type for metadata storage.
+  auto variant_index = get_forest_variant_index(false, 2, 1);
+  auto importer      = treelite_importer<tree_layout::breadth_first>{};
+
+  // The importer should throw an informative error message rather than silently
+  // truncating the feature ID.
+  auto expected_error_msg =
+    std::string{"Tree 0, Node 0: The 'feature' value in the node must be at most "} +
+    std::to_string(0x1FFF);
+  ASSERT_THAT(
+    [&]() {
+      importer.import_to_specific_variant<index_type{}>(variant_index,
+                                                        *tl_model,
+                                                        importer.get_num_class(*tl_model),
+                                                        importer.get_num_feature(*tl_model),
+                                                        importer.get_max_num_categories(*tl_model),
+                                                        importer.get_offsets(*tl_model));
+    },
+    testing::ThrowsMessage<model_import_error>(testing::HasSubstr(expected_error_msg)));
 }
 
 }  // namespace fil
