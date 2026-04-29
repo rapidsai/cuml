@@ -19,6 +19,16 @@ conda activate "$(git rev-parse --show-toplevel)/.conda-env"
 
 This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) into `$CONDA_PREFIX`.
 
+> **Important (sm_121 / new arch + conda RAPIDS libs):** there is a known bug in the default `NATIVE` build path (documented in [rapidsai/cuml#8021](https://github.com/rapidsai/cuml/issues/8021)). Until fixed upstream, use one of these workarounds when mixing with conda-installed RAPIDS shared libraries:
+>
+> ```bash
+> ./build.sh --allgpuarch
+> # or
+> CUML_EXTRA_CMAKE_ARGS="-DCMAKE_CUDA_ARCHITECTURES=120-real" ./build.sh
+> ```
+>
+> Bug details: [rapidsai/cuml#8021](https://github.com/rapidsai/cuml/issues/8021).
+
 > **Note on env layout:** This skill uses an **in-worktree prefix env** at `<worktree>/.conda-env`. Activation is unambiguous (`conda activate ./.conda-env` always points at the right env), and the env is tied to the worktree — deleting the worktree removes the env. See [In-worktree prefix env](#in-worktree-prefix-env) for details.
 
 ## When to apply this skill
