@@ -30,19 +30,6 @@ namespace fil {
 namespace detail {
 
 /*
- * Exception indicating that FIL model could not be built from given input
- */
-struct model_builder_error : std::exception {
-  model_builder_error() : model_builder_error("Error while building model") {}
-  model_builder_error(char const* msg) : msg_{msg} {}
-  model_builder_error(std::string msg) : msg_{std::move(msg)} {}
-  virtual char const* what() const noexcept { return msg_.c_str(); }
-
- private:
-  std::string msg_;
-};
-
-/*
  * Struct used to build FIL forests
  */
 template <typename decision_forest_t>
@@ -80,9 +67,9 @@ struct decision_forest_builder {
       if (max_cat == std::numeric_limits<index_t>::max()) {
         auto node_id_repr =
           tl_node_id.has_value() ? std::to_string(tl_node_id.value()) : std::string{"n/a"};
-        throw model_builder_error(std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
-                                  node_id_repr + ": Category index must be at most " +
-                                  std::to_string(std::numeric_limits<index_t>::max() - 1));
+        throw model_import_error{std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
+                                 node_id_repr + ": Category index must be at most " +
+                                 std::to_string(std::numeric_limits<index_t>::max() - 1)};
       }
     }
     auto max_cat_plus_one = static_cast<index_t>(max_cat) + index_t{1};
@@ -97,14 +84,23 @@ struct decision_forest_builder {
     auto set = bitset{set_storage, max_cat_plus_one};
     std::for_each(vec_begin, vec_end, [&set](auto&& cat_index) { set.set(cat_index); });
 
-    add_node(
-      node_value, tl_node_id, depth, false, default_to_distant_child, true, feature, offset, false);
+    add_node(node_value,
+             tree_id,
+             tl_node_id,
+             depth,
+             false,
+             default_to_distant_child,
+             true,
+             feature,
+             offset,
+             false);
   }
 
   /* Add a leaf node with vector output */
   template <typename iter_t>
   void add_leaf_vector_node(iter_t vec_begin,
                             iter_t vec_end,
+                            std::size_t tree_id,
                             std::optional<int> tl_node_id = std::nullopt,
                             std::size_t depth             = std::size_t{1})
   {
@@ -112,6 +108,7 @@ struct decision_forest_builder {
     std::copy(vec_begin, vec_end, std::back_inserter(vector_output_));
 
     add_node(leaf_index,
+             tree_id,
              tl_node_id,
              depth,
              true,
@@ -126,6 +123,7 @@ struct decision_forest_builder {
   template <typename value_t>
   void add_node(
     value_t val,
+    std::size_t tree_id,
     std::optional<int> tl_node_id                     = std::nullopt,
     std::size_t depth                                 = std::size_t{1},
     bool is_leaf_node                                 = true,
@@ -140,7 +138,7 @@ struct decision_forest_builder {
         if (cur_node_index_ % alignment_ != index_type{}) {
           auto padding = (alignment_ - cur_node_index_ % alignment_);
           for (auto i = index_type{}; i < padding; ++i) {
-            add_node(typename node_type::threshold_type{}, std::nullopt);
+            add_node(typename node_type::threshold_type{}, tree_id, std::nullopt);
           }
         }
       }
@@ -148,8 +146,15 @@ struct decision_forest_builder {
     }
 
     if (is_inclusive) { val = std::nextafter(val, std::numeric_limits<value_t>::infinity()); }
-    nodes_.emplace_back(
-      val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
+    try {
+      nodes_.emplace_back(
+        val, is_leaf_node, default_to_distant_child, is_categorical_node, feature, offset);
+    } catch (const model_import_error& e) {
+      auto node_id_repr =
+        tl_node_id.has_value() ? std::to_string(tl_node_id.value()) : std::string{"n/a"};
+      throw model_import_error{std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
+                               node_id_repr + ": " + e.what()};
+    }
     // 0 indicates the lack of ID mapping for a particular node
     node_id_mapping_.push_back(static_cast<index_type>(tl_node_id.value_or(0)));
     ++cur_node_index_;
@@ -177,7 +182,7 @@ struct decision_forest_builder {
   void set_output_size(index_type val)
   {
     if (output_size_ != index_type{1} && output_size_ != val) {
-      throw model_import_error("Inconsistent leaf vector size");
+      throw unusable_model_exception("Inconsistent leaf vector size");
     }
     output_size_ = val;
   }

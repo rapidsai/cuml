@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <cuml/fil/detail/decision_forest_builder.hpp>
+#include <cuml/fil/exceptions.hpp>
 #include <cuml/fil/tree_layout.hpp>
 #include <cuml/fil/treelite_importer.hpp>
 
@@ -64,9 +64,8 @@ TEST(TreeliteImporter, large_category_value)
   auto expected_error_msg = std::string{"Tree 0, Node 0: Category index must be at most "} +
                             std::to_string(std::numeric_limits<std::uint32_t>::max() - 1);
 
-  ASSERT_THAT(
-    [&]() { import_from_treelite_model(*tl_model, tree_layout::breadth_first); },
-    testing::ThrowsMessage<detail::model_builder_error>(testing::HasSubstr(expected_error_msg)));
+  ASSERT_THAT([&]() { import_from_treelite_model(*tl_model, tree_layout::breadth_first); },
+              testing::ThrowsMessage<model_import_error>(testing::HasSubstr(expected_error_msg)));
 }
 
 TEST(TreeliteImporter, large_category_value2)

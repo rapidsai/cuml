@@ -186,7 +186,7 @@ struct treelite_importer {
       result.constant = tl_model.sigmoid_alpha;
       result.element  = element_op::sigmoid;
     } else {
-      throw model_import_error{"Unrecognized Treelite pred_transform string"};
+      throw unusable_model_exception{"Unrecognized Treelite pred_transform string"};
     }
     return result;
   }
@@ -197,7 +197,7 @@ struct treelite_importer {
     switch (tl_model.GetThresholdType()) {
       case treelite::TypeInfo::kFloat64: result = true; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -209,7 +209,7 @@ struct treelite_importer {
       case treelite::TypeInfo::kFloat64: result = true; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
       case treelite::TypeInfo::kUInt32: result = false; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -221,7 +221,7 @@ struct treelite_importer {
       case treelite::TypeInfo::kFloat64: result = false; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
       case treelite::TypeInfo::kUInt32: result = true; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -263,10 +263,13 @@ struct treelite_importer {
               builder.set_output_size(output.size());
               if (output.size() > index_type{1}) {
                 builder.add_leaf_vector_node(
-                  std::begin(output), std::end(output), node.get_treelite_id(), depth);
+                  std::begin(output), std::end(output), tree_id, node.get_treelite_id(), depth);
               } else {
-                builder.add_node(
-                  typename forest_model_t::io_type(output[0]), node.get_treelite_id(), depth, true);
+                builder.add_node(typename forest_model_t::io_type(output[0]),
+                                 tree_id,
+                                 node.get_treelite_id(),
+                                 depth,
+                                 true);
               }
             } else {
               if (node.is_categorical()) {
@@ -281,6 +284,7 @@ struct treelite_importer {
                                              offsets[node_index]);
               } else {
                 builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
+                                 tree_id,
                                  node.get_treelite_id(),
                                  depth,
                                  false,
