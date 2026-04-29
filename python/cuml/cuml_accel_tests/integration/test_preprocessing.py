@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import pytest
 from sklearn.datasets import make_blobs
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def test_standard_scaler():
@@ -28,7 +29,32 @@ def test_standard_scaler():
     np.testing.assert_allclose(X_inverse, X, atol=1e-6)
 
 
-def test_standard_scaler_partial_fit():
+def test_min_max_scaler():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = MinMaxScaler().fit(X)
+
+    assert model.min_.shape == (X.shape[1],)
+    assert model.scale_.shape == (X.shape[1],)
+    assert model.data_min_.shape == (X.shape[1],)
+    assert model.data_max_.shape == (X.shape[1],)
+    assert model.data_range_.shape == (X.shape[1],)
+
+    # Transform and check shape
+    X_transformed = model.transform(X)
+    assert X_transformed.shape == X.shape
+
+    # Check that transformed data is scaled appropriately
+    assert (X_transformed.min(axis=0) >= 0).all()
+    assert (X_transformed.max(axis=0) <= 1).all()
+
+    # Check inverse transform
+    X_inverse = model.inverse_transform(X_transformed)
+    assert X_inverse.shape == X.shape
+    np.testing.assert_allclose(X_inverse, X, atol=1e-6)
+
+
+@pytest.mark.parametrize("cls", [StandardScaler, MinMaxScaler])
+def test_partial_fit(cls):
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
 
     model = StandardScaler().fit(X)

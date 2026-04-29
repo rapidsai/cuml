@@ -432,6 +432,13 @@ StandardScaler
 - If ``X`` is sparse
 - When run on scikit-learn < 1.8
 
+MinMaxScaler
+^^^^^^^^^^^^
+
+``MinMaxScaler`` will fall back to CPU in the following cases:
+
+- When run on scikit-learn < 1.8
+
 TargetEncoder
 ^^^^^^^^^^^^^
 
