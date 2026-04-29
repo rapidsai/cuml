@@ -258,42 +258,44 @@ struct treelite_importer {
           tl_model,
           [&builder, &offsets, &node_index](
             auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-            if (node.is_leaf()) {
-              auto output = node.get_output();
-              builder.set_output_size(output.size());
-              if (output.size() > index_type{1}) {
-                builder.add_leaf_vector_node(
-                  std::begin(output), std::end(output), tree_id, node.get_treelite_id(), depth);
+            try {
+              if (node.is_leaf()) {
+                auto output = node.get_output();
+                builder.set_output_size(output.size());
+                if (output.size() > index_type{1}) {
+                  builder.add_leaf_vector_node(
+                    std::begin(output), std::end(output), node.get_treelite_id(), depth);
+                } else {
+                  builder.add_node(typename forest_model_t::io_type(output[0]),
+                                   node.get_treelite_id(),
+                                   depth,
+                                   true);
+                }
               } else {
-                builder.add_node(typename forest_model_t::io_type(output[0]),
-                                 tree_id,
-                                 node.get_treelite_id(),
-                                 depth,
-                                 true);
+                if (node.is_categorical()) {
+                  auto categories = node.get_categories();
+                  builder.add_categorical_node(std::begin(categories),
+                                               std::end(categories),
+                                               node.get_treelite_id(),
+                                               depth,
+                                               node.default_distant(),
+                                               node.get_feature(),
+                                               offsets[node_index]);
+                } else {
+                  builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
+                                   node.get_treelite_id(),
+                                   depth,
+                                   false,
+                                   node.default_distant(),
+                                   false,
+                                   node.get_feature(),
+                                   offsets[node_index],
+                                   node.is_inclusive());
+                }
               }
-            } else {
-              if (node.is_categorical()) {
-                auto categories = node.get_categories();
-                builder.add_categorical_node(std::begin(categories),
-                                             std::end(categories),
-                                             tree_id,
-                                             node.get_treelite_id(),
-                                             depth,
-                                             node.default_distant(),
-                                             node.get_feature(),
-                                             offsets[node_index]);
-              } else {
-                builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
-                                 tree_id,
-                                 node.get_treelite_id(),
-                                 depth,
-                                 false,
-                                 node.default_distant(),
-                                 false,
-                                 node.get_feature(),
-                                 offsets[node_index],
-                                 node.is_inclusive());
-              }
+            } catch (const model_import_error& e) {
+              throw model_import_error{std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
+                                       std::to_string(node.get_treelite_id()) + ": " + e.what()};
             }
             ++node_index;
           });
