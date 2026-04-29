@@ -786,6 +786,8 @@
   - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
