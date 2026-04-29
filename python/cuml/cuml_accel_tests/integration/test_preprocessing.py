@@ -2,9 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn.datasets import make_blobs
-from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
+from sklearn.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    PolynomialFeatures,
+    StandardScaler,
+)
 
 
 def test_standard_scaler():
@@ -74,7 +80,7 @@ def test_max_abs_scaler():
 
 
 @pytest.mark.parametrize("cls", [StandardScaler, MinMaxScaler, MaxAbsScaler])
-def test_partial_fit(cls):
+def test_scaler_partial_fit(cls):
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
 
     model = StandardScaler().fit(X)
@@ -88,3 +94,16 @@ def test_partial_fit(cls):
     sol = model.transform(X)
     res = model2.transform(X)
     np.testing.assert_allclose(sol, res)
+
+
+def test_polynomial_features():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+
+    model = PolynomialFeatures().fit(X)
+    assert isinstance(model.powers_, np.ndarray)
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+
+    model.set_output(transform="pandas")
+    out_df = model.transform(X)
+    assert isinstance(out_df, pd.DataFrame)

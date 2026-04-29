@@ -5,10 +5,20 @@
 import numpy as np
 
 import cuml.preprocessing
-from cuml.accel.estimator_proxy import ArrayAPIProxyBase, ProxyBase
+from cuml.accel.estimator_proxy import (
+    ArrayAPIProxyBase,
+    ProxyBase,
+    classproperty,
+)
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("StandardScaler", "MinMaxScaler", "MaxAbsScaler", "TargetEncoder")
+__all__ = (
+    "StandardScaler",
+    "MinMaxScaler",
+    "MaxAbsScaler",
+    "PolynomialFeatures",
+    "TargetEncoder",
+)
 
 
 class StandardScaler(ArrayAPIProxyBase):
@@ -21,6 +31,26 @@ class MinMaxScaler(ArrayAPIProxyBase):
 
 class MaxAbsScaler(ArrayAPIProxyBase):
     _cpu_class_path = "sklearn.preprocessing.MaxAbsScaler"
+
+
+class PolynomialFeatures(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.PolynomialFeatures"
+
+    # These are staticmethods on the class that sklearn uses in the tests,
+    # we can just re-export them here.
+    @classproperty
+    def _combinations(cls):
+        return cls._cpu_class._combinations
+
+    @classproperty
+    def _num_combinations(cls):
+        return cls._cpu_class._num_combinations
+
+    @staticmethod
+    def _params_from_cpu(model):
+        if model.order == "F":
+            raise UnsupportedOnGPU("order='F' is not supported")
+        return model.get_params(deep=False)
 
 
 def _check_unsupported_inputs(X, y, cpu_model):
