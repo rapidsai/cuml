@@ -950,12 +950,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVC input handling and validation
-  marker: cuml_accel_svc_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
   marker: cuml_accel_svm_sample_weight
   tests:
@@ -971,16 +965,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVR input handling and validation
-  marker: cuml_accel_svr_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   condition: scikit-learn>=1.6

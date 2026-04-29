@@ -10,12 +10,6 @@ from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import (
-    input_to_cuml_array,
-    input_to_host_array,
-    input_to_host_array_with_sparse_support,
-)
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
@@ -25,12 +19,10 @@ from cuml.internals.outputs import (
     run_in_internal_context,
 )
 from cuml.internals.validation import (
-    check_consistent_length,
     check_features,
+    check_inputs,
     check_is_fitted,
     check_random_seed,
-    check_sample_weight,
-    check_y,
 )
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -351,7 +343,6 @@ class SVC(SVMBase, ClassifierMixin):
         # if using one-vs-one we align support_ indices to those of
         # full dataset
         if decision_function_shape == "ovo":
-            y = cp.array(y)
             classes = cp.unique(y)
             n_classes = len(classes)
             estimator_index = 0
@@ -392,12 +383,11 @@ class SVC(SVMBase, ClassifierMixin):
 
         # Currently CalibratedClassifierCV expects data on the host, see
         # https://github.com/rapidsai/cuml/issues/2608
-        X = input_to_host_array_with_sparse_support(X)
+        X = X.get()
+        y = y.get()
 
         if sample_weight is not None:
             sample_weight = sample_weight.get()
-
-        y = input_to_host_array(y).array
 
         cv = StratifiedKFold(
             n_splits=5,
@@ -438,7 +428,7 @@ class SVC(SVMBase, ClassifierMixin):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
@@ -447,23 +437,45 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y, classes = check_y(y, return_classes=True)
+        if self.kernel == "precomputed" and is_sparse(X):
+            raise TypeError("Sparse precomputed kernels are not supported.")
+
+        X, y, sample_weight, classes = check_inputs(
+            self,
+            X,
+            y,
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_sparse="csr",
+            ensure_min_samples=2,
+            y_dtype=None,
+            return_classes=True,
+            reset=True,
+        )
+
         if len(classes) == 1:
             raise ValueError(
                 "This solver needs samples of at least 2 classes in the data, but "
                 "the data contains only 1 class"
             )
+
+        if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
+            raise ValueError(
+                f"Precomputed kernel matrix must be square, got shape {X.shape}"
+            )
+
         self.n_classes_ = len(classes)
         self.classes_ = classes
         self.class_weight_, sample_weight = process_class_weight(
             classes,
             y,
             class_weight=self.class_weight,
-            sample_weight=check_sample_weight(sample_weight),
-            dtype="f8" if getattr(X, "dtype", "f4") == "f8" else "f4",
+            sample_weight=sample_weight,
+            dtype=X.dtype,
             balanced_with_sample_weight=False,
         )
-        check_consistent_length(X, y, sample_weight)
 
         if self.probability:
             return self._fit_proba(X, y, sample_weight)
@@ -471,51 +483,9 @@ class SVC(SVMBase, ClassifierMixin):
         if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
-        # Handle precomputed kernels
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                check_rows=y.shape[0],
-                order="F",
-            ).array
-            # Validate that X is square for precomputed kernels
-            if X.shape[0] != X.shape[1]:
-                raise ValueError(
-                    f"Precomputed kernel matrix must be square, "
-                    f"got shape ({X.shape[0]}, {X.shape[1]})"
-                )
-        elif is_sparse(X):
-            X = SparseCumlArray(
-                X,
-                convert_to_dtype=(
-                    None if X.dtype in (np.float32, np.float64) else np.float32
-                ),
-                check_rows=y.shape[0],
-            )
-        else:
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                check_rows=y.shape[0],
-                order="F",
-            ).array
-
         # Encode y to -1/1 (like [0, 1, 0, 1] -> [-1, 1, -1, 1])
-        y = CumlArray(data=cp.array([-1, 1], dtype=X.dtype).take(y))
-
-        self._fit(
-            X,
-            y,
-            None if sample_weight is None else CumlArray(data=sample_weight),
-        )
-
+        y = cp.array([-1, 1], dtype=X.dtype).take(y)
+        self._fit(X, y, sample_weight)
         return self
 
     @generate_docstring(
@@ -572,7 +542,6 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
         if self._probA.size == 0 or self._probB.size == 0:
             raise NotFittedError(
@@ -652,30 +621,4 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             return self._multiclass.decision_function(X)
 
-        dtype = self.support_vectors_.dtype
-
-        # For precomputed kernels, check that columns match training set size
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[0],  # Number of training samples
-            ).array
-        elif is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=dtype)
-        else:
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
-            ).array
-
-        return self._predict(X)
+        return self._predict(X, convert_dtype=convert_dtype)
