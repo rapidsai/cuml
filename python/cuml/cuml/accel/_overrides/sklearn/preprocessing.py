@@ -8,7 +8,7 @@ import cuml.preprocessing
 from cuml.accel.estimator_proxy import ArrayAPIProxyBase, ProxyBase
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("StandardScaler", "MinMaxScaler", "TargetEncoder")
+__all__ = ("StandardScaler", "MinMaxScaler", "MaxAbsScaler", "TargetEncoder")
 
 
 class StandardScaler(ArrayAPIProxyBase):
@@ -17,6 +17,10 @@ class StandardScaler(ArrayAPIProxyBase):
 
 class MinMaxScaler(ArrayAPIProxyBase):
     _cpu_class_path = "sklearn.preprocessing.MinMaxScaler"
+
+
+class MaxAbsScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.MaxAbsScaler"
 
 
 def _check_unsupported_inputs(X, y, cpu_model):

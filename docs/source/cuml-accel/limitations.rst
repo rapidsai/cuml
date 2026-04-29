@@ -439,6 +439,14 @@ MinMaxScaler
 
 - When run on scikit-learn < 1.8
 
+MaxAbsScaler
+^^^^^^^^^^^^
+
+``MaxAbsScaler`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse
+- When run on scikit-learn < 1.8
+
 TargetEncoder
 ^^^^^^^^^^^^^
 
