@@ -428,11 +428,14 @@ class IncrementalPCA(PCA):
                 convert_dtype=convert_dtype,
             )
 
-            n_samples = X.shape[0]
+            n_samples, n_features = X.shape
+            batch_size = getattr(
+                self, "batch_size_", self.batch_size or 5 * n_features
+            )
             output = []
             for batch in _gen_batches(
                 n_samples,
-                self.batch_size_,
+                batch_size,
                 min_batch_size=self.n_components or 0,
             ):
                 output.append(self._transform_sparse(X[batch]))

@@ -80,8 +80,9 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
-    RandomForestClassifier(),
-    RandomForestRegressor(),
+    # TODO(26.08): Remove explicit default
+    RandomForestClassifier(max_depth=None),
+    RandomForestRegressor(max_depth=None),
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),

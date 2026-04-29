@@ -51,6 +51,11 @@ A few additional general notes:
   through 1.8. This ensures that cuML's implementation of scikit-learn
   compatible APIs works as expected.
 
+- Some estimators are accelerated using scikit-learn's experimental
+  `array-api`_ support. These estimators are only accelerated by ``cuml.accel``
+  when running with scikit-learn versions >= 1.8. Running with an older
+  version of scikit-learn will use an unaccelerated estimator.
+
 - Error and warning messages and formats may differ from scikit-learn. Some
   errors might present as C++ stacktraces instead of python errors.
 
@@ -424,10 +429,8 @@ StandardScaler
 
 ``StandardScaler`` will fall back to CPU in the following cases:
 
-- If ``partial_fit`` is called (incremental learning not supported on GPU).
-- If ``sample_weight`` is provided (weighted statistics not supported on GPU).
-- If ``X`` has object dtype, half precision (``float16``) dtype, or complex dtype (``complex64``, ``complex128``).
-- If ``X`` is a sparse matrix with integer dtype or in a format other than CSR or CSC.
+- If ``X`` is sparse
+- When run on scikit-learn < 1.8
 
 TargetEncoder
 ^^^^^^^^^^^^^
@@ -554,3 +557,4 @@ comparing the trustworthiness score (computed via
 
 
 .. _open an issue: https://github.com/rapidsai/cuml/issues
+.. _array-api: https://scikit-learn.org/stable/modules/array_api.html

@@ -460,8 +460,6 @@
   - "sklearn.tests.test_common::test_estimators[NuSVC()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[NuSVR()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[OneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',LogisticRegression())])-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[Pipeline(steps=[('scaler',StandardScaler()),('final_estimator',Ridge())])-check_estimators_nan_inf]"
   - "sklearn.tests.test_common::test_estimators[SGDClassifier()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDOneClassSVM()-check_sample_weights_invariance(kind=zeros)]"
   - "sklearn.tests.test_common::test_estimators[SGDRegressor()-check_sample_weights_invariance(kind=zeros)]"
@@ -672,10 +670,6 @@
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-saga]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-sparse_cg]"
   - "sklearn.linear_model.tests.test_ridge::test_ridge_regression_unpenalized_vstacked_X[42-wide-True-svd]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[auto-nn_model0]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[ball_tree-nn_model0]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[brute-nn_model0]"
-  - "sklearn.neighbors.tests.test_neighbors::test_neighbor_classifiers_loocv[kd_tree-nn_model0]"
   - "sklearn.tests.test_common::test_estimators[ElasticNet()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[Lasso()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[LogisticRegression()-check_sample_weight_equivalence_on_dense_data]"
@@ -803,6 +797,11 @@
   tests:
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
+- reason: This test asserts a copy hasn't happened, but that's not actually guaranteed by the interface.
+  marker: cuml_accel_invalid_sklearn_tests
+  condition: scikit-learn>=1.8
+  tests:
+  - "sklearn.preprocessing.tests.test_data::test_scaler_2d_arrays"
 - reason: KernelRidge input handling and validation
   marker: cuml_accel_kernel_ridge_estimator_checks
   tests:
@@ -1080,88 +1079,6 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-- reason: In-place modification (copy=False) not supported with GPU arrays
-  marker: gpu_limitations
-  tests:
-  - "sklearn.preprocessing.tests.test_data::test_scaler_2d_arrays"
-- reason: cuML StandardScaler lacks numerical stability handling for near-constant features
-  marker: numerical_stability
-  tests:
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float32-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[None-float64-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float32-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_array-float64-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float32-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csc_matrix-float64-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float32-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_array-float64-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float32-1e-10-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-10000000000.0-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-10000000000.0-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-10000000000.0-10]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1e-10-10000]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1e-10-100]"
-  - "sklearn.preprocessing.tests.test_data::test_standard_scaler_near_constant_features[csr_matrix-float64-1e-10-10]"
-- reason: Pandas NA support issues with StandardScaler
-  marker: pandas_na
-  tests:
-  - "sklearn.preprocessing.tests.test_common::test_missing_value_pandas_na_support[est2-scale]"
-  - "sklearn.preprocessing.tests.test_common::test_missing_value_pandas_na_support[est3-scale]"
 - reason: Config dispatch with parallel processing not working correctly with StandardScaler proxy
   marker: parallel_config
   tests:
