@@ -85,6 +85,11 @@ def test_sklearn_introspect_estimator_type():
     assert is_regressor(LinearRegression())
 
 
+def test_sklearn_introspect_parameter_constraints():
+    assert isinstance(LogisticRegression._parameter_constraints, dict)
+    assert isinstance(LogisticRegression()._parameter_constraints, dict)
+
+
 @pytest.mark.skipif(not SKLEARN_16, reason="sklearn >= 1.6 only")
 def test_sklearn_utils_get_tags():
     """sklearn.utils.get_tags was added in sklearn 1.6"""

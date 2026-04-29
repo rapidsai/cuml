@@ -185,6 +185,13 @@ class ProxyBase(BaseEstimator):
         if isinstance(_estimator_type, str):
             cls._estimator_type = _estimator_type
 
+        # Forward _parameter_constraints as a class attribute if available
+        _parameter_constraints = getattr(
+            cls._cpu_class, "_parameter_constraints", None
+        )
+        if isinstance(_parameter_constraints, dict):
+            cls._parameter_constraints = _parameter_constraints
+
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
         methods = [
