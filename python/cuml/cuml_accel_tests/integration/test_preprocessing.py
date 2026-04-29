@@ -83,9 +83,9 @@ def test_max_abs_scaler():
 def test_scaler_partial_fit(cls):
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
 
-    model = StandardScaler().fit(X)
+    model = cls().fit(X)
 
-    model2 = StandardScaler()
+    model2 = cls()
     model2.partial_fit(X[:25])
     assert model2.n_samples_seen_ == 25
     model2.partial_fit(X[25:])
