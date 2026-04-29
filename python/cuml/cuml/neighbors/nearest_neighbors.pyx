@@ -596,7 +596,7 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             # TODO: These index types currently aren't pickleable. For now we
             # recreate them on load.
             fit_X = getattr(self, "_fit_X", None)
-            X_cp = fit_X.to_output("cupy") if fit_X is not None else None
+            X_cp = cp.asarray(fit_X) if fit_X is not None else None
             if fit_method == "rbc":
                 self._index = RBCIndex.build(X_cp, self.effective_metric_)
             else:

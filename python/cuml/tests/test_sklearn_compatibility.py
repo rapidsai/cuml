@@ -144,11 +144,7 @@ XFAILS = {
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
-        "check_dtype_object": "KNeighborsClassifier does not handle object dtype",
-        "check_estimators_empty_data_messages": "KNeighborsClassifier does not handle empty data",
-        "check_estimators_nan_inf": "KNeighborsClassifier does not check for NaN and inf",
         "check_classifier_data_not_an_array": "KNeighborsClassifier does not handle non-array data",
-        "check_classifiers_train": "KNeighborsClassifier does not validate input data properly",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -165,22 +161,11 @@ XFAILS = {
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
-        "check_dtype_object": "KNeighborsRegressor does not handle object dtype",
-        "check_estimators_empty_data_messages": "KNeighborsRegressor does not handle empty data",
-        "check_estimators_nan_inf": "KNeighborsRegressor does not check for NaN and inf",
-        "check_regressors_train": "KNeighborsRegressor does not handle list inputs",
-        "check_regressors_train(readonly_memmap=True)": "KNeighborsRegressor does not handle readonly memmap",
-        "check_regressors_train(readonly_memmap=True,X_dtype=float32)": "KNeighborsRegressor does not handle readonly memmap with float32",
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
-        "check_supervised_y_no_nan": "KNeighborsRegressor does not check for NaN in y",
-        "check_requires_y_none": "KNeighborsRegressor does not handle y=None",
     },
     NearestNeighbors: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "NearestNeighbors does not handle object dtype",
-        "check_estimators_empty_data_messages": "NearestNeighbors does not handle empty data",
-        "check_estimators_nan_inf": "NearestNeighbors does not check for NaN and inf",
     },
     LinearSVC: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -288,11 +273,7 @@ XFAILS = {
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_sample_weights_not_an_array": "KernelDensity does not handle non-array sample weights",
-        "check_sample_weights_list": "KernelDensity does not handle list sample weights",
         "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",
-        "check_dtype_object": "KernelDensity does not handle object dtype",
-        "check_estimators_nan_inf": "KernelDensity does not check for NaN and inf",
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
