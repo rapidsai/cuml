@@ -34,6 +34,16 @@ __all__ = ("ProxyBase", "ArrayAPIProxyBase", "is_proxy")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
+class classproperty:
+    """A property, but on the class instead of the instance."""
+
+    def __init__(self, f):
+        self.f = f
+
+    def __get__(self, obj, owner):
+        return self.f(owner)
+
+
 def is_proxy(instance_or_class) -> bool:
     """Check if an instance or class is a proxy object created by the accelerator."""
     if isinstance(instance_or_class, type):
@@ -184,13 +194,6 @@ class ProxyBase(BaseEstimator):
         _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
         if isinstance(_estimator_type, str):
             cls._estimator_type = _estimator_type
-
-        # Forward _parameter_constraints as a class attribute if available
-        _parameter_constraints = getattr(
-            cls._cpu_class, "_parameter_constraints", None
-        )
-        if isinstance(_parameter_constraints, dict):
-            cls._parameter_constraints = _parameter_constraints
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -571,9 +574,9 @@ class ProxyBase(BaseEstimator):
     def _estimator_type(self):
         return self._cpu._estimator_type
 
-    @property
-    def _parameter_constraints(self):
-        return self._cpu._parameter_constraints
+    @classproperty
+    def _parameter_constraints(cls):
+        return cls._cpu_class._parameter_constraints
 
     @classmethod
     def _get_param_names(cls):
@@ -717,6 +720,8 @@ class _ArrayAPIWrapper(Base, InteropMixin):
                 "scikit-learn >= 1.8 is required to run on GPU"
             )
 
+        if cls._params_from_cpu_override is not None:
+            return cls._params_from_cpu_override(model)
         return model.get_params(deep=False)
 
     def _params_to_cpu(self):
@@ -745,12 +750,13 @@ class _ArrayAPIWrapper(Base, InteropMixin):
 
     def _attrs_from_cpu(self, model):
         attrs = super()._attrs_from_cpu(model)
+        exclude = {
+            "feature_names_in_",
+            "n_features_in_",
+            *self._get_param_names(),
+        }
         for name, value in vars(model).items():
-            if (
-                name.endswith("_")
-                and not name.startswith("_")
-                and name != "feature_names_in_"
-            ):
+            if name not in exclude:
                 if isinstance(value, np.ndarray):
                     value = cp.asarray(value)
                 attrs[name] = value
@@ -758,8 +764,9 @@ class _ArrayAPIWrapper(Base, InteropMixin):
 
     def _attrs_to_cpu(self, model):
         attrs = super()._attrs_to_cpu(model)
+        exclude = set(self._get_param_names())
         for name, value in vars(self._internal_model).items():
-            if name.endswith("_") and not name.startswith("_"):
+            if name not in exclude:
                 if isinstance(value, cp.ndarray):
                     value = cp.asnumpy(value)
                 attrs[name] = value
@@ -786,8 +793,10 @@ class _ArrayAPIWrapper(Base, InteropMixin):
 class ArrayAPIProxyBase(ProxyBase):
     """A ProxyBase subclass for proxying array-api-enabled sklearn models.
 
-    Subclasses should define ``_cpu_class_path`` as the public import
-    path of the sklearn class."""
+    Subclasses should define ``_cpu_class_path`` as the public import path of
+    the sklearn class. They also may optionally define `_params_from_cpu` to
+    handle filtering any unsupported hyperparameters.
+    """
 
     def __init_subclass__(cls, **kwargs):
         # Programmatically create a new private cuml.Base class that wraps the
@@ -795,6 +804,11 @@ class ArrayAPIProxyBase(ProxyBase):
         cls._gpu_class = type(
             cls.__name__,
             (_ArrayAPIWrapper,),
-            {"_cpu_class_path": cls._cpu_class_path},
+            {
+                "_cpu_class_path": cls._cpu_class_path,
+                "_params_from_cpu_override": getattr(
+                    cls, "_params_from_cpu", None
+                ),
+            },
         )
         super().__init_subclass__(**kwargs)
