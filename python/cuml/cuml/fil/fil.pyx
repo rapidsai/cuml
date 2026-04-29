@@ -329,8 +329,8 @@ cdef class ForestInference_impl():
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
-                in_dev,
                 out_dev,
+                in_dev,
                 infer_type_enum,
                 chunk_specification
             )
@@ -630,8 +630,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         self.layout = layout
         self.precision = precision
         self.device_id = device_id
-        self.treelite_model = treelite_model
         self.allow_nan = allow_nan
+        self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
 
     def _load_to_fil(self, mem_type=None, device_id=None):
