@@ -206,7 +206,7 @@ struct decision_forest_builder {
   /* Set the row-wise postprocessing operation for this model */
   void set_row_postproc(row_op val) { row_postproc_ = val; }
   /* Set the value to divide by during postprocessing */
-  void set_average_factor(float val) { average_factor_ = val; }
+  void set_average_factor(double val) { average_factor_ = val; }
   /* Set the bias term, which is added to the output. The bias term
    * should have the same length as output_size. */
   void set_bias(std::vector<double> val)
@@ -252,17 +252,21 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
-    // Invariant, so that static_cast<typename node_type::threshold_type>(average_factor_) is safe.
-    static_assert(sizeof(typename node_type::threshold_type) >= sizeof(average_factor_),
-                  "Threshold type was assumed to be big enough to hold average factor");
-
-    // Safely cast postproc_constant_ to typename node_type::threshold_type
+    // Safely cast average_factor_ and postproc_constant_ to node_type::threshold_type
+    auto average_factor_casted    = typename node_type::threshold_type{};
     auto postproc_constant_casted = typename node_type::threshold_type{};
+    try {
+      average_factor_casted =
+        safe_cast_floating_point<typename node_type::threshold_type>(average_factor_);
+      // We can't use cuda::narrow here, because it throws for imprecise conversion, i.e. casting
+      // double{3.1} to float.
+    } catch (const floating_point_truncation_error& e) {
+      throw unusable_model_exception{std::string{"Found an invalid value for averaging factor: "} +
+                                     e.what()};
+    }
     try {
       postproc_constant_casted =
         safe_cast_floating_point<typename node_type::threshold_type>(postproc_constant_);
-      // We can't use cuda::narrow here, because it throws for imprecise conversion, i.e. casting
-      // double{3.1} to float.
     } catch (const floating_point_truncation_error& e) {
       throw unusable_model_exception{
         std::string{"Found an invalid value for postprocessing constant: "} + e.what()};
@@ -299,7 +303,7 @@ struct decision_forest_builder {
       output_size_,
       row_postproc_,
       element_postproc_,
-      static_cast<typename node_type::threshold_type>(average_factor_),
+      average_factor_casted,
       postproc_constant_casted};
   }
 
@@ -310,7 +314,7 @@ struct decision_forest_builder {
   index_type output_size_;
   row_op row_postproc_;
   element_op element_postproc_;
-  float average_factor_;
+  double average_factor_;
   double postproc_constant_;
 
   std::vector<node_type> nodes_;
