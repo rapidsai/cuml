@@ -408,7 +408,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
-            allow_nan=False,
+            ensure_all_finite=True,
         )
 
     def _fit_forest(self, X, y):

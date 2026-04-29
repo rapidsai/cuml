@@ -139,7 +139,7 @@ cdef class ForestInference_impl():
     cdef forest_model model
     cdef raft_proto_handle_t raft_proto_handle
     cdef object raft_handle
-    cdef bool allow_nan
+    cdef object ensure_all_finite
 
     def __cinit__(
         self,
@@ -150,7 +150,7 @@ cdef class ForestInference_impl():
         use_double_precision=None,
         mem_type=None,
         device_id=None,
-        allow_nan=True,
+        ensure_all_finite=False,
     ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
@@ -158,7 +158,7 @@ cdef class ForestInference_impl():
         self.raft_proto_handle = raft_proto_handle_t(
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
-        self.allow_nan = allow_nan
+        self.ensure_all_finite = ensure_all_finite
         if mem_type is None:
             mem_type = GlobalSettings().fil_memory_type
         else:
@@ -263,7 +263,7 @@ cdef class ForestInference_impl():
             order="C",
             mem_type=mem_type.name,
             return_index=True,
-            ensure_all_finite="allow-nan" if self.allow_nan else True,
+            ensure_all_finite=self.ensure_all_finite,
             input_name="X",
         )
         n_rows = X.shape[0]
@@ -464,9 +464,10 @@ class ForestInference(Base, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. If set to None, use the currently active device.
         For CPU execution, this value is currently ignored.
-    allow_nan : bool, default=True
-        Whether to allow NaN values in X during inference. If False, an error
-        will be raised in the presence of NaN inputs.
+    ensure_all_finite : bool or 'allow-nan', default=False
+        If True, an error will be raised if non-finite values are found in the
+        input. If 'allow-nan', an error will be raised if infinite values are
+        found (but not for NaN). If False then ``check_all_finite`` is skipped.
     """
 
     def _reload_model(self):
@@ -621,7 +622,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         align_bytes=None,
         precision='single',
         device_id=None,
-        allow_nan=True,
+        ensure_all_finite=False,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
         self.is_classifier = is_classifier
@@ -630,7 +631,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         self.layout = layout
         self.precision = precision
         self.device_id = device_id
-        self.allow_nan = allow_nan
+        self.ensure_all_finite = ensure_all_finite
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
 
@@ -667,7 +668,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                 use_double_precision=self._use_double_precision_,
                 mem_type=mem_type,
                 device_id=self.device_id,
-                allow_nan=self.allow_nan
+                ensure_all_finite=self.ensure_all_finite
             )
 
             if mem_type is MemoryType.device:
@@ -1366,5 +1367,5 @@ class ForestInference(Base, CMajorInputTagMixin):
             "align_bytes",
             "precision",
             "device_id",
-            "allow_nan",
+            "ensure_all_finite",
         ]
