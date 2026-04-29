@@ -21,13 +21,54 @@
 #include <iterator>
 #include <numeric>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace ML {
 namespace fil {
 namespace detail {
+
+struct floating_point_truncation_error : std::exception {
+  floating_point_truncation_error() {}
+  floating_point_truncation_error(std::string msg) : msg_{msg} {}
+  floating_point_truncation_error(char const* msg) : msg_{msg} {}
+  virtual char const* what() const noexcept { return msg_.c_str(); }
+
+ private:
+  std::string msg_;
+};
+
+template <typename To, typename From>
+To safe_cast_floating_point(From x)
+{
+  static_assert(std::is_floating_point_v<From> && std::is_floating_point_v<To>,
+                "Source and destination types must be both floating-point types.");
+  if constexpr (sizeof(To) >= sizeof(From)) {
+    // Widening cast
+    return static_cast<To>(x);
+  } else {
+    // Narrowing cast: should be checked
+    if (!std::isfinite(x)) {
+      throw floating_point_truncation_error{"Cannot cast an INF or NaN value"};
+    }
+    auto constexpr lower_limit = static_cast<From>(std::numeric_limits<To>::lowest());
+    auto constexpr upper_limit = static_cast<From>(std::numeric_limits<To>::max());
+    if (x < lower_limit) {
+      std::ostringstream ss;
+      ss << "Input must be at least " << lower_limit << ".";
+      throw floating_point_truncation_error{ss.str()};
+    }
+    if (x > upper_limit) {
+      std::ostringstream ss;
+      ss << "Input must be at most " << upper_limit << ".";
+      throw floating_point_truncation_error{ss.str()};
+    }
+    return static_cast<To>(x);
+  }
+}
 
 /*
  * Struct used to build FIL forests
@@ -165,7 +206,7 @@ struct decision_forest_builder {
   /* Set the row-wise postprocessing operation for this model */
   void set_row_postproc(row_op val) { row_postproc_ = val; }
   /* Set the value to divide by during postprocessing */
-  void set_average_factor(double val) { average_factor_ = val; }
+  void set_average_factor(float val) { average_factor_ = val; }
   /* Set the bias term, which is added to the output. The bias term
    * should have the same length as output_size. */
   void set_bias(std::vector<double> val)
@@ -211,11 +252,21 @@ struct decision_forest_builder {
                            int device                       = 0,
                            raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
   {
-    // Allow narrowing for preprocessing constants. They are stored as doubles
-    // for consistency in the builder but must be converted to the proper types
-    // for the concrete forest model.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnarrowing"
+    // Invariant, so that static_cast<typename node_type::threshold_type>(average_factor_) is safe.
+    static_assert(sizeof(typename node_type::threshold_type) >= sizeof(average_factor_),
+                  "Threshold type was assumed to be big enough to hold average factor");
+
+    // Safely cast postproc_constant_ to typename node_type::threshold_type
+    auto postproc_constant_casted = typename node_type::threshold_type{};
+    try {
+      postproc_constant_casted =
+        safe_cast_floating_point<typename node_type::threshold_type>(postproc_constant_);
+      // We can't use cuda::narrow here, because it throws for imprecise conversion, i.e. casting
+      // double{3.1} to float.
+    } catch (const floating_point_truncation_error& e) {
+      throw unusable_model_exception{
+        std::string{"Found an invalid value for postprocessing constant: "} + e.what()};
+    }
     return decision_forest_t{
       raft_proto::buffer{
         raft_proto::buffer{nodes_.data(), nodes_.size()}, mem_type, device, stream},
@@ -249,8 +300,7 @@ struct decision_forest_builder {
       row_postproc_,
       element_postproc_,
       static_cast<typename node_type::threshold_type>(average_factor_),
-      static_cast<typename node_type::threshold_type>(postproc_constant_)};
-#pragma GCC diagnostic pop
+      postproc_constant_casted};
   }
 
  private:
@@ -260,7 +310,7 @@ struct decision_forest_builder {
   index_type output_size_;
   row_op row_postproc_;
   element_op element_postproc_;
-  double average_factor_;
+  float average_factor_;
   double postproc_constant_;
 
   std::vector<node_type> nodes_;

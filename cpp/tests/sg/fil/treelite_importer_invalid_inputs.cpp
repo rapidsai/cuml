@@ -51,11 +51,11 @@ TEST(TreeliteImporter, large_category_value)
   model_builder->EndNode();
 
   model_builder->StartNode(1);
-  model_builder->LeafScalar(1.0);
+  model_builder->LeafScalar(1.0f);
   model_builder->EndNode();
 
   model_builder->StartNode(2);
-  model_builder->LeafScalar(-1.0);
+  model_builder->LeafScalar(-1.0f);
   model_builder->EndNode();
 
   model_builder->EndTree();
@@ -98,11 +98,11 @@ TEST(TreeliteImporter, large_category_value2)
   model_builder->EndNode();
 
   model_builder->StartNode(1);
-  model_builder->LeafScalar(1.0);
+  model_builder->LeafScalar(1.0f);
   model_builder->EndNode();
 
   model_builder->StartNode(2);
-  model_builder->LeafScalar(-1.0);
+  model_builder->LeafScalar(-1.0f);
   model_builder->EndNode();
 
   model_builder->EndTree();
@@ -140,11 +140,11 @@ TEST(TreeliteImporter, large_feature_id)
   model_builder->EndNode();
 
   model_builder->StartNode(1);
-  model_builder->LeafScalar(1.0);
+  model_builder->LeafScalar(1.0f);
   model_builder->EndNode();
 
   model_builder->StartNode(2);
-  model_builder->LeafScalar(-1.0);
+  model_builder->LeafScalar(-1.0f);
   model_builder->EndNode();
 
   model_builder->EndTree();
@@ -166,7 +166,7 @@ TEST(TreeliteImporter, large_feature_id)
     std::string{"Tree 0, Node 0: The 'feature' value in the node must be at most "} +
     std::to_string(0x1FFF);
   ASSERT_THAT(
-    [&]() {
+    [&] {
       importer.import_to_specific_variant<index_type{}>(variant_index,
                                                         *tl_model,
                                                         importer.get_num_class(*tl_model),
@@ -175,6 +175,73 @@ TEST(TreeliteImporter, large_feature_id)
                                                         importer.get_offsets(*tl_model));
     },
     testing::ThrowsMessage<model_import_error>(testing::HasSubstr(expected_error_msg)));
+}
+
+TEST(TreeliteImporter, safe_cast_floating_point)
+{
+  /* Valid casts */
+  ASSERT_NO_THROW(
+    detail::safe_cast_floating_point<float>(double{3.1}));  // Some loss of precision, but o.k.
+  ASSERT_NO_THROW(detail::safe_cast_floating_point<double>(std::numeric_limits<float>::max()));
+
+  // INFs and NANs are allowed for widening cast
+  ASSERT_NO_THROW(detail::safe_cast_floating_point<float>(std::numeric_limits<float>::infinity()));
+  ASSERT_NO_THROW(
+    detail::safe_cast_floating_point<double>(std::numeric_limits<double>::infinity()));
+  ASSERT_NO_THROW(detail::safe_cast_floating_point<double>(std::numeric_limits<float>::infinity()));
+  ASSERT_NO_THROW(detail::safe_cast_floating_point<float>(std::numeric_limits<float>::quiet_NaN()));
+  ASSERT_NO_THROW(
+    detail::safe_cast_floating_point<double>(std::numeric_limits<double>::quiet_NaN()));
+  ASSERT_NO_THROW(
+    detail::safe_cast_floating_point<double>(std::numeric_limits<float>::quiet_NaN()));
+
+  // Invalid casts
+  auto inf_msg = std::string{"Cannot cast an INF or NaN value"};
+  ASSERT_THAT(
+    [] { detail::safe_cast_floating_point<float>(std::numeric_limits<double>::infinity()); },
+    testing::ThrowsMessage<detail::floating_point_truncation_error>(testing::HasSubstr(inf_msg)));
+  ASSERT_THAT(
+    [] { detail::safe_cast_floating_point<float>(std::numeric_limits<double>::quiet_NaN()); },
+    testing::ThrowsMessage<detail::floating_point_truncation_error>(testing::HasSubstr(inf_msg)));
+  ASSERT_THAT([] { detail::safe_cast_floating_point<float>(double{1e100}); },
+              testing::ThrowsMessage<detail::floating_point_truncation_error>(
+                testing::HasSubstr("Input must be at most")));
+  ASSERT_THAT([] { detail::safe_cast_floating_point<float>(double{-1e100}); },
+              testing::ThrowsMessage<detail::floating_point_truncation_error>(
+                testing::HasSubstr("Input must be at least")));
+}
+
+TEST(TreeliteImporter, invalid_postproc_constant)
+{
+  auto metadata = treelite::model_builder::Metadata{
+    1,
+    treelite::TaskType::kRegressor,
+    false,
+    1,
+    {1},
+    {1, 1},
+  };
+  auto tree_annotation = treelite::model_builder::TreeAnnotation{1, {0}, {0}};
+  auto model_builder   = treelite::model_builder::GetModelBuilder(
+    treelite::TypeInfo::kFloat32,
+    treelite::TypeInfo::kFloat32,
+    metadata,
+    tree_annotation,
+    treelite::model_builder::PostProcessorFunc{
+      "sigmoid", {{"sigmoid_alpha", std::numeric_limits<double>::quiet_NaN()}}},
+    {0.0});
+
+  model_builder->StartTree();
+  model_builder->StartNode(0);
+  model_builder->LeafScalar(0.0f);
+  model_builder->EndNode();
+  model_builder->EndTree();
+
+  auto tl_model = model_builder->CommitModel();
+
+  ASSERT_THAT([&] { import_from_treelite_model(*tl_model, tree_layout::breadth_first); },
+              testing::ThrowsMessage<unusable_model_exception>(
+                testing::HasSubstr("Found an invalid value for postprocessing constant")));
 }
 
 }  // namespace fil

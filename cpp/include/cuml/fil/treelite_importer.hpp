@@ -151,7 +151,7 @@ struct treelite_importer {
     } else {
       result = 1.0;
     }
-    return result;
+    return static_cast<float>(result);
   }
 
   auto get_bias(treelite::Model const& tl_model) { return tl_model.base_scores.AsVector(); }
