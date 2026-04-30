@@ -210,6 +210,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             X,
             y,
             sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
             loss=self.loss,
             penalty=self.penalty,
             fit_intercept=self.fit_intercept,

@@ -503,14 +503,8 @@ class SVMBase(Base,
             accept_sparse="csr",
             return_index=True,
         )
-        if self.kernel == "precomputed" and X.shape[1] != self.shape_fit_[0]:
-            raise ValueError(
-                f"X.shape[1] = {X.shape[1]} should be equal to "
-                f"{self.shape_fit_[0]}, the number of samples at training time"
-            )
 
         support_vectors = self.support_vectors_
-
         cdef bool sparse_model = isinstance(support_vectors, SparseCumlArray)
         cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
