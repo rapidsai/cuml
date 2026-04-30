@@ -355,7 +355,10 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         The list is constructed lazily on first access and cached.
         """
-        check_is_fitted(self)
+        if not hasattr(self, "_treelite_model_bytes"):
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute 'estimators_'"
+            )
         if (cached := getattr(self, "_estimators_cache", None)) is not None:
             return cached
         from cuml.ensemble._gpu_tree import _build_gpu_estimators

@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import cupy as cp
 import numpy as np
-import sklearn.tree
+
+from cuml.internals.base import Base
+from cuml.internals.mixins import ClassifierMixin, RegressorMixin
 
 
 def _compute_max_depth(children_left, children_right):
@@ -227,6 +229,17 @@ def _build_gpu_estimators(rf_model):
     n_features = int(header.get_field("num_feature")[0])
     n_trees = tl_model.num_tree
 
+    common_params = dict(
+        split_criterion=rf_model.split_criterion,
+        max_depth=rf_model.max_depth,
+        min_samples_split=rf_model.min_samples_split,
+        min_samples_leaf=rf_model.min_samples_leaf,
+        max_features=rf_model.max_features,
+        max_leaves=rf_model.max_leaves,
+        min_impurity_decrease=rf_model.min_impurity_decrease,
+        random_state=rf_model.random_state,
+    )
+
     estimators = []
     for tree_idx in range(n_trees):
         tree_data = _extract_tree_from_treelite(
@@ -238,11 +251,11 @@ def _build_gpu_estimators(rf_model):
         gpu_tree = GPUTree(tree_data, fil_model, tree_idx)
 
         if is_classifier:
-            est = GPUDecisionTreeClassifier.__new__(GPUDecisionTreeClassifier)
+            est = GPUDecisionTreeClassifier(**common_params)
             est.classes_ = rf_model.classes_
             est.n_classes_ = rf_model.n_classes_
         else:
-            est = GPUDecisionTreeRegressor.__new__(GPUDecisionTreeRegressor)
+            est = GPUDecisionTreeRegressor(**common_params)
 
         est.tree_ = gpu_tree
         est.n_features_in_ = n_features
@@ -255,21 +268,58 @@ def _build_gpu_estimators(rf_model):
     return estimators
 
 
-class GPUDecisionTreeClassifier(sklearn.tree.DecisionTreeClassifier):
+class GPUDecisionTreeClassifier(Base, ClassifierMixin):
     """GPU-backed proxy for a single decision tree classifier in a forest."""
 
-    def predict(self, X, check_input=True):
+    def __init__(
+        self,
+        split_criterion="gini",
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=None,
+        max_leaves=-1,
+        min_impurity_decrease=0.0,
+        random_state=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
+        self.split_criterion = split_criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.max_features = max_features
+        self.max_leaves = max_leaves
+        self.min_impurity_decrease = min_impurity_decrease
+        self.random_state = random_state
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "split_criterion",
+            "max_depth",
+            "min_samples_split",
+            "min_samples_leaf",
+            "max_features",
+            "max_leaves",
+            "min_impurity_decrease",
+            "random_state",
+        ]
+
+    def predict(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
         proba = cp.asnumpy(per_tree[:, self._tree_idx])
         return self.classes_.take(np.argmax(proba, axis=1), axis=0)
 
-    def predict_proba(self, X, check_input=True):
+    def predict_proba(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
         return cp.asnumpy(per_tree[:, self._tree_idx])
 
-    def apply(self, X, check_input=True):
+    def apply(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         leaf_ids = self._fil_model.apply(X_gpu)
         return cp.asnumpy(leaf_ids[:, self._tree_idx]).astype(np.intp)
@@ -279,10 +329,47 @@ class GPUDecisionTreeClassifier(sklearn.tree.DecisionTreeClassifier):
         return self.tree_.compute_feature_importances()
 
 
-class GPUDecisionTreeRegressor(sklearn.tree.DecisionTreeRegressor):
+class GPUDecisionTreeRegressor(Base, RegressorMixin):
     """GPU-backed proxy for a single decision tree regressor in a forest."""
 
-    def predict(self, X, check_input=True):
+    def __init__(
+        self,
+        split_criterion="mse",
+        max_depth=None,
+        min_samples_split=2,
+        min_samples_leaf=1,
+        max_features=None,
+        max_leaves=-1,
+        min_impurity_decrease=0.0,
+        random_state=None,
+        verbose=False,
+        output_type=None,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
+        self.split_criterion = split_criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.max_features = max_features
+        self.max_leaves = max_leaves
+        self.min_impurity_decrease = min_impurity_decrease
+        self.random_state = random_state
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "split_criterion",
+            "max_depth",
+            "min_samples_split",
+            "min_samples_leaf",
+            "max_features",
+            "max_leaves",
+            "min_impurity_decrease",
+            "random_state",
+        ]
+
+    def predict(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
         result = cp.asnumpy(per_tree[:, self._tree_idx])
@@ -290,7 +377,7 @@ class GPUDecisionTreeRegressor(sklearn.tree.DecisionTreeRegressor):
             result = result.squeeze(axis=-1)
         return result
 
-    def apply(self, X, check_input=True):
+    def apply(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         leaf_ids = self._fil_model.apply(X_gpu)
         return cp.asnumpy(leaf_ids[:, self._tree_idx]).astype(np.intp)

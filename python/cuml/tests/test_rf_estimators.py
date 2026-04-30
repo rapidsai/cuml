@@ -6,7 +6,6 @@
 import cupy as cp
 import numpy as np
 import pytest
-import sklearn.tree
 from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier as skRFC
 from sklearn.ensemble import RandomForestRegressor as skRFR
@@ -116,6 +115,12 @@ def test_estimators_count(clf_data):
     rf = cuRFC(n_estimators=7, max_depth=4, random_state=42)
     rf.fit(cp.asarray(X), cp.asarray(y))
     assert len(rf.estimators_) == 7
+
+
+def test_estimators_attribute_error_before_fit():
+    rf = cuRFC(n_estimators=3, max_depth=4, random_state=42)
+    with pytest.raises(AttributeError, match="no attribute"):
+        rf.estimators_
 
 
 def test_max_depth_respected(clf_data):
@@ -259,12 +264,24 @@ def test_isinstance_classifier(clf_data):
     rf.fit(cp.asarray(X), cp.asarray(y))
 
     est = rf.estimators_[0]
-    assert isinstance(est, sklearn.tree.DecisionTreeClassifier)
+    from cuml.internals.base import Base
+
+    assert isinstance(est, Base)
     assert hasattr(est, "tree_")
     assert hasattr(est, "classes_")
     assert hasattr(est, "n_classes_")
     assert hasattr(est, "n_features_in_")
     assert hasattr(est, "n_outputs_")
+
+
+def test_estimator_repr(clf_data):
+    X, y = clf_data
+    rf = cuRFC(n_estimators=3, max_depth=5, random_state=42)
+    rf.fit(cp.asarray(X), cp.asarray(y))
+
+    r = repr(rf.estimators_[0])
+    assert "GPUDecisionTreeClassifier" in r
+    assert "split_criterion" in r
 
 
 def test_classifier_predict_returns_classes(clf_data):
@@ -332,7 +349,9 @@ def test_isinstance_regressor(reg_data):
     rf.fit(cp.asarray(X), cp.asarray(y))
 
     est = rf.estimators_[0]
-    assert isinstance(est, sklearn.tree.DecisionTreeRegressor)
+    from cuml.internals.base import Base
+
+    assert isinstance(est, Base)
     assert hasattr(est, "tree_")
     assert hasattr(est, "n_features_in_")
 
