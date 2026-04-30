@@ -9,15 +9,11 @@ This skill teaches the agent how to build cuML from source in this repository. T
 
 ## Quick start (TL;DR)
 
-For an already-set-up dev env, build and install everything for the local GPU arch:
+With a cuML dev env already active, build and install everything for the local GPU arch:
 
 ```bash
-source "$HOME/miniforge3/etc/profile.d/conda.sh"
-conda activate "$(git rev-parse --show-toplevel)/.conda-env"
 ./build.sh --ccache
 ```
-
-If the `.conda-env` doesn't exist yet, set it up first — see [.agents/setup-dev-environment/SKILL.md](../setup-dev-environment/SKILL.md).
 
 This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) into `$CONDA_PREFIX`.
 
@@ -31,8 +27,6 @@ This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) i
 >
 > Bug details: [rapidsai/cuml#8021](https://github.com/rapidsai/cuml/issues/8021).
 
-> **Note on env layout:** This skill uses an **in-worktree prefix env** at `<worktree>/.conda-env`. Activation is unambiguous (`conda activate ./.conda-env` always points at the right env), and the env is tied to the worktree — deleting the worktree removes the env. See [setup-dev-environment skill](../setup-dev-environment/SKILL.md) for details.
-
 ## When to apply this skill
 
 - The user asks to build / compile / install / rebuild cuML.
@@ -43,12 +37,7 @@ This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) i
 
 cuML development happens inside a conda environment that contains all build and runtime dependencies. **Always activate it before invoking `build.sh`, `cmake`, `pip`, or `pytest`.**
 
-```bash
-source "$HOME/miniforge3/etc/profile.d/conda.sh"
-conda activate "$(git rev-parse --show-toplevel)/.conda-env"
-```
-
-If activation fails with "EnvironmentLocationNotFound", the env doesn't exist yet. To create, update, or remove the env, see [.agents/setup-dev-environment/SKILL.md](../setup-dev-environment/SKILL.md).
+This skill does not manage conda env creation or activation — env naming and layout vary by developer. Activate whichever cuML dev env you use before proceeding. If you don't have one yet and want an example workflow, see [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md).
 
 ## 2. Build with `build.sh`
 
@@ -161,7 +150,7 @@ The `cuml.__file__` path should be inside the active conda env (or the editable 
 
 - **`ImportError` after pulling new commits**: rebuild — the C++ ABI or Cython-generated code likely changed.
 - **`libcuml.so` not found at runtime**: `INSTALL_PREFIX` mismatched the active env. Re-run `build.sh` with the correct env activated.
-- **`cuml.__file__` points to a different worktree than the one you're editing**: another worktree's env is active. Run `conda activate "$(git rev-parse --show-toplevel)/.conda-env"` and rebuild — see [setup-dev-environment skill](../setup-dev-environment/SKILL.md).
+- **`cuml.__file__` points to a different worktree than the one you're editing**: the wrong env is active. Activate the env that belongs to the worktree you're editing and rebuild.
 - **Out-of-memory or thermal throttling during build**: lower `PARALLEL_LEVEL` (e.g. `PARALLEL_LEVEL=8`).
 - **Stale build state after a failed build**: run `./build.sh clean` then rebuild from scratch.
 - **Building without a GPU**: the build itself works on CPU-only hosts; only running cuML at test time requires a GPU.
@@ -187,7 +176,7 @@ python -m pip install --no-build-isolation --no-deps \
 
 ## Additional resources
 
-- Dev environment setup (create, update, remove): [.agents/setup-dev-environment/SKILL.md](../setup-dev-environment/SKILL.md)
+- Example dev environment setup (one optional workflow): [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md)
 - Full build docs and all cmake flags: [BUILD.md](../../BUILD.md)
 - Contributing workflow (pre-commit, clang-tidy, branch naming): [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - Conda environment files: `conda/environments/all_cuda-*_arch-*.yaml`

@@ -9,18 +9,12 @@ This skill covers all cuML test suites. The canonical source of truth for each s
 
 ## 0. Prerequisites
 
-**Activate the worktree env before running any tests:**
-
-```bash
-source "$HOME/miniforge3/etc/profile.d/conda.sh"
-conda activate "$(git rev-parse --show-toplevel)/.conda-env"
-```
+**A cuML conda dev env must be active before running any tests.** This skill does not manage env creation or activation — env naming and layout vary by developer. Activate whichever cuML dev env you use. If you don't have one yet and want an example setup workflow, see [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md).
 
 - After editing C++/CUDA/Cython code, rebuild before testing. See [.agents/build-cuml/SKILL.md](../build-cuml/SKILL.md).
-- If activation fails with "EnvironmentLocationNotFound", the env doesn't exist yet — see [.agents/setup-dev-environment/SKILL.md](../setup-dev-environment/SKILL.md).
-- If you see `No module named pytest` (or `python` resolves to base Miniforge instead of the worktree env), the dev environment is not active — the worktree env includes `pytest` and the rest of the test stack.
+- If you see `No module named pytest` (or `python` resolves to the base conda install instead of the dev env), the dev environment is not active — the cuML dev env includes `pytest` and the rest of the test stack.
 - All Python tests require a GPU. Most suites support `pytest-xdist` parallelism (`-n auto` or `--numprocesses=N --dist=worksteal`).
-- CI entry scripts such as `ci/run_cuml_singlegpu_pytests.sh` call `python` on your `PATH`; they assume an appropriate environment is already activated
+- CI entry scripts such as `ci/run_cuml_singlegpu_pytests.sh` call `python` on your `PATH`; they assume an appropriate environment is already activated.
 
 ---
 
@@ -227,7 +221,7 @@ CI script: [`ci/test_python_integration.sh`](../../ci/test_python_integration.sh
 
 ## 7. Common gotchas
 
-- **`ImportError` or wrong `cuml.__file__`**: another worktree's env is active. Run `conda activate "$(git rev-parse --show-toplevel)/.conda-env"` and rebuild. See the [build skill](../build-cuml/SKILL.md) and [setup-dev-environment skill](../setup-dev-environment/SKILL.md).
+- **`ImportError` or wrong `cuml.__file__`**: the wrong env is active. Activate the env that belongs to the worktree you're editing and rebuild. See the [build skill](../build-cuml/SKILL.md).
 - **C++ test binaries not found**: the install dir `$CONDA_PREFIX/bin/gtests/libcuml/` is absent. Run `./build.sh` (default builds and installs the tests).
 - **Dask import error in single-GPU env**: the single-GPU CI script (`test_python_singlegpu.sh`) intentionally fails if `dask` is installed. Use a dask-capable env for §3 tests.
 - **`UnmatchedXfailTests` in upstream sklearn tests**: (1) the xfail list references a test id that no longer exists in the installed library version — triage and update the list (see the upstream [README](../../python/cuml/cuml_accel_tests/upstream/README.md)). (2) You passed `--xfail-list` while collecting only a **subset** of the suite (e.g. `--pyargs sklearn.neighbors.tests.test_kde`); use [`run-tests.sh`](../../python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh) with `-k` instead, or drop `--xfail-list` for a quick narrow run.
@@ -237,7 +231,7 @@ CI script: [`ci/test_python_integration.sh`](../../ci/test_python_integration.sh
 
 ## 8. Additional resources
 
-- Dev environment setup: [.agents/setup-dev-environment/SKILL.md](../setup-dev-environment/SKILL.md)
+- Example dev environment setup (one optional workflow): [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md)
 - Build skill: [.agents/build-cuml/SKILL.md](../build-cuml/SKILL.md)
 - Full build doc and manual cmake/test paths: [BUILD.md](../../BUILD.md)
 - Upstream test workflow and xfail management: [python/cuml/cuml_accel_tests/upstream/README.md](../../python/cuml/cuml_accel_tests/upstream/README.md)
