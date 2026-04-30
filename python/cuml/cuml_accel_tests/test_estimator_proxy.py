@@ -412,6 +412,23 @@ def test_pickle_cpu_fit():
     assert not model2._synced
 
 
+def test_pickle_cpu_fit_but_params_supported():
+    """Test that a model fit on CPU isn't reloaded to the GPU on unpickle, even
+    if the hyperparameters are supported."""
+    X, y = make_regression(n_samples=10)
+    X[0, 0] = np.nan
+    model = RandomForestRegressor().fit(X, y)
+    # ensure the test case is one that isn't GPU accelerated
+    assert model._gpu is None
+
+    model2 = pickle.loads(pickle.dumps(model))
+    # GPU model doesn't exist
+    assert model2._gpu is None
+    # CPU model has fit attributes
+    assert model2._cpu.n_features_in_
+    assert not model2._synced
+
+
 def test_unpickle_cuml_accel_not_active():
     """Unpickling in an process without cuml.accel enabled uses the CPU model"""
     X, y = make_classification(n_samples=10)

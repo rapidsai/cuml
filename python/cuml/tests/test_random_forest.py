@@ -984,6 +984,15 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
 
 
+def test_classifier_predict_log_proba():
+    X, y = make_classification(random_state=42)
+    model = curfc(random_state=42).fit(X, y)
+    proba = model.predict_proba(X)
+    sol = np.log(proba)
+    log_proba = model.predict_log_proba(X)
+    np.testing.assert_allclose(log_proba, sol, rtol=1e-5)
+
+
 @pytest.mark.parametrize(
     "estimator, make_data",
     [
