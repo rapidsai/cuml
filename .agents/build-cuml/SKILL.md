@@ -33,11 +33,20 @@ This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) i
 - The agent has edited C++/CUDA/Cython/Python code in this repo and needs to rebuild before testing.
 - A test run fails with `ImportError`, missing `libcuml.so`, stale `.so`, or "module not found" symptoms after a code change — the local install is likely stale and needs a rebuild.
 
-## 1. Activate the conda dev environment
+## 1. Set up the development environment
 
-cuML development happens inside a conda environment that contains all build and runtime dependencies. **Always activate it before invoking `build.sh`, `cmake`, `pip`, or `pytest`.**
+Building cuML requires an **active** development environment containing all build and runtime dependencies. Building with the wrong env active (or none) silently installs into — and tests against — the wrong worktree.
 
-This skill does not manage conda env creation or activation — env naming and layout vary by developer. Activate whichever cuML dev env you use before proceeding. If you don't have one yet and want an example workflow, see [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md).
+### Quick check
+
+```bash
+echo "CONDA_PREFIX=${CONDA_PREFIX:-unset}  VIRTUAL_ENV=${VIRTUAL_ENV:-unset}"
+which python
+python -c "import cuml; print(cuml.__file__)" 2>/dev/null \
+    || echo "cuml not yet installed (fine before first build)"
+```
+
+`cuml.__file__` should resolve inside this worktree (`python/cuml/`) or inside the active env's `site-packages`. If it resolves into a different worktree or env, the wrong env is active — see [setup-dev-environment §2](../setup-dev-environment/SKILL.md#2-environment-selection-algorithm-canonical) for the selection algorithm.
 
 ## 2. Build with `build.sh`
 
@@ -176,7 +185,6 @@ python -m pip install --no-build-isolation --no-deps \
 
 ## Additional resources
 
-- Example dev environment setup (one optional workflow): [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md)
 - Full build docs and all cmake flags: [BUILD.md](../../BUILD.md)
 - Contributing workflow (pre-commit, clang-tidy, branch naming): [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - Conda environment files: `conda/environments/all_cuda-*_arch-*.yaml`
