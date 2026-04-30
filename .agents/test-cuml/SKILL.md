@@ -9,7 +9,18 @@ This skill covers all cuML test suites. The canonical source of truth for each s
 
 ## 0. Prerequisites
 
-**A cuML conda dev env must be active before running any tests.** This skill does not manage env creation or activation — env naming and layout vary by developer. Activate whichever cuML dev env you use. If you don't have one yet and want an example setup workflow, see [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md).
+**A cuML dev env must be active before running any tests.** If you don't have one active yet, follow the [setup-dev-environment selection algorithm](../setup-dev-environment/SKILL.md#2-environment-selection-algorithm-canonical).
+
+Quick sanity check before invoking any test command:
+
+```bash
+echo "CONDA_PREFIX=${CONDA_PREFIX:-unset}  VIRTUAL_ENV=${VIRTUAL_ENV:-unset}"
+which python
+python -c "import cuml; print(cuml.__file__)" 2>/dev/null \
+    || echo "cuml not yet installed — rebuild first"
+```
+
+Additional prerequisites:
 
 - After editing C++/CUDA/Cython code, rebuild before testing. See [.agents/build-cuml/SKILL.md](../build-cuml/SKILL.md).
 - If you see `No module named pytest` (or `python` resolves to the base conda install instead of the dev env), the dev environment is not active — the cuML dev env includes `pytest` and the rest of the test stack.
@@ -231,7 +242,6 @@ CI script: [`ci/test_python_integration.sh`](../../ci/test_python_integration.sh
 
 ## 8. Additional resources
 
-- Example dev environment setup (one optional workflow): [.agents/examples/in-worktree-prefix-env/SKILL.md](../examples/in-worktree-prefix-env/SKILL.md)
 - Build skill: [.agents/build-cuml/SKILL.md](../build-cuml/SKILL.md)
 - Full build doc and manual cmake/test paths: [BUILD.md](../../BUILD.md)
 - Upstream test workflow and xfail management: [python/cuml/cuml_accel_tests/upstream/README.md](../../python/cuml/cuml_accel_tests/upstream/README.md)

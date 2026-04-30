@@ -35,7 +35,14 @@ For pre-commit hooks, clang-tidy, branch naming, and the PR process, see [CONTRI
 Key conventions:
 
 - Linter errors are auto-fixed by pre-commit hooks — don't fix them manually unless asked.
-- Always activate your cuML conda dev environment before running `build.sh`, `pytest`, or `pip`. Env naming and layout vary by developer — use whichever env contains the cuML you're working on.
+- For environment policy, see the section below.
+
+## Environment policy for agents
+
+- **Prefer the already-active env.** If `$CONDA_PREFIX` or `$VIRTUAL_ENV` is set and `cuml` is importable from the current worktree, use it — no setup needed.
+- **Otherwise respect the configured interpreter.** Check `<worktree>/.vscode/settings.json` (`python.defaultInterpreterPath`), then user-level personal rules (e.g. `~/AGENTS.md`, `~/.cursor/rules/`), then `<worktree>/.conda-env` if it exists.
+- **Only create a new env as a last resort.** Follow the full algorithm in [.agents/setup-dev-environment/SKILL.md §2](.agents/setup-dev-environment/SKILL.md#2-environment-selection-algorithm-canonical).
+- **Never pick an env by name-guessing** from `conda env list`. Naming conventions belong to the user; the agent follows them, not the other way around.
 
 ## Code review guidelines
 
