@@ -1,21 +1,15 @@
 ---
-name: setup-dev-environment
-description: Set up, create, update, or recreate a cuML conda dev environment in a worktree. Use whenever the user asks to set up a cuML development environment, create or recreate the conda env, configure editor/git exclusions for the env, update the env after pulling new commits, or remove the env.
+name: in-worktree-prefix-env
+description: Example workflow for creating a cuML conda dev environment stored inside the worktree at <worktree>/.conda-env. This is ONE optional convention — many cuML developers use their own naming/layout. Only apply this skill when the user explicitly asks to create or set up a dev environment using the in-worktree prefix layout, or when no personal convention has been configured.
 ---
 
-# Setting Up a cuML Dev Environment
+# Example: In-Worktree Prefix Dev Environment
 
-This skill covers creating, activating, updating, and removing the conda development environment for a cuML worktree. The canonical reference is [BUILD.md](../../BUILD.md); this skill captures the high-frequency workflows.
+> **This is one example workflow.** cuML developers use many different conda environment conventions — date-stamped envs (`cuml-YYYYMMDD`), named envs (`cuml-dev`), custom prefixes, etc. **Only follow these steps if the user has explicitly asked for this layout, or if no personal convention is documented in your user-level config.**
+>
+> If you have personal setup instructions (e.g. in `~/.cursor/rules/`, `~/.claude/CLAUDE.md`, or similar), those take precedence over this file.
 
-## Overview: in-worktree prefix env
-
-Use **one conda env per cuML worktree/clone**, stored at `<worktree>/.conda-env`. Properties:
-
-- **Deterministic activation**: `conda activate "$(git rev-parse --show-toplevel)/.conda-env"` always activates the env that belongs to the current worktree. No name-derivation logic, no collision handling.
-- **Worktree-bound**: deleting the worktree (`rm -rf` or `git worktree remove`) removes the env. No orphan envs accumulating in `~/miniforge3/envs/`.
-- **Parallel-agent safe**: two agents in two worktrees can never accidentally activate each other's env.
-
-The `.conda-env/` directory is large (~5–10 GB; conda hardlinks packages from its global cache, so real disk cost is much smaller).
+This workflow stores the conda env at `<worktree>/.conda-env` — one env per worktree, tied to the worktree lifetime.
 
 ## Initialize conda in a fresh shell
 
@@ -185,6 +179,6 @@ rm -rf "$(git rev-parse --show-toplevel)/.conda-env"
 
 ## Additional resources
 
-- Full build docs: [BUILD.md](../../BUILD.md)
+- Full build docs: [BUILD.md](../../../BUILD.md)
 - Conda environment files: `conda/environments/all_cuda-*_arch-*.yaml`
-- Build skill (for building after the env is ready): [.agents/build-cuml/SKILL.md](../build-cuml/SKILL.md)
+- Build skill (for building after the env is ready): [.agents/build-cuml/SKILL.md](../../build-cuml/SKILL.md)

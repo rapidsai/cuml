@@ -35,7 +35,7 @@ For pre-commit hooks, clang-tidy, branch naming, and the PR process, see [CONTRI
 Key conventions:
 
 - Linter errors are auto-fixed by pre-commit hooks — don't fix them manually unless asked.
-- Always activate the conda dev environment before running `build.sh`, `pytest`, or `pip`.
+- Always activate your cuML conda dev environment before running `build.sh`, `pytest`, or `pip`. Env naming and layout vary by developer — use whichever env contains the cuML you're working on.
 
 ## Code review guidelines
 
