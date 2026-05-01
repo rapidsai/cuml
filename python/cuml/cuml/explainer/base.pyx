@@ -16,7 +16,7 @@ from cuml.explainer.common import (
     output_list_shap_values,
 )
 from cuml.internals.base import get_handle
-from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -129,9 +129,10 @@ class SHAPBase():
             raise ValueError("dtype must be either np.float32 or np.float64.")
         self.dtype = dtype
 
-        self.background, self.nrows, self.ncols, _ = \
-            input_to_cupy_array(background, order=self.order,
-                                convert_to_dtype=self.dtype)
+        self.background = check_array(
+            background, order=self.order, dtype=self.dtype, ensure_all_finite=False
+        )
+        self.nrows, self.ncols = self.background.shape
 
         self.random_state = random_state
 
@@ -204,9 +205,13 @@ class SHAPBase():
         """
         self._reset_timers()
 
-        X = input_to_cupy_array(X,
-                                order=self.order,
-                                convert_to_dtype=self.dtype)[0]
+        X = check_array(
+            X,
+            order=self.order,
+            dtype=self.dtype,
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
 
         if X.ndim == 1:
             X = X.reshape((1, self.ncols))
@@ -294,7 +299,9 @@ class SHAPBase():
         out = Explanation(
             values=shap_values,
             base_values=base_values,
-            data=input_to_host_array(X).array,
+            data=check_array(
+                X, mem_type="host", ensure_2d=False, ensure_all_finite=False
+            ),
             feature_names=self.feature_names,
             main_effects=main_effect_values
         )

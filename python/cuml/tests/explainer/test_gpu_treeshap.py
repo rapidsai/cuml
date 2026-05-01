@@ -463,7 +463,7 @@ def test_xgb_toy_categorical():
         params, dtrain, num_boost_round=1, evals=[(dtrain, "train")]
     )
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, ref_out[:, :-1], decimal=5)
@@ -619,7 +619,7 @@ def test_lightgbm_regressor_with_categorical():
     )
 
     explainer = TreeExplainer(model=lgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X)
