@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import json
+import warnings
 
 import cudf
 import cupy as cp
@@ -435,6 +435,9 @@ def test_sklearn_rf_classifier(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 def test_xgb_toy_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -469,6 +472,9 @@ def test_xgb_toy_categorical():
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 @pytest.mark.parametrize("n_classes", [2, 3])
 def test_xgb_classifier_with_categorical(n_classes):
     xgb = pytest.importorskip("xgboost")
@@ -533,6 +539,9 @@ def test_xgb_classifier_with_categorical(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -898,6 +907,14 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             )
 
 
+# TODO(26.08): Can inline this back within the `example` call
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore")
+    example_random_forest = curfr(
+        max_features=1.0, random_state=0, n_streams=1, n_bins=10
+    ).fit(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32))
+
+
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(
@@ -909,9 +926,7 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
-            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
-        ),
+        example_random_forest,
         np.ones(10, dtype=np.float32),
     ),
     interactions_method="shapley-interactions",
