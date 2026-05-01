@@ -7,7 +7,7 @@ import pandas as pd
 
 import cuml
 from cuml import KMeans
-from cuml.common.sparse_utils import is_sparse
+from cuml.internals.array import CumlArray
 from cuml.internals.validation import check_array
 from cuml.preprocessing import SimpleImputer
 
@@ -51,7 +51,9 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     else:
         group_names = ["0"]
 
-    X = check_array(X, ensure_2d=False, ensure_all_finite=False)
+    X, index = check_array(
+        X, ensure_2d=False, ensure_all_finite=False, return_index=True
+    )
     if X.ndim == 1:
         X = X.reshape(-1, 1)
 
@@ -71,15 +73,17 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     if round_values:
         for i in range(k):
             for j in range(X.shape[1]):
-                xj = (
-                    X[:, j].toarray().flatten() if is_sparse(X) else X[:, j]
-                )  # sparse support courtesy of @PrimozGodec
+                xj = X[:, j]
                 ind = cp.argmin(cp.abs(xj - kmeans.cluster_centers_[i, j]))
                 kmeans.cluster_centers_[i, j] = X[ind, j]
     summary = kmeans.cluster_centers_
     labels = kmeans.labels_
 
     if detailed:
-        return summary, group_names, labels
+        return (
+            CumlArray(data=summary),
+            group_names,
+            CumlArray(labels, index=index),
+        )
     else:
-        return summary
+        return CumlArray(data=summary)
