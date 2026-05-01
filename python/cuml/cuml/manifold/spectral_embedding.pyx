@@ -420,7 +420,7 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self : object
             Returns the instance itself.
         """
-        check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype="float32",

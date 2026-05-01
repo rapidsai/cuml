@@ -30,6 +30,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.validation import (
+    check_array,
     check_inputs,
     check_is_fitted,
     check_random_seed,
@@ -1237,7 +1238,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
-            y_ptr = <uintptr_t>y.data.ptr
+            y_ptr = <uintptr_t>(
+                y.data.ptr if isinstance(y, cp.ndarray) else y.ctypes.data
+            )
 
         cdef uintptr_t knn_dists_ptr = 0, knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1565,8 +1568,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 " autoencoder."
             )
 
-        X, index = check_inputs(
-            self,
+        # skip n_features_in_ validation
+        X, index = check_array(
             X,
             dtype="float32",
             convert_dtype=convert_dtype,
