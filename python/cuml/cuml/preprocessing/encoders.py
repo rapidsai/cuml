@@ -10,9 +10,11 @@ import cupyx
 import numpy as np
 from cudf import Index
 
+import cuml
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
+from cuml.internals.outputs import run_in_internal_context
 from cuml.internals.validation import check_features, check_is_fitted
 from cuml.preprocessing._label import LabelEncoder
 
@@ -325,6 +327,7 @@ class OneHotEncoder(BaseEncoder):
             "type": "sparse matrix if sparse_output=True else a 2-d array",
         }
     )
+    @run_in_internal_context
     def transform(self, X):
         """Transform X using one-hot encoding."""
         check_is_fitted(self)
@@ -339,7 +342,7 @@ class OneHotEncoder(BaseEncoder):
         try:
             for feature in X.columns:
                 encoder = self._encoders[feature]
-                col_idx = encoder.transform(X[feature])
+                col_idx = encoder.transform(X[feature]).to_output("cudf")
                 idx_to_keep = col_idx.notnull().to_cupy()
                 col_idx = col_idx.dropna().to_cupy()
 
@@ -401,6 +404,7 @@ class OneHotEncoder(BaseEncoder):
                 "Internal Error: {}".format(input_types_str, repr(e))
             )
 
+    @run_in_internal_context
     def inverse_transform(self, X):
         """Convert the data back to the original representation. In case unknown
         categories are encountered (all zeros in the one-hot encoding), ``None`` is used
@@ -457,9 +461,10 @@ class OneHotEncoder(BaseEncoder):
                 # the nulls in each column are the dropped value
                 dropped_mask = cp.asarray(x_feature.sum(axis=1) == 0).flatten()
                 if dropped_mask.any():
-                    inv[dropped_mask] = feature_enc.inverse_transform(
-                        cudf.Series(self.drop_idx_[feature])
-                    )[0]
+                    with cuml.using_output_type("cudf"):
+                        inv[dropped_mask] = feature_enc.inverse_transform(
+                            cudf.Series(self.drop_idx_[feature])
+                        )[0]
 
             result[feature] = inv
             j += enc_size
@@ -617,6 +622,7 @@ class OrdinalEncoder(BaseEncoder):
             "type": "Type is specified by the `output_type` parameter.",
         }
     )
+    @run_in_internal_context
     def transform(self, X):
         """Transform X using ordinal encoding."""
         check_is_fitted(self)
@@ -625,7 +631,7 @@ class OrdinalEncoder(BaseEncoder):
         result = {}
         for feature in self._features:
             Xi = _slice_feat(X, feature)
-            col_idx = self._encoders[feature].transform(Xi)
+            col_idx = self._encoders[feature].transform(Xi).to_output("cudf")
             result[feature] = col_idx
 
         r = cudf.DataFrame(result)
@@ -644,6 +650,7 @@ class OrdinalEncoder(BaseEncoder):
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
+    @run_in_internal_context
     def inverse_transform(self, X):
         """Convert the data back to the original representation.
 
@@ -662,7 +669,8 @@ class OrdinalEncoder(BaseEncoder):
         result = {}
         for feature in self._features:
             Xi = _slice_feat(X, feature)
-            inv = self._encoders[feature].inverse_transform(Xi)
+            with cuml.using_output_type("cudf"):
+                inv = self._encoders[feature].inverse_transform(Xi)
             result[feature] = inv
 
         r = cudf.DataFrame(result)
