@@ -604,6 +604,8 @@ dependencies:
           - statsmodels
           - umap-learn>=0.5.7,<0.5.12
           - pynndescent
+          - lightgbm
+          - shap
       - output_types: conda
         packages:
           - cuvs==26.6.*,>=0.0.0a0
