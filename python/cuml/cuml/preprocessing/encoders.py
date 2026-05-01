@@ -10,7 +10,6 @@ import cupyx
 import numpy as np
 from cudf import Index
 
-import cuml.internals.logger as logger
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
@@ -69,7 +68,7 @@ class BaseEncoder(Base):
             self._encoders = {
                 feature: LabelEncoder(
                     verbose=self.verbose,
-                    output_type=self.output_type,
+                    output_type="cudf",
                     handle_unknown=self.handle_unknown,
                 ).fit(self._unique(X[feature]))
                 for feature in self._features
@@ -86,7 +85,7 @@ class BaseEncoder(Base):
             for feature in self._features:
                 le = LabelEncoder(
                     verbose=self.verbose,
-                    output_type=self.output_type,
+                    output_type="cudf",
                     handle_unknown=self.handle_unknown,
                 )
 
@@ -94,7 +93,8 @@ class BaseEncoder(Base):
 
                 if self.handle_unknown == "error":
                     if self._has_unknown(
-                        X[feature], self._encoders[feature].classes_
+                        X[feature],
+                        cudf.Series(self._encoders[feature].classes_),
                     ):
                         msg = (
                             "Found unknown categories in column {0}"
@@ -348,16 +348,8 @@ class OneHotEncoder(BaseEncoder):
                 # monotonically increasing up to len(encoder.classes_)
                 # Ensure we dont go negative by clamping to 0
                 max_value = int(max(len(encoder.classes_) - 1, 0) + j)
-
-                # If we exceed the max value, upconvert
-                if max_value > np.iinfo(col_idx.dtype).max:
-                    col_idx = col_idx.astype(np.min_scalar_type(max_value))
-                    logger.debug(
-                        "Upconverting column: '{}', to dtype: '{}', "
-                        "to support up to {} classes".format(
-                            feature, np.min_scalar_type(max_value), max_value
-                        )
-                    )
+                min_dtype = np.min_scalar_type(max_value)
+                col_idx = col_idx.astype(min_dtype, copy=False)
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -439,14 +431,12 @@ class OneHotEncoder(BaseEncoder):
         j = 0
         for feature in self._encoders.keys():
             feature_enc = self._encoders[feature]
-            cats = feature_enc.classes_
+            cats = cudf.Series(feature_enc.classes_)
 
             if self.drop is not None:
                 # Remove dropped categories
                 dropped_class_idx = cudf.Series(self.drop_idx_[feature])
-                dropped_class_mask = cudf.Series(cats).isin(
-                    cats[dropped_class_idx]
-                )
+                dropped_class_mask = cats.isin(cats[dropped_class_idx])
                 if len(cats) == 1:
                     inv = cudf.Series(Index([cats[0]]).repeat(X.shape[0]))
                     result[feature] = inv
@@ -515,9 +505,7 @@ class OneHotEncoder(BaseEncoder):
 
         feature_names = []
         for i in range(len(cats)):
-            names = [
-                input_features[i] + "_" + str(t) for t in cats[i].to_numpy()
-            ]
+            names = [input_features[i] + "_" + str(t) for t in cats[i]]
             if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
                 names.pop(self.drop_idx_[i])
             feature_names.extend(names)

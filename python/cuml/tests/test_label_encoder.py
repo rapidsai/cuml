@@ -60,7 +60,7 @@ def test_labelencoder_unseen():
     le = LabelEncoder().fit(df)
     check_is_fitted(le)
 
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError):
         le.transform(cudf.Series([-1]))
 
 
@@ -108,7 +108,7 @@ def test_inverse_transform(
     orig_label, ord_label, expected_reverted, bad_ord_label, use_fit_transform
 ):
     # prepare LabelEncoder
-    le = LabelEncoder()
+    le = LabelEncoder(output_type="cudf")
     if use_fit_transform:
         le.fit_transform(orig_label)
     else:
@@ -212,12 +212,14 @@ def test_labelencoder_fit_transform_input_types(length, cardinality, kind):
         if kind == "cudf.DataFrame":
             x = x.to_frame()
 
-    encoder = LabelEncoder()
+    encoder = LabelEncoder(output_type="cudf")
     res = encoder.fit_transform(x)
     sol = cudf.Series(raw).astype("category")
 
-    cudf.testing.assert_series_equal(res, sol.cat.codes)
-    cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
+    cudf.testing.assert_series_equal(res, sol.cat.codes, check_dtype=False)
+    np.testing.assert_array_equal(
+        encoder.classes_, sol.cat.categories.to_numpy()
+    )
 
 
 @pytest.mark.parametrize("kind", ["cupy", "numpy", "pandas"])
@@ -230,12 +232,32 @@ def test_labelencoder_fit_transform_byteswapped(kind):
     elif kind == "pandas":
         x = pd.Series(x)
 
-    encoder = LabelEncoder()
+    encoder = LabelEncoder(output_type="cudf")
     res = encoder.fit_transform(x)
     sol = cudf.Series(native).astype("category")
 
-    cudf.testing.assert_series_equal(res, sol.cat.codes)
-    cudf.testing.assert_index_equal(encoder.classes_, sol.cat.categories)
+    cudf.testing.assert_series_equal(res, sol.cat.codes, check_dtype=False)
+    np.testing.assert_array_equal(
+        encoder.classes_, sol.cat.categories.to_numpy()
+    )
+
+
+@pytest.mark.parametrize("kind", ["pandas", "cudf"])
+@pytest.mark.parametrize("fit_transform", [True, False])
+def test_labelencoder_string_dtype(kind, fit_transform):
+    xdf = pd if kind == "pandas" else cudf
+    x = xdf.Series(["a", "b", "a", "a"], dtype="string")
+    enc = LabelEncoder()
+    if fit_transform:
+        res = enc.fit_transform(x)
+    else:
+        res = enc.fit(x).transform(x)
+    sol = xdf.Series([0, 1, 0, 0])
+
+    xdf.testing.assert_series_equal(res, sol, check_dtype=False)
+    np.testing.assert_array_equal(
+        enc.classes_, np.array(["a", "b"], dtype="object")
+    )
 
 
 @pytest.mark.parametrize("use_fit_transform", [False, True])
@@ -251,7 +273,7 @@ def test_labelencoder_fit_transform_byteswapped(kind):
         (
             np.array([1.09, 0.09, 0.09, 0.09]),
             np.array([1, 1, 0, 0, 1]),
-            cp.array([1.09, 1.09, 0.09, 0.09, 1.09]),
+            np.array([1.09, 1.09, 0.09, 0.09, 1.09]),
             np.array([0, 1, 1, 1, 2]),
         ),
     ],
