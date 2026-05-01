@@ -766,6 +766,45 @@ def test_mean_squared_log_error_negative_values(inputs):
         )
 
 
+_REGRESSION_FUNCS = [
+    "r2_score",
+    "mean_squared_error",
+    "mean_absolute_error",
+    "median_absolute_error",
+    "mean_squared_log_error",
+]
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+def test_regression_metrics_scalar_sample_weight(func):
+    y_true = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+
+    unweighted = cu_metric(y_true, y_pred)
+    assert cu_metric(y_true, y_pred, sample_weight=1.0) == unweighted
+    assert cu_metric(y_true, y_pred, sample_weight=2.5) == unweighted
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+def test_regression_metrics_errors(func):
+    arr_3 = np.array([1.0, 2.0, 3.0])
+    arr_4 = np.array([1.0, 2.0, 3.0, 4.0])
+    arr_3x2 = np.ones((3, 2))
+
+    cu_metric = getattr(cuml.metrics, func)
+
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cu_metric(arr_3, arr_4)
+
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cu_metric(arr_3, arr_3, sample_weight=arr_4)
+
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        cu_metric(arr_3, arr_3, sample_weight=arr_3x2)
+
+
 def test_entropy():
     # The outcome of a fair coin is the most uncertain:
     # in base 2 the result is 1 (One bit of entropy).
