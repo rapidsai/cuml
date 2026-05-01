@@ -21,8 +21,8 @@ CMakeLists.txt @rapidsai/cuml-cmake-codeowners
 **/cmake/      @rapidsai/cuml-cmake-codeowners
 
 # agent instruction owners
-/AGENTS.md  @rapidsai/cuml-python-codeowners @rapidsai/cuml-cpp-codeowners
-/.agents/  @rapidsai/cuml-python-codeowners @rapidsai/cuml-cpp-codeowners
+**/AGENTS.md  @rapidsai/cuml-python-codeowners @rapidsai/cuml-cpp-codeowners
+**/.agents/   @rapidsai/cuml-python-codeowners @rapidsai/cuml-cpp-codeowners
 
 #CI code owners
 /.github/                @rapidsai/ci-codeowners
