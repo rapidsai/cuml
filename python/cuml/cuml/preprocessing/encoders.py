@@ -342,7 +342,8 @@ class OneHotEncoder(BaseEncoder):
         try:
             for feature in X.columns:
                 encoder = self._encoders[feature]
-                col_idx = encoder.transform(X[feature]).to_output("cudf")
+                with cuml.using_output_type("cudf"):
+                    col_idx = encoder.transform(X[feature])
                 idx_to_keep = col_idx.notnull().to_cupy()
                 col_idx = col_idx.dropna().to_cupy()
 
@@ -631,7 +632,8 @@ class OrdinalEncoder(BaseEncoder):
         result = {}
         for feature in self._features:
             Xi = _slice_feat(X, feature)
-            col_idx = self._encoders[feature].transform(Xi).to_output("cudf")
+            with cuml.using_output_type("cudf"):
+                col_idx = self._encoders[feature].transform(Xi)
             result[feature] = col_idx
 
         r = cudf.DataFrame(result)
