@@ -54,7 +54,7 @@ class LabelEncoder(Base):
     >>> le.fit_transform(y)
     array([0, 0, 1, 2], dtype=uint8)
     >>> le.classes_
-    array(['apple', 'banana', 'grape', dtype='<U6')
+    array(['apple', 'banana', 'grape'], dtype='<U6')
     """
 
     def __init__(
