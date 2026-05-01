@@ -43,9 +43,9 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
              shape (n_samples, 1)
     """
     if isinstance(X, (cudf.DataFrame, pd.DataFrame)):
-        group_names = X.columns
+        group_names = [str(c) for c in X.columns]
     elif isinstance(X, (cudf.Series, pd.Series)):
-        group_names = [X.name]
+        group_names = [str(X.name)]
     elif len(X.shape) == 2:
         group_names = [str(i) for i in range(X.shape[1])]
     else:

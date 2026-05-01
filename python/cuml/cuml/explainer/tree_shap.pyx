@@ -4,8 +4,10 @@
 #
 import re
 
+import cudf
 import cupy as cp
 import numpy as np
+import pandas as pd
 import treelite
 
 import cuml
@@ -64,6 +66,17 @@ cdef FloatPointer type_erase_float_ptr(array):
     else:
         raise ValueError("Unsupported dtype")
     return ptr
+
+
+def _is_host_container(x):
+    """Returns if the data is a host-side container type"""
+    if isinstance(x, (pd.DataFrame, pd.Series, np.ndarray)):
+        return True
+    elif isinstance(x, (cudf.DataFrame, cudf.Series, cp.ndarray)):
+        return False
+    # All other cases cuda memory types should have this
+    return not hasattr(x, "__cuda_array_interface__")
+
 
 cdef class TreeExplainer:
     """
@@ -221,16 +234,14 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features).
         """
+        return_numpy = _is_host_container(X)
         X = check_array(
             X,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
-            mem_type=None,
             ensure_all_finite=False,
         )
-        if (return_numpy := isinstance(X, np.ndarray)):
-            X = cp.asarray(X, order="C")
 
         n_rows, n_cols = X.shape
         dtype = X.dtype
@@ -302,16 +313,14 @@ cdef class TreeExplainer:
             Returns a matrix of SHAP values of shape
             (# classes x # samples x # features x # features).
         """
+        return_numpy = _is_host_container(X)
         X = check_array(
             X,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
-            mem_type=None,
             ensure_all_finite=False,
         )
-        if (return_numpy := isinstance(X, np.ndarray)):
-            X = cp.asarray(X, order="C")
 
         n_rows, n_cols = X.shape
         dtype = X.dtype
