@@ -306,7 +306,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
         # Unlike other solvers, we need to special-case scalar sample weights,
         # because K might be a pre-computed kernel.
-        if not cp.isscalar(sample_weight):
+        if not (np.isscalar(sample_weight) and np.isfinite(sample_weight)):
             sample_weight = check_sample_weight(
                 sample_weight, dtype=X.dtype, convert_dtype=convert_dtype
             )
