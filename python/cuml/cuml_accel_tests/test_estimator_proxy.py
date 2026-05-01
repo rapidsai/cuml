@@ -31,6 +31,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from cuml.accel import is_proxy
+from cuml.accel.estimator_proxy import ProxyBase
 
 SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
@@ -877,3 +878,46 @@ def test_array_api_proxy_fallback_older_sklearn():
     model = StandardScaler().fit(X)
     # Ran on CPU
     assert model._gpu is None
+
+
+@pytest.mark.parametrize(
+    "Base",
+    [
+        pytest.param(LinearRegression, id="ProxyBase"),
+        pytest.param(RandomForestRegressor, id="ProxyBase-with-ABCMeta"),
+        pytest.param(StandardScaler, id="ArrayAPIProxyBase"),
+    ],
+)
+def test_subclass_of_proxy_isnt_accelerated(Base):
+    class Sub(Base):
+        pass
+
+    X, y = make_regression(n_samples=200, random_state=42)
+
+    base_model = Base().fit(X, y)
+    sub_model = Sub().fit(X, y)
+
+    # A base class and instance are proxies
+    assert is_proxy(Base)
+    assert is_proxy(base_model)
+
+    # issubclass/isinstance work on true proxy classes/instances
+    assert issubclass(Base, ProxyBase)
+    assert isinstance(base_model, Base)
+    assert isinstance(base_model, ProxyBase)
+
+    # A subclass (and instance) are not proxies
+    assert not is_proxy(Sub)
+    assert not is_proxy(sub_model)
+
+    # A subclass doesn't have any concrete proxy bases in its mro:
+    assert Base not in Sub.__mro__
+    # A subclass does have the original CPU model in its mro:
+    assert Base._cpu_class in Sub.__mro__
+
+    # A subclass still identifies as a subclass
+    assert issubclass(Sub, Base)
+    assert issubclass(Sub, ProxyBase)
+    # A subclass instance still identifies as an instance
+    assert isinstance(sub_model, Base)
+    assert isinstance(sub_model, ProxyBase)
