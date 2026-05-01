@@ -11,7 +11,7 @@ from cupyx import geterr, lapack, seterr
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import reflect
+from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -21,7 +21,12 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.validation import check_inputs, check_is_fitted
+from cuml.internals.validation import (
+    check_consistent_length,
+    check_inputs,
+    check_is_fitted,
+    check_sample_weight,
+)
 from cuml.metrics import pairwise_kernels
 
 
@@ -59,8 +64,6 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     has_sw = sample_weight is not None
 
     if has_sw:
-        # Unlike other solvers, we need to support sample_weight directly
-        # because K might be a pre-computed kernel.
         sw = cp.sqrt(cp.atleast_1d(sample_weight))
         y = y * sw[:, cp.newaxis]
         K *= cp.outer(sw, sw)
@@ -269,6 +272,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
     def _more_static_tags():
         return {"multioutput": True}
 
+    @run_in_internal_context
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
             params = {
@@ -287,11 +291,10 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
-        X, y, sample_weight, index = check_inputs(
+        X, y, index = check_inputs(
             self,
             X,
             y,
-            sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_multi_output=True,
@@ -300,6 +303,14 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         )
         if ravel := (y.ndim == 1):
             y = y.reshape(-1, 1)
+
+        # Unlike other solvers, we need to special-case scalar sample weights,
+        # because K might be a pre-computed kernel.
+        if not cp.isscalar(sample_weight):
+            sample_weight = check_sample_weight(
+                sample_weight, dtype=X.dtype, convert_dtype=convert_dtype
+            )
+            check_consistent_length(X, y, sample_weight)
 
         K = self._get_kernel(X)
         dual_coef = _solve_cholesky_kernel(
