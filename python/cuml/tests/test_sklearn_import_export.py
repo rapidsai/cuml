@@ -375,6 +375,9 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter was deprecated:FutureWarning"
+)
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
 @pytest.mark.parametrize("kernel", ["rbf", "precomputed"])
@@ -396,9 +399,14 @@ def test_svc(random_state, sparse, probability, kernel):
         original = cuml.SVC()
         assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
-        # Check inference works after conversion
+        # Check inference works after conversion. sklearn 1.9 deprecated the
+        # `probability` parameter; avoid passing it on the sklearn side when
+        # False (the default) to avoid the FutureWarning.
         cu_model = cuml.SVC(probability=probability).fit(X, y)
-        sk_model = sklearn.svm.SVC(probability=probability).fit(X, y)
+        if probability:
+            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+        else:
+            sk_model = sklearn.svm.SVC().fit(X, y)
 
         cu_model2 = cuml.SVC.from_sklearn(sk_model)
         sk_model2 = cu_model.as_sklearn()

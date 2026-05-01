@@ -32,7 +32,6 @@ struct KMeansParams {
   double oversampling_factor = 2.0;
   int batch_samples          = 1 << 15;
   int batch_centroids        = 0;
-  bool inertia_check         = false;
 
   cuvs::cluster::kmeans::params to_cuvs() const;
 };

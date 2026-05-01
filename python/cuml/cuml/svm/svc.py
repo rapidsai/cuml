@@ -201,9 +201,14 @@ class SVC(SVMBase, ClassifierMixin):
         params.pop(
             "epsilon"
         )  # SVC doesn't expose `epsilon` in the constructor
+        # sklearn 1.9 changed the default of `probability` from False to the
+        # sentinel string "deprecated"; coerce to the bool cuml uses.
+        probability = model.probability
+        if probability == "deprecated":
+            probability = False
         params.update(
             {
-                "probability": model.probability,
+                "probability": probability,
                 "random_state": model.random_state,
                 "class_weight": model.class_weight,
                 "decision_function_shape": model.decision_function_shape,

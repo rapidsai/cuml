@@ -3,19 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import numpy as np
 
-import cuml.internals
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
+from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.validation import (
+    check_array,
+    check_inputs,
+    check_is_fitted,
+)
 
 from libc.stdint cimport uintptr_t
-from libcpp cimport nullptr
+from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals cimport logger
@@ -26,7 +28,7 @@ cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars" nogil:
     cdef void larsFit[math_t](
         const handle_t& handle, math_t* X, int n_rows, int n_cols,
         const math_t* y, math_t* beta, int* active_idx, math_t* alphas,
-        int* n_active, math_t* Gram, int max_iter, math_t* coef_path,
+        int* n_active, math_t* gram, int max_iter, math_t* coef_path,
         logger.level_enum verbosity, int ld_X, int ld_G, math_t epsilon) except +
 
     cdef void larsPredict[math_t](
@@ -77,7 +79,7 @@ class Lars(Base, RegressorMixin):
         in the `coef_path_` attribute.
     precompute : bool, 'auto', or array-like with shape = (n_features, \
             n_features). (default = 'auto')
-        Whether to precompute the Gram matrix. The user can provide the Gram
+        Whether to precompute the gram matrix. The user can provide the gram
         matrix as an argument.
     n_nonzero_coefs : int (default 500)
         The maximum number of coefficients to fit. This gives an upper limit of
@@ -95,19 +97,19 @@ class Lars(Base, RegressorMixin):
 
     Attributes
     ----------
-    alphas_ : array of floats or doubles, shape = [n_alphas + 1]
+    alphas_ : array, shape (n_alphas + 1,)
         The maximum correlation at each step.
-    active_ : array of ints shape = [n_alphas]
+    active_ : array, shape (n_alphas,)
         The indices of the active variables at the end of the path.
-    beta_ : array of floats or doubles [n_asphas]
+    beta_ : array, shape (n_alphas,)
         The active regression coefficients (same as `coef_` but zeros omitted).
-    coef_path_ : array of floats or doubles, shape = [n_alphas, n_alphas + 1]
+    coef_path_ : array, shape (n_features, n_alphas + 1)
         The coefficients along the regularization path. Stored only if
         `fit_path` is True. Note that we only store coefficients for indices
         in the active set (i.e. :py:`coef_path_[:,-1] == coef_[active_]`)
-    coef_ : array, shape (n_features)
+    coef_ : array, shape (n_features,)
         The estimated coefficients for the regression model.
-    intercept_ : scalar, float or double
+    intercept_ : float
         The independent term. If `fit_intercept_` is False, will be 0.
     n_iter_ : int
         The number of iterations taken by the solver.
@@ -130,19 +132,18 @@ class Lars(Base, RegressorMixin):
     beta_ = CumlArrayDescriptor()
     coef_path_ = CumlArrayDescriptor()
     coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
 
     def __init__(
         self,
         *,
         fit_intercept=True,
-        verbose=False,
-        output_type=None,
         copy_X=True,
         fit_path=True,
         n_nonzero_coefs=500,
         eps=None,
-        precompute='auto',
+        precompute="auto",
+        verbose=False,
+        output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
         self.fit_intercept = fit_intercept
@@ -152,225 +153,245 @@ class Lars(Base, RegressorMixin):
         self.n_nonzero_coefs = n_nonzero_coefs  # this corresponds to max_iter
         self.precompute = precompute
 
-    def _preprocess_data(self, X_m, y_m):
-        """ Remove mean and scale each feature column. """
-        x_mean = cp.zeros(self.n_cols, dtype=self.dtype)
-        x_scale = cp.ones(self.n_cols, dtype=self.dtype)
-        y_mean = self.dtype.type(0.0)
-        X = cp.asarray(X_m)
-        y = cp.asarray(y_m)
-        if self.fit_intercept:
-            y_mean = cp.mean(y)
-            y = y - y_mean
-        return X, y, x_mean, x_scale, y_mean
-
-    def _set_intercept(self, x_mean, x_scale, y_mean):
-        """ Set the intercept value and scale coefficients. """
-        if self.fit_intercept:
-            with cuml.using_output_type('cupy'):
-                self.coef_ = self.coef_ / x_scale
-                self.intercept_ = y_mean - cp.dot(x_mean, self.coef_.T)
-                self.intercept_ = self.intercept_.item()
-        else:
-            self.intercept_ = self.dtype.type(0.0)
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            "fit_intercept",
+            "copy_X",
+            "fit_path",
+            "n_nonzero_coefs",
+            "precompute",
+            "eps",
+            *super()._get_param_names(),
+        ]
 
     def _calc_gram(self, X):
         """
-        Return the Gram matrix, or None if it is not applicable.
+        Return the gram matrix, or None if it is not applicable.
         """
-        Gram = None
-        X = cp.asarray(X)
-        if self.precompute is True or (self.precompute == 'auto' and
-                                       self.n_cols < X.shape[0]):
-            logger.debug('Calculating Gram matrix')
-            try:
-                Gram = cp.dot(X.T, X)
-            except MemoryError as err:
-                if self.precompute:
-                    logger.debug("Not enough memory to store the Gram matrix."
-                                 " Proceeding without it.")
-        return Gram
+        n_rows, n_cols = X.shape
 
-    def _fit_cpp(self, X, y, Gram, x_scale, convert_dtype):
-        """ Fit lars model using cpp solver"""
-        handle = get_handle()
-        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        X_m, _, _, _ = \
-            input_to_cuml_array(X,
-                                convert_to_dtype=(np.float32 if convert_dtype
-                                                  else None),
-                                check_dtype=self.dtype,
-                                order='F')
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef int n_rows = X.shape[0]
-        cdef uintptr_t y_ptr = \
-            input_to_cuml_array(y,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_dtype=self.dtype).array.ptr
-        cdef int max_iter = self.n_nonzero_coefs
-        self.beta_ = CumlArray.zeros(max_iter, dtype=self.dtype)
-        cdef uintptr_t beta_ptr = self.beta_.ptr
-        self.active_ = CumlArray.zeros(max_iter, dtype=np.int32)
-        cdef uintptr_t active_idx_ptr = self.active_.ptr
-        self.alphas_ = CumlArray.zeros(max_iter+1, dtype=self.dtype)
-        cdef uintptr_t alphas_ptr = self.alphas_.ptr
-        cdef int n_active
-        cdef uintptr_t Gram_ptr = <uintptr_t> nullptr
-        if Gram is not None:
-            Gram_m, _, _, _ = input_to_cuml_array(Gram)
-            Gram_ptr = Gram_m.ptr
-        cdef uintptr_t coef_path_ptr = <uintptr_t> nullptr
-        if (self.fit_path):
-            try:
-                self.coef_path_ = CumlArray.zeros((max_iter, max_iter+1),
-                                                  dtype=self.dtype, order='F')
-            except MemoryError as err:
-                raise MemoryError("Not enough memory to store coef_path_. "
-                                  "Try to decrease n_nonzero_coefs or set "
-                                  "fit_path=False.") from err
-            coef_path_ptr = self.coef_path_.ptr
-        cdef int ld_X = n_rows
-        cdef int ld_G = self.n_cols
+        precompute = self.precompute
+        if isinstance(precompute, str):
+            if precompute == "auto":
+                precompute = n_cols < n_rows
+            else:
+                raise ValueError(f"Invalid value for precompute: {precompute!r}")
 
-        if self.dtype == np.float32:
-            larsFit(handle_[0], <float*> X_ptr, n_rows, <int> self.n_cols,
-                    <float*> y_ptr, <float*> beta_ptr, <int*> active_idx_ptr,
-                    <float*> alphas_ptr, &n_active, <float*> Gram_ptr,
-                    max_iter, <float*> coef_path_ptr, self._verbose_level, ld_X,
-                    ld_G, <float> self.eps)
+        # `precompute` should be True, False, or an array-like now
+        if precompute is True:
+            try:
+                gram = cp.dot(X.T, X)
+            except MemoryError:
+                logger.debug(
+                    "Not enough memory to store the gram matrix. "
+                    "Proceeding without it."
+                )
+                gram = None
+        elif precompute is False:
+            gram = None
         else:
-            larsFit(handle_[0], <double*> X_ptr, n_rows, <int> self.n_cols,
-                    <double*> y_ptr, <double*> beta_ptr, <int*> active_idx_ptr,
-                    <double*> alphas_ptr, &n_active, <double*> Gram_ptr,
-                    max_iter, <double*> coef_path_ptr, self._verbose_level,
-                    ld_X, ld_G, <double> self.eps)
-        handle.sync()
-        self.n_active = n_active
-        self.n_iter_ = n_active
+            gram = check_array(precompute, order="F", dtype=X.dtype)
+            if gram.shape != (n_cols, n_cols):
+                raise ValueError(
+                    f"Expected `precompute` of shape {(n_cols, n_cols)}, "
+                    f"got shape {gram.shape}"
+                )
+        return gram
 
-        with cuml.using_output_type("cupy"):
-            self.active_ = self.active_[:n_active]
-            self.beta_ = self.beta_[:n_active]
-            self.alphas_ = self.alphas_[:n_active+1]
-
-            self.coef_ = cp.zeros(self.n_cols, dtype=self.dtype)
-            self.coef_[self.active_] = self.beta_
-
-            if self.fit_intercept:
-                self.beta_ = self.beta_ / x_scale[self.active_]
-
-    @generate_docstring(y='dense_anydtype')
-    @reflect(reset=True)
-    def fit(self, X, y, convert_dtype=True) -> 'Lars':
+    @generate_docstring(y="dense_anydtype")
+    @reflect(reset="type")
+    def fit(self, X, y, convert_dtype=True) -> "Lars":
         """
         Fit the model with X and y.
 
         """
-        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=[np.float32, np.float64], order='F')
+        orig_X_ptr = cuda_ptr(X)
+        X, y = check_inputs(
+            self,
+            X,
+            y,
+            convert_dtype=convert_dtype,
+            order="F",
+            reset=True,
+        )
+        gram = self._calc_gram(X)
 
-        conv_dtype = self.dtype if convert_dtype else None
-        y_m, _, _, _ = input_to_cuml_array(
-            y, order='F', check_dtype=self.dtype, convert_to_dtype=conv_dtype,
-            check_rows=n_rows, check_cols=1)
-
-        X, y, x_mean, x_scale, y_scale = self._preprocess_data(X_m, y_m)
-
-        if hasattr(self.precompute, '__cuda_array_interface__') or \
-                hasattr(self.precompute, '__array_interface__'):
-            Gram, _, _, _ = \
-                input_to_cuml_array(self.precompute, order='F',
-                                    check_dtype=[np.float32, np.float64],
-                                    convert_to_dtype=conv_dtype,
-                                    check_rows=self.n_cols,
-                                    check_cols=self.n_cols)
-            logger.debug('Using precalculated Gram matrix')
+        if self.fit_intercept:
+            y_mean = y.mean()
+            y = y - y_mean
         else:
-            Gram = self._calc_gram(X)
+            y_mean = X.dtype.type(0.0)
 
-        if Gram is None and self.copy_X and not isinstance(X, np.ndarray):
-            # Without Gram matrix, the solver will permute columns of X
-            # We make a copy here, and work on the copy.
-            X = cp.copy(X)
+        if gram is None and self.copy_X and X.data.ptr == orig_X_ptr:
+            # Without gram matrix, the solver will permute columns of X
+            X = X.copy()
 
-        if self.eps is None:
-            self.eps = np.finfo(float).eps
+        cdef int max_iter = self.n_nonzero_coefs
 
-        self._fit_cpp(X, y, Gram, x_scale, convert_dtype)
-
-        self._set_intercept(x_mean, x_scale, y_scale)
-
-        del X_m
-        del y_m
-        del Gram
-
-        return self
-
-    @reflect
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts `y` values for `X`.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        -------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
-        """
-        conv_dtype=(self.dtype if convert_dtype else None)
-        X_m, n_rows, _n_cols, _dtype = input_to_cuml_array(
-            X, check_dtype=self.dtype, convert_to_dtype=conv_dtype,
-            check_cols=self.n_cols, order='F')
+        # Allocate outputs
+        beta = cp.zeros(max_iter, dtype=X.dtype)
+        active = cp.zeros(max_iter, dtype=cp.int32)
+        alphas = cp.zeros(max_iter + 1, dtype=X.dtype)
+        if self.fit_path:
+            try:
+                coef_path = cp.zeros(
+                    (X.shape[1], max_iter + 1),
+                    dtype=X.dtype,
+                    order="F",
+                )
+            except MemoryError as err:
+                raise MemoryError("Not enough memory to store coef_path_. "
+                                  "Try to decrease n_nonzero_coefs or set "
+                                  "fit_path=False.") from err
+        else:
+            coef_path = None
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef int ld_X = n_rows
-        cdef uintptr_t beta_ptr = input_to_cuml_array(self.beta_).array.ptr
-        cdef uintptr_t active_idx_ptr = \
-            input_to_cuml_array(self.active_).array.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
+        cdef uintptr_t gram_ptr = <uintptr_t>NULL if gram is None else gram.data.ptr
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        cdef uintptr_t beta_ptr = beta.data.ptr
+        cdef uintptr_t active_idx_ptr = active.data.ptr
+        cdef uintptr_t alphas_ptr = alphas.data.ptr
+        cdef uintptr_t coef_path_ptr = (
+            <uintptr_t>NULL if coef_path is None else coef_path.data.ptr
+        )
+        cdef int n_active
+        cdef bool use_float32 = X.dtype == cp.float32
+        cdef double eps = cp.finfo(float).eps if self.eps is None else self.eps
+        cdef logger.level_enum verbose_level = <logger.level_enum> self._verbose_level
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype, index=X_m.index)
-
-        if self.dtype == np.float32:
-            larsPredict(handle_[0], <float*> X_ptr, <int> n_rows,
-                        <int> self.n_cols, ld_X, <float*> beta_ptr,
-                        <int> self.n_active, <int*> active_idx_ptr,
-                        <float> self.intercept_,
-                        <float*><uintptr_t> preds.ptr)
-        else:
-            larsPredict(handle_[0], <double*> X_ptr, <int> n_rows,
-                        <int> self.n_cols, ld_X, <double*> beta_ptr,
-                        <int> self.n_active, <int*> active_idx_ptr,
-                        <double> self.intercept_,
-                        <double*><uintptr_t> preds.ptr)
-
+        with nogil:
+            if use_float32:
+                larsFit(
+                    handle_[0],
+                    <float*> X_ptr,
+                    n_rows,
+                    n_cols,
+                    <float*> y_ptr,
+                    <float*> beta_ptr,
+                    <int*> active_idx_ptr,
+                    <float*> alphas_ptr,
+                    &n_active,
+                    <float*> gram_ptr,
+                    max_iter,
+                    <float*> coef_path_ptr,
+                    verbose_level,
+                    n_rows,
+                    n_cols,
+                    <float> eps,
+                )
+            else:
+                larsFit(
+                    handle_[0],
+                    <double*> X_ptr,
+                    n_rows,
+                    n_cols,
+                    <double*> y_ptr,
+                    <double*> beta_ptr,
+                    <int*> active_idx_ptr,
+                    <double*> alphas_ptr,
+                    &n_active,
+                    <double*> gram_ptr,
+                    max_iter,
+                    <double*> coef_path_ptr,
+                    verbose_level,
+                    n_rows,
+                    n_cols,
+                    <double> eps,
+                )
         handle.sync()
-        del X_m
 
-        return preds
+        active = active[:n_active]
+        beta = beta[:n_active]
+        alphas = alphas[:n_active + 1]
+        if coef_path is not None:
+            coef_path = coef_path[:, :n_active + 1]
 
-    @classmethod
-    def _get_param_names(cls):
-        return [
-            *super()._get_param_names(),
-            'copy_X',
-            'fit_intercept',
-            'fit_path',
-            'n_nonzero_coefs',
-            'precompute',
-            'eps'
-        ]
+        coef = cp.zeros(n_cols, dtype=X.dtype)
+        coef[active] = beta
+
+        if self.fit_intercept:
+            intercept = y_mean
+        else:
+            intercept = X.dtype.type(0.0)
+
+        self.alphas_ = CumlArray(alphas)
+        self.active_ = CumlArray(active)
+        self.beta_ = CumlArray(beta)
+        self.coef_path_ = None if coef_path is None else CumlArray(coef_path)
+        self.coef_ = CumlArray(coef)
+        self.intercept_ = intercept
+        self.n_iter_ = n_active
+
+        return self
+
+    @generate_docstring(
+        return_values={
+            "name": "preds",
+            "type": "dense",
+            "description": "Predicted values",
+            "shape": "(n_samples,)",
+        }
+    )
+    @reflect
+    def predict(self, X, convert_dtype=True) -> CumlArray:
+        """Predicts `y` values for `X`."""
+        check_is_fitted(self)
+
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
+        )
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        preds = cp.zeros(n_rows, dtype=X.dtype)
+
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef int n_active = self.active_.shape[0]
+        cdef double intercept = self.intercept_
+        cdef uintptr_t beta_ptr = self.beta_.ptr
+        cdef uintptr_t active_idx_ptr = self.active_.ptr
+        cdef bool use_float32 = self.coef_.dtype == cp.float32
+        cdef uintptr_t preds_ptr = preds.data.ptr
+
+        with nogil:
+            if use_float32:
+                larsPredict(
+                    handle_[0],
+                    <float*> X_ptr,
+                    n_rows,
+                    n_cols,
+                    n_rows,
+                    <float*> beta_ptr,
+                    n_active,
+                    <int*> active_idx_ptr,
+                    <float> intercept,
+                    <float*> preds_ptr,
+                )
+            else:
+                larsPredict(
+                    handle_[0],
+                    <double*> X_ptr,
+                    n_rows,
+                    n_cols,
+                    n_rows,
+                    <double*> beta_ptr,
+                    n_active,
+                    <int*> active_idx_ptr,
+                    <double> intercept,
+                    <double*> preds_ptr,
+                )
+        handle.sync()
+
+        return CumlArray(data=preds, index=index)

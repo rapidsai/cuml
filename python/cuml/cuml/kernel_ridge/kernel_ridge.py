@@ -9,7 +9,6 @@ import numpy as np
 from cupy import linalg
 from cupyx import geterr, lapack, seterr
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import reflect
@@ -22,7 +21,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import check_inputs, check_is_fitted
 from cuml.metrics import pairwise_kernels
 
 
@@ -53,7 +52,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     n_samples = K.shape[0]
     n_targets = y.shape[1]
 
-    K = cp.array(K, dtype=np.float64)
+    K = cp.asarray(K, dtype=np.float64)
 
     alpha = cp.atleast_1d(alpha)
     one_alpha = alpha.size == 1
@@ -266,6 +265,10 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}
+
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
             params = {
@@ -277,42 +280,35 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             params = self.kernel_params or {}
         return pairwise_kernels(
             X, Y, metric=self.kernel, filter_params=True, **params
-        )
+        ).to_output("cupy")
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
-        ravel = False
-        if len(y.shape) == 1:
-            y = y.reshape(-1, 1)
-            ravel = True
-
-        X_m = input_to_cuml_array(
+        X, y, sample_weight, index = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-        ).array
-
-        y_m = input_to_cuml_array(
             y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
-        ).array
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            accept_multi_output=True,
+            return_index=True,
+            reset=True,
+        )
+        if ravel := (y.ndim == 1):
+            y = y.reshape(-1, 1)
 
-        if X.shape[1] < 1:
-            raise ValueError("X matrix must have at least a column")
-
-        K = self._get_kernel(X_m)
+        K = self._get_kernel(X)
         dual_coef = _solve_cholesky_kernel(
-            K, cp.asarray(y_m), cp.asarray(self.alpha), sample_weight
-        ).astype(X_m.dtype, copy=False)
+            K, y, cp.asarray(self.alpha), sample_weight
+        ).astype(X.dtype, copy=False)
         if ravel:
             dual_coef = dual_coef.ravel()
 
-        self.X_fit_ = X_m
+        self.X_fit_ = CumlArray(data=X, index=index)
         self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
@@ -335,17 +331,14 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             Returns predicted values.
         """
         check_is_fitted(self)
-        check_features(self, X)
-
-        dtype = self.X_fit_.dtype
-
-        X_m = input_to_cuml_array(
+        X = check_inputs(
+            self,
             X,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
-        ).array
-
-        K = cp.asarray(self._get_kernel(X_m, self.X_fit_), dtype=dtype)
+            dtype=self.X_fit_.dtype,
+            convert_dtype=convert_dtype,
+        )
+        K = self._get_kernel(X, self.X_fit_.to_output("cupy")).astype(
+            X.dtype, copy=False
+        )
         dual_coef = self.dual_coef_.to_output("cupy")
-        return CumlArray(cp.dot(K, dual_coef))
+        return CumlArray(data=cp.dot(K, dual_coef))

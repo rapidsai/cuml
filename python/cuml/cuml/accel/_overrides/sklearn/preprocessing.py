@@ -2,73 +2,55 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-import cupyx.scipy.sparse as cupy_sparse
 import numpy as np
-from scipy import sparse as sp_sparse
 
 import cuml.preprocessing
-from cuml.accel.estimator_proxy import ProxyBase
+from cuml.accel.estimator_proxy import (
+    ArrayAPIProxyBase,
+    ProxyBase,
+    classproperty,
+)
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("StandardScaler", "TargetEncoder")
+__all__ = (
+    "StandardScaler",
+    "MinMaxScaler",
+    "MaxAbsScaler",
+    "PolynomialFeatures",
+    "TargetEncoder",
+)
 
 
-def _check_standardscaler_unsupported_inputs(X, **kwargs):
-    """Check if inputs are supported by cuML's StandardScaler on GPU.
-
-    Raises UnsupportedOnGPU for unsupported cases to trigger CPU fallback.
-    """
-    if kwargs.get("sample_weight") is not None:
-        raise UnsupportedOnGPU("sample_weight is not supported")
-
-    # Reject complex, object, and float16 dtypes
-    if hasattr(X, "dtype"):
-        if np.issubdtype(X.dtype, np.complexfloating):
-            raise UnsupportedOnGPU("complex dtype is not supported")
-        if X.dtype == np.object_:
-            raise UnsupportedOnGPU("object dtype is not supported")
-        if X.dtype == np.float16:
-            raise UnsupportedOnGPU("float16 dtype is not supported")
-
-    # Check for sparse matrices with unsupported properties
-    if sp_sparse.issparse(X):
-        if np.issubdtype(X.dtype, np.integer):
-            raise UnsupportedOnGPU(
-                "sparse matrix with integer dtype is not supported"
-            )
-        # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-        if X.format not in ("csr", "csc"):
-            raise UnsupportedOnGPU(
-                f"sparse matrix format '{X.format}' is not supported"
-            )
-    elif cupy_sparse.issparse(X):
-        if np.issubdtype(X.dtype, np.integer):
-            raise UnsupportedOnGPU(
-                "sparse matrix with integer dtype is not supported"
-            )
-        # cuML's StandardScaler algorithm only supports CSR/CSC formats.
-        if X.format not in ("csr", "csc"):
-            raise UnsupportedOnGPU(
-                f"sparse matrix format '{X.format}' is not supported"
-            )
+class StandardScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.StandardScaler"
 
 
-class StandardScaler(ProxyBase):
-    _gpu_class = cuml.preprocessing.StandardScaler
+class MinMaxScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.MinMaxScaler"
 
-    def _gpu_fit(self, X, y=None, sample_weight=None):
-        kwargs = {"sample_weight": sample_weight}
-        _check_standardscaler_unsupported_inputs(X, **kwargs)
-        return self._gpu.fit(X, y)
 
-    def _gpu_fit_transform(self, X, y=None, **fit_params):
-        _check_standardscaler_unsupported_inputs(X, **fit_params)
-        return self._gpu.fit_transform(X, y, **fit_params)
+class MaxAbsScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.MaxAbsScaler"
 
-    def _gpu_partial_fit(self, X, y=None, sample_weight=None):
-        """partial_fit not supported on GPU - always fall back to CPU."""
-        raise UnsupportedOnGPU("partial_fit not supported on GPU")
+
+class PolynomialFeatures(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.PolynomialFeatures"
+
+    # These are staticmethods on the class that sklearn uses in the tests,
+    # we can just re-export them here.
+    @classproperty
+    def _combinations(cls):
+        return cls._cpu_class._combinations
+
+    @classproperty
+    def _num_combinations(cls):
+        return cls._cpu_class._num_combinations
+
+    @staticmethod
+    def _params_from_cpu(model):
+        if model.order == "F":
+            raise UnsupportedOnGPU("order='F' is not supported")
+        return model.get_params(deep=False)
 
 
 def _check_unsupported_inputs(X, y, cpu_model):

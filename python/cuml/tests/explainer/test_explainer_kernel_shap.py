@@ -10,6 +10,8 @@ import numpy as np
 import pytest
 import scipy.special
 import sklearn.neighbors
+import sklearn.svm
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
@@ -87,7 +89,11 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
 
     models = []
     models.append(cuml.SVC(probability=True).fit(X_train, y_train))
-    models.append(sklearn.svm.SVC(probability=True).fit(X_train, y_train))
+    models.append(
+        CalibratedClassifierCV(sklearn.svm.SVC(), ensemble=False).fit(
+            X_train, y_train
+        )
+    )
 
     for mod in models:
         explainer, shap_values = get_shap_values(

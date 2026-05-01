@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -186,7 +186,7 @@ struct treelite_importer {
       result.constant = tl_model.sigmoid_alpha;
       result.element  = element_op::sigmoid;
     } else {
-      throw model_import_error{"Unrecognized Treelite pred_transform string"};
+      throw unusable_model_exception{"Unrecognized Treelite pred_transform string"};
     }
     return result;
   }
@@ -197,7 +197,7 @@ struct treelite_importer {
     switch (tl_model.GetThresholdType()) {
       case treelite::TypeInfo::kFloat64: result = true; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -209,7 +209,7 @@ struct treelite_importer {
       case treelite::TypeInfo::kFloat64: result = true; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
       case treelite::TypeInfo::kUInt32: result = false; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -221,7 +221,7 @@ struct treelite_importer {
       case treelite::TypeInfo::kFloat64: result = false; break;
       case treelite::TypeInfo::kFloat32: result = false; break;
       case treelite::TypeInfo::kUInt32: result = true; break;
-      default: throw model_import_error("Unrecognized Treelite threshold type");
+      default: throw unusable_model_exception("Unrecognized Treelite threshold type");
     }
     return result;
   }
@@ -258,37 +258,44 @@ struct treelite_importer {
           tl_model,
           [&builder, &offsets, &node_index](
             auto&& tree_id, auto&& node, auto&& depth, auto&& parent_index) {
-            if (node.is_leaf()) {
-              auto output = node.get_output();
-              builder.set_output_size(output.size());
-              if (output.size() > index_type{1}) {
-                builder.add_leaf_vector_node(
-                  std::begin(output), std::end(output), node.get_treelite_id(), depth);
+            try {
+              if (node.is_leaf()) {
+                auto output = node.get_output();
+                builder.set_output_size(output.size());
+                if (output.size() > index_type{1}) {
+                  builder.add_leaf_vector_node(
+                    std::begin(output), std::end(output), node.get_treelite_id(), depth);
+                } else {
+                  builder.add_node(typename forest_model_t::io_type(output[0]),
+                                   node.get_treelite_id(),
+                                   depth,
+                                   true);
+                }
               } else {
-                builder.add_node(
-                  typename forest_model_t::io_type(output[0]), node.get_treelite_id(), depth, true);
+                if (node.is_categorical()) {
+                  auto categories = node.get_categories();
+                  builder.add_categorical_node(std::begin(categories),
+                                               std::end(categories),
+                                               node.get_treelite_id(),
+                                               depth,
+                                               node.default_distant(),
+                                               node.get_feature(),
+                                               offsets[node_index]);
+                } else {
+                  builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
+                                   node.get_treelite_id(),
+                                   depth,
+                                   false,
+                                   node.default_distant(),
+                                   false,
+                                   node.get_feature(),
+                                   offsets[node_index],
+                                   node.is_inclusive());
+                }
               }
-            } else {
-              if (node.is_categorical()) {
-                auto categories = node.get_categories();
-                builder.add_categorical_node(std::begin(categories),
-                                             std::end(categories),
-                                             node.get_treelite_id(),
-                                             depth,
-                                             node.default_distant(),
-                                             node.get_feature(),
-                                             offsets[node_index]);
-              } else {
-                builder.add_node(typename forest_model_t::threshold_type(node.threshold()),
-                                 node.get_treelite_id(),
-                                 depth,
-                                 false,
-                                 node.default_distant(),
-                                 false,
-                                 node.get_feature(),
-                                 offsets[node_index],
-                                 node.is_inclusive());
-              }
+            } catch (const model_import_error& e) {
+              throw model_import_error{std::string{"Tree "} + std::to_string(tree_id) + ", Node " +
+                                       std::to_string(node.get_treelite_id()) + ": " + e.what()};
             }
             ++node_index;
           });
@@ -429,13 +436,14 @@ struct treelite_importer {
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */
-auto import_from_treelite_model(treelite::Model const& tl_model,
-                                tree_layout layout                       = preferred_tree_layout,
-                                index_type align_bytes                   = index_type{},
-                                std::optional<bool> use_double_precision = std::nullopt,
-                                raft_proto::device_type dev_type = raft_proto::device_type::cpu,
-                                int device                       = 0,
-                                raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
+inline auto import_from_treelite_model(
+  treelite::Model const& tl_model,
+  tree_layout layout                       = preferred_tree_layout,
+  index_type align_bytes                   = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
+  int device                               = 0,
+  raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
 {
   auto result = forest_model{};
   switch (layout) {
@@ -479,13 +487,14 @@ auto import_from_treelite_model(treelite::Model const& tl_model,
  * @param stream The CUDA stream to use for loading this model (can be
  * omitted for CPU).
  */
-auto import_from_treelite_handle(TreeliteModelHandle tl_handle,
-                                 tree_layout layout                       = preferred_tree_layout,
-                                 index_type align_bytes                   = index_type{},
-                                 std::optional<bool> use_double_precision = std::nullopt,
-                                 raft_proto::device_type dev_type = raft_proto::device_type::cpu,
-                                 int device                       = 0,
-                                 raft_proto::cuda_stream stream   = raft_proto::cuda_stream{})
+inline auto import_from_treelite_handle(
+  TreeliteModelHandle tl_handle,
+  tree_layout layout                       = preferred_tree_layout,
+  index_type align_bytes                   = index_type{},
+  std::optional<bool> use_double_precision = std::nullopt,
+  raft_proto::device_type dev_type         = raft_proto::device_type::cpu,
+  int device                               = 0,
+  raft_proto::cuda_stream stream           = raft_proto::cuda_stream{})
 {
   return import_from_treelite_model(*static_cast<treelite::Model*>(tl_handle),
                                     layout,
