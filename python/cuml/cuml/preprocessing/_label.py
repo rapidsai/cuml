@@ -164,7 +164,7 @@ class LabelEncoder(Base):
         if (
             encoded.hasnans or encoded.has_nulls
         ) and self.handle_unknown == "error":
-            y = y.unique()
+            y = y.cat.categories
             diff = y[~y.isin(self.classes_)].to_numpy(dtype=object)
             raise ValueError(f"y contains previously unseen labels: {diff!s}")
 
