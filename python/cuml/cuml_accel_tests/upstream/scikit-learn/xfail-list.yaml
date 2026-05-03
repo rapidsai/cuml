@@ -782,6 +782,10 @@
   - "sklearn.preprocessing.tests.test_polynomial::test_csr_polynomial_expansion_index_overflow[csr_array-False-True-3-2344]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVC]"
   - "sklearn.svm.tests.test_svm::test_custom_kernel_not_array_input[SVR]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
+  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
@@ -941,12 +945,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVC input handling and validation
-  marker: cuml_accel_svc_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVC()-check_sample_weights_not_an_array]"
 - reason: SVM doesn't handle sample_weight identically to sklearn
   marker: cuml_accel_svm_sample_weight
   tests:
@@ -962,16 +960,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: SVR input handling and validation
-  marker: cuml_accel_svr_estimator_checks
-  tests:
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[SVR()-check_supervised_y_no_nan]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   condition: scikit-learn>=1.6
@@ -1117,18 +1105,7 @@
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
   - "sklearn.tests.test_calibration::test_calibration_default_estimator"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_classifier_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weights_not_an_array]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sparsify_coefficients]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_dtype_object]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_estimators_nan_inf]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_requires_y_none]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_sample_weights_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_2d]"
-  - "sklearn.tests.test_common::test_estimators[LinearSVR()-check_supervised_y_no_nan]"
 - reason: LinearSVM
   strict: false
   tests:
