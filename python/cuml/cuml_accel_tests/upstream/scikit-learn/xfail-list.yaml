@@ -213,8 +213,6 @@
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_classification-StackingClassifier-LogisticRegression]"
-  - "sklearn.ensemble.tests.test_stacking::test_stacking_without_n_features_in[make_regression-StackingRegressor-LinearRegression]"
   - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
   - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
   - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
@@ -247,8 +245,6 @@
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-False]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-True]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_toy"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_lassoCV_does_not_set_precompute[False-False]"
-  - "sklearn.linear_model.tests.test_coordinate_descent::test_lassoCV_does_not_set_precompute[auto-False]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_lasso_alpha_warning"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_lasso_dual_gap"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_lasso_readonly_data"
@@ -791,6 +787,7 @@
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
+  - "sklearn.model_selection.tests.test_search::test_grid_search_score_method"
   - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: This test asserts a copy hasn't happened, but that's not actually guaranteed by the interface.
@@ -1032,10 +1029,6 @@
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_fit2d_predict1d]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_sample_order_invariance]"
   - "sklearn.tests.test_common::test_estimators[TSNE()-check_methods_subset_invariance]"
-- reason: Config dispatch with parallel processing not working correctly with StandardScaler proxy
-  marker: parallel_config
-  tests:
-  - "sklearn.utils.tests.test_parallel::test_dispatch_config_parallel[2]"
 - reason: Calibration temperature scaling differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
@@ -1096,14 +1089,12 @@
   tests:
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-importance_getter0]"
   - "sklearn.feature_selection.tests.test_rfe::test_rfe_wrapped_estimator[RFECV-4-regressor_.coef_]"
-  - "sklearn.model_selection.tests.test_search::test_grid_search_no_score"
   - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_array-dok_array]"
   - "sklearn.svm.tests.test_sparse::test_linearsvc[lil_matrix-dok_matrix]"
   - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_array]"
   - "sklearn.svm.tests.test_sparse::test_linearsvc_iris[csr_matrix]"
   - "sklearn.svm.tests.test_sparse::test_sparse_liblinear_intercept_handling"
   - "sklearn.svm.tests.test_svm::test_dense_liblinear_intercept_handling"
-  - "sklearn.tests.test_calibration::test_calibration_default_estimator"
   - "sklearn.tests.test_calibration::test_calibration_multiclass[1-True-sigmoid]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sparsify_coefficients]"
 - reason: LinearSVM
