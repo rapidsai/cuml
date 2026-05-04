@@ -1679,7 +1679,9 @@ def test_check_cudf(kind, ensure_ndim, coerce_ndim, dtype, shape):
     ctx = assert_no_warnings()
     if ensure_ndim == 1 and data.ndim == 2:
         if not coerce_ndim or data.shape[1] != 1:
-            ctx = pytest.raises(ValueError, match="y should be a 1d array")
+            ctx = pytest.raises(
+                ValueError, match="myarray should be a 1d array"
+            )
             should_error = True
         elif coerce_ndim == "warn":
             ctx = pytest.warns(
@@ -1727,6 +1729,11 @@ def test_check_cudf_bad_args():
 
     with pytest.raises(ValueError, match="Unsupported coerce_ndim='bad'"):
         check_cudf([1, 2, 3], coerce_ndim="bad")
+
+    with pytest.raises(
+        ValueError, match="ensure_min_features=2 requires ensure_ndim=2"
+    ):
+        check_cudf([1, 2, 3], ensure_ndim=1, ensure_min_features=2)
 
 
 @pytest.mark.parametrize(

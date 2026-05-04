@@ -790,6 +790,8 @@ def check_cudf(
         raise ValueError(f"Unsupported {ensure_ndim=!r}")
     if coerce_ndim not in (True, False, "warn"):
         raise ValueError(f"Unsupported {coerce_ndim=!r}")
+    if ensure_min_features > 1 and ensure_ndim != 2:
+        raise ValueError(f"{ensure_min_features=!r} requires ensure_ndim=2")
 
     array_type = type(array)
 
@@ -885,7 +887,8 @@ _cupy_any_inf_or_nan_or_real = cp.ReductionKernel(
 def _check_classification_targets(y, ensure_discrete_classes=True):
     """Check if `y` is composed of valid class labels.
 
-    Catches NaN, infinity, and non-integral inputs.
+    Catches NaN, infinity, and non-integral inputs when
+    `ensure_discrete_classes=True`.
 
     Parameters
     ----------
@@ -967,6 +970,10 @@ def check_y(
     classes : numpy.ndarray or list[numpy.ndarray]
         The collected classes for a classifier input. Only returned if
         ``return_classes=True``.
+    index : pandas.Index, cudf.Index, or None
+        The index of the input if a dataframe-like, or None if no index. The
+        index will be converted to match ``mem_type``. Only returned if
+        ``return_index=True``.
     """
     if y is None:
         raise ValueError(
