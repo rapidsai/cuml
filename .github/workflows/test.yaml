@@ -69,18 +69,18 @@ jobs:
       script: "ci/test_python_scikit_learn_tests.sh"
       # Select amd64 and one job per major CUDA version with the latest CUDA and Python versions
       # Add an "intermediate" entry based on the "oldest" entry
-      matrix_filter: '(
-        map(select(.ARCH == "amd64"))
-        | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0])
-        | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+      matrix_filter: |
+        (
+          map(select(.ARCH == "amd64"))
+          | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0])
+          | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+          )
+        + (
+          map(select(.ARCH == "amd64"))
+          | map(select(.DEPENDENCIES == "oldest"))
+          | sort_by(.PY_VER)
+          | map(.DEPENDENCIES = "intermediate")
         )
-      +
-      (
-        map(select(.ARCH == "amd64"))
-        | map(select(.DEPENDENCIES == "oldest"))
-        | sort_by(.PY_VER)
-        | map(.DEPENDENCIES = "intermediate")
-      )'
   conda-python-cuml-accel-upstream-tests:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
@@ -134,13 +134,12 @@ jobs:
       script: ci/test_wheel.sh
       continue-on-error: true
       # Select one amd64 entry with highest CUDA/Python versions and set DEPENDENCIES to "nightly"
-      matrix_filter: '
+      matrix_filter: |
         map(select(.ARCH == "amd64"))
         | map(select(.DEPENDENCIES == "latest"))
         | max_by([.CUDA_VER, .PY_VER] | map(split(".") | map(tonumber)))
         | .DEPENDENCIES = "nightly"
         | [.]
-      '
   wheel-tests-cuml-dask:
     secrets: inherit
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
@@ -160,5 +159,5 @@ jobs:
       sha: ${{ inputs.sha }}
       script: ci/test_wheel_integrations.sh
       # Test all CUDA major versions with latest dependencies and respective latest Python version
-      matrix_filter: map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))
+      matrix_filter: 'map(select(.DEPENDENCIES == "latest")) | group_by(.CUDA_VER|split(".")|.[0]) | map(max_by(.PY_VER|split(".")|map(tonumber)))'
       continue-on-error: true
