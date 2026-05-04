@@ -243,6 +243,19 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
 
+        # Drop `__firstlineno__`, since we can't give a good option for that.
+        # We don't want to expose the original value, since we've changed the
+        # defining `__module__`. And we don't want to use our `__firstlineno__`
+        # since it would map to the definitions in the overrides (which don't
+        # have the same `__module__` either). We use a `try-except` here since
+        # the __firstlineno__ may be stored in `cls.__dict__` (the one we want
+        # to drop) or `type(cls).__dict__` (which will error), depending on
+        # cPython version.
+        try:
+            del cls.__firstlineno__
+        except AttributeError:
+            pass
+
         # Forward _estimator_type as a class attribute if available
         _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
         if isinstance(_estimator_type, str):
