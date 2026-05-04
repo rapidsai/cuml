@@ -205,7 +205,7 @@ class LabelEncoder(Base):
                     -1,
                     codes,
                 )
-                classes = np.concat([classes, [None]])
+                classes = np.concatenate([classes, [None]])
 
         with exit_internal_context():
             output_type = self._get_output_type(y)
