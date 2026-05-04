@@ -22,6 +22,7 @@ from cuml.internals.validation import (
     check_all_finite,
     check_array,
     check_consistent_length,
+    check_cudf,
     check_features,
     check_inputs,
     check_non_negative,
@@ -1162,6 +1163,14 @@ def test_check_y_accept_multi_output(kind):
     order="F",
 )
 @example(
+    kind="cudf",
+    label_dtype="string",
+    n_classes=3,
+    mem_type="device",
+    dtype=None,
+    order=None,
+)
+@example(
     kind="list",
     label_dtype="O",
     n_classes=2,
@@ -1171,7 +1180,9 @@ def test_check_y_accept_multi_output(kind):
 )
 @given(
     kind=st.sampled_from(["cupy", "numpy", "pandas", "cudf", "list"]),
-    label_dtype=st.sampled_from(["int32", "int64", "bool", "O", "U"]),
+    label_dtype=st.sampled_from(
+        ["int32", "int64", "bool", "O", "U", "string"]
+    ),
     n_classes=st.sampled_from([2, 4, (3,), (2, 4)]),
     mem_type=st.sampled_from(["device", "host", None]),
     dtype=st.sampled_from([None, "int32", "int64", "float32"]),
@@ -1187,6 +1198,10 @@ def test_check_y_return_classes(
         labels = np.array(["a", "b", "c", "d"], dtype=label_dtype)
     elif label_dtype == "bool":
         labels = np.array([True, False])
+    elif label_dtype == "string":
+        # only pandas and cudf support this type
+        assume(kind in ("pandas", "cudf"))
+        labels = np.array(["a", "b", "c", "d"], dtype="object")
     else:
         labels = np.array([5, 10, 15, 20], dtype=label_dtype)
 
@@ -1203,8 +1218,12 @@ def test_check_y_return_classes(
         y = cp.asarray(y)
     elif kind == "pandas":
         y = pd.DataFrame(y) if inds.ndim == 2 else pd.Series(y)
+        if label_dtype == "string":
+            y = y.astype("string")
     elif kind == "cudf":
         y = cudf.DataFrame(y) if inds.ndim == 2 else cudf.Series(y)
+        if label_dtype == "string":
+            y = y.astype("string")
     elif kind == "list":
         y = y.tolist()
 
@@ -1307,12 +1326,39 @@ def test_check_y_classifier_floating_input_errors():
         check_y(has_inf, return_classes=True)
     with pytest.raises(ValueError, match="Unknown label type: continuous"):
         check_y(non_integral, return_classes=True)
+    # No issue if ensure_discrete_classes=False
+    check_y(has_nan, return_classes=True, ensure_discrete_classes=False)
+    check_y(has_inf, return_classes=True, ensure_discrete_classes=False)
+    check_y(non_integral, return_classes=True, ensure_discrete_classes=False)
 
 
 def test_check_y_classifier_on_non_str_object():
     bad = np.array([1, 2, 0], dtype=object)
     with pytest.raises(ValueError, match="Unknown label type: unknown"):
         check_y(bad, return_classes=True)
+
+
+@pytest.mark.parametrize("return_classes", [False, True])
+@pytest.mark.parametrize("mem_type", ["device", "host"])
+def test_check_y_return_index(return_classes, mem_type):
+    y = pd.Series([1, 2, 1, 3], index=[10, 20, 30, 40])
+
+    out = check_y(
+        y, return_index=True, return_classes=return_classes, mem_type=mem_type
+    )
+
+    if return_classes:
+        y, classes, index = out
+        np.testing.assert_array_equal(classes, np.array([1, 2, 3]))
+    else:
+        y, index = out
+
+    if mem_type == "host":
+        assert isinstance(index, pd.Index)
+    else:
+        assert isinstance(index, cudf.Index)
+
+    assert (cudf.Index(index) == cudf.Index([10, 20, 30, 40])).all()
 
 
 @pytest.mark.parametrize(
@@ -1580,3 +1626,123 @@ def test_check_inputs_return_index():
     )
     assert isinstance(index, cudf.Index)
     assert (index == cudf.Index([10, 20, 30])).all()
+
+
+@example(kind="numpy", dtype="U", shape=10)
+@example(kind="numpy", dtype="f2", shape=(10, 1))
+@example(kind="numpy", dtype="U", shape=(10, 2))
+@example(kind="list", dtype="i8", shape=10)
+@example(kind="cupy", dtype="i4", shape=(10, 1))
+@example(kind="cupy", dtype="f2", shape=(10, 2))
+@example(kind="cudf", dtype="f4", shape=10)
+@example(kind="cudf", dtype="i4", shape=(10, 1))
+@example(kind="cudf", dtype="i4", shape=(10, 2))
+@example(kind="pandas", dtype="O", shape=(10, 1))
+@example(kind="pandas", dtype="O", shape=(10, 2))
+@example(kind="pandas", dtype="f2", shape=10)
+@example(kind="pandas", dtype="f2", shape=(10, 2))
+@given(
+    kind=st.sampled_from(["cudf", "pandas", "numpy", "cupy", "list"]),
+    dtype=st.sampled_from(["i4", "i8", "f2", "f4", "f8", "U", "O"]),
+    shape=st.sampled_from([10, (10, 1), (10, 2)]),
+)
+@pytest.mark.parametrize("ensure_ndim", [1, 2, None])
+@pytest.mark.parametrize("coerce_ndim", [True, False, "warn"])
+def test_check_cudf(kind, ensure_ndim, coerce_ndim, dtype, shape):
+    rng = np.random.default_rng(42)
+    dtype = np.dtype(dtype)
+
+    # Construct input data
+    if dtype in ("O", "U"):
+        # cupy doesn't support these types
+        assume(kind != "cupy")
+        data = rng.choice(["a", "b", "c", "d"], size=shape).astype(dtype)
+    elif dtype.kind == "i":
+        data = rng.integers(0, 100, size=shape, dtype=dtype)
+    else:
+        # cudf doesn't support float16
+        assume(not (kind == "cudf" and dtype == "float16"))
+        data = rng.random(shape).astype(dtype)
+
+    if kind == "cupy":
+        array = cp.asarray(data)
+    elif kind == "numpy":
+        array = data
+    elif kind == "list":
+        array = data.tolist()
+    elif kind == "pandas":
+        array = pd.Series(data) if data.ndim == 1 else pd.DataFrame(data)
+    elif kind == "cudf":
+        array = cudf.Series(data) if data.ndim == 1 else cudf.DataFrame(data)
+
+    should_error = False
+    ctx = assert_no_warnings()
+    if ensure_ndim == 1 and data.ndim == 2:
+        if not coerce_ndim or data.shape[1] != 1:
+            ctx = pytest.raises(
+                ValueError, match="myarray should be a 1d array"
+            )
+            should_error = True
+        elif coerce_ndim == "warn":
+            ctx = pytest.warns(
+                DataConversionWarning, match="A column-vector myarray"
+            )
+    elif ensure_ndim == 2 and data.ndim == 1:
+        if not coerce_ndim:
+            if isinstance(array, (cudf.Series, pd.Series)):
+                ctx = pytest.raises(
+                    ValueError, match="Expected a 2-dimensional container"
+                )
+            else:
+                ctx = pytest.raises(ValueError, match="Expected 2D array")
+            should_error = True
+        elif coerce_ndim == "warn":
+            ctx = pytest.warns(
+                DataConversionWarning, match="A 1d array myarray"
+            )
+
+    with ctx:
+        out = check_cudf(
+            array,
+            ensure_ndim=ensure_ndim,
+            coerce_ndim=coerce_ndim,
+            input_name="myarray",
+        )
+    if not should_error:
+        if ensure_ndim == 2:
+            assert isinstance(out, cudf.DataFrame)
+            if data.ndim != 2:
+                data = data.reshape(-1, 1)
+        elif ensure_ndim == 1:
+            assert isinstance(out, cudf.Series)
+            if data.ndim != 1:
+                data = data.ravel()
+        else:
+            assert isinstance(out, (cudf.Series, cudf.DataFrame))
+        res = out.to_numpy(dtype=data.dtype)
+        np.testing.assert_array_equal(res, data)
+
+
+def test_check_cudf_bad_args():
+    with pytest.raises(ValueError, match="Unsupported ensure_ndim='bad'"):
+        check_cudf([1, 2, 3], ensure_ndim="bad")
+
+    with pytest.raises(ValueError, match="Unsupported coerce_ndim='bad'"):
+        check_cudf([1, 2, 3], coerce_ndim="bad")
+
+    with pytest.raises(
+        ValueError, match="ensure_min_features=2 requires ensure_ndim=2"
+    ):
+        check_cudf([1, 2, 3], ensure_ndim=1, ensure_min_features=2)
+
+
+@pytest.mark.parametrize(
+    "xdf", [pytest.param(pd, id="pandas"), pytest.param(cudf, id="cudf")]
+)
+@pytest.mark.parametrize("ensure_ndim", [1, 2, None])
+def test_check_cudf_persists_index(xdf, ensure_ndim):
+    index = xdf.Index([20, 10, 30])
+    df = xdf.DataFrame({"x": [1, 2, 3]}, index=index)
+
+    out = check_cudf(df, ensure_ndim=ensure_ndim, coerce_ndim=True)
+    assert (out.index == cudf.Index(index)).all()
