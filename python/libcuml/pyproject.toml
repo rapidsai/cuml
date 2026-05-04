@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*",
+    "libnvforest==26.6.*,>=0.0.0a0",
     "libraft==26.6.*,>=0.0.0a0",
     "nvidia-nvjitlink>=13.0,<14",
     "rapids-logger==0.2.*,>=0.0.0a0",
@@ -66,6 +67,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=3.30.4",
+    "libnvforest==26.6.*,>=0.0.0a0",
     "libraft==26.6.*,>=0.0.0a0",
     "librmm==26.6.*,>=0.0.0a0",
     "ninja",
