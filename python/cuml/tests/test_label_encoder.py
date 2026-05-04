@@ -80,8 +80,8 @@ def test_labelencoder_unfitted():
     [
         (
             cudf.Series(["a", "b", "c"]),
-            cudf.Series([2, 1, 2, 0]),
-            cudf.Series(["c", "b", "c", "a"]),
+            cudf.Series([2, 1, 2, 0], index=[5, 10, 15, 20]),
+            cudf.Series(["c", "b", "c", "a"], index=[5, 10, 15, 20]),
             cudf.Series([-1, 1, 2, 0]),
         ),
         (

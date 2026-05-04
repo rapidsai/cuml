@@ -210,4 +210,6 @@ class LabelEncoder(Base):
         with exit_internal_context():
             output_type = self._get_output_type(y)
 
-        return decode_labels(codes, classes, output_type=output_type)
+        return decode_labels(
+            codes, classes, output_type=output_type, index=index
+        )
