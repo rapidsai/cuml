@@ -632,13 +632,15 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
 /**
  * Component-parallel vertex-centric kernel for n_components above the
  * register-kernel threshold (currently > 21).
- * Each warp processes one vertex at a time. Edges for each vertexare processed sequentially,
- * but the per-component work within each edge is split across warp lanes:
- * lane k handles component (k, k+32, k+64, ...).
+ * Each warp processes one vertex at a time. Edges for each vertex are processed sequentially,
+ * but per-component work is split across lanes: lane k handles components
+ * k, k+32, k+64, ...
  *
- * Shared memory per warp: current_smem + original_smem + other_smem (3 * n_components).
+ * All embedding data lives in registers. The only cross-lane
+ * communication is the scalar distance reduction via warp shuffles.
+ * Template parameter CPL = components per lane = ceil(n_components / 32).
  */
-template <typename T, typename nnz_t, int TPB_X>
+template <typename T, typename nnz_t, int TPB_X, int CPL>
 CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedding,
                                                             T* head_buffer,
                                                             uint32_t* head_flags,
@@ -662,42 +664,28 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
                                                             T rounding,
                                                             size_t vertex_offset = 0)
 {
-  extern __shared__ char smem_raw[];
   const int n_components = params.n_components;
 
   constexpr unsigned FULL_MASK = 0xffffffff;
   const int lane_id            = threadIdx.x & 31;
-  const int warp_id            = threadIdx.x >> 5;
   const int warp_global_id     = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;
   const int total_warps        = (gridDim.x * blockDim.x) >> 5;
 
-  // Shared memory layout per block:
-  //   [warp0: current | original | other][warp1: current | original | other]...
-  // current_smem:  running head embedding, updated with gradients each edge
-  // original_smem: snapshot of initial values for computing the head delta at the end
-  // other_smem:    neighbor/negative-sample embedding, loaded once per edge and reused
-  T* smem      = reinterpret_cast<T*>(smem_raw);
-  int per_warp = 3 * n_components;
-  T* smem_warp = smem + warp_id * per_warp;
-
-  T* current_smem  = smem_warp;
-  T* original_smem = smem_warp + n_components;
-  T* other_smem    = smem_warp + 2 * n_components;
-
-  // each warp loops over the vertices assigned to it
   for (int vertex = warp_global_id + static_cast<int>(vertex_offset); vertex < num_vertices;
        vertex += total_warps) {
-    // the csr indices are used to determine the edges to process for the current vertex
     const nnz_t edge_start = row_ptr[vertex];
     const nnz_t edge_end   = row_ptr[vertex + 1];
 
-    for (int d = lane_id; d < n_components; d += 32) {
-      T val            = head_embedding[vertex * n_components + d];
-      current_smem[d]  = val;
-      original_smem[d] = val;
+    T current_reg[CPL], original_reg[CPL];
+
+#pragma unroll
+    for (int i = 0; i < CPL; i++) {
+      int d           = lane_id + i * 32;
+      T val           = (d < n_components) ? head_embedding[vertex * n_components + d] : T(0);
+      current_reg[i]  = val;
+      original_reg[i] = val;
     }
 
-    // this warp sequentially processes the edges for the current vertex
     for (nnz_t e = edge_start; e < edge_end; e++) {
       auto _epoch_of_next_sample = epoch_of_next_sample[e];
       if (_epoch_of_next_sample > epoch) continue;
@@ -708,16 +696,15 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
       int k          = tail[e];
       T* other_write = tail_buffer + (k * n_components);
 
-      for (int d = lane_id; d < n_components; d += 32) {
-        other_smem[d] = tail_embedding[k * n_components + d];
-      }
-
+      T other_reg[CPL];
       T partial_dist = T(0);
-      for (int d = lane_id; d < n_components; d += 32) {
-        T diff = current_smem[d] - other_smem[d];
+#pragma unroll
+      for (int i = 0; i < CPL; i++) {
+        int d        = lane_id + i * 32;
+        other_reg[i] = (d < n_components) ? __ldg(&tail_embedding[k * n_components + d]) : T(0);
+        T diff       = current_reg[i] - other_reg[i];
         partial_dist += diff * diff;
       }
-      // Warp-reduce to get full dist_squared in all lanes
       for (int offset = 16; offset > 0; offset >>= 1)
         partial_dist += __shfl_xor_sync(FULL_MASK, partial_dist, offset);
       T dist_squared = partial_dist;
@@ -727,12 +714,16 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
       }
 
-      for (int d = lane_id; d < n_components; d += 32) {
-        T diff   = current_smem[d] - other_smem[d];
-        T grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
-        current_smem[d] += grad_d * alpha;
-        if (move_other) {
-          raft::myAtomicAdd(other_write + d, truncate_gradient(rounding, -(grad_d * alpha)));
+#pragma unroll
+      for (int i = 0; i < CPL; i++) {
+        int d = lane_id + i * 32;
+        if (d < n_components) {
+          T diff   = current_reg[i] - other_reg[i];
+          T grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+          current_reg[i] += grad_d * alpha;
+          if (move_other) {
+            raft::myAtomicAdd(other_write + d, truncate_gradient(rounding, -(grad_d * alpha)));
+          }
         }
       }
       if (move_other && tail_flags != nullptr && lane_id == 0) {
@@ -751,14 +742,12 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         gen.next(r);
         nnz_t t = r % tail_n;
 
-        // reuse other_reg for the negative sample
-        for (int d = lane_id; d < n_components; d += 32) {
-          other_smem[d] = tail_embedding[t * n_components + d];
-        }
-
         partial_dist = T(0);
-        for (int d = lane_id; d < n_components; d += 32) {
-          T diff = current_smem[d] - other_smem[d];
+#pragma unroll
+        for (int i = 0; i < CPL; i++) {
+          int d        = lane_id + i * 32;
+          other_reg[i] = (d < n_components) ? __ldg(&tail_embedding[t * n_components + d]) : T(0);
+          T diff       = current_reg[i] - other_reg[i];
           partial_dist += diff * diff;
         }
         for (int offset = 16; offset > 0; offset >>= 1)
@@ -771,14 +760,18 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         } else if (vertex == static_cast<int>(t))
           continue;
 
-        for (int d = lane_id; d < n_components; d += 32) {
-          T grad_d = T(0.0);
-          if (repulsive_grad_coeff > T(0.0))
-            grad_d =
-              clip<T>(repulsive_grad_coeff * (current_smem[d] - other_smem[d]), T(-4.0), T(4.0));
-          else
-            grad_d = T(4.0);
-          current_smem[d] += grad_d * alpha;
+#pragma unroll
+        for (int i = 0; i < CPL; i++) {
+          int d = lane_id + i * 32;
+          if (d < n_components) {
+            T grad_d = T(0.0);
+            if (repulsive_grad_coeff > T(0.0))
+              grad_d =
+                clip<T>(repulsive_grad_coeff * (current_reg[i] - other_reg[i]), T(-4.0), T(4.0));
+            else
+              grad_d = T(4.0);
+            current_reg[i] += grad_d * alpha;
+          }
         }
       }
 
@@ -787,11 +780,15 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
     }
 
     // Write back accumulated delta
-    for (int d = lane_id; d < n_components; d += 32) {
-      T delta = current_smem[d] - original_smem[d];
-      if (delta != T(0)) {
-        raft::myAtomicAdd(&head_buffer[vertex * n_components + d],
-                          truncate_gradient(rounding, delta));
+#pragma unroll
+    for (int i = 0; i < CPL; i++) {
+      int d = lane_id + i * 32;
+      if (d < n_components) {
+        T delta = current_reg[i] - original_reg[i];
+        if (delta != T(0)) {
+          raft::myAtomicAdd(&head_buffer[vertex * n_components + d],
+                            truncate_gradient(rounding, delta));
+        }
       }
     }
     if (head_flags != nullptr && lane_id == 0) { set_vertex_modified(head_flags, vertex); }
@@ -811,9 +808,10 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
  *
  *  n_components > threshold:
  *    Component-parallel warp kernel (optimize_sequential_kernel_vertex_per_warp).
- *    Each warp cooperatively processes one vertex. lanes split the per-
+ *    Each warp cooperatively processes one vertex. Lanes split the per-
  *    component work (lane k handles components k, k+32, k+64, …).
- *    Uses 3 * n_components * sizeof(T) bytes of shared memory per warp.
+ *    Templated on CPL (components per lane = ceil(n_components/32)), keeping
+ *    all data in per-lane registers.
  */
 template <typename T, typename nnz_t, int TPB_X>
 void call_optimize_sequential_kernel(T* head_embedding,
@@ -907,55 +905,71 @@ void call_optimize_sequential_kernel(T* head_embedding,
     }
   };
 
-#define LAUNCH_VC_INDEP(NC) \
-  launch_kernel(optimize_sequential_kernel_vertex_per_thread<T, nnz_t, TPB_X, NC>, TPB_X, 0, 1)
-
   if (params->n_components <= 21) {
+#define LAUNCH_PER_THREAD_KERNEL(NC) \
+  launch_kernel(optimize_sequential_kernel_vertex_per_thread<T, nnz_t, TPB_X, NC>, TPB_X, 0, 1)
     // 3 register arrays × N_COMPONENTS = 63 registers at N=21.  This keeps occupancy reasonable on
     // most architectures. This is also heuristically a good threshold.
     switch (params->n_components) {
-      case 1: LAUNCH_VC_INDEP(1); break;
-      case 2: LAUNCH_VC_INDEP(2); break;
-      case 3: LAUNCH_VC_INDEP(3); break;
-      case 4: LAUNCH_VC_INDEP(4); break;
-      case 5: LAUNCH_VC_INDEP(5); break;
-      case 6: LAUNCH_VC_INDEP(6); break;
-      case 7: LAUNCH_VC_INDEP(7); break;
-      case 8: LAUNCH_VC_INDEP(8); break;
-      case 9: LAUNCH_VC_INDEP(9); break;
-      case 10: LAUNCH_VC_INDEP(10); break;
-      case 11: LAUNCH_VC_INDEP(11); break;
-      case 12: LAUNCH_VC_INDEP(12); break;
-      case 13: LAUNCH_VC_INDEP(13); break;
-      case 14: LAUNCH_VC_INDEP(14); break;
-      case 15: LAUNCH_VC_INDEP(15); break;
-      case 16: LAUNCH_VC_INDEP(16); break;
-      case 17: LAUNCH_VC_INDEP(17); break;
-      case 18: LAUNCH_VC_INDEP(18); break;
-      case 19: LAUNCH_VC_INDEP(19); break;
-      case 20: LAUNCH_VC_INDEP(20); break;
-      case 21: LAUNCH_VC_INDEP(21); break;
+      case 1: LAUNCH_PER_THREAD_KERNEL(1); break;
+      case 2: LAUNCH_PER_THREAD_KERNEL(2); break;
+      case 3: LAUNCH_PER_THREAD_KERNEL(3); break;
+      case 4: LAUNCH_PER_THREAD_KERNEL(4); break;
+      case 5: LAUNCH_PER_THREAD_KERNEL(5); break;
+      case 6: LAUNCH_PER_THREAD_KERNEL(6); break;
+      case 7: LAUNCH_PER_THREAD_KERNEL(7); break;
+      case 8: LAUNCH_PER_THREAD_KERNEL(8); break;
+      case 9: LAUNCH_PER_THREAD_KERNEL(9); break;
+      case 10: LAUNCH_PER_THREAD_KERNEL(10); break;
+      case 11: LAUNCH_PER_THREAD_KERNEL(11); break;
+      case 12: LAUNCH_PER_THREAD_KERNEL(12); break;
+      case 13: LAUNCH_PER_THREAD_KERNEL(13); break;
+      case 14: LAUNCH_PER_THREAD_KERNEL(14); break;
+      case 15: LAUNCH_PER_THREAD_KERNEL(15); break;
+      case 16: LAUNCH_PER_THREAD_KERNEL(16); break;
+      case 17: LAUNCH_PER_THREAD_KERNEL(17); break;
+      case 18: LAUNCH_PER_THREAD_KERNEL(18); break;
+      case 19: LAUNCH_PER_THREAD_KERNEL(19); break;
+      case 20: LAUNCH_PER_THREAD_KERNEL(20); break;
+      case 21: LAUNCH_PER_THREAD_KERNEL(21); break;
     }
-  } else {
-    // smem/warp = 3 * n_components * sizeof(T).  e.g. for float: max n_components = 4096 with 48
-    // KB.
-    std::size_t smem_per_warp = static_cast<std::size_t>(3) * params->n_components * sizeof(T);
-    std::size_t max_smem      = static_cast<std::size_t>(raft::getSharedMemPerBlock());
-    RAFT_EXPECTS(smem_per_warp <= max_smem,
-                 "n_components=%d requires %zu bytes of shared memory per warp, "
-                 "but device limit is %zu bytes.",
-                 params->n_components,
-                 smem_per_warp,
-                 max_smem);
-    int max_warps_per_block = static_cast<int>(max_smem / smem_per_warp);
-    int tpb                 = min(TPB_X, max_warps_per_block * 32);
-    tpb                     = (tpb / 32) * 32;
-    tpb                     = max(tpb, 32);
-    int smem_size           = static_cast<int>((tpb / 32) * smem_per_warp);
-    launch_kernel(optimize_sequential_kernel_vertex_per_warp<T, nnz_t, TPB_X>, tpb, smem_size, 32);
-  }
 
-#undef LAUNCH_VC_INDEP
+#undef LAUNCH_PER_THREAD_KERNEL
+  } else {
+    // Supports up to n_components = 512 (cpl = 16, since each warp lane handles cpl * 32
+    // components)
+    int cpl = (params->n_components + 31) / 32;  // components per lane
+
+#define LAUNCH_PER_WARP_KERNEL(CPL_VAL) \
+  launch_kernel(optimize_sequential_kernel_vertex_per_warp<T, nnz_t, TPB_X, CPL_VAL>, TPB_X, 0, 32)
+
+    switch (cpl) {
+      case 1: LAUNCH_PER_WARP_KERNEL(1); break;
+      case 2: LAUNCH_PER_WARP_KERNEL(2); break;
+      case 3: LAUNCH_PER_WARP_KERNEL(3); break;
+      case 4: LAUNCH_PER_WARP_KERNEL(4); break;
+      case 5: LAUNCH_PER_WARP_KERNEL(5); break;
+      case 6: LAUNCH_PER_WARP_KERNEL(6); break;
+      case 7: LAUNCH_PER_WARP_KERNEL(7); break;
+      case 8: LAUNCH_PER_WARP_KERNEL(8); break;
+      case 9: LAUNCH_PER_WARP_KERNEL(9); break;
+      case 10: LAUNCH_PER_WARP_KERNEL(10); break;
+      case 11: LAUNCH_PER_WARP_KERNEL(11); break;
+      case 12: LAUNCH_PER_WARP_KERNEL(12); break;
+      case 13: LAUNCH_PER_WARP_KERNEL(13); break;
+      case 14: LAUNCH_PER_WARP_KERNEL(14); break;
+      case 15: LAUNCH_PER_WARP_KERNEL(15); break;
+      case 16: LAUNCH_PER_WARP_KERNEL(16); break;
+      default:
+        RAFT_EXPECTS(false,
+                     "n_components=%d (cpl=%d) exceeds maximum supported value for "
+                     "the register-based warp kernel.",
+                     params->n_components,
+                     cpl);
+    }
+
+#undef LAUNCH_PER_WARP_KERNEL
+  }
 }
 
 /**
