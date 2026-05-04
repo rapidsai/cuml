@@ -45,6 +45,7 @@ function(ConfigureTest)
             $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
             rmm::rmm
             raft::raft
+            nvforest::nvforest++
             GTest::gtest
             GTest::gtest_main
             GTest::gmock
@@ -102,19 +103,6 @@ endif()
 
 if(all_algo OR explainer_algo)
   ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST sg/shap_kernel.cu ML_INCLUDE)
-endif()
-
-if(all_algo OR fil_algo)
-  ConfigureTest(PREFIX SG NAME HOST_BUFFER_TEST sg/fil/raft_proto/buffer.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST sg/fil/raft_proto/buffer.cu ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/forest/traversal_forest.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/forest/treelite_traversal.cpp ML_INCLUDE)
-  ConfigureTest(
-    PREFIX SG
-    NAME TREELITE_IMPORTER_TEST
-         sg/fil/treelite_importer.cpp sg/fil/treelite_importer_invalid_inputs.cpp
-         sg/fil/decision_forest_builder_invalid_inputs.cpp ML_INCLUDE
-  )
 endif()
 
 # todo: organize linear models better
