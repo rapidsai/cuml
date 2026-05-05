@@ -1317,7 +1317,7 @@ def test_pairwise_distances_exceptions():
     pairwise_distances(X_double, X_int, metric="euclidean")
 
     # Test sending different types with convert_dtype=False
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="dtype"):
         pairwise_distances(
             X_double, X_float, metric="euclidean", convert_dtype=False
         )
