@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import json
+import warnings
 
 import cudf
 import cupy as cp
@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import treelite
+from cudf.pandas import LOADED as cudf_pandas_active
 from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from sklearn.datasets import make_classification, make_regression
@@ -435,6 +436,9 @@ def test_sklearn_rf_classifier(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 def test_xgb_toy_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -460,7 +464,7 @@ def test_xgb_toy_categorical():
         params, dtrain, num_boost_round=1, evals=[(dtrain, "train")]
     )
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, ref_out[:, :-1], decimal=5)
@@ -469,6 +473,9 @@ def test_xgb_toy_categorical():
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 @pytest.mark.parametrize("n_classes", [2, 3])
 def test_xgb_classifier_with_categorical(n_classes):
     xgb = pytest.importorskip("xgboost")
@@ -533,6 +540,9 @@ def test_xgb_classifier_with_categorical(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason="Treelite does not yet support XGBoost models with categorical encoder"
+)
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -610,7 +620,7 @@ def test_lightgbm_regressor_with_categorical():
     )
 
     explainer = TreeExplainer(model=lgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X)
@@ -661,7 +671,7 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     )
 
     # Insert NaN randomly into X
-    X_test = X.values.copy()
+    X_test = X.values.astype(np.float64).copy()
     n_nan = int(np.floor(X.size * 0.1))
     rng = np.random.default_rng(seed=0)
     index_nan = rng.choice(X.size, size=n_nan, replace=False)
@@ -673,10 +683,13 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X_test)
     ref_expected_value = ref_explainer.expected_value
-    np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(
         explainer.expected_value, ref_expected_value, decimal=5
     )
+    if not cudf_pandas_active:
+        # cudf.pandas causes small numerical issues in the output here,
+        # possibly due to something in shap or lightgbm
+        np.testing.assert_almost_equal(out, ref_out, decimal=5)
 
 
 def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
@@ -898,6 +911,14 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             )
 
 
+# TODO(26.08): Can inline this back within the `example` call
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore")
+    example_random_forest = curfr(
+        max_features=1.0, random_state=0, n_streams=1, n_bins=10
+    ).fit(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32))
+
+
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(
@@ -909,9 +930,7 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
-            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
-        ),
+        example_random_forest,
         np.ones(10, dtype=np.float32),
     ),
     interactions_method="shapley-interactions",

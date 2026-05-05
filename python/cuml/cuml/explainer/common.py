@@ -1,10 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_array
 
 
 def get_tag_from_model_func(func, tag, default=None):
@@ -39,17 +39,17 @@ def model_func_call(X, model_func, gpu_model=False):
     Returns the results as CuPy arrays.
     """
     if gpu_model:
-        y = input_to_cupy_array(X=model_func(X), order="K").array
+        y = model_func(X)
     else:
         try:
-            y = input_to_cupy_array(model_func(cp.asnumpy(X))).array
+            y = model_func(cp.asnumpy(X))
         except TypeError:
             raise TypeError(
                 "Explainer can only explain models that can "
                 "take GPU data or NumPy arrays as input."
             )
 
-    return y
+    return check_array(y, ensure_2d=False, ensure_all_finite=False)
 
 
 def get_cai_ptr(X):
