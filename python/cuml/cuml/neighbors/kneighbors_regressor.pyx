@@ -185,7 +185,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             accept_multi_output=True,
         )
         check_consistent_length(self._fit_X, y)
-        self._y = CumlArray(y)
+        self._y = y
 
         return self
 
@@ -226,7 +226,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         cdef float* y_ptr
         for col_num in range(res_cols):
             col = self._y if res_cols == 1 else self._y[:, col_num]
-            y_ptr = <float*><uintptr_t>col.ptr
+            y_ptr = <float*><uintptr_t>col.data.ptr
             y_vec.push_back(y_ptr)
 
         handle = get_handle()

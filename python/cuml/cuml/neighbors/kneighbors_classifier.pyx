@@ -185,7 +185,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         )
         check_consistent_length(self._fit_X, y)
         self.classes_ = classes
-        self._y = CumlArray(y)
+        self._y = y
         return self
 
     @property
@@ -226,7 +226,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         cdef vector[int*] y_vec
         for i in range(out_cols):
             col = self._y if out_cols == 1 else self._y[:, i]
-            y_vec.push_back(<int*><uintptr_t>col.ptr)
+            y_vec.push_back(<int*><uintptr_t>col.data.ptr)
 
         # Compute weights (returns None for uniform weights)
         weights_cp = compute_weights(dists_cp, self.weights)
@@ -298,7 +298,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             )
             probas.append(proba)
             out_vec.push_back(<float*><uintptr_t>proba.ptr)
-            y_vec.push_back(<int*><uintptr_t>y.ptr)
+            y_vec.push_back(<int*><uintptr_t>y.data.ptr)
 
         # Compute weights (returns None for uniform weights)
         weights_cp = compute_weights(dists_cp, self.weights)

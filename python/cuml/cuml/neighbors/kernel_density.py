@@ -14,9 +14,8 @@ from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
-    check_array,
     check_consistent_length,
-    check_features,
+    check_inputs,
     check_is_fitted,
     check_random_seed,
     check_sample_weight,
@@ -301,13 +300,13 @@ class KernelDensity(Base, InteropMixin):
         elif self.bandwidth <= 0:
             raise ValueError(f"Expected bandwidth > 0, got {self.bandwidth}")
 
-        check_features(self, X, reset=True)
-        self._X = check_array(
+        self._X = check_inputs(
+            self,
             X,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
-            input_name="X",
+            reset=True,
         )
 
         if isinstance(self.bandwidth, str):
@@ -353,14 +352,12 @@ class KernelDensity(Base, InteropMixin):
             data.
         """
         check_is_fitted(self)
-        check_features(self, X)
-
-        X = check_array(
+        X = check_inputs(
+            self,
             X,
             dtype=[self._X.dtype],
             convert_dtype=convert_dtype,
             order="C",
-            input_name="X",
         )
         if self.metric_params:
             if len(self.metric_params) != 1:
