@@ -108,8 +108,10 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
-# ignore ColumnTransformer init warning
+# ignore ColumnTransformer init warning and max_depth deprecation
 @pytest.mark.filterwarnings("ignore:Transformers are required")
+# TODO(26.08) Remove this filter
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_base_children__get_param_names(child_class: str):
     """
@@ -293,6 +295,8 @@ def test_get_handle_device_ids():
         and hasattr(cls, "predict")
     ],
 )
+# TODO(26.08) Remove this filter
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_regressor_predict_dtype(cls):
     X, y = make_regression(n_samples=200, random_state=42)
     X32 = X.astype("float32")
@@ -327,6 +331,8 @@ def test_regressor_predict_dtype(cls):
         (cuml.MBSGDClassifier, None),
     ],
 )
+# TODO(26.08) Remove this filter
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )

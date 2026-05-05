@@ -247,19 +247,39 @@ def test_accuracy_score_errors():
     arr_4 = np.array([1, 2, 3, 4])
     arr_3x3 = np.ones((3, 3))
 
-    with pytest.raises(ValueError, match="Expected 3 rows"):
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
         cuml.metrics.accuracy_score(arr_3, arr_4)
 
-    with pytest.raises(ValueError, match="Expected 3 rows"):
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
         cuml.metrics.accuracy_score(arr_3, arr_3, sample_weight=arr_4)
 
-    for true, pred, sw in [
-        (arr_3x3, arr_3, None),
-        (arr_3, arr_3x3, None),
-        (arr_3, arr_3, arr_3x3),
+    for true, pred in [
+        (arr_3x3, arr_3),
+        (arr_3, arr_3x3),
     ]:
         with pytest.raises(ValueError, match="Expected 1 column"):
-            cuml.metrics.accuracy_score(true, pred, sample_weight=sw)
+            cuml.metrics.accuracy_score(true, pred)
+
+    with pytest.raises(ValueError, match="1D array"):
+        cuml.metrics.accuracy_score(arr_3, arr_3, sample_weight=arr_3x3)
+
+
+def test_accuracy_score_scalar_sample_weight():
+    y_true = np.array([0, 1, 1, 0])
+    y_pred = np.array([0, 1, 0, 0])
+
+    expected = cuml.metrics.accuracy_score(y_true, y_pred)
+    assert (
+        cuml.metrics.accuracy_score(y_true, y_pred, sample_weight=1.0)
+        == expected
+    )
+    assert (
+        cuml.metrics.accuracy_score(y_true, y_pred, sample_weight=2.5)
+        == expected
+    )
+    assert cuml.metrics.accuracy_score(
+        y_true, y_pred, sample_weight=1.0, normalize=False
+    ) == cuml.metrics.accuracy_score(y_true, y_pred, normalize=False)
 
 
 dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [

@@ -21,6 +21,8 @@ __all__ = (
     "reflect",
     "run_in_internal_context",
     "exit_internal_context",
+    "enter_internal_context",
+    "in_internal_context",
 )
 
 
@@ -217,6 +219,11 @@ def enter_internal_context():
     else:
         # Already internal, just yield
         yield False
+
+
+def in_internal_context() -> bool:
+    """Returns True if running in an internal context."""
+    return GlobalSettings()._external_output_type is not False
 
 
 @contextlib.contextmanager

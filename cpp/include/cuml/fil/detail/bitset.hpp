@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -22,6 +22,9 @@ struct bitset {
   using storage_type = storage_t;
   using index_type   = index_t;
 
+  // Ensrue that index_t is unsigned. Bound checks below rely on index_t being unsigned
+  static_assert(std::is_unsigned_v<index_t>, "index_t must be unsigned");
+
   auto constexpr static const bin_width = index_type(sizeof(storage_type) * 8);
 
   HOST DEVICE bitset() : data_{nullptr}, num_bits_{0} {}
@@ -39,12 +42,13 @@ struct bitset {
   // Standard bit-wise mutators and accessor
   HOST DEVICE auto& set(index_type index)
   {
-    data_[bin_from_index(index)] |= mask_in_bin(index);
+    // Guard against OOB writes; silently ignored to preserve memory safety
+    if (index < num_bits_) { data_[bin_from_index(index)] |= mask_in_bin(index); }
     return *this;
   }
   HOST DEVICE auto& clear(index_type index)
   {
-    data_[bin_from_index(index)] &= ~mask_in_bin(index);
+    if (index < num_bits_) { data_[bin_from_index(index)] &= ~mask_in_bin(index); }
     return *this;
   }
   HOST DEVICE auto test(index_type index) const

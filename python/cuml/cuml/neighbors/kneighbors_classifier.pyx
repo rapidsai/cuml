@@ -12,7 +12,7 @@ from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import check_consistent_length, check_y
@@ -139,14 +139,14 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
     def _attrs_from_cpu(self, model):
         return {
             "classes_": model.classes_,
-            "_y": to_gpu(model._y, order="F", dtype=np.int32),
+            "_y": cp.asarray(model._y, dtype=np.int32, order="F"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
             "classes_": self.classes_,
-            "_y": to_cpu(self._y),
+            "_y": cp.asnumpy(self._y),
             "outputs_2d_": self.outputs_2d_,
             **super()._attrs_to_cpu(model),
         }

@@ -195,8 +195,10 @@ def test_mro(model):
 
 
 @pytest.mark.parametrize("model_name", list(models.keys()))
-# ignore random forest float64 warnings
+# ignore random forest float64 warnings and max_depth deprecation
 @pytest.mark.filterwarnings("ignore:To use pickling or GPU-based")
+# TODO(26.08): Remove this filter
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_fit_function(dataset, model_name):
     # This test ensures that our estimators return self after a call to fit
     if model_name in [

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -20,6 +20,8 @@ from cuml.datasets import make_blobs
     ],
 )
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
+# TODO(26.08) Remove this filter
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_random_state_argument(Estimator):
     X, y = make_blobs(random_state=0)
     # Check that both integer and np.random.RandomState are accepted

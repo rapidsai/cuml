@@ -8,7 +8,7 @@ import numpy as np
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.validation import check_consistent_length, check_y
 from cuml.neighbors.nearest_neighbors import NeighborsBase
@@ -143,13 +143,13 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
     def _attrs_from_cpu(self, model):
         return {
-            "_y": to_gpu(model._y, order="F", dtype=np.float32),
+            "_y": cp.asarray(model._y, dtype=np.float32, order="F"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "_y": to_cpu(self._y),
+            "_y": cp.asnumpy(self._y),
             **super()._attrs_to_cpu(model),
         }
 
