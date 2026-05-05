@@ -1,0 +1,311 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-License-Identifier: Apache-2.0
+#
+
+"""Compatibility shim for cuml.fil -> nvForest"""
+
+import warnings
+
+import nvforest
+import treelite
+
+from cuml.internals.base import Base, get_handle
+from cuml.internals.mixins import CMajorInputTagMixin
+
+
+class ForestInference(Base, CMajorInputTagMixin):
+    def __init__(
+        self,
+        *,
+        treelite_model=None,
+        output_type=None,
+        verbose=False,
+        is_classifier=False,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+        precision="single",
+        device_id=None,
+        ensure_all_finite=False,
+    ):
+        super().__init__(verbose=verbose, output_type=output_type)
+        if treelite_model is not None and isinstance(
+            treelite_model, treelite.Model
+        ):
+            warnings.warn(
+                "cuml.fil.ForestInference is deprecated. "
+                "Use nvforest.load_model() or nvforest.load_from_sklearn() instead.",
+                FutureWarning,
+            )
+            self.model = nvforest.load_from_treelite_model(
+                tl_model=treelite_model,
+                layout=layout,
+                default_chunk_size=default_chunk_size,
+                align_bytes=align_bytes,
+                precision=precision,
+                device_id=device_id,
+                handle=get_handle(),
+            )
+        else:
+            self.model = None
+
+    @property
+    def align_bytes(self):
+        return self.model.align_bytes if self.model else None
+
+    @align_bytes.setter
+    def align_bytes(self, value):
+        raise NotImplementedError(
+            "Setter for align_bytes is no longer supported"
+        )
+
+    @property
+    def precision(self):
+        return self.model.precision if self.model else None
+
+    @precision.setter
+    def precision(self, value):
+        raise NotImplementedError(
+            "Setter for precision is no longer supported"
+        )
+
+    @property
+    def is_classifier(self):
+        return self.model.is_classifier if self.model else None
+
+    @is_classifier.setter
+    def is_classifier(self, value):
+        raise NotImplementedError(
+            "Setter for is_classifier is no longer supported"
+        )
+
+    @property
+    def device_id(self):
+        return self.model.device_id if self.model else None
+
+    @device_id.setter
+    def device_id(self, value):
+        raise NotImplementedError(
+            "Setter for device_id is no longer supported"
+        )
+
+    @property
+    def treelite_model(self):
+        raise NotImplementedError(
+            "Attribute treelite_model is no longer supported"
+        )
+
+    @treelite_model.setter
+    def treelite_model(self, value):
+        raise NotImplementedError(
+            "Setter for treelite_model is no longer supported"
+        )
+
+    @property
+    def layout(self):
+        return self.model.layout if self.model else None
+
+    @layout.setter
+    def layout(self, value):
+        raise NotImplementedError("Setter for layout is no longer supported")
+
+    def num_outputs(self):
+        return self.model.num_outputs if self.model else None
+
+    def num_trees(self):
+        return self.model.num_trees if self.model else None
+
+    @classmethod
+    def load(
+        cls,
+        path,
+        *,
+        is_classifier=False,
+        precision="single",
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout="depth_first",
+        device_id=0,
+    ):
+        warnings.warn(
+            "cuml.fil.ForestInference.load() is deprecated. "
+            "Use nvforest.load_model() instead.",
+            FutureWarning,
+        )
+        obj = cls()
+        obj.model = nvforest.load_model(
+            model_file=path,
+            model_type=model_type,
+            device="gpu",
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            precision=precision,
+            device_id=device_id,
+            handle=get_handle(),
+        )
+        return obj
+
+    @classmethod
+    def load_from_sklearn(
+        cls,
+        skl_model,
+        *,
+        is_classifier=False,
+        precision="single",
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout="depth_first",
+        device_id=0,
+    ):
+        warnings.warn(
+            "cuml.fil.ForestInference.load_from_sklearn() is deprecated. "
+            "Use nvforest.load_from_sklearn() instead.",
+            FutureWarning,
+        )
+        obj = cls()
+        obj.model = nvforest.load_from_sklearn(
+            skl_model=skl_model,
+            device="gpu",
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            precision=precision,
+            device_id=device_id,
+            handle=get_handle(),
+        )
+        return obj
+
+    @classmethod
+    def load_from_treelite_model(
+        cls,
+        tl_model,
+        *,
+        is_classifier=False,
+        precision="single",
+        model_type=None,
+        output_type=None,
+        verbose=False,
+        default_chunk_size=None,
+        align_bytes=None,
+        layout="depth_first",
+        device_id=0,
+    ):
+        warnings.warn(
+            "cuml.fil.ForestInference.load_from_treelite_model() is deprecated. "
+            "Use nvforest.load_from_treelite_model() instead.",
+            FutureWarning,
+        )
+        obj = cls()
+        obj.model = nvforest.load_from_treelite_model(
+            tl_model=tl_model,
+            device="gpu",
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            precision=precision,
+            device_id=device_id,
+            handle=get_handle(),
+        )
+        return obj
+
+    def predict_proba(
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+    ):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
+        if preds is not None:
+            raise NotImplementedError(
+                "Setting preds argument is no longer supported"
+            )
+        if isinstance(self.model, nvforest.GPUForestInferenceClassifier):
+            return self.model.predict_proba(X, chunk_size=chunk_size)
+        raise RuntimeError("Must be a classifier to run predict_proba()")
+
+    def predict(
+        self,
+        X,
+        *,
+        preds=None,
+        chunk_size=None,
+        threshold=None,
+    ):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
+        if preds is not None:
+            raise NotImplementedError(
+                "Setting preds argument is no longer supported"
+            )
+        if isinstance(self.model, nvforest.GPUForestInferenceClassifier):
+            return self.model.predict(
+                X, chunk_size=chunk_size, threshold=threshold
+            )
+        if isinstance(self.model, nvforest.GPUForestInferenceRegressor):
+            return self.model.predict(X, chunk_size=chunk_size)
+        raise RuntimeError("Expected a GPU forest model")
+
+    def predict_per_tree(self, X, *, preds=None, chunk_size=None):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
+        if preds is not None:
+            raise NotImplementedError(
+                "Setting preds argument is no longer supported"
+            )
+        return self.model.predict_per_tree(X, chunk_size=chunk_size)
+
+    def apply(self, X, *, preds=None, chunk_size=None):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
+        if preds is not None:
+            raise NotImplementedError(
+                "Setting preds argument is no longer supported"
+            )
+        return self.model.apply(X, chunk_size=chunk_size)
+
+    def optimize(
+        self,
+        *,
+        data=None,
+        batch_size=1024,
+        unique_batches=10,
+        timeout=0.2,
+        predict_method="predict",
+        max_chunk_size=None,
+        seed=0,
+    ):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
+        return self.model.optimize(
+            data=data,
+            batch_size=batch_size,
+            unique_batches=unique_batches,
+            timeout=timeout,
+            predict_method=predict_method,
+            max_chunk_size=max_chunk_size,
+            seed=seed,
+        )
+
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            *super()._get_param_names(),
+            "treelite_model",
+            "is_classifier",
+            "layout",
+            "default_chunk_size",
+            "align_bytes",
+            "precision",
+            "device_id",
+            "ensure_all_finite",
+        ]
