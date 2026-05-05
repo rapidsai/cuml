@@ -240,13 +240,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        preds = fil.predict(X)
+        preds = nvforest_model.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.

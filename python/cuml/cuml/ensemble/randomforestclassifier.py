@@ -11,7 +11,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.validation import check_features, check_inputs
+from cuml.internals.validation import check_array, check_features, check_inputs
 from cuml.metrics import accuracy_score
 
 
@@ -281,13 +281,23 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        inds = fil.predict(X, threshold=threshold).to_output("cupy")
+        X = check_array(
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=True,
+            order="C",
+            mem_type="device",
+            return_index=False,
+            ensure_all_finite=True,
+            input_name="X",
+        )
+        inds = nvforest_model.predict(X, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(inds, self.classes_, output_type=output_type)
@@ -332,13 +342,23 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        return fil.predict_proba(X)
+        X = check_array(
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=True,
+            order="C",
+            mem_type="device",
+            return_index=False,
+            ensure_all_finite=True,
+            input_name="X",
+        )
+        return nvforest_model.predict_proba(X)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
