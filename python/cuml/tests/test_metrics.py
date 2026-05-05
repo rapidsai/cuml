@@ -877,6 +877,62 @@ def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
 
 
+def test_confusion_matrix_errors():
+    # Mismatched lengths
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # Non-integer dtype without convert_dtype
+    with pytest.raises(ValueError, match="dtype"):
+        confusion_matrix(
+            np.array([0.0, 1.0], dtype=np.float32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # 2D y_true is rejected
+    with pytest.raises(ValueError, match="1D"):
+        confusion_matrix(
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+        )
+
+    # 2D labels are rejected
+    with pytest.raises(ValueError, match="labels"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            labels=np.array([[0, 1]], dtype=np.int32),
+        )
+
+    # Inconsistent sample_weight length
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1, 0], dtype=np.int32),
+            sample_weight=np.array([1.0, 2.0]),
+        )
+
+    # Invalid normalize value
+    with pytest.raises(ValueError, match="normalize"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            normalize="bogus",
+        )
+
+
+def test_confusion_matrix_convert_dtype():
+    # convert_dtype=True should coerce float labels to int32.
+    y_true = np.array([0, 1, 2, 1], dtype=np.float32)
+    y_pred = np.array([0, 1, 1, 1], dtype=np.float32)
+    cm = confusion_matrix(y_true, y_pred, convert_dtype=True)
+    ref = sk_confusion_matrix(y_true.astype(np.int32), y_pred.astype(np.int32))
+    cp.testing.assert_array_equal(cm, ref)
+
+
 def test_roc_auc_score():
     y_true = np.array([0, 0, 1, 1])
     y_pred = np.array([0.1, 0.4, 0.35, 0.8])
