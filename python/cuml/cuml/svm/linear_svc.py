@@ -2,17 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.metaestimators import available_if
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, process_class_weight
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -21,13 +19,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import (
-    check_consistent_length,
-    check_features,
-    check_is_fitted,
-    check_sample_weight,
-    check_y,
-)
+from cuml.internals.validation import check_is_fitted
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -188,9 +180,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     def _attrs_from_cpu(self, model):
         return {
-            "coef_": to_gpu(model.coef_, order="F", dtype=np.float64),
+            "coef_": to_gpu(model.coef_, order="F", dtype=cp.float64),
             "intercept_": to_gpu(
-                model.intercept_, order="F", dtype=np.float64
+                model.intercept_, order="F", dtype=cp.float64
             ),
             "classes_": model.classes_,
             "prob_scale_": None,
@@ -200,8 +192,8 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     def _attrs_to_cpu(self, model):
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
-            "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
+            "coef_": to_cpu(self.coef_, order="C", dtype=cp.float64),
+            "intercept_": to_cpu(self.intercept_, order="C", dtype=cp.float64),
             "classes_": self.classes_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
@@ -243,40 +235,21 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.multi_class = multi_class
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
-        y, classes = check_y(y, return_classes=True)
-        X = input_to_cuml_array(
+        coef, intercept, n_iter, prob_scale, classes = cuml.svm.linear.fit(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            check_rows=y.shape[0],
-            order="F",
-        ).array
-
-        _, sample_weight = process_class_weight(
-            classes,
             y,
-            class_weight=self.class_weight,
-            sample_weight=check_sample_weight(sample_weight),
-            dtype=X.dtype,
-        )
-        check_consistent_length(X, y, sample_weight)
-
-        coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
-            X,
-            CumlArray(data=y.astype(X.dtype, copy=False)),
-            sample_weight=(
-                None
-                if sample_weight is None
-                else CumlArray(data=sample_weight)
-            ),
-            n_classes=len(classes),
+            sample_weight,
+            convert_dtype=convert_dtype,
+            is_classifier=True,
             n_streams=self.n_streams,
             probability=self.probability,
+            class_weight=self.class_weight,
             loss=self.loss,
             penalty=self.penalty,
             fit_intercept=self.fit_intercept,
@@ -289,11 +262,15 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             epsilon=0.0,
             verbose=self._verbose_level,
         )
-        self.coef_ = coef
-        self.intercept_ = intercept
-        self.classes_ = classes
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = (
+            intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
+        )
         self.n_iter_ = n_iter
-        self.prob_scale_ = prob_scale
+        self.prob_scale_ = (
+            None if prob_scale is None else CumlArray(data=prob_scale)
+        )
+        self.classes_ = classes
         return self
 
     @generate_docstring(
@@ -341,21 +318,14 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         to be available.
         """
         check_is_fitted(self)
-        check_features(self, X)
-
         if self.prob_scale_ is None:
             raise NotFittedError(
                 "predict_proba is not available when fitted with probability=False"
             )
         scores = self.decision_function(X, convert_dtype=convert_dtype)
-        scores = input_to_cuml_array(
-            scores,
-            check_dtype=self.coef_.dtype,
-            order="C",
-        ).array
         return cuml.svm.linear.compute_probabilities(
             scores,
-            self.prob_scale_,
+            self.prob_scale_.to_output("cupy"),
             n_streams=self.n_streams,
         )
 
