@@ -570,6 +570,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET cuml_objs)
   endif()
 
+  list(APPEND $<$<BOOL:${LINK_NVFOREST}>:nvforest::nvforest++>)
+
   # These are always private:
   list(
     APPEND
@@ -590,7 +592,7 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(
     cuml_objs
-    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft nvforest::nvforest++ ${TREELITE_LIBS}
+    PUBLIC rapids_logger::rapids_logger rmm::rmm raft::raft ${TREELITE_LIBS}
            ${_cuml_cpp_public_libs}
     PRIVATE ${_cuml_cpp_private_libs} ${CUVS_LIB}
   )

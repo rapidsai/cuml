@@ -43,9 +43,9 @@ function(ConfigureTest)
             CUDA::cudart${_ctk_static_suffix}
             CUDA::cusparse${_ctk_static_suffix}
             $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
+            $<$<BOOL:${LINK_NVFOREST}>:nvforest::nvforest++>
             rmm::rmm
             raft::raft
-            nvforest::nvforest++
             GTest::gtest
             GTest::gtest_main
             GTest::gmock
