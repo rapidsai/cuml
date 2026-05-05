@@ -6,7 +6,6 @@ import cupy as cp
 import cupyx
 import numpy as np
 
-from cuml.internals.array import CumlArray
 from cuml.internals.validation import (
     check_array,
     check_consistent_length,
@@ -26,7 +25,7 @@ def confusion_matrix(
     sample_weight=None,
     normalize=None,
     convert_dtype=False,
-) -> CumlArray:
+) -> cp.ndarray:
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
