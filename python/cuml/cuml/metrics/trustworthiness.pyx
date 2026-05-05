@@ -5,7 +5,7 @@
 import numpy as np
 
 from cuml.internals import get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_array, check_consistent_length
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -77,27 +77,33 @@ def trustworthiness(
             Trustworthiness of the low-dimensional embedding
     """
 
-    if n_neighbors > X.shape[0]:
-        raise ValueError("n_neighbors must be <= the number of rows.")
-
-    if n_neighbors > X.shape[0]:
-        raise ValueError("n_neighbors must be <= the number of rows.")
-
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
-    X_m, n_samples, n_features, _ = \
-        input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None))
-    d_X_ptr = X_m.ptr
+    X_m = check_array(
+        X,
+        order='C',
+        dtype=np.float32,
+        convert_dtype=convert_dtype,
+        input_name='X',
+    )
+    cdef int n_samples = X_m.shape[0]
+    cdef int n_features = X_m.shape[1]
+    d_X_ptr = X_m.data.ptr
 
-    X_m2, _, n_components, _ = \
-        input_to_cuml_array(X_embedded, order='C',
-                            check_dtype=np.float32,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None))
-    d_X_embedded_ptr = X_m2.ptr
+    X_m2 = check_array(
+        X_embedded,
+        order='C',
+        dtype=np.float32,
+        convert_dtype=convert_dtype,
+        input_name='X_embedded',
+    )
+    check_consistent_length(X_m, X_m2)
+    cdef int n_components = X_m2.shape[1]
+    d_X_embedded_ptr = X_m2.data.ptr
+
+    if n_neighbors > n_samples:
+        raise ValueError("n_neighbors must be <= the number of rows.")
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
