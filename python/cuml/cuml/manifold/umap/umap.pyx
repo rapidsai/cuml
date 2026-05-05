@@ -1210,6 +1210,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         check_kwargs = dict(
             dtype="float32",
+            y_dtype="float32",
             convert_dtype=convert_dtype,
             order="C",
             accept_sparse="csr",
