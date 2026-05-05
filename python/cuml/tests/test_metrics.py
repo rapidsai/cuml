@@ -788,6 +788,27 @@ def test_regression_metrics_scalar_sample_weight(func):
 
 
 @pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.parametrize(
+    "y_true_shape, y_pred_shape",
+    [((4,), (4, 1)), ((4, 1), (4,)), ((4, 1), (4, 1))],
+)
+def test_regression_metrics_1d_2d_equivalence(
+    func, y_true_shape, y_pred_shape
+):
+    # (N,) and (N, 1) should be treated as equivalent (matches sklearn).
+    y_true_1d = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred_1d = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    expected = cu_metric(y_true_1d, y_pred_1d)
+
+    got = cu_metric(
+        y_true_1d.reshape(y_true_shape), y_pred_1d.reshape(y_pred_shape)
+    )
+    np.testing.assert_allclose(got, expected)
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
 def test_regression_metrics_errors(func):
     arr_3 = np.array([1.0, 2.0, 3.0])
     arr_4 = np.array([1.0, 2.0, 3.0, 4.0])

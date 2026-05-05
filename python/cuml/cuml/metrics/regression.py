@@ -30,6 +30,13 @@ def _normalize_regression_metric_args(
     )
     check_consistent_length(y_true, y_pred)
 
+    # Treat (N,) and (N, 1) as equivalent (matches sklearn's behavior in
+    # `_check_reg_targets`). Only reject genuine multi-output mismatches.
+    if y_true.ndim == 2 and y_true.shape[1] == 1:
+        y_true = y_true.ravel()
+    if y_pred.ndim == 2 and y_pred.shape[1] == 1:
+        y_pred = y_pred.ravel()
+
     if y_true.ndim != y_pred.ndim or (
         y_true.ndim == 2 and y_true.shape[1] != y_pred.shape[1]
     ):
