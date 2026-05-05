@@ -1449,7 +1449,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         if self.hash_input:
             if X_input_sparse:
-                X_for_hash = X.toarray().get()
+                X_for_hash = X.get()
             else:
                 X_for_hash = cp.asnumpy(X)
             if _joblib_hash(X_for_hash) == self._input_hash:
