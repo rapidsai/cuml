@@ -1799,7 +1799,7 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         Q = cp.asarray(Q, dtype=dtypeQ)
 
     if dtypeP != dtypeQ:
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError, match="dtype"):
             cu_kl_divergence(P, Q, convert_dtype=False)
         cu_res = cu_kl_divergence(P, Q)
     else:
