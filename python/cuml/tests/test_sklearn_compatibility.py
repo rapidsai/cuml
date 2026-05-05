@@ -197,10 +197,7 @@ XFAILS = {
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
-        "check_dtype_object": "TSNE does not handle object dtype",
-        "check_estimators_empty_data_messages": "TSNE does not handle empty data",
         "check_pipeline_consistency": "TSNE results are not deterministic",
-        "check_estimators_nan_inf": "TSNE does not check for NaN and inf",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
         "check_fit2d_1sample": "TSNE does not handle single sample",
@@ -209,7 +206,6 @@ XFAILS = {
     },
     UMAP: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "UMAP does not handle object dtype",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
