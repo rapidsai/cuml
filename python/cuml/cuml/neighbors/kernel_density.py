@@ -14,11 +14,10 @@ from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
-    check_consistent_length,
     check_inputs,
     check_is_fitted,
+    check_non_negative,
     check_random_seed,
-    check_sample_weight,
 )
 from cuml.metrics import pairwise_distances
 from cuml.metrics.pairwise_distances import (
@@ -300,14 +299,17 @@ class KernelDensity(Base, InteropMixin):
         elif self.bandwidth <= 0:
             raise ValueError(f"Expected bandwidth > 0, got {self.bandwidth}")
 
-        self._X = check_inputs(
+        self._X, self._sample_weight = check_inputs(
             self,
             X,
+            sample_weight=sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
             reset=True,
         )
+        if self._sample_weight is not None:
+            check_non_negative(self._sample_weight, input_name="sample_weight")
 
         if isinstance(self.bandwidth, str):
             if self.bandwidth == "scott":
@@ -320,17 +322,6 @@ class KernelDensity(Base, InteropMixin):
                 ) ** (-1 / (self._X.shape[1] + 4))
         else:
             self.bandwidth_ = self.bandwidth
-
-        if sample_weight is not None:
-            self._sample_weight = check_sample_weight(
-                sample_weight,
-                dtype=self._X.dtype,
-                convert_dtype=convert_dtype,
-                ensure_non_negative=True,
-            )
-            check_consistent_length(self._X, self._sample_weight)
-        else:
-            self._sample_weight = None
 
         return self
 
