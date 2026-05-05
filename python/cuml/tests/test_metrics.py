@@ -781,10 +781,26 @@ def test_regression_metrics_scalar_sample_weight(func):
     y_pred = np.array([1.1, 1.9, 3.1, 3.9])
 
     cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
 
     unweighted = cu_metric(y_true, y_pred)
     assert cu_metric(y_true, y_pred, sample_weight=1.0) == unweighted
     assert cu_metric(y_true, y_pred, sample_weight=2.5) == unweighted
+
+    # Verify cuML matches scikit-learn for unweighted
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred), skl_metric(y_true, y_pred)
+    )
+
+    # cuML accepts scalar sample_weight (equivalent to sample_weight=1.0).
+    # sklearn requires array-like sample_weight, so compare cuML scalar-sw
+    # with sklearn using a 1D array of ones.
+    sw_scalar = 1.0
+    sw_array = np.array([sw_scalar] * len(y_true))
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred, sample_weight=sw_scalar),
+        skl_metric(y_true, y_pred, sample_weight=sw_array),
+    )
 
 
 @pytest.mark.parametrize("func", _REGRESSION_FUNCS)
@@ -800,7 +816,8 @@ def test_regression_metrics_1d_2d_equivalence(
     y_pred_1d = np.array([1.1, 1.9, 3.1, 3.9])
 
     cu_metric = getattr(cuml.metrics, func)
-    expected = cu_metric(y_true_1d, y_pred_1d)
+    skl_metric = getattr(sklearn.metrics, func)
+    expected = skl_metric(y_true_1d, y_pred_1d)
 
     got = cu_metric(
         y_true_1d.reshape(y_true_shape), y_pred_1d.reshape(y_pred_shape)
@@ -815,13 +832,24 @@ def test_regression_metrics_errors(func):
     arr_3x2 = np.ones((3, 2))
 
     cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
 
-    with pytest.raises(ValueError, match="inconsistent number of samples"):
+    # cuML and sklearn both raise ValueError for mismatched sample counts.
+    # sklearn: "Found input variables with inconsistent numbers of samples"
+    # cuML: "inconsistent number of samples" — match common substring.
+    sw_mismatch = np.array([1.0, 2.0, 3.0, 4.0])
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_4)
+    with pytest.raises(ValueError, match="inconsistent"):
         cu_metric(arr_3, arr_4)
 
-    with pytest.raises(ValueError, match="inconsistent number of samples"):
-        cu_metric(arr_3, arr_3, sample_weight=arr_4)
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_3, sample_weight=sw_mismatch)
 
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        skl_metric(arr_3, arr_3, sample_weight=arr_3x2)
     with pytest.raises(ValueError, match="Sample weights must be 1D"):
         cu_metric(arr_3, arr_3, sample_weight=arr_3x2)
 
