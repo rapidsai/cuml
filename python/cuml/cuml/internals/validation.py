@@ -725,13 +725,15 @@ def check_array(
                 # Possible 2nd copy done on host for dtype enforcement
                 array = np.asarray(array, dtype=dtype, order=order)
             else:
-                array = cp.asarray(
+                # XXX: using cp.array for compat with cupy < 14
+                array = cp.array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
         else:
             # Handle all other inputs
             if mem_type == "device":
-                array = cp.asarray(
+                # XXX: using cp.array for compat with cupy < 14
+                array = cp.array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
