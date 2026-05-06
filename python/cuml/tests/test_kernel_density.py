@@ -226,10 +226,13 @@ def test_bad_sample_weight_errors():
     kde = KernelDensity()
     X = np.array([[0.0, 1.0], [2.0, 0.5]])
 
-    with pytest.raises(ValueError, match="Expected 2 rows but got 3 rows."):
+    with pytest.raises(
+        ValueError,
+        match="inconsistent number of samples",
+    ):
         kde.fit(X, sample_weight=np.array([1, 2, 3]))
 
     with pytest.raises(
-        ValueError, match="Expected 1 columns but got 2 columns."
+        ValueError, match="Sample weights must be 1D array or scalar"
     ):
         kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))

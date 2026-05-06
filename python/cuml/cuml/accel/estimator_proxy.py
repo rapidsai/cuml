@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import abc
 import functools
 from typing import Any
 
@@ -50,7 +51,7 @@ def is_proxy(instance_or_class) -> bool:
         cls = instance_or_class
     else:
         cls = type(instance_or_class)
-    return issubclass(cls, ProxyBase)
+    return isinstance(cls, ProxyBaseMeta) and hasattr(cls, "_cpu_class")
 
 
 def ensure_host(x):
@@ -113,7 +114,59 @@ class _ReconstructProxy:
 _reconstruct_proxy = _ReconstructProxy()
 
 
-class ProxyBase(BaseEstimator):
+class ProxyBaseMeta(abc.ABCMeta):
+    """A metaclass for `ProxyBase` types.
+
+    Most of the magic of `ProxyBase` lives in `ProxyBase.__init_subclass__`.
+    However, to support subclassing proxy estimators (which may make use of
+    sklearn internals, and thus cannot be actual proxies), we need a way to
+    dynamically modify the bases of a class. We also want these subclasses to
+    identify as subclasses (and instances) of the proxy class, even if the
+    proxy class isn't a true base.
+
+    Unfortunately, metaclasses don't compose as well - the metaclass of a new
+    class must be a (non-strict) subclass of the metaclass of all base classes.
+    As such, if any subclasses introduce a new metaclass to do other magic, the
+    magic of `ProxyBaseMeta` will cause issues. To work around this, we subclass
+    `ProxyBaseMeta` from the most common metaclass in use (`abc.ABCMeta`) so
+    these can at least be mixed.
+    """
+
+    def __new__(cls, name, bases, ns, **kwargs):
+        # If any base classes are ProxyBaseMeta instances _with_ a cpu class
+        # defined, replace them with their CPU class.
+        bases = tuple(
+            getattr(base, "_cpu_class", base)
+            if isinstance(base, ProxyBaseMeta)
+            else base
+            for base in bases
+        )
+        return super().__new__(cls, name, bases, ns, **kwargs)
+
+    def __subclasscheck__(self, subclass):
+        """Check if a class is a subclass"""
+        # Check if it's a true subclass
+        if super().__subclasscheck__(subclass):
+            return True
+        # Check if its a subclass of _cpu_class (if available)
+        if (cpu_class := getattr(self, "_cpu_class", None)) is not None:
+            return cpu_class.__subclasscheck__(subclass)
+        # Not a subclass
+        return False
+
+    def __instancecheck__(self, instance):
+        """Check if an object is an instance."""
+        # Check if it's a true instance
+        if super().__instancecheck__(instance):
+            return True
+        # Check if its an instance of _cpu_class (if available)
+        if (cpu_class := getattr(self, "_cpu_class", None)) is not None:
+            return cpu_class.__instancecheck__(instance)
+        # Not an instance
+        return False
+
+
+class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     """A base class for defining new Proxy estimators.
 
     Subclasses should define ``_gpu_class``, which must be a subclass of
@@ -189,6 +242,19 @@ class ProxyBase(BaseEstimator):
         # the original full module path so that the class (not an instance) can
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
+
+        # Drop `__firstlineno__`, since we can't give a good option for that.
+        # We don't want to expose the original value, since we've changed the
+        # defining `__module__`. And we don't want to use our `__firstlineno__`
+        # since it would map to the definitions in the overrides (which don't
+        # have the same `__module__` either). We use a `try-except` here since
+        # the __firstlineno__ may be stored in `cls.__dict__` (the one we want
+        # to drop) or `type(cls).__dict__` (which will error), depending on
+        # cPython version.
+        try:
+            del cls.__firstlineno__
+        except AttributeError:
+            pass
 
         # Forward _estimator_type as a class attribute if available
         _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
@@ -804,16 +870,18 @@ class ArrayAPIProxyBase(ProxyBase):
     """
 
     def __init_subclass__(cls, **kwargs):
-        # Programmatically create a new private cuml.Base class that wraps the
-        # sklearn array-api-enabled model in a cuml consistent API.
-        cls._gpu_class = type(
-            cls.__name__,
-            (_ArrayAPIWrapper,),
-            {
-                "_cpu_class_path": cls._cpu_class_path,
-                "_params_from_cpu_override": getattr(
-                    cls, "_params_from_cpu", None
-                ),
-            },
-        )
+        # If _cpu_class_path not defined, skip generation of accelerated class
+        if hasattr(cls, "_cpu_class_path"):
+            # Programmatically create a new private cuml.Base class that wraps the
+            # sklearn array-api-enabled model in a cuml consistent API.
+            cls._gpu_class = type(
+                cls.__name__,
+                (_ArrayAPIWrapper,),
+                {
+                    "_cpu_class_path": cls._cpu_class_path,
+                    "_params_from_cpu_override": getattr(
+                        cls, "_params_from_cpu", None
+                    ),
+                },
+            )
         super().__init_subclass__(**kwargs)

@@ -1115,7 +1115,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                     proba.to_output(output_type='array'), axis=1
                 )
             if preds is None:
-                return result
+                return CumlArray(data=result, index=proba.index)
             else:
                 preds[:] = result
                 return preds
