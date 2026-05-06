@@ -255,7 +255,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ):
+    ) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -287,20 +287,23 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        X = check_array(
+        X, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=True,
             order="C",
             mem_type="device",
-            return_index=False,
+            return_index=True,
             ensure_all_finite=True,
             input_name="X",
         )
         inds = nvforest_model.predict(X, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
+        return CumlArray(
+            decode_labels(inds, self.classes_, output_type=output_type),
+            index=index,
+        )
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
@@ -348,17 +351,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        X = check_array(
+        X, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=True,
             order="C",
             mem_type="device",
-            return_index=False,
+            return_index=True,
             ensure_all_finite=True,
             input_name="X",
         )
-        return nvforest_model.predict_proba(X)
+        return CumlArray(nvforest_model.predict_proba(X), index=index)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],

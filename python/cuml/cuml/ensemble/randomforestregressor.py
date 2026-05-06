@@ -251,7 +251,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
-            preds = CumlArray(preds.to_output("cupy").reshape(-1))
+            preds = preds.reshape(-1)
         return preds
 
     @nvtx.annotate(

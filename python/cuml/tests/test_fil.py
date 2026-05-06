@@ -12,6 +12,8 @@ import pandas as pd
 import pytest
 import treelite
 
+# TODO(26.10): Remove this once we fully phase out cuml.fil.ForestInference
+
 # Import XGBoost before scikit-learn to work around a libgomp bug
 # See https://github.com/dmlc/xgboost/issues/7110
 xgb = pytest.importorskip("xgboost")
@@ -668,7 +670,7 @@ def test_lightgbm(
         )
     gbm_proba = lgm.predict_proba(X_predict)
     with set_fil_device_type(infer_device):
-        fil_proba = fm.predict_proba(X_predict)
+        fil_proba = cp.asnumpy(fm.predict_proba(X_predict))
     # Given a binary classifier, FIL produces the probability score
     # only for the positive class,
     # whereas LGBMClassifier produces the probability scores for both
