@@ -300,9 +300,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         inds = nvforest_model.predict(X, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return CumlArray(
-            decode_labels(inds, self.classes_, output_type=output_type),
-            index=index,
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
         )
 
     @insert_into_docstring(

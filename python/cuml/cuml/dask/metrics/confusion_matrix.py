@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -51,10 +51,8 @@ def confusion_matrix(
     Parameters
     ----------
     y_true : dask.Array (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Ground truth (correct) target values.
     y_pred : dask.Array (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Estimated target values.
     labels : array-like (device or host) shape = (n_classes,), optional
         List of labels to index the matrix. This may be used to reorder or

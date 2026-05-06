@@ -1,16 +1,21 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx
 import numpy as np
 
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import (
+    check_array,
+    check_consistent_length,
+    check_sample_weight,
+)
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
+
+_LABEL_DTYPES = (np.int32, np.int64)
+_WEIGHT_DTYPES = (np.float32, np.float64, np.int32, np.int64)
 
 
 def confusion_matrix(
@@ -20,16 +25,14 @@ def confusion_matrix(
     sample_weight=None,
     normalize=None,
     convert_dtype=False,
-) -> CumlArray:
+) -> cp.ndarray:
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
     ----------
     y_true : array-like (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Ground truth (correct) target values.
     y_pred : array-like (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Estimated target values.
     labels : array-like (device or host) shape = (n_classes,), optional
         List of labels to index the matrix. This may be used to reorder or
@@ -47,53 +50,64 @@ def confusion_matrix(
 
     Returns
     -------
-    C : array-like (device or host) shape = (n_classes, n_classes)
-        Confusion matrix.
+    C : cupy.ndarray of shape (n_classes, n_classes)
+        Confusion matrix on device.
     """
-    y_true, n_rows, n_cols, dtype = input_to_cuml_array(
+    y_true = check_array(
         y_true,
-        check_dtype=[cp.int32, cp.int64],
-        convert_to_dtype=(cp.int32 if convert_dtype else None),
+        ensure_2d=False,
+        dtype=_LABEL_DTYPES,
+        convert_dtype=convert_dtype,
+        input_name="y_true",
     )
-
-    y_pred, _, _, _ = input_to_cuml_array(
+    y_pred = check_array(
         y_pred,
-        check_dtype=[cp.int32, cp.int64],
-        check_rows=n_rows,
-        check_cols=n_cols,
-        convert_to_dtype=(cp.int32 if convert_dtype else None),
+        ensure_2d=False,
+        dtype=_LABEL_DTYPES,
+        convert_dtype=convert_dtype,
+        input_name="y_pred",
     )
+    if y_true.ndim != 1 or y_pred.ndim != 1:
+        raise ValueError(
+            f"y_true and y_pred must be 1D arrays, got shapes "
+            f"{y_true.shape} and {y_pred.shape}"
+        )
+    check_consistent_length(y_true, y_pred)
+    n_rows = y_true.shape[0]
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
-        n_labels = len(labels)
     else:
-        labels, n_labels, _, _ = input_to_cupy_array(
+        labels = check_array(
             labels,
-            check_dtype=[cp.int32, cp.int64],
-            convert_to_dtype=(cp.int32 if convert_dtype else None),
-            check_cols=1,
+            ensure_2d=False,
+            dtype=_LABEL_DTYPES,
+            convert_dtype=convert_dtype,
+            input_name="labels",
         )
-    if sample_weight is None:
-        sample_weight = cp.ones(n_rows, dtype=dtype)
-    else:
-        sample_weight, _, _, _ = input_to_cupy_array(
-            sample_weight,
-            check_dtype=[cp.float32, cp.float64, cp.int32, cp.int64],
-            check_rows=n_rows,
-            check_cols=n_cols,
-        )
+        if labels.ndim != 1:
+            raise ValueError(
+                f"labels must be a 1D array, got shape {labels.shape}"
+            )
+    n_labels = labels.shape[0]
 
-    if normalize not in ["true", "pred", "all", None]:
-        msg = (
+    if (
+        sample_weight := check_sample_weight(
+            sample_weight, dtype=_WEIGHT_DTYPES, convert_dtype=convert_dtype
+        )
+    ) is not None:
+        check_consistent_length(y_true, sample_weight)
+    else:
+        sample_weight = cp.ones(n_rows, dtype=y_true.dtype)
+
+    if normalize not in ("true", "pred", "all", None):
+        raise ValueError(
             "normalize must be one of "
             f"{{'true', 'pred', 'all', None}}, got {normalize}."
         )
-        raise ValueError(msg)
 
-    with using_output_type("cupy"):
-        y_true, _ = make_monotonic(y_true, labels, copy=True)
-        y_pred, _ = make_monotonic(y_pred, labels, copy=True)
+    y_true, _ = make_monotonic(y_true, labels, copy=True)
+    y_pred, _ = make_monotonic(y_pred, labels, copy=True)
 
     # intersect y_pred, y_true with labels, eliminate items not in labels
     ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
