@@ -16,6 +16,7 @@ import scipy.sparse
 import sklearn.metrics
 from numba import cuda
 from numpy.testing import assert_almost_equal
+from packaging.version import Version
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 from scipy.stats import entropy as sp_entropy
@@ -764,6 +765,102 @@ def test_mean_squared_log_error_negative_values(inputs):
         cuml.metrics.mean_squared_log_error(
             np.array(inputs[0]), np.array(inputs[1])
         )
+
+
+_REGRESSION_FUNCS = [
+    "r2_score",
+    "mean_squared_error",
+    "mean_absolute_error",
+    "median_absolute_error",
+    "mean_squared_log_error",
+]
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+def test_regression_metrics_scalar_sample_weight(func):
+    y_true = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    unweighted = cu_metric(y_true, y_pred)
+    assert cu_metric(y_true, y_pred, sample_weight=1.0) == unweighted
+    assert cu_metric(y_true, y_pred, sample_weight=2.5) == unweighted
+
+    # Verify cuML matches scikit-learn for unweighted
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred), skl_metric(y_true, y_pred)
+    )
+
+    # cuML accepts scalar sample_weight (equivalent to sample_weight=1.0).
+    # sklearn requires array-like sample_weight, so compare cuML scalar-sw
+    # with sklearn using a 1D array of ones.
+    sw_scalar = 1.0
+    sw_array = np.array([sw_scalar] * len(y_true))
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred, sample_weight=sw_scalar),
+        skl_metric(y_true, y_pred, sample_weight=sw_array),
+    )
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.parametrize(
+    "y_true_shape, y_pred_shape",
+    [((4,), (4, 1)), ((4, 1), (4,)), ((4, 1), (4, 1))],
+)
+def test_regression_metrics_1d_2d_equivalence(
+    func, y_true_shape, y_pred_shape
+):
+    # (N,) and (N, 1) should be treated as equivalent (matches sklearn).
+    y_true_1d = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred_1d = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+    expected = skl_metric(y_true_1d, y_pred_1d)
+
+    got = cu_metric(
+        y_true_1d.reshape(y_true_shape), y_pred_1d.reshape(y_pred_shape)
+    )
+    np.testing.assert_allclose(got, expected)
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.xfail(
+    condition=Version(sklearn.__version__) < Version("1.7"),
+    reason=(
+        "sklearn < 1.7 uses different error messages for invalid "
+        "sample_weight inputs; messages were standardized in sklearn 1.7"
+    ),
+    strict=True,
+)
+def test_regression_metrics_errors(func):
+    arr_3 = np.array([1.0, 2.0, 3.0])
+    arr_4 = np.array([1.0, 2.0, 3.0, 4.0])
+    arr_3x2 = np.ones((3, 2))
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    # cuML and sklearn both raise ValueError for mismatched sample counts.
+    # sklearn: "Found input variables with inconsistent numbers of samples"
+    # cuML: "inconsistent number of samples" — match common substring.
+    sw_mismatch = np.array([1.0, 2.0, 3.0, 4.0])
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_4)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_4)
+
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        skl_metric(arr_3, arr_3, sample_weight=arr_3x2)
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        cu_metric(arr_3, arr_3, sample_weight=arr_3x2)
 
 
 def test_entropy():
