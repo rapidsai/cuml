@@ -1892,6 +1892,16 @@ def test_hinge_loss_binary(container):
     )
 
 
+def test_hinge_loss_binary_labels_single_observed_positive_class():
+    y_true = np.array([1, 1])
+    pred_decision = np.array([0.5, 0.6])
+    labels = np.array([-1, 1])
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision, labels=labels),
+        sk_hinge(y_true, pred_decision, labels=labels),
+    )
+
+
 @pytest.mark.parametrize("with_labels", [True, False])
 @pytest.mark.parametrize("with_sample_weight", [True, False])
 def test_hinge_loss_multiclass(with_labels, with_sample_weight):
