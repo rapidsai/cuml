@@ -785,15 +785,28 @@ def test_check_array_copy(array, mem_type):
 
 
 @pytest.mark.parametrize("mem_type", ["host", "device"])
-def test_check_array_sparse_copy(mem_type):
+@pytest.mark.parametrize("format", ["csr", "csc", "coo"])
+def test_check_array_sparse_copy(mem_type, format):
     array = (cp_sp if mem_type == "device" else sp).random(
         10,
         5,
         density=0.5,
         random_state=42,
+        format=format,
     )
     res = check_array(array, accept_sparse=True, copy=True)
     assert res is not array
+
+    def ptr(x):
+        return x.ctypes.data if isinstance(x, np.ndarray) else x.data.ptr
+
+    assert ptr(res.data) != ptr(array.data)
+    if format == "coo":
+        assert ptr(res.row) != ptr(array.row)
+        assert ptr(res.col) != ptr(array.col)
+    else:
+        assert ptr(res.indices) != ptr(array.indices)
+        assert ptr(res.indptr) != ptr(array.indptr)
 
 
 def test_check_array_convert_dtype():
