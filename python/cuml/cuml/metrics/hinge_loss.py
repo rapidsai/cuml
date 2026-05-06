@@ -4,7 +4,6 @@
 #
 import warnings
 
-import cudf
 import cupy as cp
 import numpy as np
 
@@ -13,7 +12,6 @@ from cuml.internals.validation import (
     check_consistent_length,
     check_sample_weight,
 )
-from cuml.preprocessing import LabelBinarizer, LabelEncoder
 
 
 def hinge_loss(
@@ -90,39 +88,57 @@ def hinge_loss(
     sample_weight = check_sample_weight(sample_weight, dtype=np.float64)
     check_consistent_length(y_true, pred_decision, sample_weight)
 
-    y_true_unique = cp.unique(labels if labels is not None else y_true)
+    # The set of unique labels (sorted) determines whether we're in the binary
+    # or multiclass regime, and provides the column ordering for
+    # `pred_decision` in the multiclass case.
+    classes = cp.sort(cp.unique(y_true if labels is None else labels))
 
-    if y_true_unique.size > 2:
+    if classes.size > 2:
+        # Multiclass case
         if (
             labels is None
             and pred_decision.ndim > 1
-            and y_true_unique.size != pred_decision.shape[1]
+            and classes.size != pred_decision.shape[1]
         ):
             raise ValueError(
                 "Please include all labels in y_true "
                 "or pass labels as third argument"
             )
-        if labels is None:
-            labels = y_true_unique
-        le = LabelEncoder(output_type="cudf")
-        le.fit(cudf.Series(labels))
-        y_true = le.transform(cudf.Series(y_true))
+        if pred_decision.ndim != 2:
+            raise ValueError(
+                "pred_decision must be 2D for multiclass hinge loss, "
+                f"got a {pred_decision.ndim}D array instead."
+            )
+
+        # Encode `y_true` as column indices into `classes`. `searchsorted`
+        # produces the right index when the value exists, and an
+        # out-of-range / wrong index otherwise -- which we catch below.
+        y_true_idx = cp.searchsorted(classes, y_true)
+        if not bool(
+            (y_true_idx < classes.size).all()
+            and (
+                classes[cp.minimum(y_true_idx, classes.size - 1)] == y_true
+            ).all()
+        ):
+            raise ValueError(
+                "y_true contains labels that are not present in `labels`."
+            )
 
         n_samples = y_true.shape[0]
         mask = cp.ones_like(pred_decision, dtype=bool)
-        mask[cp.arange(n_samples), y_true.values] = False
+        mask[cp.arange(n_samples), y_true_idx] = False
         margin = pred_decision[~mask]
         margin -= cp.max(pred_decision[mask].reshape(n_samples, -1), axis=1)
     else:
-        # Handles binary class case
-        # this code assumes that positive and negative labels
-        # are encoded as +1 and -1 respectively
+        # Binary case. Map the smaller class to -1 and the larger class to +1,
+        # matching the convention used by sklearn's LabelBinarizer.
         if pred_decision.ndim > 1:
             pred_decision = cp.ravel(pred_decision)
-
-        lbin = LabelBinarizer(neg_label=-1, output_type="cupy")
-        y_true = lbin.fit_transform(cudf.Series(y_true))[:, 1]
-        margin = y_true * pred_decision
+        pos_label = classes[-1]
+        y_signed = cp.where(y_true == pos_label, 1, -1).astype(
+            pred_decision.dtype, copy=False
+        )
+        margin = y_signed * pred_decision
 
     losses = 1 - margin
     # The hinge_loss doesn't penalize good enough predictions.
