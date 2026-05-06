@@ -10,9 +10,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn
 import treelite
-from packaging.version import Version
 
 # Import XGBoost before scikit-learn to work around a libgomp bug
 # See https://github.com/dmlc/xgboost/issues/7110
@@ -43,9 +41,14 @@ from cuml.testing.utils import (  # noqa: E402
 )
 
 # TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of 'max_depth':FutureWarning"
+    ),
+]
 
 
 def simulate_data(
@@ -207,10 +210,10 @@ def test_fil_classification(
 
         fm = ForestInference.load(model_path, is_classifier=True)
     with set_fil_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        fil_proba = cp.asnumpy(fm.predict_proba(X_validation))
         fil_proba = np.reshape(fil_proba, xgb_proba.shape)
         fm.optimize(batch_size=len(X_validation))
-        fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
+        fil_proba_opt = cp.asnumpy(fm.predict_proba(X_validation))
         fil_proba_opt = np.reshape(fil_proba_opt, xgb_proba.shape)
 
         np.testing.assert_almost_equal(fil_proba, xgb_proba, decimal=6)
@@ -274,10 +277,10 @@ def test_fil_regression(
             path=model_path, is_classifier=False, precision="single"
         )
     with set_fil_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict(X_validation))
+        fil_preds = cp.asnumpy(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
         fm.optimize(data=X_validation)
-        fil_preds_opt = np.asarray(fm.predict(X_validation))
+        fil_preds_opt = cp.asnumpy(fm.predict(X_validation))
         fil_preds_opt = np.reshape(fil_preds_opt, np.shape(xgb_preds))
 
         np.testing.assert_almost_equal(fil_preds, xgb_preds, decimal=4)
@@ -362,7 +365,7 @@ def test_fil_skl_classification(
             skl_model, precision=precision, is_classifier=True
         )
     with set_fil_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X_validation))
+        fil_proba = cp.asnumpy(fm.predict_proba(X_validation))
         # Given a binary GradientBoostingClassifier,
         # FIL produces the probability score only for the positive class,
         # whereas scikit-learn produces the probability scores for both
@@ -373,7 +376,7 @@ def test_fil_skl_classification(
         fil_proba = np.reshape(fil_proba, skl_proba.shape)
 
         fm.optimize(data=np.expand_dims(X_validation, 0))
-        fil_proba_opt = np.asarray(fm.predict_proba(X_validation))
+        fil_proba_opt = cp.asnumpy(fm.predict_proba(X_validation))
         if n_classes == 2 and model_class == GradientBoostingClassifier:
             fil_proba_opt = np.stack(
                 [1 - fil_proba_opt, fil_proba_opt], axis=1
@@ -454,10 +457,10 @@ def test_fil_skl_regression(
             precision="double",
         )
     with set_fil_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict(X_validation))
+        fil_preds = cp.asnumpy(fm.predict(X_validation))
         fil_preds = np.reshape(fil_preds, np.shape(skl_preds))
         fm.optimize(batch_size=len(X_validation))
-        fil_preds_opt = np.asarray(fm.predict(X_validation))
+        fil_preds_opt = cp.asnumpy(fm.predict(X_validation))
         fil_preds_opt = np.reshape(fil_preds_opt, np.shape(skl_preds))
 
         np.testing.assert_almost_equal(fil_preds, skl_preds)
@@ -497,7 +500,7 @@ def test_precision_xgboost(
         )
 
     with set_fil_device_type(infer_device):
-        fil_preds = np.asarray(fm.predict_proba(X))
+        fil_preds = cp.asnumpy(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_preds, xgb_preds)
@@ -520,7 +523,7 @@ def test_performance_hyperparameters(
         )
 
     with set_fil_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X, chunk_size=chunk_size))
+        fil_proba = cp.asnumpy(fm.predict_proba(X, chunk_size=chunk_size))
         fil_proba = np.reshape(fil_proba, xgb_preds.shape)
 
         np.testing.assert_almost_equal(fil_proba, xgb_preds)
@@ -535,8 +538,8 @@ def test_chunk_size(chunk_size, small_classifier_and_preds):
         is_classifier=True,
     )
 
-    fil_preds = np.asarray(fm.predict(X, chunk_size=chunk_size))
-    fil_proba = np.asarray(
+    fil_preds = cp.asnumpy(fm.predict(X, chunk_size=chunk_size))
+    fil_proba = cp.asnumpy(
         fm.predict_proba(X, chunk_size=chunk_size)
     ).squeeze()
 
@@ -556,8 +559,8 @@ def test_output_args(train_device, infer_device, small_classifier_and_preds):
             model_path, is_classifier=True, model_type=model_type
         )
     with set_fil_device_type(infer_device):
-        X = np.asarray(X)
-        fil_preds = np.asarray(fm.predict_proba(X))
+        X = cp.asnumpy(X)
+        fil_preds = cp.asnumpy(fm.predict_proba(X))
         fil_preds = np.reshape(fil_preds, np.shape(xgb_preds))
 
     np.testing.assert_almost_equal(fil_preds, xgb_preds)
@@ -712,7 +715,7 @@ def test_predict_per_tree(
         pred_per_tree_tl = treelite.gtil.predict_per_tree(tl_model, X)
 
     with set_fil_device_type(infer_device):
-        pred_per_tree = fm.predict_per_tree(X)
+        pred_per_tree = cp.asnumpy(fm.predict_per_tree(X))
         margin_pred = bst.predict(xgb.DMatrix(X), output_margin=True)
         if n_classes == 2:
             expected_shape = (n_rows, num_boost_round)
@@ -726,7 +729,7 @@ def test_predict_per_tree(
                 )
             )
         fm.optimize(batch_size=len(X), predict_method="predict_per_tree")
-        pred_per_tree_opt = fm.predict_per_tree(X)
+        pred_per_tree_opt = cp.asnumpy(fm.predict_per_tree(X))
         assert pred_per_tree.shape == expected_shape
         np.testing.assert_almost_equal(sum_by_class, margin_pred, decimal=3)
         np.testing.assert_almost_equal(
@@ -767,9 +770,9 @@ def test_predict_per_tree_with_vector_leaf(
         )
 
     with set_fil_device_type(infer_device):
-        pred_per_tree = fm.predict_per_tree(X)
+        pred_per_tree = cp.asnumpy(fm.predict_per_tree(X))
         fm.optimize(batch_size=len(X), predict_method="predict_per_tree")
-        pred_per_tree_opt = fm.predict_per_tree(X)
+        pred_per_tree_opt = cp.asnumpy(fm.predict_per_tree(X))
         margin_pred = skl_model.predict_proba(X)
         assert pred_per_tree.shape == (n_rows, n_estimators, n_classes)
         avg_by_class = np.sum(pred_per_tree, axis=1) / n_estimators
@@ -817,7 +820,7 @@ def test_apply(train_device, infer_device, n_classes, tmp_path):
         )
 
     with set_fil_device_type(infer_device):
-        pred_leaf = fm.apply(X).astype(np.int32)
+        pred_leaf = cp.asnumpy(fm.apply(X).astype(np.int32))
         expected_pred_leaf = bst.predict(xgb.DMatrix(X), pred_leaf=True)
         if n_classes == 2:
             expected_shape = (n_rows, num_boost_round)
@@ -834,7 +837,7 @@ def test_missing_categorical(category_list):
         leaf_output_type="float32",
         metadata=treelite.model_builder.Metadata(
             num_feature=1,
-            task_type="kBinaryClf",
+            task_type="kRegressor",
             average_tree_output=False,
             num_target=1,
             num_class=[1],
@@ -872,7 +875,7 @@ def test_missing_categorical(category_list):
     input = np.array([[np.nan]])
     gtil_preds = treelite.gtil.predict(model, input)
     fm = ForestInference.load_from_treelite_model(model)
-    fil_preds = np.asarray(fm.predict(input))
+    fil_preds = cp.asnumpy(fm.predict(input))
     np.testing.assert_equal(fil_preds.flatten(), gtil_preds.flatten())
 
 
@@ -917,9 +920,6 @@ def test_device_selection(device_id, model_kind, tmp_path):
         )
         xgb_model.fit(X, y)
         model_path = os.path.join(tmp_path, "xgb_class.ubj")
-        # skip with sklearn version 1.8.0.dev0
-        if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-            pytest.skip("xgboost is incompatible with sklearn >= 1.8.0.dev0")
         xgb_model.save_model(model_path)
         fm = ForestInference.load(
             model_path,
@@ -943,7 +943,7 @@ def test_device_selection(device_id, model_kind, tmp_path):
                 n_streams=1,
             )
             cuml_model.fit(cp.array(X), cp.array(y))
-            fm = cuml_model.as_fil()
+            fm = cuml_model.as_nvforest()
     else:
         raise NotImplementedError()
 
@@ -981,7 +981,7 @@ def test_wide_data():
     n_rows = 50
     n_features = 100000
     X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
-    y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
+    y = np.array([0, 1] * (n_rows // 2), dtype=np.int32)
 
     clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
     clf.fit(X, y)
