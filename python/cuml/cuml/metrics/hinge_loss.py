@@ -11,6 +11,7 @@ from cuml.internals.validation import (
     check_array,
     check_consistent_length,
     check_sample_weight,
+    check_y,
 )
 
 
@@ -66,12 +67,6 @@ def hinge_loss(
         if sample_weight is None:
             sample_weight = sample_weights
 
-    y_true = check_array(
-        y_true,
-        ensure_2d=False,
-        ensure_all_finite=False,
-        input_name="y_true",
-    )
     pred_decision = check_array(
         pred_decision,
         ensure_2d=False,
@@ -85,13 +80,24 @@ def hinge_loss(
             ensure_all_finite=False,
             input_name="labels",
         )
+        # `check_y(return_classes=...)` expects a sorted, deduplicated numpy
+        # array specifying the classes to use for label encoding. It will
+        # raise a descriptive error if `y_true` contains labels not in this
+        # array.
+        return_classes = np.unique(cp.asnumpy(labels))
+    else:
+        # Derive classes from `y_true` itself.
+        return_classes = True
+
+    # Label-encode `y_true` to integer codes (column indices into `classes`).
+    # `classes` comes back as a sorted numpy array.
+    y_true, classes = check_y(
+        y_true,
+        return_classes=return_classes,
+    )
+
     sample_weight = check_sample_weight(sample_weight, dtype=np.float64)
     check_consistent_length(y_true, pred_decision, sample_weight)
-
-    # The set of unique labels (sorted) determines whether we're in the binary
-    # or multiclass regime, and provides the column ordering for
-    # `pred_decision` in the multiclass case.
-    classes = cp.sort(cp.unique(y_true if labels is None else labels))
 
     if classes.size > 2:
         # Multiclass case
@@ -110,32 +116,19 @@ def hinge_loss(
                 f"got a {pred_decision.ndim}D array instead."
             )
 
-        # Encode `y_true` as column indices into `classes`. `searchsorted`
-        # produces the right index when the value exists, and an
-        # out-of-range / wrong index otherwise -- which we catch below.
-        y_true_idx = cp.searchsorted(classes, y_true)
-        if not bool(
-            (y_true_idx < classes.size).all()
-            and (
-                classes[cp.minimum(y_true_idx, classes.size - 1)] == y_true
-            ).all()
-        ):
-            raise ValueError(
-                "y_true contains labels that are not present in `labels`."
-            )
-
+        # `y_true` is already encoded as column indices into `classes`.
         n_samples = y_true.shape[0]
         mask = cp.ones_like(pred_decision, dtype=bool)
-        mask[cp.arange(n_samples), y_true_idx] = False
+        mask[cp.arange(n_samples), y_true] = False
         margin = pred_decision[~mask]
         margin -= cp.max(pred_decision[mask].reshape(n_samples, -1), axis=1)
     else:
-        # Binary case. Map the smaller class to -1 and the larger class to +1,
-        # matching the convention used by sklearn's LabelBinarizer.
+        # Binary case. Codes are 0/1 with `classes` sorted, so code 1
+        # corresponds to the larger class (positive label), matching the
+        # convention used by sklearn's LabelBinarizer.
         if pred_decision.ndim > 1:
             pred_decision = cp.ravel(pred_decision)
-        pos_label = classes[-1]
-        y_signed = cp.where(y_true == pos_label, 1, -1).astype(
+        y_signed = cp.where(y_true == 1, 1, -1).astype(
             pred_decision.dtype, copy=False
         )
         margin = y_signed * pred_decision
