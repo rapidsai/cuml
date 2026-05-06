@@ -387,6 +387,11 @@ def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
         preds2 = model.predict(X)
     assert isinstance(preds2, (pd.Series, pd.DataFrame))
 
+    # `predict` attaches the index of `X`
+    df_X = pd.DataFrame(X, index=[10 * i for i in range(X.shape[0])])
+    preds3 = model.predict(df_X)
+    assert (preds3.index == df_X.index).all()
+
     # Unsupported dtype & output type pairs raise nicely
     if dtype_kind == "string" and target_kind == "binary":
         with pytest.raises(

@@ -346,9 +346,9 @@ class LogisticRegression(
         Predicts the y for X.
 
         """
-        scores = self.decision_function(
-            X, convert_dtype=convert_dtype
-        ).to_output("cupy")
+        scores = self.decision_function(X, convert_dtype=convert_dtype)
+        index = scores.index
+        scores = scores.to_output("cupy")
 
         if scores.ndim == 1:
             indices = (scores > 0).view(cp.int8)
@@ -357,7 +357,9 @@ class LogisticRegression(
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(indices, self.classes_, output_type=output_type)
+        return decode_labels(
+            indices, self.classes_, output_type=output_type, index=index
+        )
 
     @generate_docstring(
         X="dense_sparse",

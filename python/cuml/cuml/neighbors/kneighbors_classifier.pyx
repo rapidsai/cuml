@@ -255,7 +255,13 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(out, self.classes_, output_type=output_type)
+
+        return decode_labels(
+            out,
+            self.classes_,
+            output_type=output_type,
+            index=knn_indices.index,
+        )
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
