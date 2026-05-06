@@ -14,6 +14,7 @@ from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
+    check_non_negative,
     check_random_seed,
 )
 from cuml.metrics.pairwise_distances import (
@@ -109,7 +110,7 @@ class KernelDensity(Base, InteropMixin):
         sample_weight = (
             None
             if model.tree_.sample_weight is None
-            else cp.asarray(model.tree_.sample_weight, dtype=cp.float32)
+            else cp.asarray(model.tree_.sample_weight, dtype=X.dtype)
         )
         return {
             "bandwidth_": model.bandwidth_,
@@ -194,10 +195,7 @@ class KernelDensity(Base, InteropMixin):
             reset=True,
         )
         if self._sample_weight is not None:
-            if cp.min(self._sample_weight) <= 0:
-                raise ValueError(
-                    "sample_weight must have strictly positive values"
-                )
+            check_non_negative(self._sample_weight, input_name="sample_weight")
 
         if isinstance(self.bandwidth, str):
             if self.bandwidth == "scott":
