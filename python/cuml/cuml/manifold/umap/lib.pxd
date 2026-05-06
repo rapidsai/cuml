@@ -67,6 +67,10 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
         bool deterministic,
         DistanceType metric,
         float p,
+        bool densmap,
+        float dens_lambda,
+        float dens_frac,
+        float dens_var_shift,
         GraphBasedDimRedCallback * callback,
 
 

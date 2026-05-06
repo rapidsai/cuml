@@ -201,11 +201,13 @@ void optimize_layout(T* head_embedding,
                      float gamma,
                      UMAPParams* params,
                      int n_epochs,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     DensMap::DensMapData<T>* dm = nullptr)
 {
   // Are we doing a fit or a transform?
-  bool move_other = head_embedding == tail_embedding;
-  T alpha         = params->initial_alpha;
+  bool move_other  = head_embedding == tail_embedding;
+  T alpha          = params->initial_alpha;
+  bool use_densmap = (dm != nullptr) && params->densmap;
 
   auto stream_view = rmm::cuda_stream_view(stream);
 
@@ -236,13 +238,22 @@ void optimize_layout(T* head_embedding,
     // nnz edges at once.
     // also shuffle when want deterministic behavior to ensure that updates for the same vertex are
     // processed in different kernel launches.
-    auto first = thrust::make_zip_iterator(
-      cuda::std::make_tuple(thrust::device_pointer_cast(head),
-                            thrust::device_pointer_cast(tail),
-                            thrust::device_pointer_cast(epochs_per_sample)));
-
-    thrust::default_random_engine rng(params->random_state);
-    thrust::shuffle(first, first + nnz, rng);
+    if (use_densmap) {
+      auto first = thrust::make_zip_iterator(
+        cuda::std::make_tuple(thrust::device_pointer_cast(head),
+                              thrust::device_pointer_cast(tail),
+                              thrust::device_pointer_cast(epochs_per_sample),
+                              thrust::device_pointer_cast(dm->mu)));
+      thrust::default_random_engine rng(params->random_state);
+      thrust::shuffle(first, first + nnz, rng);
+    } else {
+      auto first = thrust::make_zip_iterator(
+        cuda::std::make_tuple(thrust::device_pointer_cast(head),
+                              thrust::device_pointer_cast(tail),
+                              thrust::device_pointer_cast(epochs_per_sample)));
+      thrust::default_random_engine rng(params->random_state);
+      thrust::shuffle(first, first + nnz, rng);
+    }
     if (min_n <= 100000) {
       // related issue: https://github.com/rapidsai/cuml/issues/7431
       // Heuristic value for forcing serial behavior to handle outliers in smaller datasets.
@@ -326,6 +337,26 @@ void optimize_layout(T* head_embedding,
   uint64_t seed = params->random_state;
 
   for (int n = 0; n < n_epochs; n++) {
+    bool densmap_flag = use_densmap && (params->dens_lambda > 0.0f) &&
+                        (static_cast<float>(n + 1) / n_epochs > (1.0f - params->dens_frac));
+
+    if (densmap_flag) {
+      DensMap::densmap_epoch_init<T, nnz_t, TPB_X>(head_embedding,
+                                                   tail_embedding,
+                                                   head,
+                                                   tail,
+                                                   nnz,
+                                                   head_n,
+                                                   params->n_components,
+                                                   params->a,
+                                                   params->b,
+                                                   dm->re_sum,
+                                                   dm->phi_sum,
+                                                   dm->exp_neg_re_sum,
+                                                   stream);
+      DensMap::densmap_epoch_stats(*dm, params->dens_var_shift, stream);
+    }
+
     call_optimize_batch_kernel<T, nnz_t, TPB_X>(head_embedding,
                                                 d_head_buffer,
                                                 d_head_flags,
@@ -349,7 +380,16 @@ void optimize_layout(T* head_embedding,
                                                 grid,
                                                 blk,
                                                 stream,
-                                                rounding);
+                                                rounding,
+                                                densmap_flag,
+                                                densmap_flag ? dm->R : nullptr,
+                                                densmap_flag ? dm->mu : nullptr,
+                                                densmap_flag ? dm->re_sum : nullptr,
+                                                densmap_flag ? dm->phi_sum : nullptr,
+                                                densmap_flag ? dm->exp_neg_re_sum : nullptr,
+                                                densmap_flag ? dm->re_mean : T(0),
+                                                densmap_flag ? dm->cov_over_var : T(0),
+                                                densmap_flag ? dm->outer_scale : T(0));
     RAFT_CUDA_TRY(cudaGetLastError());
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs, seed);
   }
@@ -367,7 +407,8 @@ void launcher(int m,
               UMAPParams* params,
               T* embedding,
               int n_epochs,
-              cudaStream_t stream)
+              cudaStream_t stream,
+              DensMap::DensMapData<T>* dm = nullptr)
 {
   nnz_t nnz = in->nnz;
 
@@ -395,7 +436,8 @@ void launcher(int m,
                                    params->repulsion_strength,
                                    params,
                                    n_epochs,
-                                   stream);
+                                   stream,
+                                   dm);
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
