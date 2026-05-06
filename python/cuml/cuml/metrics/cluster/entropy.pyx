@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 
 from cuml.internals import get_handle
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -44,11 +44,20 @@ def cython_entropy(clustering, base=None) -> float:
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    clustering, n_rows, _, _ = input_to_cupy_array(
+    clustering = check_array(
         clustering,
-        check_dtype=np.int32,
-        check_cols=1
+        ensure_2d=False,
+        order='C',
+        dtype=np.int32,
+        input_name='clustering',
     )
+    if clustering.ndim == 2 and clustering.shape[1] != 1:
+        raise ValueError(
+            "clustering must have shape (n_samples,) or (n_samples, 1), got "
+            f"{clustering.shape}"
+        )
+    clustering = clustering.ravel()
+    cdef int n_rows = clustering.shape[0]
     lower_class_range = cp.min(clustering).item()
     upper_class_range = cp.max(clustering).item()
 
@@ -56,7 +65,7 @@ def cython_entropy(clustering, base=None) -> float:
 
     S = entropy(handle_[0],
                 <int*> clustering_ptr,
-                <int> n_rows,
+                n_rows,
                 <int> lower_class_range,
                 <int> upper_class_range)
 
