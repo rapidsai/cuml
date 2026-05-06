@@ -685,6 +685,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         * 'random': assign initial embedding positions at random.
         * An array-like with initial embedding positions.
 
+        Note: When ``init='spectral'``, ``force_serial_epochs`` defaults to
+        ``True`` because spectral initialization is more susceptible to
+        outlier artifacts.  Pass ``force_serial_epochs=False`` to disable
+        this and use the faster parallel batch kernel.
+
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
         will result in a more clustered/clumped embedding where nearby points
@@ -1856,6 +1861,11 @@ def simplicial_set_embedding(
             * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
             * 'random': assign initial embedding positions at random.
             * An array-like with initial embedding positions.
+
+        Note: When ``init='spectral'``, ``force_serial_epochs`` defaults to
+        ``True`` because spectral initialization is more susceptible to
+        outlier artifacts.  Pass ``force_serial_epochs=False`` to disable
+        this and use the faster parallel batch kernel.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
     force_serial_epochs: bool or None, optional (default=None)
