@@ -50,8 +50,8 @@ def confusion_matrix(
 
     Returns
     -------
-    C : array-like (device or host) shape = (n_classes, n_classes)
-        Confusion matrix.
+    C : cupy.ndarray of shape (n_classes, n_classes)
+        Confusion matrix on device.
     """
     y_true = check_array(
         y_true,
