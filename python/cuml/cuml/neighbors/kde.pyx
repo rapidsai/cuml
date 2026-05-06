@@ -8,9 +8,8 @@ import numpy as np
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
 from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
@@ -52,9 +51,9 @@ cdef extern from "cuml/neighbors/kde.hpp" nogil:
                                  const float *train,
                                  const float *weights,
                                  float *output,
-                                 int n_query,
-                                 int n_train,
-                                 int n_features,
+                                 int64_t n_query,
+                                 int64_t n_train,
+                                 int64_t n_features,
                                  float bandwidth,
                                  float sum_weights,
                                  DensityKernelType kernel,
@@ -67,9 +66,9 @@ cdef extern from "cuml/neighbors/kde.hpp" nogil:
                                  const double *train,
                                  const double *weights,
                                  double *output,
-                                 int n_query,
-                                 int n_train,
-                                 int n_features,
+                                 int64_t n_query,
+                                 int64_t n_train,
+                                 int64_t n_features,
                                  double bandwidth,
                                  double sum_weights,
                                  DensityKernelType kernel,
@@ -120,15 +119,15 @@ def kde_score_samples(query, train, sample_weight,
     # Determine dtype from training data
     dtype = train.dtype
 
-    cdef int n_query = query.shape[0]
-    cdef int n_train = train.shape[0]
-    cdef int n_features = query.shape[1] if len(query.shape) > 1 else 1
+    cdef int64_t n_query = query.shape[0]
+    cdef int64_t n_train = train.shape[0]
+    cdef int64_t n_features = query.shape[1] if len(query.shape) > 1 else 1
 
     # Allocate output
     output = CumlArray.zeros(n_query, dtype=dtype)
 
     # Extract device pointers
-    cdef uintptr_t query_ptr = query.ptr
+    cdef uintptr_t query_ptr = query.__cuda_array_interface__['data'][0]
     cdef uintptr_t train_ptr = train.__cuda_array_interface__['data'][0]
     cdef uintptr_t weight_ptr = 0
     if sample_weight is not None:

@@ -383,7 +383,7 @@ def _make_metric_data(metric, n_train=40, n_query=8, d=4, seed=7):
     ],
 )
 def test_all_kernels_all_metrics(metric, kernel):
-    """Every metric × kernel combination produces output matching the reference.
+    """Every metric x kernel combination produces output matching the reference.
 
     For metrics supported by sklearn.pairwise_distances the reference is
     compute_kernel_naive; for metrics absent from sklearn a matching numpy
