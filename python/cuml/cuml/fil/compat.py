@@ -11,7 +11,55 @@ import nvforest
 import treelite
 
 from cuml.internals.base import Base, get_handle
+from cuml.internals.device_type import DeviceType
+from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import CMajorInputTagMixin
+
+
+class set_fil_device_type:
+    """Set the device type used by FIL.
+
+    May optionally be used as a context-manager to set the device type only
+    within a context.
+
+    Parameters
+    ----------
+    device_type : {'cpu', 'gpu'}
+        The device type to use.
+
+    Examples
+    --------
+    >>> from cuml.fil import set_fil_device_type  # doctest: +SKIP
+
+    Set the device type globally to use CPU.
+
+    >>> set_fil_device_type("cpu")  # doctest: +SKIP
+
+    Set the device type globally to use GPU.
+
+    >>> set_fil_device_type("gpu")  # doctest: +SKIP
+
+    Set the device type to use CPU within a context.
+
+    >>> with set_fil_device_type("cpu"):  # doctest: +SKIP
+    ...     ...
+    """
+
+    def __init__(self, device_type):
+        device_type = DeviceType.from_str(device_type)
+        self._previous = GlobalSettings().fil_device_type
+        GlobalSettings().fil_device_type = device_type
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        GlobalSettings().fil_device_type = self._previous
+
+
+def get_fil_device_type() -> DeviceType:
+    """Get the device type used by FIL."""
+    return GlobalSettings().fil_device_type
 
 
 class ForestInference(Base, CMajorInputTagMixin):
@@ -140,7 +188,9 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj.model = nvforest.load_model(
             model_file=path,
             model_type=model_type,
-            device="gpu",
+            device="gpu"
+            if get_fil_device_type() == DeviceType.device
+            else "cpu",
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -173,7 +223,9 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj = cls()
         obj.model = nvforest.load_from_sklearn(
             skl_model=skl_model,
-            device="gpu",
+            device="gpu"
+            if get_fil_device_type() == DeviceType.device
+            else "cpu",
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -206,7 +258,9 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj = cls()
         obj.model = nvforest.load_from_treelite_model(
             tl_model=tl_model,
-            device="gpu",
+            device="gpu"
+            if get_fil_device_type() == DeviceType.device
+            else "cpu",
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
@@ -229,7 +283,13 @@ class ForestInference(Base, CMajorInputTagMixin):
             raise NotImplementedError(
                 "Setting preds argument is no longer supported"
             )
-        if isinstance(self.model, nvforest.GPUForestInferenceClassifier):
+        if isinstance(
+            self.model,
+            (
+                nvforest.GPUForestInferenceClassifier,
+                nvforest.CPUForestInferenceClassifier,
+            ),
+        ):
             return self.model.predict_proba(X, chunk_size=chunk_size)
         raise RuntimeError("Must be a classifier to run predict_proba()")
 
@@ -247,13 +307,27 @@ class ForestInference(Base, CMajorInputTagMixin):
             raise NotImplementedError(
                 "Setting preds argument is no longer supported"
             )
-        if isinstance(self.model, nvforest.GPUForestInferenceClassifier):
+        if isinstance(
+            self.model,
+            (
+                nvforest.GPUForestInferenceClassifier,
+                nvforest.CPUForestInferenceClassifier,
+            ),
+        ):
             return self.model.predict(
                 X, chunk_size=chunk_size, threshold=threshold
             )
-        if isinstance(self.model, nvforest.GPUForestInferenceRegressor):
+        if isinstance(
+            self.model,
+            (
+                nvforest.GPUForestInferenceRegressor,
+                nvforest.CPUForestInferenceRegressor,
+            ),
+        ):
             return self.model.predict(X, chunk_size=chunk_size)
-        raise RuntimeError("Expected a GPU forest model")
+        raise NotImplementedError(
+            f"Unrecognized type for self.model: {type(self.model)}"
+        )
 
     def predict_per_tree(self, X, *, preds=None, chunk_size=None):
         if self.model is None:
