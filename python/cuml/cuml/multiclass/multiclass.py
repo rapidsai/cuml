@@ -77,16 +77,18 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         """
         Predict using multi class classifier.
         """
-        X = check_inputs(
+        X, index = check_inputs(
             self,
             X,
             dtype=("float32", "float64"),
             accept_sparse=True,
             mem_type="host",
+            return_index=True,
         )
 
         with cuml.internals.exit_internal_context():
-            return self.multiclass_estimator.predict(X)
+            out = self.multiclass_estimator.predict(X)
+        return CumlArray(data=out, index=index)
 
     @generate_docstring(
         return_values={
@@ -101,15 +103,17 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         """
         Calculate the decision function.
         """
-        X = check_inputs(
+        X, index = check_inputs(
             self,
             X,
             dtype=("float32", "float64"),
             accept_sparse=True,
             mem_type="host",
+            return_index=True,
         )
         with cuml.internals.exit_internal_context():
-            return self.multiclass_estimator.decision_function(X)
+            out = self.multiclass_estimator.decision_function(X)
+        return CumlArray(data=out, index=index)
 
 
 class OneVsRestClassifier(_BaseMulticlassClassifier):
