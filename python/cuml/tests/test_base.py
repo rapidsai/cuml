@@ -230,7 +230,11 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            assert sig.parameters["sample_weight"].default is None
+            # TODO(26.08): remove "deprecated"
+            assert sig.parameters["sample_weight"].default in (
+                None,
+                "deprecated",
+            )
         if "copy" in sig.parameters:
             first.append("copy")
             assert (

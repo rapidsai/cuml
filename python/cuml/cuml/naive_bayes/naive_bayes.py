@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cupy as cp
 import cupyx
 import numpy as np
@@ -619,7 +621,11 @@ class _BaseDiscreteNB(_BaseNB):
 
     @run_in_internal_context
     def partial_fit(
-        self, X, y, classes=None, sample_weight=None
+        self,
+        X,
+        y,
+        classes=None,
+        sample_weight="deprecated",
     ) -> "_BaseDiscreteNB":
         """
         Incremental fit on a batch of samples.
@@ -647,8 +653,14 @@ class _BaseDiscreteNB(_BaseNB):
             Must be provided at the first call to partial_fit, can be omitted
             in subsequent calls.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples. Currently sample weight is
-            ignored.
+
+            .. deprecated:: 26.06
+
+                The `sample_weight` argument was deprecated in version 26.06
+                and will be removed in version 26.08. `sample_weight` was
+                previously silently ignored; we're opting to remove the
+                parameter for now rather than having a parameter that's not
+                supported.
 
         Returns
         -------
@@ -666,13 +678,25 @@ class _BaseDiscreteNB(_BaseNB):
         self,
         X,
         y,
-        sample_weight=None,
+        sample_weight="deprecated",
         classes=None,
         reset=False,
         convert_dtype=True,
     ) -> "_BaseDiscreteNB":
+        if isinstance(sample_weight, str) and sample_weight == "deprecated":
+            sample_weight = None
+        else:
+            warnings.warn(
+                "`sample_weight` was deprecated in version 26.06 and will be removed "
+                "in version 26.08. Passing sample weights was previously silently "
+                "ignored; we're opting to remove the parameter for now rather "
+                "than continue having a parameter that's not supported.",
+                FutureWarning,
+            )
+
         if self.alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
+
         classes, reset = self._check_classes(classes, reset)
         X, y, classes, sample_weight = self._check_fit(
             X,
@@ -685,7 +709,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         if sample_weight is not None:
             raise NotImplementedError(
-                "sample_weight support is not yet implemented"
+                "sample_weight support is not implemented"
             )
 
         if reset:
@@ -705,7 +729,7 @@ class _BaseDiscreteNB(_BaseNB):
         return self
 
     @run_in_internal_context
-    def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
+    def fit(self, X, y, sample_weight="deprecated") -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
 
@@ -717,8 +741,14 @@ class _BaseDiscreteNB(_BaseNB):
         y : array-like shape (n_samples)
             Target values.
         sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples. Currently sample weight is
-            ignored.
+
+            .. deprecated:: 26.06
+
+                The `sample_weight` argument was deprecated in version 26.06
+                and will be removed in version 26.08. `sample_weight` was
+                previously silently ignored; we're opting to remove the
+                parameter for now rather than having a parameter that's not
+                supported.
         """
         return self._partial_fit(X, y, reset=True, sample_weight=sample_weight)
 
