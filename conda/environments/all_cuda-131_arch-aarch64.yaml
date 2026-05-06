@@ -41,6 +41,7 @@ dependencies:
 - libopenblas<=0.3.30
 - libraft==26.6.*,>=0.0.0a0
 - librmm==26.6.*,>=0.0.0a0
+- lightgbm
 - matplotlib-base
 - nbsphinx
 - ninja
@@ -77,6 +78,7 @@ dependencies:
 - scikit-learn>=1.5
 - scipy>=1.14.0
 - seaborn
+- shap
 - skl2onnx
 - sphinx
 - sphinx-copybutton
