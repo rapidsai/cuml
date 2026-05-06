@@ -488,6 +488,7 @@ def check_array(
     convert_dtype=True,
     mem_type="device",
     order="A",
+    copy=False,
     ensure_all_finite=True,
     ensure_non_negative=False,
     ensure_2d=True,
@@ -531,6 +532,10 @@ def check_array(
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
         C contiguous, or `None` for no contiguity requirements (may be
         non-contiguous!).
+    copy : bool, default=False
+        Set to ``True`` to ensure the input is copied (allowing the output to
+        be mutated without worry). Note that the default of ``False`` doesn't
+        guarantee no copy is made, it only allows for zero-copy when possible.
     ensure_all_finite : bool or 'allow-nan', default=True
         If True, an error will be raised if non-finite values are found in the
         input. If 'allow-nan', an error will be raised if infinite values are
@@ -613,6 +618,7 @@ def check_array(
     # requested. For dataframe-like inputs also extract the index for later use.
     index = None
     if cp_sp.issparse(array) or sp.issparse(array):
+        orig_sparse_array = array
         # Handle sparse inputs
         if isinstance(accept_sparse, str):
             accept_sparse = [accept_sparse]
@@ -654,6 +660,10 @@ def check_array(
             array = getattr(cp_sp, f"{array.format}_matrix")(array)
         elif mem_type == "host" and not sp.issparse(array):
             array = array.get()
+
+        # Copy if needed
+        if copy and array is orig_sparse_array:
+            array = array.copy()
     else:
         # Handle dense inputs
         if isinstance(array, (cudf.DataFrame, cudf.Series)):
@@ -674,11 +684,20 @@ def check_array(
                 # See https://github.com/rapidsai/cudf/issues/22136.
                 if dtype is not None:
                     array = array.astype(dtype, copy=False)
-                array = cp.asarray(array.to_cupy(), dtype=dtype, order=order)
+                array = cp.asarray(
+                    array.to_cupy(copy=copy), dtype=dtype, order=order
+                )
         elif isinstance(array, (pd.DataFrame, pd.Series)):
             # Handle pandas inputs
             index = array.index
-            array = array.to_numpy(dtype=dtype)
+            array = array.to_numpy(
+                dtype=dtype,
+                copy=(
+                    copy
+                    and mem_type
+                    in (None, "device" if cudf.pandas.LOADED else "host")
+                ),
+            )
             if mem_type == "device":
                 array = cp.asarray(array, dtype=dtype, order=order)
             elif (
@@ -701,13 +720,19 @@ def check_array(
                 # Possible 2nd copy done on host for dtype enforcement
                 array = np.asarray(array, dtype=dtype, order=order)
             else:
-                array = cp.asarray(array, dtype=dtype, order=order)
+                array = cp.asarray(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
         else:
             # Handle all other inputs
             if mem_type == "device":
-                array = cp.asarray(array, dtype=dtype, order=order)
+                array = cp.asarray(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
             else:
-                array = np.asarray(array, dtype=dtype, order=order)
+                array = np.asarray(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
 
         # XXX: order="A" isn't consistently handled by cupy or numpy. If a copy
         # was made, the output will definitely already be contiguous. If no
@@ -1270,6 +1295,7 @@ def check_inputs(
     convert_dtype=True,
     mem_type="device",
     order="A",
+    copy=False,
     ensure_all_finite=True,
     ensure_non_negative=False,
     ensure_min_samples=1,
@@ -1340,6 +1366,10 @@ def check_inputs(
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
         C contiguous, or `None` for no contiguity requirements (may be
         non-contiguous!).
+    copy : bool, default=False
+        Set to ``True`` to ensure that X is copied (allowing the output to
+        be mutated without worry). Note that the default of ``False`` doesn't
+        guarantee no copy is made, it only allows for zero-copy when possible.
     ensure_all_finite : bool or 'allow-nan', default=True
         If True, an error will be raised if non-finite values are found in X.
         If 'allow-nan', an error will be raised if infinite values are
@@ -1401,6 +1431,7 @@ def check_inputs(
         convert_dtype=convert_dtype,
         mem_type=mem_type,
         order=order,
+        copy=copy,
         ensure_all_finite=ensure_all_finite,
         ensure_non_negative=ensure_non_negative,
         ensure_min_samples=ensure_min_samples,

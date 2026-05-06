@@ -759,6 +759,38 @@ def test_check_array_no_copy_needed(mem_type, dtype, order, shape):
         )
 
 
+@example(array=[1, 2], mem_type="device")
+@example(array=[1, 2], mem_type="host")
+@example(array=cp.array([1, 2]), mem_type="device")
+@example(array=np.array([1, 2]), mem_type=None)
+@example(array=cudf.Series([1, 2]), mem_type="device")
+@example(array=pd.Series([1, 2]), mem_type="host")
+@example(array=pd.Series([1, 2]), mem_type=None)
+@given(
+    array=dense_arrays(ndim=1, dtype="int32"),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_copy(array, mem_type):
+    sol = check_array(array, mem_type="host", ensure_2d=False).copy()
+    out = check_array(array, mem_type=mem_type, ensure_2d=False, copy=True)
+    # mutate the output
+    out[0] -= 1
+    res = check_array(array, mem_type="host", ensure_2d=False)
+    np.testing.assert_array_equal(res, sol)
+
+
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+def test_check_array_sparse_copy(mem_type):
+    array = (cp_sp if mem_type == "device" else sp).random(
+        10,
+        5,
+        density=0.5,
+        random_state=42,
+    )
+    res = check_array(array, accept_sparse=True, copy=True)
+    assert res is not array
+
+
 def test_check_array_convert_dtype():
     array = cp.array([[1, 2, 3]], dtype="float32")
 
