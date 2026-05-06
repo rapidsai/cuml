@@ -230,7 +230,11 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            assert sig.parameters["sample_weight"].default is None
+            # TODO(26.08): remove "deprecated"
+            assert sig.parameters["sample_weight"].default in (
+                None,
+                "deprecated",
+            )
         if "copy" in sig.parameters:
             first.append("copy")
             assert (
@@ -329,6 +333,11 @@ def test_regressor_predict_dtype(cls):
         (cuml.LinearSVC, None),
         (cuml.KNeighborsClassifier, None),
         (cuml.MBSGDClassifier, None),
+        (cuml.naive_bayes.GaussianNB, None),
+        (cuml.naive_bayes.BernoulliNB, None),
+        (cuml.naive_bayes.ComplementNB, None),
+        (cuml.naive_bayes.CategoricalNB, None),
+        (cuml.naive_bayes.MultinomialNB, None),
     ],
 )
 # TODO(26.08) Remove this filter
@@ -338,6 +347,9 @@ def test_regressor_predict_dtype(cls):
 )
 @pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
 def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
+    model = cls(**(kwargs or {}))
+    tags = model.__sklearn_tags__()
+
     supports_multitarget = [cuml.KNeighborsClassifier]
     binary_only = [cuml.MBSGDClassifier]
     if target_kind == "multitarget" and cls not in supports_multitarget:
@@ -364,8 +376,10 @@ def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
             n_samples=200, random_state=42, n_classes=4
         )
         y = np.array(labels).take(y)
+    if tags.input_tags.positive_only:
+        X -= X.min(axis=0)
 
-    model = cls(**(kwargs or {})).fit(X, y)
+    model.fit(X, y)
 
     # Classes are of correct dtype
     if target_kind == "multitarget":
@@ -378,9 +392,10 @@ def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
     assert isinstance(preds, np.ndarray)
     assert preds.dtype == y.dtype
     assert preds.shape == y.shape
-    # Just a smoketest that the classifier is better than `np.zeros`
     score = (preds == y).sum() / y.size
-    assert score > 0.5
+    if not tags.classifier_tags.poor_score:
+        # Just a smoketest that the classifier is better than `np.zeros`
+        assert score > 0.5
 
     # `predict` still supports type reflection
     with cuml.using_output_type("pandas"):
