@@ -106,6 +106,7 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.2
         - libcuvs =${{ minor_version }}
+        - libnvforest =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
         - cuda-cudart-dev
@@ -123,6 +124,7 @@ outputs:
         - libcusolver
         - libcusparse
         - libcuvs =${{ minor_version }}
+        - libnvforest =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
         - treelite ${{ treelite_version }}
