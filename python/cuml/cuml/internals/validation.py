@@ -290,8 +290,13 @@ def check_features(estimator, X, reset=False) -> None:
             msg = "\n".join(parts)
             raise ValueError(msg)
 
-    # Then check n_features_in_
-    if n_features != estimator.n_features_in_:
+    # Then check n_features_in_. We skip the check if `n_features_in_` wasn't
+    # stored (through calling `fit` first). This is allowed for some stateless
+    # transformers.
+    if (
+        hasattr(estimator, "n_features_in_")
+        and n_features != estimator.n_features_in_
+    ):
         raise ValueError(
             f"X has {n_features} features, but {estimator.__class__.__name__} "
             f"is expecting {estimator.n_features_in_} features as input."

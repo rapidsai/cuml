@@ -419,6 +419,11 @@ def test_check_n_features_in():
     ):
         model.predict(np.ones((3, 3)))
 
+    # If the model doesn't have `n_features_in_` stored, the check is skipped
+    # (and this doesn't error). This is necessary for some stateless
+    # transformers.
+    MyModel().predict(X)
+
 
 def test_fit_and_predict_with_and_without_feature_names_warnings():
     X_unnamed = np.ones((3, 2))
