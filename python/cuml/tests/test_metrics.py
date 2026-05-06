@@ -16,6 +16,7 @@ import scipy.sparse
 import sklearn.metrics
 from numba import cuda
 from numpy.testing import assert_almost_equal
+from packaging.version import Version
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 from scipy.stats import entropy as sp_entropy
@@ -826,6 +827,14 @@ def test_regression_metrics_1d_2d_equivalence(
 
 
 @pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.xfail(
+    condition=Version(sklearn.__version__) < Version("1.7"),
+    reason=(
+        "sklearn < 1.7 uses different error messages for invalid "
+        "sample_weight inputs; messages were standardized in sklearn 1.7"
+    ),
+    strict=True,
+)
 def test_regression_metrics_errors(func):
     arr_3 = np.array([1.0, 2.0, 3.0])
     arr_4 = np.array([1.0, 2.0, 3.0, 4.0])
