@@ -64,7 +64,7 @@ def trustworthiness(
             Metric used to compute the trustworthiness. For the moment only
             'euclidean' is supported.
 
-        convert_dtype : bool, optional (default=False)
+        convert_dtype : bool, optional (default=True)
             When set to True, the trustworthiness method will automatically
             convert the inputs to np.float32.
 
