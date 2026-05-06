@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cudf
 import cupy as cp
 import numpy as np
@@ -15,7 +17,12 @@ from cuml.preprocessing import LabelBinarizer, LabelEncoder
 
 
 def hinge_loss(
-    y_true, pred_decision, labels=None, sample_weights=None
+    y_true,
+    pred_decision,
+    labels=None,
+    sample_weight=None,
+    *,
+    sample_weights="deprecated",
 ) -> float:
     """
     Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss.
@@ -33,14 +40,34 @@ def hinge_loss(
     labels : array-like, default=None
         In multiclass problems, this must include all class labels.
 
-    sample_weights : array-like of shape (n_samples,), default=None
+    sample_weight : array-like of shape (n_samples,), default=None
         Sample weights to be used for computing the average.
+
+    sample_weights : array-like, default="deprecated"
+        Deprecated alias for ``sample_weight``.
+
+        .. deprecated:: 26.06
+            ``sample_weights`` was renamed to ``sample_weight`` and will be
+            removed in 26.08.
 
     Returns
     -------
     loss : float
         The average hinge loss.
     """
+    # Handle the deprecated `sample_weights` alias.
+    if not (
+        isinstance(sample_weights, str) and sample_weights == "deprecated"
+    ):
+        warnings.warn(
+            "`sample_weights` was renamed to `sample_weight` in 26.06 and "
+            "will be removed in 26.08.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        if sample_weight is None:
+            sample_weight = sample_weights
+
     y_true = check_array(
         y_true,
         ensure_2d=False,
@@ -60,8 +87,8 @@ def hinge_loss(
             ensure_all_finite=False,
             input_name="labels",
         )
-    sample_weights = check_sample_weight(sample_weights, dtype=np.float64)
-    check_consistent_length(y_true, pred_decision, sample_weights)
+    sample_weight = check_sample_weight(sample_weight, dtype=np.float64)
+    check_consistent_length(y_true, pred_decision, sample_weight)
 
     y_true_unique = cp.unique(labels if labels is not None else y_true)
 
@@ -100,4 +127,4 @@ def hinge_loss(
     losses = 1 - margin
     # The hinge_loss doesn't penalize good enough predictions.
     cp.clip(losses, 0, None, out=losses)
-    return float(cp.average(losses, weights=sample_weights))
+    return float(cp.average(losses, weights=sample_weight))
