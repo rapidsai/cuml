@@ -518,14 +518,13 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
                                                               UMAPParams params,
                                                               T nsr_inv,
                                                               T rounding,
-                                                              size_t vertex_offset = 0)
+                                                              int vertex_offset = 0)
 {
   int tid           = blockIdx.x * blockDim.x + threadIdx.x;
   int total_threads = gridDim.x * blockDim.x;
 
   // each thread loops over the vertices assigned to it
-  for (int vertex = tid + static_cast<int>(vertex_offset); vertex < num_vertices;
-       vertex += total_threads) {
+  for (int vertex = tid + vertex_offset; vertex < num_vertices; vertex += total_threads) {
     // the csr indices are used to determine the edges to process for the current vertex
     const nnz_t edge_start = row_ptr[vertex];
     const nnz_t edge_end   = row_ptr[vertex + 1];
@@ -662,7 +661,7 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
                                                             UMAPParams params,
                                                             T nsr_inv,
                                                             T rounding,
-                                                            size_t vertex_offset = 0)
+                                                            int vertex_offset = 0)
 {
   const int n_components = params.n_components;
 
@@ -671,8 +670,7 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
   const int warp_global_id     = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;
   const int total_warps        = (gridDim.x * blockDim.x) >> 5;
 
-  for (int vertex = warp_global_id + static_cast<int>(vertex_offset); vertex < num_vertices;
-       vertex += total_warps) {
+  for (int vertex = warp_global_id + vertex_offset; vertex < num_vertices; vertex += total_warps) {
     const nnz_t edge_start = row_ptr[vertex];
     const nnz_t edge_end   = row_ptr[vertex + 1];
 
@@ -857,7 +855,7 @@ void call_optimize_sequential_kernel(T* head_embedding,
     dim3 grid(num_sms * blocks_per_sm, 1, 1);
     dim3 blk(tpb, 1, 1);
 
-    auto do_launch = [&](size_t vertex_offset) {
+    auto do_launch = [&](int vertex_offset) {
       kernel_fn<<<grid, blk, smem_size, stream>>>(head_embedding,
                                                   head_buffer,
                                                   head_flags,
@@ -883,10 +881,9 @@ void call_optimize_sequential_kernel(T* head_embedding,
     };
 
     if (params->deterministic) {
-      size_t chunk_size =
-        static_cast<size_t>(grid.x) * static_cast<size_t>(tpb / threads_per_vertex);
+      int chunk_size = static_cast<int>(grid.x) * (tpb / threads_per_vertex);
       RAFT_EXPECTS(chunk_size > 0, "Sequential-kernel chunk_size must be > 0.");
-      for (size_t v_off = 0; v_off < static_cast<size_t>(head_n); v_off += chunk_size) {
+      for (int v_off = 0; v_off < head_n; v_off += chunk_size) {
         do_launch(v_off);
         sparse_apply_embedding_updates<T, nnz_t, TPB_X>(head_embedding,
                                                         head_buffer,
