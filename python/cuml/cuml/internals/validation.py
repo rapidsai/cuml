@@ -736,7 +736,8 @@ def check_array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
-                array = np.asarray(
+                # XXX: using np.array for compat with numpy < 2
+                array = np.array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
 
