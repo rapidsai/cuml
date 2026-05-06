@@ -695,13 +695,12 @@ def check_array(
         elif isinstance(array, (pd.DataFrame, pd.Series)):
             # Handle pandas inputs
             index = array.index
+            # If cudf.pandas is enabled, copy=True always leads to a copy since
+            # cudf.pandas may maintain dual host/device buffers. Otherwise
+            # copy=True only leads to a copy here when outputting on host.
             array = array.to_numpy(
                 dtype=dtype,
-                copy=(
-                    copy
-                    and mem_type
-                    in (None, "device" if cudf.pandas.LOADED else "host")
-                ),
+                copy=copy and (cudf.pandas.LOADED or mem_type != "device"),
             )
             if mem_type == "device":
                 array = cp.asarray(array, dtype=dtype, order=order)

@@ -40,9 +40,9 @@ def is_cuda_output(mem_type, value=..., kind=...):
         if value is not ...:
             if cudf.pandas.LOADED:
                 if isinstance(value, pd.DataFrame):
-                    return not any(d == "object" for d in value.dtypes)
+                    return not any(d.kind == "O" for d in value.dtypes)
                 elif isinstance(value, pd.Series):
-                    return value.dtype != "object"
+                    return value.dtype.kind != "O"
             return isinstance(
                 value,
                 (cp.ndarray, cp_sp.spmatrix, cudf.Series, cudf.DataFrame),
@@ -1213,6 +1213,14 @@ def test_check_y_accept_multi_output(kind):
     order="F",
 )
 @example(
+    kind="pandas",
+    label_dtype="string",
+    n_classes=2,
+    mem_type=None,
+    dtype=None,
+    order=None,
+)
+@example(
     kind="cudf",
     label_dtype="string",
     n_classes=3,
@@ -1281,7 +1289,7 @@ def test_check_y_return_classes(
     sol = inds.flatten() if inds.ndim == 2 and inds.shape[1] == 1 else inds
     if dtype is not None:
         sol = sol.astype(dtype)
-    if is_cuda_output(mem_type, kind=kind):
+    if is_cuda_output(mem_type, value=y):
         sol = cp.asarray(sol)
 
     y2 = check_array(y, mem_type="host", ensure_2d=False)
