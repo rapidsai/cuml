@@ -93,7 +93,7 @@ def confusion_matrix(
 
     if (
         sample_weight := check_sample_weight(
-            sample_weight, dtype=_WEIGHT_DTYPES
+            sample_weight, dtype=_WEIGHT_DTYPES, convert_dtype=convert_dtype
         )
     ) is not None:
         check_consistent_length(y_true, sample_weight)
