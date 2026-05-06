@@ -50,5 +50,36 @@ def test_trustworthiness(
 def test_trustworthiness_invalid_input():
     X, y = make_blobs(n_samples=10, centers=1, n_features=2, random_state=32)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="n_neighbors"):
         cuml_trustworthiness(X, X, n_neighbors=50)
+
+
+def test_trustworthiness_mismatched_rows():
+    X, _ = make_blobs(n_samples=10, n_features=4, random_state=0)
+    X_embedded, _ = make_blobs(n_samples=12, n_features=2, random_state=0)
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cuml_trustworthiness(
+            X.astype(np.float32), X_embedded.astype(np.float32)
+        )
+
+
+def test_trustworthiness_convert_dtype_false_rejects_float64():
+    X, _ = make_blobs(n_samples=20, n_features=4, random_state=0)  # float64
+    X_embedded, _ = make_blobs(n_samples=20, n_features=2, random_state=0)
+    with pytest.raises(ValueError, match="dtype"):
+        cuml_trustworthiness(X, X_embedded, convert_dtype=False)
+
+
+def test_trustworthiness_rejects_1d_input():
+    X = np.arange(20, dtype=np.float32)
+    X_embedded = np.arange(20, dtype=np.float32)
+    with pytest.raises(ValueError):
+        cuml_trustworthiness(X, X_embedded)
+
+
+def test_trustworthiness_unknown_metric():
+    rng = np.random.RandomState(0)
+    X = rng.rand(20, 4).astype(np.float32)
+    X_embedded = rng.rand(20, 2).astype(np.float32)
+    with pytest.raises(Exception, match="Unknown metric"):
+        cuml_trustworthiness(X, X_embedded, metric="manhattan")
