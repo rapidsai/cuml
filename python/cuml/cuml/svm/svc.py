@@ -504,17 +504,23 @@ class SVC(SVMBase, ClassifierMixin):
         check_is_fitted(self)
 
         if hasattr(self, "_multiclass"):
-            inds = self._multiclass.predict(X).to_output("cupy")
+            inds = self._multiclass.predict(X)
+            index = inds.index
+            inds = inds.to_output("cupy")
         elif self.probability:
-            probs = self.predict_proba(X).to_output("cupy")
-            inds = cp.argmax(probs, axis=1)
+            probs = self.predict_proba(X)
+            index = probs.index
+            inds = cp.argmax(probs.to_output("cupy"), axis=1)
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
+            index = res.index
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
         with exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
+        )
 
     @available_if(lambda self: self.probability)
     @generate_docstring(
@@ -548,7 +554,9 @@ class SVC(SVMBase, ClassifierMixin):
 
         from cupyx.scipy.special import expit
 
-        preds = self.decision_function(X).to_output("cupy")
+        preds = self.decision_function(X)
+        index = preds.index
+        preds = preds.to_output("cupy")
         if preds.ndim == 1:
             preds = preds[:, None]
 
@@ -574,7 +582,7 @@ class SVC(SVMBase, ClassifierMixin):
         if log:
             proba = cp.log(proba)
 
-        return CumlArray(data=proba)
+        return CumlArray(data=proba, index=index)
 
     @available_if(lambda self: self.probability)
     @generate_docstring(
