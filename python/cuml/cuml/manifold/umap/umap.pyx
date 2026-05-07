@@ -1188,8 +1188,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse)
 
-        # Don't coerce to device memory when using a precomputed KNN, so
-        # that X may be dropped earlier if passed on host.
+        # Don't coerce to device memory for dense case when using a precomputed
+        # KNN, so that X may be dropped earlier if passed on host.
         if knn_graph is None and self.precomputed_knn is None:
             base_mem_type = "device"
         else:
@@ -1221,6 +1221,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         )
         if y is not None:
             X, y, index = check_inputs(self, X, y, **check_kwargs)
+            # `y` needs to be on GPU but `check_inputs` doesn't have separate
+            # mem_type handling for X and y.
+            y = cp.asarray(y)
         else:
             X, index = check_inputs(self, X, **check_kwargs)
 
@@ -1239,9 +1242,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
-            y_ptr = <uintptr_t>(
-                y.data.ptr if isinstance(y, cp.ndarray) else y.ctypes.data
-            )
+            y_ptr = <uintptr_t>y.data.ptr
 
         cdef uintptr_t knn_dists_ptr = 0, knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1261,6 +1262,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 knn_indices_cp = cp.asarray(
                     knn_indices.to_output("cupy"), dtype=np.int32
                 )
+                # Drop the int64 original and keep only the int32 copy used by the kernel.
+                knn_indices = CumlArray(data=knn_indices_cp)
             else:
                 knn_indices_cp = knn_indices.to_output("cupy")
             knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
