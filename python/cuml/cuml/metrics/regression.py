@@ -1,11 +1,17 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import (
+    check_array,
+    check_consistent_length,
+    check_sample_weight,
+)
+
+_FLOAT_OR_INT = (np.float32, np.float64, np.int32, np.int64)
 
 
 def _normalize_regression_metric_args(
@@ -16,31 +22,39 @@ def _normalize_regression_metric_args(
 
     Validates inputs and coerces all arrays to cupy of proper shape and dtype.
     """
-    # Coerce inputs to cupy arrays
-    float_or_int = [np.float32, np.float64, np.int32, np.int64]
-    y_true, n_rows, n_cols, _ = input_to_cupy_array(
-        y_true, check_dtype=float_or_int
+    y_true = check_array(
+        y_true, ensure_2d=False, dtype=_FLOAT_OR_INT, input_name="y_true"
     )
-    y_pred, _, _, _ = input_to_cupy_array(
-        y_pred, check_dtype=float_or_int, check_rows=n_rows, check_cols=n_cols
+    y_pred = check_array(
+        y_pred, ensure_2d=False, dtype=_FLOAT_OR_INT, input_name="y_pred"
     )
-    if sample_weight is not None:
-        sample_weight, _, _, _ = input_to_cupy_array(
-            sample_weight,
-            check_dtype=float_or_int,
-            check_rows=n_rows,
-            check_cols=1,
+    check_consistent_length(y_true, y_pred)
+
+    # Treat (N,) and (N, 1) as equivalent (matches sklearn's behavior in
+    # `_check_reg_targets`). Only reject genuine multi-output mismatches.
+    if y_true.ndim == 2 and y_true.shape[1] == 1:
+        y_true = y_true.ravel()
+    if y_pred.ndim == 2 and y_pred.shape[1] == 1:
+        y_pred = y_pred.ravel()
+
+    if y_true.ndim != y_pred.ndim or (
+        y_true.ndim == 2 and y_true.shape[1] != y_pred.shape[1]
+    ):
+        raise ValueError(
+            f"y_true and y_pred have different shapes: "
+            f"{y_true.shape} vs {y_pred.shape}"
         )
 
-    # Ensure y_true & y_pred are 2D and sample_weight is 1D
+    if (
+        sample_weight := check_sample_weight(sample_weight, dtype=np.float64)
+    ) is not None:
+        check_consistent_length(y_true, sample_weight)
+
+    # Promote 1D inputs to column vectors
     if y_true.ndim == 1:
         y_true = y_true.reshape((-1, 1))
-
-    if y_pred.ndim == 1:
         y_pred = y_pred.reshape((-1, 1))
-
-    if sample_weight is not None:
-        sample_weight = sample_weight.reshape(-1)
+    n_cols = y_true.shape[1]
 
     # Validate multioutput, and maybe coerce to a cupy array
     valid_multioutput = ("raw_values", "uniform_average", "variance_weighted")
@@ -54,9 +68,13 @@ def _normalize_regression_metric_args(
             raise ValueError(
                 "Custom weights are useful only in multi-output cases."
             )
-        multioutput, _, _, _ = input_to_cupy_array(
-            multioutput, check_rows=n_cols
+        multioutput = check_array(
+            multioutput, ensure_2d=False, input_name="multioutput"
         )
+        if multioutput.ndim != 1 or multioutput.shape[0] != n_cols:
+            raise ValueError(
+                f"There must be equally many custom weights ({n_cols}) as outputs."
+            )
 
     return y_true, y_pred, sample_weight, multioutput
 

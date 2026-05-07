@@ -8,7 +8,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.output_utils import cudf_to_pandas
 
 
-def decode_labels(y_encoded, classes, output_type="cupy"):
+def decode_labels(y_encoded, classes, output_type="cupy", index=None):
     """Convert encoded labels back into their original classes.
 
     Parameters
@@ -19,6 +19,9 @@ def decode_labels(y_encoded, classes, output_type="cupy"):
         The array of classes, or a list of arrays if multi-target.
     output_type : str, optional
         The type to output. May be any of the output types cuml supports.
+    index : cudf.Index or None, optional
+        An optional index to attach to the output when returning a pandas or
+        cudf output.
 
     Returns
     -------
@@ -43,7 +46,7 @@ def decode_labels(y_encoded, classes, output_type="cupy"):
                 for i, c in enumerate(classes):
                     labels[:, i] = cp.asarray(c).take(y_encoded[:, i])
 
-            out = CumlArray(labels)
+            out = CumlArray(labels, index=index)
         else:
             # At least one class is non-numeric, we need to use cudf
             out = cudf.DataFrame(
@@ -52,7 +55,8 @@ def decode_labels(y_encoded, classes, output_type="cupy"):
                     .take(y_encoded[:, i])
                     .reset_index(drop=True)
                     for i, c in enumerate(classes)
-                }
+                },
+                index=index,
             )
     else:
         # Single-target output
@@ -66,12 +70,14 @@ def decode_labels(y_encoded, classes, output_type="cupy"):
                 # Need to transform y_encoded back to classes
                 labels = cp.asarray(classes).take(y_encoded)
 
-            out = CumlArray(labels)
+            out = CumlArray(labels, index=index)
         else:
             # Non-numeric classes. We use cudf since it supports all types, and will
             # error appropriately later on when converting to outputs like `cupy`
             # that don't support strings.
             out = cudf.Series(classes).take(y_encoded).reset_index(drop=True)
+            if index is not None:
+                out.index = index
 
     # Coerce result to requested output_type
     if isinstance(out, CumlArray):

@@ -437,7 +437,10 @@ def test_sklearn_rf_classifier(n_classes):
 
 
 @pytest.mark.xfail(
-    reason="Treelite does not yet support XGBoost models with categorical encoder"
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
 )
 def test_xgb_toy_categorical():
     xgb = pytest.importorskip("xgboost")
@@ -474,7 +477,10 @@ def test_xgb_toy_categorical():
 
 
 @pytest.mark.xfail(
-    reason="Treelite does not yet support XGBoost models with categorical encoder"
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
 )
 @pytest.mark.parametrize("n_classes", [2, 3])
 def test_xgb_classifier_with_categorical(n_classes):
@@ -541,7 +547,10 @@ def test_xgb_classifier_with_categorical(n_classes):
 
 
 @pytest.mark.xfail(
-    reason="Treelite does not yet support XGBoost models with categorical encoder"
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
 )
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
@@ -800,6 +809,12 @@ def shap_strategy(draw):
     n_samples = draw(st.integers(2, 100))
     n_features = draw(st.integers(2, 100))
     learner = draw(st.sampled_from(["xgb", "rf", "skl_rf", "lgbm"]))
+
+    # TODO: Treelite does not yet support XGBoost models with categoricals.
+    # (https://github.com/rapidsai/cuml/issues/8055). Can drop this assume when
+    # that's fixed.
+    assume(learner != "xgb")
+
     supports_categorical = learner in ["xgb", "lgbm"]
     supports_nan = learner in ["xgb", "lgbm"]
     if task == "classification":
@@ -870,6 +885,9 @@ def shap_strategy(draw):
         draw, X, y, task, learner, n_estimators, n_targets
     )
 
+    if isinstance(preds, pd.DataFrame):
+        preds = preds.to_numpy()
+
     # convert any DataFrame categorical columns to numeric
     return X.astype(dtype), y.astype(dtype), model, preds
 
@@ -881,10 +899,10 @@ def check_efficiency(expected_value, pred, shap_values):
             np.sum(shap_values, axis=-1) + expected_value, pred, 1e-3, 1e-3
         )
     else:
-        n_targets = shap_values.shape[0]
+        n_targets = shap_values.shape[-1]
         for i in range(n_targets):
             assert np.allclose(
-                np.sum(shap_values[i], axis=-1) + expected_value[i],
+                np.sum(shap_values[:, :, i], axis=-1) + expected_value[i],
                 pred[:, i],
                 1e-3,
                 1e-3,

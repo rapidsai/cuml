@@ -219,12 +219,11 @@ class MBSGDClassifier(
         Predicts the y for X.
 
         """
-        scores = self.decision_function(
-            X, convert_dtype=convert_dtype
-        ).to_output("cupy")
-
+        scores = self.decision_function(X, convert_dtype=convert_dtype)
         thresh = 0 if self.loss == "hinge" else 0.5
-        indices = (scores > thresh).view(cp.int8)
+        indices = (scores.to_output("cupy") > thresh).view(cp.int8)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(indices, self.classes_, output_type=output_type)
+        return decode_labels(
+            indices, self.classes_, output_type=output_type, index=scores.index
+        )

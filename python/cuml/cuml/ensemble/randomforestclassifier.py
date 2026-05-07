@@ -287,10 +287,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        inds = fil.predict(X, threshold=threshold).to_output("cupy")
+        inds = fil.predict(X, threshold=threshold)
+        index = inds.index
+        inds = inds.to_output("cupy")
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
+        )
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
