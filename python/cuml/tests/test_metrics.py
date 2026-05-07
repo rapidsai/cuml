@@ -1491,9 +1491,6 @@ def test_pairwise_distances_exceptions():
 @pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
 @pytest.mark.parametrize("position", ["X", "Y"])
 def test_pairwise_distances_rejects_non_finite(bad_value, position):
-    # Dense pairwise_distances now goes through check_array, which by
-    # default rejects non-finite inputs (matching sklearn). The
-    # nan_euclidean metric is exercised separately below.
     rng = np.random.RandomState(0)
     X = rng.random_sample((5, 4)).astype(np.float64)
     Y = rng.random_sample((6, 4)).astype(np.float64)
