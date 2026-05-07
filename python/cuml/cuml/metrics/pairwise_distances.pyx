@@ -165,9 +165,9 @@ def nan_euclidean_distances(
         Representation of missing value.
 
     convert_dtype : bool, optional (default = True)
-        When set to True, the method will, when necessary, convert
-        ``Y`` to be the same data type as ``X`` if they differ. This
-        will increase memory used for the method.
+        When set to True, the method will, when necessary, convert ``X``
+        to a supported floating-point dtype and convert ``Y`` to match
+        ``X``'s dtype. This will increase memory used for the method.
 
     Returns
     -------
