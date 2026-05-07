@@ -1154,13 +1154,13 @@ def test_umap_custom_init_errors():
     # Wrong number of samples
     init_wrong_samples = np.zeros((n_samples + 1, 2), dtype=np.float32)
     model = cuUMAP(init=init_wrong_samples)
-    with pytest.raises(ValueError, match=".*rows.*"):
+    with pytest.raises(ValueError, match="Expected `init` with shape"):
         model.fit(data)
 
     # Wrong number of components
     init_wrong_components = np.zeros((n_samples, 3), dtype=np.float32)
     model = cuUMAP(init=init_wrong_components, n_components=2)
-    with pytest.raises(ValueError, match=".*columns.*"):
+    with pytest.raises(ValueError, match="Expected `init` with shape"):
         model.fit(data)
 
 

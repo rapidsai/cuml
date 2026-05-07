@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from functools import partial
 
 import pytest
 from sklearn.utils import estimator_checks
@@ -299,14 +298,6 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
     )
 
 
-def _check_name(check):
-    if hasattr(check, "__wrapped__"):
-        return _check_name(check.__wrapped__)
-    return (
-        check.func.__name__ if isinstance(check, partial) else check.__name__
-    )
-
-
 @estimator_checks.parametrize_with_checks(
     ESTIMATORS,
     expected_failed_checks=lambda est: XFAILS.get(type(est), {}),
@@ -328,13 +319,4 @@ def _check_name(check):
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
-    # Check that all estimators pass the "common estimator" checks
-    # provided by scikit-learn
-    check_name = _check_name(check)
-
-    if check_name in ["check_estimators_nan_inf"] and isinstance(
-        estimator, UMAP
-    ):
-        pytest.skip("UMAP does not handle Nans and infinities")
-
     check(estimator)

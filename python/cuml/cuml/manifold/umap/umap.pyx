@@ -21,7 +21,7 @@ from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.input_utils import is_array_like
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -1008,7 +1008,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(model._raw_data, convert_to_dtype=cp.float32)
+            raw_data = SparseCumlArray(
+                check_array(model._raw_data, dtype="float32", accept_sparse="csr")
+            )
         else:
             raw_data = to_gpu(model._raw_data)
 
@@ -1177,9 +1179,6 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             memory usage, the precomputed knn graph should be CPU-accessible arrays
             such as numpy arrays.
         """
-        if len(X.shape) != 2:
-            raise ValueError("Reshape your data: data should be two dimensional")
-
         cdef int n_rows = X.shape[0]
         cdef int n_dims = X.shape[1]
 
@@ -1278,20 +1277,24 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         handle_ = <handle_t*> <size_t> handle.getHandle()
 
         if is_array_like(self.init):
-            init_m = input_to_cuml_array(
+            init = check_array(
                 self.init,
+                dtype="float32",
                 order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=np.float32,
-                convert_to_mem_type=False,
-                check_rows=n_rows,
-                check_cols=self.n_components,
-            ).array
-
+                mem_type=None,
+                input_name="init",
+            )
+            if init.shape != (n_rows, self.n_components):
+                raise ValueError(
+                    f"Expected `init` with shape {(n_rows, self.n_components)}, "
+                    f"got {init.shape}"
+                )
             embeddings_buffer.reset(
                 new device_buffer(
-                    <const void*><uintptr_t>init_m.ptr,
-                    init_m.size,
+                    <const void*><uintptr_t>(
+                        init.data.ptr if isinstance(init, cp.ndarray) else init.ctypes.data
+                    ),
+                    init.nbytes,
                     handle_.get_stream(),
                     make_any_device_resource(get_current_device_resource().get_mr())
                 )
@@ -1654,7 +1657,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         )
         handle.sync()
 
-        return CumlArray(data=inv_transformed_gpu, order="C", index=index)
+        return CumlArray(data=inv_transformed_gpu, index=index)
 
 
 def fuzzy_simplicial_set(
@@ -1731,15 +1734,10 @@ def fuzzy_simplicial_set(
         of the matrix represents the membership strength of the 1-simplex
         between the ith and jth sample points.
     """
-    X_m = input_to_cuml_array(
-        X,
-        order="C",
-        check_dtype=np.float32,
-        convert_to_dtype=np.float32
-    ).array
+    X = check_array(X, order="C", dtype="float32", input_name="X")
 
-    cdef int n_rows = X_m.shape[0]
-    cdef int n_cols = X_m.shape[1]
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
 
     cdef lib.UMAPParams params
     params.n_neighbors = n_neighbors
@@ -1753,24 +1751,23 @@ def fuzzy_simplicial_set(
 
     cdef uintptr_t X_ptr, knn_indices_ptr, knn_dists_ptr
     if knn_indices is not None and knn_dists is not None:
-        knn_indices_m = input_to_cuml_array(
+        knn_indices = check_array(
             knn_indices,
+            dtype="int64",
             order="C",
-            check_dtype=np.int64,
-            convert_to_dtype=np.int64
-        ).array
-        knn_dists_m = input_to_cuml_array(
+            input_name="knn_indices",
+        )
+        knn_dists = check_array(
             knn_dists,
+            dtype="float32",
             order="C",
-            check_dtype=np.float32,
-            convert_to_dtype=np.float32
-        ).array
-
+            input_name="knn_dists",
+        )
         X_ptr = 0
-        knn_indices_ptr = knn_indices_m.ptr
-        knn_dists_ptr = knn_dists_m.ptr
+        knn_indices_ptr = knn_indices.data.ptr
+        knn_dists_ptr = knn_dists.data.ptr
     else:
-        X_ptr = X_m.ptr
+        X_ptr = X.data.ptr
         knn_indices_ptr = 0
         knn_dists_ptr = 0
 
@@ -1884,12 +1881,14 @@ def simplicial_set_embedding(
         The optimized of ``graph`` into an ``n_components`` dimensional
         euclidean space.
     """
-    X = input_to_cuml_array(
+    X, index = check_array(
         data,
+        dtype="float32",
+        convert_dtype=convert_dtype,
         order="C",
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        check_dtype=np.float32,
-    ).array
+        input_name="X",
+        return_index=True,
+    )
 
     cdef int n_rows = X.shape[0]
     cdef int n_cols = X.shape[1]
@@ -1924,19 +1923,21 @@ def simplicial_set_embedding(
 
     cdef bool initialized = is_array_like(init)
     if initialized:
-        embedding = input_to_cuml_array(
+        embedding = check_array(
             init,
+            dtype="float32",
+            convert_dtype=convert_dtype,
             order="C",
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=np.float32,
-            check_rows=n_rows,
-            check_cols=n_components,
-        ).array
+            input_name="init",
+        )
+        if embedding.shape != (n_rows, n_components):
+            raise ValueError(
+                f"Expected `init` with shape {(n_rows, n_components)}, "
+                f"got {embedding.shape}"
+            )
     elif isinstance(init, str) and init in _INITS:
         params.init = _INITS[init]
-        embedding = CumlArray.zeros(
-            (n_rows, n_components), order="C", dtype=np.float32, index=X.index,
-        )
+        embedding = cp.zeros((n_rows, n_components), order="C", dtype="float32")
     else:
         raise ValueError(
             "Expected `init` to be an array or one of ['random', 'spectral'], "
@@ -1951,8 +1952,8 @@ def simplicial_set_embedding(
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef RaftCOO fss_graph = RaftCOO.from_cupy_coo(handle, graph)
-    cdef uintptr_t embedding_ptr = embedding.ptr
-    cdef uintptr_t X_ptr = X.ptr
+    cdef uintptr_t embedding_ptr = embedding.data.ptr
+    cdef uintptr_t X_ptr = X.data.ptr
 
     if initialized:
         lib.refine(
@@ -1974,4 +1975,4 @@ def simplicial_set_embedding(
             &params,
             <float*> embedding_ptr
         )
-    return embedding
+    return CumlArray(data=embedding, index=index)
