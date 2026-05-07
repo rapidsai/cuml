@@ -31,6 +31,19 @@ cimport cuml.cluster.cpp.kmeans as lib
 from cuml.metrics.distance_type cimport DistanceType
 
 
+cdef inline bool _kmeans_indices_i32(int64_t n_rows, int64_t n_cols) noexcept nogil:
+    cdef int64_t int_max = 2147483647
+
+    if n_rows < 0 or n_cols < 0:
+        return False
+    if n_rows > int_max or n_cols > int_max:
+        return False
+    if n_rows == 0 or n_cols == 0:
+        return True
+
+    return n_rows <= ((int_max - 1) // n_cols)
+
+
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
     cdef bool multi_gpu = kmeans._multi_gpu
@@ -91,7 +104,7 @@ cdef _kmeans_fit(
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = (n_rows * n_cols) < (2**31 - 1)
+    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
@@ -170,10 +183,8 @@ cdef _kmeans_predict(
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
-    labels = cp.zeros(
-        shape=n_rows,
-        dtype=(cp.int32 if n_rows * n_cols < 2**31 - 1 else cp.int64),
-    )
+    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
+    labels = cp.zeros(shape=n_rows, dtype=(cp.int32 if indices_i32 else cp.int64))
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
@@ -181,7 +192,6 @@ cdef _kmeans_predict(
     cdef uintptr_t labels_ptr = labels.data.ptr
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = labels.dtype == cp.int32
 
     cdef float inertia_f32 = 0
     cdef double inertia_f64 = 0
@@ -701,7 +711,7 @@ class KMeans(Base,
         _kmeans_init_params(self, params)
 
         cdef bool values_f32 = X.dtype == cp.float32
-        cdef bool indices_i32 = self.labels_.dtype == cp.int32
+        cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
 
         with nogil:
             if values_f32:
