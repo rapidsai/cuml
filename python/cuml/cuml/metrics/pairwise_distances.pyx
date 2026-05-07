@@ -371,49 +371,43 @@ def pairwise_distances(
     cdef int n_features_x = X_m.shape[1]
     dtype_x = X_m.dtype
 
-    # Derive the row/column-major flag from X. For degenerate shapes
-    # (1 sample or 1 feature) X is both C- and F-contiguous, so we'll
-    # re-derive from Y below if Y is provided.
-    cdef bint is_row_major = X_m.flags.c_contiguous
-
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
+    cdef bint is_row_major = X_m.flags.c_contiguous
+    cdef int n_samples_y = n_samples_x
+    cdef int n_features_y = n_features_x
 
-    cdef int n_samples_y, n_features_y
-
-    if (Y is not None):
+    if Y is not None:
         if metric in ['russellrao'] and not np.all(Y.data == 1.):
             warnings.warn("Y was converted to boolean for metric {}"
                           .format(metric))
             Y = np.where(Y != 0., 1.0, 0.0)
 
-        # When X is degenerate (1 sample or 1 feature) we cannot tell the
-        # intended layout from X alone, so let Y choose by allowing 'A'.
-        # Otherwise force Y's layout to match X's.
         if n_samples_x == 1 or n_features_x == 1:
-            y_order = "A"
+            # X is degenerate (both C- and F-contiguous); let Y choose the
+            # layout and propagate it.
+            Y_m = check_array(
+                Y,
+                order="A",
+                dtype=[dtype_x],
+                convert_dtype=convert_dtype,
+                input_name="Y",
+            )
+            is_row_major = Y_m.flags.c_contiguous
         else:
-            y_order = "C" if is_row_major else "F"
-
-        Y_m = check_array(
-            Y,
-            order=y_order,
-            dtype=[dtype_x],
-            convert_dtype=convert_dtype,
-            input_name="Y",
-        )
+            # X is the authority; force Y's layout to match X's.
+            Y_m = check_array(
+                Y,
+                order="C" if is_row_major else "F",
+                dtype=[dtype_x],
+                convert_dtype=convert_dtype,
+                input_name="Y",
+            )
         n_samples_y = Y_m.shape[0]
         n_features_y = Y_m.shape[1]
-
-        # If we let Y choose the layout, propagate it back.
-        if y_order == "A":
-            is_row_major = Y_m.flags.c_contiguous
     else:
-        # Shallow copy X variables
         Y_m = X_m
-        n_samples_y = n_samples_x
-        n_features_y = n_features_x
 
     # Check feature sizes are equal
     if (n_features_x != n_features_y):
