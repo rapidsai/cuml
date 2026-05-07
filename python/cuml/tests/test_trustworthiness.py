@@ -78,8 +78,6 @@ def test_trustworthiness_rejects_1d_input():
 
 
 def test_trustworthiness_unknown_metric():
-    rng = np.random.RandomState(0)
-    X = rng.rand(20, 4).astype(np.float32)
-    X_embedded = rng.rand(20, 2).astype(np.float32)
-    with pytest.raises(Exception, match="Unknown metric"):
-        cuml_trustworthiness(X, X_embedded, metric="manhattan")
+    X = np.arange(20, dtype=np.float32)
+    with pytest.raises(ValueError, match="Unsupported metric 'manhattan'"):
+        cuml_trustworthiness(X, X, metric="manhattan")

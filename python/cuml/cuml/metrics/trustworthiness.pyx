@@ -80,6 +80,12 @@ def trustworthiness(
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
+    if metric != 'euclidean':
+        raise ValueError(
+            "Unsupported metric {!r}. Supported metrics are: "
+            "'euclidean'.".format(metric)
+        )
+
     X_m = check_array(
         X,
         order='C',
@@ -108,18 +114,14 @@ def trustworthiness(
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    if metric == 'euclidean':
-        ret = trustworthiness_score[float, euclidean](handle_[0],
-                                                      <float*>d_X_ptr,
-                                                      <float*>d_X_embedded_ptr,
-                                                      n_samples,
-                                                      n_features,
-                                                      n_components,
-                                                      n_neighbors,
-                                                      batch_size)
-        handle.sync()
-
-    else:
-        raise Exception("Unknown metric")
+    ret = trustworthiness_score[float, euclidean](handle_[0],
+                                                  <float*>d_X_ptr,
+                                                  <float*>d_X_embedded_ptr,
+                                                  n_samples,
+                                                  n_features,
+                                                  n_components,
+                                                  n_neighbors,
+                                                  batch_size)
+    handle.sync()
 
     return ret
