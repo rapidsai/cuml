@@ -28,6 +28,7 @@ __all__ = (
     "check_y",
     "check_sample_weight",
     "check_inputs",
+    "check_classification_targets",
 )
 
 
@@ -884,20 +885,17 @@ _cupy_any_inf_or_nan_or_real = cp.ReductionKernel(
 )
 
 
-def _check_classification_targets(y, ensure_discrete_classes=True):
+def check_classification_targets(y):
     """Check if `y` is composed of valid class labels.
 
-    Catches NaN, infinity, and non-integral inputs when
-    `ensure_discrete_classes=True`.
+    Catches NaN, infinity, and non-integral inputs.
 
     Parameters
     ----------
     y : cupy.ndarray
         The ``y`` input to check.
-    ensure_discrete_classes : bool, default=True
-        Whether to ensure class labels are discrete, non-continuous values.
     """
-    if y.dtype.kind == "f" and ensure_discrete_classes:
+    if y.dtype.kind == "f":
         status = _cupy_any_inf_or_nan_or_real(y)
         if status & 0b001:
             raise ValueError("Input y contains NaN.")
@@ -956,8 +954,11 @@ def check_y(
         multi-column inputs as well.
     ensure_discrete_classes : bool, default=True
         Whether to ensure class labels are discrete, non-continuous values.
-    return_classes : bool, default=False
+    return_classes : bool, np.ndarray, or list[numpy.ndarray], default=False
         Set to True to also label encode ``y`` and return the ``classes``.
+        Alternatively may pass a numpy array (or a list of arrays in the
+        multi-output case) to explicitly specify the ``classes`` to use for
+        label encoding.
     return_index : bool, default=False
         Whether to return the index of ``y`` (if a dataframe-like value).
         This is useful for functions that need to return an output with a
@@ -969,7 +970,7 @@ def check_y(
         The converted and validated array.
     classes : numpy.ndarray or list[numpy.ndarray]
         The collected classes for a classifier input. Only returned if
-        ``return_classes=True``.
+        ``return_classes`` is not ``False``.
     index : pandas.Index, cudf.Index, or None
         The index of the input if a dataframe-like, or None if no index. The
         index will be converted to match ``mem_type``. Only returned if
@@ -993,7 +994,7 @@ def check_y(
         index = None
 
     # Coerce `y` to a supported array type
-    if return_classes:
+    if return_classes is not False:
         # cudf may coerce the dtype, store the original so we can cast back later
         input_dtype = y.dtype if isinstance(y, np.ndarray) else None
 
@@ -1013,7 +1014,10 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if np.isdtype(y.dtype, ("numeric", "bool")):
+            if (
+                np.isdtype(y.dtype, ("numeric", "bool"))
+                and return_classes is True
+            ):
                 y = cp.asarray(y)
             elif (
                 y.dtype == "object"
@@ -1046,14 +1050,16 @@ def check_y(
 
     # Warn/error appropriately for 2D inputs
     if y.ndim == 2:
-        if y.shape[1] == 1 and (return_classes or not accept_multi_output):
+        if y.shape[1] == 1 and (
+            return_classes is not False or not accept_multi_output
+        ):
             warnings.warn(
                 "A column-vector y was passed when a 1d array was expected. "
                 "Please change the shape of y to (n_samples,), for example "
                 "using ravel().",
                 DataConversionWarning,
             )
-            if return_classes:
+            if return_classes is not False:
                 y = (
                     y.iloc[:, 0]
                     if isinstance(y, cudf.DataFrame)
@@ -1067,29 +1073,46 @@ def check_y(
     if return_index:
         index = _index_as_mem_type(index, mem_type)
 
-    if not return_classes:
+    if return_classes is False:
         return (y, index) if return_index else y
 
     # For classifiers, we label encode y and return the integral labels as well
     # as the classes.
-    def _encode(y):
+    def _encode(y, classes=None):
         """Encode `y` to codes and classes"""
-        _check_classification_targets(y, ensure_discrete_classes)
+        if ensure_discrete_classes:
+            check_classification_targets(y)
         if isinstance(y, cudf.Series):
             y = y.astype("category")
+            if classes is None:
+                classes = y.cat.categories
+                # XXX: cudf's to_numpy doesn't support conversions for all
+                # dtypes. Roundtrip through object dtype when necessary.
+                try:
+                    classes = classes.to_numpy(dtype=input_dtype)
+                except NotImplementedError:
+                    classes = classes.to_numpy(dtype="object")
+                # cudf will sometimes translate non-numeric dtypes. Coerce back to
+                # the input dtype if the input was originally a numpy array.
+                if input_dtype is not None:
+                    classes = classes.astype(input_dtype, copy=False)
+            else:
+                # Encode using specified classes, erroring if any unknown
+                # classes found
+                y_orig = y
+                y = y.cat.set_categories(classes)
+                if y.has_nulls or y.hasnans:
+                    new_cats = y_orig.cat.categories
+                    unknown = new_cats[~new_cats.isin(classes)].to_numpy(
+                        dtype="object"
+                    )
+                    raise ValueError(
+                        f"The target label(s) {unknown!s} in y do not exist in the "
+                        f"initial classes {classes!s}"
+                    )
             codes = cp.asarray(y.cat.codes)
-            classes = y.cat.categories
-            # XXX: cudf's to_numpy doesn't support conversions for all
-            # dtypes. Roundtrip through object dtype when necessary.
-            try:
-                classes = classes.to_numpy(dtype=input_dtype)
-            except NotImplementedError:
-                classes = classes.to_numpy(dtype="object")
-            # cudf will sometimes translate non-numeric dtypes. Coerce back to
-            # the input dtype if the input was originally a numpy array.
-            if input_dtype is not None:
-                classes = classes.astype(input_dtype, copy=False)
         else:
+            assert classes is None  # we should always use cudf in this case
             classes, codes = cp.unique(y, return_inverse=True)
             classes = classes.get()
         return codes, classes
@@ -1099,13 +1122,37 @@ def check_y(
         order = "F"
 
     if y.ndim == 1:
-        y, classes = _encode(y)
+        if return_classes is True:
+            provided_classes = None
+        elif not isinstance(return_classes, np.ndarray):
+            raise ValueError("Expected `return_classes` to be a numpy array")
+        else:
+            provided_classes = return_classes
+
+        y, classes = _encode(y, provided_classes)
         if dtype is not None and y.dtype not in dtype:
             y = y.astype(dtype[0])
     else:
         getter = y.iloc if isinstance(y, cudf.DataFrame) else y
+
+        if return_classes is True:
+            provided_classes = [None] * y.shape[1]
+        elif not (
+            isinstance(return_classes, list)
+            and len(return_classes) == y.shape[1]
+            and all(isinstance(a, np.ndarray) for a in return_classes)
+        ):
+            raise ValueError(
+                f"Expected `return_classes` to be a list of {y.shape[1]} numpy arrays"
+            )
+        else:
+            provided_classes = return_classes
+
         encoded_cols, classes = zip(
-            *(_encode(getter[:, i]) for i in range(y.shape[1]))
+            *(
+                _encode(getter[:, i], provided_classes[i])
+                for i in range(y.shape[1])
+            )
         )
         classes = list(classes)
         # Infer output dtype
@@ -1309,8 +1356,11 @@ def check_inputs(
         Whether multi-output y is accepted. By default only 1D inputs (or 2D
         inputs with a single column) are accepted. Set to True to accept
         multi-column inputs as well.
-    return_classes : bool, default=False
+    return_classes : bool, np.ndarray, or list[numpy.ndarray], default=False
         Set to True to also label encode ``y`` and return the ``classes``.
+        Alternatively may pass a numpy array (or a list of arrays in the
+        multi-output case) to explicitly specify the ``classes`` to use for
+        label encoding.
     return_index : bool, default=False
         Whether to return the index of ``X`` (if a dataframe-like value).
         This is useful for functions that need to return an output with a
@@ -1333,8 +1383,8 @@ def check_inputs(
         The converted and validated weights. Omitted if no ``sample_weight``
         provided.
     classes : numpy.ndarray or list[numpy.ndarray]
-        The collected classes from ``y`` for a classifier input. Only returned
-        if ``return_classes=True``.
+        The collected classes for a classifier input. Only returned if
+        ``return_classes`` is not ``False``.
     index : pandas.Index, cudf.Index, or None
         The index of the input if a dataframe-like, or None if no index. The
         index will be converted to match ``mem_type``. Only returned if
@@ -1378,7 +1428,7 @@ def check_inputs(
             accept_multi_output=accept_multi_output,
             return_classes=return_classes,
         )
-        if return_classes:
+        if return_classes is not False:
             y, classes = y
         out.append(y)
 
@@ -1397,7 +1447,7 @@ def check_inputs(
 
     check_consistent_length(*out)
 
-    if return_classes:
+    if return_classes is not False:
         out.append(classes)
     if return_index:
         out.append(index)

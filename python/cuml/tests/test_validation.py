@@ -1294,6 +1294,87 @@ def test_check_y_return_classes(
         assert (classes == sol_classes).all()
 
 
+@pytest.mark.parametrize("kind", ["numpy", "cudf"])
+@pytest.mark.parametrize("label_dtype", ["int32", "O", "U"])
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_check_y_return_classes_classes_specified(
+    kind, label_dtype, multi_output
+):
+    # Deliberately choose non-sorted labels to ensure the provided encoding is
+    # used rather than the default ordered encoding.
+    if label_dtype in ("O", "U"):
+        labels = np.array(["d", "c", "a", "b"], dtype=label_dtype)
+    else:
+        labels = np.array([20, 15, 5, 10], dtype=label_dtype)
+
+    rng = np.random.default_rng(42)
+    if multi_output:
+        inds = np.stack(
+            [rng.integers(3, size=100), rng.integers(4, size=100)]
+        ).T
+        y = labels.take(inds)
+        classes = [labels[:3], labels[:4]]
+        missing = [labels[:3], labels[:3]]
+    else:
+        inds = rng.integers(4, size=100)
+        y = labels.take(inds)
+        classes = labels
+        missing = labels[:3]
+    sol = cp.asarray(inds)
+
+    if kind == "cudf":
+        y = cudf.DataFrame(y) if multi_output else cudf.Series(y)
+    else:
+        assert kind == "numpy"
+
+    res, res_classes = check_y(
+        y, return_classes=classes, accept_multi_output=multi_output
+    )
+
+    # Assert encoded y is correct
+    assert res.dtype.kind in "iu"  # default to some integral type
+    assert res.shape == sol.shape
+    assert isinstance(res, cp.ndarray)
+    cp.testing.assert_allclose(res, sol)
+
+    # Assert classes is returned as is
+    if multi_output:
+        assert all(a is b for a, b in zip(res_classes, classes))
+    else:
+        assert res_classes is classes
+
+    # Missing a class raises
+    msg = re.escape(
+        f"The target label(s) {labels[3:]!s} in y do not exist in the initial "
+        f"classes {labels[:3]!s}"
+    )
+    with pytest.raises(ValueError, match=msg):
+        check_y(y, return_classes=missing, accept_multi_output=multi_output)
+
+
+def test_check_y_return_classes_bad_type():
+    y = np.array(["a", "b", "a", "b"])
+    y2 = np.array([["a", "x"], ["b", "y"], ["c", "x"]])
+    msg_1d = "Expected `return_classes` to be a numpy array"
+    msg_2d = "Expected `return_classes` to be a list of 2 numpy arrays"
+
+    with pytest.raises(ValueError, match=msg_1d):
+        check_y(y, return_classes="bad")
+
+    with pytest.raises(ValueError, match=msg_2d):
+        check_y(y2, return_classes="bad", accept_multi_output=True)
+
+    with pytest.raises(ValueError, match=msg_2d):
+        check_y(y2, return_classes=["bad", "bad"], accept_multi_output=True)
+
+    with pytest.raises(ValueError, match=msg_2d):
+        check_y(
+            y2,
+            return_classes=[np.array(["a", "b", "c"])],
+            accept_multi_output=True,
+        )
+
+
 @pytest.mark.parametrize(
     "array",
     [
@@ -1609,6 +1690,13 @@ def test_check_inputs_return_classes():
     )
     assert y2.dtype == "float64"
     cp.testing.assert_array_equal(y2, cp.array([0, 1, 0], dtype="float64"))
+
+    # Can explicitly specify classes
+    _, y2, classes = check_inputs(
+        model, X, y, return_classes=np.array(["b", "a"], dtype="O"), reset=True
+    )
+    cp.testing.assert_array_equal(y2, cp.array([1, 0, 1]))
+    np.testing.assert_array_equal(classes, np.array(["b", "a"], dtype="O"))
 
 
 def test_check_inputs_return_index():

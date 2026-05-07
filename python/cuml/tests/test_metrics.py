@@ -16,6 +16,7 @@ import scipy.sparse
 import sklearn.metrics
 from numba import cuda
 from numpy.testing import assert_almost_equal
+from packaging.version import Version
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 from scipy.stats import entropy as sp_entropy
@@ -766,6 +767,102 @@ def test_mean_squared_log_error_negative_values(inputs):
         )
 
 
+_REGRESSION_FUNCS = [
+    "r2_score",
+    "mean_squared_error",
+    "mean_absolute_error",
+    "median_absolute_error",
+    "mean_squared_log_error",
+]
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+def test_regression_metrics_scalar_sample_weight(func):
+    y_true = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    unweighted = cu_metric(y_true, y_pred)
+    assert cu_metric(y_true, y_pred, sample_weight=1.0) == unweighted
+    assert cu_metric(y_true, y_pred, sample_weight=2.5) == unweighted
+
+    # Verify cuML matches scikit-learn for unweighted
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred), skl_metric(y_true, y_pred)
+    )
+
+    # cuML accepts scalar sample_weight (equivalent to sample_weight=1.0).
+    # sklearn requires array-like sample_weight, so compare cuML scalar-sw
+    # with sklearn using a 1D array of ones.
+    sw_scalar = 1.0
+    sw_array = np.array([sw_scalar] * len(y_true))
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred, sample_weight=sw_scalar),
+        skl_metric(y_true, y_pred, sample_weight=sw_array),
+    )
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.parametrize(
+    "y_true_shape, y_pred_shape",
+    [((4,), (4, 1)), ((4, 1), (4,)), ((4, 1), (4, 1))],
+)
+def test_regression_metrics_1d_2d_equivalence(
+    func, y_true_shape, y_pred_shape
+):
+    # (N,) and (N, 1) should be treated as equivalent (matches sklearn).
+    y_true_1d = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred_1d = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+    expected = skl_metric(y_true_1d, y_pred_1d)
+
+    got = cu_metric(
+        y_true_1d.reshape(y_true_shape), y_pred_1d.reshape(y_pred_shape)
+    )
+    np.testing.assert_allclose(got, expected)
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.xfail(
+    condition=Version(sklearn.__version__) < Version("1.7"),
+    reason=(
+        "sklearn < 1.7 uses different error messages for invalid "
+        "sample_weight inputs; messages were standardized in sklearn 1.7"
+    ),
+    strict=True,
+)
+def test_regression_metrics_errors(func):
+    arr_3 = np.array([1.0, 2.0, 3.0])
+    arr_4 = np.array([1.0, 2.0, 3.0, 4.0])
+    arr_3x2 = np.ones((3, 2))
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    # cuML and sklearn both raise ValueError for mismatched sample counts.
+    # sklearn: "Found input variables with inconsistent numbers of samples"
+    # cuML: "inconsistent number of samples" — match common substring.
+    sw_mismatch = np.array([1.0, 2.0, 3.0, 4.0])
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_4)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_4)
+
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        skl_metric(arr_3, arr_3, sample_weight=arr_3x2)
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        cu_metric(arr_3, arr_3, sample_weight=arr_3x2)
+
+
 def test_entropy():
     # The outcome of a fair coin is the most uncertain:
     # in base 2 the result is 1 (One bit of entropy).
@@ -875,6 +972,62 @@ def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
     cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     ref = sk_confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+def test_confusion_matrix_errors():
+    # Mismatched lengths
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # Non-integer dtype without convert_dtype
+    with pytest.raises(ValueError, match="dtype"):
+        confusion_matrix(
+            np.array([0.0, 1.0], dtype=np.float32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # 2D y_true is rejected
+    with pytest.raises(ValueError, match="1D"):
+        confusion_matrix(
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+        )
+
+    # 2D labels are rejected
+    with pytest.raises(ValueError, match="labels"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            labels=np.array([[0, 1]], dtype=np.int32),
+        )
+
+    # Inconsistent sample_weight length
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1, 0], dtype=np.int32),
+            sample_weight=np.array([1.0, 2.0]),
+        )
+
+    # Invalid normalize value
+    with pytest.raises(ValueError, match="normalize"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            normalize="bogus",
+        )
+
+
+def test_confusion_matrix_convert_dtype():
+    # convert_dtype=True should coerce float labels to int32.
+    y_true = np.array([0, 1, 2, 1], dtype=np.float32)
+    y_pred = np.array([0, 1, 1, 1], dtype=np.float32)
+    cm = confusion_matrix(y_true, y_pred, convert_dtype=True)
+    ref = sk_confusion_matrix(y_true.astype(np.int32), y_pred.astype(np.int32))
+    cp.testing.assert_array_equal(cm, ref)
 
 
 def test_roc_auc_score():
@@ -1702,7 +1855,7 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         Q = cp.asarray(Q, dtype=dtypeQ)
 
     if dtypeP != dtypeQ:
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError, match="dtype"):
             cu_kl_divergence(P, Q, convert_dtype=False)
         cu_res = cu_kl_divergence(P, Q)
     else:
