@@ -80,21 +80,20 @@ def hinge_loss(
             ensure_all_finite=False,
             input_name="labels",
         )
-        # `check_y(return_classes=...)` expects a sorted, deduplicated numpy
-        # array specifying the classes to use for label encoding. It will
-        # raise a descriptive error if `y_true` contains labels not in this
-        # array.
-        return_classes = np.unique(cp.asnumpy(labels))
+        classes = np.unique(cp.asnumpy(labels))
     else:
-        # Derive classes from `y_true` itself.
-        return_classes = True
+        classes = None
 
-    # Label-encode `y_true` to integer codes (column indices into `classes`).
-    # `classes` comes back as a sorted numpy array.
-    y_true, classes = check_y(
-        y_true,
-        return_classes=return_classes,
-    )
+    if classes is None:
+        y_true, classes = check_y(y_true, return_classes=True)
+    elif classes.size > 2:
+        # For multiclass hinge loss, supplied labels define the column order
+        # for pred_decision and should be used to encode y_true.
+        y_true, classes = check_y(y_true, return_classes=classes)
+    else:
+        # For sklearn-compatible binary hinge loss, supplied labels select the
+        # binary branch, but the sign transform is fit from observed y_true.
+        y_true, _ = check_y(y_true, return_classes=True)
 
     sample_weight = check_sample_weight(sample_weight, dtype=np.float64)
     check_consistent_length(y_true, pred_decision, sample_weight)
