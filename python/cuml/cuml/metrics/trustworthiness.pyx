@@ -108,8 +108,11 @@ def trustworthiness(
     cdef int n_components = X_m2.shape[1]
     d_X_embedded_ptr = X_m2.data.ptr
 
-    if n_neighbors > n_samples:
-        raise ValueError("n_neighbors must be <= the number of rows.")
+    if n_neighbors < 1 or 2 * n_neighbors >= n_samples:
+        raise ValueError(
+            "n_neighbors ({}) must be >= 1 and < n_samples / 2; "
+            "n_samples is {}.".format(n_neighbors, n_samples)
+        )
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

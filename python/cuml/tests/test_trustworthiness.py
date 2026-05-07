@@ -47,11 +47,12 @@ def test_trustworthiness(
     assert abs(cu_score - sk_score) <= 1e-3
 
 
-def test_trustworthiness_invalid_input():
+@pytest.mark.parametrize("n_neighbors", [0, 5, 50])
+def test_trustworthiness_invalid_n_neighbors(n_neighbors):
     X, y = make_blobs(n_samples=10, centers=1, n_features=2, random_state=32)
 
-    with pytest.raises(ValueError, match="n_neighbors"):
-        cuml_trustworthiness(X, X, n_neighbors=50)
+    with pytest.raises(ValueError, match="n_neighbors.*n_samples"):
+        cuml_trustworthiness(X, X, n_neighbors=n_neighbors)
 
 
 def test_trustworthiness_mismatched_rows():
