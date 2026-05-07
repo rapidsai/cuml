@@ -61,7 +61,7 @@ ESTIMATORS = [
     CategoricalNB(),
     BernoulliNB(),
     MultinomialNB(),
-    UMAP(),
+    UMAP(n_neighbors=5),
     TSNE(),
     TruncatedSVD(),
     IncrementalPCA(),

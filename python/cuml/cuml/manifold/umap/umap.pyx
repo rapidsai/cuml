@@ -31,9 +31,11 @@ from cuml.internals.interop import (
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.validation import (
     check_array,
+    check_consistent_length,
     check_inputs,
     check_is_fitted,
     check_random_seed,
+    check_y,
 )
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -1179,52 +1181,62 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             memory usage, the precomputed knn graph should be CPU-accessible arrays
             such as numpy arrays.
         """
+        # Normalize X as cheaply as possible to minimize copies and work
+        X, index = check_inputs(
+            self,
+            X,
+            order=None,
+            mem_type=None,
+            accept_sparse=True,
+            ensure_all_finite=False,
+            return_index=True,
+            reset=True,
+        )
+        if y is not None:
+            y = check_y(
+                y,
+                dtype="float32",
+                convert_dtype=convert_dtype,
+                order="C",
+            )
+            check_consistent_length(X, y)
+
         cdef int n_rows = X.shape[0]
         cdef int n_dims = X.shape[1]
-
         cdef bool X_is_sparse = is_sparse(X)
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse)
 
-        # Don't coerce to device memory for dense case when using a precomputed
-        # KNN, so that X may be dropped earlier if passed on host.
-        if knn_graph is None and self.precomputed_knn is None:
-            base_mem_type = "device"
-        else:
-            base_mem_type = None
-
+        # Determine the required mem_type based on params and X
         if X_is_sparse:
-            mem_type = base_mem_type
+            mem_type = "device"
+        elif params.build_algo == lib.graph_build_algo.NN_DESCENT:
+            mem_type = "host"
         elif (
-            params.build_algo == lib.graph_build_algo.NN_DESCENT
-            or (
-                params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
-                and params.build_params.n_clusters > 1
-            )
+            params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+            and params.build_params.n_clusters > 1
         ):
             mem_type = "host"
+        elif knn_graph is not None or self.precomputed_knn is not None:
+            # For dense inputs using a precomputed KNN, we leave the input in
+            # its original mem_type so the device memory may be dropped earlier
+            # if passed on host.
+            mem_type = None
         else:
-            mem_type = base_mem_type
+            mem_type = "device"
 
-        check_kwargs = dict(
+        # Now fully validate and coerce X to the required mem_type
+        X = check_array(
+            X,
+            mem_type=mem_type,
             dtype="float32",
-            y_dtype="float32",
             convert_dtype=convert_dtype,
             order="C",
             accept_sparse="csr",
-            mem_type=mem_type,
-            reset=True,
-            return_index=True,
             ensure_min_samples=2,
+            input_name="X",
         )
-        if y is not None:
-            X, y, index = check_inputs(self, X, y, **check_kwargs)
-            # `y` needs to be on GPU but `check_inputs` doesn't have separate
-            # mem_type handling for X and y.
-            y = cp.asarray(y)
-        else:
-            X, index = check_inputs(self, X, **check_kwargs)
 
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
