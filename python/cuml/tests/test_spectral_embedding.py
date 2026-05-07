@@ -321,3 +321,12 @@ def test_precomputed_no_sparsity():
     )
     out = embedding_precomp.fit_transform(affinity_matrix)
     assert out.shape == (200, 2)
+
+
+def test_precomputed_not_square():
+    model = SpectralEmbedding(affinity="precomputed")
+    X = np.random.default_rng(42).random((20, 25))
+    with pytest.raises(
+        ValueError, match="Expected precomputed `X` to be square"
+    ):
+        model.fit(X)

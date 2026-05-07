@@ -250,6 +250,11 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
                 X = cp_sp.coo_matrix(X)
             X.sum_duplicates()
 
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    f"Expected precomputed `X` to be square, got shape = {X.shape}"
+                )
+
             affinity_data = X.data
             affinity_rows = X.row
             affinity_cols = X.col
