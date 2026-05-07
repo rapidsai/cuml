@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -194,7 +194,8 @@ def test_spectral_embedding_invalid_affinity():
 def test_spectral_embedding_nonfinite(value, affinity):
     X = np.array([[0, 1], [2, 3], [0, value]], dtype="float32")
 
-    with pytest.raises(ValueError, match="nonfinite"):
+    msg = "contains NaN" if np.isnan(value) else "contains infinity"
+    with pytest.raises(ValueError, match=msg):
         spectral_embedding(X, affinity=affinity)
 
 
