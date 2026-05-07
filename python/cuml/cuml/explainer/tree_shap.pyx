@@ -11,6 +11,7 @@ import pandas as pd
 import treelite
 
 import cuml
+from cuml.internals.dimension_limits import dims_within_size_t_limits
 from cuml.internals.treelite import safe_treelite_call
 from cuml.internals.validation import check_array
 
@@ -245,6 +246,12 @@ cdef class TreeExplainer:
 
         n_rows, n_cols = X.shape
         dtype = X.dtype
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
+        if self.data is not None:
+            dims_within_size_t_limits(
+                background_n_rows=self.data.shape[0],
+                background_n_cols=self.data.shape[1],
+            )
 
         preds = cp.empty(
             (n_rows, self.num_class[0] * (n_cols + 1)),
@@ -324,6 +331,7 @@ cdef class TreeExplainer:
 
         n_rows, n_cols = X.shape
         dtype = X.dtype
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
 
         preds = cp.empty(
             (n_rows, self.num_class[0] * (n_cols + 1)**2),

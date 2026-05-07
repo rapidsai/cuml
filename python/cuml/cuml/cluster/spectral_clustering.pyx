@@ -9,6 +9,7 @@ import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -303,8 +304,10 @@ class SpectralClustering(Base,
             ensure_min_samples=2,
             reset=True,
         )
-        cdef int n_samples, n_features
-        n_samples, n_features = X.shape
+        n_samples_py, n_features_py = map(int, X.shape)
+        dims_within_int_limits(n_samples=n_samples_py, n_features=n_features_py)
+        cdef int n_samples = n_samples_py
+        cdef int n_features = n_features_py
 
         cdef float* affinity_data_ptr = NULL
         cdef int* affinity_rows_ptr = NULL
@@ -351,6 +354,14 @@ class SpectralClustering(Base,
         config.n_components = max(1, min(effective_n_components, (n_samples - 1) // 3))
         config.n_neighbors = min(self.n_neighbors, n_samples - 1)
         config.n_init = self.n_init
+        if precomputed:
+            dims_within_int_limits(affinity_nnz=int(affinity_nnz))
+        dims_within_int_limits(
+            n_clusters=self.n_clusters,
+            n_init=self.n_init,
+            n_components=int(config.n_components),
+            n_neighbors=int(config.n_neighbors),
+        )
         if self.eigen_tol == "auto":
             config.eigen_tol = 0.0
         else:

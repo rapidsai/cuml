@@ -11,6 +11,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -509,8 +510,26 @@ class SVMBase(Base,
         cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
 
+        n_cols_fit_py = int(self.shape_fit_[1])
+        n_support_py = int(self.support_.shape[0])
+        X_rows_py, X_cols_py = map(int, X.shape)
+
+        dims_within_int_limits(
+            n_cols_fit=n_cols_fit_py,
+            n_support=n_support_py,
+            X_rows=X_rows_py,
+            X_cols=X_cols_py,
+        )
+        if sparse_X:
+            dims_within_int_limits(X_nnz=int(X.nnz))
+
         # Extract support_vectors_
-        cdef int support_nnz = support_vectors.nnz if sparse_model else -1
+        cdef int support_nnz
+        if sparse_model:
+            support_nnz = int(support_vectors.nnz)
+            dims_within_int_limits(support_nnz=support_nnz)
+        else:
+            support_nnz = -1
         cdef int* support_indptr = <int*><uintptr_t>(
             support_vectors.indptr.ptr if sparse_model else 0
         )
@@ -524,11 +543,11 @@ class SVMBase(Base,
         # Setup SvmModel of proper type
         # Use shape_fit_[1] for n_cols to handle the no-support-vectors case correctly
         # (support_vectors.shape[1] would be 0 when there are no support vectors)
-        cdef int n_cols_fit = self.shape_fit_[1]
+        cdef int n_cols_fit = n_cols_fit_py
         cdef lib.SvmModel[float] model_f
         cdef lib.SvmModel[double] model_d
         if is_float32:
-            model_f.n_support = self.support_.shape[0]
+            model_f.n_support = n_support_py
             model_f.n_cols = n_cols_fit
             model_f.b = self.intercept_.item()
             model_f.dual_coefs = <float*><uintptr_t>self.dual_coef_.ptr
@@ -538,7 +557,7 @@ class SVMBase(Base,
             model_f.support_matrix.indices = support_indices
             model_f.support_matrix.data = <float*>support_data_ptr
         else:
-            model_d.n_support = self.support_.shape[0]
+            model_d.n_support = n_support_py
             model_d.n_cols = n_cols_fit
             model_d.b = self.intercept_.item()
             model_d.dual_coefs = <double*><uintptr_t>self.dual_coef_.ptr
@@ -560,7 +579,8 @@ class SVMBase(Base,
         cdef int *X_indices
         cdef uintptr_t X_data_ptr
         cdef int X_rows, X_cols, X_nnz
-        X_rows, X_cols = X.shape
+        X_rows = X_rows_py
+        X_cols = X_cols_py
         if sparse_X:
             X_indptr = <int*><uintptr_t>X.indptr.data.ptr
             X_indices = <int*><uintptr_t>X.indices.data.ptr

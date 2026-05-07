@@ -8,6 +8,10 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import check_inputs
@@ -153,6 +157,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             ensure_min_samples=2,
             reset=True,
         )
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
+        dims_within_size_t_limits(n_clusters=self.n_clusters)
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
 

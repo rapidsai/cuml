@@ -8,6 +8,7 @@ from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
 from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import dims_within_size_t_limits
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -55,6 +56,11 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
 class PCAMG(BaseDecompositionMG, PCA):
     @run_in_internal_context
     def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            n_components=self.n_components_,
+        )
         # Validate and initialize parameters
         cdef paramsPCAMG params
         params.n_components = self.n_components_

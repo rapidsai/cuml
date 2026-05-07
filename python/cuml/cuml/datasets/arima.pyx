@@ -8,6 +8,7 @@ import numpy as np
 
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray as cumlArray
+from cuml.internals.dimension_limits import dims_within_int_limits
 
 from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -93,6 +94,18 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
     cpp_order.n_exog = 0
+
+    dims_within_int_limits(
+        batch_size=batch_size,
+        n_obs=n_obs,
+        arima_p=order[0],
+        arima_d=order[1],
+        arima_q=order[2],
+        seasonal_P=seasonal_order[0],
+        seasonal_D=seasonal_order[1],
+        seasonal_Q=seasonal_order[2],
+        seasonal_s=seasonal_order[3],
+    )
 
     # Define some parameters based on the order
     scale = 1.0

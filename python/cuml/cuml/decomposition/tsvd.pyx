@@ -11,6 +11,10 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_size_t_limits,
+    dims_within_uint32_limits,
+)
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.validation import (
@@ -329,6 +333,13 @@ class TruncatedSVD(Base,
                 f"number of features in X ({n_cols})"
             )
 
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            n_components=self.n_components,
+        )
+        dims_within_uint32_limits(n_iterations=self.n_iter)
+
         cdef paramsTSVD params
         cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
@@ -427,6 +438,11 @@ class TruncatedSVD(Base,
 
         n_rows = X.shape[0]
         dtype = X.dtype
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=self.n_features_in_,
+            n_components=self.n_components,
+        )
 
         cdef paramsTSVD params
         params.n_components = self.n_components
@@ -486,6 +502,11 @@ class TruncatedSVD(Base,
 
         n_rows = X.shape[0]
         dtype = X.dtype
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=self.n_features_in_,
+            n_components=self.n_components,
+        )
 
         cdef paramsTSVD params
         params.n_components = self.n_components

@@ -4,6 +4,7 @@
 #
 import numpy as np
 
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array, check_consistent_length
 from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
@@ -53,5 +54,7 @@ def prepare_cluster_metric_inputs(labels_true, labels_pred):
     # Those values are only correct because we used make_monotonic
     lower_class_range = 0
     upper_class_range = len(classes) - 1
+
+    dims_within_int_limits(n_rows=n_rows, upper_class_range=upper_class_range)
 
     return y_true, y_pred, n_rows, lower_class_range, upper_class_range

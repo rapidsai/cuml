@@ -7,6 +7,10 @@ import typing
 from cuml.common import input_to_cuml_array
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from cython.operator cimport dereference as deref
@@ -107,6 +111,15 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype='int32',
                                 convert_to_dtype='int32')
+        n_outputs = len(n_unique)
+        dims_within_int_limits(
+            n_neighbors=self.n_neighbors,
+            uniq_label_rows=uniq_labels_d.shape[0],
+            uniq_label_stride=uniq_labels_d.shape[1],
+            n_outputs=n_outputs,
+        )
+        dims_within_size_t_limits(batch_size=self.batch_size)
+
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.ptr
         cdef vector[int*] *uniq_labels_vec = new vector[int*]()
         for i in range(uniq_labels_d.shape[0]):
@@ -118,8 +131,6 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             new vector[int]()
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
-
-        n_outputs = len(n_unique)
 
         # Build labels output array for native code interfacing
         cdef vector[intData_t*] *out_result_local_parts \
@@ -213,6 +224,20 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         uniq_labels_d, _, _, _ = \
             input_to_cuml_array(uniq_labels, order='C', check_dtype='int32',
                                 convert_to_dtype='int32')
+
+        query_cais = input['cais']['query']
+        local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+        n_local_queries = len(local_query_rows)
+        n_outputs = len(n_unique)
+        dims_within_int_limits(
+            n_neighbors=self.n_neighbors,
+            uniq_label_rows=uniq_labels_d.shape[0],
+            uniq_label_stride=uniq_labels_d.shape[1],
+            n_outputs=n_outputs,
+            n_local_query_partitions=n_local_queries,
+        )
+        dims_within_size_t_limits(batch_size=self.batch_size)
+
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.ptr
         cdef vector[int*] *uniq_labels_vec = new vector[int*]()
         for i in range(uniq_labels_d.shape[0]):
@@ -225,14 +250,8 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
-        query_cais = input['cais']['query']
-        local_query_rows = list(map(lambda x: x.shape[0], query_cais))
-        n_local_queries = len(local_query_rows)
-
         cdef vector[float_ptr_vector] *probas_local_parts \
             = new vector[float_ptr_vector](n_local_queries)
-
-        n_outputs = len(n_unique)
 
         # Build probas output array for native code interfacing
         proba_cais = [[] for i in range(n_outputs)]

@@ -9,6 +9,10 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.validation import check_features
 
@@ -43,6 +47,8 @@ class MGFitMixin:
         :param partsToSizes: array of tuples in the format: [(rank,size)]
         :return: self
         """
+
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
 
         self._set_output_type(input_data[0][0])
         check_features(self, input_data[0][0], reset=True)
@@ -113,6 +119,7 @@ class MGFitMixin:
             X_cols = X_arys[0].indices.ptr
             X_row_ids = X_arys[0].indptr.ptr
             X_nnz = sum([x.nnz for x in X_arys])
+            dims_within_int_limits(X_nnz=X_nnz)
 
             # call inheriting class _fit that does all cython pointers and calls
             self._fit(X=[X_arg, X_cols, X_row_ids, X_nnz],

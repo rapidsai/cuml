@@ -8,6 +8,10 @@ from cuml.common import input_to_cuml_array
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.neighbors import NearestNeighbors
 
 from cython.operator cimport dereference as deref
@@ -95,6 +99,8 @@ class NearestNeighborsMG(NearestNeighbors):
 
         self.n_neighbors = self.n_neighbors if n_neighbors is None \
             else n_neighbors
+        dims_within_int_limits(n_neighbors=self.n_neighbors)
+        dims_within_size_t_limits(batch_size=self.batch_size)
 
         # Build input arrays and descriptors for native code interfacing
         input = type(self).gen_local_input(
@@ -177,6 +183,7 @@ class NearestNeighborsMG(NearestNeighbors):
 
         outputs = [d[1] for d in index]
         n_out = len(outputs)
+        dims_within_int_limits(n_label_partitions=n_out)
 
         if dtype == 'int32':
             out_local_parts_i32 = new vector[int_ptr_vector](<int>n_out)
@@ -218,6 +225,10 @@ class NearestNeighborsMG(NearestNeighbors):
 
     @staticmethod
     def alloc_local_output(local_query_rows, n_neighbors):
+        dims_within_int_limits(n_neighbors=n_neighbors)
+        for n_rows in local_query_rows:
+            dims_within_int_limits(partition_query_rows=n_rows)
+
         cdef vector[int64Data_t*] *indices_local_parts \
             = new vector[int64Data_t*]()
         cdef vector[floatData_t*] *dist_local_parts \

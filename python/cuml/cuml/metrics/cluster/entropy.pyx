@@ -8,6 +8,10 @@ import cupy as cp
 import numpy as np
 
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    values_fit_int32,
+)
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -57,9 +61,14 @@ def cython_entropy(clustering, base=None) -> float:
             f"{clustering.shape}"
         )
     clustering = clustering.ravel()
+    dims_within_int_limits(n_rows=clustering.shape[0])
     cdef int n_rows = clustering.shape[0]
     lower_class_range = cp.min(clustering).item()
     upper_class_range = cp.max(clustering).item()
+    values_fit_int32(
+        lower_class_range=lower_class_range,
+        upper_class_range=upper_class_range,
+    )
 
     cdef uintptr_t clustering_ptr = clustering.data.ptr
 

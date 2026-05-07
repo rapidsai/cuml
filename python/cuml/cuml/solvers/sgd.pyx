@@ -7,6 +7,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import check_inputs
@@ -193,6 +194,14 @@ def fit_sgd(
 
     # Allocate outputs
     coef = cp.zeros(X.shape[1], dtype=X.dtype)
+
+    dims_within_int_limits(
+        n_rows=X.shape[0],
+        n_cols=X.shape[1],
+        batch_size=batch_size,
+        epochs=epochs,
+        n_iter_no_change=n_iter_no_change,
+    )
 
     # Perform fit
     handle = get_handle()
@@ -461,6 +470,8 @@ class SGD(Base, FMajorInputTagMixin):
         )
 
         preds = cp.zeros(X.shape[0], dtype=self.coef_.dtype)
+
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

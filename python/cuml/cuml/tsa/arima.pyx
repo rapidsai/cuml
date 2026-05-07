@@ -10,6 +10,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, nvtx, reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import INT32_MAX, dims_within_int_limits
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
@@ -278,6 +279,21 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
+    def _assert_arima_core_dims(self):
+        """Ensure batch/observation counts fit libcuml ``int`` parameters."""
+        dims_within_int_limits(
+            batch_size=self.batch_size,
+            n_obs=self.n_obs,
+            n_obs_diff=self.n_obs_diff,
+        )
+        prod = int(self.batch_size) * int(self.n_obs)
+        if prod > INT32_MAX:
+            raise ValueError(
+                f"batch_size * n_obs ({prod}) exceeds maximum value ({INT32_MAX}) "
+                "supported by this binding when passed to native code as a 32-bit "
+                "signed integer."
+            )
+
     def __init__(self,
                  endog,
                  *,
@@ -351,6 +367,15 @@ class ARIMA(Base):
         cpp_order.n_exog = n_exog
         self.order = cpp_order
 
+        if n_exog > 0:
+            prod_be = int(self.batch_size) * int(n_exog)
+            if prod_be > INT32_MAX:
+                raise ValueError(
+                    f"batch_size * n_exog ({prod_be}) exceeds maximum value ({INT32_MAX}) "
+                    "supported by this binding when passed to native code as a 32-bit "
+                    "signed integer."
+                )
+
         self.simple_differencing = simple_differencing
 
         self._d_y_diff = CumlArray.empty(
@@ -361,6 +386,8 @@ class ARIMA(Base):
                 self.dtype)
 
         self.n_obs_diff = self.n_obs - d - D * s
+
+        self._assert_arima_core_dims()
 
         # Allocate temporary storage
         temp_mem_size = ARIMAMemory[double].compute_size(
@@ -658,6 +685,7 @@ class ARIMA(Base):
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         predict_size = end - start
+        dims_within_int_limits(start=start, end=end, predict_size=predict_size)
 
         # Future values of the exogenous variables
         cdef uintptr_t d_exog_fut_ptr = <uintptr_t> NULL
@@ -939,6 +967,7 @@ class ARIMA(Base):
         loglike : numpy.ndarray
             Batched log-likelihood. Shape: (batch_size,)
         """
+        dims_within_int_limits(truncate=int(truncate))
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
@@ -1014,6 +1043,7 @@ class ARIMA(Base):
             Batched log-likelihood gradient. Shape: (n_params * batch_size,)
             where n_params is the complexity of the model
         """
+        dims_within_int_limits(truncate=int(truncate))
         N = self.complexity
         assert len(x) == N * self.batch_size
 

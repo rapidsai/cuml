@@ -9,6 +9,7 @@ from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.outputs import run_in_internal_context
 
@@ -273,6 +274,13 @@ class ExponentialSmoothing(Base):
             raise ValueError("Time series must contain at least 1 value."
                              " Given: " + str(self.n))
 
+        dims_within_int_limits(
+            n=self.n,
+            ts_num=self.ts_num,
+            seasonal_periods=self.seasonal_periods,
+            start_periods=self.start_periods,
+        )
+
         cdef uintptr_t input_ptr
         cdef int leveltrend_seed_len, season_seed_len, components_len
         cdef int leveltrend_coef_offset, season_coef_offset
@@ -372,6 +380,8 @@ class ExponentialSmoothing(Base):
         if self.fit_executed_flag:
             if h <= 0:
                 raise ValueError("h must be > 0. Currently: " + str(h))
+
+            dims_within_int_limits(h=h)
 
             if h > self.h:
                 self.h = h

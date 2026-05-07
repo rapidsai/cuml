@@ -9,6 +9,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.validation import (
     check_array,
@@ -252,6 +253,11 @@ class Lars(Base, RegressorMixin):
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t y_ptr = y.data.ptr
         cdef uintptr_t gram_ptr = <uintptr_t>NULL if gram is None else gram.data.ptr
+        dims_within_int_limits(
+            n_rows=X.shape[0],
+            n_cols=X.shape[1],
+            max_iter=max_iter,
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef uintptr_t beta_ptr = beta.data.ptr
@@ -350,6 +356,11 @@ class Lars(Base, RegressorMixin):
             convert_dtype=convert_dtype,
             order="F",
             return_index=True,
+        )
+        dims_within_int_limits(
+            n_rows=X.shape[0],
+            n_cols=X.shape[1],
+            n_active=self.active_.shape[0],
         )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]

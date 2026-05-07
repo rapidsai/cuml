@@ -12,6 +12,10 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_size_t_limits,
+    dims_within_uint32_limits,
+)
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -507,6 +511,13 @@ class PCA(Base,
         else:
             self.n_components_ = self.n_components
 
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            n_components=self.n_components_,
+        )
+        dims_within_uint32_limits(n_iterations=self.iterated_power)
+
         if is_sparse(X):
             self._fit_sparse(X)
         else:
@@ -546,6 +557,11 @@ class PCA(Base,
     def _inverse_transform_dense(self, X, *, index=None):
         dtype = X.dtype
         n_rows = X.shape[0]
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=self.n_features_in_,
+            n_components=self.n_components_,
+        )
 
         out = cp.zeros((n_rows, self.n_features_in_), dtype=dtype, order="F")
 
@@ -642,6 +658,11 @@ class PCA(Base,
     def _transform_dense(self, X, *, index=None):
         dtype = X.dtype
         n_rows, n_cols = X.shape
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            n_components=self.n_components_,
+        )
 
         out = cp.zeros((n_rows, self.n_components_), dtype=dtype, order="F")
 

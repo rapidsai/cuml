@@ -6,6 +6,7 @@ import numpy as np
 
 from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.linear_model import LogisticRegression
 from cuml.linear_model.base_mg import MGFitMixin
 
@@ -169,6 +170,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
             )
 
         cdef int n_classes = len(self.classes_)
+        dims_within_int_limits(n_classes=n_classes, n_cols=self.n_cols)
 
         # Validate and initialize parameters
         l1_strength, l2_strength = self._get_l1_l2_strength()
@@ -205,6 +207,8 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
         else:
             X_ptr, X_cols_ptr, X_rows_ptr, X_nnz = X
             X_index_is_i32 = self.index_dtype == np.int32
+            if X_index_is_i32:
+                dims_within_int_limits(X_nnz=X_nnz)
 
         coef_ptr = coef.ptr
         cdef bool standardization = self.standardization

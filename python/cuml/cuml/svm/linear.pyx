@@ -5,6 +5,10 @@ import cupy as cp
 
 from cuml.common.classification import process_class_weight
 from cuml.internals.base import get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
@@ -187,6 +191,7 @@ def fit(
     # Extract dimensions
     cdef size_t n_rows = out[0].shape[0]
     cdef size_t n_cols = out[0].shape[1]
+    dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
     cdef int n_classes
     n_coefs = n_cols + int(fit_intercept)
 
@@ -213,6 +218,8 @@ def fit(
         n_classes = 0
         classes = class_codes = None
         w_shape = n_coefs
+
+    dims_within_int_limits(n_classes=n_classes)
 
     # Allocate output arrays
     w = cp.empty(shape=w_shape, dtype=X.dtype, order="F")
@@ -300,9 +307,13 @@ def compute_probabilities(scores, prob_scale, n_streams):
     prob_scale = cp.asarray(prob_scale, order="F")
     scores = cp.asarray(scores, order="C", dtype=prob_scale.dtype)
 
-    # Extract dimensions
-    cdef size_t n_rows = scores.shape[0]
-    cdef int n_classes = prob_scale.shape[0]
+    # Extract dimensions (validate before narrowing to native widths)
+    n_rows_py = int(scores.shape[0])
+    n_classes_py = int(prob_scale.shape[0])
+    dims_within_size_t_limits(n_rows=n_rows_py)
+    dims_within_int_limits(n_classes=n_classes_py)
+    cdef size_t n_rows = n_rows_py
+    cdef int n_classes = n_classes_py
 
     # Allocate outputs
     out = cp.empty((n_rows, n_classes), dtype=scores.dtype, order="C")

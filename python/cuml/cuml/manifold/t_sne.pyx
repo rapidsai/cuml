@@ -15,6 +15,7 @@ from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -222,6 +223,14 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     cdef long long seed = (
         -1 if self.random_state is None
         else check_random_seed(self.random_state)
+    )
+
+    dims_within_int_limits(
+        dim=n_components,
+        n_neighbors=n_neighbors,
+        perplexity_max_iter=perplexity_max_iter,
+        exaggeration_iter=exaggeration_iter,
+        max_iter=max_iter,
     )
 
     params.dim = n_components
@@ -582,27 +591,36 @@ class TSNE(Base,
         should match the metric used to train the TSNE embeedings.
         Takes precedence over the precomputed_knn parameter.
         """
-        cdef int n_samples, n_features
         cdef uintptr_t X_ptr = 0
         cdef uintptr_t X_indptr_ptr = 0
         cdef uintptr_t X_indices_ptr = 0
         cdef int X_nnz = 0
         cdef bool sparse_fit = is_sparse(X)
+        cdef int n_samples
+        cdef int n_features
 
         # Normalize input X
         if sparse_fit:
             X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32)
-            n_samples, n_features = X_m.shape
+            n_s, n_f = map(int, X_m.shape)
+            X_nnz = int(X_m.nnz)
             X_ptr = <uintptr_t>X_m.data.ptr
             X_indptr_ptr = <uintptr_t>X_m.indptr.ptr
             X_indices_ptr = <uintptr_t>X_m.indices.ptr
-            X_nnz = X_m.nnz
         else:
-            X_m, n_samples, n_features, _ = input_to_cuml_array(
+            X_m, n_s, n_f, _ = input_to_cuml_array(
                 X, order='F', check_dtype=np.float32,
                 convert_to_dtype=(np.float32 if convert_dtype else None)
             )
+            n_s, n_f = int(n_s), int(n_f)
             X_ptr = X_m.ptr
+
+        dims_within_int_limits(n_samples=n_s, n_features=n_f)
+        if sparse_fit:
+            dims_within_int_limits(X_nnz=X_nnz, csr_indptr_len=n_s + 1)
+
+        n_samples = n_s
+        n_features = n_f
 
         # Initialize TSNEParams
         cdef TSNEParams params

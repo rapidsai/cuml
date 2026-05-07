@@ -5,6 +5,7 @@
 import numpy as np
 
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
@@ -98,6 +99,14 @@ def trustworthiness(
                             convert_to_dtype=(np.float32 if convert_dtype
                                               else None))
     d_X_embedded_ptr = X_m2.ptr
+
+    dims_within_int_limits(
+        n_samples=n_samples,
+        n_features=n_features,
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        batch_size=batch_size,
+    )
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

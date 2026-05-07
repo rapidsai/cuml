@@ -5,6 +5,7 @@
 import numpy as np
 
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -88,6 +89,7 @@ def kl_divergence(P, Q, convert_dtype=True):
         )
     Q_m = Q_m.ravel()
 
+    dims_within_int_limits(n_features=P_m.shape[0])
     cdef int n_features_p = P_m.shape[0]
     if Q_m.shape[0] != n_features_p:
         raise ValueError(

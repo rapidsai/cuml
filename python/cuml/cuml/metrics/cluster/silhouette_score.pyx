@@ -6,6 +6,7 @@ import cupy as cp
 import numpy as np
 
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array, check_consistent_length
 from cuml.metrics.pairwise_distances import _determine_metric
 
@@ -79,8 +80,6 @@ def _silhouette_coeff(
         convert_dtype=convert_dtype,
         input_name='X',
     )
-    cdef int n_rows = data.shape[0]
-    cdef int n_cols = data.shape[1]
     dtype = data.dtype
 
     labels = check_array(
@@ -98,8 +97,19 @@ def _silhouette_coeff(
 
     # Use cp.unique with return_inverse to get monotonic labels efficiently.
     unique_labels, inverse = cp.unique(labels, return_inverse=True)
-    cdef int n_labels = unique_labels.shape[0]
     mono_labels = cp.ascontiguousarray(inverse, dtype=np.int32)
+
+    n_rows_py, n_cols_py = int(data.shape[0]), int(data.shape[1])
+    n_labels_py = int(unique_labels.shape[0])
+    dims_within_int_limits(
+        n_rows=n_rows_py,
+        n_cols=n_cols_py,
+        n_labels=n_labels_py,
+        chunksize=chunksize,
+    )
+    cdef int n_rows = n_rows_py
+    cdef int n_cols = n_cols_py
+    cdef int n_labels = n_labels_py
 
     cdef uintptr_t scores_ptr
     if sil_scores is None:

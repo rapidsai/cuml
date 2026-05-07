@@ -10,6 +10,7 @@ import numpy as np
 import cuml.internals.nvtx as nvtx
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import dims_within_size_t_limits
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -157,6 +158,15 @@ def make_regression(
 
     if effective_rank is None:
         effective_rank = -1
+
+    dims_within_size_t_limits(
+        n_samples=n_samples,
+        n_features=n_features,
+        n_informative=n_informative,
+        n_targets=n_targets,
+    )
+    if effective_rank >= 0:
+        dims_within_size_t_limits(effective_rank=effective_rank)
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

@@ -14,6 +14,7 @@ from cuml.common import CumlArray, input_to_cuml_array
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import get_handle, reflect
 from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.thirdparty_adapters import _get_mask
 
@@ -397,6 +398,12 @@ def pairwise_distances(
                          X.shape[1] == {} while Y.shape[1] == {}"
                          .format(n_features_x, n_features_y))
 
+    dims_within_int_limits(
+        n_samples_X=n_samples_x,
+        n_samples_Y=n_samples_y,
+        n_features=n_features_x,
+    )
+
     # Get the metric string to int
     metric_val = _determine_metric(metric)
 
@@ -574,8 +581,14 @@ def sparse_pairwise_distances(
     # Get the metric string to a distance enum
     metric_val = _determine_metric(metric, is_sparse_=True)
 
-    x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
-    dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)
+    dims_within_int_limits(
+        n_samples_x=n_samples_x,
+        n_samples_y=n_samples_y,
+        n_features=n_features_x,
+        X_nnz=X_m.nnz,
+        Y_nnz=Y_m.nnz,
+    )
+    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x)
     cdef uintptr_t d_dest_ptr = dest_m.ptr
 
     cdef uintptr_t d_X_ptr = X_m.data.ptr
@@ -591,8 +604,8 @@ def sparse_pairwise_distances(
                                 <float*> d_X_ptr,
                                 <float*> d_Y_ptr,
                                 <float*> d_dest_ptr,
-                                <int> x_nrows,
-                                <int> y_nrows,
+                                <int> n_samples_x,
+                                <int> n_samples_y,
                                 <int> n_features_x,
                                 <int> X_m.nnz,
                                 <int> Y_m.nnz,

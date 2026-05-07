@@ -10,6 +10,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -279,6 +280,7 @@ class Ridge(Base,
         may_mutate_sample_weight,
     ):
         """Fit a Ridge regression using the Eig solver."""
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
 

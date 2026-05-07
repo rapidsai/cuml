@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
@@ -182,8 +183,12 @@ def spectral_embedding(
             "['nearest_neighbors', 'precomputed']"
         )
 
-    cdef int n_samples, n_features
-    n_samples, n_features = A.shape
+    n_samples_py, n_features_py = map(int, A.shape)
+    dims_within_int_limits(n_samples=n_samples_py, n_features=n_features_py)
+    if affinity == "precomputed":
+        dims_within_int_limits(affinity_nnz=int(affinity_nnz))
+    cdef int n_samples = n_samples_py
+    cdef int n_features = n_features_py
 
     if not isfinite:
         raise ValueError(
@@ -221,6 +226,10 @@ def spectral_embedding(
         n_neighbors
         if n_neighbors is not None
         else max(int(A.shape[0] / 10), 1)
+    )
+    dims_within_int_limits(
+        n_components=int(config.n_components),
+        n_neighbors=int(config.n_neighbors),
     )
     cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
     cdef bool precomputed = affinity == "precomputed"

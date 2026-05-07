@@ -21,6 +21,10 @@ from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.interop import (
     InteropMixin,
@@ -314,6 +318,8 @@ cdef class RaftCOO:
 
         cdef RaftCOO self = RaftCOO.__new__(RaftCOO)
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
+        dims_within_size_t_limits(nnz=arr.nnz)
+        dims_within_int_limits(n_rows=arr.shape[0])
         cdef lib.COO* coo = new lib.COO(handle_.get_stream())
         self.ptr.reset(coo)
         coo.allocate(arr.nnz, arr.shape[0], False, handle_.get_stream())
@@ -523,6 +529,16 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         warnings.warn("build_algo='nn_descent' is not deterministic. Please use "
                       "build_algo='brute_force_knn' instead with random_state set.")
 
+    dims_within_int_limits(
+        n_rows=n_rows,
+        n_components=self.n_components,
+        n_neighbors=self._n_neighbors,
+        n_epochs=self.n_epochs or 0,
+        negative_sample_rate=self.negative_sample_rate,
+        transform_queue_size=self.transform_queue_size,
+        target_n_neighbors=self.target_n_neighbors,
+    )
+
     params.n_neighbors = self._n_neighbors
     params.n_components = self.n_components
     params.n_epochs = self.n_epochs or 0
@@ -583,6 +599,8 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"knn_overlap_factor ({overlap_factor})`"
         )
 
+    dims_within_int_limits(knn_n_clusters=n_clusters)
+
     all_neighbors_supported_metrics = [
         'l2', 'euclidean', 'sqeuclidean', 'cosine', 'inner_product'
     ]
@@ -630,6 +648,12 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         params.build_params.nnd.termination_threshold = termination_threshold
         params.build_params.nnd.graph_degree = graph_degree
         params.build_params.nnd.intermediate_graph_degree = intermediate_graph_degree
+
+        dims_within_int_limits(
+            nnd_max_iterations=max_iterations,
+            nnd_graph_degree=graph_degree,
+            nnd_intermediate_graph_degree=intermediate_graph_degree,
+        )
 
 
 class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
@@ -1180,6 +1204,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         if len(X.shape) != 2:
             raise ValueError("Reshape your data: data should be two dimensional")
 
+        dims_within_int_limits(n_rows=X.shape[0], n_dims=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_dims = X.shape[1]
 
@@ -1216,6 +1241,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
             X_nnz = X_m.nnz
+            dims_within_size_t_limits(X_nnz=X_nnz)
         else:
             X_m = input_to_cuml_array(
                 X,
@@ -1467,6 +1493,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             ).array
 
         cdef bool X_is_sparse = self._sparse_data
+        dims_within_int_limits(
+            n_rows=X.shape[0],
+            n_cols=X.shape[1],
+            orig_n_rows=self._raw_data.shape[0],
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef int orig_n_rows = self._raw_data.shape[0]
@@ -1503,6 +1534,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             orig_indices_ptr = self._raw_data.indices.ptr
             orig_ptr = self._raw_data.data.ptr
             orig_nnz = self._raw_data.nnz
+            dims_within_size_t_limits(X_nnz=X_nnz, orig_nnz=orig_nnz)
         else:
             X_ptr = X.ptr
             orig_ptr = self._raw_data.ptr
@@ -1621,6 +1653,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         # Ensure C-contiguous layout for CUDA kernels
         inv_transformed_gpu = cp.ascontiguousarray(inv_transformed_gpu)
 
+        dims_within_int_limits(
+            c_n_samples=n_samples,
+            c_n_features=raw_data_np.shape[1],
+            c_orig_n=raw_data_np.shape[0],
+            c_nnz=vals_gpu.shape[0],
+            n_epochs_inv=n_epochs_inv,
+        )
         cdef int c_n_samples = n_samples
         cdef int c_n_features = raw_data_np.shape[1]
         cdef int c_orig_n = raw_data_np.shape[0]
@@ -1742,6 +1781,11 @@ def fuzzy_simplicial_set(
         convert_to_dtype=np.float32
     ).array
 
+    dims_within_int_limits(
+        n_rows=X_m.shape[0],
+        n_cols=X_m.shape[1],
+        n_neighbors=n_neighbors,
+    )
     cdef int n_rows = X_m.shape[0]
     cdef int n_cols = X_m.shape[1]
 
@@ -1895,6 +1939,13 @@ def simplicial_set_embedding(
         check_dtype=np.float32,
     ).array
 
+    dims_within_int_limits(
+        n_rows=X.shape[0],
+        n_cols=X.shape[1],
+        n_components=n_components,
+        negative_sample_rate=negative_sample_rate,
+        n_epochs=(n_epochs or 0),
+    )
     cdef int n_rows = X.shape[0]
     cdef int n_cols = X.shape[1]
 
@@ -1951,6 +2002,8 @@ def simplicial_set_embedding(
     graph.sum_duplicates()
     if not isinstance(graph, cupyx.scipy.sparse.coo_matrix):
         graph = cupyx.scipy.sparse.coo_matrix(graph)
+
+    dims_within_size_t_limits(graph_nnz=graph.nnz)
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

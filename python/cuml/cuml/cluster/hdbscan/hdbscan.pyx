@@ -9,6 +9,10 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -145,6 +149,8 @@ cdef class _HDBSCANState:
         lambdas = np.ascontiguousarray(tree["lambda_val"], dtype=np.float32)
         sizes = np.ascontiguousarray(tree["child_size"], dtype=np.int64)
 
+        dims_within_int_limits(n_edges=len(tree))
+        dims_within_size_t_limits(n_leaves=n_leaves)
         cdef int n_edges = len(tree)
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
         self.condensed_tree = new lib.CondensedHierarchy[int64_t, float](
@@ -181,6 +187,7 @@ cdef class _HDBSCANState:
 
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
 
@@ -262,6 +269,8 @@ cdef class _HDBSCANState:
         sizes = cp.asarray(dendrogram[:, 3], order="C", dtype="int64")
 
         cdef size_t n_leaves = dendrogram.shape[0] + 1
+        dims_within_size_t_limits(n_leaves=n_leaves, dendrogram_rows=dendrogram.shape[0])
+        dims_within_int_limits(min_cluster_size=min_cluster_size)
 
         handle = get_handle()
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
@@ -293,6 +302,7 @@ cdef class _HDBSCANState:
         """Initialize internal state from a new `fit`"""
         cdef _HDBSCANState self = _HDBSCANState.__new__(_HDBSCANState)
 
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
 
@@ -404,6 +414,7 @@ cdef class _HDBSCANState:
 
         handle = get_handle()
 
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.ptr
@@ -1227,6 +1238,11 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
         order="C",
         return_index=True,
     )
+    dims_within_int_limits(
+        n_prediction_points=points_to_predict.shape[0],
+        n_clusters=clusterer.n_clusters_,
+        batch_size=batch_size,
+    )
     cdef int n_prediction_points = points_to_predict.shape[0]
 
     membership_vec = cp.empty(
@@ -1312,6 +1328,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
         order="C",
         return_index=True,
     )
+    dims_within_int_limits(n_prediction_points=points_to_predict.shape[0])
     cdef int n_prediction_points = points_to_predict.shape[0]
 
     prediction_labels = cp.empty(n_prediction_points, dtype="int64")
@@ -1391,6 +1408,8 @@ def _extract_clusters(
     Exposed for testing only"""
     cdef size_t n_leaves = condensed_tree["parent"].min()
     cdef int n_edges = len(condensed_tree)
+    dims_within_int_limits(n_edges=n_edges)
+    dims_within_size_t_limits(n_leaves=n_leaves)
 
     parents = cp.asarray(condensed_tree["parent"], order="C", dtype="int64")
     children = cp.asarray(condensed_tree["child"], order="C", dtype="int64")

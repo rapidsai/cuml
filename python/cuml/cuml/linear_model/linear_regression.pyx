@@ -11,6 +11,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray, cuda_ptr
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_size_t_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -254,6 +255,9 @@ class LinearRegression(Base,
 
         cdef size_t n_rows = X.shape[0]
         cdef size_t n_cols = X.shape[1]
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
+        if y.ndim == 2:
+            dims_within_size_t_limits(n_targets=y.shape[1])
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t y_ptr = y.data.ptr
         cdef uintptr_t sample_weight_ptr = (

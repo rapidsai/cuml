@@ -4,6 +4,7 @@ import numpy as np
 
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.input_utils import input_to_cuml_array
 
 from libc.stdint cimport uintptr_t
@@ -63,6 +64,14 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> Cuml
                                               else None),
                             check_dtype=[np.float32, np.float64])
     cdef uintptr_t d_y_ptr = d_y.ptr
+
+    dims_within_int_limits(
+        batch_size=batch_size,
+        n_obs=n_obs,
+        d=d,
+        D=D,
+        s=s,
+    )
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

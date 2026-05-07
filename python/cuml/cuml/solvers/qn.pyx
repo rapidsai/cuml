@@ -10,6 +10,7 @@ from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
     check_array,
@@ -248,6 +249,13 @@ def fit_qn(
             raise ValueError(f"Expected coef.shape == ({coef_shape}), got {coef.shape}")
 
     cdef bool sparse_X = sp.issparse(X)
+    dims_within_int_limits(
+        n_rows=X.shape[0],
+        n_cols=X.shape[1],
+        n_classes=n_classes or 0,
+    )
+    if sparse_X:
+        dims_within_int_limits(X_nnz=X.nnz)
     cdef int n_rows = X.shape[0]
     cdef int n_cols = X.shape[1]
     cdef uintptr_t X_ptr, X_indices_ptr, X_indptr_ptr

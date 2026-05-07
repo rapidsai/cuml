@@ -10,6 +10,7 @@ import numpy as np
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -235,6 +236,12 @@ class PermutationExplainer(SHAPBase):
 
         if self.random_state is not None:
             cp.random.seed(seed=self.random_state)
+
+        dims_within_int_limits(
+            nrows=self.nrows,
+            ncols=self.ncols,
+            npermutations=npermutations,
+        )
 
         for _ in range(npermutations):
 

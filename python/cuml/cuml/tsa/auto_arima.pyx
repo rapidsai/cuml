@@ -13,6 +13,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import INT32_MAX, dims_within_int_limits
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -174,6 +175,14 @@ class AutoARIMA(Base):
                 convert_to_dtype=(np.float64 if convert_dtype else None))
 
         self.simple_differencing = simple_differencing
+
+        dims_within_int_limits(batch_size=self.batch_size, n_obs=self.n_obs)
+        if int(self.batch_size) * int(self.n_obs) > INT32_MAX:
+            raise ValueError(
+                f"batch_size * n_obs ({int(self.batch_size) * int(self.n_obs)}) exceeds "
+                f"maximum value ({INT32_MAX}) supported by this binding when passed to "
+                "native code as a 32-bit signed integer."
+            )
 
         self._initial_calc()
 
@@ -589,6 +598,8 @@ def _divide_by_mask(original, mask, batch_id):
     n_obs = original.shape[0]
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
+    dims_within_int_limits(n_obs=n_obs, batch_size=batch_size)
+
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
@@ -701,6 +712,8 @@ def _divide_by_min(original, metrics, batch_id):
     n_sub = metrics.shape[1]
     batch_size = original.shape[1] if len(original.shape) > 1 else 1
 
+    dims_within_int_limits(n_obs=n_obs, batch_size=batch_size, n_sub=n_sub)
+
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
@@ -812,6 +825,8 @@ def _build_division_map(id_tracker, batch_size):
 
     n_sub = len(id_tracker)
 
+    dims_within_int_limits(batch_size=batch_size, n_sub=n_sub)
+
     id_to_pos = CumlArray.empty(batch_size, np.int32)
     id_to_model = CumlArray.empty(batch_size, np.int32)
 
@@ -863,6 +878,8 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size):
     dtype = data_in[0].dtype
     n_obs = data_in[0].shape[0]
     n_sub = len(data_in)
+
+    dims_within_int_limits(n_obs=n_obs, batch_size=batch_size, n_sub=n_sub)
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

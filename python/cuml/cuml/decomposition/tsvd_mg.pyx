@@ -8,6 +8,10 @@ from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
 from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_size_t_limits,
+    dims_within_uint32_limits,
+)
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -57,6 +61,12 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
     def _mg_fit_transform(
         self, X_ptr, n_rows, n_cols, dtype, trans_ptr, input_desc_ptr, trans_desc_ptr
     ):
+        dims_within_size_t_limits(
+            n_rows=n_rows,
+            n_cols=n_cols,
+            n_components=self.n_components_,
+        )
+        dims_within_uint32_limits(n_iterations=self.n_iter)
         # Validate and initialize parameters
         cdef paramsTSVDMG params
         params.n_components = self.n_components_

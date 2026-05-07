@@ -9,6 +9,10 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -335,6 +339,9 @@ class DBSCAN(Base,
         )
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
+
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
+        dims_within_int_limits(min_samples=self.min_samples)
 
         if out_dtype not in (cp.dtype("int32"), cp.dtype("int64")):
             raise ValueError(

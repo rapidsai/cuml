@@ -15,6 +15,10 @@ import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.device_type import DeviceType, DeviceTypeError
+from cuml.internals.dimension_limits import (
+    dims_within_size_t_limits,
+    dims_within_uint32_limits,
+)
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
@@ -267,6 +271,7 @@ cdef class ForestInference_impl():
             input_name="X",
         )
         n_rows = X.shape[0]
+        dims_within_size_t_limits(n_rows=n_rows)
 
         cdef raft_proto_device_t in_dev = get_fil_raft_proto_device_type(X)
         cdef uintptr_t in_ptr = (
@@ -310,6 +315,7 @@ cdef class ForestInference_impl():
         if chunk_size is None:
             chunk_specification = nullopt
         else:
+            dims_within_uint32_limits(chunk_size=chunk_size)
             chunk_specification = <uint32_t> chunk_size
 
         if model_dtype == np.float32:

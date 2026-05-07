@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,6 +7,10 @@ import numpy as np
 
 from cuml.common import input_to_cuml_array
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -112,10 +116,12 @@ def build_rank_size_pair(parts_to_sizes, rank):
     cdef vector[RankSizePair*] *rsp_vec = new vector[RankSizePair*]()
 
     for idx, rankToSize in enumerate(parts_to_sizes):
-        rank, size = rankToSize
+        part_rank, part_size = rankToSize
+        dims_within_int_limits(rank=part_rank)
+        dims_within_size_t_limits(partition_size=part_size)
         rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
+        rsp.rank = <int>part_rank
+        rsp.size = <size_t>part_size
 
         rsp_vec.push_back(rsp)
 
@@ -157,6 +163,9 @@ def build_part_descriptor(m, n, rank_size_t, rank):
     --------
     ptr: PartDescriptor object
     """
+    dims_within_size_t_limits(total_rows=m, n_cols=n)
+    dims_within_int_limits(rank=rank)
+
     cdef uintptr_t rank_size_ptr = rank_size_t
 
     cdef vector[RankSizePair *] *rsp_vec \
@@ -200,6 +209,8 @@ def _build_part_inputs(cuda_arr_ifaces,
                        parts_to_ranks,
                        m, n, local_rank,
                        convert_dtype):
+    dims_within_size_t_limits(total_rows=m, n_cols=n)
+    dims_within_int_limits(local_rank=local_rank)
 
     cuml_arr_ifaces = []
     for arr in cuda_arr_ifaces:
@@ -220,10 +231,12 @@ def _build_part_inputs(cuda_arr_ifaces,
 
     cdef vector[RankSizePair*] partsToRanks
     for idx, rankToSize in enumerate(parts_to_ranks):
-        rank, size = rankToSize
+        part_rank, part_size = rankToSize
+        dims_within_int_limits(rank=part_rank)
+        dims_within_size_t_limits(partition_size=part_size)
         rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
+        rsp.rank = <int>part_rank
+        rsp.size = <size_t>part_size
         partsToRanks.push_back(rsp)
 
     cdef PartDescriptor *descriptor = \

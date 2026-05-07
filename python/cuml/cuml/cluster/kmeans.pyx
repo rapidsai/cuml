@@ -8,6 +8,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import INT32_MAX, dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -34,6 +35,12 @@ from cuml.metrics.distance_type cimport DistanceType
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
     cdef bool multi_gpu = kmeans._multi_gpu
+
+    dims_within_int_limits(
+        n_clusters=kmeans.n_clusters,
+        max_samples_per_batch=kmeans.max_samples_per_batch,
+        max_iter=kmeans.max_iter,
+    )
 
     params.n_clusters = kmeans.n_clusters
     params.max_iter = kmeans.max_iter
@@ -78,6 +85,8 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     else:
         params.n_init = kmeans.n_init
 
+    dims_within_int_limits(n_init=params.n_init)
+
 
 cdef _kmeans_fit(
     handle_t& handle,
@@ -91,7 +100,11 @@ cdef _kmeans_fit(
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = (n_rows * n_cols) < (2**31 - 1)
+    cdef bool use_i32_dims = (
+        n_rows <= INT32_MAX
+        and n_cols <= INT32_MAX
+        and n_rows * n_cols < INT32_MAX
+    )
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
@@ -104,7 +117,7 @@ cdef _kmeans_fit(
 
     with nogil:
         if values_f32:
-            if indices_i32:
+            if use_i32_dims:
                 lib.fit(
                     handle,
                     params,
@@ -129,7 +142,7 @@ cdef _kmeans_fit(
                     n_iter_64,
                 )
         else:
-            if indices_i32:
+            if use_i32_dims:
                 lib.fit(
                     handle,
                     params,
@@ -153,7 +166,7 @@ cdef _kmeans_fit(
                     inertia_64,
                     n_iter_64,
                 )
-    return n_iter_32 if indices_i32 else n_iter_64
+    return n_iter_32 if use_i32_dims else n_iter_64
 
 
 cdef _kmeans_predict(
@@ -170,9 +183,15 @@ cdef _kmeans_predict(
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
+    cdef bool use_i32_dims = (
+        n_rows <= INT32_MAX
+        and n_cols <= INT32_MAX
+        and n_rows * n_cols < INT32_MAX
+    )
+
     labels = cp.zeros(
         shape=n_rows,
-        dtype=(cp.int32 if n_rows * n_cols < 2**31 - 1 else cp.int64),
+        dtype=(cp.int32 if use_i32_dims else cp.int64),
     )
 
     cdef uintptr_t X_ptr = X.data.ptr
@@ -181,14 +200,13 @@ cdef _kmeans_predict(
     cdef uintptr_t labels_ptr = labels.data.ptr
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = labels.dtype == cp.int32
 
     cdef float inertia_f32 = 0
     cdef double inertia_f64 = 0
 
     with nogil:
         if values_f32:
-            if indices_i32:
+            if use_i32_dims:
                 lib.predict(
                     handle,
                     params,
@@ -215,7 +233,7 @@ cdef _kmeans_predict(
                     inertia_f32,
                 )
         else:
-            if indices_i32:
+            if use_i32_dims:
                 lib.predict(
                     handle,
                     params,
@@ -687,6 +705,12 @@ class KMeans(Base,
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
 
+        cdef bool use_i32_dims = (
+            n_rows <= INT32_MAX
+            and n_cols <= INT32_MAX
+            and n_rows * n_cols < INT32_MAX
+        )
+
         out = cp.zeros(
             shape=(n_rows, self.n_clusters), dtype=X.dtype, order="C",
         )
@@ -701,11 +725,10 @@ class KMeans(Base,
         _kmeans_init_params(self, params)
 
         cdef bool values_f32 = X.dtype == cp.float32
-        cdef bool indices_i32 = self.labels_.dtype == cp.int32
 
         with nogil:
             if values_f32:
-                if indices_i32:
+                if use_i32_dims:
                     lib.transform(
                         handle_[0],
                         params,
@@ -726,7 +749,7 @@ class KMeans(Base,
                         <float*>out_ptr,
                     )
             else:
-                if indices_i32:
+                if use_i32_dims:
                     lib.transform(
                         handle_[0],
                         params,

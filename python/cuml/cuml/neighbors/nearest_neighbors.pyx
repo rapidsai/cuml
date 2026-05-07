@@ -17,6 +17,11 @@ from cuml.common.sparse_utils import is_dense, is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+    dims_within_uint32_limits,
+)
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect
@@ -198,6 +203,7 @@ void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
 def _drop_self_edges(distances_cp, indices_cp):
     """Drop edges between a point and itself in the knn graph"""
     rows, cols = indices_cp.shape
+    dims_within_int_limits(n_rows=rows, n_cols=cols)
 
     # Launch config
     threads_per_block = 32
@@ -284,6 +290,7 @@ cdef class RBCIndex:
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
+        dims_within_size_t_limits(n_rows=n_rows, n_cols=n_cols)
         cdef DistanceType distance_type = _metric_to_distance_type(metric)
 
         with nogil:
@@ -313,6 +320,7 @@ cdef class RBCIndex:
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
+        dims_within_size_t_limits(n_query=n_query, n_rows=n_rows, n_cols=n_cols)
         cdef int64_t* indptr_ptr = <int64_t*><uintptr_t>indptr.data.ptr
 
         with nogil:
@@ -329,6 +337,7 @@ cdef class RBCIndex:
             )
 
         cdef int64_t nnz = indptr[-1].item()
+        dims_within_size_t_limits(nnz=nnz)
         indices = cp.empty(nnz, dtype=np.int64)
         cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
 
@@ -357,6 +366,10 @@ cdef class RBCIndex:
             raise ValueError(
                 "The rbc algorithm is not supported for >3 dimensions currently."
             )
+        dims_within_uint32_limits(
+            n_query_rows=X.shape[0],
+            n_neighbors=n_neighbors,
+        )
         distances_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.float32, order="C")
         indices_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.int64, order="C")
 
@@ -435,6 +448,7 @@ cdef class ApproxIndex:
         cdef DistanceType distance_type = _metric_to_distance_type(metric)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
+        dims_within_int_limits(n_rows=X.shape[0], n_cols=X.shape[1])
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
 
@@ -456,6 +470,7 @@ cdef class ApproxIndex:
 
     def kneighbors(ApproxIndex self, X, int n_neighbors):
         """Query the index for the k nearest neighbors."""
+        dims_within_int_limits(n_rows=X.shape[0], n_neighbors=n_neighbors)
         distances_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.float32, order="C")
         indices_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.int64, order="C")
 
@@ -807,6 +822,12 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         )
         if index is None:  # Special case if X is a CumlArray (self._fit_X forwarded)
             index = getattr(X, "index", None)
+        dims_within_int_limits(
+            n_rows=X_cp.shape[0],
+            n_cols=X_cp.shape[1],
+            n_samples_fit=self.n_samples_fit_,
+            n_neighbors=n_neighbors,
+        )
         cdef int n_rows = X_cp.shape[0]
         cdef int n_cols = X_cp.shape[1]
 
@@ -905,6 +926,19 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
             accept_sparse=["csr"],
             convert_dtype=True,
             input_name="X",
+        )
+        dims_within_int_limits(
+            X_n_rows=X_cp.shape[0],
+            X_n_cols=X_cp.shape[1],
+            idx_n_rows=self._fit_X.shape[0],
+            idx_n_cols=self._fit_X.shape[1],
+            n_neighbors=n_neighbors,
+        )
+        dims_within_size_t_limits(
+            idx_nnz=self._fit_X.nnz,
+            X_nnz=X_cp.nnz,
+            batch_size_index=batch_size_index,
+            batch_size_query=batch_size_query,
         )
         cdef int* X_indptr = <int *><uintptr_t>X_cp.indptr.data.ptr
         cdef int* X_indices = <int *><uintptr_t>X_cp.indices.data.ptr

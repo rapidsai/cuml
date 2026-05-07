@@ -8,6 +8,10 @@ import numpy as np
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
 from cuml.internals.validation import check_consistent_length, check_y
@@ -211,9 +215,14 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         )
         dists_cp = knn_distances.to_output("cupy")
         cdef size_t n_rows = inds_cp.shape[0]
+        res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
+        dims_within_size_t_limits(
+            n_query_rows=n_rows,
+            n_index_rows=self._y.shape[0],
+        )
+        dims_within_int_limits(n_neighbors=self.n_neighbors, n_output_cols=res_cols)
         cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds_cp.data.ptr
 
-        res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
         out = CumlArray.zeros(

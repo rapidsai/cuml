@@ -16,6 +16,7 @@ from cuml.explainer.common import (
     output_list_shap_values,
 )
 from cuml.internals.base import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -133,6 +134,7 @@ class SHAPBase():
             background, order=self.order, dtype=self.dtype, ensure_all_finite=False
         )
         self.nrows, self.ncols = self.background.shape
+        dims_within_int_limits(nrows=self.nrows, ncols=self.ncols)
 
         self.random_state = random_state
 
@@ -343,6 +345,8 @@ class SHAPBase():
         row_ptr = get_cai_ptr(row)
         idx_ptr = get_cai_ptr(inds)
         row_major = self.masker.order == "C"
+
+        dims_within_int_limits(nrows=self.nrows, ncols=self.ncols)
 
         cdef uintptr_t masked_ptr_f32
         cdef uintptr_t bg_ptr_f32

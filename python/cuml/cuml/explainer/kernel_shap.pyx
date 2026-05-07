@@ -13,6 +13,7 @@ import numpy as np
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array
 from cuml.linear_model import Lasso, LinearRegression
 
@@ -197,6 +198,8 @@ class KernelExplainer(SHAPBase):
         # all possible samples to check for need for l1
         self.ratio_evaluated = self.nsamples / max_samples
 
+        dims_within_int_limits(nsamples=self.nsamples)
+
         self.nsamples_exact, self.nsamples_random, self.randind = \
             _get_number_of_exact_random_samples(ncols=self.ncols,
                                                 nsamples=self.nsamples)
@@ -292,6 +295,7 @@ class KernelExplainer(SHAPBase):
         ds_ptr = get_cai_ptr(self._synth_data)
         if self.nsamples_random > 0:
             smp_ptr = get_cai_ptr(samples)
+            maxsample = int(self.nsamples_random / 2)
         else:
             smp_ptr = <uintptr_t> NULL
             maxsample = 0
@@ -300,6 +304,14 @@ class KernelExplainer(SHAPBase):
 
         if self.random_state is None:
             self.random_state = randint(0, 10**18)
+
+        dims_within_int_limits(
+            mask_rows=self._mask.shape[0],
+            mask_cols=self._mask.shape[1],
+            background_rows=self.background.shape[0],
+            nsamples_random=self.nsamples_random,
+            maxsample=maxsample,
+        )
 
         cdef uintptr_t bg_ptr_f32
         cdef uintptr_t ds_ptr_f32

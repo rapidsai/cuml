@@ -14,6 +14,7 @@ import treelite.sklearn
 
 from cuml.fil.fil import ForestInference
 from cuml.internals.base import Base, get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
@@ -417,6 +418,11 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t y_ptr = y.data.ptr
+        dims_within_int_limits(
+            n_rows=X.shape[0],
+            n_cols=X.shape[1],
+            n_classes=(self.n_classes_ if is_classifier else 0),
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level

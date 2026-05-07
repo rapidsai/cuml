@@ -6,6 +6,10 @@ import typing
 
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from cython.operator cimport dereference as deref
@@ -95,6 +99,11 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
 
         query_cais = input['cais']['query']
         local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+        dims_within_int_limits(
+            n_neighbors=self.n_neighbors,
+            n_outputs=n_outputs,
+        )
+        dims_within_size_t_limits(batch_size=self.batch_size)
 
         # Build labels output array for native code interfacing
         cdef vector[floatData_t*] *out_result_local_parts \

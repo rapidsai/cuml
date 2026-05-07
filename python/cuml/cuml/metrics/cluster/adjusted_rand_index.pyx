@@ -5,6 +5,7 @@
 import numpy as np
 
 from cuml.internals import get_handle
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.internals.validation import check_array, check_consistent_length
 
 from libc.stdint cimport uintptr_t
@@ -62,6 +63,7 @@ def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
             f"{labels_true.shape} and {labels_pred.shape}"
         )
     check_consistent_length(labels_true, labels_pred)
+    dims_within_int_limits(n_rows=labels_true.shape[0])
     cdef int n_rows = labels_true.shape[0]
 
     rand_score = adjusted_rand_index(handle_[0],

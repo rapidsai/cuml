@@ -5,6 +5,7 @@
 import numpy as np
 
 from cuml.internals import run_in_internal_context
+from cuml.internals.dimension_limits import dims_within_int_limits
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -64,6 +65,7 @@ class CDMG(MGFitMixin, CD):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef bool use_f32 = self.dtype == np.float32
         cdef bool fit_intercept = self.fit_intercept
+        dims_within_int_limits(max_iter=self.max_iter)
         cdef int max_iter = self.max_iter
         cdef double alpha = (
             self.alpha if np.isscalar(self.alpha) else self.alpha.item()

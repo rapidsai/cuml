@@ -12,6 +12,10 @@ from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle
 from cuml.internals.array import CumlArray
+from cuml.internals.dimension_limits import (
+    dims_within_int_limits,
+    dims_within_size_t_limits,
+)
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
@@ -215,9 +219,14 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         )
         dists_cp = knn_distances.to_output("cupy")
         cdef size_t n_rows = inds_cp.shape[0]
+        out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
+        dims_within_size_t_limits(
+            n_query_rows=n_rows,
+            n_index_rows=self._y.shape[0],
+        )
+        dims_within_int_limits(n_neighbors=self.n_neighbors, n_output_cols=out_cols)
 
         # Allocate array for predictions
-        out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
         out_shape = (n_rows, out_cols) if out_cols > 1 else n_rows
         out = cp.empty(out_shape, dtype=np.int32, order="C")
         cdef int* out_ptr = <int*><uintptr_t>out.data.ptr
@@ -286,6 +295,11 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         dists_cp = knn_distances.to_output("cupy")
         cdef size_t n_rows = inds_cp.shape[0]
         index = knn_indices.index
+        dims_within_size_t_limits(
+            n_query_rows=n_rows,
+            n_index_rows=self._y.shape[0],
+        )
+        dims_within_int_limits(n_neighbors=self.n_neighbors)
 
         if self._y.ndim == 1 or self._y.shape[1] == 1:
             n_classes = [len(self.classes_)]
