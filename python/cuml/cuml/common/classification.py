@@ -93,8 +93,9 @@ def decode_labels(y_encoded, classes, output_type="cupy", index=None):
         return cudf_to_pandas(out)
     elif output_type in ("numpy", "array"):
         # XXX: dtype coercion not needed for object, and when specified
-        # cudf will sometimes coerce `None -> <NA>` erroneously. Better
-        # to leave unspecified.
+        # cudf will sometimes coerce `None -> <NA>` erroneously.
+        # See https://github.com/rapidsai/cudf/issues/22419
+        # Better to leave unspecified in this case.
         return out.to_numpy(dtype=None if dtype == "object" else dtype)
     else:
         raise TypeError(

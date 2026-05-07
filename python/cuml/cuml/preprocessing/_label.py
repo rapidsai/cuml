@@ -191,7 +191,7 @@ class LabelEncoder(Base):
         classes = self.classes_
         n_classes = len(self.classes_)
 
-        if codes.min() < 0 or codes.max() >= n_classes:
+        if len(codes) and (codes.min() < 0 or codes.max() >= n_classes):
             if self.handle_unknown == "error":
                 diff = cp.setdiff1d(
                     codes, cp.arange(n_classes, dtype=codes.dtype)

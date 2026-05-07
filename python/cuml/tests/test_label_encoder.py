@@ -134,24 +134,29 @@ def test_unfitted_inverse_transform():
         le.transform(df)
 
 
-@pytest.mark.parametrize(
-    "empty, ord_label", [(cudf.Series([]), cudf.Series([2, 1]))]
-)
-def test_empty_input(empty, ord_label):
-    # prepare LabelEncoder
+def test_empty_input():
+    X = cudf.Series([], dtype="object")
+
+    # fit works on empty data
     le = LabelEncoder()
-    le.fit(empty)
+    le.fit(X)
     check_is_fitted(le)
 
-    # test if correctly raies ValueError
-    with pytest.raises(ValueError, match="y contains previously unseen label"):
-        le.inverse_transform(ord_label)
-
-    # check fit_transform()
+    # fit_transform works on empty data
     le = LabelEncoder()
-    transformed = le.fit_transform(empty)
+    transformed = le.fit_transform(X)
     check_is_fitted(le)
     assert len(transformed) == 0
+
+    # inverse_transform raises on unseen labels
+    encoded = cudf.Series([2, 1])
+    with pytest.raises(ValueError, match="y contains previously unseen label"):
+        le.inverse_transform(encoded)
+
+    # inverse_transform works on empty data
+    out = le.inverse_transform(pd.Series([], dtype="int32"))
+    assert len(out) == 0
+    assert out.dtype == X.dtype
 
 
 def test_masked_encode():
