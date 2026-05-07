@@ -23,6 +23,7 @@ from cuml.internals.validation import (
     check_random_seed,
 )
 
+from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
@@ -32,7 +33,7 @@ from cuml.metrics.distance_type cimport DistanceType
 
 
 cdef inline bool _kmeans_indices_i32(int64_t n_rows, int64_t n_cols) noexcept nogil:
-    cdef int64_t int_max = 2147483647
+    cdef int64_t int_max = INT_MAX
 
     if n_rows < 0 or n_cols < 0:
         return False
