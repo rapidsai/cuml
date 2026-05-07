@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import scipy.sparse
 
-from cuml.common import CumlArray, input_to_cuml_array
+from cuml.common import CumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import get_handle, reflect
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.internals.validation import check_array
 from cuml.thirdparty_adapters import _get_mask
 
 from libc.stdint cimport uintptr_t
@@ -176,23 +177,27 @@ def nan_euclidean_distances(
         if (Y.isnull().any()).any():
             Y.fillna(0, inplace=True)
 
-    X_m, _n_samples_x, _n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
+    X_m = check_array(
+        X,
+        order="A",
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        ensure_all_finite=False,
+        input_name="X",
+    )
+    dtype_x = X_m.dtype
 
     if Y is None:
-        Y = X_m
-
-    Y_m, _n_samples_y, _n_features_y, _dtype_y = \
-        input_to_cuml_array(
-            Y, order=X_m.order, convert_to_dtype=dtype_x,
-            check_dtype=[dtype_x])
-
-    X_m = cp.asarray(X_m)
-    Y_m = cp.asarray(Y_m)
+        Y_m = X_m
+    else:
+        Y_m = check_array(
+            Y,
+            order="F" if X_m.flags.f_contiguous else "C",
+            dtype=[dtype_x],
+            convert_dtype=convert_dtype,
+            ensure_all_finite=False,
+            input_name="Y",
+        )
 
     # Get missing mask for X
     missing_X = _get_mask(X_m, missing_values)
@@ -347,49 +352,60 @@ def pairwise_distances(
         X = np.where(X != 0., 1.0, 0.0)
 
     # Get the input arrays, preserve order and type where possible
-    X_m, n_samples_x, n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
+    X_m = check_array(
+        X,
+        order="A",
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        input_name="X",
+    )
+    cdef int n_samples_x = X_m.shape[0]
+    cdef int n_features_x = X_m.shape[1]
+    dtype_x = X_m.dtype
 
-    # Get the order from the CumlArray
-    input_order = X_m.order
+    # Derive the row/column-major flag from X. For degenerate shapes
+    # (1 sample or 1 feature) X is both C- and F-contiguous, so we'll
+    # re-derive from Y below if Y is provided.
+    cdef bint is_row_major = X_m.flags.c_contiguous
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
 
+    cdef int n_samples_y, n_features_y
+
     if (Y is not None):
-
-        # Check for the odd case where one dimension of X is 1. In this case,
-        # CumlArray always returns order=="C" so instead get the order from Y
-        if (n_samples_x == 1 or n_features_x == 1):
-            input_order = "K"
-
         if metric in ['russellrao'] and not np.all(Y.data == 1.):
             warnings.warn("Y was converted to boolean for metric {}"
                           .format(metric))
             Y = np.where(Y != 0., 1.0, 0.0)
 
-        Y_m, n_samples_y, n_features_y, dtype_y = \
-            input_to_cuml_array(Y, order=input_order,
-                                convert_to_dtype=(dtype_x if convert_dtype
-                                                  else None),
-                                check_dtype=[dtype_x])
-        # Get the order from Y if necessary (It's possible to set order="F" in
-        # input_to_cuml_array and have Y_m.order=="C")
-        if (input_order == "K"):
-            input_order = Y_m.order
+        # When X is degenerate (1 sample or 1 feature) we cannot tell the
+        # intended layout from X alone, so let Y choose by allowing 'A'.
+        # Otherwise force Y's layout to match X's.
+        if n_samples_x == 1 or n_features_x == 1:
+            y_order = "A"
+        else:
+            y_order = "C" if is_row_major else "F"
+
+        Y_m = check_array(
+            Y,
+            order=y_order,
+            dtype=[dtype_x],
+            convert_dtype=convert_dtype,
+            input_name="Y",
+        )
+        n_samples_y = Y_m.shape[0]
+        n_features_y = Y_m.shape[1]
+
+        # If we let Y choose the layout, propagate it back.
+        if y_order == "A":
+            is_row_major = Y_m.flags.c_contiguous
     else:
         # Shallow copy X variables
         Y_m = X_m
         n_samples_y = n_samples_x
         n_features_y = n_features_x
-        dtype_y = dtype_x
-
-    is_row_major = input_order == "C"
 
     # Check feature sizes are equal
     if (n_features_x != n_features_y):
@@ -402,10 +418,10 @@ def pairwise_distances(
 
     # Create the output array
     dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x,
-                             order=input_order)
+                             order="C" if is_row_major else "F")
 
-    d_X_ptr = X_m.ptr
-    d_Y_ptr = Y_m.ptr
+    d_X_ptr = X_m.data.ptr
+    d_Y_ptr = Y_m.data.ptr
     d_dest_ptr = dest_m.ptr
 
     # Now execute the functions
@@ -414,9 +430,9 @@ def pairwise_distances(
                           <float*> d_X_ptr,
                           <float*> d_Y_ptr,
                           <float*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
+                          n_samples_x,
+                          n_samples_y,
+                          n_features_x,
                           <DistanceType> metric_val,
                           <bool> is_row_major,
                           <float> metric_arg)
@@ -425,9 +441,9 @@ def pairwise_distances(
                           <double*> d_X_ptr,
                           <double*> d_Y_ptr,
                           <double*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
+                          n_samples_x,
+                          n_samples_y,
+                          n_features_x,
                           <DistanceType> metric_val,
                           <bool> is_row_major,
                           <double> metric_arg)
