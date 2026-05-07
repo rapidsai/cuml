@@ -148,11 +148,11 @@ def nan_euclidean_distances(
 
     Parameters
     ----------
-    X : Dense matrix (device or host) of shape (n_samples_X, n_features)
+    X : array-like (device or host) of shape (n_samples_X, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features), \
+    Y : array-like (device or host) of shape (n_samples_Y, n_features), \
         default=None
         A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
@@ -281,16 +281,17 @@ def pairwise_distances(
 
     Parameters
     ----------
-    X : Dense or sparse matrix (device or host) of shape
+    X : {array-like, sparse matrix} (device or host) of shape \
         (n_samples_x, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy, or
-        cupyx.scipy.sparse for sparse input
+        cupyx.scipy.sparse for sparse input.
 
-    Y : array-like (device or host) of shape (n_samples_y, n_features),\
-        optional
+    Y : array-like (device or host) of shape (n_samples_y, n_features), \
+        default=None
+        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+        ndarray, cuda array interface compliant array like CuPy.
 
     metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
         "sqeuclidean"}
