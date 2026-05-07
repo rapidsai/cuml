@@ -624,7 +624,10 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
     }
     if (head_flags != nullptr) { set_vertex_modified(head_flags, vertex); }
 
-    if (params.deterministic) return;
+    // In deterministic mode, the host drives vertex chunking via vertex_offset
+    // and calls sparse_apply between launches to flush buffered gradients in a
+    // fixed order, so each thread processes exactly one vertex per launch.
+    if (params.deterministic) break;
   }
 }
 
@@ -791,7 +794,10 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
     }
     if (head_flags != nullptr && lane_id == 0) { set_vertex_modified(head_flags, vertex); }
 
-    if (params.deterministic) return;
+    // In deterministic mode, the host drives vertex chunking via vertex_offset
+    // and calls sparse_apply between launches to flush buffered gradients in a
+    // fixed order, so each warp processes exactly one vertex per launch.
+    if (params.deterministic) break;
   }
 }
 
