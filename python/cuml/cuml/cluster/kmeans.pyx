@@ -183,8 +183,15 @@ cdef _kmeans_predict(
     """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
+    cdef int64_t n_clusters = centers.shape[0]
 
-    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
+    # Stop-gap: downstream predict code indexes both X and cluster_centers_
+    # using the selected index type. Keep the int32 path only when both
+    # matrices fit int32 indexing until large-shape support is fully covered.
+    cdef bool indices_i32 = (
+        _kmeans_indices_i32(n_rows, n_cols)
+        and _kmeans_indices_i32(n_clusters, n_cols)
+    )
     labels = cp.zeros(shape=n_rows, dtype=(cp.int32 if indices_i32 else cp.int64))
 
     cdef uintptr_t X_ptr = X.data.ptr
@@ -697,9 +704,20 @@ class KMeans(Base,
 
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
+        cdef int64_t n_clusters = self.n_clusters
+
+        # Stop-gap: the current C++/cuVS transform path does not preserve
+        # int64 indexing end-to-end for the output matrix. Reject oversized
+        # outputs here until transform supports int64 output indexing.
+        if not _kmeans_indices_i32(n_rows, n_clusters):
+            raise NotImplementedError(
+                "KMeans.transform does not currently support output shapes "
+                "that require int64 indexing. Got output shape "
+                f"({n_rows}, {n_clusters})."
+            )
 
         out = cp.zeros(
-            shape=(n_rows, self.n_clusters), dtype=X.dtype, order="C",
+            shape=(n_rows, n_clusters), dtype=X.dtype, order="C",
         )
 
         cdef uintptr_t X_ptr = X.data.ptr
