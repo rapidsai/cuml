@@ -52,6 +52,7 @@ from cuml.metrics import hinge_loss as cuml_hinge
 from cuml.metrics import kl_divergence as cu_kl_divergence
 from cuml.metrics import (
     log_loss,
+    nan_euclidean_distances,
     pairwise_distances,
     precision_recall_curve,
     roc_auc_score,
@@ -1485,6 +1486,59 @@ def test_pairwise_distances_exceptions():
 
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric="euclidean")
+
+
+@pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("position", ["X", "Y"])
+def test_pairwise_distances_rejects_non_finite(bad_value, position):
+    # Dense pairwise_distances now goes through check_array, which by
+    # default rejects non-finite inputs (matching sklearn). The
+    # nan_euclidean metric is exercised separately below.
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((5, 4)).astype(np.float64)
+    Y = rng.random_sample((6, 4)).astype(np.float64)
+    if position == "X":
+        X[0, 0] = bad_value
+    else:
+        Y[0, 0] = bad_value
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric="euclidean")
+
+
+def test_nan_euclidean_distances_allows_nan():
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((5, 4)).astype(np.float64)
+    X[0, 0] = np.nan
+    S = pairwise_distances(X, metric="nan_euclidean")
+    S_ref = sklearn_pairwise_distances(X, metric="nan_euclidean")
+    cp.testing.assert_array_almost_equal(cp.asnumpy(S), S_ref, decimal=4)
+
+
+def test_nan_euclidean_distances_y_none_diagonal_zero():
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((6, 4)).astype(np.float64)
+    X[0, 0] = np.nan
+    S = cp.asnumpy(nan_euclidean_distances(X))
+    np.testing.assert_array_equal(np.diag(S), np.zeros(X.shape[0]))
+    # And the off-diagonal values should still match sklearn.
+    S_ref = sklearn_pairwise_distances(X, metric="nan_euclidean")
+    np.testing.assert_array_almost_equal(S, S_ref, decimal=4)
+
+
+@pytest.mark.parametrize(
+    "x_order,y_order",
+    [("C", "C"), ("C", "F"), ("F", "C"), ("F", "F")],
+)
+def test_pairwise_distances_degenerate_x_layout(x_order, y_order):
+    # When X has a degenerate shape (1 sample), it is both C- and
+    # F-contiguous, so the implementation lets Y choose the layout.
+    # Verify all four input layout combinations match sklearn.
+    rng = np.random.RandomState(0)
+    X = np.asarray(rng.random_sample((1, 4)), order=x_order, dtype=np.float64)
+    Y = np.asarray(rng.random_sample((10, 4)), order=y_order, dtype=np.float64)
+    S = cp.asnumpy(pairwise_distances(X, Y, metric="euclidean"))
+    S_ref = sklearn_pairwise_distances(X, Y, metric="euclidean")
+    np.testing.assert_array_almost_equal(S, S_ref, decimal=12)
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
