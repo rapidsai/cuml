@@ -202,18 +202,18 @@ def pairwise_kernels(
 
     Parameters
     ----------
-    X : Dense matrix (device or host) of shape (n_samples_X, n_samples_X) or \
+    X : array-like (device or host) of shape (n_samples_X, n_samples_X) or \
             (n_samples_X, n_features)
         Array of pairwise kernels between samples, or a feature array.
         The shape of the array should be (n_samples_X, n_samples_X) if
         metric == "precomputed" and (n_samples_X, n_features) otherwise.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
-    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features), \
+        ndarray, cuda array interface compliant array like CuPy.
+    Y : array-like (device or host) of shape (n_samples_Y, n_features), \
         default=None
         A second feature array only if X has shape (n_samples_X, n_features).
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+        ndarray, cuda array interface compliant array like CuPy.
     metric : str or callable (numba device function), default="linear"
         The metric to use when calculating kernel between instances in a
         feature array.

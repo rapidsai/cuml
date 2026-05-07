@@ -40,9 +40,9 @@ def is_cuda_output(mem_type, value=..., kind=...):
         if value is not ...:
             if cudf.pandas.LOADED:
                 if isinstance(value, pd.DataFrame):
-                    return not any(d == "object" for d in value.dtypes)
+                    return not any(d.kind == "O" for d in value.dtypes)
                 elif isinstance(value, pd.Series):
-                    return value.dtype != "object"
+                    return value.dtype.kind != "O"
             return isinstance(
                 value,
                 (cp.ndarray, cp_sp.spmatrix, cudf.Series, cudf.DataFrame),
@@ -419,6 +419,11 @@ def test_check_n_features_in():
     ):
         model.predict(np.ones((3, 3)))
 
+    # If the model doesn't have `n_features_in_` stored, the check is skipped
+    # (and this doesn't error). This is necessary for some stateless
+    # transformers.
+    MyModel().predict(X)
+
 
 def test_fit_and_predict_with_and_without_feature_names_warnings():
     X_unnamed = np.ones((3, 2))
@@ -757,6 +762,51 @@ def test_check_array_no_copy_needed(mem_type, dtype, order, shape):
         assert xp.may_share_memory(out, array), (
             f"{dtype=}, {mem_type=}, {order=}"
         )
+
+
+@example(array=[1, 2], mem_type="device")
+@example(array=[1, 2], mem_type="host")
+@example(array=cp.array([1, 2]), mem_type="device")
+@example(array=np.array([1, 2]), mem_type=None)
+@example(array=cudf.Series([1, 2]), mem_type="device")
+@example(array=pd.Series([1, 2]), mem_type="host")
+@example(array=pd.Series([1, 2]), mem_type=None)
+@given(
+    array=dense_arrays(ndim=1, dtype="int32"),
+    mem_type=st.sampled_from(["device", "host", None]),
+)
+def test_check_array_copy(array, mem_type):
+    sol = check_array(array, mem_type="host", ensure_2d=False).copy()
+    out = check_array(array, mem_type=mem_type, ensure_2d=False, copy=True)
+    # mutate the output
+    out[0] -= 1
+    res = check_array(array, mem_type="host", ensure_2d=False)
+    np.testing.assert_array_equal(res, sol)
+
+
+@pytest.mark.parametrize("mem_type", ["host", "device"])
+@pytest.mark.parametrize("format", ["csr", "csc", "coo"])
+def test_check_array_sparse_copy(mem_type, format):
+    array = (cp_sp if mem_type == "device" else sp).random(
+        10,
+        5,
+        density=0.5,
+        random_state=42,
+        format=format,
+    )
+    res = check_array(array, accept_sparse=True, copy=True)
+    assert res is not array
+
+    def ptr(x):
+        return x.ctypes.data if isinstance(x, np.ndarray) else x.data.ptr
+
+    assert ptr(res.data) != ptr(array.data)
+    if format == "coo":
+        assert ptr(res.row) != ptr(array.row)
+        assert ptr(res.col) != ptr(array.col)
+    else:
+        assert ptr(res.indices) != ptr(array.indices)
+        assert ptr(res.indptr) != ptr(array.indptr)
 
 
 def test_check_array_convert_dtype():
@@ -1163,6 +1213,14 @@ def test_check_y_accept_multi_output(kind):
     order="F",
 )
 @example(
+    kind="pandas",
+    label_dtype="string",
+    n_classes=2,
+    mem_type=None,
+    dtype=None,
+    order=None,
+)
+@example(
     kind="cudf",
     label_dtype="string",
     n_classes=3,
@@ -1231,7 +1289,7 @@ def test_check_y_return_classes(
     sol = inds.flatten() if inds.ndim == 2 and inds.shape[1] == 1 else inds
     if dtype is not None:
         sol = sol.astype(dtype)
-    if is_cuda_output(mem_type, kind=kind):
+    if is_cuda_output(mem_type, value=y):
         sol = cp.asarray(sol)
 
     y2 = check_array(y, mem_type="host", ensure_2d=False)

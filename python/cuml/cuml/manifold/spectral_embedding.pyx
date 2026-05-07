@@ -19,7 +19,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
@@ -399,7 +399,7 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self.fit(X, y)
         return self.embedding_
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 
@@ -420,6 +420,13 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self : object
             Returns the instance itself.
         """
+        X = check_inputs(
+            self,
+            X,
+            dtype="float32",
+            accept_sparse=(self.affinity == "precomputed"),
+            reset=True,
+        )
 
         # Store n_neighbors_ for sklearn compatibility
         self.n_neighbors_ = (

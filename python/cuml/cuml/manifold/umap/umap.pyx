@@ -28,10 +28,10 @@ from cuml.internals.interop import (
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.validation import (
-    check_features,
+    check_array,
+    check_inputs,
     check_is_fitted,
     check_random_seed,
 )
@@ -1166,7 +1166,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         X="dense_sparse",
         skip_parameters_heading=True,
     )
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -1191,65 +1191,66 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef int n_rows = X.shape[0]
         cdef int n_dims = X.shape[1]
 
-        if n_rows < 2:
-            raise ValueError(
-                f"Found an array with {n_rows} sample(s) (shape={X.shape}) "
-                f"while a minimum of 2 is required."
-            )
-        if n_dims < 1:
-            raise ValueError(
-                f"Found an array with 0 feature(s) (shape={X.shape}) "
-                f"while a minimum of 1 is required."
-            )
-
         cdef bool X_is_sparse = is_sparse(X)
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse)
 
+        # Don't coerce to device memory for dense case when using a precomputed
+        # KNN, so that X may be dropped earlier if passed on host.
+        if knn_graph is None and self.precomputed_knn is None:
+            base_mem_type = "device"
+        else:
+            base_mem_type = None
+
+        if X_is_sparse:
+            mem_type = base_mem_type
+        elif (
+            params.build_algo == lib.graph_build_algo.NN_DESCENT
+            or (
+                params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+                and params.build_params.n_clusters > 1
+            )
+        ):
+            mem_type = "host"
+        else:
+            mem_type = base_mem_type
+
+        check_kwargs = dict(
+            dtype="float32",
+            y_dtype="float32",
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse="csr",
+            mem_type=mem_type,
+            reset=True,
+            return_index=True,
+            ensure_min_samples=2,
+        )
+        if y is not None:
+            X, y, index = check_inputs(self, X, y, **check_kwargs)
+            # `y` needs to be on GPU but `check_inputs` doesn't have separate
+            # mem_type handling for X and y.
+            y = cp.asarray(y)
+        else:
+            X, index = check_inputs(self, X, **check_kwargs)
+
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
 
-        # Don't coerce to device memory when using a precomputed KNN, so
-        # that X may be dropped earlier if passed on host.
-        mem_type = (
-            MemoryType.device
-            if knn_graph is None and self.precomputed_knn is None
-            else False
-        )
-
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
+            X_m = SparseCumlArray(X)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
             X_nnz = X_m.nnz
         else:
-            X_m = input_to_cuml_array(
-                X,
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                convert_to_mem_type=(
-                    MemoryType.host
-                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or
-                    (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
-                        and params.build_params.n_clusters > 1)
-                    else mem_type
-                )
-            ).array
+            X_m = CumlArray(data=X, index=index)
             X_ptr = X_m.ptr
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
-            y_m = input_to_cuml_array(
-                y,
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_rows=n_rows,
-                check_cols=1,
-            ).array
-            y_ptr = y_m.ptr
+            y_ptr = <uintptr_t>y.data.ptr
 
         cdef uintptr_t knn_dists_ptr = 0, knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1264,12 +1265,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 self._n_neighbors,
                 mem_type=False,     # mirrors the input graph mem type
             )
+            knn_dists_cp = knn_dists.to_output("cupy")
             if X_is_sparse:
-                knn_indices = input_to_cuml_array(
-                    knn_indices, convert_to_dtype=np.int32
-                ).array
-            knn_indices_ptr = knn_indices.ptr
-            knn_dists_ptr = knn_dists.ptr
+                knn_indices_cp = cp.asarray(
+                    knn_indices.to_output("cupy"), dtype=np.int32
+                )
+                # Drop the int64 original and keep only the int32 copy used by the kernel.
+                knn_indices = CumlArray(data=knn_indices_cp)
+            else:
+                knn_indices_cp = knn_indices.to_output("cupy")
+            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
+            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
         else:
             knn_indices = knn_dists = None
 
@@ -1304,13 +1310,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t sigmas_ptr = 0
         cdef uintptr_t rhos_ptr = 0
         if not X_is_sparse:
-            sigmas_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
-            rhos_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
-            sigmas_ptr = sigmas_arr.ptr
-            rhos_ptr = rhos_arr.ptr
+            sigmas_cp = cp.zeros(n_rows, dtype=np.float32)
+            rhos_cp = cp.zeros(n_rows, dtype=np.float32)
+            sigmas_ptr = <uintptr_t>sigmas_cp.data.ptr
+            rhos_ptr = <uintptr_t>rhos_cp.data.ptr
         else:
-            sigmas_arr = None
-            rhos_arr = None
+            sigmas_cp = None
+            rhos_cp = None
 
         with nogil:
             if X_is_sparse:
@@ -1355,15 +1361,19 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             ),
             order="C"
         )
-        self.embedding_ = CumlArray(data=embedding, index=X_m.index)
+        self.embedding_ = CumlArray(data=embedding, index=index)
         self.graph_ = copy_raft_host_coo_to_scipy_coo(fss_graph)
         self._raw_data = X_m
         self._sparse_data = X_is_sparse
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
-        self._sigmas = sigmas_arr
-        self._rhos = rhos_arr
+        self._sigmas = (
+            CumlArray(data=sigmas_cp) if sigmas_cp is not None else None
+        )
+        self._rhos = (
+            CumlArray(data=rhos_cp) if rhos_cp is not None else None
+        )
 
         if self.hash_input:
             self._input_hash = _joblib_hash(X_m.to_output("numpy"))
@@ -1436,86 +1446,71 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         https://github.com/lmcinnes/umap/issues/158
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        if len(X.shape) != 2:
-            raise ValueError("Reshape your data: X should be two dimensional")
+        X, index = check_inputs(
+            self,
+            X,
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse="csr",
+            return_index=True,
+        )
 
-        if is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=cp.float32)
-            index = None
-        else:
-            X = input_to_cuml_array(
-                X,
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            ).array
-            index = X.index
+        X_input_sparse = is_sparse(X)
 
-        if self._sparse_data and not isinstance(X, SparseCumlArray):
+        if self.hash_input:
+            if X_input_sparse:
+                X_for_hash = X.get()
+            else:
+                X_for_hash = cp.asnumpy(X)
+            if _joblib_hash(X_for_hash) == self._input_hash:
+                return self.embedding_
+
+        if self._sparse_data and not X_input_sparse:
             logger.warn(
                 "Model was trained on sparse data but dense data was provided to "
                 "transform(). Converting to sparse."
             )
-            X = SparseCumlArray(
-                cupyx.scipy.sparse.csr_matrix(X.to_output("cupy")),
-                convert_to_dtype=cp.float32
-            )
-        elif not self._sparse_data and isinstance(X, SparseCumlArray):
+            X = cupyx.scipy.sparse.csr_matrix(X)
+        elif not self._sparse_data and X_input_sparse:
             logger.warn(
                 "Model was trained on dense data but sparse data was provided to "
                 "transform(). Converting to dense."
             )
-            X = input_to_cuml_array(
-                X.to_output("cupy").todense(),
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            ).array
+            X = cp.ascontiguousarray(X.toarray())
 
         cdef bool X_is_sparse = self._sparse_data
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef int orig_n_rows = self._raw_data.shape[0]
 
-        if n_cols != self.n_features_in_:
-            raise ValueError(
-                f"X has {n_cols} features, but UMAP is expecting "
-                f"{self.n_features_in_} features as input"
-            )
-
-        if self.hash_input:
-            if _joblib_hash(X.to_output("numpy")) == self._input_hash:
-                return self.embedding_
-
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse, is_fit=False)
 
-        out = CumlArray.zeros(
+        out = cp.zeros(
             (n_rows, self.n_components),
             order="C",
             dtype=np.float32,
-            index=index
         )
 
         cdef uintptr_t X_ptr, X_indptr_ptr, X_indices_ptr
         cdef uintptr_t orig_ptr, orig_indptr_ptr, orig_indices_ptr
         cdef size_t X_nnz, orig_nnz
         if X_is_sparse:
-            X_indptr_ptr = X.indptr.ptr
-            X_indices_ptr = X.indices.ptr
-            X_ptr = X.data.ptr
+            X_indptr_ptr = <uintptr_t>X.indptr.data.ptr
+            X_indices_ptr = <uintptr_t>X.indices.data.ptr
+            X_ptr = <uintptr_t>X.data.data.ptr
             X_nnz = X.nnz
             orig_indptr_ptr = self._raw_data.indptr.ptr
             orig_indices_ptr = self._raw_data.indices.ptr
             orig_ptr = self._raw_data.data.ptr
             orig_nnz = self._raw_data.nnz
         else:
-            X_ptr = X.ptr
+            X_ptr = <uintptr_t>X.data.ptr
             orig_ptr = self._raw_data.ptr
 
-        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t out_ptr = <uintptr_t>out.data.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
         handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
@@ -1555,7 +1550,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 )
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=index)
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
@@ -1585,13 +1580,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 " autoencoder."
             )
 
-        X = input_to_cuml_array(
+        # skip n_features_in_ validation
+        X, index = check_array(
             X,
+            dtype="float32",
+            convert_dtype=convert_dtype,
             order="C",
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
-        index = X.index
+            return_index=True,
+        )
 
         n_samples = X.shape[0]
         if X.shape[1] != self.n_components:
@@ -1602,7 +1598,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         # Get numpy arrays for preprocessing
         embedding_np = self.embedding_.to_output("numpy")
-        X_np = X.to_output("numpy")
+        X_np = cp.asnumpy(X)
         raw_data_np = self._raw_data.to_output("numpy")
 
         # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
