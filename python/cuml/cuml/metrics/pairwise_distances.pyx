@@ -148,13 +148,15 @@ def nan_euclidean_distances(
 
     Parameters
     ----------
-    X : Dense matrix of shape (n_samples_X, n_features)
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    X : Dense matrix (device or host) of shape (n_samples_X, n_features)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-    Y : Dense matrix of shape (n_samples_Y, n_features), default=None
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features), \
+        default=None
+        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
         Return squared Euclidean distances.
@@ -162,11 +164,16 @@ def nan_euclidean_distances(
     missing_values : np.nan or int, default=np.nan
         Representation of missing value.
 
+    convert_dtype : bool, optional (default = True)
+        When set to True, the method will, when necessary, convert
+        ``Y`` to be the same data type as ``X`` if they differ. This
+        will increase memory used for the method.
+
     Returns
     -------
-    distances : ndarray of shape (n_samples_X, n_samples_Y)
-        Returns the distances between the row vectors of `X`
-        and the row vectors of `Y`.
+    distances : array of shape (n_samples_X, n_samples_Y)
+        Returns the distances between the row vectors of ``X``
+        and the row vectors of ``Y``.
     """
 
     if isinstance(X, cudf.DataFrame) or isinstance(X, pd.DataFrame):
