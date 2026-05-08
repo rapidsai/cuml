@@ -11,6 +11,7 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.sparse
 import sklearn.metrics
@@ -1874,6 +1875,92 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     )
     # compare the accuracy of the two models
     cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [np.asarray, cp.asarray, cudf.Series, pd.Series],
+)
+def test_hinge_loss_binary(container):
+    y_true = container(np.array([-1, 1, 1, -1]))
+    pred_decision = container(np.array([-2.18, 2.36, 0.09, -1.0]))
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision),
+        sk_hinge(
+            np.array([-1, 1, 1, -1]), np.array([-2.18, 2.36, 0.09, -1.0])
+        ),
+    )
+
+
+def test_hinge_loss_binary_labels_single_observed_positive_class():
+    y_true = np.array([1, 1])
+    pred_decision = np.array([0.5, 0.6])
+    labels = np.array([-1, 1])
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision, labels=labels),
+        sk_hinge(y_true, pred_decision, labels=labels),
+    )
+
+
+def test_hinge_loss_binary_labels_single_observed_negative_class():
+    y_true = np.array([-1, -1])
+    pred_decision = np.array([-0.5, -0.6])
+    labels = np.array([-1, 1])
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision, labels=labels),
+        sk_hinge(y_true, pred_decision, labels=labels),
+    )
+
+
+@pytest.mark.parametrize("with_labels", [True, False])
+@pytest.mark.parametrize("with_sample_weight", [True, False])
+def test_hinge_loss_multiclass(with_labels, with_sample_weight):
+    rng = np.random.RandomState(0)
+    y_true = np.array([0, 1, 2, 3, 1, 2])
+    pred_decision = rng.randn(6, 4).astype(np.float64)
+    labels = [0, 1, 2, 3] if with_labels else None
+    sample_weight = (
+        np.array([1.0, 2.0, 3.0, 1.0, 1.0, 1.0])
+        if with_sample_weight
+        else None
+    )
+    np.testing.assert_allclose(
+        cuml_hinge(
+            y_true,
+            pred_decision,
+            labels=labels,
+            sample_weight=sample_weight,
+        ),
+        sk_hinge(
+            y_true,
+            pred_decision,
+            labels=labels,
+            sample_weight=sample_weight,
+        ),
+    )
+
+
+def test_hinge_loss_inconsistent_length():
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cuml_hinge(np.array([0, 1, 1]), np.array([0.5, -0.5]))
+
+
+def test_hinge_loss_multiclass_missing_labels():
+    rng = np.random.RandomState(0)
+    # y_true has 3 classes but pred_decision only has 2 columns and labels
+    # is not provided.
+    with pytest.raises(ValueError, match="include all labels in y_true"):
+        cuml_hinge(np.array([0, 1, 2]), rng.randn(3, 2))
+
+
+def test_hinge_loss_sample_weights_deprecated():
+    y_true = np.array([-1, 1, 1, -1])
+    pred_decision = np.array([-2.18, 2.36, 0.09, -1.0])
+    sw = np.array([1.0, 2.0, 1.0, 1.0])
+    expected = cuml_hinge(y_true, pred_decision, sample_weight=sw)
+    with pytest.warns(FutureWarning, match="sample_weights"):
+        result = cuml_hinge(y_true, pred_decision, sample_weights=sw)
+    np.testing.assert_allclose(result, expected)
 
 
 @pytest.mark.parametrize(
