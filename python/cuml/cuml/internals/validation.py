@@ -801,8 +801,8 @@ def check_cudf(
     array : array-like
         The input to validate.
     ensure_ndim : {1, 2, None}, default=2
-        The number dimensions to enforce. Set to 1 return a ``cudf.Series``, 2
-        to ensure a cudf.DataFrame, or ``None`` to return either.
+        The number dimensions to enforce. Set to 1 to return a ``cudf.Series``,
+        2 to return a cudf.DataFrame, or ``None`` to return either.
     coerce_ndim : bool or "warn", default=False
         Whether to allow coercing between 1d and 2d inputs. May also set to
         "warn" to warn the user to reshape their input.
