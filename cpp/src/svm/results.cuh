@@ -276,8 +276,8 @@ class Results {
       // b_low = max {f_i | i \in I_lower}
       // Any value in the interval [b_low, b_up] would be allowable for b,
       // we will select in the middle point b = -(b_low + b_up)/2
-      math_t b_up  = SelectReduce(alpha, f, true, set_upper);
-      math_t b_low = SelectReduce(alpha, f, false, set_lower);
+      math_t b_up  = SelectReduce(alpha, f, true);
+      math_t b_low = SelectReduce(alpha, f, false);
       return -(b_up + b_low) / 2;
     }
   }
@@ -385,15 +385,17 @@ class Results {
   /** Select values from f, and do a min or max reduction on them.
    * @param [in] alpha dual coefficients, size [n_train]
    * @param [in] f optimality indicator vector, size [n_train]
-   * @param flag_op operation to flag values for selection (set_upper/lower)
    * @param return the reduced value.
    */
-  math_t SelectReduce(const math_t* alpha,
-                      const math_t* f,
-                      bool min,
-                      void (*flag_op)(bool*, int, const math_t*, const math_t*, const math_t*))
+  math_t SelectReduce(const math_t* alpha, const math_t* f, bool min)
   {
-    flag_op<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(flag.data(), n_train, alpha, y, C);
+    if (min) {
+      set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+        flag.data(), n_train, alpha, y, C);
+    } else {
+      set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+        flag.data(), n_train, alpha, y, C);
+    }
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(),
                                cub_bytes,
