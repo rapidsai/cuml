@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -95,7 +95,9 @@ def test_handle_unknown(client, as_array: bool) -> None:
 
     enc = OrdinalEncoder(handle_unknown="error")
     enc = enc.fit(X)
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         enc.transform(Y).compute()
 
     enc = OrdinalEncoder(handle_unknown="ignore")

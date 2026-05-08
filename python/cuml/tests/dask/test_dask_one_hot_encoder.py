@@ -87,7 +87,9 @@ def test_onehot_transform_handle_unknown(client):
 
     enc = OneHotEncoder(handle_unknown="error", sparse_output=False)
     enc = enc.fit(X)
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         enc.transform(Y).compute()
 
     enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
@@ -215,4 +217,4 @@ def test_onehot_get_categories(client):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_pandas().to_numpy())
+        np.testing.assert_array_equal(ref[i], cats[i])

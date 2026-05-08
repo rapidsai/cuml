@@ -108,7 +108,9 @@ def test_handle_unknown(as_array: bool) -> None:
 
     enc = OrdinalEncoder(handle_unknown="error")
     enc = enc.fit(X)
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         enc.transform(Y)
 
     enc = OrdinalEncoder(handle_unknown="ignore")

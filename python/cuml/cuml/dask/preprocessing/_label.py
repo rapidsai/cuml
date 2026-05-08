@@ -1,12 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from collections.abc import Sequence
-
-from dask_cudf import DataFrame as dcDataFrame
-from dask_cudf import Series as dcSeries
 from sklearn.exceptions import NotFittedError
-from toolz import first
 
 from cuml.dask.common.base import (
     BaseEstimator,
@@ -134,12 +129,10 @@ class LabelEncoder(
         Number of unique classes will be collected at the client. It'll
         consume memory proportional to the number of unique classes.
         """
-        classes = y.unique().compute().sort_values(ignore_index=True)
-        el = first(y) if isinstance(y, Sequence) else y
-        self.datatype = (
-            "cudf" if isinstance(el, (dcDataFrame, dcSeries)) else "cupy"
-        )
-        self._set_internal_model(LE(**self.kwargs)._fit(y, classes=classes))
+        y_unique = y.unique().compute()
+        self.datatype = "cudf"
+        internal_model = LE(output_type="cudf", **self.kwargs).fit(y_unique)
+        self._set_internal_model(internal_model)
         return self
 
     def fit_transform(self, y, delayed=True):
