@@ -2,11 +2,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport int64_t, uint64_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from pylibraft.common.handle cimport handle_t
-from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 from rmm.librmm.device_buffer cimport device_buffer
 
 from cuml.internals.logger cimport level_enum
@@ -72,8 +72,8 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML" nogil:
 
 cdef extern from "raft/sparse/coo.hpp" nogil:
     cdef cppclass COO "raft::sparse::COO<float, int, uint64_t>":
-        COO(cuda_stream_view stream)
-        void allocate(uint64_t nnz, int size, bool init, cuda_stream_view stream)
+        COO(cudaStream_t stream)
+        void allocate(uint64_t nnz, int size, bool init, cudaStream_t stream)
         uint64_t nnz
         float* vals()
         int* rows()

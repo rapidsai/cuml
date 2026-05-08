@@ -6,6 +6,8 @@ import ctypes
 import warnings
 from collections import deque
 
+from cuda.bindings.cyruntime cimport cudaStream_t
+
 import cupy as cp
 import cupyx.scipy.sparse
 import joblib
@@ -1306,8 +1308,8 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                     <const void*><uintptr_t>(
                         init.data.ptr if isinstance(init, cp.ndarray) else init.ctypes.data
                     ),
-                    init.nbytes,
-                    handle_.get_stream(),
+                    <size_t> init.nbytes,
+                    <cudaStream_t> handle_.get_stream(),
                     make_any_device_resource(get_current_device_resource().get_mr())
                 )
             )
