@@ -558,7 +558,11 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         )
 
     if self.force_serial_epochs is None:
-        params.force_serial_epochs = (params.init == 1)
+        # Only auto-enable for spectral fit. Also skip when n_components > 512 since
+        # the warp-based serial kernel only supports up to 512 components
+        params.force_serial_epochs = (
+            is_fit and params.init == 1 and self.n_components <= 512
+        )
     else:
         params.force_serial_epochs = self.force_serial_epochs
 
@@ -1920,7 +1924,11 @@ def simplicial_set_embedding(
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
     if force_serial_epochs is None:
-        params.force_serial_epochs = isinstance(init, str) and init == "spectral"
+        # Auto-enable only for spectral init within the serial kernel's supported
+        # n_components range (the warp-based serial kernel supports up to 512).
+        params.force_serial_epochs = (
+            isinstance(init, str) and init == "spectral" and n_components <= 512
+        )
     else:
         params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)

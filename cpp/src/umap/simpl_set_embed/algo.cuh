@@ -223,9 +223,13 @@ void optimize_layout(T* head_embedding,
 
   int num_chunks = 1;
 
-  bool has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
-  if (move_other && !has_outlier) {
-    has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
+  // serial kernel does not need to check for outliers
+  bool has_outlier = false;
+  if (!params->force_serial_epochs) {
+    has_outlier = check_outliers<nnz_t, TPB_X>(head, head_n, nnz, threshold_for_outlier, stream);
+    if (move_other && !has_outlier) {
+      has_outlier = check_outliers<nnz_t, TPB_X>(tail, tail_n, nnz, threshold_for_outlier, stream);
+    }
   }
 
   rmm::device_uvector<nnz_t> row_ptr(0, stream_view);
@@ -262,12 +266,14 @@ void optimize_layout(T* head_embedding,
     }
   }
 
-  if ((has_outlier || params->force_serial_epochs) && params->deterministic) {
-    // for processing in deterministic mode on datasets that are likely to have outliers, we use the
-    // heuristic below to determine the number of chunks.
-    // Empirically determined: 100000 edges per chunk provides good balance between determinism and
-    // avoiding gradient accumulation issues on large datasets. See benchmarks in
-    // https://github.com/rapidsai/cuml/pull/7597
+  if (!params->force_serial_epochs && has_outlier && params->deterministic) {
+    // num_chunks only feeds the batch-kernel grid setup below, so this branch
+    // is irrelevant when force_serial_epochs is true (which dispatches to the
+    // sequential kernel that computes its own launch config).
+    // For deterministic mode on datasets likely to contain outliers, the
+    // heuristic below picks num_chunks. Empirically, 100000 edges per chunk
+    // balances determinism and gradient-accumulation behavior on large
+    // datasets. See benchmarks in https://github.com/rapidsai/cuml/pull/7597
     if (nnz > 100000) {
       num_chunks =
         std::max(num_chunks, static_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(100000))));
