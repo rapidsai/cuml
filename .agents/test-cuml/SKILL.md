@@ -9,7 +9,7 @@ This skill covers all cuML test suites. The canonical source of truth for each s
 
 ## 0. Prerequisites
 
-**A cuML dev env must be active before running any tests.** If you don't have one active yet, follow the [setup-dev-environment selection algorithm](../setup-dev-environment/SKILL.md#2-environment-selection-algorithm-canonical).
+**A cuML dev env must be active before running any tests.** If the active environment is missing or ambiguous, and the current agent context does not provide clear local instructions for choosing one, stop and ask the user which development environment to use before running tests.
 
 Quick sanity check before invoking any test command:
 
@@ -232,7 +232,7 @@ CI script: [`ci/test_python_integration.sh`](../../ci/test_python_integration.sh
 
 ## 7. Common gotchas
 
-- **`ImportError` or wrong `cuml.__file__`**: the wrong env is active. Activate the env that belongs to the worktree you're editing and rebuild. See the [build skill](../build-cuml/SKILL.md).
+- **`ImportError` or wrong `cuml.__file__`**: the wrong env is active. Activate the intended dev environment for this checkout and rebuild. See the [build skill](../build-cuml/SKILL.md).
 - **C++ test binaries not found**: the install dir `$CONDA_PREFIX/bin/gtests/libcuml/` is absent. Run `./build.sh` (default builds and installs the tests).
 - **Dask import error in single-GPU env**: the single-GPU CI script (`test_python_singlegpu.sh`) intentionally fails if `dask` is installed. Use a dask-capable env for §3 tests.
 - **`UnmatchedXfailTests` in upstream sklearn tests**: (1) the xfail list references a test id that no longer exists in the installed library version — triage and update the list (see the upstream [README](../../python/cuml/cuml_accel_tests/upstream/README.md)). (2) You passed `--xfail-list` while collecting only a **subset** of the suite (e.g. `--pyargs sklearn.neighbors.tests.test_kde`); use [`run-tests.sh`](../../python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh) with `-k` instead, or drop `--xfail-list` for a quick narrow run.

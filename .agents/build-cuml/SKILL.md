@@ -33,9 +33,9 @@ This builds and installs `libcuml` (C++), `cuml` (Python), and `prims` (tests) i
 - The agent has edited C++/CUDA/Cython/Python code in this repo and needs to rebuild before testing.
 - A test run fails with `ImportError`, missing `libcuml.so`, stale `.so`, or "module not found" symptoms after a code change — the local install is likely stale and needs a rebuild.
 
-## 1. Set up the development environment
+## 1. Confirm the active development environment
 
-Building cuML requires an **active** development environment containing all build and runtime dependencies. Building with the wrong env active (or none) silently installs into — and tests against — the wrong worktree.
+Building cuML requires an **active** development environment containing all build and runtime dependencies. Building with the wrong env active (or none) can install into — and test against — the wrong prefix. If the active environment is missing or ambiguous, and the current agent context does not provide clear local instructions for choosing one, stop and ask the user which development environment to use.
 
 ### Quick check
 
@@ -46,7 +46,7 @@ python -c "import cuml; print(cuml.__file__)" 2>/dev/null \
     || echo "cuml not yet installed (fine before first build)"
 ```
 
-`cuml.__file__` should resolve inside this worktree (`python/cuml/`) or inside the active env's `site-packages`. If it resolves into a different worktree or env, the wrong env is active — see [setup-dev-environment §2](../setup-dev-environment/SKILL.md#2-environment-selection-algorithm-canonical) for the selection algorithm.
+`cuml.__file__` should resolve inside this worktree (`python/cuml/`) or inside the active env's `site-packages`. If it resolves into a different worktree or env, stop and ask for the local environment instructions before building.
 
 ## 2. Build with `build.sh`
 
@@ -159,7 +159,7 @@ The `cuml.__file__` path should be inside the active conda env (or the editable 
 
 - **`ImportError` after pulling new commits**: rebuild — the C++ ABI or Cython-generated code likely changed.
 - **`libcuml.so` not found at runtime**: `INSTALL_PREFIX` mismatched the active env. Re-run `build.sh` with the correct env activated.
-- **`cuml.__file__` points to a different worktree than the one you're editing**: the wrong env is active. Activate the env that belongs to the worktree you're editing and rebuild.
+- **`cuml.__file__` points to a different checkout than the one you're editing**: the wrong env is active. Activate the intended dev environment for this checkout and rebuild.
 - **Out-of-memory or thermal throttling during build**: lower `PARALLEL_LEVEL` (e.g. `PARALLEL_LEVEL=8`).
 - **Stale build state after a failed build**: run `./build.sh clean` then rebuild from scratch.
 - **Building without a GPU**: the build itself works on CPU-only hosts; only running cuML at test time requires a GPU.
