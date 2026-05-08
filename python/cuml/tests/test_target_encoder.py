@@ -129,11 +129,11 @@ def test_one_category():
 
     encoder = TargetEncoder(output_type="numpy")
     train_encoded = encoder.fit_transform(train, label)
-    answer = np.array([1.0, 2.0, 2.0, 1.0])[:, None]
+    answer = np.array([1 / 3, 2 / 3, 2 / 3, 1 / 3])[:, None]
     assert array_equal(train_encoded, answer)
 
     test_encoded = encoder.transform(test)
-    answer = np.array([1.5, 1.5, 1.5, 1.5])[:, None]
+    answer = np.array([0.5, 0.5, 0.5, 0.5])[:, None]
     assert array_equal(test_encoded, answer)
 
 
@@ -278,7 +278,7 @@ def test_targetencoder_median():
     train = cudf.DataFrame(
         {"category": ["a", "a", "a", "a", "b", "b", "b", "b"]}
     )
-    label = cudf.Series([1, 22, 15, 17, 70, 9, 99, 56])
+    label = cudf.Series([1, 22, 15, 17, 70, 9, 99, 56], dtype="float32")
     encoder = TargetEncoder(stat="median", output_type="numpy")
     train_encoded = encoder.fit_transform(train, label)
     answer = np.array([17.0, 15.0, 17.0, 15.0, 56.0, 70.0, 56.0, 70.0])[

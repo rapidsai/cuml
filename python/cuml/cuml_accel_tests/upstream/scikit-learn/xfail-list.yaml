@@ -676,21 +676,11 @@
   marker: cuml_accel_bugs
   tests:
   - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
-- reason: cuML TargetEncoder has different error messages for y validation
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y1-Target type was inferred to be 'multiclass-multioutput']"
-- reason: cuML TargetEncoder has different error messages than sklearn
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_empty_data_messages]"
-- reason: cuML TargetEncoder has different internal data structures than sklearn
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
 - reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
   marker: cuml_accel_bugs
   tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-5.0-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-auto-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
