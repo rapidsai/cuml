@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -307,6 +307,22 @@ TEST(Buffer, partial_buffer_copy)
   copy<true>(buf2, buf1, 1, 2, 3, cuda_stream{});
   copy<false>(buf2, buf1, 1, 2, 3, cuda_stream{});
   EXPECT_THROW(copy<true>(buf2, buf1, 1, 2, 4, cuda_stream{}), out_of_bounds);
+  EXPECT_THROW(copy<true>(buf2, buf1, 1, data1.size() + 1, 0, cuda_stream{}), out_of_bounds);
+  EXPECT_THROW(copy<true>(buf2, buf1, data2.size() + 1, 2, 0, cuda_stream{}), out_of_bounds);
+  EXPECT_THROW(copy<true>(buffer<int>{data2.data(), data2.size(), device_type::cpu},
+                          buffer<int>{data1.data(), data1.size(), device_type::cpu},
+                          1,
+                          data1.size() + 1,
+                          0,
+                          cuda_stream{}),
+               out_of_bounds);
+  EXPECT_THROW(copy<true>(buffer<int>{data2.data(), data2.size(), device_type::cpu},
+                          buffer<int>{data1.data(), data1.size(), device_type::cpu},
+                          data2.size() + 1,
+                          2,
+                          0,
+                          cuda_stream{}),
+               out_of_bounds);
 }
 
 TEST(Buffer, buffer_copy_overloads)
