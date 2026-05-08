@@ -390,11 +390,9 @@ class Results {
   math_t SelectReduce(const math_t* alpha, const math_t* f, bool min)
   {
     if (min) {
-      set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
-        flag.data(), n_train, alpha, y, C);
+      set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(flag.data(), n_train, alpha, y, C);
     } else {
-      set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
-        flag.data(), n_train, alpha, y, C);
+      set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(flag.data(), n_train, alpha, y, C);
     }
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(),
