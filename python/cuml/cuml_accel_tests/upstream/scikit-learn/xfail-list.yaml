@@ -865,14 +865,6 @@
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-lloyd-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-elkan-dense]"
   - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-lloyd-dense]"
-- reason: cuml.accel deviates in repeated predict output for KMeans scikit-learn 1.6
-  marker: cuml_accel_kmeans_repeated_predict_output_deviation
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-100-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-100-KMeans-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-lloyd-dense]"
 - reason: cuml.accel deviates in log output for KMeans
   marker: cuml_accel_kmeans_verbose_logging_message_deviation
   tests:
