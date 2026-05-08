@@ -857,22 +857,6 @@
   condition: scikit-learn<1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_precomputed_nearest_neighbors_filtering"
-- reason: cuml.accel deviates in repeated predict output for KMeans
-  marker: cuml_accel_kmeans_repeated_predict_output_deviation
-  condition: scikit-learn<1.6
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-100-KMeans-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[float64-42-2-KMeans-lloyd-dense]"
-- reason: cuml.accel deviates in repeated predict output for KMeans scikit-learn 1.6
-  marker: cuml_accel_kmeans_repeated_predict_output_deviation
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-100-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-100-KMeans-lloyd-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-elkan-dense]"
-  - "sklearn.cluster.tests.test_k_means::test_kmeans_predict[42-float64-2-KMeans-lloyd-dense]"
 - reason: cuml.accel deviates in log output for KMeans
   marker: cuml_accel_kmeans_verbose_logging_message_deviation
   tests:
@@ -1022,10 +1006,11 @@
   condition: scikit-learn>=1.8
   tests:
   - "sklearn.linear_model.tests.test_logistic::test_scores_attribute_layout_elasticnet"
-- reason: Flaky deviations in n_iter_ values in cuml.accel
+- reason: Flaky deviations in values in cuml.accel
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-blobs]"
+  - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_results[42-1e-100-dense-normal]"
 - reason: Linear SVM sample weight handling differs with cuml.accel in sklearn 1.8
   condition: scikit-learn>=1.8
   tests:
