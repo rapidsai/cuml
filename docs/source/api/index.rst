@@ -379,6 +379,9 @@ Covariance Estimation
    * - Object
      - Description
      - Module
+   * - :obj:`~cuml.covariance.EmpiricalCovariance`
+     - Maximum likelihood covariance estimator.
+     - :mod:`cuml.covariance`
    * - :obj:`~cuml.covariance.LedoitWolf`
      - Ledoit-Wolf shrinkage covariance estimator.
      - :mod:`cuml.covariance`
