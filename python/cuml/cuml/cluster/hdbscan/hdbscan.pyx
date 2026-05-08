@@ -22,6 +22,7 @@ from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+from rmm.librmm.cuda_stream_view cimport cuda_stream_view
 from rmm.librmm.device_uvector cimport device_uvector
 
 cimport cuml.cluster.hdbscan.headers as lib
@@ -197,7 +198,7 @@ cdef class _HDBSCANState:
         cdef int min_samples = model.min_samples or model.min_cluster_size
         cdef device_uvector[int64_t] *temp_buffer = new device_uvector[int64_t](
             0,
-            handle_[0].get_stream(),
+            <cuda_stream_view>handle_[0].get_stream(),
         )
 
         with nogil:
