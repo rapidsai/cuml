@@ -25,7 +25,6 @@ from itertools import chain, compress
 import cudf
 import cupy as np
 import numba
-import numpy as cpu_np
 import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
@@ -36,9 +35,8 @@ from sklearn.utils import Bunch
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
-from cuml.internals.validation import check_is_fitted, check_features
+from cuml.internals.validation import check_is_fitted, check_features, check_array
 
-from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
 from ..utils.skl_dependencies import (
     BaseComposition,
@@ -857,7 +855,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Fit all transformers, transform the data and concatenate results.
 
@@ -880,6 +878,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             sparse matrices.
 
         """
+        check_features(self, X, reset=True)
         self._validate_transformers()
         self._validate_column_callables(X)
         self._validate_remainder(X)
@@ -955,7 +954,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                 # dtype conversion if necessary.
                 converted_Xs = [check_array(X,
                                             accept_sparse=True,
-                                            force_all_finite=False)
+                                            ensure_all_finite=False)
                                 for X in Xs]
             except ValueError as e:
                 raise ValueError(

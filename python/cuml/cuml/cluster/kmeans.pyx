@@ -23,12 +23,26 @@ from cuml.internals.validation import (
     check_random_seed,
 )
 
+from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 cimport cuml.cluster.cpp.kmeans as lib
 from cuml.metrics.distance_type cimport DistanceType
+
+
+cdef inline bool _kmeans_indices_i32(int64_t n_rows, int64_t n_cols) noexcept nogil:
+    cdef int64_t int_max = INT_MAX
+
+    if n_rows < 0 or n_cols < 0:
+        return False
+    if n_rows > int_max or n_cols > int_max:
+        return False
+    if n_rows == 0 or n_cols == 0:
+        return True
+
+    return n_rows <= ((int_max - 1) // n_cols)
 
 
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
@@ -91,7 +105,7 @@ cdef _kmeans_fit(
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = (n_rows * n_cols) < (2**31 - 1)
+    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
@@ -169,11 +183,16 @@ cdef _kmeans_predict(
     """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
+    cdef int64_t n_clusters = centers.shape[0]
 
-    labels = cp.zeros(
-        shape=n_rows,
-        dtype=(cp.int32 if n_rows * n_cols < 2**31 - 1 else cp.int64),
+    # Stop-gap: downstream predict code indexes both X and cluster_centers_
+    # using the selected index type. Keep the int32 path only when both
+    # matrices fit int32 indexing until large-shape support is fully covered.
+    cdef bool indices_i32 = (
+        _kmeans_indices_i32(n_rows, n_cols)
+        and _kmeans_indices_i32(n_clusters, n_cols)
     )
+    labels = cp.zeros(shape=n_rows, dtype=(cp.int32 if indices_i32 else cp.int64))
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
@@ -181,7 +200,6 @@ cdef _kmeans_predict(
     cdef uintptr_t labels_ptr = labels.data.ptr
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = labels.dtype == cp.int32
 
     cdef float inertia_f32 = 0
     cdef double inertia_f64 = 0
@@ -686,9 +704,20 @@ class KMeans(Base,
 
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
+        cdef int64_t n_clusters = self.n_clusters
+
+        # Stop-gap: the current C++/cuVS transform path does not preserve
+        # int64 indexing end-to-end for the output matrix. Reject oversized
+        # outputs here until transform supports int64 output indexing.
+        if not _kmeans_indices_i32(n_rows, n_clusters):
+            raise NotImplementedError(
+                "KMeans.transform does not currently support output shapes "
+                "that require int64 indexing. Got output shape "
+                f"({n_rows}, {n_clusters})."
+            )
 
         out = cp.zeros(
-            shape=(n_rows, self.n_clusters), dtype=X.dtype, order="C",
+            shape=(n_rows, n_clusters), dtype=X.dtype, order="C",
         )
 
         cdef uintptr_t X_ptr = X.data.ptr
@@ -701,7 +730,7 @@ class KMeans(Base,
         _kmeans_init_params(self, params)
 
         cdef bool values_f32 = X.dtype == cp.float32
-        cdef bool indices_i32 = self.labels_.dtype == cp.int32
+        cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
 
         with nogil:
             if values_f32:

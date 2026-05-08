@@ -41,13 +41,12 @@ from cuml.internals.mixins import (
     StatelessTagMixin,
 )
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_is_fitted, check_array, check_inputs
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array import CumlArray
 from ....internals.array_sparse import SparseCumlArray
 from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters import check_array
 from ....thirdparty_adapters.sparsefuncs_fast import (
     csr_polynomial_expansion,
     inplace_csr_row_normalize_l1,
@@ -151,9 +150,14 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     StandardScaler: Performs scaling to unit variance using the``Transformer`` API
 
     """  # noqa
-    X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
-                    ensure_2d=False, estimator='the scale function',
-                    dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+    X = check_array(
+        X,
+        accept_sparse=['csr', 'csc'],
+        copy=copy,
+        ensure_2d=False,
+        dtype=FLOAT_DTYPES,
+        ensure_all_finite='allow-nan',
+    )
 
     if sparse.issparse(X):
         if with_mean:
@@ -327,7 +331,7 @@ class MinMaxScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
 
@@ -350,7 +354,7 @@ class MinMaxScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
@@ -378,9 +382,13 @@ class MinMaxScaler(TransformerMixin,
                              " than maximum. Got %s." % str(feature_range))
 
         first_pass = not hasattr(self, 'n_samples_seen_')
-        X = self._validate_data(X, reset=first_pass,
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite="allow-nan")
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         data_min = np.nanmin(X, axis=0)
         data_max = np.nanmax(X, axis=0)
@@ -416,10 +424,13 @@ class MinMaxScaler(TransformerMixin,
             Transformed data.
         """
         check_is_fitted(self)
-
-        X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-                        force_all_finite="allow-nan")
-
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=self.copy,
+            ensure_all_finite="allow-nan",
+        )
         X *= self.scale_
         X += self.min_
 
@@ -442,7 +453,7 @@ class MinMaxScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-                        force_all_finite="allow-nan")
+                        ensure_all_finite="allow-nan")
 
         X -= self.min_
         X /= self.scale_
@@ -496,7 +507,7 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     # If copy is required, it will be done inside the scaler object.
 
     X = check_array(X, copy=False, ensure_2d=False,
-                    dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+                    dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -698,7 +709,7 @@ class StandardScaler(TransformerMixin,
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
 
@@ -716,7 +727,7 @@ class StandardScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
@@ -744,9 +755,15 @@ class StandardScaler(TransformerMixin,
         self : object
             Transformer instance.
         """
-        X = self._validate_data(X, accept_sparse=('csr', 'csc'),
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        first_pass = not hasattr(self, 'n_samples_seen_')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=("csr", "csc"),
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         # Even in the case of `with_mean=False`, we update the mean anyway
         # This is needed for the incremental computation of the var
@@ -853,10 +870,14 @@ class StandardScaler(TransformerMixin,
 
         copy = copy if copy is not None else self.copy
 
-        X = self._validate_data(X, reset=False,
-                                accept_sparse=['csr', 'csc'], copy=copy,
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=("csr", "csc"),
+            copy=copy,
+            ensure_all_finite="allow-nan",
+        )
 
         if sparse.issparse(X):
             if self.with_mean:
@@ -895,8 +916,7 @@ class StandardScaler(TransformerMixin,
         copy = copy if copy is not None else self.copy
 
         X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             if self.with_mean:
@@ -1004,7 +1024,7 @@ class MaxAbsScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
 
@@ -1019,7 +1039,7 @@ class MaxAbsScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
@@ -1043,10 +1063,14 @@ class MaxAbsScaler(TransformerMixin,
             Transformer instance.
         """
         first_pass = not hasattr(self, 'n_samples_seen_')
-        X = self._validate_data(X, reset=first_pass,
-                                accept_sparse=('csr', 'csc'), estimator=self,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            accept_sparse=("csr", "csc"),
+            dtype=FLOAT_DTYPES,
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         if sparse.issparse(X):
             mins, maxs = min_max_axis(X, axis=0, ignore_nan=True)
@@ -1074,10 +1098,14 @@ class MaxAbsScaler(TransformerMixin,
             The data that should be scaled.
         """
         check_is_fitted(self)
-
-        X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=('csr', 'csc'),
+            copy=self.copy,
+            ensure_all_finite='allow-nan'
+        )
 
         if sparse.issparse(X):
             inplace_column_scale(X, 1.0 / self.scale_)
@@ -1098,8 +1126,7 @@ class MaxAbsScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             inplace_column_scale(X, self.scale_)
@@ -1145,7 +1172,7 @@ def maxabs_scale(X, *, axis=0, copy=True):
     # If copy is required, it will be done inside the scaler object.
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
                     ensure_2d=False, dtype=FLOAT_DTYPES,
-                    force_all_finite='allow-nan')
+                    ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -1260,7 +1287,7 @@ class RobustScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
 
@@ -1272,9 +1299,14 @@ class RobustScaler(TransformerMixin,
         """
         # at fit, convert sparse matrices to csc for optimized computation of
         # the quantiles
-        X = self._validate_data(X, accept_sparse='csc', estimator=self,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse="csc",
+            ensure_all_finite="allow-nan",
+            reset=True
+        )
 
         q_min, q_max = self.quantile_range
         if not 0 <= q_min <= q_max <= 100:
@@ -1332,10 +1364,14 @@ class RobustScaler(TransformerMixin,
             The data used to scale along the specified axis.
         """
         check_is_fitted(self)
-
-        X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=('csr', 'csc'),
+            copy=self.copy,
+            ensure_all_finite='allow-nan',
+        )
 
         if sparse.issparse(X):
             if self.with_scaling:
@@ -1359,8 +1395,7 @@ class RobustScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             if self.with_scaling:
@@ -1427,7 +1462,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     """
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
                     ensure_2d=False, dtype=FLOAT_DTYPES,
-                    force_all_finite='allow-nan')
+                    ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -1583,7 +1618,7 @@ class PolynomialFeatures(TransformerMixin,
             feature_names.append(name)
         return feature_names
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "PolynomialFeatures":
         """
         Compute number of output features.
@@ -1598,8 +1633,8 @@ class PolynomialFeatures(TransformerMixin,
         -------
         self : instance
         """
-        n_samples, n_features = self._validate_data(
-            X, accept_sparse=True).shape
+        X = check_inputs(self, X, accept_sparse=True, reset=True)
+        n_samples, n_features = X.shape
         combinations = self._combinations(n_features, self.degree,
                                           self.interaction_only,
                                           self.include_bias)
@@ -1785,8 +1820,7 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     else:
         raise ValueError("'%d' is not a supported axis" % axis)
 
-    X = check_array(X, accept_sparse=sparse_format, copy=copy,
-                    estimator='the normalize function', dtype=FLOAT_DTYPES)
+    X = check_array(X, accept_sparse=sparse_format, copy=copy, dtype=FLOAT_DTYPES)
 
     if axis == 0:
         X = X.T
@@ -1886,7 +1920,7 @@ class Normalizer(TransformerMixin,
         self.norm = norm
         self.copy = copy
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
 
@@ -1897,7 +1931,7 @@ class Normalizer(TransformerMixin,
         ----------
         X : {array-like, CSR matrix}
         """
-        self._validate_data(X, accept_sparse='csr')
+        check_inputs(self, X, accept_sparse="csr", reset=True)
         return self
 
     @reflect
@@ -1913,7 +1947,7 @@ class Normalizer(TransformerMixin,
             a copy might be triggered by a conversion.
         """
         copy = copy if copy is not None else self.copy
-        X = check_array(X, accept_sparse='csr')
+        X = check_inputs(self, X, accept_sparse="csr")
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
@@ -2017,7 +2051,7 @@ class Binarizer(TransformerMixin,
         self.threshold = threshold
         self.copy = copy
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
 
@@ -2028,7 +2062,7 @@ class Binarizer(TransformerMixin,
         ----------
         X : {array-like, sparse matrix}
         """
-        self._validate_data(X, accept_sparse=['csr', 'csc'])
+        check_inputs(self, X, accept_sparse=['csr', 'csc'], reset=True)
         return self
 
     @reflect
@@ -2158,7 +2192,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
@@ -2171,8 +2205,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         -------
         self : returns an instance of self.
         """
-
-        K = self._validate_data(K, dtype=FLOAT_DTYPES)
+        K = check_inputs(self, K, dtype=FLOAT_DTYPES, reset=True)
 
         if K.shape[0] != K.shape[1]:
             raise ValueError("Kernel matrix must be a square matrix."
@@ -2203,7 +2236,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
+        K = check_inputs(self, K, copy=copy, dtype=FLOAT_DTYPES)
 
         K_pred_cols = (np.sum(K, axis=1) /
                        self.K_fit_rows_.shape[0])[:, np.newaxis]
@@ -2417,7 +2450,7 @@ class QuantileTransformer(TransformerMixin,
         # https://github.com/numpy/numpy/issues/14685
         self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
@@ -2540,19 +2573,15 @@ class QuantileTransformer(TransformerMixin,
     def _check_inputs(self, X, in_fit, accept_sparse_negative=False,
                       copy=False):
         """Check inputs before fit and transform"""
-        # In theory reset should be equal to `in_fit`, but there are tests
-        # checking the input number of feature and they expect a specific
-        # string, which is not the same one raised by check_n_features. So we
-        # don't check n_features_in_ here for now (it's done with adhoc code in
-        # the estimator anyway).
-        # TODO: set reset=in_fit when addressing reset in
-        # predict/transform/etc.
-        reset = True
-
-        X = self._validate_data(X, reset=reset,
-                                accept_sparse='csc', copy=copy,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=copy,
+            accept_sparse="csc",
+            ensure_all_finite="allow-nan",
+            reset=in_fit,
+        )
         # we only accept positive sparse matrix when ignore_implicit_zeros is
         # false and that we call fit or transform.
         if (not accept_sparse_negative and not self.ignore_implicit_zeros
@@ -2567,16 +2596,6 @@ class QuantileTransformer(TransformerMixin,
                                  self.output_distribution))
 
         return X
-
-    def _check_is_fitted(self, X):
-        """Check the inputs before transforming"""
-        check_is_fitted(self)
-        # check that the dimension of X are adequate with the fitted data
-        if X.shape[1] != self.quantiles_.shape[1]:
-            raise ValueError('X does not have the same number of features as'
-                             ' the previously fitted data. Got {} instead of'
-                             ' {}.'.format(X.shape[1],
-                                           self.quantiles_.shape[1]))
 
     def _transform(self, X, inverse=False):
         """Forward and inverse transform.
@@ -2628,8 +2647,8 @@ class QuantileTransformer(TransformerMixin,
         Xt : ndarray or sparse matrix, shape (n_samples, n_features)
             The projected data.
         """
+        check_is_fitted(self)
         X = self._check_inputs(X, in_fit=False, copy=self.copy)
-        self._check_is_fitted(X)
 
         return self._transform(X, inverse=False)
 
@@ -2650,9 +2669,9 @@ class QuantileTransformer(TransformerMixin,
         Xt : ndarray or sparse matrix, shape (n_samples, n_features)
             The projected data.
         """
+        check_is_fitted(self)
         X = self._check_inputs(X, in_fit=False, accept_sparse_negative=True,
                                copy=self.copy)
-        self._check_is_fitted(X)
 
         return self._transform(X, inverse=True)
 
@@ -2860,7 +2879,7 @@ class PowerTransformer(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
@@ -2881,7 +2900,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 
@@ -3112,8 +3131,14 @@ class PowerTransformer(TransformerMixin,
         check_method : bool
             If True, check that the transformation method is valid.
         """
-        X = self._validate_data(X, ensure_2d=True, dtype=FLOAT_DTYPES,
-                                copy=self.copy, force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=self.copy,
+            ensure_all_finite="allow-nan",
+            reset=in_fit,
+        )
 
         if (check_positive and self.method == 'box-cox' and np.nanmin(X) <= 0):
             raise ValueError("The Box-Cox transformation can only be "
