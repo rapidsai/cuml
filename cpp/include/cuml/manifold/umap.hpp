@@ -12,9 +12,16 @@
 
 #include <rmm/device_buffer.hpp>
 
+#include <cuvs/neighbors/cagra.hpp>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+
+namespace ML {
+// Type alias for the CAGRA index used in UMAP
+using cagra_index_t = cuvs::neighbors::cagra::index<float, uint32_t>;
+}  // namespace ML
 
 namespace raft {
 class handle_t;
@@ -113,6 +120,8 @@ void init_and_refine(const raft::handle_t& handle,
  * @param[out] graph: pointer to fuzzy simplicial set graph
  * @param[out] sigmas: optional output array for per-point sigma values (size n, device memory)
  * @param[out] rhos: optional output array for per-point rho values (size n, device memory)
+ * @param[out] cagra_index: optional output for CAGRA index built from KNN graph (if
+ * non-null, a CAGRA index will be built for fast transform operations)
  */
 void fit(const raft::handle_t& handle,
          float* X,
@@ -124,8 +133,9 @@ void fit(const raft::handle_t& handle,
          UMAPParams* params,
          std::unique_ptr<rmm::device_buffer>& embeddings,
          raft::host_coo_matrix<float, int, int, uint64_t>& graph,
-         float* sigmas = nullptr,
-         float* rhos   = nullptr);
+         float* sigmas                               = nullptr,
+         float* rhos                                 = nullptr,
+         std::unique_ptr<cagra_index_t>* cagra_index = nullptr);
 
 /**
  * Sparse fit
@@ -172,6 +182,7 @@ void fit_sparse(const raft::handle_t& handle,
  * @param[in] embedding_n: number of rows in embedding created during training
  * @param[in] params: pointer to ML::UMAPParams object
  * @param[out] transformed: pointer to embedding produced through projection
+ * @param[in] cagra_index: optional CAGRA index for fast KNN search (if nullptr, uses brute force)
  */
 void transform(const raft::handle_t& handle,
                float* X,
@@ -182,7 +193,8 @@ void transform(const raft::handle_t& handle,
                float* embedding,
                int embedding_n,
                UMAPParams* params,
-               float* transformed);
+               float* transformed,
+               cagra_index_t* cagra_index = nullptr);
 
 /**
  * Sparse transform

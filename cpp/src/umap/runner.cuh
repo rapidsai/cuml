@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "cagra_utils.cuh"
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
@@ -16,6 +17,7 @@
 
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
+#include <cuml/manifold/umap.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/core/handle.hpp>
@@ -159,8 +161,9 @@ void _get_strengths(const raft::handle_t& handle,
                     const umap_inputs& inputs,
                     UMAPParams* params,
                     raft::sparse::COO<value_t>& strengths,
-                    value_t* out_sigmas = nullptr,
-                    value_t* out_rhos   = nullptr)
+                    value_t* out_sigmas                                              = nullptr,
+                    value_t* out_rhos                                                = nullptr,
+                    std::unique_ptr<rmm::device_uvector<value_idx>>* out_knn_indices = nullptr)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -200,6 +203,20 @@ void _get_strengths(const raft::handle_t& handle,
     out_sigmas,
     out_rhos);
   raft::common::nvtx::pop_range();
+
+  // Optionally return KNN indices for CAGRA index building
+  if (out_knn_indices != nullptr) {
+    if (knn_indices_b != nullptr) {
+      // KNN was computed locally - transfer ownership
+      *out_knn_indices = std::move(knn_indices_b);
+    } else {
+      // KNN was precomputed - copy indices to new buffer
+      auto knn_indices_copy =
+        std::make_unique<rmm::device_uvector<value_idx>>(n_x_n_neighbors, stream);
+      raft::copy(knn_indices_copy->data(), knn_graph.knn_indices, n_x_n_neighbors, stream);
+      *out_knn_indices = std::move(knn_indices_copy);
+    }
+  }
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
@@ -207,8 +224,9 @@ void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
                 raft::sparse::COO<value_t, int>* graph,
-                value_t* out_sigmas = nullptr,
-                value_t* out_rhos   = nullptr)
+                value_t* out_sigmas                                              = nullptr,
+                value_t* out_rhos                                                = nullptr,
+                std::unique_ptr<rmm::device_uvector<value_idx>>* out_knn_indices = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
@@ -220,7 +238,7 @@ void _get_graph(const raft::handle_t& handle,
   {
     raft::sparse::COO<value_t> strengths(stream);
     _get_strengths<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-      handle, inputs, params, strengths, out_sigmas, out_rhos);
+      handle, inputs, params, strengths, out_sigmas, out_rhos, out_knn_indices);
     FuzzySimplSetImpl::symmetrize<value_t>(strengths, fss_graph, params->set_op_mix_ratio, stream);
   }  // end strengths scope
 
@@ -231,10 +249,14 @@ void _get_graph(const raft::handle_t& handle,
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, typename nnz_t, int TPB_X>
-void _get_graph_supervised(const raft::handle_t& handle,
-                           const umap_inputs& inputs,
-                           UMAPParams* params,
-                           raft::sparse::COO<value_t, int>* graph)
+void _get_graph_supervised(
+  const raft::handle_t& handle,
+  const umap_inputs& inputs,
+  UMAPParams* params,
+  raft::sparse::COO<value_t, int>* graph,
+  value_t* out_sigmas                                              = nullptr,
+  value_t* out_rhos                                                = nullptr,
+  std::unique_ptr<rmm::device_uvector<value_idx>>* out_knn_indices = nullptr)
 {
   if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
 
@@ -244,7 +266,8 @@ void _get_graph_supervised(const raft::handle_t& handle,
   raft::sparse::COO<value_t> ci_graph(stream);
   {
     raft::sparse::COO<value_t> fss_graph(stream);
-    _get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(handle, inputs, params, &fss_graph);
+    _get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
+      handle, inputs, params, &fss_graph, out_sigmas, out_rhos, out_knn_indices);
 
     if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
       CUML_LOG_DEBUG("Performing categorical intersection");
@@ -311,8 +334,9 @@ void _fit(const raft::handle_t& handle,
           UMAPParams* params,
           std::unique_ptr<rmm::device_buffer>& embeddings,
           raft::host_coo_matrix<float, int, int, uint64_t>& host_graph,
-          value_t* out_sigmas = nullptr,
-          value_t* out_rhos   = nullptr)
+          value_t* out_sigmas                             = nullptr,
+          value_t* out_rhos                               = nullptr,
+          std::unique_ptr<ML::cagra_index_t>* cagra_index = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::unsupervised::fit");
 
@@ -321,9 +345,16 @@ void _fit(const raft::handle_t& handle,
 
   int n_epochs = get_n_epochs(params, inputs.n);
 
+  // Request KNN indices if we need to build CAGRA index (dense inputs only)
+  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices      = nullptr;
+  std::unique_ptr<rmm::device_uvector<value_idx>>* knn_indices_out = nullptr;
+  if constexpr (std::is_same_v<umap_inputs, manifold_dense_inputs_t<value_t>>) {
+    if (cagra_index != nullptr) { knn_indices_out = &knn_indices; }
+  }
+
   raft::sparse::COO<value_t> graph(stream);
   UMAPAlgo::_get_graph<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, &graph, out_sigmas, out_rhos);
+    handle, inputs, params, &graph, out_sigmas, out_rhos, knn_indices_out);
 
   copy_device_graph_to_host(handle, graph, host_graph);
 
@@ -356,6 +387,20 @@ void _fit(const raft::handle_t& handle,
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);
 
+  // Optionally build CAGRA index for fast transform operations (dense inputs only)
+  if constexpr (std::is_same_v<umap_inputs, manifold_dense_inputs_t<value_t>>) {
+    if (cagra_index != nullptr && knn_indices != nullptr) {
+      *cagra_index = CagraUtils::build_cagra_index<value_idx, value_t>(handle,
+                                                                       knn_indices->data(),
+                                                                       inputs.n,
+                                                                       params->n_neighbors,
+                                                                       inputs.X,
+                                                                       inputs.d,
+                                                                       params->metric,
+                                                                       stream);
+    }
+  }
+
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -364,7 +409,10 @@ void _fit_supervised(const raft::handle_t& handle,
                      const umap_inputs& inputs,
                      UMAPParams* params,
                      std::unique_ptr<rmm::device_buffer>& embeddings,
-                     raft::host_coo_matrix<float, int, int, uint64_t>& host_graph)
+                     raft::host_coo_matrix<float, int, int, uint64_t>& host_graph,
+                     value_t* out_sigmas                             = nullptr,
+                     value_t* out_rhos                               = nullptr,
+                     std::unique_ptr<ML::cagra_index_t>* cagra_index = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::supervised::fit");
 
@@ -373,9 +421,16 @@ void _fit_supervised(const raft::handle_t& handle,
 
   int n_epochs = get_n_epochs(params, inputs.n);
 
+  // Request KNN indices if we need to build CAGRA index (dense inputs only)
+  std::unique_ptr<rmm::device_uvector<value_idx>> knn_indices      = nullptr;
+  std::unique_ptr<rmm::device_uvector<value_idx>>* knn_indices_out = nullptr;
+  if constexpr (std::is_same_v<umap_inputs, manifold_dense_inputs_t<value_t>>) {
+    if (cagra_index != nullptr) { knn_indices_out = &knn_indices; }
+  }
+
   raft::sparse::COO<value_t> graph(stream);
   UMAPAlgo::_get_graph_supervised<value_idx, value_t, umap_inputs, nnz_t, TPB_X>(
-    handle, inputs, params, &graph);
+    handle, inputs, params, &graph, out_sigmas, out_rhos, knn_indices_out);
 
   copy_device_graph_to_host(handle, graph, host_graph);
 
@@ -408,6 +463,20 @@ void _fit_supervised(const raft::handle_t& handle,
 
   if (params->callback) params->callback->on_train_end(embeddings_ptr);
 
+  // Optionally build CAGRA index for fast transform operations (dense inputs only)
+  if constexpr (std::is_same_v<umap_inputs, manifold_dense_inputs_t<value_t>>) {
+    if (cagra_index != nullptr && knn_indices != nullptr) {
+      *cagra_index = CagraUtils::build_cagra_index<value_idx, value_t>(handle,
+                                                                       knn_indices->data(),
+                                                                       inputs.n,
+                                                                       params->n_neighbors,
+                                                                       inputs.X,
+                                                                       inputs.d,
+                                                                       params->metric,
+                                                                       stream);
+    }
+  }
+
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 }
 
@@ -421,7 +490,8 @@ void _transform(const raft::handle_t& handle,
                 value_t* embedding,
                 int embedding_n,
                 UMAPParams* params,
-                value_t* transformed)
+                value_t* transformed,
+                ML::cagra_index_t* cagra_index = nullptr)
 {
   raft::common::nvtx::range fun_scope("umap::transform");
   cudaStream_t stream = handle.get_stream();
@@ -457,8 +527,26 @@ void _transform(const raft::handle_t& handle,
     knn_graph.knn_dists   = knn_dists_b->data();
   }
 
-  kNNGraph::run<value_idx, value_t, umap_inputs>(
-    handle, orig_x_inputs, inputs, knn_graph, k, params, stream);
+  // Use CAGRA search if index is available (dense inputs only), otherwise fall back to brute force
+  bool used_cagra = false;
+  if constexpr (std::is_same_v<umap_inputs, manifold_dense_inputs_t<value_t>>) {
+    if (cagra_index != nullptr) {
+      CagraUtils::search_cagra_index<value_idx, value_t>(handle,
+                                                         *cagra_index,
+                                                         inputs.X,
+                                                         inputs.n,
+                                                         inputs.d,
+                                                         k,
+                                                         knn_graph.knn_indices,
+                                                         knn_graph.knn_dists,
+                                                         stream);
+      used_cagra = true;
+    }
+  }
+  if (!used_cagra) {
+    kNNGraph::run<value_idx, value_t, umap_inputs>(
+      handle, orig_x_inputs, inputs, knn_graph, k, params, stream);
+  }
 
   raft::common::nvtx::pop_range();
 
