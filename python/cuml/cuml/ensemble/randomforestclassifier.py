@@ -290,7 +290,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         X_converted, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=True,
+            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
             return_index=True,
