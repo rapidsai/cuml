@@ -592,7 +592,7 @@ def rf_classification(
         X_test_df = cudf.DataFrame(X_test)
         cuml_model.fit(X_train_df, y_train_df)
         cu_proba_gpu = cuml_model.predict_proba(X_test_df).to_numpy()
-        cu_preds_gpu = cuml_model.predict(X_test_df).to_output("numpy")
+        cu_preds_gpu = cuml_model.predict(X_test_df).to_numpy()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
