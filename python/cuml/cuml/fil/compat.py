@@ -183,6 +183,10 @@ class ForestInference(Base, CMajorInputTagMixin):
     def num_trees(self):
         return self.model.num_trees if self.model else None
 
+    @property
+    def default_chunk_size(self):
+        return self.model.default_chunk_size if self.model else None
+
     @classmethod
     def load(
         cls,
@@ -459,7 +463,6 @@ class ForestInference(Base, CMajorInputTagMixin):
     def _get_param_names(cls):
         return [
             *super()._get_param_names(),
-            "treelite_model",
             "is_classifier",
             "layout",
             "default_chunk_size",
