@@ -84,8 +84,11 @@ if is_cuml_available():
     cuml = _cuml
     cuml_metrics = _cuml_metrics
 
-    # Import GPU-specific helper functions (package path; standalone uses except above)
-    from cuml.benchmark.bench_helper_funcs import _build_mnmg_umap
+    # Import GPU-specific helper functions (support package + standalone execution)
+    try:
+        from cuml.benchmark.bench_helper_funcs import _build_mnmg_umap
+    except ImportError:
+        from bench_helper_funcs import _build_mnmg_umap  # noqa: E402
 
 # Optional treelite import
 try:

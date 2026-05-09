@@ -7,7 +7,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_features, check_inputs
+from cuml.internals.validation import check_array, check_features, check_inputs
 from cuml.metrics import r2_score
 
 
@@ -246,6 +246,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
+        X, index = check_array(
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=True,
+            order="C",
+            mem_type="device",
+            return_index=True,
+            ensure_all_finite=True,
+            input_name="X",
+        )
         preds = nvforest_model.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match

@@ -570,7 +570,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET cuml_objs)
   endif()
 
-  list(APPEND $<$<BOOL:${LINK_NVFOREST}>:nvforest::nvforest++>)
+  if(LINK_NVFOREST)
+    list(APPEND _cuml_cpp_public_libs nvforest::nvforest++)
+  endif()
 
   # These are always private:
   list(
