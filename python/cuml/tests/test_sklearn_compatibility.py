@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from functools import partial
 
 import pytest
 from sklearn.utils import estimator_checks
@@ -62,7 +61,7 @@ ESTIMATORS = [
     CategoricalNB(),
     BernoulliNB(),
     MultinomialNB(),
-    UMAP(),
+    UMAP(n_neighbors=5),
     TSNE(),
     TruncatedSVD(),
     IncrementalPCA(),
@@ -182,10 +181,7 @@ XFAILS = {
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
-        "check_dtype_object": "TSNE does not handle object dtype",
-        "check_estimators_empty_data_messages": "TSNE does not handle empty data",
         "check_pipeline_consistency": "TSNE results are not deterministic",
-        "check_estimators_nan_inf": "TSNE does not check for NaN and inf",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
         "check_fit2d_1sample": "TSNE does not handle single sample",
@@ -194,7 +190,6 @@ XFAILS = {
     },
     UMAP: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dtype_object": "UMAP does not handle object dtype",
         "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
@@ -303,14 +298,6 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
     )
 
 
-def _check_name(check):
-    if hasattr(check, "__wrapped__"):
-        return _check_name(check.__wrapped__)
-    return (
-        check.func.__name__ if isinstance(check, partial) else check.__name__
-    )
-
-
 @estimator_checks.parametrize_with_checks(
     ESTIMATORS,
     expected_failed_checks=lambda est: XFAILS.get(type(est), {}),
@@ -332,13 +319,4 @@ def _check_name(check):
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
-    # Check that all estimators pass the "common estimator" checks
-    # provided by scikit-learn
-    check_name = _check_name(check)
-
-    if check_name in ["check_estimators_nan_inf"] and isinstance(
-        estimator, UMAP
-    ):
-        pytest.skip("UMAP does not handle Nans and infinities")
-
     check(estimator)

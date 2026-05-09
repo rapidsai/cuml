@@ -14,7 +14,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
 from cuml.internals.outputs import (
     exit_internal_context,
@@ -346,18 +345,18 @@ class GaussianNB(_BaseNB):
             self.class_count_ = cp.zeros(n_classes, dtype=X.dtype)
 
             if self.priors is not None:
-                if len(self.priors) != n_classes:
+                priors = check_array(
+                    self.priors, dtype=X.dtype, ensure_2d=False
+                )
+                if priors.shape[0] != n_classes:
                     raise ValueError(
                         "Number of priors must match number of classes."
                     )
-                if not cp.isclose(self.priors.sum(), 1):
+                if not cp.isclose(priors.sum(), 1.0):
                     raise ValueError("The sum of the priors should be 1.")
-                if (self.priors < 0).any():
+                if (priors < 0).any():
                     raise ValueError("Priors must be non-negative.")
-                self.class_prior_ = input_to_cupy_array(
-                    self.priors, check_dtype=[cp.float32, cp.float64]
-                ).array
-
+                self.class_prior_ = priors
         else:
             self.sigma_[:, :] -= self.epsilon_
 
