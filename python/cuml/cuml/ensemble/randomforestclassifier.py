@@ -287,10 +287,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
+        # Always set convert_dtype=True because nvForest expects the correct dtype
         X_converted, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=convert_dtype,
+            convert_dtype=True,
             order="C",
             mem_type="device",
             return_index=True,
@@ -350,6 +351,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
+        # Always set convert_dtype=True because nvForest expects the correct dtype
         X, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
