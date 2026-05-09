@@ -9,7 +9,6 @@ import random
 import warnings
 
 import cudf
-import cupy as cp
 import numpy as np
 import pytest
 import treelite
@@ -257,7 +256,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         *tweedie[split_criterion]["args"], size=n_datapoints
     ).astype(np.float32)
 
-    tweedie_preds = cp.asnumpy(
+    tweedie_preds = (
         curfr(
             split_criterion=split_criterion,
             max_depth=max_depth,
@@ -269,7 +268,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
         .fit(X, y)
         .predict(X)
     )
-    mse_preds = cp.asnumpy(
+    mse_preds = (
         curfr(
             split_criterion=2,
             max_depth=max_depth,
@@ -327,7 +326,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     )
     cuml_model.fit(X_train, y_train)
 
-    preds = cp.asnumpy(cuml_model.predict(X_test))
+    preds = cuml_model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfc(
@@ -375,7 +374,7 @@ def test_rf_classification_unorder(
     )
     cuml_model.fit(X_train, y_train)
 
-    preds = cp.asnumpy(cuml_model.predict(X_test))
+    preds = cuml_model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfc(
@@ -436,7 +435,7 @@ def test_rf_regression(
         max_leaves=-1,
     )
     cuml_model.fit(X_train, y_train)
-    preds = cp.asnumpy(cuml_model.predict(X_test))
+    preds = cuml_model.predict(X_test)
 
     r2 = r2_score(y_test, preds)
     # Initialize, fit and predict using sklearn's random forest regression model
@@ -473,12 +472,12 @@ def test_rf_classification_seed(small_clf, datatype):
 
         cu_class = curfc(random_state=seed, n_streams=1)
         cu_class.fit(X_train, y_train)
-        preds_orig = cp.asnumpy(cu_class.predict(X_test))
+        preds_orig = cu_class.predict(X_test)
         acc_orig = accuracy_score(y_test, preds_orig)
 
         cu_class2 = curfc(random_state=seed, n_streams=1)
         cu_class2.fit(X_train, y_train)
-        preds_rerun = cp.asnumpy(cu_class2.predict(X_test))
+        preds_rerun = cu_class2.predict(X_test)
         acc_rerun = accuracy_score(y_test, preds_rerun)
 
         assert acc_orig == acc_rerun
@@ -508,7 +507,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
 
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
-    preds = cp.asnumpy(cuml_model.predict(X_test, convert_dtype=convert_dtype))
+    preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfc(random_state=10)
@@ -540,7 +539,7 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
 
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
-    preds = cp.asnumpy(cuml_model.predict(X_test, convert_dtype=True))
+    preds = cuml_model.predict(X_test, convert_dtype=True)
     r2 = r2_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfr(random_state=10)
@@ -596,8 +595,8 @@ def rf_classification(
         cu_preds_gpu = cuml_model.predict(X_test_df).to_output("numpy")
     else:
         cuml_model.fit(X_train, y_train)
-        cu_proba_gpu = cp.asnumpy(cuml_model.predict_proba(X_test))
-        cu_preds_gpu = cp.asnumpy(cuml_model.predict(X_test))
+        cu_proba_gpu = cuml_model.predict_proba(X_test)
+        cu_preds_gpu = cuml_model.predict(X_test)
     np.testing.assert_array_equal(
         cu_preds_gpu, np.argmax(cu_proba_gpu, axis=1)
     )
@@ -678,14 +677,14 @@ def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
         max_depth=40,
     )
     cuml_model.fit(X_train, y_train)
-    preds = cp.asnumpy(cuml_model.predict(X_test, layout=nvforest_layout))
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     acc = accuracy_score(y_test, preds)
     np.testing.assert_almost_equal(acc, cuml_model.score(X_test, y_test))
 
     nvforest_model = cuml_model.as_nvforest()
 
     with cuml.using_output_type("numpy"):
-        nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
+        nvforest_model_preds = nvforest_model.predict(X_test)
         nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
         assert acc == nvforest_model_acc
 
@@ -740,7 +739,7 @@ def test_rf_regression_sparse(special_reg, datatype, nvforest_layout):
     )
     cuml_model.fit(X_train, y_train)
 
-    preds = cp.asnumpy(cuml_model.predict(X_test, layout=nvforest_layout))
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     r2 = r2_score(y_test, preds)
 
     nvforest_model = cuml_model.as_nvforest()
@@ -802,7 +801,7 @@ def test_unlimited_max_depth_classifier():
 
     clf = curfc(n_estimators=10, max_depth=None, random_state=42)
     clf.fit(X, y)
-    preds = cp.asnumpy(clf.predict(X))
+    preds = clf.predict(X)
     assert len(preds) == len(y)
 
     params = clf.get_params()
@@ -813,9 +812,7 @@ def test_unlimited_max_depth_classifier():
 
     shallow = curfc(n_estimators=10, max_depth=2, random_state=42)
     shallow.fit(X, y)
-    assert accuracy_score(y, preds) >= accuracy_score(
-        y, cp.asnumpy(shallow.predict(X))
-    )
+    assert accuracy_score(y, preds) >= accuracy_score(y, shallow.predict(X))
 
 
 def test_unlimited_max_depth_regressor():
@@ -949,7 +946,7 @@ def test_rf_regressor_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.float32)
     clf = curfr(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_pred = cp.asnumpy(clf.predict(X)).reshape((-1, 1, 1))
+    expected_pred = clf.predict(X).reshape((-1, 1, 1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.as_treelite().serialize(checkpoint_path)
@@ -964,7 +961,7 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_pred = cp.asnumpy(clf.predict_proba(X)).reshape((-1, 1, 2))
+    expected_pred = clf.predict_proba(X).reshape((-1, 1, 2))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.as_treelite().serialize(checkpoint_path)
@@ -979,9 +976,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_prob = cp.asnumpy(clf.predict_proba(X)).reshape(
-        (X.shape[0], 1, -1)
-    )
+    expected_prob = clf.predict_proba(X).reshape((X.shape[0], 1, -1))
 
     checkpoint_path = os.path.join(tmpdir, "checkpoint.tl")
     clf.as_treelite().serialize(checkpoint_path)
@@ -994,7 +989,7 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
 def test_classifier_predict_log_proba():
     X, y = make_classification(random_state=42)
     model = curfc(random_state=42).fit(X, y)
-    proba = cp.asnumpy(model.predict_proba(X))
+    proba = model.predict_proba(X)
     sol = np.log(proba)
     log_proba = model.predict_log_proba(X)
     np.testing.assert_allclose(log_proba, sol, rtol=1e-5)
@@ -1048,7 +1043,7 @@ def test_rf_predict_returns_int():
     with pytest.warns(UserWarning, match=warning_msg):
         clf = cuml.ensemble.RandomForestClassifier().fit(X, y)
 
-    pred = cp.asnumpy(clf.predict(X))
+    pred = clf.predict(X)
     assert pred.dtype == np.int64
 
 
@@ -1417,7 +1412,7 @@ def test_rf_feature_zero_bias(datatype, n_features):
         random_state=42,
     )
     cuml_model.fit(X_train, y_train)
-    cuml_pred = cp.asnumpy(cuml_model.predict(X_test))
+    cuml_pred = cuml_model.predict(X_test)
     cuml_acc = accuracy_score(y_test, cuml_pred)
 
     # cuML should achieve similar accuracy to sklearn
