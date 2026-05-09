@@ -427,6 +427,40 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
+# n_components values cover the three sequential-kernel dispatch paths in
+# call_optimize_sequential_kernel:
+#   - 2  : per-thread register kernel (low end)
+#   - 21 : per-thread register kernel (boundary, n_components <= 21)
+#   - 50 : per-warp component-parallel kernel (n_components >  21)
+@pytest.mark.parametrize("n_components", [2, 21, 50])
+@pytest.mark.parametrize("init", ["random", "spectral"])
+def test_umap_force_serial_epochs_reproducibility(n_components, init):
+    n_samples = 8000
+    n_features = 200
+
+    data, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
+    data = data.astype(np.float32)
+
+    def get_embedding():
+        return cuUMAP(
+            init=init,
+            n_components=n_components,
+            random_state=42,
+            force_serial_epochs=True,
+            build_algo="brute_force_knn",
+        ).fit_transform(data, convert_dtype=True)
+
+    cuml_embedding1 = get_embedding()
+    cuml_embedding2 = get_embedding()
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
+    np.testing.assert_array_equal(cuml_embedding1, cuml_embedding2)
+
+
 @pytest.mark.parametrize(
     "n_components,random_state",
     [

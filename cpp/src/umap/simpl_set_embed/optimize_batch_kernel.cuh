@@ -492,9 +492,14 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
 
 /**
  * Each thread processes one vertex and all its edges serially.
- *
- * Best when n_components is small enough to keep 3 × N_COMPONENTS floats
- * in registers without excessive spilling.
+
+ * This is not fully sequential because updates accumulate in registers and the net delta is written
+ to head_buffer[vertex]
+ * once after the edge loop. So a thread does not see other vertices' in-flight buffer writes within
+ the same epoch.
+
+ * Best when n_components is small enough to keep 3 × N_COMPONENTS floats in
+ * registers without excessive spilling.
  */
 template <typename T, typename nnz_t, int TPB_X, nnz_t N_COMPONENTS>
 CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embedding,
@@ -614,13 +619,11 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
         _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
     }
 
+    // Single writer per head_buffer slot, so no truncate_gradient needed.
 #pragma unroll
     for (int d = 0; d < N_COMPONENTS; d++) {
       T delta = current_reg[d] - original[d];
-      if (delta != T(0)) {
-        raft::myAtomicAdd(&head_buffer[vertex * N_COMPONENTS + d],
-                          truncate_gradient(rounding, delta));
-      }
+      if (delta != T(0)) { raft::myAtomicAdd(&head_buffer[vertex * N_COMPONENTS + d], delta); }
     }
     if (head_flags != nullptr) { set_vertex_modified(head_flags, vertex); }
 
@@ -638,6 +641,11 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
  * but per-component work is split across lanes: lane k handles components
  * k, k+32, k+64, ...
  *
+ * This is not fully sequential because updates accumulate in per-lane registers and the net delta
+ is written to head_buffer[vertex]
+ * once after the edge loop. So a warp does not see other vertices' in-flight buffer writes within
+ the same epoch.
+
  * All embedding data lives in registers. The only cross-lane
  * communication is the scalar distance reduction via warp shuffles.
  * Template parameter CPL = components per lane = ceil(n_components / 32).
@@ -780,16 +788,13 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
     }
 
-    // Write back accumulated delta
+    // Single writer per head_buffer slot, so no truncate_gradient needed.
 #pragma unroll
     for (int i = 0; i < CPL; i++) {
       int d = lane_id + i * 32;
       if (d < n_components) {
         T delta = current_reg[i] - original_reg[i];
-        if (delta != T(0)) {
-          raft::myAtomicAdd(&head_buffer[vertex * n_components + d],
-                            truncate_gradient(rounding, delta));
-        }
+        if (delta != T(0)) { raft::myAtomicAdd(&head_buffer[vertex * n_components + d], delta); }
       }
     }
     if (head_flags != nullptr && lane_id == 0) { set_vertex_modified(head_flags, vertex); }
