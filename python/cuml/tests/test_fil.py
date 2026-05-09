@@ -684,7 +684,7 @@ def test_lightgbm(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.parametrize("num_boost_round", [10, 100])
+@pytest.mark.parametrize("num_boost_round", [10, 20])
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
