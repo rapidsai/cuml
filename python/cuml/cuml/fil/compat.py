@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-"""Compatibility shim for cuml.fil -> nvForest"""
+"""
+Compatibility shim for cuml.fil -> nvForest
+
+TODO(26.10): This module will be removed in 26.10.
+"""
 
 import warnings
 
@@ -96,7 +100,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             treelite_model, treelite.Model
         ):
             warnings.warn(
-                "cuml.fil.ForestInference is deprecated. "
+                "cuml.fil.ForestInference is deprecated and will be removed in 26.10. "
                 "Use nvforest.load_model() or nvforest.load_from_sklearn() instead.",
                 FutureWarning,
             )
@@ -195,7 +199,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id=0,
     ):
         warnings.warn(
-            "cuml.fil.ForestInference.load() is deprecated. "
+            "cuml.fil.ForestInference.load() is deprecated and will be removed in 26.10. "
             "Use nvforest.load_model() instead.",
             FutureWarning,
         )
@@ -231,7 +235,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id=0,
     ):
         warnings.warn(
-            "cuml.fil.ForestInference.load_from_sklearn() is deprecated. "
+            "cuml.fil.ForestInference.load_from_sklearn() is deprecated "
+            "and will be removed in 26.10. "
             "Use nvforest.load_from_sklearn() instead.",
             FutureWarning,
         )
@@ -266,7 +271,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         device_id=0,
     ):
         warnings.warn(
-            "cuml.fil.ForestInference.load_from_treelite_model() is deprecated. "
+            "cuml.fil.ForestInference.load_from_treelite_model() is deprecated "
+            "and will be removed in 26.10. "
             "Use nvforest.load_from_treelite_model() instead.",
             FutureWarning,
         )
