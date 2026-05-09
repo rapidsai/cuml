@@ -255,7 +255,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts the labels for X.
 
@@ -287,7 +287,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             align_bytes=align_bytes,
         )
         check_features(self, X)
-        X, index = check_array(
+        X_converted, index = check_array(
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=True,
@@ -297,7 +297,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             ensure_all_finite=True,
             input_name="X",
         )
-        inds = nvforest_model.predict(X, threshold=threshold)
+        inds = nvforest_model.predict(X_converted, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(

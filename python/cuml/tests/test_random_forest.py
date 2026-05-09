@@ -9,6 +9,7 @@ import random
 import warnings
 
 import cudf
+import cupy as cp
 import numpy as np
 import pytest
 import treelite
@@ -684,7 +685,7 @@ def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
     nvforest_model = cuml_model.as_nvforest()
 
     with cuml.using_output_type("numpy"):
-        nvforest_model_preds = nvforest_model.predict(X_test)
+        nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
         nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
         assert acc == nvforest_model_acc
 
