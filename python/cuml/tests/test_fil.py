@@ -670,7 +670,7 @@ def test_lightgbm(
         )
     gbm_proba = lgm.predict_proba(X_predict)
     with set_fil_device_type(infer_device):
-        fil_proba = np.asarray(fm.predict_proba(X_predict))
+        fil_proba = fm.predict_proba(X_predict)
     # Given a binary classifier, FIL produces the probability score
     # only for the positive class,
     # whereas LGBMClassifier produces the probability scores for both
