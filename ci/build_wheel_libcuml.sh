@@ -39,6 +39,7 @@ EXCLUDE_ARGS=(
   --exclude "libnvJitLink.so.*"
   --exclude "librapids_logger.so"
   --exclude "librmm.so"
+  --exclude "libnvforest++.so"
   --exclude "libnccl.so.*"
 )
 
