@@ -256,10 +256,14 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         except AttributeError:
             pass
 
-        # Forward _estimator_type as a class attribute if available
-        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
-        if isinstance(_estimator_type, str):
-            cls._estimator_type = _estimator_type
+        # Forward a few optional class attributes if defined. We do a type
+        # check on them for sanity and to avoid forwarding properties.
+        for name, typ in [
+            ("_estimator_type", str),
+            ("_parameter_constraints", dict),
+        ]:
+            if isinstance(val := getattr(cls._cpu_class, name, None), typ):
+                setattr(cls, name, val)
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -644,10 +648,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     @property
     def _estimator_type(self):
         return self._cpu._estimator_type
-
-    @classproperty
-    def _parameter_constraints(cls):
-        return cls._cpu_class._parameter_constraints
 
     @classmethod
     def _get_param_names(cls):
