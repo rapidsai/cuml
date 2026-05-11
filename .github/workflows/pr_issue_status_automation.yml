@@ -105,7 +105,7 @@ jobs:
       # This job enforces that the PR's Release field matches where the PR
       # will actually land, and that linked issues are not delivered late.
       if: ${{ always() && github.event.pull_request.state == 'open' }}
-      needs: [get-project-id, update-release]
+      needs: [get-project-id, get-release-version, update-release]
       runs-on: ubuntu-latest
       permissions:
         contents: read
@@ -120,15 +120,14 @@ jobs:
             persist-credentials: false
         - name: Validate PR Release target
           env:
-            BASE_REF: ${{ github.event.pull_request.base.ref }}
             GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_GITHUB_TOKEN }}
             PR_NUMBER: ${{ github.event.pull_request.number }}
             REPOSITORY: ${{ github.repository }}
+            TARGET_RELEASE: ${{ needs.get-release-version.outputs.release-version }}
           run: |
             python .github/scripts/check_pr_release_target.py \
               --repo "$REPOSITORY" \
               --pr-number "$PR_NUMBER" \
-              --base-ref "$BASE_REF" \
+              --target-release "$TARGET_RELEASE" \
               --project-id "PVT_kwDOAp2shc4AA8lR" \
-              --release-field-id "PVTSSF_lADOAp2shc4AA8lRzgFqH3Y" \
-              --release-field-name "Release"
+              --release-field-id "PVTSSF_lADOAp2shc4AA8lRzgFqH3Y"
