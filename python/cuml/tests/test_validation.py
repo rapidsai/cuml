@@ -1892,3 +1892,10 @@ def test_check_cudf_persists_index(xdf, ensure_ndim):
 
     out = check_cudf(df, ensure_ndim=ensure_ndim, coerce_ndim=True)
     assert (out.index == cudf.Index(index)).all()
+
+
+def test_check_cudf_coerces_numeric_objects():
+    x = np.array([1.0, 2.0, 3.0], dtype=object)
+    s = check_cudf(x, ensure_ndim=1)
+    assert (s == cudf.Series([1.0, 2.0, 3.0])).all()
+    assert s.dtype == "float64"
