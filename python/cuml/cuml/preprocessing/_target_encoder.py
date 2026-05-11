@@ -94,9 +94,11 @@ class TargetEncoder(Base, InteropMixin):
         otherwise.
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
-    encode_all : cudf.DataFrame
+    encode_all : cudf.DataFrame or list[cudf.DataFrame]
         DataFrame containing the learned encodings for all category
-        combinations. Used internally for transforming new data.
+        combinations, or a list of such dataframes if fit with
+        `multi_feature_mode="independent"`. Used internally for transforming
+        new data.
     mean : float
         The overall mean of the target variable, computed during fitting.
         Used for smoothing and imputing unseen categories.
@@ -224,17 +226,9 @@ class TargetEncoder(Base, InteropMixin):
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-
         res, train = self._fit_transform(X, y, fold_ids=fold_ids)
         self.train_encode = res
         self.train = train
-
-        # Set _n_features_out for sklearn compatibility (get_feature_names_out)
-        if getattr(self, "_independent_mode_fitted", False):
-            self._n_features_out = self.n_features_in_
-        else:
-            self._n_features_out = 1
-
         return self
 
     @reflect
@@ -295,8 +289,7 @@ class TargetEncoder(Base, InteropMixin):
 
         x_cols = [n for n in df.columns.tolist() if n.startswith("X_")]
 
-        # Handle independent mode (per-feature encoding)
-        if getattr(self, "_independent_mode_fitted", False):
+        if isinstance(self.encode_all, list):
             return self._transform_independent(df, x_cols)
 
         df = df.merge(self.encode_all, on=x_cols, how="left")
@@ -307,7 +300,7 @@ class TargetEncoder(Base, InteropMixin):
         result_cols = []
         for i, col in enumerate(x_cols):
             out_col_i = f"out_{i}"
-            encode_all_i = self._encode_all_per_feature[i]
+            encode_all_i = self.encode_all[i]
 
             test = test.merge(
                 encode_all_i.rename(columns={"out": out_col_i}),
@@ -354,11 +347,14 @@ class TargetEncoder(Base, InteropMixin):
         self.y_stat_val = getattr(df.y, self.stat)()
 
         # Delegate to appropriate method based on mode and stat
-        if len(x_cols) > 1 and self.multi_feature_mode == "independent":
+        if self.multi_feature_mode == "independent":
+            self._n_features_out = self.n_features_in_
             return self._fit_transform_independent(df, x_cols, fold_ids)
         elif self.stat == "median":
+            self._n_features_out = 1
             return self._fit_transform_median(df, x_cols, fold_ids)
         else:
+            self._n_features_out = 1
             return self._fit_transform_combination(df, x_cols, fold_ids)
 
     def _fit_transform_combination(self, df, x_cols, fold_ids):
@@ -368,6 +364,7 @@ class TargetEncoder(Base, InteropMixin):
         Encodes all feature combinations together, producing a single output
         column with encodings based on the joint distribution of all features.
         """
+        self._encodings_per_feature = []
         if self.stat == "var":
             y_cols = ["y", "y2"]
             df = df.assign(y2=df.y * df.y)
@@ -407,6 +404,7 @@ class TargetEncoder(Base, InteropMixin):
         Median requires computing the statistic per fold separately,
         which cannot be vectorized like mean/var.
         """
+        self._encodings_per_feature = []
 
         def _rename_col(df, col):
             df.columns = [col]
@@ -432,7 +430,7 @@ class TargetEncoder(Base, InteropMixin):
         the target, producing N output columns for N input features.
         """
         self._encodings_per_feature = []
-        self._encode_all_per_feature = []
+        self.encode_all = []
         result_cols = []
 
         for i, col in enumerate(x_cols):
@@ -447,7 +445,7 @@ class TargetEncoder(Base, InteropMixin):
                     df, col, out_col_i
                 )
 
-            self._encode_all_per_feature.append(encode_all_i)
+            self.encode_all.append(encode_all_i)
 
             # Extract encodings in category order for sklearn compatibility
             feature_encodings = []
@@ -469,11 +467,6 @@ class TargetEncoder(Base, InteropMixin):
             df[out_col_i] = df[out_col_i].nans_to_nulls()
             df[out_col_i] = df[out_col_i].fillna(self.y_stat_val)
             result_cols.append(out_col_i)
-
-        # Create a combined encode_all for transform() compatibility
-        # This stores the per-feature encodings in a format transform() can use
-        self.encode_all = self._encode_all_per_feature
-        self._independent_mode_fitted = True
 
         # Sort by original index and return results
         df = df.sort_values("id")
@@ -718,7 +711,7 @@ class TargetEncoder(Base, InteropMixin):
 
         # sklearn uses independent encoding, so we always use independent mode
         # This gives exact compatibility with no approximation
-        encode_all_per_feature = []
+        encode_all = []
         for i, col in enumerate(x_cols):
             encode_all_i = cudf.DataFrame(
                 {
@@ -726,23 +719,13 @@ class TargetEncoder(Base, InteropMixin):
                     "out": model.encodings_[i],
                 }
             )
-            encode_all_per_feature.append(encode_all_i)
-
-        # For single feature, also set encode_all as DataFrame for compatibility
-        if n_features == 1:
-            encode_all = encode_all_per_feature[0]
-            independent_mode = False
-        else:
-            encode_all = encode_all_per_feature
-            independent_mode = True
+            encode_all.append(encode_all_i)
 
         return {
             "encode_all": encode_all,
-            "_encode_all_per_feature": encode_all_per_feature,
             "_encodings_per_feature": [
                 to_gpu(enc) for enc in model.encodings_
             ],
-            "_independent_mode_fitted": independent_mode,
             "categories_": categories_gpu,
             "classes_": model.classes_,
             "_n_features_out": n_features,  # sklearn always uses independent mode
