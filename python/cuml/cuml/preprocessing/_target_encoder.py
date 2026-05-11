@@ -330,7 +330,7 @@ class TargetEncoder(Base, InteropMixin):
         # Extract unique categories for each feature
         self.categories_ = []
         for col in x_cols:
-            cats = df[col].unique().sort_values().to_numpy()
+            cats = df[col].drop_duplicates().sort_values().to_numpy()
             self.categories_.append(cats)
 
         if self.multi_feature_mode not in {"combination", "independent"}:
@@ -411,7 +411,7 @@ class TargetEncoder(Base, InteropMixin):
             return df.reset_index()
 
         res = []
-        unq_vals = df.fold.unique().to_numpy()
+        unq_vals = df.fold.drop_duplicates().sort_values().to_numpy()
         for f in unq_vals:
             mask = df.fold.values == f
             dg = df.loc[~mask].groupby(x_cols).agg({"y": self.stat})
