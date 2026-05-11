@@ -560,6 +560,7 @@ umap
   ``"l2"``, ``"euclidean"``).
 - If ``unique=True``.
 - If ``densmap=True``.
+- If ``ensure_all_finite`` is not ``True``.
 
 Additional notes:
 
