@@ -19,6 +19,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import (
+    check_classification_targets,
     check_consistent_length,
     check_cudf,
     check_features,
@@ -86,6 +87,11 @@ class TargetEncoder(Base, InteropMixin):
         The categories of each input feature determined during fitting.
         Each element is an array of unique category values for that feature,
         sorted in ascending order.
+    target_type_ : str
+        Type of target.
+    classes_ : numpy.ndarray or None
+        The labels for each class if `target_type_` is 'binary', `None`
+        otherwise.
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
     encode_all : cudf.DataFrame
@@ -328,35 +334,11 @@ class TargetEncoder(Base, InteropMixin):
         df = self._check_X_y(X, y)
         x_cols = [n for n in df.columns.tolist() if n.startswith("X_")]
 
-        # Extract unique categories for each feature (sorted for consistency)
+        # Extract unique categories for each feature
         self.categories_ = []
         for col in x_cols:
-            # Handle string columns specially - cudf.unique() fails on object dtype
-            # because it tries to return .values which cupy doesn't support
-            try:
-                unique_vals = df[col].unique()
-            except TypeError:
-                # String column in cudf - get unique values via drop_duplicates
-                unique_vals = (
-                    df[col].drop_duplicates().sort_values().to_numpy()
-                )
-                self.categories_.append(unique_vals)
-                continue
-
-            # Handle both cudf Series and numpy arrays (cudf.pandas compatibility)
-            if hasattr(unique_vals, "sort_values"):
-                # cudf Series - use sort_values()
-                unique_vals = unique_vals.sort_values()
-                # Use to_numpy() for string columns since .values fails on strings
-                # (cupy doesn't support object dtype)
-                try:
-                    self.categories_.append(unique_vals.values)
-                except TypeError:
-                    # String column - use numpy array instead of cupy
-                    self.categories_.append(unique_vals.to_numpy())
-            else:
-                # numpy/cupy array - use np.sort()
-                self.categories_.append(np.sort(unique_vals))
+            cats = df[col].unique().sort_values().to_numpy()
+            self.categories_.append(cats)
 
         if self.multi_feature_mode not in {"combination", "independent"}:
             raise ValueError(
@@ -525,6 +507,9 @@ class TargetEncoder(Base, InteropMixin):
         """
         Create a fold id column for each split
         """
+        if self.n_folds < 1:
+            raise ValueError("n_folds >= 1 is required")
+
         n_folds = min(self.n_folds, n_samples)
 
         if fold_ids is not None or self.split_method == "customize":
@@ -648,12 +633,22 @@ class TargetEncoder(Base, InteropMixin):
         y = y.reset_index(drop=True)
 
         # Infer the type of target and transform y
+        continuous = False
         if cudf.api.types.is_float_dtype(y):
+            # Floating input. Check if it's a valid classification target.
+            try:
+                check_classification_targets(y)
+            except ValueError:
+                continuous = True
+        if continuous:
             y = y.astype("float64")
             self.target_type_ = "continuous"
+            self.classes_ = None
         elif y.nunique() <= 2:
-            y = y.astype("category").cat.codes.astype("float64")
+            y = y.astype("category")
             self.target_type_ = "binary"
+            self.classes_ = y.cat.categories.to_numpy()
+            y = y.cat.codes.astype("float64")
         else:
             raise ValueError(
                 "TargetEncoder currently only supports 'continuous' and 'binary' "
@@ -749,6 +744,7 @@ class TargetEncoder(Base, InteropMixin):
             ],
             "_independent_mode_fitted": independent_mode,
             "categories_": categories_gpu,
+            "classes_": model.classes_,
             "_n_features_out": n_features,  # sklearn always uses independent mode
             "mean": float(model.target_mean_),
             "y_stat_val": float(model.target_mean_),
@@ -809,6 +805,7 @@ class TargetEncoder(Base, InteropMixin):
         return {
             "encodings_": encodings_list,
             "categories_": categories_cpu,
+            "classes_": self.classes_,
             "target_mean_": float(self.mean),
             # sklearn internal attributes needed for transform
             "_infrequent_enabled": False,
