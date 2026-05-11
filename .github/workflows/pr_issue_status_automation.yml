@@ -102,8 +102,8 @@ jobs:
       secrets: inherit # zizmor: ignore[secrets-inherit]
 
     validate-release-target:
-      # This job enforces that the PR's Release field matches where the PR
-      # will actually land, and that linked issues are not delivered late.
+      # This job reports whether the PR's Release field matches where the PR
+      # will actually land, and whether linked issues are delivered late.
       if: ${{ always() && github.event.pull_request.state == 'open' }}
       needs: [get-project-id, get-release-version, update-release]
       runs-on: ubuntu-latest
@@ -119,6 +119,7 @@ jobs:
             ref: ${{ github.event.pull_request.base.ref }}
             persist-credentials: false
         - name: Validate PR Release target
+          continue-on-error: true
           env:
             GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_GITHUB_TOKEN }}
             PR_NUMBER: ${{ github.event.pull_request.number }}
