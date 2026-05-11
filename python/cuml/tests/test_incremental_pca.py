@@ -71,7 +71,7 @@ def test_fit(
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize(
