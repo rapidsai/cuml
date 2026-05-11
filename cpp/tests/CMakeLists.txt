@@ -40,9 +40,9 @@ function(ConfigureTest)
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cudart_static
             CUDA::cusparse${_ctk_static_suffix}
             $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
+            CUDA::cudart_static
             rmm::rmm
             raft::raft
             GTest::gtest
