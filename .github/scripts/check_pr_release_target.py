@@ -42,6 +42,9 @@ query($owner: String!, $repo: String!, $number: Int!) {
         }
       }
       closingIssuesReferences(first: 20) {
+        pageInfo {
+          hasNextPage
+        }
         nodes {
           id
           number
@@ -252,7 +255,7 @@ def extract_pr_and_issues(
     project_id: str,
     release_field_id: str,
     release_field_name: str,
-) -> tuple[dict[str, Any], str | None, list[LinkedIssue]]:
+) -> tuple[dict[str, Any], str | None, list[LinkedIssue], bool]:
     pr = data.get("data", {}).get("repository", {}).get("pullRequest")
     if not pr:
         raise RuntimeError("GraphQL response did not include the pull request")
@@ -262,8 +265,12 @@ def extract_pr_and_issues(
         release_field_id,
         release_field_name,
     )
+    closing_issues = pr.get("closingIssuesReferences", {})
+    has_more_issues = bool(
+        closing_issues.get("pageInfo", {}).get("hasNextPage")
+    )
     issues = []
-    for issue in pr.get("closingIssuesReferences", {}).get("nodes", []):
+    for issue in closing_issues.get("nodes", []):
         issue_release = release_field_value(
             select_project_item(issue, project_id),
             release_field_id,
@@ -279,7 +286,7 @@ def extract_pr_and_issues(
                 release=issue_release,
             )
         )
-    return pr, pr_release, issues
+    return pr, pr_release, issues, has_more_issues
 
 
 def validate_release_target(
@@ -288,6 +295,7 @@ def validate_release_target(
     pr_release: str | None,
     issues: list[LinkedIssue],
     base_ref: str,
+    has_more_issues: bool = False,
     require_linked_issue: bool = False,
     require_issue_release: bool = False,
 ) -> ValidationResult:
@@ -326,6 +334,12 @@ def validate_release_target(
     elif not issues:
         warnings.append(
             "No closing issue references found; issue release check skipped."
+        )
+
+    if has_more_issues:
+        errors.append(
+            "The PR has more than 20 closing issue references; release "
+            "validation only checks the first 20."
         )
 
     for issue in issues:
@@ -412,7 +426,7 @@ def main() -> int:
     else:
         data = fetch_pr_data(args.repo, args.pr_number, args.token_env)
 
-    _, pr_release, issues = extract_pr_and_issues(
+    _, pr_release, issues, has_more_issues = extract_pr_and_issues(
         data,
         args.project_id,
         args.release_field_id,
@@ -423,6 +437,7 @@ def main() -> int:
         pr_release=pr_release,
         issues=issues,
         base_ref=args.base_ref,
+        has_more_issues=has_more_issues,
         require_linked_issue=args.require_linked_issue,
         require_issue_release=args.require_issue_release,
     )

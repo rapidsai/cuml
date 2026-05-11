@@ -43,7 +43,7 @@ def item_with_release(release):
     }
 
 
-def graphql_response(pr_release, issue_releases):
+def graphql_response(pr_release, issue_releases, *, has_next_page=False):
     return {
         "data": {
             "repository": {
@@ -54,6 +54,9 @@ def graphql_response(pr_release, issue_releases):
                     "baseRefName": "main",
                     "projectItems": {"nodes": [item_with_release(pr_release)]},
                     "closingIssuesReferences": {
+                        "pageInfo": {
+                            "hasNextPage": has_next_page,
+                        },
                         "nodes": [
                             {
                                 "number": number,
@@ -71,7 +74,7 @@ def graphql_response(pr_release, issue_releases):
                                 },
                             }
                             for number, release in issue_releases
-                        ]
+                        ],
                     },
                 }
             }
@@ -180,7 +183,7 @@ class ReleaseTargetCheckTests(unittest.TestCase):
             RELEASE_06, [(456, RELEASE_06), (789, RELEASE_08)]
         )
 
-        _, pr_release, issues = check.extract_pr_and_issues(
+        _, pr_release, issues, has_more_issues = check.extract_pr_and_issues(
             data,
             PROJECT_ID,
             RELEASE_FIELD_ID,
@@ -188,9 +191,34 @@ class ReleaseTargetCheckTests(unittest.TestCase):
         )
 
         self.assertEqual(pr_release, RELEASE_06)
+        self.assertFalse(has_more_issues)
         self.assertEqual(
             [issue.release for issue in issues], [RELEASE_06, RELEASE_08]
         )
+
+    def test_more_than_20_closing_issues_fails(self):
+        data = graphql_response(
+            RELEASE_06,
+            [(number, RELEASE_06) for number in range(1, 21)],
+            has_next_page=True,
+        )
+        _, pr_release, issues, has_more_issues = check.extract_pr_and_issues(
+            data,
+            PROJECT_ID,
+            RELEASE_FIELD_ID,
+            "Release",
+        )
+        result = check.validate_release_target(
+            target_release=RELEASE_06,
+            pr_release=pr_release,
+            issues=issues,
+            base_ref="main",
+            has_more_issues=has_more_issues,
+        )
+
+        self.assertFalse(result.ok)
+        self.assertEqual(len(issues), 20)
+        self.assertIn("more than 20 closing issue", result.errors[0])
 
 
 if __name__ == "__main__":
