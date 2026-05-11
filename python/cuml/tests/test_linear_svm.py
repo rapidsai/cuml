@@ -214,6 +214,10 @@ def test_linear_svc_decision_function(
 
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
+# TODO(26.10): Remove once `probability` is removed from cuml.svm.LinearSVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 def test_linear_svc_predict_proba(fit_intercept, n_classes):
     n_rows, n_cols = 500, 20
     X_train, X_test, y_train, y_test = make_classification_dataset(

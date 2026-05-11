@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cupy as cp
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.metaestimators import available_if
@@ -54,6 +56,11 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         The string 'balanced' is also accepted, in which case
         ``class_weight[i] = n_samples / (n_classes * n_samples_of_class[i])``
     probability: bool, default=False
+        .. deprecated:: 26.08
+            ``probability`` is deprecated and will be removed in version
+            26.10. Use ``CalibratedClassifierCV(LinearSVC(), ensemble=False)``
+            from ``sklearn.calibration`` for probability estimates instead.
+
         Set to True to enable probability estimate methods (``predict_proba``,
         ``predict_log_proba``).
     tol : float, default=1e-4
@@ -155,6 +162,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
                 f"`multi_class={model.multi_class}` is not supported"
             )
 
+        # `probability` is intentionally omitted: sklearn.LinearSVC has no such
+        # parameter, so the cuml-side default `"deprecated"` is restored by
+        # `__init__`.
         return {
             "penalty": model.penalty,
             "loss": model.loss,
@@ -208,7 +218,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         fit_intercept=True,
         penalized_intercept=False,
         class_weight=None,
-        probability=False,
+        probability="deprecated",
         tol=1e-4,
         max_iter=1000,
         linesearch_max_iter=100,
@@ -234,12 +244,26 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.n_streams = n_streams
         self.multi_class = multi_class
 
+    @property
+    def _effective_probability(self):
+        return False if self.probability == "deprecated" else self.probability
+
     @generate_docstring()
     @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
+        if self.probability != "deprecated":
+            warnings.warn(
+                "The `probability` parameter is deprecated and will be "
+                "removed in cuML version 26.10. Use "
+                "`CalibratedClassifierCV(LinearSVC(), ensemble=False)` from "
+                "`sklearn.calibration` instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
         coef, intercept, n_iter, prob_scale, classes = cuml.svm.linear.fit(
             self,
             X,
@@ -248,7 +272,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             convert_dtype=convert_dtype,
             is_classifier=True,
             n_streams=self.n_streams,
-            probability=self.probability,
+            probability=self._effective_probability,
             class_weight=self.class_weight,
             loss=self.loss,
             penalty=self.penalty,
@@ -284,7 +308,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
-        if self.probability:
+        if self._effective_probability:
             scores = self.predict_proba(X, convert_dtype=convert_dtype)
         else:
             scores = self.decision_function(X, convert_dtype=convert_dtype)
@@ -301,7 +325,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             inds, self.classes_, output_type=output_type, index=index
         )
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         return_values={
             "name": "probs",
@@ -329,7 +353,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             n_streams=self.n_streams,
         )
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         return_values={
             "name": "probs",

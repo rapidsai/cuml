@@ -376,8 +376,9 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
+# TODO(26.10): Remove this filter once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter was deprecated:FutureWarning"
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
 )
 @pytest.mark.filterwarnings(
     "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
@@ -396,47 +397,62 @@ def test_svc(random_state, sparse, probability, kernel):
             )
         K = X @ X.T  # Linear kernel matrix
         original = cuml.SVC(kernel="precomputed")
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            K,
+            y,
+            exclude_params=["probability"],
+        )
     else:
         if sparse:
             X = scipy.sparse.coo_matrix(X)
         original = cuml.SVC()
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            X,
+            y,
+            exclude_params=["probability"],
+        )
 
         # Check inference works after conversion. sklearn 1.9 deprecated the
         # `probability` parameter; avoid passing it on the sklearn side when
         # False (the default) to avoid the FutureWarning.
         cu_model = cuml.SVC(probability=probability).fit(X, y)
-        if probability:
-            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
-        else:
-            sk_model = sklearn.svm.SVC().fit(X, y)
-
-        cu_model2 = cuml.SVC.from_sklearn(sk_model)
         sk_model2 = cu_model.as_sklearn()
-
-        cu_score = cu_model2.score(X, y)
-        assert cu_score > 0.7
-
         sk_score = sk_model2.score(X, y)
         assert sk_score > 0.7
 
         if probability:
-            # Check that predict_proba works
-            cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(cu_pred_prob, y) > 0.7
+            # `cuml.SVC.from_sklearn` rejects probability=True so cuml.accel
+            # falls back to native sklearn for calibrated SVC.
+            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+            with pytest.raises(
+                UnsupportedOnGPU,
+                match=r"`probability=True` is not supported",
+            ):
+                cuml.SVC.from_sklearn(sk_model)
+
+            # The cuml-direct path (used here via cu_model.as_sklearn()) still
+            # wires up probA_ / probB_ for predict_proba on the sklearn side.
             sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
             assert accuracy_score(sk_pred_prob, y) > 0.7
 
-            # Check that probA_, probB_ are wired up properly
             for attr in ["probA_", "probB_"]:
                 val = getattr(sk_model2, attr)
                 assert isinstance(val, np.ndarray)
                 assert val.dtype == "float64"
                 assert val.shape == (1,)
+        else:
+            sk_model = sklearn.svm.SVC().fit(X, y)
+            cu_model2 = cuml.SVC.from_sklearn(sk_model)
 
-        # Check n_support_ is correctly set
-        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+            cu_score = cu_model2.score(X, y)
+            assert cu_score > 0.7
+
+            # Check n_support_ is correctly set
+            assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
 
 @pytest.mark.parametrize("kind", ["SVC", "SVR"])

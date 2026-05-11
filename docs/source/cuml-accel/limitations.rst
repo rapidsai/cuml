@@ -507,7 +507,9 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
-- If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
+- If ``probability=True``. The ``probability`` parameter is being deprecated
+  in cuML; use ``CalibratedClassifierCV(SVC(), ensemble=False)`` from
+  ``sklearn.calibration`` for probability estimates instead.
 
 Additional notes:
 

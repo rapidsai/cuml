@@ -267,12 +267,10 @@ class SVMBase(Base,
             "_probA": self._probA,
             "_probB": self._probB,
             "_sparse": self._sparse,
-            # sklearn >= 1.9 added a private fitted attribute that libsvm-facing
-            # code reads during predict (see sklearn PR #32050). It is set during
-            # fit(), so we have to set it ourselves. Harmless on older sklearn
-            # (no code reads it). cuml.SVR has no `probability` attribute;
-            # default to False to match sklearn.
-            "_effective_probability": getattr(self, "probability", False),
+            # sklearn >= 1.9 reads this private attribute during predict
+            # (sklearn PR #32050); harmless on older sklearn (no code reads it).
+            # SVR has no `probability`, so default to False.
+            "_effective_probability": getattr(self, "_effective_probability", False),
             **super()._attrs_to_cpu(model),
         }
 
