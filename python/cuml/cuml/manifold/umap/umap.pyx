@@ -360,6 +360,11 @@ _BUILD_ALGOS = {"auto", "brute_force_knn", "nn_descent"}
 
 _INITS = {"random": 0, "spectral": 1}
 
+# Upper bound for n_components when force_serial_epochs is enabled. Matches
+# SERIAL_PER_WARP_MAX_NC in cpp/src/umap/simpl_set_embed/optimize_batch_kernel.cuh
+# Update both together.
+_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS = 512
+
 _TARGET_METRICS = {
     "euclidean": lib.MetricType.EUCLIDEAN,
     "l2": lib.MetricType.EUCLIDEAN,
@@ -561,9 +566,22 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         # Only auto-enable for spectral fit. Also skip when n_components > 512 since
         # the warp-based serial kernel only supports up to 512 components
         params.force_serial_epochs = (
-            is_fit and params.init == 1 and self.n_components <= 512
+            is_fit
+            and params.init == 1
+            and self.n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
         )
     else:
+        if (
+            self.force_serial_epochs
+            and self.n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        ):
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={self.n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
         params.force_serial_epochs = self.force_serial_epochs
 
     if self.target_metric in _TARGET_METRICS:
@@ -689,10 +707,11 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         * 'random': assign initial embedding positions at random.
         * An array-like with initial embedding positions.
 
-        Note: When ``init='spectral'``, ``force_serial_epochs`` defaults to
-        ``True`` because spectral initialization is more susceptible to
-        outlier artifacts.  Pass ``force_serial_epochs=False`` to disable
-        this and use the faster parallel batch kernel.
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
 
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
@@ -788,11 +807,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
     force_serial_epochs: bool or None, optional (default=None)
         Controls whether optimization epochs use the sequential (reduced
-        GPU parallelism) kernel.  When ``None`` (the default), serial
-        epochs are enabled automatically for ``init='spectral'`` because
-        spectral initialization is more susceptible to outlier artifacts.  Pass
-        ``True`` to force serial epochs regardless of init, or ``False``
-        to disable them.  This ensures stable embeddings at the cost of performance.
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -1862,19 +1884,23 @@ def simplicial_set_embedding(
             * 'random': assign initial embedding positions at random.
             * An array-like with initial embedding positions.
 
-        Note: When ``init='spectral'``, ``force_serial_epochs`` defaults to
-        ``True`` because spectral initialization is more susceptible to
-        outlier artifacts.  Pass ``force_serial_epochs=False`` to disable
-        this and use the faster parallel batch kernel.
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
     force_serial_epochs: bool or None, optional (default=None)
         Controls whether optimization epochs use the sequential (reduced
-        GPU parallelism) kernel.  When ``None`` (the default), serial
-        epochs are enabled automatically for ``init='spectral'`` because
-        spectral initialization is more susceptible to outlier artifacts.  Pass
-        ``True`` to force serial epochs regardless of init, or ``False``
-        to disable them.  This ensures stable embeddings at the cost of performance.
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1927,9 +1953,19 @@ def simplicial_set_embedding(
         # Auto-enable only for spectral init within the serial kernel's supported
         # n_components range (the warp-based serial kernel supports up to 512).
         params.force_serial_epochs = (
-            isinstance(init, str) and init == "spectral" and n_components <= 512
+            isinstance(init, str)
+            and init == "spectral"
+            and n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
         )
     else:
+        if force_serial_epochs and n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS:
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
         params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)

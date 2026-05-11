@@ -739,7 +739,8 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         set_vertex_modified(tail_flags, k);
       }
 
-      epoch_of_next_sample[e] = _epoch_of_next_sample + _epochs_per_sample;
+      // all lanes have the same value
+      if (lane_id == 0) { epoch_of_next_sample[e] = _epoch_of_next_sample + _epochs_per_sample; }
 
       auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[e];
       int n_neg_samples =
@@ -784,8 +785,10 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
         }
       }
 
-      epoch_of_next_negative_sample[e] =
-        _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
+      if (lane_id == 0) {
+        epoch_of_next_negative_sample[e] =
+          _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
+      }
     }
 
     // Single writer per head_buffer slot, so no truncate_gradient needed.
@@ -806,16 +809,31 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
   }
 }
 
+/** Constant dispatch thresholds for the sequential-epoch kernels.
+
+ SERIAL_PER_THREAD_MAX_NC: per-thread register kernel handles n_components in
+   [1, 21]. With 3 register arrays of length N_COMPONENTS (current_reg,
+   other_reg, original) at N=21 that's ~63 registers worth of payload per
+   thread, which allows enough registers per thread on most architectures (e.g.
+ Volta/Ampere/Hopper). Revisit this threshold if a future arch requires changes to the number of
+ registers.
+
+ SERIAL_PER_WARP_MAX_CPL: per-warp kernel handles cpl = ceil(n_components/32)
+   in [1, 16], i.e. n_components in (21, 512]. */
+constexpr int SERIAL_PER_THREAD_MAX_NC = 21;
+constexpr int SERIAL_PER_WARP_MAX_CPL  = 16;
+constexpr int SERIAL_PER_WARP_MAX_NC   = SERIAL_PER_WARP_MAX_CPL * 32;  // = 512
+
 /**
  * Dispatch wrapper for sequential kernels, based on n_components.
  *
- *  n_components <= threshold:
+ *  n_components <= SERIAL_PER_THREAD_MAX_NC:
  *    Per-thread register kernel (optimize_sequential_kernel_vertex_per_thread).
  *    Each thread processes its own vertices.  All embedding data
  *    lives in registers. Best for small n_components where register pressure
  *    is low.
  *
- *  n_components > threshold:
+ *  n_components in (SERIAL_PER_THREAD_MAX_NC, SERIAL_PER_WARP_MAX_NC]:
  *    Component-parallel warp kernel (optimize_sequential_kernel_vertex_per_warp).
  *    Each warp cooperatively processes one vertex. Lanes split the per-
  *    component work (lane k handles components k, k+32, k+64, …).
@@ -913,11 +931,13 @@ void call_optimize_sequential_kernel(T* head_embedding,
     }
   };
 
-  if (params->n_components <= 21) {
+  if (params->n_components <= SERIAL_PER_THREAD_MAX_NC) {
 #define LAUNCH_PER_THREAD_KERNEL(NC) \
   launch_kernel(optimize_sequential_kernel_vertex_per_thread<T, nnz_t, TPB_X, NC>, TPB_X, 0, 1)
     // 3 register arrays × N_COMPONENTS = 63 registers at N=21.  This keeps occupancy reasonable on
     // most architectures. This is also heuristically a good threshold.
+    static_assert(SERIAL_PER_THREAD_MAX_NC == 21,
+                  "Per-thread switch enumerates 1..21; update both together.");
     switch (params->n_components) {
       case 1: LAUNCH_PER_THREAD_KERNEL(1); break;
       case 2: LAUNCH_PER_THREAD_KERNEL(2); break;
@@ -950,7 +970,8 @@ void call_optimize_sequential_kernel(T* head_embedding,
 
 #define LAUNCH_PER_WARP_KERNEL(CPL_VAL) \
   launch_kernel(optimize_sequential_kernel_vertex_per_warp<T, nnz_t, TPB_X, CPL_VAL>, TPB_X, 0, 32)
-
+    static_assert(SERIAL_PER_WARP_MAX_CPL == 16,
+                  "Per-warp switch enumerates 1..16; update both together.");
     switch (cpl) {
       case 1: LAUNCH_PER_WARP_KERNEL(1); break;
       case 2: LAUNCH_PER_WARP_KERNEL(2); break;
@@ -969,9 +990,12 @@ void call_optimize_sequential_kernel(T* head_embedding,
       case 15: LAUNCH_PER_WARP_KERNEL(15); break;
       case 16: LAUNCH_PER_WARP_KERNEL(16); break;
       default:
+        // Should be unreachable in practice: the Python layer rejects
+        // force_serial_epochs=True with n_components > SERIAL_PER_WARP_MAX_NC,
+        // and falls back to the parallel batch kernel.
         RAFT_EXPECTS(false,
-                     "n_components=%d (cpl=%d) exceeds maximum supported value for "
-                     "the register-based warp kernel.",
+                     "force_serial_epochs requires n_components <= %d, got %d (cpl=%d).",
+                     SERIAL_PER_WARP_MAX_NC,
                      params->n_components,
                      cpl);
     }

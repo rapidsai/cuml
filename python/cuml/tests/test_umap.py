@@ -1072,6 +1072,54 @@ def test_umap_outliers(
     )
 
 
+# Cases:
+#   - (2, *, None): auto-enable for both init kinds.
+#   - (25/50, random, True): per-warp sequential kernel (cpl=1 and
+#     cpl=2).
+#   - (513, spectral, None): dispatches to the parallel
+#     batch kernel for n_components > 512.
+#   - (513, random, True): explicit force_serial_epochs=True past the serial
+#     kernel's upper bound must raise error at the Python layer
+@pytest.mark.parametrize(
+    "n_components,init,force_serial_epochs,expect_raises",
+    [
+        (2, "random", None, False),
+        (2, "spectral", None, False),
+        (25, "random", True, False),
+        (50, "random", True, False),
+        (513, "spectral", None, False),
+        (513, "random", True, True),
+    ],
+)
+def test_umap_force_serial_epochs_dispatch(
+    n_components, init, force_serial_epochs, expect_raises
+):
+    data, _ = make_moons(n_samples=5000, noise=0.0, random_state=42)
+    data = data.astype(np.float32)
+
+    model = cuUMAP(
+        n_components=n_components,
+        n_neighbors=15,
+        init=init,
+        force_serial_epochs=force_serial_epochs,
+        random_state=42,
+        build_algo="brute_force_knn",
+    )
+
+    if expect_raises:
+        with pytest.raises(ValueError, match="force_serial_epochs=True"):
+            model.fit(data)
+        return
+
+    embedding = model.fit_transform(data)
+    assert embedding.shape == (data.shape[0], n_components)
+    assert np.isfinite(embedding).all()
+
+    # Skip for the high-n_components case that falls back to the parallel batch kernel.
+    if n_components <= 50:
+        assert np.all(np.abs(embedding) <= 50.0)
+
+
 @pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
 @pytest.mark.parametrize("k_provided,k_requested", [(15, 10), (20, 8)])
 def test_umap_precomputed_knn_trimming(
