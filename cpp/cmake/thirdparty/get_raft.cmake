@@ -28,6 +28,11 @@ function(find_and_configure_raft)
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
 
+    # Skip preinstalled libraft-headers (conda): raft::raft from find_package would otherwise
+    # prevent CPM from using FORK/PINNED_TAG below. Keep raft_cpm_override.json in sync with
+    # the find_and_configure_raft() arguments at the bottom of this file.
+    rapids_cpm_package_override("${CMAKE_CURRENT_LIST_DIR}/raft_cpm_override.json")
+
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
       BUILD_EXPORT_SET    cuml-exports

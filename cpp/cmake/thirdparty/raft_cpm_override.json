@@ -1,0 +1,12 @@
+{
+  "packages": {
+    "raft": {
+      "version": "26.06.00",
+      "git_shallow": true,
+      "always_download": true,
+      "git_url": "https://github.com/achirkin/raft.git",
+      "git_tag": "enh-predictable-resources",
+      "source_subdir": "cpp"
+    }
+  }
+}
