@@ -42,11 +42,12 @@ from cuml.testing.utils import (  # noqa: E402
     unit_param,
 )
 
-# TODO(26.08): Remove this filter
 pytestmark = [
+    # TODO(26.10) Remove this filter, once cuml.fil is removed
     pytest.mark.filterwarnings(
         "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
     ),
+    # TODO(26.08) Remove this filter
     pytest.mark.filterwarnings(
         "ignore:The default value of 'max_depth':FutureWarning"
     ),

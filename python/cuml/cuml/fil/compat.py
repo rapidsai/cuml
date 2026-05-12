@@ -493,4 +493,5 @@ class ForestInference(Base, CMajorInputTagMixin):
             "precision",
             "device_id",
             "ensure_all_finite",
+            "suppress_deprecation_warning",
         ]
