@@ -159,9 +159,11 @@ class ForestInference(Base, CMajorInputTagMixin):
 
     @property
     def treelite_model(self):
-        raise NotImplementedError(
-            "Attribute treelite_model is no longer supported"
+        warnings.warn(
+            "Attribute treelite_model is no longer supported",
+            FutureWarning,
         )
+        return None
 
     @treelite_model.setter
     def treelite_model(self, value):
@@ -463,6 +465,7 @@ class ForestInference(Base, CMajorInputTagMixin):
     def _get_param_names(cls):
         return [
             *super()._get_param_names(),
+            "treelite_model",
             "is_classifier",
             "layout",
             "default_chunk_size",
