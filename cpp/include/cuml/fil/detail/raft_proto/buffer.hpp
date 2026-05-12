@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -321,7 +321,8 @@ const_agnostic_same_t<T, U> copy(buffer<T>& dst,
                                  cuda_stream stream)
 {
   if constexpr (bounds_check) {
-    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+    if (src_offset > src.size() || src.size() - src_offset < size || dst_offset > dst.size() ||
+        dst.size() - dst_offset < size) {
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
@@ -353,7 +354,8 @@ const_agnostic_same_t<T, U> copy(buffer<T>&& dst,
                                  cuda_stream stream)
 {
   if constexpr (bounds_check) {
-    if (src.size() - src_offset < size || dst.size() - dst_offset < size) {
+    if (src_offset > src.size() || src.size() - src_offset < size || dst_offset > dst.size() ||
+        dst.size() - dst_offset < size) {
       throw out_of_bounds("Attempted copy to or from buffer of inadequate size");
     }
   }
