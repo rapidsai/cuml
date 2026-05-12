@@ -94,16 +94,18 @@ class ForestInference(Base, CMajorInputTagMixin):
         precision="single",
         device_id=None,
         ensure_all_finite=False,
+        suppress_deprecation_warning=False,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
-        if treelite_model is not None and isinstance(
-            treelite_model, treelite.Model
-        ):
+        if not suppress_deprecation_warning:
             warnings.warn(
                 "cuml.fil.ForestInference is deprecated and will be removed in 26.10. "
                 "Use nvforest.load_model() or nvforest.load_from_sklearn() instead.",
                 FutureWarning,
             )
+        if treelite_model is not None and isinstance(
+            treelite_model, treelite.Model
+        ):
             self.model = nvforest.load_from_treelite_model(
                 tl_model=treelite_model,
                 layout=layout,
@@ -209,7 +211,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             "Use nvforest.load_model() instead.",
             FutureWarning,
         )
-        obj = cls()
+        obj = cls(
+            output_type=output_type,
+            verbose=verbose,
+            suppress_deprecation_warning=True,
+        )
         obj.model = nvforest.load_model(
             model_file=path,
             model_type=model_type,
@@ -246,7 +252,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             "Use nvforest.load_from_sklearn() instead.",
             FutureWarning,
         )
-        obj = cls()
+        obj = cls(
+            output_type=output_type,
+            verbose=verbose,
+            suppress_deprecation_warning=True,
+        )
         obj.model = nvforest.load_from_sklearn(
             skl_model=skl_model,
             device="gpu"
@@ -282,7 +292,11 @@ class ForestInference(Base, CMajorInputTagMixin):
             "Use nvforest.load_from_treelite_model() instead.",
             FutureWarning,
         )
-        obj = cls()
+        obj = cls(
+            output_type=output_type,
+            verbose=verbose,
+            suppress_deprecation_warning=True,
+        )
         obj.model = nvforest.load_from_treelite_model(
             tl_model=tl_model,
             device="gpu"
