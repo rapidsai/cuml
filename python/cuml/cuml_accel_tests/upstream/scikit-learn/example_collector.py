@@ -94,7 +94,9 @@ class ExampleItem(pytest.Item):
                 f"Example {self.path.name} timed out after {timeout}s",
                 ExampleTimedOut,
             )
-            pytest.xfail(reason=f"Timeout: example exceeded {timeout}s")
+            raise ExampleFailed(
+                f"Example {self.path.name} timed out after {timeout}s"
+            ) from None
         if result.returncode != 0:
             stderr = result.stderr
             for pattern in _NETWORK_ERROR_PATTERNS:
@@ -104,7 +106,7 @@ class ExampleItem(pytest.Item):
                         f" ({pattern})",
                         ExampleNetworkError,
                     )
-                    pytest.xfail(reason=f"Network error: {pattern}")
+                    break
             if len(stderr) > 4000:
                 stderr = "...\n" + stderr[-4000:]
             raise ExampleFailed(stderr)
