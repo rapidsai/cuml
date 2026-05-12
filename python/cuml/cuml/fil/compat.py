@@ -102,6 +102,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                 "cuml.fil.ForestInference is deprecated and will be removed in 26.10. "
                 "Use nvforest.load_model() or nvforest.load_from_sklearn() instead.",
                 FutureWarning,
+                stacklevel=2,
             )
         if treelite_model is not None and isinstance(
             treelite_model, treelite.Model
@@ -164,6 +165,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         warnings.warn(
             "Attribute treelite_model is no longer supported",
             FutureWarning,
+            stacklevel=2,
         )
         return None
 
@@ -210,6 +212,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             "cuml.fil.ForestInference.load() is deprecated and will be removed in 26.10. "
             "Use nvforest.load_model() instead.",
             FutureWarning,
+            stacklevel=2,
         )
         obj = cls(
             output_type=output_type,
@@ -251,6 +254,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             "and will be removed in 26.10. "
             "Use nvforest.load_from_sklearn() instead.",
             FutureWarning,
+            stacklevel=2,
         )
         obj = cls(
             output_type=output_type,
@@ -312,6 +316,8 @@ class ForestInference(Base, CMajorInputTagMixin):
         return obj
 
     def get_dtype(self):
+        if self.model is None:
+            raise RuntimeError("ForestInference not yet loaded")
         return self.model.forest.get_dtype()
 
     @reflect
