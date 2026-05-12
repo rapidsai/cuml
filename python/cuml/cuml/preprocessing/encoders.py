@@ -553,7 +553,7 @@ def _get_output(
     if output_type == "cudf":
         return out
     elif output_type == "cupy":
-        return out.astype(dtype).to_cupy(na_value=np.nan)
+        return out.to_cupy(na_value=np.nan, dtype=dtype)
     elif output_type == "numpy":
         return cp.asnumpy(out.to_cupy(na_value=np.nan, dtype=dtype))
     elif output_type == "pandas":
