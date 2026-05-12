@@ -92,6 +92,14 @@ def test_output_type(test_sample) -> None:
     assert isinstance(enc.transform(X), DataFrame)
 
 
+def test_output_type_cupy_respects_dtype(test_sample) -> None:
+    enc = OrdinalEncoder(output_type="cupy", dtype=np.float32).fit(test_sample)
+    out = enc.transform(test_sample)
+
+    assert isinstance(out, cp.ndarray)
+    assert out.dtype == np.dtype("float32")
+
+
 def test_feature_names(test_sample) -> None:
     enc = OrdinalEncoder().fit(test_sample)
     assert (enc.feature_names_in_ == ["cat", "num"]).all()

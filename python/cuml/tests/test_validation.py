@@ -736,6 +736,18 @@ def test_check_array_dtype(array, mem_type):
     assert out.dtype == "float32"
 
 
+@pytest.mark.parametrize("in_dtype", ["int32", "int64", "float32", "float64"])
+@pytest.mark.parametrize("out_dtype", ["int32", "int64", "float32", "float64"])
+def test_check_array_cudf_dataframe_to_cupy_dtype(in_dtype, out_dtype):
+    data = cp.arange(12, dtype=in_dtype).reshape(3, 4)
+    df = cudf.DataFrame(data)
+
+    out = check_array(df, dtype=out_dtype, mem_type="device")
+
+    assert out.dtype == np.dtype(out_dtype)
+    cp.testing.assert_allclose(out, data.astype(out_dtype))
+
+
 @example(mem_type="device", dtype="int32", order="C", shape=(3, 4))
 @example(mem_type="host", dtype="float32", order="F", shape=(3,))
 @given(
