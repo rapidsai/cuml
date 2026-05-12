@@ -265,6 +265,14 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
             if isinstance(val := getattr(cls._cpu_class, name, None), typ):
                 setattr(cls, name, val)
 
+        # All transformer _classes_ have `set_output` defined and gated with
+        # `@available_if`. If `get_feature_names_out` isn't defined, then
+        # `set_output` won't be available on an _instance_. We exclude
+        # `set_output` in that case.
+        exclude = set()
+        if not hasattr(cls._cpu_class, "get_feature_names_out"):
+            exclude.add("set_output")
+
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
         methods = [
@@ -272,6 +280,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
             for name in dir(cls._cpu_class)
             if not name.startswith("_")
             and callable(getattr(cls._cpu_class, name))
+            and name not in exclude
         ]
 
         def _make_method(name):
