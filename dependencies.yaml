@@ -355,7 +355,7 @@ dependencies:
           - scipy>=1.14.0
           - packaging
           - rich
-          - &scikit_learn scikit-learn>=1.5
+          - &scikit_learn scikit-learn>=1.6
           - *treelite
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
@@ -554,14 +554,14 @@ dependencies:
           # Package versions to use for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.5.0
+              - scikit-learn==1.6.0
               - umap-learn==0.5.7
               - hdbscan==0.8.39
               - numpy==1.26
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
-              - scikit-learn>=1.5.0a0
+              - scikit-learn>=1.6.0a0
           - matrix:
             packages:
               - *scikit_learn
