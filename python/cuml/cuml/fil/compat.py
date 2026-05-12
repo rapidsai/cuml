@@ -109,6 +109,9 @@ class ForestInference(Base, CMajorInputTagMixin):
         ):
             self.model = nvforest.load_from_treelite_model(
                 tl_model=treelite_model,
+                device="gpu"
+                if get_fil_device_type() == DeviceType.device
+                else "cpu",
                 layout=layout,
                 default_chunk_size=default_chunk_size,
                 align_bytes=align_bytes,
