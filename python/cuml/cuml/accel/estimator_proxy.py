@@ -228,10 +228,22 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
 
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
+        if cls._cpu_class.__init__ is object.__init__:
+            # XXX: Python < 3.13 `inspect.signature` has a bug where a wrapped
+            # version of `object.__init__` will display `*args, **kwargs`,
+            # while the original `object.__init__` won't. Here we special case
+            # estimators with not parameters to work around this. This can be
+            # removed once we drop support for Python < 3.13.
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self):
+                orig_init(self)
 
-        @functools.wraps(cls._cpu_class.__init__)
-        def __init__(self, *args, **kwargs):
-            orig_init(self, *args, **kwargs)
+            del __init__.__wrapped__
+        else:
+
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self, *args, **kwargs):
+                orig_init(self, *args, **kwargs)
 
         cls.__init__ = __init__
 
