@@ -119,6 +119,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         else:
             self.model = None
         self.ensure_all_finite = ensure_all_finite
+        self.suppress_deprecation_warning = suppress_deprecation_warning
 
     @property
     def align_bytes(self):
