@@ -632,6 +632,10 @@ dependencies:
           - pytest-cov
           - pytest-xdist
           - pyyaml
+          - plotly
+          - polars
+          - pooch
+          - scikit-image
           - seaborn
           - statsmodels
           - umap-learn>=0.5.7,<0.5.13
