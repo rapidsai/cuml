@@ -29,7 +29,7 @@ jobs:
     update-status:
       # This job sets the PR and its linked issues to "In Progress" status
       uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@main
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
+      if: ${{ github.event.pull_request.state == 'open' && (github.event.action == 'opened' || github.event.action == 'edited' || github.event.action == 'synchronize') && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       permissions:
         actions: read
