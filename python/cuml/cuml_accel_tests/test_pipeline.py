@@ -13,6 +13,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import BaseEstimator
 from sklearn.cluster import DBSCAN, KMeans
+from sklearn.compose import ColumnTransformer
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import (
@@ -331,6 +332,25 @@ def test_pipeline_data_transfer_with_host_fallback(
     assert isinstance(Ridge.predict.args[0], cp.ndarray)
     # User-facing output is always numpy
     assert isinstance(out, np.ndarray)
+
+
+@requires_sklearn_18
+def test_pipeline_column_transformer_keeps_host_output(
+    regression_data, patch_methods
+):
+    patch_methods(Ridge, "fit")
+    X_train, _, y_train, _ = regression_data
+
+    preprocessor = ColumnTransformer(
+        [
+            ("scaled", StandardScaler(), [0, 1, 2]),
+            ("passthrough", "passthrough", [3, 4]),
+        ]
+    )
+    pipeline = make_pipeline(preprocessor, Ridge(positive=True))
+
+    pipeline.fit(X_train, y_train)
+    assert isinstance(Ridge.fit.args[0], np.ndarray)
 
 
 @requires_sklearn_18
