@@ -104,7 +104,7 @@ jobs:
     validate-release-target:
       # This job reports whether the PR's Release field matches where the PR
       # will actually land, and whether linked issues are delivered late.
-      if: ${{ always() && github.event.pull_request.state == 'open' }}
+      if: ${{ always() && github.event.pull_request.state == 'open' && needs.get-release-version.outputs.release-version != '' }}
       needs: [get-project-id, get-release-version, update-release]
       runs-on: ubuntu-latest
       permissions:
