@@ -464,10 +464,9 @@ TargetEncoder
 ``TargetEncoder`` will fall back to CPU in the following cases:
 
 - If ``categories`` is not ``"auto"``.
-- If ``y`` is a multiclass target (sklearn uses one-hot encoding internally).
-- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds work fine).
-- If ``X`` has object dtype with numeric values.
-- If ``y`` has object dtype.
+- If ``y`` is a multiclass target.
+- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds
+  work fine).
 
 Additional notes:
 
@@ -560,6 +559,7 @@ umap
   ``"l2"``, ``"euclidean"``).
 - If ``unique=True``.
 - If ``densmap=True``.
+- If ``ensure_all_finite`` is not ``True``.
 
 Additional notes:
 
