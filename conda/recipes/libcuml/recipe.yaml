@@ -116,7 +116,6 @@ outputs:
         - libcusparse
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - cuda-cudart
         - libcublas
         - libcufft
         - libcurand
@@ -162,7 +161,6 @@ outputs:
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libcuml", exact=True) }}
-        - cuda-cudart
       ignore_run_exports:
         by_name:
           - cuda-cudart
