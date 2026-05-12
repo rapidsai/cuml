@@ -73,6 +73,7 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.preprocessing.MinMaxScaler``
     * ``sklearn.preprocessing.MaxAbsScaler``
     * ``sklearn.preprocessing.PolynomialFeatures``
+    * ``sklearn.preprocessing.LabelEncoder``
     * ``sklearn.preprocessing.TargetEncoder``
     * ``sklearn.svm.SVC``
     * ``sklearn.svm.SVR``

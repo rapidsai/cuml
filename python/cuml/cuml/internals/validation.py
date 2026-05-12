@@ -854,6 +854,16 @@ def check_cudf(
         )
         if array.dtype == "float16":
             array = array.astype("float32")
+        elif (
+            array.dtype == "object"
+            and array.size
+            and not isinstance(array.flat[0], str)
+        ):
+            # XXX: cudf doesn't support coercing numeric object arrays, while
+            # sklearn has a common check that object arrays of floats are
+            # supported. To support this uncommon case, we attempt to coerce
+            # numeric object types here.
+            array = array.astype("float64")
         array = (cudf.DataFrame if array.ndim == 2 else cudf.Series)(
             array, dtype=(np.dtype("O") if array.dtype.kind in "U" else None)
         )
