@@ -228,10 +228,22 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
 
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
+        if cls._cpu_class.__init__ is object.__init__:
+            # XXX: Python < 3.13 `inspect.signature` has a bug where a wrapped
+            # version of `object.__init__` will display `*args, **kwargs`,
+            # while the original `object.__init__` won't. Here we special case
+            # estimators with not parameters to work around this. This can be
+            # removed once we drop support for Python < 3.13.
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self):
+                orig_init(self)
 
-        @functools.wraps(cls._cpu_class.__init__)
-        def __init__(self, *args, **kwargs):
-            orig_init(self, *args, **kwargs)
+            del __init__.__wrapped__
+        else:
+
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self, *args, **kwargs):
+                orig_init(self, *args, **kwargs)
 
         cls.__init__ = __init__
 
@@ -256,10 +268,22 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         except AttributeError:
             pass
 
-        # Forward _estimator_type as a class attribute if available
-        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
-        if isinstance(_estimator_type, str):
-            cls._estimator_type = _estimator_type
+        # Forward a few optional class attributes if defined. We do a type
+        # check on them for sanity and to avoid forwarding properties.
+        for name, typ in [
+            ("_estimator_type", str),
+            ("_parameter_constraints", dict),
+        ]:
+            if isinstance(val := getattr(cls._cpu_class, name, None), typ):
+                setattr(cls, name, val)
+
+        # All transformer _classes_ have `set_output` defined and gated with
+        # `@available_if`. If `get_feature_names_out` isn't defined, then
+        # `set_output` won't be available on an _instance_. We exclude
+        # `set_output` in that case.
+        exclude = set()
+        if not hasattr(cls._cpu_class, "get_feature_names_out"):
+            exclude.add("set_output")
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -268,6 +292,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
             for name in dir(cls._cpu_class)
             if not name.startswith("_")
             and callable(getattr(cls._cpu_class, name))
+            and name not in exclude
         ]
 
         def _make_method(name):
@@ -644,10 +669,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     @property
     def _estimator_type(self):
         return self._cpu._estimator_type
-
-    @classproperty
-    def _parameter_constraints(cls):
-        return cls._cpu_class._parameter_constraints
 
     @classmethod
     def _get_param_names(cls):

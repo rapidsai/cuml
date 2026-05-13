@@ -3,6 +3,7 @@
 #
 import copy
 import platform
+from importlib.metadata import version as package_version
 
 import cupy as cp
 import cupyx
@@ -32,6 +33,11 @@ from cuml.testing.utils import (
 )
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
+
+UMAP_VERSION = Version(package_version("umap-learn"))
+UMAP_NUMBA_REGRESSION = Version(numba.__version__) >= Version(
+    "0.62.0"
+) and UMAP_VERSION < Version("0.5.12")
 
 
 @pytest.mark.parametrize(
@@ -720,8 +726,8 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     "ignore:Graph is not fully connected.*:UserWarning"
 )
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION,
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
@@ -1251,8 +1257,8 @@ def test_umap_custom_init_errors():
 
 
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION,
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_umap_sigmas_rhos():
@@ -1291,9 +1297,8 @@ def test_umap_sigmas_rhos():
 
 
 @pytest.mark.xfail(
-    (Version(numba.__version__) >= Version("0.62.0"))
-    and (platform.machine() == "x86_64"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION and (platform.machine() == "x86_64"),
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_inverse_transform():
