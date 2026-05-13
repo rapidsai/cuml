@@ -44,6 +44,11 @@ filterwarnings = [
   "ignore:(.*)alias(.*):DeprecationWarning:hdbscan[.*]",
   # From sklearn
   "ignore:A column-vector y was passed:sklearn.exceptions.DataConversionWarning",
+  # sklearn 1.6 tag API transition; remove once cuML avoids the legacy tag provider path
+  "ignore:The .* use `_get_tags` and `_more_tags`.*:FutureWarning:sklearn.utils._tags",
+  "ignore:The .* use `_get_tags` and `_more_tags`.*:DeprecationWarning:sklearn.utils._tags",
+  # sklearn 1.6 renamed force_all_finite to ensure_all_finite
+  "ignore:'force_all_finite' was renamed to 'ensure_all_finite'.*:FutureWarning",
   # From dask-glm
   "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
   "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
