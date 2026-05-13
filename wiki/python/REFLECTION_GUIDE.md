@@ -1,6 +1,6 @@
 # Reflection System Developer Guide
 
-This guide covers the `reflect`, `run_in_internal_context`, and `exit_internal_context` utilities from `cuml.internals.outputs`. These provide a streamlined approach to output type management that replaces the older `@api_base_return_*` decorators for many use cases.
+This guide covers the `reflect`, `run_in_internal_context`, and `exit_internal_context` utilities from `cuml.internals.outputs`. These provide the current approach to output type management. Earlier cuML releases documented `@api_base_return_*` decorators, but those decorators are no longer available.
 
 ## Overview
 
@@ -264,16 +264,16 @@ def fit(self, X, y):
 
 ## Relationship to Older Decorators
 
-The `@reflect` decorator is the modern replacement for the `@api_base_return_array` family of decorators. Key differences:
+The `@reflect` decorator replaces the older `@api_base_return_array` family of decorators used by earlier cuML releases. When porting older code or documentation, use these mappings:
 
-| Old Pattern | New Pattern |
-|-------------|-------------|
+| Historical Pattern | Current Pattern |
+|--------------------|-----------------|
 | `@api_base_return_array()` with return type `-> CumlArray` | `@reflect` |
 | `@api_base_return_any(set_output_type=True, set_n_features_in=True)` | `@reflect(reset=True)` |
 | Manual `_set_output_type()` + `_get_output_type()` | Automatic via `@reflect` |
 | `with cuml.using_output_type("mirror"):` | Automatic via `@reflect` entering internal context |
 
-Both systems coexist in the codebase. New code should prefer `@reflect` for its simpler API.
+New code must use `@reflect`, `@run_in_internal_context`, and `exit_internal_context` rather than the historical decorators.
 
 ## Testing
 
