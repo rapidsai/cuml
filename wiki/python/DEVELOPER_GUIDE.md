@@ -5,17 +5,18 @@ This document provides comprehensive guidelines and best practices for contribut
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Getting Started](#getting-started)
-3. [Coding Style](#coding-style)
-4. [Documentation](#documentation)
-5. [Testing and Unit Testing](#testing-and-unit-testing)
-6. [Memory Management](#memory-management)
-7. [Thread Safety](#thread-safety)
-8. [Creating New Estimators](#creating-new-estimators)
-9. [Deprecation Policy](#deprecation-policy)
-10. [Logging](#logging)
-11. [Multi-GPU Support](#multi-gpu-support)
-12. [Benchmarking](#benchmarking)
+2. [Guide Map](#guide-map)
+3. [Getting Started](#getting-started)
+4. [Coding Style](#coding-style)
+5. [Documentation](#documentation)
+6. [Testing and Unit Testing](#testing-and-unit-testing)
+7. [Memory Management](#memory-management)
+8. [Thread Safety](#thread-safety)
+9. [Creating New Estimators](#creating-new-estimators)
+10. [Deprecation Policy](#deprecation-policy)
+11. [Logging](#logging)
+12. [Multi-GPU Support](#multi-gpu-support)
+13. [Benchmarking](#benchmarking)
 
 ## Prerequisites
 
@@ -25,6 +26,14 @@ Before diving into Python development for cuML, please ensure you have:
 2. Read the [Python cuML README](../../python/README.md) for setup and installation instructions
 
 If you are working on C++/CUDA code or need to understand the underlying implementation details, you should also familiarize yourself with the [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md).
+
+## Guide Map
+
+Use this document for repository-wide Python development policy: style, docstrings, testing, memory management, deprecations, logging, multi-GPU structure, and benchmarking.
+
+Use [Estimator Guide](ESTIMATOR_GUIDE.md) when creating or modifying a `cuml.Base` estimator. It contains the estimator contract, copyable estimator skeleton, array descriptor guidance, and estimator-specific do's and don'ts.
+
+Use [Reflection Guide](REFLECTION_GUIDE.md) when deciding between `@reflect`, `@run_in_internal_context`, `exit_internal_context`, `reset=True`, `reset="type"`, and `array=None`.
 
 ## Getting Started
 
@@ -214,21 +223,24 @@ Control via these pytest options:
    - Document test assumptions and requirements
 
 ### Running Tests
-Tests must be run from the `python/cuml/` directory or one of its subdirectories. First build the package, then execute tests.
+Build from the repository root. Run Python tests from `python/cuml/` or one of its subdirectories so pytest picks up the package configuration.
 
 ```bash
+# From the repository root
 ./build.sh
-cd python/cuml/
-pytest  # Run all tests
+
+# Then run Python tests
+cd python/cuml
+python -m pytest  # Run all configured Python tests
 ```
 
 Common options:
-- `pytest cuml/tests/test_kmeans.py` - Run specific file
-- `pytest -k "test_kmeans"` - Run tests matching pattern
-- `pytest --run_unit` - Run only unit tests
-- `pytest -v` - Verbose output
+- `python -m pytest cuml/tests/test_kmeans.py` - Run a specific file
+- `python -m pytest -k "test_kmeans"` - Run tests matching a pattern
+- `python -m pytest --run_unit` - Run only unit tests
+- `python -m pytest -v` - Verbose output
 
-Running pytest from outside the `python/cuml/` directory will result in import errors.
+Running pytest from outside `python/cuml/` can result in import errors or missed pytest configuration.
 
 ## Memory Management
 
@@ -239,7 +251,7 @@ Current `CumlArray` memory types are:
 - `device`: GPU-accessible memory for CUDA operations.
 - `host`: CPU-accessible memory for host operations.
 
-Use explicit conversion parameters when a code path needs a specific location. There is no general `cuml.using_memory_type()` context manager for estimators.
+Use explicit conversion parameters when a code path needs a specific location; estimators do not have a general memory-type context manager.
 
 ```python
 from cuml.internals.array import CumlArray
@@ -280,7 +292,7 @@ When implementing a new estimator in cuML, follow these key steps:
    - Inherits from `cuml.Base`
    - Is placed in the appropriate subdirectory matching scikit-learn's structure
 
-For detailed implementation guidelines, including file organization, API design, and best practices, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
+For detailed implementation guidelines, including file organization, API design, output type handling, and a copyable estimator skeleton, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
 
 ## Deprecation Policy
 
