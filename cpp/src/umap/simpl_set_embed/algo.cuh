@@ -16,6 +16,7 @@
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.hpp>
 #include <raft/sparse/op/filter.cuh>
+#include <raft/sparse/op/sort.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_scalar.hpp>
@@ -29,6 +30,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/shuffle.h>
+#include <thrust/sort.h>
 #include <thrust/system/cuda/execution_policy.h>
 
 #include <curand.h>
@@ -234,6 +236,17 @@ void optimize_layout(T* head_embedding,
 
   rmm::device_uvector<nnz_t> row_ptr(0, stream_view);
   if (params->force_serial_epochs) {
+    // sorted_coo_to_csr below requires `head` to be sorted. Probe with a cheap O(nnz) scan
+    // and only sort when needed.
+    bool rows_sorted = thrust::is_sorted(rmm::exec_policy(stream_view), head, head + nnz);
+
+    if (!rows_sorted) {
+      CUML_LOG_INFO(
+        "optimize_layout: input COO rows are not sorted; sorting "
+        "(required by the force_serial_epochs path for CSR conversion).");
+      raft::sparse::op::coo_sort<T, int, nnz_t>(
+        head_n, tail_n, nnz, head, tail, epochs_per_sample, stream);
+    }
     row_ptr.resize(static_cast<nnz_t>(head_n) + 1, stream_view);
     raft::sparse::convert::sorted_coo_to_csr(head, nnz, row_ptr.data(), head_n, stream);
     RAFT_CUDA_TRY(cudaMemcpyAsync(

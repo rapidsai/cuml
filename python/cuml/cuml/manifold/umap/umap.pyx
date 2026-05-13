@@ -1869,6 +1869,12 @@ def simplicial_set_embedding(
         The 1-skeleton of the high dimensional fuzzy simplicial set as
         represented by a graph for which we require a sparse matrix for the
         (weighted) adjacency matrix.
+
+        Note: When ``force_serial_epochs`` is enabled (either explicitly or
+        via the auto-default for ``init='spectral'`` with
+        ``n_components <= 512``), the COO is required to be sorted by row
+        for internal CSR conversion. If it is not, it will be sorted internally.
+        To avoid the extra sort, pass a row-sorted COO.
     n_components: int
         The dimensionality of the euclidean space into which to embed the data.
     initial_alpha: float
