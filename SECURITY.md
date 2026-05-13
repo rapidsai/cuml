@@ -121,7 +121,7 @@ the library defends against.
    inputs (kNN, SVM kernel computations, hierarchical clustering, the
    pairwise-distance primitives in `prims/`). A caller able to influence
    `n_samples` × `n_features` × `n_neighbors` can exhaust GPU or host
-   memory without producing a memory-safety bug.
+   memory without producing a memory-safety warning/error.
 
 5. **NaN / Inf / extreme numeric inputs.**
    Many CUDA kernels assume finite, well-formed `float`/`double` inputs.
