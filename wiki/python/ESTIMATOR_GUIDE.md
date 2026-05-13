@@ -738,9 +738,9 @@ The `@reflect` decorator performs several key steps:
 
 4. **Converts output arrays**: When returning to external code, converts all arrays in the result (including nested structures like tuples, lists, and dicts) to the appropriate output type based on:
    - Global `output_type` setting (highest priority)
-   - Estimator's `output_type` attribute
-   - Input array type (if `output_type="input"`)
-   - Default: `cupy`
+   - Estimator's `output_type` attribute, when reflecting an estimator method
+   - Input array type, or the estimator's fit-time input type for methods with `array=None`
+   - `cupy`, only for standalone functions where no global output type is set and no array type can be inferred
 
 #### Example: Complete Estimator
 
