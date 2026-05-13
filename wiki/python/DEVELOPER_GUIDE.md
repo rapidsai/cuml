@@ -232,74 +232,38 @@ Running pytest from outside the `python/cuml/` directory will result in import e
 
 ## Memory Management
 
-cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and provides a flexible memory management system through the `CumlArray` class. Here are the key points:
+cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Python estimator code should normally allocate and convert array-like data through `CumlArray`, `input_to_cuml_array`, or the validation helpers used by nearby estimators.
 
-1. **Memory Allocation Best Practices**
-- Do not use RMM directly to allocate memory
-- Use the `CumlArray` class for array-like data allocation
-- Use utility functions from `internals.memory_utils` for CuPy array instantiation
-- Let cuML handle memory management through its internal mechanisms
+Current `CumlArray` memory types are:
 
-2. **Memory Types**
-cuML supports several memory types through the `MemoryType` enum:
-- `device`: GPU memory for CUDA operations
-- `host`: CPU memory for host operations
-- `managed`: Unified memory accessible from both CPU and GPU
-- `mirror`: Memory type that mirrors the input data's memory type
+- `device`: GPU-accessible memory for CUDA operations.
+- `host`: CPU-accessible memory for host operations.
 
-3. **CumlArray Usage**
-The `CumlArray` class provides a unified interface for array data:
+Use explicit conversion parameters when a code path needs a specific location. There is no general `cuml.using_memory_type()` context manager for estimators.
+
 ```python
 from cuml.internals.array import CumlArray
 
 # Create arrays with specific memory types
-arr = CumlArray.empty(shape=(1000,), dtype='float32', mem_type='device')
-arr = CumlArray.zeros(shape=(1000,), dtype='float32', mem_type='host')
+arr = CumlArray.empty(shape=(1000,), dtype="float32", mem_type="device")
+host_arr = CumlArray.zeros(shape=(1000,), dtype="float32", mem_type="host")
 
 # Convert between memory types
 device_arr = host_arr.to_mem_type('device')
 host_arr = device_arr.to_mem_type('host')
+
+# Convert to different output containers
+cupy_arr = arr.to_output("cupy")
+numpy_arr = arr.to_output("numpy")
+cudf_series = arr.to_output("series")
 ```
 
-4. **Memory Type Conversion**
-- Use `to_output()` for format conversion:
-  ```python
-  # Convert to different formats
-  cupy_arr = arr.to_output('cupy')
-  numpy_arr = arr.to_output('numpy')
-  cudf_series = arr.to_output('series')
-  ```
-- Use `to_mem_type()` for explicit memory type conversion
-- Consider memory overhead when converting between types
-- Supported output types:
-  - 'array': CuPy/NumPy arrays
-  - 'numba': Numba device arrays
-  - 'dataframe': cuDF/Pandas DataFrames
-  - 'series': cuDF/Pandas Series
+Additional considerations:
 
-5. **Context Management**
-Use context managers for temporary memory type changes:
-```python
-from cuml.internals.memory_utils import using_memory_type
-
-with using_memory_type('device'):
-    # Operations using device memory
-    pass
-```
-
-6. **Memory Type Detection**
-Detect memory type of input data:
-```python
-from cuml.internals.memory_utils import determine_array_memtype
-
-mem_type = determine_array_memtype(array)
-```
-
-7. **Additional Considerations**
 - Minimize memory transfers between host and device
-- Use appropriate memory types for your operations
+- Prefer device memory for GPU kernels and host memory only when a CPU API needs it
 - Consider memory layout (C/F order) for optimal performance
-- Handle memory allocation failures gracefully
+- Let `@reflect` and `CumlArrayDescriptor` handle user-facing output type conversion for estimator methods and fitted array attributes
 
 ## Thread Safety
 
