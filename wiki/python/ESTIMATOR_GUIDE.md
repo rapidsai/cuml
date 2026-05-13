@@ -2,13 +2,14 @@
 
 This guide is meant to help developers follow the correct patterns when creating/modifying any cuML Estimator object and ensure a uniform cuML API.
 
-**Note:** This guide is long, because it includes internal details on how cuML manages input and output types for advanced use cases. But for the vast majority of estimators, the requirements are very simple and can follow the example patterns shown below in the [Quick Start Guide](#quick-start-guide).
+**Note:** Start with the [Quick Start Guide](#quick-start-guide) and [copyable estimator skeleton](#copyable-estimator-skeleton). The later sections explain the estimator contract in more detail for less common cases.
 
 ## Table of Contents
 
 - [Recommended Scikit-Learn Documentation](#recommended-scikit-learn-documentation)
 - [API Matching Policy](#api-matching-policy)
 - [Quick Start Guide](#quick-start-guide)
+   - [Copyable Estimator Skeleton](#copyable-estimator-skeleton)
 - [Background](#background)
    - [Array I/O and Output Types in cuML](#array-io-and-output-types-in-cuml)
    - [Ingesting Arrays](#ingesting-arrays)
@@ -78,9 +79,11 @@ At a high level, all cuML Estimators must:
 2. Follow the Scikit-learn estimator guidelines found [here](https://scikit-learn.org/stable/developers/develop.html)
 3. Include the `Base.__init__()` arguments available in the new Estimator's `__init__()`
    ```python
-   class MyEstimator(Base):
+   import cuml
 
-      def __init__(self, *, extra_arg=True, verbose=logger.level_enum.info, output_type=None):
+   class MyEstimator(cuml.Base):
+
+      def __init__(self, *, extra_arg=True, verbose=False, output_type=None):
          super().__init__(verbose=verbose, output_type=output_type)
          ...
    ```
@@ -88,9 +91,10 @@ At a high level, all cuML Estimators must:
    > **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. If your estimator requires `n_streams` or multi-GPU support via `device_ids`, add those as top-level parameters instead.
 4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
    ```python
+   import cuml
    from cuml.common.array_descriptor import CumlArrayDescriptor
 
-   class MyEstimator(Base):
+   class MyEstimator(cuml.Base):
 
       labels_ = CumlArrayDescriptor(order='C')
 
@@ -99,9 +103,11 @@ At a high level, all cuML Estimators must:
    ```
 5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset=True)` for simple fit-like methods, or `@reflect(reset="type")` if the method handles feature validation itself:
    ```python
+   import cuml
    from cuml.internals import reflect
+   from cuml.internals.array import CumlArray
 
-   class MyEstimator(Base):
+   class MyEstimator(cuml.Base):
 
       @reflect(reset=True)
       def fit(self, X) -> "MyEstimator":
@@ -143,6 +149,45 @@ If other tags are needed, they are static (i.e. don't change depending on the in
 
 For the majority of estimators, the above steps will be sufficient to correctly work with the cuML library and ensure a consistent API. However, situations may arise where an estimator differs from the standard pattern and some of the functionality needs to be customized. The remainder of this guide takes a deep dive into the estimator functionality to assist developers when building estimators.
 
+### Copyable Estimator Skeleton
+
+Use this as a starting point for dense estimators that follow the standard cuML pattern:
+
+```python
+import cuml
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals import reflect
+from cuml.internals.array import CumlArray
+
+
+class MyEstimator(cuml.Base):
+    result_ = CumlArrayDescriptor(order="C")
+
+    def __init__(self, *, extra_arg=True, verbose=False, output_type=None):
+        super().__init__(verbose=verbose, output_type=output_type)
+        self.extra_arg = extra_arg
+
+    @classmethod
+    def _get_param_names(cls):
+        return super()._get_param_names() + ["extra_arg"]
+
+    @reflect(reset=True)
+    def fit(self, X, y=None) -> "MyEstimator":
+        X_m = input_to_cuml_array(X, order="K").array
+        # Replace this placeholder with estimator training.
+        self.result_ = X_m
+        return self
+
+    @reflect
+    def transform(self, X) -> CumlArray:
+        X_m = input_to_cuml_array(X, order="K").array
+        # Return an array-like object directly; @reflect handles conversion.
+        return X_m
+```
+
+For fit-like methods that call validation directly, use `@reflect(reset="type")` and let the validation helper set or check `n_features_in_`. Methods that return scalars usually do not need `@reflect`; use `@run_in_internal_context` only when the method calls reflected methods internally.
+
 ## Background
 
 Some background is necessary to understand the design of estimators and how to work around any non-standard situations.
@@ -151,7 +196,7 @@ Some background is necessary to understand the design of estimators and how to w
 
 cuML estimators should accept the standard array-like inputs supported by `input_to_cuml_array`: cuDF DataFrame or Series, pandas DataFrame or Series, NumPy arrays, Numba device arrays, CuPy arrays, and internal `CumlArray` values. Sparse estimators should use the sparse-specific validation utilities used by neighboring sparse estimators.
 
-Internally, dense array data should usually be converted to `CumlArray`. `CumlArray` can store either device-accessible or host-accessible data, but there is no estimator-level `memory_type` setting and no `cuml.using_memory_type()` context manager. Low-level code that needs a specific memory location should request it explicitly through arguments such as `convert_to_mem_type` on input conversion or `output_mem_type` on `CumlArray.to_output()`.
+Internally, dense array data should usually be converted to `CumlArray`. `CumlArray` can store either device-accessible or host-accessible data. Low-level code that needs a specific memory location should request it explicitly through arguments such as `convert_to_mem_type` on input conversion or `output_mem_type` on `CumlArray.to_output()`.
 
 Public output type conversion is handled by `@reflect` and `CumlArrayDescriptor`. Users can choose output types in three ways:
 
@@ -341,7 +386,7 @@ class SampleEstimator(cuml.Base):
       # reset=True automatically stores the type of `X` and sets n_features_in_
 
       # Set my_cuml_array_ with a CumlArray
-      self.my_cuml_array_, *_ = input_to_cuml_array(X, order="K")
+      self.my_cuml_array_ = input_to_cuml_array(X, order="K").array
 
       # Access `my_cupy_array_` normally and set to another attribute
       # The internal type of my_other_array_ will be a CuPy array
@@ -417,9 +462,12 @@ For comprehensive documentation, see the [Reflection Guide](REFLECTION_GUIDE.md)
 The `@reflect` decorator should be used on methods that return arrays to the user:
 
 ```python
+import cupy as cp
+import cuml
+from cuml.common import input_to_cuml_array
 from cuml.internals import reflect
 
-class MyEstimator(Base):
+class MyEstimator(cuml.Base):
     @reflect(reset=True)
     def fit(self, X, y=None):
         self.coef_ = input_to_cuml_array(X, order="K").array
@@ -444,9 +492,11 @@ class MyEstimator(Base):
 For methods that need manual output handling (e.g., classifier `predict` with label decoding), use `@run_in_internal_context` with `exit_internal_context`:
 
 ```python
+import cupy as cp
+import cuml
 from cuml.internals import run_in_internal_context, exit_internal_context
 
-class MyClassifier(Base):
+class MyClassifier(cuml.Base):
     @run_in_internal_context
     def predict(self, X):
         # Call reflected method - returns CumlArray internally
@@ -645,48 +695,4 @@ print(my_est.__dict__["my_cuml_array_"].input_type)
 # The input value can be accessed
 print(my_est.__dict__["my_cuml_array_"].get_input_value())
 # Output: CumlArray ...
-```
-
-### How the Reflection System Works
-
-The `@reflect` decorator performs several key steps:
-
-1. **Enters an internal context**: Sets a special mode where nested reflected calls return `CumlArray` instead of converting to output types. This avoids unnecessary conversions during intermediate computations.
-
-2. **Stores input metadata**: `reset=True` stores `_input_type` and sets `n_features_in_`; `reset="type"` stores only `_input_type` for methods that validate features themselves.
-
-3. **Executes the function**: Runs the wrapped function normally.
-
-4. **Converts output arrays**: When returning to external code, converts all arrays in the result (including nested structures like tuples, lists, and dicts) to the appropriate output type based on:
-   - Global `output_type` setting (highest priority)
-   - Estimator's `output_type` attribute, when reflecting an estimator method
-   - Input array type, or the estimator's fit-time input type for methods with `array=None`
-   - `cupy`, only for standalone functions where no global output type is set and no array type can be inferred
-
-#### Example: Complete Estimator
-
-```python
-from cuml.internals import reflect, run_in_internal_context, exit_internal_context
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.common.array_descriptor import CumlArrayDescriptor
-
-class MyEstimator(Base):
-    coef_ = CumlArrayDescriptor()
-
-    @reflect(reset=True)
-    def fit(self, X, y=None):
-        self.coef_ = input_to_cuml_array(X, order="K").array
-        return self
-
-    @reflect
-    def transform(self, X):
-        X_m = input_to_cuml_array(X, order="K").array
-        return cp.asarray(X_m) @ cp.asarray(self.coef_)
-
-    @run_in_internal_context
-    def score(self, X, y):
-        # Returns a scalar, use run_in_internal_context
-        predictions = self.transform(X)
-        return float(cp.mean(predictions.to_output("cupy")))
 ```

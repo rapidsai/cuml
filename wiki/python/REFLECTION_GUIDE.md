@@ -1,6 +1,6 @@
 # Reflection System Developer Guide
 
-This guide covers the `reflect`, `run_in_internal_context`, and `exit_internal_context` utilities from `cuml.internals.outputs`. These provide the current approach to output type management.
+This guide covers the `reflect`, `run_in_internal_context`, and `exit_internal_context` utilities imported from `cuml.internals`. These provide the current approach to output type management.
 
 ## Overview
 
@@ -33,16 +33,16 @@ Use `@reflect` on methods/functions that return arrays to the user. This is the 
 ### Examples
 
 ```python
+import cuml
+from cuml.common import input_to_cuml_array
 from cuml.internals import reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs
 
-class MyEstimator(Base):
+class MyEstimator(cuml.Base):
     # Fit method: reset=True stores input metadata
     @reflect(reset=True)
     def fit(self, X, y=None):
-        self.X_ = CumlArray.from_input(X)
+        self.X_ = input_to_cuml_array(X, order="K").array
         return self
 
     # Fit method with custom validation: reset="type" stores only input type
@@ -64,7 +64,7 @@ class MyEstimator(Base):
         return self._components
 
     # Method with no array input (uses fit-time input type)
-    @reflect
+    @reflect(array=None)
     def get_components(self):
         return self._components
 
@@ -122,9 +122,11 @@ Use `@run_in_internal_context` for methods that:
 ### Example
 
 ```python
+import cupy as cp
+import cuml
 from cuml.internals import run_in_internal_context, exit_internal_context
 
-class MyClassifier(Base):
+class MyClassifier(cuml.Base):
     @run_in_internal_context
     def predict(self, X):
         # Call reflected method - returns CumlArray internally
@@ -171,9 +173,11 @@ Use `exit_internal_context()` to temporarily exit an internal context when you n
 ### Example
 
 ```python
+import cupy as cp
+import cuml
 from cuml.internals import run_in_internal_context, exit_internal_context
 
-class MySVC(Base):
+class MySVC(cuml.Base):
     @run_in_internal_context
     def predict(self, X):
         scores = self.decision_function(X)
