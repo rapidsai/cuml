@@ -75,6 +75,10 @@ environment variable to ``1`` or ``true`` (case insensitive).
 Note that any python program running with the environment defined this way
 will load the accelerator, which may result in a measurable startup overhead.
 
+This approach is especially useful for accelerating
+:doc:`third-party applications <third-party-apps>` whose code you do not
+control.
+
 Additionally, if ``cuml`` is not installed properly in your environment, the
 ``CUML_ACCEL_ENABLED`` environment variable will be silently ignored (and
 normal CPU execution will occur). For this reason one of the other methods
@@ -97,6 +101,7 @@ before importing functionality from ``sklearn``/``umap``/``hdbscan``.
    :hidden:
 
    self
+   third-party-apps.rst
    logging-and-profiling.rst
    limitations.rst
    faq.rst
