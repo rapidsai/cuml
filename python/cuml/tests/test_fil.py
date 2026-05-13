@@ -563,6 +563,33 @@ def test_output_args(train_device, infer_device, small_classifier_and_preds):
     np.testing.assert_almost_equal(fil_preds, xgb_preds)
 
 
+def test_invalid_preds_dtype_raises(small_classifier_and_preds):
+    with set_fil_device_type("cpu"):
+        model_path, model_type, X, _ = small_classifier_and_preds
+        fm = ForestInference.load(
+            model_path, is_classifier=True, model_type=model_type
+        )
+        expected_preds = np.asarray(fm.predict_proba(X))
+        wrong_dtype = np.float64 if expected_preds.dtype == np.float32 else np.float32
+        preds = np.empty(expected_preds.shape, dtype=wrong_dtype, order="C")
+
+        with pytest.raises(TypeError, match="preds dtype must be"):
+            fm.predict_proba(X, preds=preds)
+
+
+def test_invalid_preds_order_raises(small_classifier_and_preds):
+    with set_fil_device_type("cpu"):
+        model_path, model_type, X, _ = small_classifier_and_preds
+        fm = ForestInference.load(
+            model_path, is_classifier=True, model_type=model_type
+        )
+        expected_preds = np.asarray(fm.predict_per_tree(X))
+        preds = np.empty(expected_preds.shape, dtype=expected_preds.dtype, order="F")
+
+        with pytest.raises(ValueError, match="preds must be C-contiguous"):
+            fm.predict_per_tree(X, preds=preds)
+
+
 def to_categorical(features, n_categorical, invalid_frac, random_state):
     """returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
     LightGBM needs a DataFrame to recognize and fit on categorical columns.

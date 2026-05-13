@@ -255,6 +255,7 @@ cdef class ForestInference_impl():
 
     def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
+        expected_dtype = np.dtype(model_dtype)
         mem_type = GlobalSettings().fil_memory_type
 
         X, index = check_array(
@@ -298,9 +299,22 @@ cdef class ForestInference_impl():
                 mem_type=mem_type,
             )
         else:
-            # TODO(wphicks): Handle incorrect dtype/device/layout in C++
+            preds = CumlArray.from_input(
+                preds,
+                order="K",
+                convert_to_mem_type=False,
+                force_contiguous=False,
+            )
+            if preds.dtype != expected_dtype:
+                raise TypeError(
+                    f"preds dtype must be {expected_dtype}, got {preds.dtype}"
+                )
+            if preds.order != "C":
+                raise ValueError("preds must be C-contiguous")
+            if preds.mem_type is not mem_type:
+                raise TypeError(f"preds must use {mem_type.name} memory")
             if preds.shape != output_shape:
-                raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
+                raise ValueError(f"preds shape must be {output_shape}, got {preds.shape}")
             preds.index = index
         cdef raft_proto_device_t out_dev
         out_dev = get_fil_raft_proto_device_type(preds)
