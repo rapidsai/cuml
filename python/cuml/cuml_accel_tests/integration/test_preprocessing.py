@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import (
+    LabelEncoder,
     MaxAbsScaler,
     MinMaxScaler,
     PolynomialFeatures,
@@ -107,3 +108,13 @@ def test_polynomial_features():
     model.set_output(transform="pandas")
     out_df = model.transform(X)
     assert isinstance(out_df, pd.DataFrame)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "a", "b"])
+    enc = LabelEncoder()
+    y2 = enc.fit_transform(y)
+    np.testing.assert_array_equal(y2, np.array([0, 1, 0, 1]))
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b"]))
+    y3 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y3, y)

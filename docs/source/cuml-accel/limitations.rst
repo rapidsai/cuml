@@ -458,6 +458,11 @@ PolynomialFeatures
 - If ``order`` is ``"F"``.
 - When run on scikit-learn < 1.8.
 
+LabelEncoder
+^^^^^^^^^^^^
+
+``LabelEncoder`` supports all cases and will never fall back to CPU.
+
 TargetEncoder
 ^^^^^^^^^^^^^
 

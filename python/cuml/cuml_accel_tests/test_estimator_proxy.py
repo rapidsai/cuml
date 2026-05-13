@@ -28,7 +28,7 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from cuml.accel import is_proxy
 from cuml.accel.estimator_proxy import ProxyBase
@@ -76,6 +76,13 @@ def test_method_metadata():
 
     cpu_sig = inspect.signature(cpu_cls.fit)
     assert inspect.signature(LogisticRegression.fit) == cpu_sig
+
+
+def test_init_no_parameters_signature():
+    """On Python < 3.13 `inspect.signature` has a bug that led to `__init__`s
+    of proxies with no parameters mistakenly having `*args, **kwargs` in
+    the signature. This test checks that we successfully work around that."""
+    assert not inspect.signature(LabelEncoder).parameters
 
 
 def test_sklearn_introspect_estimator_type():

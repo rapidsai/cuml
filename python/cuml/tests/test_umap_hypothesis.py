@@ -15,6 +15,8 @@ All components are tested against reference UMAP implementations across a wide
 range of parameters and synthetic dataset configurations.
 """
 
+from importlib.metadata import version as package_version
+
 import cupy as cp
 import hypothesis
 import numba
@@ -42,6 +44,8 @@ import cuml.datasets
 # cuML implementation
 from cuml.manifold import SpectralEmbedding
 from cuml.manifold.umap import fuzzy_simplicial_set, simplicial_set_embedding
+
+UMAP_VERSION = Version(package_version("umap-learn"))
 
 
 # Custom dataset wrapper with concise repr to avoid printing giant arrays
@@ -977,8 +981,9 @@ def evaluate_fuzzy_quality(
 
 
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    Version(numba.__version__) >= Version("0.62.0")
+    and UMAP_VERSION < Version("0.5.12"),
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 @pytest.mark.slow
