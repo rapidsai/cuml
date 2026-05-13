@@ -17,7 +17,7 @@ Use `@reflect` on methods/functions that return arrays to the user. This is the 
 
 ### When to Use
 
-- **Fit methods** that set model attributes: use `@reflect(reset=True)`
+- **Fit methods** that set model attributes: use `@reflect(reset=True)` when the decorator should also set `n_features_in_`; use `@reflect(reset="type")` when the method performs feature validation itself
 - **Transform/predict methods** that return array outputs: use `@reflect`
 - **Property accessors** that return arrays: use `@reflect`
 - **Standalone functions** that return arrays: use `@reflect`
@@ -26,7 +26,7 @@ Use `@reflect` on methods/functions that return arrays to the user. This is the 
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `reset` | `False` | Set `True` for fit-like methods. Stores `_input_type` and `n_features_in_` on the model. |
+| `reset` | `False` | Set `True` for fit-like methods when the decorator should store `_input_type` and set `n_features_in_`. Set `"type"` when the method should store `_input_type` but handles feature validation itself. |
 | `model` | `'self'` if present | Parameter name/index for the estimator instance. Set to `None` for standalone functions. |
 | `array` | First non-model arg | Parameter name/index to infer input type from. Set to `None` for methods with no array input. |
 
@@ -36,12 +36,20 @@ Use `@reflect` on methods/functions that return arrays to the user. This is the 
 from cuml.internals import reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.validation import check_inputs
 
 class MyEstimator(Base):
     # Fit method: reset=True stores input metadata
     @reflect(reset=True)
     def fit(self, X, y=None):
         self.X_ = CumlArray.from_input(X)
+        return self
+
+    # Fit method with custom validation: reset="type" stores only input type
+    @reflect(reset="type")
+    def partial_fit(self, X):
+        X_m = check_inputs(self, X, reset=True)
+        self._partial_fit(X_m)
         return self
 
     # Standard method returning an array
@@ -75,7 +83,7 @@ def forecast(nsteps):
 ### Behavior
 
 1. Enters an internal context (nested reflected calls return `CumlArray`)
-2. If `reset=True`, stores `_input_type` and `n_features_in_` from the array parameter
+2. If `reset=True`, stores `_input_type` and sets `n_features_in_` from the array parameter. If `reset="type"`, stores only `_input_type`.
 3. Executes the wrapped function
 4. Converts output arrays to the appropriate type based on:
    - Global `output_type` setting (highest priority)
@@ -142,7 +150,8 @@ class MyClassifier(Base):
 | Aspect | `@reflect` | `@run_in_internal_context` |
 |--------|------------|---------------------------|
 | Output conversion | Automatic | Manual |
-| Sets `_input_type` | With `reset=True` | No |
+| Sets `_input_type` | With `reset=True` or `reset="type"` | No |
+| Sets `n_features_in_` | With `reset=True` | No |
 | Enters internal context | Yes | Yes |
 | Use case | Array-returning methods | Helper methods, score methods |
 
@@ -193,7 +202,7 @@ Does the method return array(s) to the user?
 ├── Yes → Does it need special post-processing (decode_labels, etc.)?
 │   ├── Yes → Use @run_in_internal_context + exit_internal_context()
 │   └── No  → Use @reflect
-│            └── Is it a fit-like method? → Add reset=True
+│            └── Is it a fit-like method? → Add reset=True, or reset="type" if the method validates features itself
 └── No  → Does it call reflected methods internally?
     ├── Yes → Use @run_in_internal_context
     └── No  → No decorator needed
@@ -225,6 +234,18 @@ For methods like `forecast` where there's no array to infer the output type from
 def forecast(self, nsteps):
     # Uses fit-time input type for output conversion
     return self._generate_forecast(nsteps)
+```
+
+### Fit Method with Custom Validation
+
+Use `reset="type"` when the method already calls validation that sets or checks `n_features_in_`:
+
+```python
+@reflect(reset="type")
+def fit(self, X):
+    X_m = check_inputs(self, X, reset=True)
+    self._fit(X_m)
+    return self
 ```
 
 ### Score Method Returning a Scalar
