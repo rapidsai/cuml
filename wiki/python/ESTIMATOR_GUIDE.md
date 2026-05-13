@@ -97,7 +97,7 @@ At a high level, all cuML Estimators must:
       def __init__(self):
          ...
    ```
-5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset=True)` for fit-like methods:
+5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset=True)` for simple fit-like methods, or `@reflect(reset="type")` if the method handles feature validation itself:
    ```python
    from cuml.internals import reflect
 
@@ -434,7 +434,8 @@ class MyEstimator(Base):
 
 | Decorator Usage | When to Use |
 | :-------------- | :---------- |
-| `@reflect(reset=True)` | Fit-like methods that set model attributes. Stores `_input_type` and `n_features_in_`. |
+| `@reflect(reset=True)` | Fit-like methods where the decorator should store `_input_type` and set `n_features_in_`. |
+| `@reflect(reset="type")` | Fit-like methods that store `_input_type` through reflection but set or check `n_features_in_` through custom validation. |
 | `@reflect` | Transform/predict methods that return arrays. |
 | `@reflect(array=None)` | Methods with no array input (e.g., `forecast(nsteps)`). Uses fit-time input type. |
 
@@ -486,7 +487,7 @@ def support_(self):
 
 ### **Do:** Use the `@reflect` Decorator on Public API Methods
 
-Use `@reflect` on methods that return arrays to users. Use `@reflect(reset=True)` for fit-like methods.
+Use `@reflect` on methods that return arrays to users. Use `@reflect(reset=True)` for simple fit-like methods, and `@reflect(reset="type")` when a fit-like method performs its own feature validation.
 
 **Do this:**
 ```python
@@ -652,7 +653,7 @@ The `@reflect` decorator performs several key steps:
 
 1. **Enters an internal context**: Sets a special mode where nested reflected calls return `CumlArray` instead of converting to output types. This avoids unnecessary conversions during intermediate computations.
 
-2. **Stores input metadata** (when `reset=True`): For fit-like methods, stores `_input_type` and `n_features_in_` from the input array.
+2. **Stores input metadata**: `reset=True` stores `_input_type` and sets `n_features_in_`; `reset="type"` stores only `_input_type` for methods that validate features themselves.
 
 3. **Executes the function**: Runs the wrapped function normally.
 
