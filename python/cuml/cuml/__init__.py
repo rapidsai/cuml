@@ -109,6 +109,7 @@ __all__ = [
     "CD",
     "DBSCAN",
     "ElasticNet",
+    "EmpiricalCovariance",
     "ExponentialSmoothing",
     "ForestInference",
     "GaussianRandomProjection",
