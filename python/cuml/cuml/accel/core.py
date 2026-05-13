@@ -94,6 +94,7 @@ _PATCHES = {
     "sklearn.pipeline",
     "sklearn.utils",
     "sklearn.utils._array_api",
+    "sklearn.utils.discovery",
 }
 
 ACCELERATED_MODULES = sorted(_OVERRIDES.union(_PATCHES))
