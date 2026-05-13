@@ -9,6 +9,7 @@ from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin, UnsupportedOnCPU
 from cuml.internals.outputs import (
     exit_internal_context,
     reflect,
@@ -17,7 +18,7 @@ from cuml.internals.outputs import (
 from cuml.internals.validation import check_cudf, check_is_fitted, check_y
 
 
-class LabelEncoder(Base):
+class LabelEncoder(Base, InteropMixin):
     """Encode target labels with values between 0 and n_classes - 1.
 
     This transformer should be used to encode target values (`y`) and not the
@@ -57,6 +58,8 @@ class LabelEncoder(Base):
     array(['apple', 'banana', 'grape'], dtype='<U6')
     """
 
+    _cpu_class_path = "sklearn.preprocessing.LabelEncoder"
+
     def __init__(
         self,
         *,
@@ -77,6 +80,23 @@ class LabelEncoder(Base):
     @staticmethod
     def _more_static_tags():
         return {"X_types": ["1dlabels"]}
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {}
+
+    def _params_to_cpu(self):
+        if self.handle_unknown != "error":
+            raise UnsupportedOnCPU(
+                f"`handle_unknown={self.handle_unknown}` is not supported"
+            )
+        return {}
+
+    def _attrs_from_cpu(self, model):
+        return {"classes_": model.classes_}
+
+    def _attrs_to_cpu(self, model):
+        return {"classes_": self.classes_}
 
     def _validate_keywords(self):
         if self.handle_unknown not in ("error", "ignore"):

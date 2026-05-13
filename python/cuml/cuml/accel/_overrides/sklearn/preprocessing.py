@@ -18,6 +18,7 @@ __all__ = (
     "MaxAbsScaler",
     "PolynomialFeatures",
     "TargetEncoder",
+    "LabelEncoder",
 )
 
 
@@ -51,6 +52,10 @@ class PolynomialFeatures(ArrayAPIProxyBase):
         if model.order == "F":
             raise UnsupportedOnGPU("order='F' is not supported")
         return model.get_params(deep=False)
+
+
+class LabelEncoder(ProxyBase):
+    _gpu_class = cuml.preprocessing.LabelEncoder
 
 
 def _check_targetencoder_y(y):
