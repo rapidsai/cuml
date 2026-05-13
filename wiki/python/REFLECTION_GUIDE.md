@@ -79,9 +79,9 @@ def forecast(nsteps):
 3. Executes the wrapped function
 4. Converts output arrays to the appropriate type based on:
    - Global `output_type` setting (highest priority)
-   - Estimator's `output_type` attribute
-   - Input array type (if `output_type="input"`)
-   - Default: `cupy`
+   - Estimator's `output_type` attribute, when reflecting an estimator method
+   - Input array type, or the estimator's fit-time input type for methods with `array=None`
+   - `cupy`, only for standalone functions where no global output type is set and no array type can be inferred
 
 ### Nested Output Conversion
 
