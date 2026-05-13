@@ -69,11 +69,11 @@ cuML often implements GPU-accelerated versions of estimators that already exist 
 ## Quick Start Guide
 
 At a high level, all cuML Estimators must:
-1. Inherit from `cuml.common.base.Base`
+1. Inherit from `cuml.Base`
    ```python
-   from cuml.common.base import Base
+   import cuml
 
-   class MyEstimator(Base):
+   class MyEstimator(cuml.Base):
       ...
    ```
 2. Follow the Scikit-learn estimator guidelines found [here](https://scikit-learn.org/stable/developers/develop.html)
@@ -267,7 +267,11 @@ When the input array type isn't known, the correct and safest way to ingest arra
 
 ```python
 def fit(self, X):
-    cuml_array, dtype, cols, rows = input_to_cuml_array(X, order="K")
+    input_data = input_to_cuml_array(X, order="K")
+    X_m = input_data.array
+    rows = input_data.n_rows
+    cols = input_data.n_cols
+    dtype = input_data.dtype
     ...
 ```
 
@@ -277,7 +281,7 @@ The `CumlArray` class can convert to any supported array type using the `to_outp
 
 ## Estimator Design
 
-All estimators (any class that is a child of `cuml.common.base.Base`) have a similar structure. In addition to the guidelines specified in the [SkLearn Estimator Docs](https://scikit-learn.org/stable/developers/develop.html), cuML implements a few additional rules.
+All estimators (any class that is a child of `cuml.Base`) have a similar structure. In addition to the guidelines specified in the [SkLearn Estimator Docs](https://scikit-learn.org/stable/developers/develop.html), cuML implements a few additional rules.
 
 ### Initialization
 
@@ -360,14 +364,14 @@ class DBSCAN(Base,
 MRO:
 ```python
 >>> cuml.DBSCAN.__mro__
-(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.common.base.Base'>, <class 'cuml.common.mixins.TagsMixin'>, <class 'cuml.common.mixins.ClusterMixin'>, <class 'cuml.common.mixins.CMajorInputTagMixin'>, <class 'object'>)
+(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.internals.base.Base'>, <class 'cuml.internals.mixins.TagsMixin'>, <class 'cuml.internals.mixins.ClusterMixin'>, <class 'cuml.internals.mixins.CMajorInputTagMixin'>, <class 'object'>)
 ```
 
 So this needs to be taken into account for tag resolution, for the case above, the tags in `ClusterMixin` would overwrite tags of `CMajorInputTagMixin` if they defined the same tags. So take this into consideration for the (uncommon) cases where there might be tags re-defined in your MRO. This is not common since most tag mixins define mutually exclusive tags (i.e. either prefer `F` or `C` major inputs).
 
 ### Estimator Array-Like Attributes
 
-Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
+Any array-like attribute stored in an estimator needs to be convertible to the user's desired output type. To make it easier to store array-like objects in a class that derives from `Base`, the `cuml.common.array_descriptor.CumlArrayDescriptor` was created. The `CumlArrayDescriptor` class is a Python descriptor object which allows cuML to implement customized attribute lookup, storage and deletion code that can be reused on all estimators.
 
 The `CumlArrayDescriptor` behaves different when accessed internally (from within one of `cuml`'s functions) vs. externally (for user code outside the cuml module). Internally, it behaves exactly like a normal attribute and will return the previous value set. Externally, the array will get converted to the user's desired output type lazily and repeated conversion will be cached.
 
