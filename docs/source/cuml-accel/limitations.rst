@@ -463,6 +463,11 @@ LabelEncoder
 
 ``LabelEncoder`` supports all cases and will never fall back to CPU.
 
+LabelBinarizer
+^^^^^^^^^^^^^^
+
+``LabelBinarizer`` supports all cases and will never fall back to CPU.
+
 TargetEncoder
 ^^^^^^^^^^^^^
 
