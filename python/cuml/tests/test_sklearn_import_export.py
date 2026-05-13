@@ -8,6 +8,7 @@ import pytest
 import scipy.sparse
 import sklearn
 import sklearn.kernel_ridge
+import sklearn.preprocessing
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
@@ -1018,3 +1019,25 @@ def test_target_encoder(random_state):
 
     assert array_equal(original_output, sklearn_output)
     assert array_equal(original_output, roundtrip_output)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "b", "a"])
+    cu_model = cuml.preprocessing.LabelEncoder().fit(y)
+    sk_model = sklearn.preprocessing.LabelEncoder().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+
+    sol = np.array([0, 1, 1, 0])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)
