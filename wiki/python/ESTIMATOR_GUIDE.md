@@ -86,7 +86,7 @@ At a high level, all cuML Estimators must:
          ...
    ```
 
-   > **Note:** The `handle` argument is deprecated and will be removed after the 26.02 release. New estimators should not include a `handle` parameter. If your estimator requires `n_streams` or multi-GPU support via `device_ids`, add those as top-level parameters instead.
+   > **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. If your estimator requires `n_streams` or multi-GPU support via `device_ids`, add those as top-level parameters instead.
 4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
    ```python
    from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -283,7 +283,7 @@ All estimators (any class that is a child of `cuml.common.base.Base`) have a sim
 
 All estimators should match the arguments (including the default value) in `Base.__init__` and pass these values to `super().__init__()`. All estimators should accept `verbose` and `output_type`.
 
-> **Deprecation Notice:** The `handle` argument is deprecated and will be removed after the 26.02 release. New estimators should not include a `handle` parameter. Estimators that need to configure stream pools should add an `n_streams` parameter. Estimators that support multi-GPU execution should add a `device_ids` parameter.
+> **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. Estimators that need to configure stream pools should add an `n_streams` parameter. Estimators that support multi-GPU execution should add a `device_ids` parameter.
 
 In general, all estimator constructor parameters should be keyword-only except for those arguments that are not keyword-only in the matched API. This helps prevent breaking changes if arguments are added or removed in future versions. For example:
 
