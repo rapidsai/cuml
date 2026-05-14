@@ -356,7 +356,7 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOP
 
 When implementing a new estimator in cuML, follow these key steps:
 
-1. Ensure the algorithm is implemented in C++/CUDA first (see [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md))
+1. Choose an implementation strategy appropriate for the algorithm. C++/CUDA implementations are still preferred for shared, performance-critical primitives, but CuPy-only implementations are permitted when they provide a significant speedup and do not need a reusable C++ algorithm first.
 2. Create a Python wrapper class that:
    - Follows scikit-learn's API design patterns
    - Inherits from `cuml.Base`
