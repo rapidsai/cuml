@@ -32,9 +32,7 @@ If you are working on C++/CUDA code or need to understand the underlying impleme
 
 Use this document for repository-wide Python development policy: style, docstrings, testing, memory management, deprecations, logging, multi-GPU structure, and benchmarking.
 
-Use [Estimator Guide](ESTIMATOR_GUIDE.md) when creating or modifying a `cuml.Base` estimator. It contains the estimator contract, copyable estimator skeleton, array descriptor guidance, and estimator-specific do's and don'ts.
-
-Use [Reflection Guide](REFLECTION_GUIDE.md) when deciding between `@reflect`, `@run_in_internal_context`, `exit_internal_context`, `reset=True`, `reset="type"`, and `array=None`.
+Use [Estimator Guide](ESTIMATOR_GUIDE.md) when creating or modifying a `cuml.Base` estimator. It contains the estimator contract, copyable estimator skeleton, input validation, array descriptor guidance, reflection guidance, and estimator-specific do's and don'ts.
 
 ## Getting Started
 
