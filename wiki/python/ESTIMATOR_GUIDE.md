@@ -562,25 +562,21 @@ When testing reflected methods, cover the default input-reflection behavior, est
 
 ### **Do:** Return Array-Like Objects Directly
 
-Return array-like objects directly from reflected public methods. Let `@reflect` perform output conversion.
+Return array-like objects directly from reflected public methods. `@reflect` already converts the result to the user's requested output type; calling `to_output` yourself is redundant and can return the wrong type if the hardcoded choice differs from the caller's setting.
 
 **Do this:**
 ```python
 @reflect
-def predict(self) -> CumlArray:
-   cp_arr = cp.ones((10,))
-
-   return cp_arr
+def predict(self, X) -> CumlArray:
+    return cp.ones((X.shape[0],))
 ```
 
 **Not this:**
 ```python
 @reflect
-def predict(self, X, y) -> CumlArray:
-    cp_arr = cp.ones((10,))
-
-    # Do not wrap or convert the output manually.
-
+def predict(self, X) -> CumlArray:
+    cp_arr = cp.ones((X.shape[0],))
+    # BAD: @reflect will re-convert this; the manual call is redundant.
     return CumlArray(cp_arr).to_output(self._get_output_type(X))
 ```
 
