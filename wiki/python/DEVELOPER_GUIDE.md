@@ -574,7 +574,7 @@ X, y = make_blobs(n_samples=1000, n_features=30)
 
 model = UMAP()
 model.fit(X)
-embeddngs = model.transform(X)
+embeddings = model.transform(X)
 ```
 
 that once benchmarked can have its profiling summarized:
