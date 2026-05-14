@@ -244,6 +244,22 @@ def test_label_binarizer_multilabel_indicator(
     np.testing.assert_array_equal(res, sol)
 
 
+@pytest.mark.parametrize("threshold", [1, -1])
+@pytest.mark.parametrize("sparse", [False, True])
+def test_label_binarizer_inverse_transform_threshold(threshold, sparse):
+    lb = LabelBinarizer().fit(np.array(["a", "b", "c"]))
+
+    p = threshold + 1
+    n = threshold - 1
+    y = np.array([[n, p, n], [p, n, n], [n, n, p]])
+    sol = np.array(["b", "a", "c"])
+    if sparse:
+        y = sp.csr_matrix(y)
+
+    res = lb.inverse_transform(y, threshold=threshold)
+    np.testing.assert_array_equal(res, sol)
+
+
 def test_label_binarize_respects_class_order():
     out = label_binarize([1, 6], classes=[1, 2, 4, 6])
     expected = cp.array([[1, 0, 0, 0], [0, 0, 0, 1]])
