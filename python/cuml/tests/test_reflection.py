@@ -394,3 +394,33 @@ def test_array_descriptor_cache_behavior():
     assert b"pandas" not in msg
     assert_output_type(model2.X_, "cupy")
     assert len(model2.__dict__["X_"].values) == 2  # cuml + cupy
+
+
+def test_decorators_set_cupy_ptds():
+    class MyEstimator(Base):
+        @reflect(reset="type")
+        def fit(self, X, y=None):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return self
+
+        @reflect
+        def direct_call(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return cp.zeros(3)
+
+        @reflect
+        def nested_call(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return self.direct_call(X)
+
+        @run_in_internal_context
+        def no_reflection(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return cp.zeros(3)
+
+    model = MyEstimator()
+    X = cp.ones(3)
+    model.fit(X)
+    model.direct_call(X)
+    model.nested_call(X)
+    model.no_reflection(X)
