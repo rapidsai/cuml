@@ -72,7 +72,7 @@ At a high level, all cuML Estimators must:
    class MyEstimator(Base):
       ...
    ```
-2. Follow the Scikit-learn estimator guidelines found [here](https://scikit-learn.org/stable/developers/develop.html)
+2. Follow the [Scikit-learn estimator developer guidelines](https://scikit-learn.org/stable/developers/develop.html)
 3. Include the `Base.__init__()` arguments available in the new Estimator's `__init__()`
    ```python
    from cuml.internals.base import Base
