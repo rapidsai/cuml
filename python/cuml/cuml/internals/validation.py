@@ -683,14 +683,10 @@ def check_array(
                     array = array.to_numpy(dtype="object")
                 array = np.asarray(array, dtype=dtype, order=order)
             else:
-                # XXX: the dtype keyword to `to_cupy` is buggy, and also
-                # doesn't support all dtype coercions. For now we do a
-                # manual cast to handle any coercions.
-                # See https://github.com/rapidsai/cudf/issues/22136.
-                if dtype is not None:
-                    array = array.astype(dtype, copy=False)
                 array = cp.asarray(
-                    array.to_cupy(copy=copy), dtype=dtype, order=order
+                    array.to_cupy(copy=copy, dtype=dtype),
+                    dtype=dtype,
+                    order=order,
                 )
         elif isinstance(array, (pd.DataFrame, pd.Series)):
             # Handle pandas inputs
