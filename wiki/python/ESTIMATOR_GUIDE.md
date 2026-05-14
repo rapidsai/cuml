@@ -67,17 +67,17 @@ cuML often implements GPU-accelerated versions of estimators from CPU libraries,
 At a high level, all cuML Estimators must:
 1. Inherit from `cuml.Base`
    ```python
-   import cuml
+   from cuml.internals.base import Base
 
-   class MyEstimator(cuml.Base):
+   class MyEstimator(Base):
       ...
    ```
 2. Follow the Scikit-learn estimator guidelines found [here](https://scikit-learn.org/stable/developers/develop.html)
 3. Include the `Base.__init__()` arguments available in the new Estimator's `__init__()`
    ```python
-   import cuml
+   from cuml.internals.base import Base
 
-   class MyEstimator(cuml.Base):
+   class MyEstimator(Base):
 
       def __init__(self, *, extra_arg=True, verbose=False, output_type=None):
          super().__init__(verbose=verbose, output_type=output_type)
@@ -87,10 +87,10 @@ At a high level, all cuML Estimators must:
    > **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. If your estimator requires `n_streams` or multi-GPU support via `device_ids`, add those as top-level parameters instead.
 4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
    ```python
-   import cuml
    from cuml.common.array_descriptor import CumlArrayDescriptor
+   from cuml.internals.base import Base
 
-   class MyEstimator(cuml.Base):
+   class MyEstimator(Base):
 
       labels_ = CumlArrayDescriptor(order='C')
 
@@ -99,11 +99,11 @@ At a high level, all cuML Estimators must:
    ```
 5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset="type")` on fit-like methods that call `cuml.internals.validation` helpers directly, and use plain `@reflect` on inference methods:
    ```python
-   import cuml
    from cuml.internals import reflect
    from cuml.internals.array import CumlArray
+   from cuml.internals.base import Base
 
-   class MyEstimator(cuml.Base):
+   class MyEstimator(Base):
 
       @reflect(reset="type")
       def fit(self, X) -> "MyEstimator":
@@ -147,14 +147,14 @@ For most estimators, the checklist and skeleton below are enough. The later sect
 Use this as a starting point for dense estimators that follow the standard cuML pattern:
 
 ```python
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
-class MyEstimator(cuml.Base):
+class MyEstimator(Base):
     result_ = CumlArrayDescriptor(order="C")
 
     def __init__(self, *, extra_arg=True, verbose=False, output_type=None):
@@ -360,8 +360,9 @@ Declare descriptor-managed attributes as class variables. Pass `order` when the 
 
 ```python
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.internals.base import Base
 
-class TestEstimator(cuml.Base):
+class TestEstimator(Base):
 
    # Class variables outside of any function
    my_cuml_array_ = CumlArrayDescriptor(order='C')
@@ -376,12 +377,12 @@ Once a descriptor attribute is defined, use it like a normal attribute inside es
 
 ```python
 import cupy as cp
-import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect
+from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs
 
-class SampleEstimator(cuml.Base):
+class SampleEstimator(Base):
 
    # Class variables outside of any function
    my_cuml_array_ = CumlArrayDescriptor()
@@ -475,11 +476,11 @@ Use `@reflect` on methods that return arrays to the user:
 
 ```python
 import cupy as cp
-import cuml
 from cuml.internals import reflect
+from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs, check_is_fitted
 
-class MyEstimator(cuml.Base):
+class MyEstimator(Base):
     @reflect(reset="type")
     def fit(self, X):
         self.coef_ = check_inputs(self, X, order="K", reset=True)
@@ -505,10 +506,10 @@ For methods that need manual output handling, such as classifier `predict` with 
 
 ```python
 import cupy as cp
-import cuml
 from cuml.internals import run_in_internal_context, exit_internal_context
+from cuml.internals.base import Base
 
-class MyClassifier(cuml.Base):
+class MyClassifier(Base):
     @run_in_internal_context
     def predict(self, X):
         # Reflected methods return internal arrays inside this context.
@@ -619,7 +620,7 @@ Store constructor arguments exactly as passed. Move normalization, validation, a
 
 **Do this:**
 ```python
-class TestEstimator(cuml.Base):
+class TestEstimator(Base):
 
     def __init__(self, method_name: str, ...):
         super().__init__(...)
@@ -641,7 +642,7 @@ class TestEstimator(cuml.Base):
 
 **Not this:**
 ```python
-class TestEstimator(cuml.Base):
+class TestEstimator(Base):
 
     def __init__(self, method_name: str, ...):
         super().__init__(...)

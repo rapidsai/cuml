@@ -269,8 +269,9 @@ Fit-like methods should validate with `reset=True` so feature metadata is set fr
 For example:
 
 ```python
-from cuml.internals import Base, reflect
+from cuml.internals import reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
