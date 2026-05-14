@@ -23,7 +23,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@release/26.06
+    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@cuda-13.2.0
     with:
       sender_login: ${{ github.event.sender.login }}
       sender_avatar: ${{ github.event.sender.avatar_url }}
