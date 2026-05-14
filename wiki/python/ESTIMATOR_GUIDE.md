@@ -559,7 +559,7 @@ Use these rules when choosing a decorator:
 
 When testing reflected methods, cover the default input-reflection behavior, estimator-level `output_type`, and global `cuml.using_output_type(...)` overrides.
 
-## Do's And Do Not's
+## Do's and Don'ts
 
 ### **Do:** Return Array-Like Objects Directly
 
