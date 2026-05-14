@@ -324,7 +324,7 @@ Estimator tags describe capabilities such as sparse support, positive-input requ
 
 - `X_types_gpu` (default=['2darray'])
    Device-accessible input types accepted by the estimator. `2darray` includes CuPy, Numba device arrays, and cuDF objects. `sparse` includes CuPy sparse arrays.
- - `preferred_input_order` (default=None)
+- `preferred_input_order` (default=None)
    One of ['F', 'C', None]. Use `F` or `C` only when the estimator consistently benefits from that dense memory layout; otherwise leave it as `None`.
 - `dynamic_tags` (default=False)
    Whether tags depend on runtime state. `Base` sets this automatically when an estimator defines `_more_tags`.
