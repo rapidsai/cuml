@@ -117,7 +117,7 @@ At a high level, all cuML Estimators must:
       def predict(self, X) -> CumlArray:
          ...
    ```
-   See the [Reflection Guide](REFLECTION_GUIDE.md) for detailed guidance on when to use `@reflect`, `@run_in_internal_context`, and `exit_internal_context`.
+   See [Estimator Methods](#estimator-methods) for detailed guidance on when to use `@reflect`, `@run_in_internal_context`, and `exit_internal_context`.
 6. Implement `_get_param_names()` including values returned by `super()._get_param_names()`
    ```python
       @classmethod
@@ -482,9 +482,7 @@ For more information about `CumlArrayDescriptor` and its implementation, see the
 
 ### Estimator Methods
 
-cuML uses the reflection system to manage output type conversions, ensuring arrays are returned in the user's expected format (cupy, numpy, pandas, cudf, etc.). The `@reflect` decorator and related utilities handle this automatically.
-
-For comprehensive documentation, see the [Reflection Guide](REFLECTION_GUIDE.md).
+cuML uses the reflection system to manage output type conversions, ensuring arrays are returned in the user's expected format (cupy, numpy, pandas, cudf, etc.). The system tracks external calls from user code separately from internal calls within cuML so intermediate computations avoid unnecessary conversions.
 
 #### Using the `@reflect` Decorator
 
@@ -562,6 +560,19 @@ For properties that return arrays:
 def support_(self):
     return self._support_vectors
 ```
+
+#### Reflection Decision Rules
+
+Use these rules when choosing the decorator:
+
+- If a public method returns array-like data directly to the user, use `@reflect`.
+- If a fit-like method calls validation helpers directly, use `@reflect(reset="type")` and pass `reset=True` to validation.
+- If a fit-like method does not call validation directly and needs the decorator to set feature metadata, use `@reflect(reset=True)`.
+- If a method has no array input and should use the fit-time input type for output conversion, use `@reflect(array=None)`.
+- If a method returns a scalar or needs to call reflected methods internally without automatic output conversion, use `@run_in_internal_context`.
+- If code inside an internal context needs user-facing output-type inference or needs to call an external estimator, temporarily use `exit_internal_context()`.
+
+When testing reflected methods, cover the default input-reflection behavior, estimator-level `output_type`, and global `cuml.using_output_type(...)` overrides.
 
 ## Do's And Do Not's
 
@@ -701,7 +712,7 @@ This section contains more in-depth information about the descriptors and intern
 
 ### Reflection System
 
-For detailed documentation on the reflection system (`@reflect`, `@run_in_internal_context`, `exit_internal_context`), see the [Reflection Guide](REFLECTION_GUIDE.md).
+For estimator-facing guidance on the reflection system (`@reflect`, `@run_in_internal_context`, `exit_internal_context`), see [Estimator Methods](#estimator-methods).
 
 ### Estimator Array-Like Attributes
 
