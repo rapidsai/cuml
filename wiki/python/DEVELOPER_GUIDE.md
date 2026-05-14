@@ -10,13 +10,14 @@ This document provides comprehensive guidelines and best practices for contribut
 4. [Coding Style](#coding-style)
 5. [Documentation](#documentation)
 6. [Testing and Unit Testing](#testing-and-unit-testing)
-7. [Memory Management](#memory-management)
-8. [Thread Safety](#thread-safety)
-9. [Creating New Estimators](#creating-new-estimators)
-10. [Deprecation Policy](#deprecation-policy)
-11. [Logging](#logging)
-12. [Multi-GPU Support](#multi-gpu-support)
-13. [Benchmarking](#benchmarking)
+7. [Input Validation](#input-validation)
+8. [Memory Management](#memory-management)
+9. [Thread Safety](#thread-safety)
+10. [Creating New Estimators](#creating-new-estimators)
+11. [Deprecation Policy](#deprecation-policy)
+12. [Logging](#logging)
+13. [Multi-GPU Support](#multi-gpu-support)
+14. [Benchmarking](#benchmarking)
 
 ## Prerequisites
 
@@ -242,9 +243,77 @@ Common options:
 
 Running pytest from outside `python/cuml/` can result in import errors or missed pytest configuration.
 
+## Input Validation
+
+New or updated estimator code should use `cuml.internals.validation` for user-facing input validation. These helpers are the standard path for matching scikit-learn validation behavior, simplifying input ingest, and avoiding module-specific validation pipelines.
+
+Prefer `check_inputs` for estimator methods that validate `X` and optional `y` / `sample_weight` values. It composes the common validation steps:
+
+- `check_features` for `n_features_in_` and `feature_names_in_`
+- `check_array` for `X`
+- `check_y` for targets and classifier label encoding
+- `check_sample_weight` for sample weights
+- `check_consistent_length` across validated inputs
+
+Use the lower-level helpers directly when a method has a non-standard shape: `check_array` for standalone arrays, `check_y` for targets, `check_cudf` for cuDF/dataframe-oriented paths, and `check_all_finite` or `check_non_negative` only for specialized checks that are not already covered by the higher-level helpers.
+
+Validation helpers should be configured to describe what the estimator actually supports. Set `dtype`, `convert_dtype`, `mem_type`, `order`, `accept_sparse`, `ensure_all_finite`, `ensure_non_negative`, and minimum shape requirements explicitly when the defaults are not correct. Do not hand-roll equivalent checks unless the common helpers cannot express the estimator's requirements.
+
+The validation pipeline normalizes inputs to standard array containers:
+
+- `cupy.ndarray` or `cupyx.scipy.sparse.spmatrix` for device outputs
+- `numpy.ndarray` or `scipy.sparse.spmatrix` for host outputs
+
+For new code, prefer these standard containers for internal processing rather than converting user inputs through `input_to_cuml_array` or using `CumlArray` as the ingest representation. `CumlArray` is still useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
+
+Fit-like methods should validate with `reset=True` so feature metadata is set from the training input. Inference methods should usually call `check_is_fitted` and then validate with the default `reset=False` so the input is checked against the fitted feature metadata. When a method needs to preserve an input dataframe index for reflected output, pass `return_index=True` and wrap the returned value with the collected index.
+
+For example:
+
+```python
+from cuml.internals import Base, reflect
+from cuml.internals.array import CumlArray
+from cuml.internals.validation import check_inputs, check_is_fitted
+
+
+class MyEstimator(Base):
+
+    @reflect(reset="type")
+    def fit(self, X, y, *, convert_dtype=True):
+        X, y = check_inputs(
+            self,
+            X,
+            y,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            reset=True,
+        )
+        # Fit using cupy/numpy arrays returned by validation.
+        return self
+
+    @reflect
+    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+        check_is_fitted(self)
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
+        )
+        out = ...
+        return CumlArray(out, index=index)
+```
+
+Tests for validation changes should cover both accepted and rejected inputs, including dtype conversion, sparse support, finite/non-negative requirements, feature-count and feature-name checks, and any classifier class-encoding behavior. When changing validation behavior for an estimator, also check the scikit-learn compatibility tests and the `cuml.accel` upstream xfail list.
+
 ## Memory Management
 
-cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Python estimator code should normally allocate and convert array-like data through `CumlArray`, `input_to_cuml_array`, or the validation helpers used by nearby estimators.
+cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Validated user inputs should generally be processed as standard arrays (`cupy`, `numpy`, `cupyx.scipy.sparse`, or `scipy.sparse`) returned by the input validation helpers.
+
+`CumlArray` remains useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
 
 Current `CumlArray` memory types are:
 
@@ -253,6 +322,7 @@ Current `CumlArray` memory types are:
 
 Use explicit conversion parameters when a code path needs a specific location; estimators do not have a general memory-type context manager.
 
+The `CumlArray` class provides a unified interface for array data when cuML needs output-type reflection or descriptor-managed attributes:
 ```python
 from cuml.internals.array import CumlArray
 
@@ -291,6 +361,7 @@ When implementing a new estimator in cuML, follow these key steps:
    - Follows scikit-learn's API design patterns
    - Inherits from `cuml.Base`
    - Is placed in the appropriate subdirectory matching scikit-learn's structure
+   - Uses `cuml.internals.validation` for public input validation
 
 For detailed implementation guidelines, including file organization, API design, output type handling, and a copyable estimator skeleton, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
 
