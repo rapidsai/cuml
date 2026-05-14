@@ -21,7 +21,6 @@ This guide documents the patterns expected for new or updated `cuml.Base` estima
    - [Estimator Array-Like Attributes](#estimator-array-like-attributes)
    - [Estimator Methods](#estimator-methods)
 - [Do's and Do Not's](#dos-and-do-nots)
-- [Appendix](#appendix)
 
 ## Recommended Scikit-Learn Documentation
 
@@ -466,8 +465,6 @@ with cuml.using_output_type("cupy"):
 print(type(my_est.my_cuml_array_)) # Output: cuDF. Using a cached value!
 ```
 
-For more information about `CumlArrayDescriptor` and its implementation, see the [CumlArrayDescriptor Internals](#cumlarraydescriptor-internals) section of the Appendix.
-
 ### Estimator Methods
 
 cuML uses reflection to convert public array outputs to the user's expected type (`cupy`, `numpy`, `pandas`, `cudf`, etc.). Internal calls stay in an internal context so intermediate computations avoid unnecessary conversions.
@@ -662,31 +659,4 @@ class TestEstimator(cuml.Base):
         # This method is now coupled to a mutated constructor parameter.
 
         return self
-```
-
-## Appendix
-
-This section contains lower-level descriptor details for debugging and advanced maintenance.
-
-### Estimator Array-Like Attributes
-
-#### `CumlArrayDescriptor` Internals
-
-The internal representation of `CumlArrayDescriptor` is a `CumlArrayDescriptorMeta` object. To inspect the internal representation, the attribute value must be directly accessed from the estimator's `__dict__` (`getattr` and `__getattr__` will perform the conversion). For example:
-
-```python
-my_est = TestEstimator()
-my_est.fit(cp.ones((10,)))
-
-# Access the CumlArrayDescriptorMeta value directly. No array conversion will occur
-print(my_est.__dict__["my_cuml_array_"])
-# Output: CumlArrayDescriptorMeta(input_type='cupy', values={'cuml': <cuml.internals.array.CumlArray object at 0x7fd39174ae20>, 'numpy': array([ 0,  1,  1,  2,  2, -1, -1, ...
-
-# Values from CumlArrayDescriptorMeta can be specifically read
-print(my_est.__dict__["my_cuml_array_"].input_type)
-# Output: "cupy"
-
-# The input value can be accessed
-print(my_est.__dict__["my_cuml_array_"].get_input_value())
-# Output: CumlArray ...
 ```
