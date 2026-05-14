@@ -101,7 +101,7 @@ At a high level, all cuML Estimators must:
       def __init__(self):
          ...
    ```
-5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset=True)` for simple fit-like methods, or `@reflect(reset="type")` if the method handles feature validation itself:
+5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset="type")` on fit-like methods that call `cuml.internals.validation` helpers directly, and use plain `@reflect` on inference methods:
    ```python
    import cuml
    from cuml.internals import reflect
@@ -109,7 +109,7 @@ At a high level, all cuML Estimators must:
 
    class MyEstimator(cuml.Base):
 
-      @reflect(reset=True)
+      @reflect(reset="type")
       def fit(self, X) -> "MyEstimator":
          ...
 
@@ -155,10 +155,10 @@ Use this as a starting point for dense estimators that follow the standard cuML 
 
 ```python
 import cuml
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect
 from cuml.internals.array import CumlArray
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 
 class MyEstimator(cuml.Base):
@@ -172,16 +172,17 @@ class MyEstimator(cuml.Base):
     def _get_param_names(cls):
         return super()._get_param_names() + ["extra_arg"]
 
-    @reflect(reset=True)
-    def fit(self, X, y=None) -> "MyEstimator":
-        X_m = input_to_cuml_array(X, order="K").array
+    @reflect(reset="type")
+    def fit(self, X) -> "MyEstimator":
+        X_m = check_inputs(self, X, order="K", reset=True)
         # Replace this placeholder with estimator training.
         self.result_ = X_m
         return self
 
     @reflect
     def transform(self, X) -> CumlArray:
-        X_m = input_to_cuml_array(X, order="K").array
+        check_is_fitted(self)
+        X_m = check_inputs(self, X, order="K")
         # Return an array-like object directly; @reflect handles conversion.
         return X_m
 ```
@@ -194,9 +195,9 @@ Some background is necessary to understand the design of estimators and how to w
 
 ### Array I/O and Output Types in cuML
 
-cuML estimators should accept the standard array-like inputs supported by `input_to_cuml_array`: cuDF DataFrame or Series, pandas DataFrame or Series, NumPy arrays, Numba device arrays, CuPy arrays, and internal `CumlArray` values. Sparse estimators should use the sparse-specific validation utilities used by neighboring sparse estimators.
+cuML estimators should validate public inputs with `cuml.internals.validation` helpers such as `check_inputs`, `check_array`, `check_y`, and `check_sample_weight`. These helpers accept the standard cuML array-like inputs, apply estimator feature metadata checks, and normalize data to standard CuPy/NumPy or sparse array containers. Sparse estimators should configure the validation helpers for their supported sparse formats or follow the sparse-specific validation utilities used by neighboring sparse estimators.
 
-Internally, dense array data should usually be converted to `CumlArray`. `CumlArray` can store either device-accessible or host-accessible data. Low-level code that needs a specific memory location should request it explicitly through arguments such as `convert_to_mem_type` on input conversion or `output_mem_type` on `CumlArray.to_output()`.
+Internally, dense array data should usually be processed as the standard arrays returned by validation. Use `CumlArray` at API boundaries, especially for descriptor-managed fitted attributes and returned values that need output-type reflection or index preservation. Low-level code that needs a specific memory location should request it explicitly through validation arguments such as `mem_type`.
 
 Public output type conversion is handled by `@reflect` and `CumlArrayDescriptor`. Users can choose output types in three ways:
 
@@ -224,17 +225,43 @@ The internal output type `"cuml"` may appear inside reflected calls. User-facing
 
 ### Ingesting Arrays
 
-When the input array type isn't known, the correct and safest way to ingest arrays is using `cuml.common.input_to_cuml_array`. This method can handle all supported types, is capable of checking the array order, can enforce a specific dtype, and can raise errors on incorrect array sizes:
+When the input array type is not known, the correct and safest way to validate estimator inputs is using `cuml.internals.validation`. For estimator methods that validate `X` and optional `y` or `sample_weight`, prefer `check_inputs`; it handles feature metadata, dtype conversion, array order, sparse support, length checks, and fit-vs-inference validation consistently with scikit-learn. Omit `y` or `sample_weight` when the method does not validate those inputs.
 
 ```python
-def fit(self, X):
-    input_data = input_to_cuml_array(X, order="K")
-    X_m = input_data.array
-    rows = input_data.n_rows
-    cols = input_data.n_cols
-    dtype = input_data.dtype
+from cuml.internals import reflect
+from cuml.internals.validation import check_inputs, check_is_fitted
+
+
+@reflect(reset="type")
+def fit(self, X, y, *, convert_dtype=True):
+    X_m, y_m = check_inputs(
+        self,
+        X,
+        y,
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        order="K",
+        reset=True,
+    )
+    rows, cols = X_m.shape
+    dtype = X_m.dtype
+    ...
+
+
+@reflect
+def transform(self, X, *, convert_dtype=True):
+    check_is_fitted(self)
+    X_m = check_inputs(
+        self,
+        X,
+        dtype=self.result_.dtype,
+        convert_dtype=convert_dtype,
+        order="K",
+    )
     ...
 ```
+
+Use lower-level helpers directly when a method has non-standard inputs: `check_array` for a standalone array, `check_y` for targets, `check_cudf` for dataframe-oriented paths, and `check_all_finite` or `check_non_negative` for specialized checks not already covered by the higher-level helpers.
 
 ### Returning Arrays
 
@@ -365,6 +392,7 @@ import cupy as cp
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect
+from cuml.internals.validation import check_inputs
 
 class SampleEstimator(cuml.Base):
 
@@ -381,12 +409,13 @@ class SampleEstimator(cuml.Base):
       # Init with a cupy array
       self.my_cupy_array_ = cp.zeros((10, 10))
 
-   @reflect(reset=True)
+   @reflect(reset="type")
    def fit(self, X):
-      # reset=True automatically stores the type of `X` and sets n_features_in_
+      # reset=True on check_inputs sets n_features_in_ and feature_names_in_
+      X_m = check_inputs(self, X, order="K", reset=True)
 
-      # Set my_cuml_array_ with a CumlArray
-      self.my_cuml_array_ = input_to_cuml_array(X, order="K").array
+      # Set descriptor-managed fitted attributes with validated arrays
+      self.my_cuml_array_ = X_m
 
       # Access `my_cupy_array_` normally and set to another attribute
       # The internal type of my_other_array_ will be a CuPy array
@@ -464,26 +493,27 @@ The `@reflect` decorator should be used on methods that return arrays to the use
 ```python
 import cupy as cp
 import cuml
-from cuml.common import input_to_cuml_array
 from cuml.internals import reflect
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 class MyEstimator(cuml.Base):
-    @reflect(reset=True)
-    def fit(self, X, y=None):
-        self.coef_ = input_to_cuml_array(X, order="K").array
+    @reflect(reset="type")
+    def fit(self, X):
+        self.coef_ = check_inputs(self, X, order="K", reset=True)
         return self
 
     @reflect
     def predict(self, X):
-        X_m = input_to_cuml_array(X, order="K").array
+        check_is_fitted(self)
+        X_m = check_inputs(self, X, order="K")
         result = cp.asarray(X_m) + cp.ones(X_m.shape)
         return result  # Can return any array-like object
 ```
 
 | Decorator Usage | When to Use |
 | :-------------- | :---------- |
-| `@reflect(reset=True)` | Fit-like methods where the decorator should store `_input_type` and set `n_features_in_`. |
-| `@reflect(reset="type")` | Fit-like methods that store `_input_type` through reflection but set or check `n_features_in_` through custom validation. |
+| `@reflect(reset="type")` | Fit-like methods that store `_input_type` through reflection while validation helpers set or check `n_features_in_`. |
+| `@reflect(reset=True)` | Simple fit-like methods that do not call validation directly and rely on the decorator to store `_input_type` and set `n_features_in_`. |
 | `@reflect` | Transform/predict methods that return arrays. |
 | `@reflect(array=None)` | Methods with no array input (e.g., `forecast(nsteps)`). Uses fit-time input type. |
 
@@ -537,11 +567,11 @@ def support_(self):
 
 ### **Do:** Use the `@reflect` Decorator on Public API Methods
 
-Use `@reflect` on methods that return arrays to users. Use `@reflect(reset=True)` for simple fit-like methods, and `@reflect(reset="type")` when a fit-like method performs its own feature validation.
+Use `@reflect` on methods that return arrays to users. Use `@reflect(reset="type")` when a fit-like method performs its own feature validation, and use `@reflect(reset=True)` only for simple fit-like methods that do not call validation directly.
 
 **Do this:**
 ```python
-@reflect(reset=True)
+@reflect(reset="type")
 def fit(self, X, y, convert_dtype=True) -> "KNeighborsRegressor":
     ...
 
@@ -583,9 +613,8 @@ def predict(self, X, y) -> CumlArray:
    cp_arr = cp.ones((10,))
 
    # Don't be tempted to use `CumlArray(cp_arr)` here either
-   cuml_arr = input_to_cuml_array(cp_arr, order="K").array
 
-   return cuml_arr.to_output(self._get_output_type(X))
+   return CumlArray(cp_arr).to_output(self._get_output_type(X))
 ```
 
 ### **Don't:** Use `CumlArray.to_output()` directly
