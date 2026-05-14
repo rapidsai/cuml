@@ -683,17 +683,7 @@ def check_array(
                     array = array.to_numpy(dtype="object")
                 array = np.asarray(array, dtype=dtype, order=order)
             else:
-                try:
-                    array = array.to_cupy(dtype=dtype, copy=copy)
-                except TypeError as exc:
-                    needs_precopy_cast = (
-                        dtype is not None
-                        and "cupy does not support" in str(exc)
-                    )
-                    if not needs_precopy_cast:
-                        raise
-                    array = array.astype(dtype, copy=False).to_cupy(copy=copy)
-
+                array = array.to_cupy(dtype=dtype, copy=copy)
                 array = cp.asarray(
                     array,
                     dtype=dtype,
