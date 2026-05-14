@@ -49,8 +49,6 @@ def label_binarize(
         dtype=cp.float32,
     )
 
-    cp.cuda.Stream.null.synchronize()
-
     is_binary = classes.shape[0] == 2
 
     if sparse_output:
@@ -184,8 +182,6 @@ class LabelBinarizer(Base):
             self.classes_ = cp.arange(0, y.shape[1])
         else:
             self.classes_ = cp.unique(y).astype(y.dtype)
-
-        cp.cuda.Stream.null.synchronize()
 
         return self
 
