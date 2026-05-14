@@ -34,24 +34,17 @@ from cuml.naive_bayes import (
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_sparse_integral_dtype_fails(x_dtype, y_dtype, sparse_text_dataset):
+def test_sparse_integral_dtypes_work(x_dtype, y_dtype, sparse_text_dataset):
+    """These require a bit of special casing since cupyx doesn't support
+    integral spasre matrices"""
     X, y = sparse_text_dataset
 
     X = X.astype(x_dtype)
     y = y.astype(y_dtype)
 
-    model = MultinomialNB()
-
-    with pytest.raises(ValueError):
-        model.fit(X, y)
-
-    X = X.astype(cp.float32)
-    model.fit(X, y)
-
-    X = X.astype(x_dtype)
-
-    with pytest.raises(ValueError):
-        model.predict(X)
+    model = MultinomialNB().fit(X, y)
+    out = model.predict(X)
+    assert out.dtype == y.dtype
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64, cp.int32])
