@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -34,7 +34,7 @@ template <typename T>
 static __global__ void gatherUniformSampledColumnKernel(
   T* out, const T* data, int sample_count, int n_rows, int col, uint64_t seed)
 {
-  int tid = blockIdx.x * blockDim.x + threadIdx.x;
+  int tid       = blockIdx.x * blockDim.x + threadIdx.x;
   auto col_seed = fnv1a32_basis;
   col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed));
   col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed >> 32));

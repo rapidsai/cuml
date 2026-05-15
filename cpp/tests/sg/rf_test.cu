@@ -765,9 +765,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
 
     int n_unique_bins;
     raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
-    if (n_unique_bins < params.max_n_bins) {
-      ASSERT_GT(n_unique_bins, 1);
-    }
+    if (n_unique_bins < params.max_n_bins) { ASSERT_GT(n_unique_bins, 1); }
     ASSERT_LE(n_unique_bins, params.max_n_bins);
 
     thrust::host_vector<T> h_quantiles(params.max_n_bins);
@@ -808,9 +806,8 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     thrust::shuffle(data.begin(), data.end(), thrust::default_random_engine(n_uniques));
 
     // Use full-sample mode to verify duplicate compaction exactly.
-    auto [quantiles, quantiles_array, n_bins_array] =
-      DT::computeQuantiles(
-        handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
     int n_uniques_obtained;
     raft::copy(&n_uniques_obtained, n_bins_array->data(), 1, handle.get_stream());
 
@@ -853,8 +850,7 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
 };
 
 template <typename T>
-class RFSampledQuantileExactFallbackTest
-  : public ::testing::TestWithParam<QuantileTestParameters> {
+class RFSampledQuantileExactFallbackTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
   void SetUp() override
   {
@@ -865,9 +861,8 @@ class RFSampledQuantileExactFallbackTest
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
-    auto [sampled_quantiles, sampled_quantiles_array, sampled_n_bins_array] =
-      DT::computeQuantiles(
-        handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto [sampled_quantiles, sampled_quantiles_array, sampled_n_bins_array] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
 
     int sampled_n_bins;
     raft::copy(&sampled_n_bins, sampled_n_bins_array->data(), 1, handle.get_stream());
@@ -876,10 +871,8 @@ class RFSampledQuantileExactFallbackTest
     ASSERT_EQ(sampled_n_bins, params.max_n_bins);
 
     thrust::host_vector<T> h_sampled(params.max_n_bins);
-    raft::update_host(h_sampled.data(),
-                      sampled_quantiles.quantiles_array,
-                      params.max_n_bins,
-                      handle.get_stream());
+    raft::update_host(
+      h_sampled.data(), sampled_quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
     handle.sync_stream();
 
     double bin_width = static_cast<double>(params.n_rows) / params.max_n_bins;
@@ -892,8 +885,7 @@ class RFSampledQuantileExactFallbackTest
 };
 
 template <typename T>
-class RFSampledQuantileDeterminismTest
-  : public ::testing::TestWithParam<QuantileTestParameters> {
+class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
   void SetUp() override
   {
@@ -973,27 +965,19 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestD, ::testing::ValuesI
 
 typedef RFSampledQuantileExactFallbackTest<float> RFSampledQuantileExactFallbackTestF;
 TEST_P(RFSampledQuantileExactFallbackTestF, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests,
-                        RFSampledQuantileExactFallbackTestF,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileExactFallbackTestF, ::testing::ValuesIn(inputs));
 
 typedef RFSampledQuantileExactFallbackTest<double> RFSampledQuantileExactFallbackTestD;
 TEST_P(RFSampledQuantileExactFallbackTestD, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests,
-                        RFSampledQuantileExactFallbackTestD,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileExactFallbackTestD, ::testing::ValuesIn(inputs));
 
 typedef RFSampledQuantileDeterminismTest<float> RFSampledQuantileDeterminismTestF;
 TEST_P(RFSampledQuantileDeterminismTestF, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests,
-                        RFSampledQuantileDeterminismTestF,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestF, ::testing::ValuesIn(inputs));
 
 typedef RFSampledQuantileDeterminismTest<double> RFSampledQuantileDeterminismTestD;
 TEST_P(RFSampledQuantileDeterminismTestD, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests,
-                        RFSampledQuantileDeterminismTestD,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestD, ::testing::ValuesIn(inputs));
 
 //------------------------------------------------------------------------------------------------------
 
