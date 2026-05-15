@@ -29,6 +29,7 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"

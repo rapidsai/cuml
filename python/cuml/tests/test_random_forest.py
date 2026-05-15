@@ -36,6 +36,7 @@ from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"

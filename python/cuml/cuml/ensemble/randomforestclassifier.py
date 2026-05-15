@@ -74,6 +74,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         .. note:: This default differs from scikit-learn's random forest,
           which defaults to unlimited depth.
 
+        .. rapids-pre-commit-hooks: disable-next-line
         .. versionchanged:: 26.08
           The default of `max_depth` will change from `16` to `None`.
     max_leaves : int (default = -1)
