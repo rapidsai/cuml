@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../../cmake/rapids_config.cmake)
 
@@ -63,7 +63,6 @@ set(CUML_USE_TREELITE_STATIC ON)
 set(CUML_EXCLUDE_TREELITE_FROM_ALL ON)
 
 # --- CUDA --- #
-set(CUDA_STATIC_RUNTIME ON)
 set(CUDA_STATIC_MATH_LIBRARIES OFF)
 
 add_subdirectory(../../cpp cuml-cpp)

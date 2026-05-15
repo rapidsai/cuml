@@ -8,12 +8,12 @@ dependencies:
 - c-compiler
 - ccache
 - certifi
-- cmake>=3.30.4
+- cmake>=4.0
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
 - cuda-python>=13.0.1,<14.0
-- cuda-version=13.1
+- cuda-version=13.2
 - cudf==26.6.*,>=0.0.0a0
 - cupy>=13.6.0
 - cuvs==26.6.*,>=0.0.0a0
@@ -39,6 +39,7 @@ dependencies:
 - libcuvs==26.6.*,>=0.0.0a0
 - libraft==26.6.*,>=0.0.0a0
 - librmm==26.6.*,>=0.0.0a0
+- lightgbm
 - matplotlib-base
 - nbsphinx
 - ninja
@@ -74,6 +75,7 @@ dependencies:
 - scikit-learn>=1.5
 - scipy>=1.14.0
 - seaborn
+- shap
 - skl2onnx
 - sphinx
 - sphinx-copybutton
@@ -81,5 +83,5 @@ dependencies:
 - statsmodels
 - sysroot_linux-64==2.28
 - treelite>=4.7.0,<5.0.0
-- umap-learn>=0.5.7,<0.5.12
-name: all_cuda-131_arch-x86_64
+- umap-learn>=0.5.7,<0.5.13
+name: all_cuda-132_arch-x86_64

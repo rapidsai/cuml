@@ -32,10 +32,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   cpp-build:
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       node_type: cpu16
@@ -46,8 +54,14 @@ jobs:
   docs-build:
     if: github.ref_type == 'branch'
     needs: [python-build]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@release/26.06
     with:
       arch: "amd64"
       branch: ${{ inputs.branch }}
@@ -59,8 +73,14 @@ jobs:
       sha: ${{ inputs.sha }}
   python-build:
     needs: [cpp-build]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -71,16 +91,28 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   upload-conda:
     needs: [cpp-build, python-build]
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-upload-packages.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
   wheel-build-libcuml:
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -94,8 +126,14 @@ jobs:
       package-type: cpp
   wheel-publish-libcuml:
     needs: wheel-build-libcuml
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -105,8 +143,14 @@ jobs:
       package-type: cpp
   wheel-build-cuml:
     needs: wheel-build-libcuml
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}
@@ -120,8 +164,14 @@ jobs:
       matrix_filter: group_by({CUDA_VER, ARCH}) | map(min_by(.PY_VER | split(".") | map(tonumber)))
   wheel-publish-cuml:
     needs: wheel-build-cuml
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-publish.yaml@release/26.06
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
       branch: ${{ inputs.branch }}

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -40,6 +40,11 @@ from cuml.testing.utils import (  # noqa: E402
     quality_param,
     stress_param,
     unit_param,
+)
+
+# TODO(26.08): Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
 )
 
 

@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import abc
 import functools
 from typing import Any
 
 import cupy as cp
+import numpy as np
 import sklearn
 from cupyx.scipy.sparse import issparse as is_cp_sparse
 from packaging.version import Version
@@ -22,10 +24,25 @@ from sklearn.utils._set_output import (
 
 from cuml.accel import profilers
 from cuml.accel.core import logger
-from cuml.internals.interop import UnsupportedOnGPU, is_fitted
-from cuml.internals.outputs import using_output_type
+from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, is_fitted
+from cuml.internals.outputs import reflect, using_output_type
+from cuml.internals.validation import check_inputs
+
+__all__ = ("ProxyBase", "ArrayAPIProxyBase", "is_proxy")
+
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+
+class classproperty:
+    """A property, but on the class instead of the instance."""
+
+    def __init__(self, f):
+        self.f = f
+
+    def __get__(self, obj, owner):
+        return self.f(owner)
 
 
 def is_proxy(instance_or_class) -> bool:
@@ -34,7 +51,7 @@ def is_proxy(instance_or_class) -> bool:
         cls = instance_or_class
     else:
         cls = type(instance_or_class)
-    return issubclass(cls, ProxyBase)
+    return isinstance(cls, ProxyBaseMeta) and hasattr(cls, "_cpu_class")
 
 
 def ensure_host(x):
@@ -54,7 +71,7 @@ class _ReconstructProxy:
         # will always serialize it by value rather than by reference. This allows
         # the saved model to be loaded in an environment without cuml installed,
         # where it will load as the CPU model directly.
-        def reconstruct(cls_path, cpu_model):
+        def reconstruct(cls_path, cpu_model, load_on_gpu):
             """Reconstruct a serialized estimator.
 
             Returns a proxy estimator if `cuml.accel` is installed, falling back
@@ -76,7 +93,7 @@ class _ReconstructProxy:
                 # Return the CPU estimator directly
                 return cpu_model
             # `cuml.accel` is installed, reconstruct a proxy estimator
-            return cls._reconstruct_from_cpu(cpu_model)
+            return cls._reconstruct_from_cpu(cpu_model, load_on_gpu)
 
         return reconstruct
 
@@ -90,14 +107,66 @@ class _ReconstructProxy:
 
         return (pickle.loads, (cloudpickle.dumps(self._reconstruct),))
 
-    def __call__(self, cls_path, cpu):
-        return self._reconstruct(cls_path, cpu)
+    def __call__(self, cls_path, cpu, load_on_gpu):
+        return self._reconstruct(cls_path, cpu, load_on_gpu)
 
 
 _reconstruct_proxy = _ReconstructProxy()
 
 
-class ProxyBase(BaseEstimator):
+class ProxyBaseMeta(abc.ABCMeta):
+    """A metaclass for `ProxyBase` types.
+
+    Most of the magic of `ProxyBase` lives in `ProxyBase.__init_subclass__`.
+    However, to support subclassing proxy estimators (which may make use of
+    sklearn internals, and thus cannot be actual proxies), we need a way to
+    dynamically modify the bases of a class. We also want these subclasses to
+    identify as subclasses (and instances) of the proxy class, even if the
+    proxy class isn't a true base.
+
+    Unfortunately, metaclasses don't compose as well - the metaclass of a new
+    class must be a (non-strict) subclass of the metaclass of all base classes.
+    As such, if any subclasses introduce a new metaclass to do other magic, the
+    magic of `ProxyBaseMeta` will cause issues. To work around this, we subclass
+    `ProxyBaseMeta` from the most common metaclass in use (`abc.ABCMeta`) so
+    these can at least be mixed.
+    """
+
+    def __new__(cls, name, bases, ns, **kwargs):
+        # If any base classes are ProxyBaseMeta instances _with_ a cpu class
+        # defined, replace them with their CPU class.
+        bases = tuple(
+            getattr(base, "_cpu_class", base)
+            if isinstance(base, ProxyBaseMeta)
+            else base
+            for base in bases
+        )
+        return super().__new__(cls, name, bases, ns, **kwargs)
+
+    def __subclasscheck__(self, subclass):
+        """Check if a class is a subclass"""
+        # Check if it's a true subclass
+        if super().__subclasscheck__(subclass):
+            return True
+        # Check if its a subclass of _cpu_class (if available)
+        if (cpu_class := getattr(self, "_cpu_class", None)) is not None:
+            return cpu_class.__subclasscheck__(subclass)
+        # Not a subclass
+        return False
+
+    def __instancecheck__(self, instance):
+        """Check if an object is an instance."""
+        # Check if it's a true instance
+        if super().__instancecheck__(instance):
+            return True
+        # Check if its an instance of _cpu_class (if available)
+        if (cpu_class := getattr(self, "_cpu_class", None)) is not None:
+            return cpu_class.__instancecheck__(instance)
+        # Not an instance
+        return False
+
+
+class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     """A base class for defining new Proxy estimators.
 
     Subclasses should define ``_gpu_class``, which must be a subclass of
@@ -144,6 +213,10 @@ class ProxyBase(BaseEstimator):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
 
+        if not hasattr(cls, "_gpu_class"):
+            # _gpu_class not defined, assume intermediate class and return
+            return
+
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
         cls._cpu_class = cls._gpu_class._get_cpu_class()
 
@@ -155,10 +228,22 @@ class ProxyBase(BaseEstimator):
 
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
+        if cls._cpu_class.__init__ is object.__init__:
+            # XXX: Python < 3.13 `inspect.signature` has a bug where a wrapped
+            # version of `object.__init__` will display `*args, **kwargs`,
+            # while the original `object.__init__` won't. Here we special case
+            # estimators with not parameters to work around this. This can be
+            # removed once we drop support for Python < 3.13.
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self):
+                orig_init(self)
 
-        @functools.wraps(cls._cpu_class.__init__)
-        def __init__(self, *args, **kwargs):
-            orig_init(self, *args, **kwargs)
+            del __init__.__wrapped__
+        else:
+
+            @functools.wraps(cls._cpu_class.__init__)
+            def __init__(self, *args, **kwargs):
+                orig_init(self, *args, **kwargs)
 
         cls.__init__ = __init__
 
@@ -170,10 +255,35 @@ class ProxyBase(BaseEstimator):
         # be pickled properly.
         cls.__module__ = cls._gpu_class._cpu_class_path.rsplit(".", 1)[0]
 
-        # Forward _estimator_type as a class attribute if available
-        _estimator_type = getattr(cls._cpu_class, "_estimator_type", None)
-        if isinstance(_estimator_type, str):
-            cls._estimator_type = _estimator_type
+        # Drop `__firstlineno__`, since we can't give a good option for that.
+        # We don't want to expose the original value, since we've changed the
+        # defining `__module__`. And we don't want to use our `__firstlineno__`
+        # since it would map to the definitions in the overrides (which don't
+        # have the same `__module__` either). We use a `try-except` here since
+        # the __firstlineno__ may be stored in `cls.__dict__` (the one we want
+        # to drop) or `type(cls).__dict__` (which will error), depending on
+        # cPython version.
+        try:
+            del cls.__firstlineno__
+        except AttributeError:
+            pass
+
+        # Forward a few optional class attributes if defined. We do a type
+        # check on them for sanity and to avoid forwarding properties.
+        for name, typ in [
+            ("_estimator_type", str),
+            ("_parameter_constraints", dict),
+        ]:
+            if isinstance(val := getattr(cls._cpu_class, name, None), typ):
+                setattr(cls, name, val)
+
+        # All transformer _classes_ have `set_output` defined and gated with
+        # `@available_if`. If `get_feature_names_out` isn't defined, then
+        # `set_output` won't be available on an _instance_. We exclude
+        # `set_output` in that case.
+        exclude = set()
+        if not hasattr(cls._cpu_class, "get_feature_names_out"):
+            exclude.add("set_output")
 
         # Add proxy method definitions for all public methods on CPU class
         # that aren't already defined on the proxy class
@@ -182,6 +292,7 @@ class ProxyBase(BaseEstimator):
             for name in dir(cls._cpu_class)
             if not name.startswith("_")
             and callable(getattr(cls._cpu_class, name))
+            and name not in exclude
         ]
 
         def _make_method(name):
@@ -231,7 +342,7 @@ class ProxyBase(BaseEstimator):
             )
 
     @classmethod
-    def _reconstruct_from_cpu(cls, cpu):
+    def _reconstruct_from_cpu(cls, cpu, load_on_gpu=True):
         """Reconstruct a proxy estimator from its CPU counterpart.
 
         Primarily used when unpickling serialized proxy estimators."""
@@ -239,8 +350,9 @@ class ProxyBase(BaseEstimator):
         self = cls.__new__(cls)
         self._cpu = cpu
         self._synced = False
-        if is_fitted(self._cpu):
-            # This is a fit estimator. Try to convert model back to GPU
+        if load_on_gpu and is_fitted(self._cpu):
+            # This estimator is fit and should be loaded on GPU. Try to convert
+            # model back to GPU.
             try:
                 self._gpu = self._gpu_class.from_sklearn(self._cpu)
             except UnsupportedOnGPU:
@@ -249,7 +361,7 @@ class ProxyBase(BaseEstimator):
                 # Supported on GPU, clear fit attributes from CPU to release host memory
                 self._cpu = sklearn.clone(self._cpu)
         else:
-            # Estimator is unfit, delay GPU init until needed
+            # Estimator is unfit or should remain on CPU
             self._gpu = None
         return self
 
@@ -297,27 +409,39 @@ class ProxyBase(BaseEstimator):
 
         qualname = f"{self._cpu_class.__name__}.{method}"
 
-        is_fit = method in ("fit", "fit_transform", "fit_predict")
+        is_fit = method in (
+            "fit",
+            "fit_transform",
+            "fit_predict",
+            "partial_fit",
+        )
 
         reason = None
         if is_fit:
-            # Attempt to call CPU param validation to validate hyperparameters.
+            # Call CPU param validation to validate hyperparameters.
             # This ensures we match errors for invalid hyperparameters during fitting.
             self._validate_params()
 
-            # Attempt to create a new GPU estimator with the current hyperparameters.
-            try:
-                self._gpu = self._gpu_class(
-                    **self._gpu_class._params_from_cpu(self._cpu)
-                )
-            except UnsupportedOnGPU as exc:
-                # Unsupported, fallback to CPU
-                reason = str(exc) or "Hyperparameters not supported"
-                self._gpu = None
+            if method == "partial_fit" and is_fitted(self):
+                # Partial fit on already fit models should reuse existing state.
+                if self._gpu is not None:
+                    # GPU partial_fit will invalidate CPU state, reset on CPU
+                    self._cpu = sklearn.clone(self._cpu)
+                    self._synced = False
             else:
-                # New estimator successfully initialized on GPU, reset on CPU
-                self._cpu = sklearn.clone(self._cpu)
-                self._synced = False
+                # Reinitialize GPU model for the current hyperparameters
+                try:
+                    self._gpu = self._gpu_class(
+                        **self._gpu_class._params_from_cpu(self._cpu)
+                    )
+                except UnsupportedOnGPU as exc:
+                    # Unsupported, fallback to CPU
+                    reason = str(exc) or "Hyperparameters not supported"
+                    self._gpu = None
+                else:
+                    # New estimator successfully initialized on GPU, reset on CPU
+                    self._cpu = sklearn.clone(self._cpu)
+                    self._synced = False
 
         if self._gpu is not None:
             # The hyperparameters are supported, try calling the method
@@ -405,7 +529,11 @@ class ProxyBase(BaseEstimator):
         self._sync_attrs_to_cpu()
         return (
             _reconstruct_proxy,
-            (self._gpu_class._cpu_class_path, self._cpu),
+            (
+                self._gpu_class._cpu_class_path,
+                self._cpu,
+                self._gpu is not None,
+            ),
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -542,10 +670,6 @@ class ProxyBase(BaseEstimator):
     def _estimator_type(self):
         return self._cpu._estimator_type
 
-    @property
-    def _parameter_constraints(self):
-        return self._cpu._parameter_constraints
-
     @classmethod
     def _get_param_names(cls):
         return cls._cpu_class._get_param_names()
@@ -570,3 +694,215 @@ class ProxyBase(BaseEstimator):
     def _repr_html_(self):
         self._sync_attrs_to_cpu()
         return self._cpu._repr_html_
+
+
+class _ArrayAPIWrapper(Base, InteropMixin):
+    """Wraps an array-api enabled sklearn estimator as a cuml estimator.
+
+    This is a **bare-bones implementation**, implementing just enough features
+    required to then re-wrap with a `cuml.accel.estimator_proxy.ProxyBase`.
+    This lets us run certain sklearn models that support the array-api through
+    the normal cuml-accel machinery without having to define custom
+    cuml classes for them.
+    """
+
+    def __init__(self, *args, output_type=None, verbose=False, **kwargs):
+        super().__init__(output_type=output_type, verbose=verbose)
+        self._internal_model = self._internal_class(*args, **kwargs)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Store `_internal_class` for ease-of-reference
+        cls._internal_class = cls._get_cpu_class()
+
+        # Wrap __init__ to ensure signature compatibility.
+        orig_init = cls.__init__
+
+        @functools.wraps(cls._internal_class.__init__)
+        def __init__(self, *args, **kwargs):
+            orig_init(self, *args, **kwargs)
+
+        cls.__init__ = __init__
+
+        def _make_method(name):
+            sk_method = getattr(cls._internal_class, name)
+
+            @functools.wraps(sk_method)
+            def method(self, *args, **kwargs):
+                return self._call_method(name, *args, **kwargs)
+
+            return method
+
+        # Iterate through common method names, and proxy those that we know
+        for name in [
+            "fit",
+            "fit_transform",
+            "fit_predict",
+            "partial_fit",
+            "transform",
+            "inverse_transform",
+            "predict",
+            "predict_log_proba",
+            "predict_proba",
+            "decision_function",
+            "score",
+        ]:
+            if hasattr(cls._internal_class, name):
+                setattr(cls, name, _make_method(name))
+
+    @reflect(array="X")
+    def _call_method(self, name, X, *args, **kwargs):
+        """Call method `name` on the wrapped sklearn estimator."""
+        if name in ("fit", "fit_transform", "fit_predict"):
+            reset = True
+        elif name == "partial_fit":
+            reset = not hasattr(self._internal_model, "n_samples_seen_")
+        else:
+            reset = False
+
+        # Convert X to cupy, with minimal other validation. We enumerate the supported
+        # input dtypes here, so `check_inputs` will coerce numeric object inputs
+        # to float64 (mirroring sklearn's behavior), while letting other dtypes
+        # through unchanged.
+        # Note that `feature_names_in_` is set on the _ArrayAPIWrapper model
+        # and not the internal sklearn model. The internal model only ever sees
+        # cupy array inputs, all coercion to/from pandas happens in the wrapper.
+        X = check_inputs(
+            self,
+            X,
+            ensure_all_finite=False,
+            ensure_min_samples=0,
+            dtype=(
+                "float64",
+                "float32",
+                "float16",
+                "int64",
+                "int32",
+                "int16",
+                "int8",
+                "uint64",
+                "uint32",
+                "uint16",
+                "uint8",
+                "bool",
+            ),
+            reset=reset,
+        )
+
+        # Run the method with array-api enabled, and global transform output
+        # set to default. This overrides any user-set global default, so
+        # coercion to other output types happens in the wrapper and not the
+        # internal model.
+        with sklearn.config_context(
+            array_api_dispatch=True, transform_output="default"
+        ):
+            method = getattr(self._internal_model, name)
+            out = method(X, *args, **kwargs)
+        return self if out is self._internal_model else out
+
+    @classmethod
+    def _get_param_names(cls):
+        return cls._internal_class._get_param_names()
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        if not SKLEARN_18:
+            raise UnsupportedOnGPU(
+                "scikit-learn >= 1.8 is required to run on GPU"
+            )
+
+        if cls._params_from_cpu_override is not None:
+            return cls._params_from_cpu_override(model)
+        return model.get_params(deep=False)
+
+    def _params_to_cpu(self):
+        return self.get_params(deep=False)
+
+    def _sync_attrs_from_cpu(self, model) -> None:
+        if not is_fitted(model):
+            # Not fitted, nothing to do
+            return
+
+        attrs = self._attrs_from_cpu(model)
+
+        for name, value in attrs.items():
+            if name == "n_features_in_":
+                # n_features_in_ is set on both wrapper and internal model.
+                setattr(self._internal_model, name, value)
+                setattr(self, name, value)
+            elif name == "feature_names_in_":
+                # feature_names_in_ is only set on the wrapper.
+                # If it was set on the internal model, the user would see warnings
+                # on transform, since the internal model only ever gets cupy inputs.
+                setattr(self, name, value)
+            else:
+                # other attributes are only set on internal model.
+                setattr(self._internal_model, name, value)
+
+    def _attrs_from_cpu(self, model):
+        attrs = super()._attrs_from_cpu(model)
+        exclude = {
+            "feature_names_in_",
+            "n_features_in_",
+            *self._get_param_names(),
+        }
+        for name, value in vars(model).items():
+            if name not in exclude:
+                if isinstance(value, np.ndarray):
+                    value = cp.asarray(value)
+                attrs[name] = value
+        return attrs
+
+    def _attrs_to_cpu(self, model):
+        attrs = super()._attrs_to_cpu(model)
+        exclude = set(self._get_param_names())
+        for name, value in vars(self._internal_model).items():
+            if name not in exclude:
+                if isinstance(value, cp.ndarray):
+                    value = cp.asnumpy(value)
+                attrs[name] = value
+        return attrs
+
+    @functools.wraps(Base.set_params)
+    def set_params(self, **kwargs):
+        self._internal_model.set_params(**kwargs)
+        return self
+
+    @functools.wraps(Base.get_params)
+    def get_params(self, deep=True):
+        return self._internal_model.get_params(deep=deep)
+
+    def __getattr__(self, name):
+        # Don't proxy through fitted or private attributes
+        if name.endswith("_") or name.startswith("_"):
+            raise AttributeError(
+                f"{type(self).__name__!r} object has no attribute {name!r}"
+            )
+        return getattr(self._internal_model, name)
+
+
+class ArrayAPIProxyBase(ProxyBase):
+    """A ProxyBase subclass for proxying array-api-enabled sklearn models.
+
+    Subclasses should define ``_cpu_class_path`` as the public import path of
+    the sklearn class. They also may optionally define `_params_from_cpu` to
+    handle filtering any unsupported hyperparameters.
+    """
+
+    def __init_subclass__(cls, **kwargs):
+        # If _cpu_class_path not defined, skip generation of accelerated class
+        if hasattr(cls, "_cpu_class_path"):
+            # Programmatically create a new private cuml.Base class that wraps the
+            # sklearn array-api-enabled model in a cuml consistent API.
+            cls._gpu_class = type(
+                cls.__name__,
+                (_ArrayAPIWrapper,),
+                {
+                    "_cpu_class_path": cls._cpu_class_path,
+                    "_params_from_cpu_override": getattr(
+                        cls, "_params_from_cpu", None
+                    ),
+                },
+            )
+        super().__init_subclass__(**kwargs)

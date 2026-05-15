@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy as sp
+import sklearn
+from packaging.version import Version
 from sklearn.base import BaseEstimator
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.datasets import make_classification, make_regression
@@ -29,6 +31,13 @@ from sklearn.neighbors import (
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import StandardScaler
 from umap import UMAP
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+requires_sklearn_18 = pytest.mark.skipif(
+    not SKLEARN_18,
+    reason="scikit-learn >= 1.8 required for StandardScaler acceleration",
+)
 
 
 class MockMethod:
@@ -216,6 +225,7 @@ def test_pipeline_adding_none_value_as_labels(classification_data):
     ],
 )
 @pytest.mark.parametrize("nested", [False, True])
+@requires_sklearn_18
 def test_pipeline_data_transfer(
     order, enabled, nested, regression_data, patch_methods
 ):
@@ -279,6 +289,7 @@ def test_pipeline_data_transfer(
         ),
     ],
 )
+@requires_sklearn_18
 def test_pipeline_transform_data_transfer(
     pipeline, scaler, pca, regression_data, patch_methods
 ):
@@ -303,6 +314,7 @@ def test_pipeline_transform_data_transfer(
     assert on_device(StandardScaler.inverse_transform, scaler[1])
 
 
+@requires_sklearn_18
 def test_pipeline_data_transfer_with_host_fallback(
     regression_data, patch_methods
 ):
@@ -321,6 +333,7 @@ def test_pipeline_data_transfer_with_host_fallback(
     assert isinstance(out, np.ndarray)
 
 
+@requires_sklearn_18
 def test_pipeline_set_output():
     X, _ = make_regression(random_state=42)
     X2 = make_pipeline(
@@ -329,6 +342,7 @@ def test_pipeline_set_output():
     assert isinstance(X2, pd.DataFrame)
 
 
+@requires_sklearn_18
 def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
     X, y = make_classification(random_state=42, n_classes=2)
     y = np.array(["a", "b"]).take(y)

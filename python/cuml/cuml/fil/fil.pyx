@@ -6,19 +6,21 @@ import itertools
 import pathlib
 from time import perf_counter
 
+import cupy as cp
 import numpy as np
 import treelite.sklearn
+from cuda.bindings import runtime
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.device_type import DeviceType, DeviceTypeError
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.treelite import safe_treelite_call
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uint32_t, uintptr_t
 from libcpp cimport bool
@@ -40,8 +42,6 @@ from cuml.internals.treelite cimport (
     TreeliteFreeModel,
     TreeliteModelHandle,
 )
-
-from cuda.bindings import runtime
 
 
 cdef extern from "cuml/fil/forest_model.hpp" namespace "ML::fil" nogil:
@@ -124,18 +124,22 @@ def get_fil_device_type() -> DeviceType:
 
 cdef raft_proto_device_t get_fil_raft_proto_device_type(arr):
     """Get the current FIL device type as a raft_proto_device_t"""
-    cdef raft_proto_device_t dev
-    if arr.mem_type is MemoryType.device:
-        dev = raft_proto_device_t.gpu
+    if isinstance(arr, cp.ndarray):
+        return raft_proto_device_t.gpu
+    elif isinstance(arr, np.ndarray):
+        return raft_proto_device_t.cpu
     else:
-        dev = raft_proto_device_t.cpu
-    return dev
+        if arr.mem_type is MemoryType.device:
+            return raft_proto_device_t.gpu
+        else:
+            return raft_proto_device_t.cpu
 
 
 cdef class ForestInference_impl():
     cdef forest_model model
     cdef raft_proto_handle_t raft_proto_handle
     cdef object raft_handle
+    cdef object ensure_all_finite
 
     def __cinit__(
         self,
@@ -146,6 +150,7 @@ cdef class ForestInference_impl():
         use_double_precision=None,
         mem_type=None,
         device_id=None,
+        ensure_all_finite=False,
     ):
         # Store reference to RAFT handle to control lifetime, since raft_proto
         # handle keeps a pointer to it
@@ -153,6 +158,7 @@ cdef class ForestInference_impl():
         self.raft_proto_handle = raft_proto_handle_t(
             <raft_handle_t*><size_t>self.raft_handle.getHandle()
         )
+        self.ensure_all_finite = ensure_all_finite
         if mem_type is None:
             mem_type = GlobalSettings().fil_memory_type
         else:
@@ -249,18 +255,23 @@ cdef class ForestInference_impl():
 
     def _predict(self, X, *, predict_type="default", preds=None, chunk_size=None):
         model_dtype = self.get_dtype()
+        mem_type = GlobalSettings().fil_memory_type
 
-        cdef uintptr_t in_ptr
-        in_arr, n_rows, _, _ = input_to_cuml_array(
+        X, index = check_array(
             X,
-            order='C',
-            convert_to_dtype=model_dtype,
-            convert_to_mem_type=GlobalSettings().fil_memory_type,
-            check_dtype=model_dtype
+            dtype=model_dtype,
+            order="C",
+            mem_type=mem_type.name,
+            return_index=True,
+            ensure_all_finite=self.ensure_all_finite,
+            input_name="X",
         )
-        cdef raft_proto_device_t in_dev
-        in_dev = get_fil_raft_proto_device_type(in_arr)
-        in_ptr = in_arr.ptr
+        n_rows = X.shape[0]
+
+        cdef raft_proto_device_t in_dev = get_fil_raft_proto_device_type(X)
+        cdef uintptr_t in_ptr = (
+            X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
+        )
 
         cdef uintptr_t out_ptr
         cdef infer_kind infer_type_enum
@@ -283,14 +294,14 @@ cdef class ForestInference_impl():
                 output_shape,
                 model_dtype,
                 order='C',
-                index=in_arr.index,
-                mem_type=GlobalSettings().fil_memory_type,
+                index=index,
+                mem_type=mem_type,
             )
         else:
             # TODO(wphicks): Handle incorrect dtype/device/layout in C++
             if preds.shape != output_shape:
                 raise ValueError(f"If supplied, preds argument must have shape {output_shape}")
-            preds.index = in_arr.index
+            preds.index = index
         cdef raft_proto_device_t out_dev
         out_dev = get_fil_raft_proto_device_type(preds)
         out_ptr = preds.ptr
@@ -318,8 +329,8 @@ cdef class ForestInference_impl():
                 <double*> out_ptr,
                 <double*> in_ptr,
                 n_rows,
-                in_dev,
                 out_dev,
+                in_dev,
                 infer_type_enum,
                 chunk_specification
             )
@@ -453,6 +464,10 @@ class ForestInference(Base, CMajorInputTagMixin):
         For GPU execution, the device on which to load and execute this
         model. If set to None, use the currently active device.
         For CPU execution, this value is currently ignored.
+    ensure_all_finite : bool or 'allow-nan', default=False
+        If True, an error will be raised if non-finite values are found in the
+        input. If 'allow-nan', an error will be raised if infinite values are
+        found (but not for NaN). If False then ``check_all_finite`` is skipped.
     """
 
     def _reload_model(self):
@@ -607,6 +622,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         align_bytes=None,
         precision='single',
         device_id=None,
+        ensure_all_finite=False,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
         self.is_classifier = is_classifier
@@ -615,6 +631,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         self.layout = layout
         self.precision = precision
         self.device_id = device_id
+        self.ensure_all_finite = ensure_all_finite
         self.treelite_model = treelite_model
         self._load_to_fil(device_id=self.device_id)
 
@@ -650,7 +667,8 @@ class ForestInference(Base, CMajorInputTagMixin):
                 align_bytes=self.align_bytes,
                 use_double_precision=self._use_double_precision_,
                 mem_type=mem_type,
-                device_id=self.device_id
+                device_id=self.device_id,
+                ensure_all_finite=self.ensure_all_finite
             )
 
             if mem_type is MemoryType.device:
@@ -1097,7 +1115,7 @@ class ForestInference(Base, CMajorInputTagMixin):
                     proba.to_output(output_type='array'), axis=1
                 )
             if preds is None:
-                return result
+                return CumlArray(data=result, index=proba.index)
             else:
                 preds[:] = result
                 return preds
@@ -1349,4 +1367,5 @@ class ForestInference(Base, CMajorInputTagMixin):
             "align_bytes",
             "precision",
             "device_id",
+            "ensure_all_finite",
         ]

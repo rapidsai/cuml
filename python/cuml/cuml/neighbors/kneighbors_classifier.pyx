@@ -8,7 +8,6 @@ import cupy as cp
 import numpy as np
 
 import cuml
-from cuml.common import input_to_cuml_array
 from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle
@@ -140,14 +139,14 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
     def _attrs_from_cpu(self, model):
         return {
             "classes_": model.classes_,
-            "_y": cp.asarray(model._y, order="F", dtype=np.int32),
+            "_y": cp.asarray(model._y, dtype=np.int32, order="F"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
             "classes_": self.classes_,
-            "_y": self._y.get(),
+            "_y": cp.asnumpy(self._y),
             "outputs_2d_": self.outputs_2d_,
             **super()._attrs_to_cpu(model),
         }
@@ -164,7 +163,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -178,12 +177,13 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         super().fit(X, convert_dtype=convert_dtype)
         y, classes = check_y(
             y,
+            dtype="int32",
+            convert_dtype=convert_dtype,
             order="F",
-            dtype=np.int32,
             accept_multi_output=True,
             return_classes=True,
         )
-        check_consistent_length(X, y)
+        check_consistent_length(self._fit_X, y)
         self.classes_ = classes
         self._y = y
         return self
@@ -210,20 +210,11 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
-        cdef size_t n_rows
-        inds, n_rows, _, _ = input_to_cuml_array(
-            knn_indices,
-            order='C',
-            check_dtype=np.int64,
-            convert_to_dtype=(np.int64 if convert_dtype else None),
+        inds_cp = cp.ascontiguousarray(
+            knn_indices.to_output("cupy"), dtype=np.int64
         )
-
-        dists, _, _, _ = input_to_cuml_array(
-            knn_distances,
-            order='C',
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        )
+        dists_cp = knn_distances.to_output("cupy")
+        cdef size_t n_rows = inds_cp.shape[0]
 
         # Allocate array for predictions
         out_cols = self._y.shape[1] if self._y.ndim == 2 else 1
@@ -238,14 +229,14 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             y_vec.push_back(<int*><uintptr_t>col.data.ptr)
 
         # Compute weights (returns None for uniform weights)
-        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        weights_cp = compute_weights(dists_cp, self.weights)
         cdef float* weights_ptr = <float*><uintptr_t>(
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
+        cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds_cp.data.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
         with nogil:
@@ -264,7 +255,13 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(out, self.classes_, output_type=output_type)
+
+        return decode_labels(
+            out,
+            self.classes_,
+            output_type=output_type,
+            index=knn_indices.index,
+        )
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         return_values={'name': 'X_new',
@@ -283,20 +280,12 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
-        cdef size_t n_rows
-        inds, n_rows, _, _ = input_to_cuml_array(
-            knn_indices,
-            order='C',
-            check_dtype=np.int64,
-            convert_to_dtype=(np.int64 if convert_dtype else None)
+        inds_cp = cp.ascontiguousarray(
+            knn_indices.to_output("cupy"), dtype=np.int64
         )
-
-        dists, _, _, _ = input_to_cuml_array(
-            knn_distances,
-            order='C',
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None)
-        )
+        dists_cp = knn_distances.to_output("cupy")
+        cdef size_t n_rows = inds_cp.shape[0]
+        index = knn_indices.index
 
         if self._y.ndim == 1 or self._y.shape[1] == 1:
             n_classes = [len(self.classes_)]
@@ -311,21 +300,21 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         cdef vector[int*] y_vec
         for n, y in zip(n_classes, ys):
             proba = CumlArray.zeros(
-                (n_rows, n), dtype=np.float32, order="C", index=inds.index
+                (n_rows, n), dtype=np.float32, order="C", index=index
             )
             probas.append(proba)
             out_vec.push_back(<float*><uintptr_t>proba.ptr)
             y_vec.push_back(<int*><uintptr_t>y.data.ptr)
 
         # Compute weights (returns None for uniform weights)
-        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        weights_cp = compute_weights(dists_cp, self.weights)
         cdef float* weights_ptr = <float*><uintptr_t>(
             0 if weights_cp is None else weights_cp.data.ptr
         )
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds.ptr
+        cdef int64_t* inds_ptr = <int64_t*><uintptr_t>inds_cp.data.ptr
         cdef size_t n_samples_fit = self._y.shape[0]
         cdef int n_neighbors = self.n_neighbors
         with nogil:

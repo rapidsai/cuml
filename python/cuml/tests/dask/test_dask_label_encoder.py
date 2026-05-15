@@ -59,7 +59,9 @@ def test_labelencoder_unseen(client):
     le = LabelEncoder().fit(df)
     check_is_fitted(le)
 
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         tmp = dask_cudf.from_cudf(
             cudf.Series([-100, -120]), npartitions=len(client.has_what())
         )

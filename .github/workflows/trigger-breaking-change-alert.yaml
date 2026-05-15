@@ -1,6 +1,9 @@
 name: Trigger Breaking Change Notifications
 
-on:
+# `zizmor` always flags these triggers because they are easy to use
+# incorrectly. These usages are ok and don't execute any PR-specific
+# code (and so aren't susceptible to exploits from forked PRs)
+on: # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     types:
       - closed
@@ -8,11 +11,19 @@ on:
       - labeled
       - unlabeled
 
+permissions: {}
+
 jobs:
   trigger-notifier:
     if: contains(github.event.pull_request.labels.*.name, 'breaking')
-    secrets: inherit
-    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@main
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/breaking-change-alert.yaml@release/26.06
     with:
       sender_login: ${{ github.event.sender.login }}
       sender_avatar: ${{ github.event.sender.avatar_url }}

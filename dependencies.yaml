@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.1"]
+      cuda: ["12.9", "13.2"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -66,7 +66,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.1"]
+      cuda: ["12.9", "13.2"]
       arch: [x86_64]
     includes:
       - common_build
@@ -83,7 +83,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.9", "13.1"]
+      cuda: ["12.9", "13.2"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -283,7 +283,7 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cmake_ver cmake>=3.30.4
+          - &cmake_ver cmake>=4.0
           - ninja
       - output_types: conda
         packages:
@@ -359,6 +359,10 @@ dependencies:
               cuda: "13.1"
             packages:
               - cuda-version=13.1
+          - matrix:
+              cuda: "13.2"
+            packages:
+              - cuda-version=13.2
       - output_types: requirements
         matrices:
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
@@ -404,6 +408,11 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==13.1.*
+          - matrix:
+              cuda: "13.2"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.2.*
   cuda:
     common:
       - output_types: [conda]
@@ -602,8 +611,10 @@ dependencies:
           - pytest-xdist
           - seaborn
           - statsmodels
-          - umap-learn>=0.5.7,<0.5.12
+          - umap-learn>=0.5.7,<0.5.13
           - pynndescent
+          - lightgbm
+          - shap
       - output_types: conda
         packages:
           - cuvs==26.6.*,>=0.0.0a0

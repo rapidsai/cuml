@@ -2,18 +2,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import warnings
-
 import cupy as cp
-import cupyx.scipy.sparse as cp_sp
-import numpy as np
-import scipy.sparse as sp
+import cupyx.scipy.sparse as sp
 
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -21,7 +16,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -61,205 +56,7 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
         device_vector_view[int, int] labels) except +
 
 
-@cuml.internals.reflect
-def spectral_clustering(
-    X,
-    *,
-    int n_clusters=8,
-    random_state=None,
-    n_components=None,
-    n_neighbors=10,
-    n_init=10,
-    eigen_tol='auto',
-    affinity='nearest_neighbors',
-):
-    """Apply clustering to a projection of the normalized Laplacian.
-
-    In practice Spectral Clustering is very useful when the structure of
-    the individual clusters is highly non-convex or more generally when
-    a measure of the center and spread of the cluster is not a suitable
-    description of the complete cluster. For instance, when clusters are
-    nested circles on the 2D plane.
-
-    If affinity is the adjacency matrix of a graph, this method can be
-    used to find normalized graph cuts.
-
-    Parameters
-    ----------
-    X : array-like or sparse matrix of shape (n_samples, n_features) or \
-        (n_samples, n_samples)
-        If affinity is 'nearest_neighbors', this is the input data and a k-NN
-        graph will be constructed. If affinity is 'precomputed', this is the
-        affinity matrix. Supported formats for precomputed affinity: scipy
-        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
-        arrays, or dense cupy arrays.
-    n_clusters : int, default=8
-        The number of clusters to form.
-    random_state : int, RandomState instance or None, default=None
-        A pseudo random number generator used for the initialization of the
-        k-means clustering and the eigendecomposition. Use an int to make the
-        results deterministic across calls.
-    n_components : int or None, default=None
-        Number of eigenvectors to use for the spectral embedding. If None,
-        defaults to n_clusters.
-    n_neighbors : int, default=10
-        Number of nearest neighbors for nearest_neighbors graph building.
-        Only used when affinity='nearest_neighbors'.
-    n_init : int, default=10
-        Number of time the k-means algorithm will be run with different
-        centroid seeds. The final results will be the best output of n_init
-        consecutive runs in terms of inertia.
-    eigen_tol : float or 'auto', default='auto'
-        Convergence tolerance passed to the eigensolver. If set to 'auto',
-        a default value of currently 0.0 will be used.
-    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
-        How to construct the affinity matrix.
-         - 'nearest_neighbors' : construct the affinity matrix by computing a
-           graph of nearest neighbors.
-         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
-
-    Returns
-    -------
-    labels : cupy.ndarray or np.ndarray of shape (n_samples,)
-        Cluster labels for each sample.
-
-    Notes
-    -----
-    The graph should contain only one connected component, otherwise the
-    results make little sense.
-
-    This algorithm solves the normalized cut for k=2: it is a normalized
-    spectral clustering.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from cuml.cluster import spectral_clustering
-    >>> X = np.random.rand(100, 10).astype(np.float32)
-    >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
-    """
-    cdef float* affinity_data_ptr = NULL
-    cdef int* affinity_rows_ptr = NULL
-    cdef int* affinity_cols_ptr = NULL
-    cdef int affinity_nnz = 0
-
-    if affinity == "nearest_neighbors":
-        X = input_to_cupy_array(
-            X, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
-        ).array
-
-        affinity_data_ptr = <float*><uintptr_t>X.data.ptr
-
-        isfinite = cp.isfinite(X).all()
-    elif affinity == "precomputed":
-        # Coerce `X` to a canonical float32 COO sparse matrix
-        if X.dtype != np.float32:
-            warnings.warn(
-                    f"Input affinity matrix has dtype {X.dtype}, converting to float32. "
-                    "To avoid this conversion, "
-                    "please provide the affinity matrix as float32.",
-                    UserWarning
-                )
-        if cp_sp.issparse(X):
-            X = X.tocoo()
-            if X.dtype != np.float32:
-                X = X.astype("float32")
-        elif sp.issparse(X):
-            X = cp_sp.coo_matrix(X, dtype="float32")
-        else:
-            X = cp_sp.coo_matrix(cp.asarray(X, dtype="float32"))
-        X.sum_duplicates()
-
-        affinity_data = X.data
-        affinity_rows = X.row.astype(np.int32)
-        affinity_cols = X.col.astype(np.int32)
-        affinity_nnz = X.nnz
-
-        # Remove diagonal elements
-        valid = affinity_rows != affinity_cols
-        if not valid.all():
-            affinity_data = affinity_data[valid]
-            affinity_rows = affinity_rows[valid]
-            affinity_cols = affinity_cols[valid]
-            affinity_nnz = len(affinity_data)
-
-        affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
-        affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
-        affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
-
-        isfinite = cp.isfinite(affinity_data).all()
-    else:
-        raise ValueError(
-            f"Expected `affinity` to be one of ['nearest_neighbors', 'precomputed'], "
-            f"got {affinity!r}"
-        )
-
-    cdef int n_samples, n_features
-    n_samples, n_features = X.shape
-
-    if not isfinite:
-        raise ValueError(
-            "Input contains NaN or inf; nonfinite values are not supported."
-        )
-
-    if n_samples < 2:
-        raise ValueError(
-            f"Found array with {n_samples} sample(s) (shape={X.shape}) while a "
-            f"minimum of 2 is required."
-        )
-
-    # Allocate output array
-    labels = CumlArray.empty(n_samples, dtype=np.int32)
-
-    cdef params config
-    config.seed = check_random_seed(random_state)
-    config.n_clusters = n_clusters
-    cdef int effective_n_components = n_components if n_components is not None else n_clusters
-    config.n_components = max(1, min(effective_n_components, (n_samples - 1) // 3))
-    config.n_neighbors = min(n_neighbors, n_samples - 1)
-    config.n_init = n_init
-    # Handle 'auto' for eigen_tol
-    if eigen_tol == 'auto':
-        config.eigen_tol = 0.0
-    else:
-        config.eigen_tol = eigen_tol
-
-    cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
-    cdef bool precomputed = affinity == "precomputed"
-    handle = get_handle()
-    cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
-
-    try:
-        with nogil:
-            if precomputed:
-                fit_predict(
-                    handle_[0],
-                    config,
-                    make_device_vector_view(affinity_rows_ptr, affinity_nnz),
-                    make_device_vector_view(affinity_cols_ptr, affinity_nnz),
-                    make_device_vector_view(affinity_data_ptr, affinity_nnz),
-                    make_device_vector_view(labels_ptr, n_samples)
-                )
-            else:
-                fit_predict(
-                    handle_[0],
-                    config,
-                    make_device_matrix_view[float, int, row_major](
-                        affinity_data_ptr, n_samples, n_features
-                    ),
-                    make_device_vector_view(labels_ptr, n_samples)
-                )
-    except RuntimeError as e:
-        error_msg = str(e).lower()
-        if "eigensolver couldn't converge" in error_msg:
-            raise RuntimeError(
-                "Spectral clustering failed to converge. "
-                "Ensure the input data has clear clustering structure."
-            ) from None
-        else:
-            raise
-
-    return labels
+_AFFINITIES = ["nearest_neighbors", "precomputed"]
 
 
 class SpectralClustering(Base,
@@ -369,7 +166,7 @@ class SpectralClustering(Base,
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.affinity not in ["nearest_neighbors", "precomputed"]:
+        if model.affinity not in _AFFINITIES:
             raise UnsupportedOnGPU(
                 f"`affinity={model.affinity!r}` is not supported"
             )
@@ -419,8 +216,8 @@ class SpectralClustering(Base,
         random_state=None,
         n_neighbors=10,
         n_init=10,
-        eigen_tol='auto',
-        affinity='nearest_neighbors',
+        eigen_tol="auto",
+        affinity="nearest_neighbors",
         verbose=False,
         output_type=None,
     ):
@@ -470,7 +267,7 @@ class SpectralClustering(Base,
         self.fit(X, y=y)
         return self.labels_
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 
@@ -491,14 +288,195 @@ class SpectralClustering(Base,
         self : object
             Returns the instance itself.
         """
-        self.labels_ = spectral_clustering(
+        if self.affinity not in _AFFINITIES:
+            raise ValueError(
+                f"Expected `affinity` to be one of {_AFFINITIES}, got {self.affinity!r}"
+            )
+        cdef bool precomputed = self.affinity == "precomputed"
+
+        X = check_inputs(
+            self,
             X,
-            n_clusters=self.n_clusters,
-            n_components=self.n_components,
-            random_state=self.random_state,
-            n_neighbors=self.n_neighbors,
-            n_init=self.n_init,
-            eigen_tol=self.eigen_tol,
-            affinity=self.affinity,
+            dtype="float32",
+            order="C",
+            accept_sparse=("coo" if precomputed else False),
+            ensure_min_samples=2,
+            reset=True,
         )
+        cdef int n_samples, n_features
+        n_samples, n_features = X.shape
+
+        cdef float* affinity_data_ptr = NULL
+        cdef int* affinity_rows_ptr = NULL
+        cdef int* affinity_cols_ptr = NULL
+        cdef int affinity_nnz = 0
+
+        if precomputed:
+            if n_samples != n_features:
+                raise ValueError(
+                    f"X must be 2-dimensional and square, (got shape={X.shape})"
+                )
+            if not sp.issparse(X):
+                X = sp.coo_matrix(X)
+            X.sum_duplicates()
+
+            affinity_data = X.data
+            affinity_rows = X.row.astype(cp.int32)
+            affinity_cols = X.col.astype(cp.int32)
+            affinity_nnz = X.nnz
+
+            # Remove diagonal elements
+            valid = affinity_rows != affinity_cols
+            if not valid.all():
+                affinity_data = affinity_data[valid]
+                affinity_rows = affinity_rows[valid]
+                affinity_cols = affinity_cols[valid]
+                affinity_nnz = len(affinity_data)
+
+            affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
+            affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
+            affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+        else:
+            affinity_data_ptr = <float*><uintptr_t>X.data.ptr
+
+        # Allocate output array
+        labels = cp.empty(n_samples, dtype=cp.int32)
+
+        cdef params config
+        config.seed = check_random_seed(self.random_state)
+        config.n_clusters = self.n_clusters
+        cdef int effective_n_components = (
+            self.n_components if self.n_components is not None else self.n_clusters
+        )
+        config.n_components = max(1, min(effective_n_components, (n_samples - 1) // 3))
+        config.n_neighbors = min(self.n_neighbors, n_samples - 1)
+        config.n_init = self.n_init
+        if self.eigen_tol == "auto":
+            config.eigen_tol = 0.0
+        else:
+            config.eigen_tol = self.eigen_tol
+
+        cdef int* labels_ptr = <int*><uintptr_t>labels.data.ptr
+        handle = get_handle()
+        cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
+
+        try:
+            with nogil:
+                if precomputed:
+                    fit_predict(
+                        handle_[0],
+                        config,
+                        make_device_vector_view(affinity_rows_ptr, affinity_nnz),
+                        make_device_vector_view(affinity_cols_ptr, affinity_nnz),
+                        make_device_vector_view(affinity_data_ptr, affinity_nnz),
+                        make_device_vector_view(labels_ptr, n_samples)
+                    )
+                else:
+                    fit_predict(
+                        handle_[0],
+                        config,
+                        make_device_matrix_view[float, int, row_major](
+                            affinity_data_ptr, n_samples, n_features
+                        ),
+                        make_device_vector_view(labels_ptr, n_samples)
+                    )
+        except RuntimeError as e:
+            error_msg = str(e).lower()
+            if "eigensolver couldn't converge" in error_msg:
+                raise RuntimeError(
+                    "Spectral clustering failed to converge. "
+                    "Ensure the input data has clear clustering structure."
+                ) from None
+            else:
+                raise
+
+        self.labels_ = CumlArray(data=labels)
         return self
+
+
+@cuml.internals.reflect
+def spectral_clustering(
+    X,
+    *,
+    int n_clusters=8,
+    random_state=None,
+    n_components=None,
+    n_neighbors=10,
+    n_init=10,
+    eigen_tol="auto",
+    affinity="nearest_neighbors",
+):
+    """Apply clustering to a projection of the normalized Laplacian.
+
+    In practice Spectral Clustering is very useful when the structure of
+    the individual clusters is highly non-convex or more generally when
+    a measure of the center and spread of the cluster is not a suitable
+    description of the complete cluster. For instance, when clusters are
+    nested circles on the 2D plane.
+
+    If affinity is the adjacency matrix of a graph, this method can be
+    used to find normalized graph cuts.
+
+    Parameters
+    ----------
+    X : array-like or sparse matrix of shape (n_samples, n_features) or \
+        (n_samples, n_samples)
+        If affinity is 'nearest_neighbors', this is the input data and a k-NN
+        graph will be constructed. If affinity is 'precomputed', this is the
+        affinity matrix. Supported formats for precomputed affinity: scipy
+        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
+        arrays, or dense cupy arrays.
+    n_clusters : int, default=8
+        The number of clusters to form.
+    random_state : int, RandomState instance or None, default=None
+        A pseudo random number generator used for the initialization of the
+        k-means clustering and the eigendecomposition. Use an int to make the
+        results deterministic across calls.
+    n_components : int or None, default=None
+        Number of eigenvectors to use for the spectral embedding. If None,
+        defaults to n_clusters.
+    n_neighbors : int, default=10
+        Number of nearest neighbors for nearest_neighbors graph building.
+        Only used when affinity='nearest_neighbors'.
+    n_init : int, default=10
+        Number of time the k-means algorithm will be run with different
+        centroid seeds. The final results will be the best output of n_init
+        consecutive runs in terms of inertia.
+    eigen_tol : float or 'auto', default='auto'
+        Convergence tolerance passed to the eigensolver. If set to 'auto',
+        a default value of currently 0.0 will be used.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
+
+    Returns
+    -------
+    labels : cupy.ndarray or np.ndarray of shape (n_samples,)
+        Cluster labels for each sample.
+
+    Notes
+    -----
+    The graph should contain only one connected component, otherwise the
+    results make little sense.
+
+    This algorithm solves the normalized cut for k=2: it is a normalized
+    spectral clustering.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from cuml.cluster import spectral_clustering
+    >>> X = np.random.rand(100, 10).astype(np.float32)
+    >>> labels = spectral_clustering(X, n_clusters=5, n_neighbors=10, random_state=42)
+    """
+    return SpectralClustering(
+        n_clusters=n_clusters,
+        random_state=random_state,
+        n_components=n_components,
+        n_neighbors=n_neighbors,
+        n_init=n_init,
+        eigen_tol=eigen_tol,
+        affinity=affinity,
+    ).fit_predict(X)

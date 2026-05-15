@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -190,6 +190,7 @@ def test_lars_attributes(datatype, params):
                 sklars.coef_path_[sklars.active_],
                 unit_tol=1e-3,
             )
+            assert culars.coef_path_.shape[1] == culars.n_iter_ + 1
 
         intercept_diff = abs(culars.intercept_ - sklars.intercept_)
         if abs(sklars.intercept_) > 1e-6:
