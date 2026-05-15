@@ -7,6 +7,24 @@ This document describes how to run the cuML benchmark suite. The tools support t
 
 The benchmark runner also supports YAML manifests. A manifest is the declarative source of truth for a benchmark suite, while CLI flags can be used to filter or override selected fields at runtime.
 
+## Contents
+
+- [Running the benchmarks](#running-the-benchmarks)
+- [Common options](#common-options)
+- [Examples](#examples)
+- [YAML manifests](#yaml-manifests)
+  - [Manifest structure](#top-level-schema)
+  - [`suite`](#suite)
+  - [`profiles`](#profiles)
+  - [Compact `variants`](#compact-variants)
+  - [`defaults`](#defaults)
+  - [Benchmark entry schema](#benchmark-entry-schema)
+  - [Choosing dimensions](#choosing-dimensions)
+  - [Creating your own manifest](#creating-your-own-manifest)
+  - [CLI overrides in config mode](#cli-overrides-in-config-mode)
+- [Input types](#input-types)
+- [Manifest JSON Schema](#manifest-json-schema)
+
 ## Running the benchmarks
 
 ### Full mode (cuML installed)
@@ -25,6 +43,7 @@ To run a YAML-defined suite:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
   --profile default \
+  --backends gpu \
   --csv results.csv
 ```
 
@@ -34,7 +53,7 @@ To run the tiny harness-validation manifest:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/test.yaml \
   --profile default \
-  --skip-gpu
+  --backends cpu
 ```
 
 ### Standalone mode (from the repository)
@@ -55,7 +74,7 @@ cd python/cuml/cuml/benchmark/
 python run_benchmarks.py \
   --config configs/test.yaml \
   --profile default \
-  --skip-gpu
+  --backends cpu
 ```
 
 The following Python packages are required for standalone mode:
@@ -122,7 +141,7 @@ Run with parameter sweeps and save to CSV:
 ```bash
 python -m cuml.benchmark --dataset classification \
   --max-rows 100000 --min-rows 10000 \
-  --dataset-param-sweep n_classes=[2,8] \
+  --dataset-param-sweep n_classes=[2,4] \
   --cuml-param-sweep n_estimators=[10,100] \
   --csv results.csv \
   RandomForestClassifier
@@ -159,7 +178,7 @@ python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/test.yaml \
   --profile default \
   --num-rows 500 \
-  --skip-gpu
+  --backends cpu
 ```
 
 In config mode, only explicitly provided CLI flags override the manifest. Parser defaults do not silently replace YAML values.
@@ -499,4 +518,14 @@ This keeps the manifest-selected benchmark entry but overrides the row count and
 
 ## Input types
 
-With GPU/cuML you can use `--input-type` such as `numpy`, `pandas`, or `cudf`. Without GPU, only `numpy` and `pandas` are valid; the script will warn and switch to `numpy` if needed.
+With GPU/cuML you can use `--input-type` such as `numpy`, `pandas`, `cupy`, or `cudf`. Without GPU, only `numpy` and `pandas` are valid; the script will warn and switch to `numpy` if needed.
+
+## Manifest JSON Schema
+
+The formal JSON Schema for benchmark YAML manifests lives at:
+
+`python/cuml/cuml/benchmark/configs/benchmark.schema.json`
+
+The prose in this document explains the schema fields and gives examples. Some
+semantic checks, such as post-default required fields and compact `variants`
+conflicts, are still enforced by the Python loader.
