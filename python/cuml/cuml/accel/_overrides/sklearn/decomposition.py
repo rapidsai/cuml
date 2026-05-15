@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -8,6 +8,7 @@ from packaging.version import Version
 
 import cuml.decomposition
 from cuml.accel.estimator_proxy import ProxyBase
+from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = ("PCA", "TruncatedSVD")
 
@@ -19,15 +20,25 @@ SKLEARN_15 = Version(sklearn.__version__) >= Version("1.5.0")
 class PCA(ProxyBase):
     _gpu_class = cuml.decomposition.PCA
 
-    if not SKLEARN_15:
+    def _check_gpu_supported(self):
+        if self.n_components == 0:
+            raise UnsupportedOnGPU("`n_components=0` is not supported")
+        if self.svd_solver == "randomized":
+            raise UnsupportedOnGPU(
+                "`svd_solver='randomized'` is not supported"
+            )
 
-        def _gpu_fit(self, X, y=None):
+    def _gpu_fit(self, X, y=None):
+        self._check_gpu_supported()
+        if not SKLEARN_15:
             self._gpu._u_based_sign_flip = True
-            return self._gpu.fit(X, y)
+        return self._gpu.fit(X, y)
 
-        def _gpu_fit_transform(self, X, y=None):
+    def _gpu_fit_transform(self, X, y=None):
+        self._check_gpu_supported()
+        if not SKLEARN_15:
             self._gpu._u_based_sign_flip = True
-            return self._gpu.fit_transform(X, y)
+        return self._gpu.fit_transform(X, y)
 
 
 class TruncatedSVD(ProxyBase):

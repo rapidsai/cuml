@@ -797,6 +797,10 @@ def test_random_forest_classifier(random_state, oob_score):
     assert isinstance(sk_model2.classes_, np.ndarray)
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
+    for estimator in sk_model2.estimators_:
+        assert isinstance(estimator.classes_, np.ndarray)
+        assert (estimator.classes_ == sk_model2.classes_).all()
+        assert estimator.n_classes_ == sk_model2.n_classes_
 
     # Ensure params/attrs roundtrip
     # Exclude classes_ due to dtype differences between implementations
