@@ -351,7 +351,7 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     input_name : str or None, default=None
         The input parameter name to use in error messages.
     """
-    if not np.isdtype(array.dtype, "real floating"):
+    if not array.dtype.kind == "f":
         # No-op for non floating inputs
         return
 
@@ -484,6 +484,20 @@ def _index_as_mem_type(index, mem_type=None):
     return index
 
 
+if np.__version__.startswith("1."):
+
+    def np_asarray(x, dtype=None, order=None, copy=None):
+        """A compatibility shim for `np.asarray`.
+
+        numpy 2.0 added the `copy` arg to `np.asarray`, as well as changed the
+        meaning of copy=False to "error if a copy required" rather than "only
+        copy if needed" (which is now `copy=None`)."""
+        return np.array(x, dtype=dtype, order=order, copy=bool(copy))
+
+else:
+    np_asarray = np.asarray
+
+
 def check_array(
     array,
     *,
@@ -600,7 +614,7 @@ def check_array(
     # Infer proper output dtype
     if array_dtype is not None:
         # Check for complex inputs before conversion when possible
-        if np.isdtype(array_dtype, "complex floating"):
+        if array_dtype.kind == "c":
             raise ValueError("Complex data not supported")
         if dtype is None:
             dtype = array_dtype
@@ -703,7 +717,7 @@ def check_array(
             elif (
                 mem_type is None
                 and cudf.pandas.LOADED
-                and np.isdtype(array.dtype, ("numeric", "bool"))
+                and array.dtype.kind in "iufb"
             ):
                 # We treat pandas objects with supported dtypes as device
                 # memory when running under cudf.pandas. Note that the output
@@ -732,8 +746,7 @@ def check_array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
-                # XXX: using np.array for compat with numpy < 2
-                array = np.array(
+                array = np_asarray(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
 
@@ -761,7 +774,7 @@ def check_array(
         )
 
     # Check for complex inputs after conversion for cases when `dtype=None`
-    if np.isdtype(array.dtype, "complex floating"):
+    if array.dtype.kind == "c":
         raise ValueError("Complex data not supported")
 
     # Validate data meets expected value requirements
@@ -1052,10 +1065,7 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if (
-                np.isdtype(y.dtype, ("numeric", "bool"))
-                and return_classes is True
-            ):
+            if y.dtype.kind in "iufb" and return_classes is True:
                 y = cp.asarray(y)
             elif (
                 y.dtype == "object"
