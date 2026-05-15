@@ -17,6 +17,31 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
+# Guard against configuring with a different conda environment than the one used for the initial
+# configure. Mixing environments produces a build whose CUDA implicit link directories reference one
+# sysroot while the C++ compiler passes --sysroot for another; GNU ld only applies --sysroot to
+# absolute paths in linker scripts found *inside* that sysroot, so the mixed paths cause "cannot
+# find /lib64/libm.so.6" link failures.
+if(DEFINED ENV{CONDA_PREFIX})
+  set(_current_conda "$ENV{CONDA_PREFIX}")
+  if(DEFINED _CUML_CONDA_PREFIX AND NOT _current_conda STREQUAL _CUML_CONDA_PREFIX)
+    message(
+      FATAL_ERROR
+        "Conda environment changed since this build directory was configured.\n"
+        "  Configured with: ${_CUML_CONDA_PREFIX}\n"
+        "  Current env:     ${_current_conda}\n"
+        "Delete the build directory and reconfigure:\n"
+        "  rm -rf ${CMAKE_BINARY_DIR}"
+    )
+  endif()
+  set(_CUML_CONDA_PREFIX
+      "${_current_conda}"
+      CACHE INTERNAL
+            "Conda prefix at initial configure time; used to detect environment mismatches"
+  )
+  unset(_current_conda)
+endif()
+
 project(
   CUML
   VERSION "${RAPIDS_VERSION}"
