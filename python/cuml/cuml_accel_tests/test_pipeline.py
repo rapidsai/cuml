@@ -29,7 +29,7 @@ from sklearn.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
-from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline, make_pipeline
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from umap import UMAP
 
@@ -360,7 +360,7 @@ def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
 
 
 @requires_sklearn_18
-def test_compose_in_pipeline_works():
+def test_column_transfomer_in_pipeline_works():
     """Ensure outputs of steps in `ColumnTransformer` return as numpy"""
     rng = np.random.default_rng(0)
     X = rng.standard_normal((200, 20)).astype(np.float32)
@@ -376,6 +376,31 @@ def test_compose_in_pipeline_works():
     pipe = Pipeline(
         [
             ("ct", ct),  # Shouldn't be accelerated
+            ("scaler", RobustScaler()),  # Not accelerated
+            ("ridge", Ridge()),  # Accelerated
+        ]
+    )
+
+    pipe.fit(X, y)
+
+
+@requires_sklearn_18
+def test_feature_union_in_pipeline_works():
+    """Ensure outputs of steps in `FeatureUnion` return as numpy"""
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((200, 20)).astype(np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+
+    union = FeatureUnion(
+        [
+            ("svd", TruncatedSVD(n_components=2)),
+            ("pca", PCA(n_components=2)),
+        ]
+    )
+
+    pipe = Pipeline(
+        [
+            ("features", union),  # Shouldn't be accelerated
             ("scaler", RobustScaler()),  # Not accelerated
             ("ridge", Ridge()),  # Accelerated
         ]
