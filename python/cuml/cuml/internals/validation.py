@@ -484,7 +484,9 @@ def _index_as_mem_type(index, mem_type=None):
     return index
 
 
-if np.__version__.startswith("1."):
+if np.lib.NumpyVersion(np.__version__) >= "2.0.0b1":
+    np_asarray = np.asarray
+else:
 
     def np_asarray(x, dtype=None, order=None, copy=None):
         """A compatibility shim for `np.asarray`.
@@ -493,9 +495,6 @@ if np.__version__.startswith("1."):
         meaning of copy=False to "error if a copy required" rather than "only
         copy if needed" (which is now `copy=None`)."""
         return np.array(x, dtype=dtype, order=order, copy=bool(copy))
-
-else:
-    np_asarray = np.asarray
 
 
 def check_array(
