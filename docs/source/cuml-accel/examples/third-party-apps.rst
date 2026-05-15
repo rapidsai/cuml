@@ -10,15 +10,9 @@ installed CLI tools, applications, and third-party libraries.
 
    CUML_ACCEL_ENABLED=1 some-third-party-tool [args...]
 
-How it Works
-------------
-
-When ``cuml`` is installed, a Python `path configuration file
-<https://docs.python.org/3/library/site.html>`_ (``.pth``) runs at the
-start of every Python process. If it finds ``CUML_ACCEL_ENABLED=1`` in
-the environment, it calls ``cuml.accel.install()`` before any user code
-runs. From that point on, ``sklearn``, ``umap``, and ``hdbscan`` classes
-are transparently intercepted and dispatched to the GPU when possible.
+When ``CUML_ACCEL_ENABLED=1`` is defined, `cuml.accel` will be enabled as
+part of the normal Python interpreter startup, letting you accelerate
+Python applications without modification
 
 This means you do not need access to an application's source code: set the
 environment variable and the acceleration applies automatically.
@@ -97,7 +91,7 @@ Any Python tool that calls one of the following is a candidate for
 
 - ``sklearn`` estimators (KMeans, PCA, DBSCAN, RandomForest,
   LogisticRegression, NearestNeighbors, and
-  :doc:`many more <faq>`)
+  :doc:`many more <../faq>`)
 - ``umap.UMAP``
 - ``hdbscan.HDBSCAN``
 
@@ -120,4 +114,4 @@ falls back to CPU execution. To detect this, set the log level to
 
 Lines containing ``ran on GPU`` confirm GPU execution. Lines
 containing ``falling back to CPU`` indicate a fallback, along with
-the reason. See :doc:`logging-and-profiling` for more detail.
+the reason. See :doc:`../logging-and-profiling` for more detail.
