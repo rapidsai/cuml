@@ -507,9 +507,11 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
-- If ``probability=True``. The ``probability`` parameter is being deprecated
-  in cuML; use ``CalibratedClassifierCV(SVC(), ensemble=False)`` from
-  ``sklearn.calibration`` for probability estimates instead.
+- If ``probability=True``. ``cuml.accel`` does not accelerate ``SVC`` with
+  probability estimates; the fit falls back to native scikit-learn. For
+  GPU-accelerated probability estimates, use
+  ``CalibratedClassifierCV(SVC(), ensemble=False)`` from
+  ``sklearn.calibration`` instead.
 
 Additional notes:
 
