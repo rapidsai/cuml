@@ -20,7 +20,7 @@ This guide documents the patterns expected for new or updated `cuml.Base` estima
    - [Estimator Tags and cuML Specific Tags](#estimator-tags-and-cuml-specific-tags)
    - [Estimator Array-Like Attributes](#estimator-array-like-attributes)
    - [Estimator Methods](#estimator-methods)
-- [Do's and Do Not's](#dos-and-do-nots)
+- [Do's and Don'ts](#dos-and-donts)
 
 ## Recommended Scikit-Learn Documentation
 
