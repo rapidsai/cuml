@@ -370,6 +370,7 @@ def all_algorithms():
         cuml_KMeans = cuml.cluster.KMeans
         cuml_AgglomerativeClustering = cuml.cluster.AgglomerativeClustering
         cuml_SpectralClustering = cuml.cluster.SpectralClustering
+        cuml_EmpiricalCovariance = cuml.covariance.EmpiricalCovariance
         cuml_LedoitWolf = cuml.covariance.LedoitWolf
         cuml_PCA = cuml.PCA
         cuml_IncrementalPCA = cuml.decomposition.IncrementalPCA
@@ -414,6 +415,7 @@ def all_algorithms():
         r2_fn = cuml_metrics.r2_score
         trustworthiness_fn = cuml_metrics.trustworthiness
     else:
+        cuml_EmpiricalCovariance = None
         cuml_KMeans = cuml_PCA = cuml_TruncatedSVD = None
         cuml_AgglomerativeClustering = cuml_SpectralClustering = None
         cuml_LedoitWolf = cuml_IncrementalPCA = None
@@ -472,6 +474,13 @@ def all_algorithms():
                 random_state=42,
             ),
             name="SpectralClustering",
+            accepts_labels=False,
+        ),
+        AlgorithmPair(
+            sklearn.covariance.EmpiricalCovariance,
+            cuml_EmpiricalCovariance,
+            shared_args=dict(),
+            name="EmpiricalCovariance",
             accepts_labels=False,
         ),
         AlgorithmPair(
