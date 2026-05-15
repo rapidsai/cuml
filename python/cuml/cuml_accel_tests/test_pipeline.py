@@ -13,6 +13,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import BaseEstimator
 from sklearn.cluster import DBSCAN, KMeans
+from sklearn.compose import ColumnTransformer
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import (
@@ -29,7 +30,7 @@ from sklearn.neighbors import (
     NearestNeighbors,
 )
 from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 from umap import UMAP
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
@@ -356,3 +357,28 @@ def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
     assert isinstance(LogisticRegression.predict.args[0], cp.ndarray)
     # User-facing output is always numpy
     assert isinstance(out, np.ndarray)
+
+
+@requires_sklearn_18
+def test_compose_in_pipeline_works():
+    """Ensure outputs of steps in `ColumnTransformer` return as numpy"""
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((200, 20)).astype(np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+
+    ct = ColumnTransformer(
+        [
+            ("svd", TruncatedSVD(n_components=5), slice(0, 10)),
+            ("pass", "passthrough", slice(10, 20)),
+        ]
+    )
+
+    pipe = Pipeline(
+        [
+            ("ct", ct),  # Shouldn't be accelerated
+            ("scaler", RobustScaler()),  # Not accelerated
+            ("ridge", Ridge()),  # Accelerated
+        ]
+    )
+
+    pipe.fit(X, y)
