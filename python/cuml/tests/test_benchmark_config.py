@@ -4,6 +4,7 @@
 #
 
 from argparse import Namespace
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -51,6 +52,24 @@ def _make_args(**overrides):
     }
     args.update(overrides)
     return Namespace(**args)
+
+
+def test_checked_in_benchmark_manifests_match_json_schema():
+    jsonschema = pytest.importorskip("jsonschema")
+    yaml = pytest.importorskip("yaml")
+    configs_dir = (
+        Path(__file__).resolve().parents[1] / "cuml" / "benchmark" / "configs"
+    )
+    schema = json.loads(
+        (configs_dir / "benchmark.schema.json").read_text(encoding="utf-8")
+    )
+
+    for manifest_path in (
+        configs_dir / "test.yaml",
+        configs_dir / "single_gpu.yaml",
+    ):
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        jsonschema.validate(instance=manifest, schema=schema)
 
 
 def test_load_and_resolve_config_default_profile_filters_single_gpu_manifest():
