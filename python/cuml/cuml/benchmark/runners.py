@@ -15,18 +15,28 @@ import pandas as pd
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import datagen
-    from cuml.benchmark.gpu_check import is_cuml_available, is_gpu_available
+    from cuml.benchmark.gpu_check import is_gpu_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
     import datagen  # noqa: E402
-    from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
+    from gpu_check import is_gpu_available  # noqa: E402
 
-# Conditional GPU imports
-cudf_Series = None
 
-if is_cuml_available():
-    from cudf import Series as cudf_Series
+def _metric_array_to_numpy(data):
+    """Convert metric inputs to NumPy for sklearn compatibility."""
+    if data is None:
+        return None
+    return datagen._convert_to_numpy(data)
+
+
+def _safe_get_params(model):
+    if model is None or not hasattr(model, "get_params"):
+        return None
+    try:
+        return model.get_params()
+    except Exception:
+        return None
 
 
 class BenchmarkTimer:
@@ -282,8 +292,10 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
 
         cu_elapsed = 0.0
         cuml_accuracy = 0.0
+        cuml_params = None
         cpu_elapsed = 0.0
         cpu_accuracy = 0.0
+        cpu_params = None
 
         # Run cuML benchmark if GPU available and algorithm has cuML implementation
         if run_cuml and is_gpu_available() and algo_pair.has_cuml():
@@ -302,6 +314,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     },
                 )
             cu_elapsed = np.min(cuml_timer.timings)
+            cuml_params = _safe_get_params(cuml_model)
 
             if algo_pair.accuracy_function:
                 if algo_pair.cuml_data_prep_hook is not None:
@@ -314,11 +327,8 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 else:
                     y_pred_cuml = cuml_model.transform(X_test)
 
-                # Handle cudf Series conversion
-                if is_cuml_available() and isinstance(
-                    y_pred_cuml, cudf_Series
-                ):
-                    y_pred_cuml = y_pred_cuml.to_numpy()
+                y_test = _metric_array_to_numpy(y_test)
+                y_pred_cuml = _metric_array_to_numpy(y_pred_cuml)
                 cuml_accuracy = algo_pair.accuracy_function(
                     y_test, y_pred_cuml
                 )
@@ -341,6 +351,7 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     **setup_override,
                 )
             cpu_elapsed = np.min(cpu_timer.timings)
+            cpu_params = _safe_get_params(cpu_model)
 
             if algo_pair.accuracy_function:
                 if algo_pair.cpu_data_prep_hook is not None:
@@ -351,9 +362,9 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cpu = cpu_model.predict(X_test)
                 else:
                     y_pred_cpu = cpu_model.transform(X_test)
-                cpu_accuracy = algo_pair.accuracy_function(
-                    y_test, np.asarray(y_pred_cpu)
-                )
+                y_test = _metric_array_to_numpy(y_test)
+                y_pred_cpu = _metric_array_to_numpy(y_pred_cpu)
+                cpu_accuracy = algo_pair.accuracy_function(y_test, y_pred_cpu)
 
         if n_samples == 0:
             # Update n_samples = training samples + testing samples
@@ -379,6 +390,8 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
             cpu_time=cpu_elapsed,
             cuml_acc=cuml_accuracy,
             cpu_acc=cpu_accuracy,
+            cuml_params=cuml_params,
+            cpu_params=cpu_params,
             speedup=speedup,
             n_samples=n_samples,
             n_features=n_features,
@@ -405,6 +418,8 @@ def run_variations(
     run_cuml=True,
     raise_on_error=False,
     n_reps=1,
+    verbose=False,
+    progress_callback=None,
 ):
     """
     Runs each algo in `algos` once per
@@ -438,14 +453,20 @@ def run_variations(
       If True, run the cpu-based algorithm for comparison
     run_cuml : boolean
       If True, run the cuml-based algorithm (requires GPU)
+    verbose : boolean
+      If True, print per-run progress and result details.
+    progress_callback : callable
+      Optional callback invoked with each result record as it completes.
     """
     # Check GPU availability
     gpu_available = is_gpu_available()
     if not gpu_available:
-        print("Note: Running in CPU-only mode (GPU not available)")
+        if verbose:
+            print("Note: Running in CPU-only mode (GPU not available)")
         run_cuml = False
 
-    print("Running: \n", "\n ".join([str(a.name) for a in algos]))
+    if verbose:
+        print("Running: \n", "\n ".join([str(a.name) for a in algos]))
     runner = AccuracyComparisonRunner(
         bench_rows,
         bench_dims,
@@ -456,7 +477,8 @@ def run_variations(
     )
     all_results = []
     for algo in algos:
-        print("Running %s..." % (algo.name))
+        if verbose:
+            print("Running %s..." % (algo.name))
         for (
             overrides,
             cuml_overrides,
@@ -478,18 +500,22 @@ def run_variations(
                 run_cpu=run_cpu,
                 run_cuml=run_cuml,
                 raise_on_error=raise_on_error,
+                verbose=verbose,
             )
             for r in results:
-                all_results.append(
-                    {
-                        "algo": algo.name,
-                        "input": input_type,
-                        **r,
-                    }
-                )
+                record = {
+                    "algo": algo.name,
+                    "input": input_type,
+                    **r,
+                }
+                all_results.append(record)
+                if progress_callback is not None:
+                    progress_callback(record)
 
-    print("Finished all benchmark runs")
+    if verbose:
+        print("Finished all benchmark runs")
     results_df = pd.DataFrame.from_records(all_results)
-    print(results_df)
+    if verbose:
+        print(results_df)
 
     return results_df
