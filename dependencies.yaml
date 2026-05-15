@@ -538,7 +538,6 @@ dependencies:
               - umap-learn==0.5.8
               - ipython==8.10.0
               - hdbscan==0.8.41
-              - numpy==2.0
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
