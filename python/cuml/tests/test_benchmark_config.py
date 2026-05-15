@@ -4,13 +4,16 @@
 #
 
 from argparse import Namespace
-import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from cuml.benchmark.config import BenchmarkConfigError, load_and_resolve_config
+from cuml.benchmark.config import (
+    BenchmarkConfigError,
+    load_and_resolve_config,
+    load_config_file,
+)
 from cuml.benchmark.run_benchmarks import (
     _run_config_benchmarks,
     main,
@@ -54,22 +57,18 @@ def _make_args(**overrides):
     return Namespace(**args)
 
 
-def test_checked_in_benchmark_manifests_match_json_schema():
-    jsonschema = pytest.importorskip("jsonschema")
-    yaml = pytest.importorskip("yaml")
+def test_checked_in_benchmark_manifests_match_msgspec_schema():
+    pytest.importorskip("msgspec")
+    pytest.importorskip("yaml")
     configs_dir = (
         Path(__file__).resolve().parents[1] / "cuml" / "benchmark" / "configs"
     )
-    schema = json.loads(
-        (configs_dir / "benchmark.schema.json").read_text(encoding="utf-8")
-    )
 
-    for manifest_path in (
-        configs_dir / "test.yaml",
-        configs_dir / "single_gpu.yaml",
-    ):
-        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-        jsonschema.validate(instance=manifest, schema=schema)
+    manifest_paths = sorted(configs_dir.glob("*.yaml"))
+    assert manifest_paths
+
+    for manifest_path in manifest_paths:
+        load_config_file(str(manifest_path))
 
 
 def test_load_and_resolve_config_default_profile_filters_single_gpu_manifest():

@@ -23,7 +23,7 @@ The benchmark runner also supports YAML manifests. A manifest is the declarative
   - [Creating your own manifest](#creating-your-own-manifest)
   - [CLI overrides in config mode](#cli-overrides-in-config-mode)
 - [Input types](#input-types)
-- [Manifest JSON Schema](#manifest-json-schema)
+- [Manifest structural validation](#manifest-structural-validation)
 
 ## Running the benchmarks
 
@@ -83,13 +83,13 @@ The following Python packages are required for standalone mode:
 pip install numpy pandas scikit-learn scipy
 ```
 
-YAML manifests require PyYAML. If it is not installed, the benchmark CLI will
-print install instructions. You can install it with:
+YAML manifests require PyYAML and msgspec. If either is not installed, the
+benchmark CLI will print install instructions. You can install them with:
 
 ```bash
-conda install -c conda-forge pyyaml
+conda install -c conda-forge pyyaml msgspec
 # or
-python -m pip install pyyaml
+python -m pip install pyyaml msgspec
 ```
 
 ### CPU-only mode
@@ -520,12 +520,24 @@ This keeps the manifest-selected benchmark entry but overrides the row count and
 
 With GPU/cuML you can use `--input-type` such as `numpy`, `pandas`, `cupy`, or `cudf`. Without GPU, only `numpy` and `pandas` are valid; the script will warn and switch to `numpy` if needed.
 
-## Manifest JSON Schema
+## Manifest structural validation
 
-The formal JSON Schema for benchmark YAML manifests lives at:
+The benchmark manifest structure is validated by typed `msgspec` models in
+`python/cuml/cuml/benchmark/config.py`. The prose in this document explains the
+fields and gives examples, while the `msgspec` models provide the structural
+contract for parsing YAML manifests.
 
-`python/cuml/cuml/benchmark/configs/benchmark.schema.json`
+To generate a JSON Schema from the `msgspec` manifest model:
 
-The prose in this document explains the schema fields and gives examples. Some
-semantic checks, such as post-default required fields and compact `variants`
-conflicts, are still enforced by the Python loader.
+```bash
+python - <<'PY'
+import json
+from cuml.benchmark.config import benchmark_manifest_json_schema
+
+print(json.dumps(benchmark_manifest_json_schema(), indent=2))
+PY
+```
+
+Some semantic checks, such as post-default required fields, unknown algorithm
+names, and compact `variants` conflicts, are still enforced by custom Python
+validation after the structural conversion step.

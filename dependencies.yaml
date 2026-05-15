@@ -594,7 +594,7 @@ dependencies:
           - certifi
           - *cython
           - hypothesis>=6.0,<7
-          - jsonschema
+          - msgspec
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9

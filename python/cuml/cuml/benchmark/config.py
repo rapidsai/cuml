@@ -12,6 +12,11 @@ import sys
 from copy import deepcopy
 from typing import Any
 
+try:
+    import msgspec as _msgspec
+except ImportError:  # pragma: no cover - optional YAML config dependency
+    _msgspec = None
+
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import algorithms
@@ -115,6 +120,112 @@ COMPACT_VARIANT_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
 COMPACT_TIER_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
     "id_suffix"
 }
+_YAML_CONFIG_INSTALL_MESSAGE = (
+    "YAML benchmark configs require PyYAML and msgspec. "
+    "Install them with `conda install -c conda-forge pyyaml msgspec` "
+    "or `python -m pip install pyyaml msgspec`."
+)
+
+
+def _build_benchmark_manifest_model(msgspec):
+    Shape = msgspec.defstruct(
+        "Shape",
+        [("rows", int), ("features", int)],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    common_fields = [
+        ("id", str | None, None),
+        ("algorithm", str | None, None),
+        ("dataset", str | None, None),
+        ("input_type", str | None, None),
+        ("dtype", str | None, None),
+        ("n_reps", int | None, None),
+        ("random_state", int | None, None),
+        ("test_split", int | float | None, None),
+        ("run_cpu", bool | None, None),
+        ("run_gpu", bool | None, None),
+        ("backends", list[str] | None, None),
+        ("raise_on_error", bool | None, None),
+        ("default_size", bool | None, None),
+        ("shapes", list[Shape] | None, None),
+        ("rows", list[int] | None, None),
+        ("features", list[int] | None, None),
+        ("operation", str | None, None),
+        ("params", dict[str, Any] | None, None),
+        ("cuml_params", dict[str, Any] | None, None),
+        ("cpu_params", dict[str, Any] | None, None),
+        ("dataset_params", dict[str, Any] | None, None),
+        ("param_grid", dict[str, list[Any]] | None, None),
+        ("cuml_param_grid", dict[str, list[Any]] | None, None),
+        ("cpu_param_grid", dict[str, list[Any]] | None, None),
+        ("dataset_param_grid", dict[str, list[Any]] | None, None),
+        ("comparison", dict[str, Any] | None, None),
+        ("tags", list[str] | None, None),
+        ("enabled", bool | None, None),
+        ("skip_reason", str | None, None),
+        ("metadata", dict[str, Any] | None, None),
+    ]
+    compact_fields = [
+        field for field in common_fields if field[0] not in {"id", "algorithm"}
+    ]
+    Tier = msgspec.defstruct(
+        "Tier",
+        compact_fields + [("id_suffix", str | None, None)],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    Variant = msgspec.defstruct(
+        "Variant",
+        compact_fields
+        + [
+            ("id_suffix", str | None, None),
+            ("tiers", dict[str, Tier] | None, None),
+        ],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    CommonFields = msgspec.defstruct(
+        "CommonFields",
+        common_fields,
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    Benchmark = msgspec.defstruct(
+        "Benchmark",
+        common_fields + [("variants", dict[str, Variant] | None, None)],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    Suite = msgspec.defstruct(
+        "Suite",
+        [("name", str), ("tier", str), ("description", str)],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    Profile = msgspec.defstruct(
+        "Profile",
+        [("include_tags", list[str])],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+    return msgspec.defstruct(
+        "BenchmarkManifest",
+        [
+            ("version", int),
+            ("suite", Suite),
+            ("benchmarks", list[Benchmark]),
+            ("profiles", dict[str, Profile] | None, None),
+            ("defaults", CommonFields | None, None),
+        ],
+        forbid_unknown_fields=True,
+        module=__name__,
+    )
+
+
+BenchmarkManifest = (
+    _build_benchmark_manifest_model(_msgspec) if _msgspec is not None else None
+)
 
 
 class BenchmarkConfigError(ValueError):
@@ -125,12 +236,34 @@ def _load_yaml_module():
     try:
         import yaml
     except ImportError as exc:
-        raise BenchmarkConfigError(
-            "PyYAML is required to load benchmark YAML config files. "
-            "Install it with `conda install -c conda-forge pyyaml` or "
-            "`python -m pip install pyyaml`."
-        ) from exc
+        raise BenchmarkConfigError(_YAML_CONFIG_INSTALL_MESSAGE) from exc
     return yaml
+
+
+def _load_msgspec_module():
+    if _msgspec is None:
+        raise BenchmarkConfigError(_YAML_CONFIG_INSTALL_MESSAGE)
+    return _msgspec
+
+
+def _validate_config_structure(raw_config: dict[str, Any]) -> None:
+    """Validate manifest structure with typed msgspec models."""
+    msgspec = _load_msgspec_module()
+    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(msgspec)
+
+    try:
+        msgspec.convert(raw_config, type=manifest_model)
+    except msgspec.ValidationError as exc:
+        raise BenchmarkConfigError(
+            f"Benchmark config does not match the manifest schema: {exc}"
+        ) from exc
+
+
+def benchmark_manifest_json_schema() -> dict[str, Any]:
+    """Return a JSON Schema generated from the msgspec manifest model."""
+    msgspec = _load_msgspec_module()
+    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(msgspec)
+    return msgspec.json.schema(manifest_model)
 
 
 def _is_int_value(value: Any) -> bool:
@@ -155,6 +288,7 @@ def load_config_file(config_path: str) -> dict[str, Any]:
             f"Top-level YAML document must be a mapping: {abs_path}"
         )
 
+    _validate_config_structure(raw)
     validate_config(raw)
     return raw
 
