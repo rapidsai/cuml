@@ -75,30 +75,11 @@ You should see the following messages amongst the other output:
    [cuml.accel] Accelerator installed.
    [cuml.accel] `UMAP.fit_transform` ran on GPU
 
-Benchmark Results
-~~~~~~~~~~~~~~~~~
+Results
+~~~~~~~
 
-On an NVIDIA RTX A6000 with 1M TinyStories rows (384-dimensional
-sentence embeddings):
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 20 20 20
-
-   * - Step
-     - CPU
-     - GPU (cuml.accel)
-     - Speedup
-   * - UMAP ``fit_transform``
-     - 180 s
-     - 46 s
-     - **3.9x**
-   * - UMAP total (KNN + fit_transform)
-     - 238 s
-     - 105 s
-     - **2.3x**
-
-The ``fit_transform`` step sees a **~4x speedup** because cuML's GPU
+At the time of writing and on the hardware the author used the
+``fit_transform`` step saw a roughly **~4x speedup** because cuML's GPU
 UMAP replaces the CPU optimization. The KNN step (``nearest_neighbors``)
 is a standalone function call that ``cuml.accel`` does not currently
 intercept, so it runs on CPU in both cases. Despite this, the overall
