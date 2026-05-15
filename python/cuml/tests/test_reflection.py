@@ -418,9 +418,19 @@ def test_decorators_set_cupy_ptds():
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return cp.zeros(3)
 
-    model = MyEstimator()
     X = cp.ones(3)
+
+    # Check that ptds is used instead of the default stream
+    model = MyEstimator()
     model.fit(X)
     model.direct_call(X)
     model.nested_call(X)
     model.no_reflection(X)
+
+    # Check that ptds is used instead of a custom stream
+    with cp.cuda.Stream():
+        model = MyEstimator()
+        model.fit(X)
+        model.direct_call(X)
+        model.nested_call(X)
+        model.no_reflection(X)
