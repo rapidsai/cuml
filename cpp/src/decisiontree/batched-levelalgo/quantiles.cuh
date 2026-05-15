@@ -13,6 +13,7 @@
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/comms.hpp>
 #include <raft/random/rng_device.cuh>
 #include <raft/util/cuda_utils.cuh>
 
@@ -24,13 +25,30 @@
 #include <thrust/unique.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
 #include <memory>
+#include <numeric>
+#include <vector>
 
 namespace ML {
 namespace DT {
 
 namespace detail {
+
+inline std::vector<std::size_t> proportionalSampleCounts(
+  std::vector<std::uint64_t> const& row_counts, std::uint64_t global_rows, int sample_count)
+{
+  std::vector<std::size_t> result(row_counts.size());
+  std::uint64_t prefix = 0;
+  for (std::size_t i = 0; i < row_counts.size(); ++i) {
+    auto begin = (static_cast<std::uint64_t>(sample_count) * prefix) / global_rows;
+    prefix += row_counts[i];
+    auto end  = (static_cast<std::uint64_t>(sample_count) * prefix) / global_rows;
+    result[i] = static_cast<std::size_t>(end - begin);
+  }
+  return result;
+}
 
 template <typename T>
 static __global__ void gatherUniformSampledColumnKernel(
@@ -128,13 +146,45 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
   RAFT_EXPECTS(n_cols > 0, "n_cols must be positive");
   RAFT_EXPECTS(oversampling_factor > 0, "oversampling_factor must be positive");
 
-  auto stream  = handle.get_stream();
-  int64_t size = static_cast<int64_t>(max_n_bins) * oversampling_factor;
-  int sample_count =
-    static_cast<int>(std::min<int64_t>(static_cast<int64_t>(n_rows), std::max<int64_t>(1, size)));
+  auto stream      = handle.get_stream();
+  bool distributed = raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1;
+  int rank         = distributed ? handle.get_comms().get_rank() : 0;
+  int comm_size    = distributed ? handle.get_comms().get_size() : 1;
+  int64_t size     = static_cast<int64_t>(max_n_bins) * oversampling_factor;
+  auto target_sample = std::max<int64_t>(1, size);
+
+  std::uint64_t global_rows = static_cast<std::uint64_t>(n_rows);
+  std::vector<std::uint64_t> rank_rows(1, global_rows);
+  std::vector<std::size_t> rank_sample_counts(1, 0);
+  std::vector<std::size_t> rank_sample_displs(1, 0);
+
+  if (distributed) {
+    rmm::device_uvector<std::uint64_t> row_counts(comm_size, stream);
+    auto local_rows = static_cast<std::uint64_t>(n_rows);
+    raft::update_device(row_counts.data(), &local_rows, 1, stream);
+    handle.get_comms().allgather(row_counts.data(), row_counts.data(), 1, stream);
+    ASSERT(handle.get_comms().sync_stream(stream) == raft::comms::status_t::SUCCESS,
+           "An error occurred in the distributed RF quantile row-count all-gather.");
+    rank_rows.resize(comm_size);
+    raft::update_host(rank_rows.data(), row_counts.data(), comm_size, stream);
+    handle.sync_stream(stream);
+    global_rows = std::accumulate(rank_rows.begin(), rank_rows.end(), std::uint64_t{0});
+  }
+  RAFT_EXPECTS(global_rows > 0, "global row count must be positive");
+
+  int sample_count = static_cast<int>(
+    std::min<std::uint64_t>(global_rows, static_cast<std::uint64_t>(target_sample)));
+  rank_sample_counts = detail::proportionalSampleCounts(rank_rows, global_rows, sample_count);
+  rank_sample_displs.resize(comm_size);
+  for (int i = 1; i < comm_size; ++i) {
+    rank_sample_displs[i] = rank_sample_displs[i - 1] + rank_sample_counts[i - 1];
+  }
+  int local_sample_count = static_cast<int>(rank_sample_counts[rank]);
 
   rmm::device_uvector<T> sampled_column(sample_count, stream);
   rmm::device_uvector<T> sorted_sample(sample_count, stream);
+  rmm::device_uvector<T> local_sampled_column(
+    distributed ? std::max(1, local_sample_count) : sample_count, stream);
   auto quantiles_array = std::make_shared<rmm::device_uvector<T>>(n_cols * max_n_bins, stream);
   auto n_bins_array    = std::make_shared<rmm::device_uvector<int>>(n_cols, stream);
 
@@ -150,28 +200,50 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
   rmm::device_uvector<char> d_temp_storage(temp_storage_bytes, stream);
 
   int n_threads = 256;
-  int n_blocks  = raft::ceildiv(sample_count, n_threads);
+  int n_blocks  = raft::ceildiv(std::max(1, local_sample_count), n_threads);
   n_blocks      = std::min(n_blocks, 1024);
 
   for (int col = 0; col < n_cols; col++) {
     raft::common::nvtx::push_range("sample quantile column");
-    if (sample_count == n_rows) {
-      RAFT_CUDA_TRY(cudaMemcpyAsync(sampled_column.data(),
-                                    data + static_cast<int64_t>(col) * n_rows,
-                                    sizeof(T) * n_rows,
-                                    cudaMemcpyDeviceToDevice,
-                                    stream));
+    T* sort_input = sampled_column.data();
+    if (distributed) {
+      if (local_sample_count == n_rows) {
+        RAFT_CUDA_TRY(cudaMemcpyAsync(local_sampled_column.data(),
+                                      data + static_cast<int64_t>(col) * n_rows,
+                                      sizeof(T) * n_rows,
+                                      cudaMemcpyDeviceToDevice,
+                                      stream));
+      } else if (local_sample_count > 0) {
+        detail::gatherUniformSampledColumnKernel<<<n_blocks, n_threads, 0, stream>>>(
+          local_sampled_column.data(), data, local_sample_count, n_rows, col, seed);
+        RAFT_CUDA_TRY(cudaGetLastError());
+      }
+      handle.get_comms().allgatherv(local_sampled_column.data(),
+                                    sampled_column.data(),
+                                    rank_sample_counts.data(),
+                                    rank_sample_displs.data(),
+                                    stream);
+      ASSERT(handle.get_comms().sync_stream(stream) == raft::comms::status_t::SUCCESS,
+             "An error occurred in the distributed RF quantile sample all-gather.");
     } else {
-      detail::gatherUniformSampledColumnKernel<<<n_blocks, n_threads, 0, stream>>>(
-        sampled_column.data(), data, sample_count, n_rows, col, seed);
-      RAFT_CUDA_TRY(cudaGetLastError());
+      if (sample_count == n_rows) {
+        RAFT_CUDA_TRY(cudaMemcpyAsync(sampled_column.data(),
+                                      data + static_cast<int64_t>(col) * n_rows,
+                                      sizeof(T) * n_rows,
+                                      cudaMemcpyDeviceToDevice,
+                                      stream));
+      } else {
+        detail::gatherUniformSampledColumnKernel<<<n_blocks, n_threads, 0, stream>>>(
+          sampled_column.data(), data, sample_count, n_rows, col, seed);
+        RAFT_CUDA_TRY(cudaGetLastError());
+      }
     }
     raft::common::nvtx::pop_range();
 
     raft::common::nvtx::push_range("sort sampled quantile column");
     RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data()),
                                                  temp_storage_bytes,
-                                                 sampled_column.data(),
+                                                 sort_input,
                                                  sorted_sample.data(),
                                                  sample_count,
                                                  0,
