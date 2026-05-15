@@ -124,6 +124,9 @@ def count_categorical_split(tl_model):
 )
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_regression(
@@ -197,6 +200,9 @@ def test_xgb_regressor(objective):
 )
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_classification(
