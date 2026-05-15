@@ -248,6 +248,7 @@ files:
       - cuda_wheels
       - depends_on_libcuvs
       - depends_on_libraft
+      - depends_on_librmm
       - depends_on_rapids_logger
 channels:
   - rapidsai-nightly
