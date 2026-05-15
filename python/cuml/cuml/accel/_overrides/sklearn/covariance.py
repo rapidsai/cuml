@@ -6,7 +6,11 @@
 import cuml.covariance
 from cuml.accel.estimator_proxy import ProxyBase
 
-__all__ = ("LedoitWolf",)
+__all__ = ("EmpiricalCovariance", "LedoitWolf")
+
+
+class EmpiricalCovariance(ProxyBase):
+    _gpu_class = cuml.covariance.EmpiricalCovariance
 
 
 class LedoitWolf(ProxyBase):

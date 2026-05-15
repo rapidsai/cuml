@@ -52,6 +52,7 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
     * ``sklearn.cluster.SpectralClustering``
+    * ``sklearn.covariance.EmpiricalCovariance``
     * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
     * ``sklearn.decomposition.TruncatedSVD``
