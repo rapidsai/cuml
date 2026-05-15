@@ -58,6 +58,8 @@ executing the following line magic at the top (before other imports):
 You can see an example of this in :doc:`this example
 <examples/plot_kmeans_digits>`.
 
+.. _cuml-accel-env-var:
+
 Environment Variable
 ~~~~~~~~~~~~~~~~~~~~
 

@@ -10,9 +10,9 @@ installed CLI tools, applications, and third-party libraries.
 
    CUML_ACCEL_ENABLED=1 some-third-party-tool [args...]
 
-When ``CUML_ACCEL_ENABLED=1`` is defined, `cuml.accel` will be enabled as
-part of the normal Python interpreter startup, letting you accelerate
-Python applications without modification
+When :ref:`CUML_ACCEL_ENABLED=1 is defined <cuml-accel-env-var>`,
+`cuml.accel` will be enabled as part of the normal Python interpreter
+startup, letting you accelerate Python applications without modification
 
 This means you do not need access to an application's source code: set the
 environment variable and the acceleration applies automatically.
