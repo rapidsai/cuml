@@ -364,6 +364,11 @@ _BUILD_ALGOS = {"auto", "brute_force_knn", "nn_descent"}
 
 _INITS = {"random": 0, "spectral": 1}
 
+# Upper bound for n_components when force_serial_epochs is enabled. Matches
+# SERIAL_PER_WARP_MAX_NC in cpp/src/umap/simpl_set_embed/optimize_batch_kernel.cuh
+# Update both together.
+_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS = 512
+
 _TARGET_METRICS = {
     "euclidean": lib.MetricType.EUCLIDEAN,
     "l2": lib.MetricType.EUCLIDEAN,
@@ -547,7 +552,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
-    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -561,6 +565,28 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"Expected `init` to be an array or one of {list(_INITS)}, "
             f"got {self.init!r}"
         )
+
+    if self.force_serial_epochs is None:
+        # Only auto-enable for spectral fit. Also skip when n_components > 512 since
+        # the warp-based serial kernel only supports up to 512 components
+        params.force_serial_epochs = (
+            is_fit
+            and params.init == 1
+            and self.n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        )
+    else:
+        if (
+            self.force_serial_epochs
+            and self.n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        ):
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={self.n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
+        params.force_serial_epochs = self.force_serial_epochs
 
     if self.target_metric in _TARGET_METRICS:
         params.target_metric = _TARGET_METRICS[self.target_metric]
@@ -685,6 +711,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         * 'random': assign initial embedding positions at random.
         * An array-like with initial embedding positions.
 
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
+
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
         will result in a more clustered/clumped embedding where nearby points
@@ -777,14 +809,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -974,7 +1008,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
-            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
+            "force_serial_epochs": getattr(model, "force_serial_epochs", None),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1120,7 +1154,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
-        force_serial_epochs=False,
+        force_serial_epochs=None,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
@@ -1814,7 +1848,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
-    force_serial_epochs=False,
+    force_serial_epochs=None,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1835,6 +1869,12 @@ def simplicial_set_embedding(
         The 1-skeleton of the high dimensional fuzzy simplicial set as
         represented by a graph for which we require a sparse matrix for the
         (weighted) adjacency matrix.
+
+        Note: When ``force_serial_epochs`` is enabled (either explicitly or
+        via the auto-default for ``init='spectral'`` with
+        ``n_components <= 512``), the COO is required to be sorted by row
+        for internal CSR conversion. If it is not, it will be sorted internally.
+        To avoid the extra sort, pass a row-sorted COO.
     n_components: int
         The dimensionality of the euclidean space into which to embed the data.
     initial_alpha: float
@@ -1860,16 +1900,24 @@ def simplicial_set_embedding(
             * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
             * 'random': assign initial embedding positions at random.
             * An array-like with initial embedding positions.
+
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1920,7 +1968,24 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
-    params.force_serial_epochs = force_serial_epochs
+    if force_serial_epochs is None:
+        # Auto-enable only for spectral init within the serial kernel's supported
+        # n_components range (the warp-based serial kernel supports up to 512).
+        params.force_serial_epochs = (
+            isinstance(init, str)
+            and init == "spectral"
+            and n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        )
+    else:
+        if force_serial_epochs and n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS:
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
+        params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)

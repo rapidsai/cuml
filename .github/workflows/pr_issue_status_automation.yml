@@ -7,13 +7,13 @@ on: # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     # This job runs when a PR is first opened, or it is updated
     # Only runs if the PR is open (we don't want to update the status of a closed PR)
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions: {}
 
 jobs:
     get-project-id:
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-item-id.yaml@cuda-13.2.0
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-item-id.yaml@release/26.06
       if: github.event.pull_request.state == 'open'
       permissions:
         actions: read
@@ -28,8 +28,8 @@ jobs:
 
     update-status:
       # This job sets the PR and its linked issues to "In Progress" status
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@cuda-13.2.0
-      if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@release/26.06
+      if: ${{ github.event.pull_request.state == 'open' && (github.event.action == 'opened' || github.event.action == 'edited' || github.event.action == 'synchronize') && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' }}
       needs: get-project-id
       permissions:
         actions: read
@@ -80,7 +80,7 @@ jobs:
     update-release:
       # This job sets the PR's Release field based on the target branch
       # Only sets the field if it is not already set.
-      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@cuda-13.2.0
+      uses: rapidsai/shared-workflows/.github/workflows/project-get-set-single-select-field.yaml@release/26.06
       if: ${{ github.event.pull_request.state == 'open' && needs.get-project-id.outputs.ITEM_PROJECT_ID != '' && needs.get-release-version.outputs.release-version != '' }}
       needs: [get-project-id, get-release-version]
       permissions:
@@ -100,3 +100,35 @@ jobs:
         OVERRIDE_ITEM: false
         UPDATE_LINKED_ISSUES: false
       secrets: inherit # zizmor: ignore[secrets-inherit]
+
+    validate-release-target:
+      # This job reports whether the PR's Release field matches where the PR
+      # will actually land, and whether linked issues are delivered late.
+      if: ${{ always() && github.event.pull_request.state == 'open' && needs.get-release-version.outputs.release-version != '' }}
+      needs: [get-project-id, get-release-version, update-release]
+      continue-on-error: true
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        issues: read
+        pull-requests: read
+        repository-projects: read
+      steps:
+        - name: Checkout base branch
+          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+          with:
+            ref: ${{ github.event.pull_request.base.ref }}
+            persist-credentials: false
+        - name: Validate PR Release target
+          env:
+            GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_GITHUB_TOKEN }}
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+            REPOSITORY: ${{ github.repository }}
+            TARGET_RELEASE: ${{ needs.get-release-version.outputs.release-version }}
+          run: |
+            python .github/scripts/check_pr_release_target.py \
+              --repo "$REPOSITORY" \
+              --pr-number "$PR_NUMBER" \
+              --target-release "$TARGET_RELEASE" \
+              --project-id "PVT_kwDOAp2shc4AA8lR" \
+              --release-field-id "PVTSSF_lADOAp2shc4AA8lRzgFqH3Y"

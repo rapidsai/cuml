@@ -1865,7 +1865,10 @@ def test_check_cudf(kind, ensure_ndim, coerce_ndim, dtype, shape):
                 data = data.ravel()
         else:
             assert isinstance(out, (cudf.Series, cudf.DataFrame))
-        res = out.to_numpy(dtype=data.dtype)
+
+        res = out.to_numpy(
+            dtype=("float32" if data.dtype == "float16" else data.dtype)
+        )
         np.testing.assert_array_equal(res, data)
 
 

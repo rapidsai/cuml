@@ -176,6 +176,7 @@ EXCEPTIONS = {
     "LabelBinarizer.fit": ["self", "y"],
     "LabelBinarizer.fit_transform": ["self", "y"],
     "LabelBinarizer.transform": ["self", "y"],
+    "EmpiricalCovariance.score": ["self", "X_test", "y"],
     "LedoitWolf.score": ["self", "X_test", "y"],
 }
 

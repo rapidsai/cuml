@@ -13,7 +13,7 @@ from cuml.cluster import (
     KMeans,
     SpectralClustering,
 )
-from cuml.covariance import LedoitWolf
+from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.kernel_ridge import KernelRidge
@@ -74,6 +74,7 @@ ESTIMATORS = [
     KNeighborsRegressor(),
     KNeighborsClassifier(),
     KernelDensity(),
+    EmpiricalCovariance(),
     LedoitWolf(),
     Ridge(),
     ElasticNet(),
@@ -208,6 +209,9 @@ XFAILS = {
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",
+    },
+    EmpiricalCovariance: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
