@@ -12,13 +12,6 @@ import sys
 from copy import deepcopy
 from typing import Any
 
-try:
-    import yaml
-except ImportError as exc:  # pragma: no cover - dependency issue
-    raise RuntimeError(
-        "PyYAML is required to load benchmark config files."
-    ) from exc
-
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import algorithms
@@ -128,6 +121,18 @@ class BenchmarkConfigError(ValueError):
     """Raised when a benchmark config file is invalid."""
 
 
+def _load_yaml_module():
+    try:
+        import yaml
+    except ImportError as exc:
+        raise BenchmarkConfigError(
+            "PyYAML is required to load benchmark YAML config files. "
+            "Install it with `conda install -c conda-forge pyyaml` or "
+            "`python -m pip install pyyaml`."
+        ) from exc
+    return yaml
+
+
 def _is_int_value(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
@@ -138,6 +143,7 @@ def _is_numeric_value(value: Any) -> bool:
 
 def load_config_file(config_path: str) -> dict[str, Any]:
     """Load a YAML benchmark config file."""
+    yaml = _load_yaml_module()
     abs_path = os.path.abspath(config_path)
     with open(abs_path, encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)

@@ -61,7 +61,16 @@ python run_benchmarks.py \
 The following Python packages are required for standalone mode:
 
 ```bash
-pip install numpy pandas pyyaml scikit-learn scipy
+pip install numpy pandas scikit-learn scipy
+```
+
+YAML manifests require PyYAML. If it is not installed, the benchmark CLI will
+print install instructions. You can install it with:
+
+```bash
+conda install -c conda-forge pyyaml
+# or
+python -m pip install pyyaml
 ```
 
 ### CPU-only mode
