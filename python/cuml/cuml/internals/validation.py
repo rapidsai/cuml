@@ -494,7 +494,7 @@ else:
         numpy 2.0 added the `copy` arg to `np.asarray`, as well as changed the
         meaning of copy=False to "error if a copy required" rather than "only
         copy if needed" (which is now `copy=None`)."""
-        return np.array(x, dtype=dtype, order=order, copy=bool(copy))
+        return np.array(x, dtype=dtype, order=order or "K", copy=bool(copy))
 
 
 def check_array(

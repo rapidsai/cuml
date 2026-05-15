@@ -531,7 +531,6 @@ dependencies:
               - umap-learn==0.5.7
               - hdbscan==0.8.39
               - numpy==1.26
-              - cupy==13.6
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2
