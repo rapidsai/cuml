@@ -48,7 +48,7 @@ class SVC(ProxyBase):
         # Fixup returned dtype
         return self._gpu.decision_function(X).astype("float64", copy=False)
 
-    # Mirror sklearn: predict_proba only exists when probability is enabled.
+    # Manual gate: ProxyBase has no built-in conditional-method support.
     @available_if(_has_probability)
     @functools.wraps(_SVC.predict_proba)
     def predict_proba(self, X):

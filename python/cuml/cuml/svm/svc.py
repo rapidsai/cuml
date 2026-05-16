@@ -398,7 +398,6 @@ class SVC(SVMBase, ClassifierMixin):
 
         params = {
             **self.get_params(),
-            # Pin the sentinel (see _fit_multiclass) for the inner folds.
             "probability": "deprecated",
             "output_type": "numpy",
             "class_weight": None,

@@ -268,8 +268,7 @@ class SVMBase(Base,
             "_probB": self._probB,
             "_sparse": self._sparse,
             # sklearn >= 1.9 reads this private attribute during predict
-            # (sklearn PR #32050); harmless on older sklearn (no code reads it).
-            # SVR has no `probability`, so default to False.
+            # (sklearn PR #32050); harmless on older sklearn.
             "_effective_probability": getattr(self, "_effective_probability", False),
             **super()._attrs_to_cpu(model),
         }
