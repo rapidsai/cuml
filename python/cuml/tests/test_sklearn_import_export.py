@@ -376,7 +376,7 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
-# TODO(26.10): Remove this filter once `probability` is removed from cuml.svm.SVC.
+# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
 )

@@ -343,7 +343,7 @@ def test_regressor_predict_dtype(cls):
 )
 # TODO(26.08) Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
-# TODO(26.10): Remove once `probability` is removed from cuml.svm.SVC.
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter is deprecated:FutureWarning"
 )

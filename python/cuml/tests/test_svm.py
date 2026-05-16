@@ -40,7 +40,7 @@ from cuml.testing.utils import (
 
 # Many tests below pass `probability=` to cuml SVC/LinearSVC on purpose;
 # silence the FutureWarning module-wide.
-# TODO(26.10): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The `probability` parameter is deprecated:FutureWarning"
 )

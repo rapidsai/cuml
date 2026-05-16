@@ -34,7 +34,7 @@ pytestmark = [
     pytest.mark.filterwarnings(
         "ignore:The default value of 'max_depth':FutureWarning"
     ),
-    # TODO(26.10): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+    # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
     pytest.mark.filterwarnings(
         "ignore:The `probability` parameter is deprecated:FutureWarning"
     ),

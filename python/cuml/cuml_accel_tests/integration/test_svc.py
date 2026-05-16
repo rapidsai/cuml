@@ -37,9 +37,10 @@ def test_svc(binary):
     assert svc.score(X, y) > 0.5
 
 
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
-# TODO(26.10): Remove once `probability` is removed from cuml.svm.SVC.
+)
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter is deprecated:FutureWarning"
 )
