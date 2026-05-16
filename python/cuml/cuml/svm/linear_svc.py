@@ -162,9 +162,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
                 f"`multi_class={model.multi_class}` is not supported"
             )
 
-        # `probability` is intentionally omitted: sklearn.LinearSVC has no such
-        # parameter, so the cuml-side default `"deprecated"` is restored by
-        # `__init__`.
+        # probability omitted: sklearn.LinearSVC has no such param.
         return {
             "penalty": model.penalty,
             "loss": model.loss,
