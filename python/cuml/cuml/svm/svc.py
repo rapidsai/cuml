@@ -200,8 +200,8 @@ class SVC(SVMBase, ClassifierMixin):
     @classmethod
     def _params_from_cpu(cls, model):
         if model.probability is True:
-            # `probability=True` is being deprecated; cuml.accel falls back
-            # to native sklearn, which uses sklearn's own CalibratedClassifierCV.
+            # probability=True is deprecated; cuml.accel falls back to
+            # native sklearn's own CalibratedClassifierCV.
             raise UnsupportedOnGPU("`probability=True` is not supported")
 
         params = super()._params_from_cpu(model)
@@ -400,8 +400,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         params = {
             **self.get_params(),
-            # Pin the sentinel so inner CalibratedClassifierCV folds don't
-            # re-fire the deprecation warning the outer fit already emitted.
+            # Pin the sentinel (see _fit_multiclass) for the inner folds.
             "probability": "deprecated",
             "output_type": "numpy",
             "class_weight": None,

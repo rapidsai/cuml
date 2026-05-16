@@ -666,7 +666,10 @@ def test_svc_probability_emits_future_warning(explicit_value):
     )
     with pytest.warns(
         FutureWarning,
-        match=r"The `probability` parameter is deprecated",
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
     ):
         cu_svm.SVC(probability=explicit_value).fit(X, y)
 
@@ -685,7 +688,10 @@ def test_svc_default_does_not_emit_probability_warning():
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "error",
-            message=r"The `probability` parameter is deprecated",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
             category=FutureWarning,
         )
         cu_svm.SVC().fit(X, y)
@@ -703,7 +709,10 @@ def test_linear_svc_probability_emits_future_warning(explicit_value):
     )
     with pytest.warns(
         FutureWarning,
-        match=r"The `probability` parameter is deprecated",
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
     ):
         cu_svm.LinearSVC(probability=explicit_value).fit(X, y)
 
@@ -720,7 +729,10 @@ def test_linear_svc_default_does_not_emit_probability_warning():
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "error",
-            message=r"The `probability` parameter is deprecated",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
             category=FutureWarning,
         )
         cu_svm.LinearSVC().fit(X, y)
@@ -745,7 +757,7 @@ def test_svc_probability_warning_fires_once():
         w
         for w in caught
         if issubclass(w.category, FutureWarning)
-        and "The `probability` parameter is deprecated" in str(w.message)
+        and "is deprecated and will be removed in cuML" in str(w.message)
     ]
     assert len(matched) == 1
 
@@ -764,7 +776,7 @@ def test_svc_probability_warning_fires_once():
         w
         for w in caught
         if issubclass(w.category, FutureWarning)
-        and "The `probability` parameter is deprecated" in str(w.message)
+        and "is deprecated and will be removed in cuML" in str(w.message)
     ]
     assert len(matched) == 1
 

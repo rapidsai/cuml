@@ -30,7 +30,7 @@ from cuml.testing.utils import (
 from cuml.tsa.arima import ARIMA
 
 pytestmark = [
-    # TODO(26.08) Remove this filter
+    # TODO(26.08): Remove this filter
     pytest.mark.filterwarnings(
         "ignore:The default value of 'max_depth':FutureWarning"
     ),

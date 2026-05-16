@@ -42,7 +42,7 @@ def test_svc(binary):
     "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
 )
 @pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
 )
 def test_svc_probability(binary):
     X, y = binary
