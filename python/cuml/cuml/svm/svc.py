@@ -225,9 +225,7 @@ class SVC(SVMBase, ClassifierMixin):
         params.pop(
             "epsilon"
         )  # SVC doesn't expose `epsilon` in the constructor
-        # sklearn 1.9+ uses the same ``"deprecated"`` sentinel; forward
-        # verbatim there so round-trip preserves identity. Older sklearn
-        # rejects the sentinel, so resolve to the effective value.
+        # sklearn <1.9 rejects the ``"deprecated"`` sentinel; resolve it there.
         if SKLEARN_19:
             probability = self.probability
         else:
