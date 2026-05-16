@@ -56,9 +56,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         The string 'balanced' is also accepted, in which case
         ``class_weight[i] = n_samples / (n_classes * n_samples_of_class[i])``
     probability: bool, default=False
-        .. deprecated:: 26.08
+        .. deprecated:: 26.06
             ``probability`` is deprecated and will be removed in version
-            26.10. Use ``CalibratedClassifierCV(LinearSVC(), ensemble=False)``
+            26.08. Use ``CalibratedClassifierCV(LinearSVC(), ensemble=False)``
             from ``sklearn.calibration`` for probability estimates instead.
 
         Set to True to enable probability estimate methods (``predict_proba``,
@@ -257,7 +257,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         if self.probability != "deprecated":
             warnings.warn(
                 "The `probability` parameter is deprecated and will be "
-                "removed in cuML version 26.10. Use "
+                "removed in cuML version 26.08. Use "
                 "`CalibratedClassifierCV(LinearSVC(), ensemble=False)` from "
                 "`sklearn.calibration` instead.",
                 FutureWarning,
