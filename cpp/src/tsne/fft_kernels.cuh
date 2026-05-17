@@ -13,6 +13,7 @@
 #pragma once
 
 #include <cuComplex.h>
+#include <stdint.h>
 
 namespace ML {
 namespace TSNE {
@@ -178,6 +179,142 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
               chargesQij[i * n_terms + current_term]);
 }
 
+template <typename value_idx>
+CUML_KERNEL void compute_interpolation_point_sort_inputs(
+  uint64_t* __restrict__ sort_keys,
+  value_idx* __restrict__ point_indices,
+  const value_idx* const point_box_indices,
+  const value_idx N)
+{
+  value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID >= N) return;
+
+  sort_keys[TID] = static_cast<uint64_t>(point_box_indices[TID]) * static_cast<uint64_t>(N) +
+                   static_cast<uint64_t>(TID);
+  point_indices[TID] = TID;
+}
+
+template <typename value_idx>
+CUML_KERNEL void fill_interpolation_box_keys(uint64_t* __restrict__ box_keys,
+                                             const value_idx n_boxes,
+                                             const value_idx N)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID > n_boxes) return;
+
+  box_keys[TID] = static_cast<uint64_t>(TID) * static_cast<uint64_t>(N);
+}
+
+template <typename value_idx>
+CUML_KERNEL void compute_interpolation_chunk_counts(value_idx* __restrict__ chunk_counts,
+                                                    const value_idx* const box_offsets,
+                                                    const value_idx n_boxes,
+                                                    const value_idx chunk_size)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID > n_boxes) return;
+
+  if (TID == n_boxes) {
+    chunk_counts[TID] = 0;
+    return;
+  }
+
+  const value_idx n_points = box_offsets[TID + 1] - box_offsets[TID];
+  chunk_counts[TID]        = (n_points + chunk_size - 1) / chunk_size;
+}
+
+template <typename value_idx>
+CUML_KERNEL void fill_interpolation_chunk_boxes(value_idx* __restrict__ chunk_box_indices,
+                                                const value_idx* const chunk_counts,
+                                                const value_idx* const chunk_offsets,
+                                                const value_idx n_boxes)
+{
+  const value_idx box = threadIdx.x + blockIdx.x * blockDim.x;
+  if (box >= n_boxes) return;
+
+  const value_idx start = chunk_offsets[box];
+  const value_idx count = chunk_counts[box];
+  for (value_idx chunk = 0; chunk < count; ++chunk) {
+    chunk_box_indices[start + chunk] = box;
+  }
+}
+
+template <typename value_idx, typename value_t>
+CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
+  value_t* __restrict__ chunk_partials,
+  const value_idx* const chunk_box_indices,
+  const value_idx* const chunk_offsets,
+  const value_idx* const box_offsets,
+  const value_idx* const sorted_point_indices,
+  const value_t* const chargesQij,
+  const value_t* const x_interpolated_values,
+  const value_t* const y_interpolated_values,
+  const value_idx N,
+  const value_idx chunk_size,
+  const value_idx n_active_chunks)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID >= n_active_chunks * 36) return;
+
+  const value_idx active_chunk = TID / 36;
+  const value_idx coeff        = TID - active_chunk * 36;
+  const value_idx box_idx      = chunk_box_indices[active_chunk];
+  const value_idx local_chunk  = active_chunk - chunk_offsets[box_idx];
+  const value_idx interp_i     = coeff / 12;
+  const value_idx remainder    = coeff - interp_i * 12;
+  const value_idx interp_j     = remainder >> 2;
+  const value_idx current_term = remainder & 3;
+
+  const value_idx start =
+    min(box_offsets[box_idx] + local_chunk * chunk_size, box_offsets[box_idx + 1]);
+  const value_idx end = min(start + chunk_size, box_offsets[box_idx + 1]);
+  const value_idx x_offset = interp_i * N;
+  const value_idx y_offset = interp_j * N;
+
+  value_t sum = 0;
+  for (value_idx offset = start; offset < end; ++offset) {
+    const value_idx i = sorted_point_indices[offset];
+    sum += x_interpolated_values[i + x_offset] * y_interpolated_values[i + y_offset] *
+           chargesQij[(i << 2) + current_term];
+  }
+
+  chunk_partials[TID] = sum;
+}
+
+template <typename value_idx, typename value_t>
+CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(
+  value_t* __restrict__ w_coefficients_device,
+  const value_t* const chunk_partials,
+  const value_idx* const chunk_offsets,
+  const value_idx* const chunk_counts,
+  const value_idx n_boxes,
+  const value_idx n_coefficients)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID >= n_coefficients) return;
+
+  const value_idx coeff        = TID & 3;
+  const value_idx idx          = TID >> 2;
+  const value_idx n_nodes      = n_boxes * 3;
+  const value_idx node_j       = idx % n_nodes;
+  const value_idx node_i       = idx / n_nodes;
+  const value_idx box_i        = node_i / 3;
+  const value_idx interp_i     = node_i - box_i * 3;
+  const value_idx box_j        = node_j / 3;
+  const value_idx interp_j     = node_j - box_j * 3;
+  const value_idx box_idx      = box_j * n_boxes + box_i;
+  const value_idx partial_coef = (interp_i * 3 + interp_j) * 4 + coeff;
+
+  value_t sum = 0;
+  const value_idx chunk_start = chunk_offsets[box_idx];
+  const value_idx chunk_count = chunk_counts[box_idx];
+  for (value_idx chunk = 0; chunk < chunk_count; ++chunk) {
+    sum += chunk_partials[(chunk_start + chunk) * 36 + partial_coef];
+  }
+
+  w_coefficients_device[TID] = sum;
+}
+
 template <typename value_idx, typename value_t>
 CUML_KERNEL void copy_to_fft_input(volatile value_t* __restrict__ fft_input,
                                    const value_t* w_coefficients_device,
@@ -249,6 +386,43 @@ CUML_KERNEL void compute_potential_indices(value_t* __restrict__ potentialsQij,
   atomicAdd(potentialsQij + i * n_terms + current_term,
             x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] *
               y_tilde_values[idx * n_terms + current_term]);
+}
+
+// Deterministic equivalent of compute_potential_indices. Each thread owns a
+// single output element and accumulates its fixed 3x3 interpolation stencil in
+// a fixed order, avoiding floating-point atomic ordering differences.
+template <typename value_idx, typename value_t, int n_terms, int n_interpolation_points>
+CUML_KERNEL void compute_potential_indices_deterministic(
+  value_t* __restrict__ potentialsQij,
+  const value_idx* const point_box_indices,
+  const value_t* const y_tilde_values,
+  const value_t* const x_interpolated_values,
+  const value_t* const y_interpolated_values,
+  const value_idx N,
+  const value_idx n_boxes)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID >= n_terms * N) return;
+
+  const value_idx current_term = TID % n_terms;
+  const value_idx i            = TID / n_terms;
+  const value_idx box_idx      = point_box_indices[i];
+  const value_idx box_i        = box_idx % n_boxes;
+  const value_idx box_j        = box_idx / n_boxes;
+
+  value_t potential = 0;
+  for (value_idx interp_i = 0; interp_i < n_interpolation_points; interp_i++) {
+    for (value_idx interp_j = 0; interp_j < n_interpolation_points; interp_j++) {
+      const value_idx idx =
+        (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
+        (box_j * n_interpolation_points) + interp_j;
+      potential += x_interpolated_values[i + interp_i * N] *
+                   y_interpolated_values[i + interp_j * N] *
+                   y_tilde_values[idx * n_terms + current_term];
+    }
+  }
+
+  potentialsQij[i * n_terms + current_term] = potential;
 }
 
 template <typename value_idx>
@@ -330,6 +504,48 @@ CUML_KERNEL void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   if (Qs) {  // when computing KL div
     Qs[TID] = Q;
   }
+}
+
+template <typename value_idx>
+CUML_KERNEL void fill_sequence(value_idx* __restrict__ values, const value_idx n)
+{
+  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  if (TID > n) return;
+
+  values[TID] = TID;
+}
+
+template <typename value_idx, typename value_t>
+CUML_KERNEL void compute_Pij_x_Qij_deterministic_rows(value_t* __restrict__ attr_forces,
+                                                      value_t* __restrict__ Qs,
+                                                      const value_t* __restrict__ pij,
+                                                      const value_idx* __restrict__ coo_cols,
+                                                      const value_idx* __restrict__ row_offsets,
+                                                      const value_t* __restrict__ points,
+                                                      const value_idx num_points,
+                                                      const value_t dof)
+{
+  const value_idx row = threadIdx.x + blockIdx.x * blockDim.x;
+  if (row >= num_points) return;
+
+  const value_t ix = points[row];
+  const value_t iy = points[num_points + row];
+
+  value_t x_force = 0;
+  value_t y_force = 0;
+  for (value_idx k = row_offsets[row]; k < row_offsets[row + 1]; ++k) {
+    const value_idx j = coo_cols[k];
+    const value_t dx  = ix - points[j];
+    const value_t dy  = iy - points[num_points + j];
+    const value_t Q   = compute_q((dx * dx) + (dy * dy), dof);
+    const value_t PQ  = pij[k] * Q;
+    x_force += PQ * dx;
+    y_force += PQ * dy;
+    if (Qs) { Qs[k] = Q; }
+  }
+
+  attr_forces[row]              = x_force;
+  attr_forces[num_points + row] = y_force;
 }
 
 template <typename value_idx, typename value_t>

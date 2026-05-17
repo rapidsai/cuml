@@ -20,12 +20,16 @@
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/op/sort.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
 
+#include <cuda/std/tuple>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/sort.h>
 #include <thrust/transform.h>
 
 #include <cuvs/distance/distance.hpp>
@@ -202,7 +206,6 @@ class TSNE_runner {
       k_graph.knn_dists   = distances.data();
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
-
     if (params.square_distances) {
       auto policy = handle.get_thrust_policy();
 
@@ -212,7 +215,6 @@ class TSNE_runner {
                         k_graph.knn_dists,
                         TSNE::FunctionalSquare());
     }
-
     //---------------------------------------------------
     END_TIMER(DistancesTime);
 
@@ -259,6 +261,16 @@ class TSNE_runner {
                                 &COO_Matrix,
                                 stream,
                                 handle);
+
+    if (params.algorithm == TSNE_ALGORITHM::FFT && params.random_state >= 0) {
+      raft::sparse::op::coo_sort(&COO_Matrix, stream);
+      auto policy = handle.get_thrust_policy();
+      auto coo_begin =
+        thrust::make_zip_iterator(cuda::std::make_tuple(
+          COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));
+      thrust::sort(policy, coo_begin, coo_begin + COO_Matrix.nnz);
+    }
+
     END_TIMER(SymmetrizeTime);
   }
 
