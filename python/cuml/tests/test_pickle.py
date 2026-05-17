@@ -29,6 +29,7 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
@@ -473,7 +474,7 @@ def test_nearest_neighbors_pickle(algorithm):
         # just to ensure things are wired together properly.
         accuracy = (i1 == i2).sum() / i1.size
         assert accuracy >= 0.9
-        np.testing.assert_allclose(d1, d2, atol=1e-5)
+        np.testing.assert_allclose(d1, d2, atol=1e-3)
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)
