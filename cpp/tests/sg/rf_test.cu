@@ -31,6 +31,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
 #include <thrust/random.h>
+#include <thrust/sequence.h>
 #include <thrust/shuffle.h>
 #include <thrust/transform.h>
 
@@ -40,34 +41,16 @@
 #include <test_utils.h>
 #include <treelite/tree.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <type_traits>
 
 namespace ML {
-
-namespace DT {
-
-template <typename T>
-using ReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
-                               std::shared_ptr<rmm::device_uvector<T>>,
-                               std::shared_ptr<rmm::device_uvector<int>>>;
-
-template <typename T>
-ReturnValue<T> computeQuantiles(
-  const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols);
-
-template <>
-ReturnValue<float> computeQuantiles<float>(
-  const raft::handle_t& handle, const float* data, int max_n_bins, int n_rows, int n_cols);
-
-template <>
-ReturnValue<double> computeQuantiles<double>(
-  const raft::handle_t& handle, const double* data, int max_n_bins, int n_rows, int n_cols);
-}  // namespace DT
 
 // Utils for changing tuple into struct
 namespace detail {
@@ -750,6 +733,12 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
         h_quantiles.data();
       // lower bound from custom lower_bound impl
       auto lb = DT::lower_bound(h_quantiles.data(), params.max_n_bins, d);
+      if (golden_lb == params.max_n_bins) {
+        ASSERT_EQ(lb, params.max_n_bins - 1)
+          << "custom lower_bound should clamp values above the last quantile to the last bin"
+          << std::endl;
+        continue;
+      }
       ASSERT_EQ(golden_lb, lb)
         << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
     }
@@ -764,8 +753,6 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     thrust::device_vector<T> data(params.n_rows);
-    thrust::device_vector<int> histogram(params.max_n_bins);
-    thrust::host_vector<int> h_histogram(params.max_n_bins);
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
@@ -778,35 +765,16 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
 
     int n_unique_bins;
     raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
-    if (n_unique_bins < params.max_n_bins) {
-      return;  // almost impossible that this happens, skip if so
+    if (n_unique_bins < params.max_n_bins) { ASSERT_GT(n_unique_bins, 1); }
+    ASSERT_LE(n_unique_bins, params.max_n_bins);
+
+    thrust::host_vector<T> h_quantiles(params.max_n_bins);
+    raft::update_host(
+      h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
+    handle.sync_stream();
+    for (int b = 1; b < n_unique_bins; b++) {
+      ASSERT_LT(h_quantiles[b - 1], h_quantiles[b]);
     }
-
-    auto d_quantiles = quantiles.quantiles_array;
-    auto d_histogram = histogram.data().get();
-
-    thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
-      for (int j = 0; j < params.max_n_bins; j++) {
-        if (x <= d_quantiles[j]) {
-          atomicAdd(&d_histogram[j], 1);
-          break;
-        }
-      }
-    });
-
-    h_histogram           = histogram;
-    int max_items_per_bin = raft::ceildiv(params.n_rows, params.max_n_bins);
-    int min_items_per_bin = max_items_per_bin - 1;
-    int total_items       = 0;
-    for (int b = 0; b < params.max_n_bins; b++) {
-      ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
-        << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
-        << max_items_per_bin << " or " << min_items_per_bin << std::endl;
-      total_items += h_histogram[b];
-    }
-    ASSERT_EQ(params.n_rows, total_items)
-      << "Some samples from dataset are either missed of double counted in quantile bins"
-      << std::endl;
   }
 };
 
@@ -837,9 +805,9 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     });
     thrust::shuffle(data.begin(), data.end(), thrust::default_random_engine(n_uniques));
 
-    // calling computeQuantiles
-    auto [quantiles, quantiles_array, n_bins_array] =
-      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    // Use full-sample mode to verify duplicate compaction exactly.
+    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
     int n_uniques_obtained;
     raft::copy(&n_uniques_obtained, n_bins_array->data(), 1, handle.get_stream());
 
@@ -881,6 +849,84 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
   }
 };
 
+template <typename T>
+class RFSampledQuantileExactFallbackTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::sequence(data.begin(), data.end(), T(0));
+
+    auto [sampled_quantiles, sampled_quantiles_array, sampled_n_bins_array] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+
+    int sampled_n_bins;
+    raft::copy(&sampled_n_bins, sampled_n_bins_array->data(), 1, handle.get_stream());
+    handle.sync_stream();
+
+    ASSERT_EQ(sampled_n_bins, params.max_n_bins);
+
+    thrust::host_vector<T> h_sampled(params.max_n_bins);
+    raft::update_host(
+      h_sampled.data(), sampled_quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
+    handle.sync_stream();
+
+    double bin_width = static_cast<double>(params.n_rows) / params.max_n_bins;
+    for (int bin = 0; bin < sampled_n_bins; ++bin) {
+      int idx = int(round((bin + 1) * bin_width)) - 1;
+      idx     = std::min(std::max(0, idx), params.n_rows - 1);
+      ASSERT_EQ(h_sampled[bin], T(idx));
+    }
+  }
+};
+
+template <typename T>
+class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    thrust::device_vector<T> data(params.n_rows);
+    raft::random::Rng r(params.seed);
+    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
+
+    auto [quantiles_a, quantiles_array_a, n_bins_array_a] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+    auto [quantiles_b, quantiles_array_b, n_bins_array_b] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+
+    int n_bins_a;
+    int n_bins_b;
+    raft::copy(&n_bins_a, n_bins_array_a->data(), 1, handle.get_stream());
+    raft::copy(&n_bins_b, n_bins_array_b->data(), 1, handle.get_stream());
+    handle.sync_stream();
+
+    ASSERT_EQ(n_bins_a, n_bins_b);
+    ASSERT_GT(n_bins_a, 1);
+    ASSERT_LE(n_bins_a, params.max_n_bins);
+
+    thrust::host_vector<T> h_quantiles_a(params.max_n_bins);
+    thrust::host_vector<T> h_quantiles_b(params.max_n_bins);
+    raft::update_host(
+      h_quantiles_a.data(), quantiles_a.quantiles_array, params.max_n_bins, handle.get_stream());
+    raft::update_host(
+      h_quantiles_b.data(), quantiles_b.quantiles_array, params.max_n_bins, handle.get_stream());
+    handle.sync_stream();
+
+    for (int i = 0; i < n_bins_a; ++i) {
+      ASSERT_EQ(h_quantiles_a[i], h_quantiles_b[i]);
+      if (i > 0) { ASSERT_LT(h_quantiles_a[i - 1], h_quantiles_a[i]); }
+    }
+  }
+};
+
 const std::vector<QuantileTestParameters> inputs = {{1000, 16, 6078587519764079670LLU},
                                                     {1130, 32, 4884670006177930266LLU},
                                                     {1752, 67, 9175325892580481371LLU},
@@ -916,6 +962,22 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestF, ::testing::ValuesI
 typedef RFQuantileVariableBinsTest<double> RFQuantileVariableBinsTestD;
 TEST_P(RFQuantileVariableBinsTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileVariableBinsTestD, ::testing::ValuesIn(inputs));
+
+typedef RFSampledQuantileExactFallbackTest<float> RFSampledQuantileExactFallbackTestF;
+TEST_P(RFSampledQuantileExactFallbackTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileExactFallbackTestF, ::testing::ValuesIn(inputs));
+
+typedef RFSampledQuantileExactFallbackTest<double> RFSampledQuantileExactFallbackTestD;
+TEST_P(RFSampledQuantileExactFallbackTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileExactFallbackTestD, ::testing::ValuesIn(inputs));
+
+typedef RFSampledQuantileDeterminismTest<float> RFSampledQuantileDeterminismTestF;
+TEST_P(RFSampledQuantileDeterminismTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestF, ::testing::ValuesIn(inputs));
+
+typedef RFSampledQuantileDeterminismTest<double> RFSampledQuantileDeterminismTestD;
+TEST_P(RFSampledQuantileDeterminismTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestD, ::testing::ValuesIn(inputs));
 
 //------------------------------------------------------------------------------------------------------
 
