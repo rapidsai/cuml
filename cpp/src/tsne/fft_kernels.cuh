@@ -205,6 +205,9 @@ CUML_KERNEL void fill_interpolation_box_keys(uint64_t* __restrict__ box_keys,
   box_keys[TID] = static_cast<uint64_t>(TID) * static_cast<uint64_t>(N);
 }
 
+// Split each sorted box span into fixed-size chunks. Partial sums are computed
+// per chunk, then reduced by increasing chunk id to keep the result reproducible
+// while avoiding one thread walking very large boxes.
 template <typename value_idx>
 CUML_KERNEL void compute_interpolation_chunk_counts(value_idx* __restrict__ chunk_counts,
                                                     const value_idx* const box_offsets,
@@ -515,6 +518,8 @@ CUML_KERNEL void fill_sequence(value_idx* __restrict__ values, const value_idx n
   values[TID] = TID;
 }
 
+// Deterministic equivalent of compute_Pij_x_Qij_kernel. Each thread owns one
+// row and walks that row's sorted COO span in order, avoiding atomic adds.
 template <typename value_idx, typename value_t>
 CUML_KERNEL void compute_Pij_x_Qij_deterministic_rows(value_t* __restrict__ attr_forces,
                                                       value_t* __restrict__ Qs,

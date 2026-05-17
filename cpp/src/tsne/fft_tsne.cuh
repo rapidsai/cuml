@@ -168,6 +168,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 {
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
+  // Fixed seeds use deterministic accumulation paths; unseeded runs keep the
+  // original faster atomic/reduction paths.
   const bool fixed_seed = params.random_state >= 0;
   const bool deterministic_interpolation = fixed_seed;
   const bool deterministic_potentials    = fixed_seed;
@@ -293,6 +295,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                 stream));
 
   if (deterministic_attractive) {
+    // Precompute COO row ranges once so attractive forces can be accumulated
+    // row-by-row in a fixed order each iteration.
     auto row_blocks = raft::ceildiv(n + 1, (value_idx)NTHREADS_128);
     FFT::fill_sequence<<<row_blocks, NTHREADS_128, 0, stream>>>(attractive_row_ids.data(), n);
     thrust::lower_bound(thrust_policy,
@@ -456,6 +460,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         n);
 
       if (deterministic_interpolation) {
+        // Sort points by box with point id as a tie-breaker. Each box is then
+        // reduced in deterministic chunk order instead of using atomic adds.
         num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
         FFT::compute_interpolation_point_sort_inputs<<<num_blocks, NTHREADS_128, 0, stream>>>(
           interpolation_point_sort_keys.data(),

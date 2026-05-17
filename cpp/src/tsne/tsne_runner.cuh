@@ -263,6 +263,8 @@ class TSNE_runner {
                                 handle);
 
     if (params.algorithm == TSNE_ALGORITHM::FFT && params.random_state >= 0) {
+      // Canonicalize fixed-seed FFT inputs so equal COO entries are consumed in
+      // the same row/column/value order across runs.
       raft::sparse::op::coo_sort(&COO_Matrix, stream);
       auto policy = handle.get_thrust_policy();
       auto coo_begin =
