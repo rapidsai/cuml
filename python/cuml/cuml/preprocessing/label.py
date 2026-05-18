@@ -185,6 +185,13 @@ def _label_binarize(
 
         out = out.astype("int32", copy=False)
 
+    # XXX: In a binary problem with unseen labels we return a matrix of shape
+    # (n_samples, 2), while sklearn returns (n_samples, 1). This is an edge
+    # case (binary inputs for `LabelBinarizer` are a bit odd, as are unseen
+    # classes. We view the sklearn behavior as a bug (see
+    # https://github.com/scikit-learn/scikit-learn/issues/13674), since with
+    # their encoding unseen labels are conflated with label 0 rather than
+    # encoded as missing via all 0s (as in the multiclass case).
     if y_type == "binary" and not has_unseen:
         out = out[:, [-1]]
 
@@ -213,9 +220,11 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     Returns
     -------
     y : array or sparse matrix, shape (n_samples, n_classes)
-        The encoded labels. Shape will be (n_samples, 1) for binary
-        classification problems. Will be a sparse matrix if
-        ``sparse_output=True``.
+        The encoded labels. Will be a sparse matrix if ``sparse_output=True``.
+        Shape will be (n_samples, n_classes) for multiclass problems,
+        (n_samples, 1) for binary problems with no unseen classes, and
+        (n_samples, 2) for binary problems with unseen classes (a minor,
+        intentional deviation from sklearn).
 
     See Also
     --------
@@ -427,9 +436,11 @@ class LabelBinarizer(Base, InteropMixin):
         Returns
         -------
         y : array or sparse matrix
-            The encoded labels. Shape will be (n_samples, 1) for binary
-            classification problems. Will be a sparse matrix if
-            ``sparse_output=True``.
+            The encoded labels. Will be a sparse matrix if
+            ``sparse_output=True``. Shape will be (n_samples, n_classes) for
+            multiclass problems, (n_samples, 1) for binary problems with no
+            unseen classes, and (n_samples, 2) for binary problems with unseen
+            classes (a minor, intentional deviation from sklearn).
         """
         check_is_fitted(self)
         out, _, _, _ = _label_binarize(
