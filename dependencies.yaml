@@ -419,12 +419,15 @@ dependencies:
       - output_types: [conda]
         packages:
           - cuda-cudart-dev
+          - cuda-nvrtc-dev
           - cuda-profiler-api
           - libcublas-dev
           - libcufft-dev
           - libcurand-dev
           - libcusolver-dev
           - libcusparse-dev
+          # Needed when CPM builds cuVS from source (e.g. integration branches with pinned cuVS).
+          - libnvjitlink-dev
   cuda_wheels:
     specific:
       # cuML needs 'nvJitLink>={whatever-cuml-was-built-against}' at runtime, and mixing
