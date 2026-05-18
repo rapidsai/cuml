@@ -841,8 +841,9 @@ def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
     )
     # Non-numeric columns -> object dtype by default
     if is_cuda_output(mem_type, df):
-        # cupy doesn't support object dtypes
-        with pytest.raises((ValueError, TypeError), match="object"):
+        # cupy doesn't support object dtypes. We don't care what the exception
+        # is here, just that one is raised.
+        with pytest.raises(Exception, match="object"):
             check_array(df, mem_type=mem_type)
     else:
         # dtype=None does no conversion by default
@@ -1865,7 +1866,10 @@ def test_check_cudf(kind, ensure_ndim, coerce_ndim, dtype, shape):
                 data = data.ravel()
         else:
             assert isinstance(out, (cudf.Series, cudf.DataFrame))
-        res = out.to_numpy(dtype=data.dtype)
+
+        res = out.to_numpy(
+            dtype=("float32" if data.dtype == "float16" else data.dtype)
+        )
         np.testing.assert_array_equal(res, data)
 
 

@@ -10,4 +10,5 @@ cuml.covariance
    :toctree: generated/
    :template: base.rst
 
+   EmpiricalCovariance
    LedoitWolf
