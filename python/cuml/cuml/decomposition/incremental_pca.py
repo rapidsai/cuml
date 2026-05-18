@@ -522,6 +522,10 @@ class IncrementalPCA(PCA):
             n_features_in_ := getattr(self, "n_features_in_", None)
         ) is not None:
             out["n_features_in_"] = n_features_in_
+        if (
+            feature_names_in_ := getattr(self, "feature_names_in_", None)
+        ) is not None:
+            out["feature_names_in_"] = feature_names_in_
         return out
 
 

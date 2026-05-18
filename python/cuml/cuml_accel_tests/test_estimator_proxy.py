@@ -17,7 +17,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.decomposition import IncrementalPCA, PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
@@ -689,16 +689,37 @@ def test_set_output(methods):
     # No host transfer required
     assert not hasattr(model._cpu, "n_features_in_")
 
+    # If input has an index, the output has an aligned index
+    X_df = pd.DataFrame(
+        X,
+        columns=[f"x{i}" for i in range(X.shape[1])],
+        index=[f"row{i}" for i in range(X.shape[0])],
+    )
+    out = model.transform(X_df)
+    assert (out.index == X_df.index).all()
+
+    # Can change back to default without requiring a host transfer either
+    model.set_output(transform="default")
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+    # No host transfer required
+    assert not hasattr(model._cpu, "n_features_in_")
+
 
 def test_incremental_pca_partial_fit():
-    X, _ = make_classification(
-        n_samples=40, n_features=8, random_state=42
-    )
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
     model = IncrementalPCA(n_components=3, batch_size=10)
 
-    model.partial_fit(X)
+    model.partial_fit(X[:20])
+    gpu = model._gpu
 
-    assert model._gpu is not None
+    assert gpu is not None
+    assert int(gpu.n_samples_seen_) == 20
+
+    model.partial_fit(X[20:])
+
+    assert model._gpu is gpu
+    assert int(model._gpu.n_samples_seen_) == 40
     assert not hasattr(model._cpu, "components_")
 
     out = model.transform(X)
@@ -706,11 +727,8 @@ def test_incremental_pca_partial_fit():
     assert out.shape[1] == 3
 
 
-
 def test_incremental_pca_set_output():
-    X, _ = make_classification(
-        n_samples=40, n_features=8, random_state=42
-    )
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
     model = IncrementalPCA(n_components=3, batch_size=10)
 
     assert model.set_output(transform="pandas") is model
