@@ -125,13 +125,14 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
-        - libcuvs =${{ minor_version }}
+        # Integration: cuVS is statically linked (CUML_USE_CUVS_STATIC=ON); do not run-export libcuvs.
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
         - treelite ${{ treelite_version }}
       ignore_run_exports:
         by_name:
           - cuda-cudart
+          - cuda-nvrtc
           - cuda-version
           - flatbuffers
           - libcurand
@@ -140,6 +141,7 @@ outputs:
           - libcufft
           - libcublas
           - libcusolver
+          - libnvjitlink
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
@@ -168,6 +170,7 @@ outputs:
       ignore_run_exports:
         by_name:
           - cuda-cudart
+          - cuda-nvrtc
           - cuda-version
           - libcublas
           - libcufft
@@ -175,6 +178,7 @@ outputs:
           - libcusolver
           - libcusparse
           - librmm
+          - libnvjitlink
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}

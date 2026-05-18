@@ -28,6 +28,20 @@ set +u
 conda activate test
 set -u
 
+# When libcuml is built against a pinned RAFT fork (CPM), reinstall pylibraft from
+# the same fork/tag so Python raft::handle_t matches libcuml (avoids segfaults in
+# get_resource / stream pool during pytest collection).
+GET_RAFT_CMAKE="cpp/cmake/thirdparty/get_raft.cmake"
+if [[ -f "${GET_RAFT_CMAKE}" ]]; then
+  RAFT_FORK=$(sed -n 's/set(RAFT_FORK "\([^"]*\)".*/\1/p' "${GET_RAFT_CMAKE}" | head -1)
+  RAFT_PINNED_TAG=$(sed -n 's/set(RAFT_PINNED_TAG "\([^"]*\)".*/\1/p' "${GET_RAFT_CMAKE}" | head -1)
+  if [[ -n "${RAFT_FORK}" && -n "${RAFT_PINNED_TAG}" && "${RAFT_FORK}" != "rapidsai" ]]; then
+    rapids-logger "Reinstalling pylibraft from ${RAFT_FORK}/raft@${RAFT_PINNED_TAG} (matches libcuml CPM RAFT pin)"
+    python -m pip install --force-reinstall --no-deps \
+      "pylibraft @ git+https://github.com/${RAFT_FORK}/raft.git@${RAFT_PINNED_TAG}#subdirectory=python/pylibraft"
+  fi
+fi
+
 # dask and other tests sporadically run into this issue in ARM tests
 # exception=ImportError('/opt/conda/envs/test/lib/python3.10/site-packages/cuml/internals/../../../.././libgomp.so.1: cannot allocate memory in static TLS block')>)
 # this should avoid that/opt/conda/lib
