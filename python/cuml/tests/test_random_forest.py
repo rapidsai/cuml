@@ -508,6 +508,14 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
 
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
+
+    if not convert_dtype:
+        with pytest.raises(
+            ValueError, match=r".*Expected array with dtype in.*"
+        ):
+            preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
+        return
+
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:

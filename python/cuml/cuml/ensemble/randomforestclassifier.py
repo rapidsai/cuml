@@ -11,7 +11,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.validation import check_array, check_features, check_inputs
+from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
 
 
@@ -286,17 +286,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        check_features(self, X)
-        # Always set convert_dtype=True because nvForest expects the correct dtype
-        X_converted, index = check_array(
+        X_converted, index = check_inputs(
+            self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=True,
+            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
             return_index=True,
-            ensure_all_finite=True,
-            input_name="X",
         )
         inds = nvforest_model.predict(X_converted, threshold=threshold)
         with cuml.internals.exit_internal_context():
@@ -350,17 +347,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        check_features(self, X)
-        # Always set convert_dtype=True because nvForest expects the correct dtype
-        X, index = check_array(
+        X, index = check_inputs(
+            self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
-            convert_dtype=True,
+            convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
             return_index=True,
-            ensure_all_finite=True,
-            input_name="X",
         )
         return CumlArray(nvforest_model.predict_proba(X), index=index)
 
