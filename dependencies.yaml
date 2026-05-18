@@ -248,6 +248,7 @@ files:
       - cuda_wheels
       - depends_on_libcuvs
       - depends_on_libraft
+      - depends_on_librmm
       - depends_on_rapids_logger
 channels:
   - rapidsai-nightly
@@ -323,7 +324,7 @@ dependencies:
         packages:
           - joblib>=0.11
           - numba>=0.60.0,<0.65.0
-          - &numpy numpy>=1.23,<3.0
+          - &numpy numpy>=1.26,<3.0
           - scipy>=1.14.0
           - packaging
           - rich
@@ -530,6 +531,7 @@ dependencies:
               - scikit-learn==1.5.0
               - umap-learn==0.5.7
               - hdbscan==0.8.39
+              - numpy==1.26
           - matrix: {dependencies: "intermediate"}
             packages:
               - scikit-learn==1.7.2

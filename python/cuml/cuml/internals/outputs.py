@@ -7,6 +7,7 @@ import functools
 import inspect
 
 import numpy as np
+from cupy.cuda import Stream
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
@@ -212,7 +213,8 @@ def enter_internal_context():
         gs._external_output_type = gs.output_type
         gs.output_type = "mirror"
         try:
-            yield True
+            with Stream.ptds:
+                yield True
         finally:
             gs.output_type = gs._external_output_type
             gs._external_output_type = False
@@ -451,6 +453,7 @@ def reflect(
             # We're internal, return as cuml
             output_type = "cuml"
 
-        return coerce_arrays(res, output_type)
+        with enter_internal_context():
+            return coerce_arrays(res, output_type)
 
     return inner
