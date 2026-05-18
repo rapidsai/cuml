@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,6 +13,7 @@
 #pragma once
 
 #include <cuComplex.h>
+
 #include <stdint.h>
 
 namespace ML {
@@ -180,11 +181,10 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
 }
 
 template <typename value_idx>
-CUML_KERNEL void compute_interpolation_point_sort_inputs(
-  uint64_t* __restrict__ sort_keys,
-  value_idx* __restrict__ point_indices,
-  const value_idx* const point_box_indices,
-  const value_idx N)
+CUML_KERNEL void compute_interpolation_point_sort_inputs(uint64_t* __restrict__ sort_keys,
+                                                         value_idx* __restrict__ point_indices,
+                                                         const value_idx* const point_box_indices,
+                                                         const value_idx N)
 {
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= N) return;
@@ -270,7 +270,7 @@ CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
 
   const value_idx start =
     min(box_offsets[box_idx] + local_chunk * chunk_size, box_offsets[box_idx + 1]);
-  const value_idx end = min(start + chunk_size, box_offsets[box_idx + 1]);
+  const value_idx end      = min(start + chunk_size, box_offsets[box_idx + 1]);
   const value_idx x_offset = interp_i * N;
   const value_idx y_offset = interp_j * N;
 
@@ -285,13 +285,12 @@ CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
 }
 
 template <typename value_idx, typename value_t>
-CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(
-  value_t* __restrict__ w_coefficients_device,
-  const value_t* const chunk_partials,
-  const value_idx* const chunk_offsets,
-  const value_idx* const chunk_counts,
-  const value_idx n_boxes,
-  const value_idx n_coefficients)
+CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_coefficients_device,
+                                                        const value_t* const chunk_partials,
+                                                        const value_idx* const chunk_offsets,
+                                                        const value_idx* const chunk_counts,
+                                                        const value_idx n_boxes,
+                                                        const value_idx n_coefficients)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_coefficients) return;
@@ -308,7 +307,7 @@ CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(
   const value_idx box_idx      = box_j * n_boxes + box_i;
   const value_idx partial_coef = (interp_i * 3 + interp_j) * 4 + coeff;
 
-  value_t sum = 0;
+  value_t sum                 = 0;
   const value_idx chunk_start = chunk_offsets[box_idx];
   const value_idx chunk_count = chunk_counts[box_idx];
   for (value_idx chunk = 0; chunk < chunk_count; ++chunk) {
@@ -395,14 +394,13 @@ CUML_KERNEL void compute_potential_indices(value_t* __restrict__ potentialsQij,
 // single output element and accumulates its fixed 3x3 interpolation stencil in
 // a fixed order, avoiding floating-point atomic ordering differences.
 template <typename value_idx, typename value_t, int n_terms, int n_interpolation_points>
-CUML_KERNEL void compute_potential_indices_deterministic(
-  value_t* __restrict__ potentialsQij,
-  const value_idx* const point_box_indices,
-  const value_t* const y_tilde_values,
-  const value_t* const x_interpolated_values,
-  const value_t* const y_interpolated_values,
-  const value_idx N,
-  const value_idx n_boxes)
+CUML_KERNEL void compute_potential_indices_deterministic(value_t* __restrict__ potentialsQij,
+                                                         const value_idx* const point_box_indices,
+                                                         const value_t* const y_tilde_values,
+                                                         const value_t* const x_interpolated_values,
+                                                         const value_t* const y_interpolated_values,
+                                                         const value_idx N,
+                                                         const value_idx n_boxes)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * N) return;

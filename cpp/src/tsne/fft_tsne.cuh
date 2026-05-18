@@ -25,8 +25,8 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cuda/std/functional>
-#include <thrust/device_ptr.h>
 #include <thrust/binary_search.h>
+#include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
@@ -34,9 +34,9 @@
 #include <thrust/transform.h>
 
 #include <cufft_utils.h>
+#include <stdint.h>
 
 #include <cmath>
-#include <stdint.h>
 #include <utility>
 
 namespace ML {
@@ -170,7 +170,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   auto thrust_policy = handle.get_thrust_policy();
   // Fixed seeds use deterministic accumulation paths; unseeded runs keep the
   // original faster atomic/reduction paths.
-  const bool fixed_seed = params.random_state >= 0;
+  const bool fixed_seed                  = params.random_state >= 0;
   const bool deterministic_interpolation = fixed_seed;
   const bool deterministic_potentials    = fixed_seed;
   const bool deterministic_attractive    = fixed_seed;
@@ -353,9 +353,9 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                n_terms,
                                &work_size_idft));
 
-  value_t momentum      = params.pre_momentum;
-  value_t learning_rate = params.pre_learning_rate;
-  value_t exaggeration  = params.early_exaggeration;
+  value_t momentum                             = params.pre_momentum;
+  value_t learning_rate                        = params.pre_learning_rate;
+  value_t exaggeration                         = params.early_exaggeration;
   constexpr value_idx interpolation_chunk_size = 256;
 
   value_t kl_div = 0;
@@ -505,10 +505,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
           n_boxes);
 
         chunk_blocks = raft::ceildiv(n_active_chunks * 36, (value_idx)NTHREADS_128);
-        FFT::compute_interpolated_chunk_partials_3_4<<<chunk_blocks,
-                                                       NTHREADS_128,
-                                                       0,
-                                                       stream>>>(
+        FFT::compute_interpolated_chunk_partials_3_4<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
           interpolation_chunk_partials.data(),
           interpolation_chunk_box_indices.data(),
           interpolation_chunk_offsets.data(),

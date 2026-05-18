@@ -266,10 +266,9 @@ class TSNE_runner {
       // Canonicalize fixed-seed FFT inputs so equal COO entries are consumed in
       // the same row/column/value order across runs.
       raft::sparse::op::coo_sort(&COO_Matrix, stream);
-      auto policy = handle.get_thrust_policy();
-      auto coo_begin =
-        thrust::make_zip_iterator(cuda::std::make_tuple(
-          COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));
+      auto policy    = handle.get_thrust_policy();
+      auto coo_begin = thrust::make_zip_iterator(
+        cuda::std::make_tuple(COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));
       thrust::sort(policy, coo_begin, coo_begin + COO_Matrix.nnz);
     }
 
