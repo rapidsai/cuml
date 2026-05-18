@@ -6,6 +6,8 @@
 #=============================================================================
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
+set(RAFT_FORK "achirkin")
+set(RAFT_PINNED_TAG "enh-predictable-resources")
 
 function(find_and_configure_raft)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL CLONE_ON_PIN NVTX)
@@ -59,8 +61,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-      FORK             achirkin
-      PINNED_TAG       enh-predictable-resources
+      FORK             ${RAFT_FORK}
+      PINNED_TAG       ${RAFT_PINNED_TAG}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local raft clone in build directory
