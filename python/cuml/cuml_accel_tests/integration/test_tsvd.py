@@ -108,7 +108,7 @@ def test_truncated_svd_power_iteration_normalizer(
     svd_data, power_iteration_normalizer
 ):
     if (
-        Version(sklearn.__version__) < Version("1.9.0")
+        Version(sklearn.__version__) < Version("1.9.0.dev0")
         and power_iteration_normalizer == "QR"
     ):
         pytest.skip(
