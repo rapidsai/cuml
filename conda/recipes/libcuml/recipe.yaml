@@ -77,11 +77,15 @@ cache:
       - rapids-logger =0.2
       - treelite ${{ treelite_version }}
       - cuda-cudart-dev
+      # Required when CPM builds cuVS from source (integration branches with pinned cuVS).
+      # main uses prebuilt libcuvs from conda and does not need these.
+      - cuda-nvrtc-dev
       - libcublas-dev
       - libcufft-dev
       - libcurand-dev
       - libcusolver-dev
       - libcusparse-dev
+      - libnvjitlink-dev
 
 outputs:
   - package:

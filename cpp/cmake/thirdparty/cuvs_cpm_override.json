@@ -1,7 +1,7 @@
 {
   "packages": {
     "cuvs": {
-      "version": "26.06.00",
+      "version": "${rapids-cmake-version}",
       "git_shallow": true,
       "always_download": true,
       "git_url": "https://github.com/rapidsai/cuvs.git",
