@@ -19,6 +19,11 @@
 namespace ML {
 namespace DT {
 
+// Single definition of the weighted cross-block-merge pool slot count, shared
+// by host pool_buf sizing and device slot arithmetic. A divergent duplicate
+// would silently corrupt the weighted merge on specific grid shapes.
+static constexpr int POOL_SIZE = 64;
+
 // The range of instances belonging to a particular node
 // This structure refers to a range in the device array dataset.row_ids
 struct InstanceRange {
@@ -73,6 +78,16 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const size_t work_items_size,
                            const Split<DataT, IdxT>* splits,
                            cudaStream_t builder_stream);
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+void launchWeightedLeftCountKernel(const IdxT min_samples_leaf,
+                                   const DataT min_impurity_decrease,
+                                   const Dataset<DataT, LabelT, IdxT>& dataset,
+                                   const NodeWorkItem* work_items,
+                                   const size_t work_items_size,
+                                   const Split<DataT, IdxT>* splits,
+                                   double* node_wnLeft,
+                                   cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 void launchLeafKernel(ObjectiveT objective,
@@ -386,6 +401,7 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
+                              BinT* pool,
                               IdxT n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,

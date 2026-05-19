@@ -15,11 +15,14 @@
 #include <thrust/binary_search.h>
 
 #include <cstdio>
+#include <type_traits>
 
 namespace ML {
 namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
+// POOL_SIZE is the single ML::DT::POOL_SIZE defined in builder_kernels.cuh
+// (included above); used unqualified in computeSplitKernel's slot arithmetic.
 
 /**
  * @brief Partition the samples to left/right nodes based on the best split
@@ -118,6 +121,58 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                                           splits);
 }
 
+// Weighted-only left-child weighted-count producer, launched after
+// nodeSplitKernel partitions each work-item. Kept separate (not folded into
+// nodeSplitKernel) so the unweighted kernel's codegen does not change.
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void weightedLeftCountKernel(const IdxT min_samples_leaf,
+                                               const DataT min_impurity_decrease,
+                                               const Dataset<DataT, LabelT, IdxT> dataset,
+                                               const NodeWorkItem* work_items,
+                                               const Split<DataT, IdxT>* splits,
+                                               double* node_wnLeft)
+{
+  extern __shared__ char smem[];
+  const auto work_item = work_items[blockIdx.x];
+  const auto split     = splits[blockIdx.x];
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+    return;
+  }
+  static_assert((TPB & (TPB - 1)) == 0,
+                "weightedLeftCount tree reduction assumes power-of-two TPB");
+  double* red  = reinterpret_cast<double*>(smem);
+  auto begin   = work_item.instances.begin;
+  auto end     = begin + split.nLeft;
+  double local = 0.0;
+  for (auto i = begin + threadIdx.x; i < end; i += blockDim.x) {
+    local += double(dataset.sample_weight[dataset.row_ids[i]]);
+  }
+  red[threadIdx.x] = local;
+  __syncthreads();
+  for (int s = TPB / 2; s > 0; s >>= 1) {
+    if (int(threadIdx.x) < s) red[threadIdx.x] += red[threadIdx.x + s];
+    __syncthreads();
+  }
+  if (threadIdx.x == 0) node_wnLeft[blockIdx.x] = red[0];
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+void launchWeightedLeftCountKernel(const IdxT min_samples_leaf,
+                                   const DataT min_impurity_decrease,
+                                   const Dataset<DataT, LabelT, IdxT>& dataset,
+                                   const NodeWorkItem* work_items,
+                                   const size_t work_items_size,
+                                   const Split<DataT, IdxT>* splits,
+                                   double* node_wnLeft,
+                                   cudaStream_t builder_stream)
+{
+  auto constexpr smem_size = sizeof(double) * TPB;
+  weightedLeftCountKernel<DataT, LabelT, IdxT, TPB>
+    <<<work_items_size, TPB, smem_size, builder_stream>>>(
+      min_samples_leaf, min_impurity_decrease, dataset, work_items, splits, node_wnLeft);
+}
+
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 static __global__ void leafKernel(ObjectiveT objective,
                                   DatasetT dataset,
@@ -138,8 +193,15 @@ static __global__ void leafKernel(ObjectiveT objective,
   }
   __syncthreads();
   for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
-    auto label = dataset.labels[dataset.row_ids[i]];
-    BinT::IncrementHistogram(histogram, 1, 0, label);
+    auto row   = dataset.row_ids[i];
+    auto label = dataset.labels[row];
+    if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
+                  std::is_same_v<BinT, WeightedAggregateBin>) {
+      auto weight = dataset.sample_weight ? dataset.sample_weight[row] : DataT(1.0);
+      BinT::IncrementHistogram(histogram, 1, 0, label, weight);
+    } else {
+      BinT::IncrementHistogram(histogram, 1, 0, label);
+    }
   }
   __syncthreads();
   if (tid == 0) {
@@ -200,6 +262,7 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 static __global__ void computeSplitKernel(BinT* histograms,
+                                          BinT* pool,
                                           IdxT max_n_bins,
                                           IdxT min_samples_split,
                                           IdxT max_leaves,
@@ -272,33 +335,71 @@ static __global__ void computeSplitKernel(BinT* histograms,
     // `start` is lowest index such that data <= shared_quantiles[start]
     IdxT start = lower_bound(shared_quantiles, n_bins, data);
     // ++shared_histogram[start]
-    BinT::IncrementHistogram(shared_histogram, n_bins, start, label);
+    if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
+                  std::is_same_v<BinT, WeightedAggregateBin>) {
+      auto weight = dataset.sample_weight ? dataset.sample_weight[row] : DataT(1.0);
+      BinT::IncrementHistogram(shared_histogram, n_bins, start, label, weight);
+    } else {
+      BinT::IncrementHistogram(shared_histogram, n_bins, start, label);
+    }
   }
 
   // synchronizing above changes across block
   __syncthreads();
   if (num_blocks > 1) {
-    // update the corresponding global location
-    auto histograms_offset =
-      ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
-      BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
+    if constexpr (std::is_same_v<BinT, CountBin> || std::is_same_v<BinT, AggregateBin>) {
+      // Unweighted bins keep main's direct cross-block merge unchanged
+      // (AggregateBin's double atomicAdd keeps main's pre-existing FP
+      // non-determinism; routing it through the pool cost 27-45% on n=None).
+      auto histograms_offset =
+        ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
+      for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
+        BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
+      }
+
+      __threadfence();  // for commit guarantee
+      __syncthreads();
+
+      bool last = MLCommon::signalDone(
+        done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, shared_done);
+      if (!last) return;
+
+      for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
+        shared_histogram[i] = histograms[histograms_offset + i];
+
+      __syncthreads();
+    } else {
+      // Weighted bins only: fixed-order pool reduction for FP determinism.
+      // Fully deterministic when num_blocks_per_node <= POOL_SIZE; above
+      // that, slot collisions via AtomicAdd break FP-exact determinism.
+      auto pool_slot_stride = max_n_bins * objective.NumClasses();
+      auto slot             = offset_blockid % POOL_SIZE;
+      auto pool_offset = ((large_nid * gridDim.y) + blockIdx.y) * POOL_SIZE * pool_slot_stride +
+                         slot * pool_slot_stride;
+      for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
+        BinT::AtomicAdd(pool + pool_offset + i, shared_histogram[i]);
+      }
+
+      __threadfence();
+      __syncthreads();
+
+      bool last = MLCommon::signalDone(
+        done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, shared_done);
+      if (!last) return;
+
+      // last block: serial reduce across pool slots in fixed slot order
+      auto pool_base = ((large_nid * gridDim.y) + blockIdx.y) * POOL_SIZE * pool_slot_stride;
+      int n_slots    = num_blocks < POOL_SIZE ? static_cast<int>(num_blocks) : POOL_SIZE;
+      for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
+        BinT merged{};
+        for (int s = 0; s < n_slots; ++s) {
+          merged += pool[pool_base + s * pool_slot_stride + i];
+        }
+        shared_histogram[i] = merged;
+      }
+
+      __syncthreads();
     }
-
-    __threadfence();  // for commit guarantee
-    __syncthreads();
-
-    // last threadblock will go ahead and compute the best split
-    bool last = MLCommon::signalDone(
-      done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, shared_done);
-    // if not the last threadblock, exit
-    if (!last) return;
-
-    // store the complete global histogram in shared memory of last block
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
-      shared_histogram[i] = histograms[histograms_offset + i];
-
-    __syncthreads();
   }
 
   // PDF to CDF inplace in `shared_histogram`
@@ -332,6 +433,7 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
+                              BinT* pool,
                               IdxT max_n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,
@@ -353,6 +455,7 @@ void launchComputeSplitKernel(BinT* histograms,
 {
   computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
+                                                       pool,
                                                        max_n_bins,
                                                        min_samples_split,
                                                        max_leaves,
@@ -381,6 +484,16 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const Split<_DataT, _IdxT>* splits,
   cudaStream_t builder_stream);
 
+template void launchWeightedLeftCountKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
+  const _IdxT min_samples_leaf,
+  const _DataT min_impurity_decrease,
+  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
+  const NodeWorkItem* work_items,
+  const size_t work_items_size,
+  const Split<_DataT, _IdxT>* splits,
+  double* node_wnLeft,
+  cudaStream_t builder_stream);
+
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
   _ObjectiveT objective,
   _DatasetT& dataset,
@@ -393,6 +506,7 @@ template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
 
 template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _BinT* histograms,
+  _BinT* pool,
   _IdxT n_bins,
   _IdxT min_samples_split,
   _IdxT max_leaves,

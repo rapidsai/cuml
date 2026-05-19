@@ -517,3 +517,33 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
 
     if transform_broadcast:
         assert cuml_mod.internal_model is None
+
+
+@pytest.mark.parametrize("estimator", ["classifier", "regressor"])
+def test_rf_dask_sample_weight_not_implemented_raises(estimator, cluster):
+    c = Client(cluster)
+    try:
+        X, y = make_classification(
+            n_samples=200,
+            n_features=8,
+            n_clusters_per_class=1,
+            n_informative=5,
+            random_state=123,
+            n_classes=2,
+        )
+        X = X.astype(np.float32)
+        if estimator == "classifier":
+            y = y.astype(np.int32)
+            model = cuRFC_mg(n_estimators=4, ignore_empty_partitions=True)
+        else:
+            y = y.astype(np.float32)
+            model = cuRFR_mg(n_estimators=4, ignore_empty_partitions=True)
+        X_df, y_df = _prep_training_data(c, X, y, 1)
+        sw = np.ones(len(y), dtype=np.float32)
+        with pytest.raises(
+            NotImplementedError,
+            match=r"sample_weight is not yet supported for distributed",
+        ):
+            model.fit(X_df, y_df, sample_weight=sw)
+    finally:
+        c.close()

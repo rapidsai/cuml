@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -165,6 +165,20 @@ def test_rf_class_weight(classification_data, class_weight):
         class_weight=class_weight, n_estimators=50, random_state=42
     )
     clf.fit(X, y)
+    _ = accuracy_score(y, clf.predict(X))
+
+
+@pytest.mark.parametrize("sample_weight_kind", [None, "uniform", "skewed"])
+def test_rf_sample_weight(classification_data, sample_weight_kind):
+    X, y = classification_data
+    if sample_weight_kind is None:
+        sw = None
+    elif sample_weight_kind == "uniform":
+        sw = np.ones(len(y))
+    else:
+        sw = np.random.default_rng(0).uniform(0.5, 5.0, size=len(y))
+    clf = RandomForestClassifier(n_estimators=50, random_state=42)
+    clf.fit(X, y, sample_weight=sw)
     _ = accuracy_score(y, clf.predict(X))
 
 

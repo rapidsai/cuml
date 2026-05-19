@@ -179,21 +179,29 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     )
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestRegressor":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
 
+        Parameters
+        ----------
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Per-sample weights. ``None`` (and uniform weights) take the
+            unweighted path unchanged.
         """
-        X, y = check_inputs(
+        X, y, sample_weight = check_inputs(
             self,
             X,
             y,
+            sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
             reset=True,
         )
-        return self._fit_forest(X, y)
+        return self._fit_forest(X, y, sample_weight)
 
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
@@ -269,6 +277,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         self,
         X,
         y,
+        sample_weight=None,
         *,
         convert_dtype=True,
         layout="depth_first",
@@ -282,6 +291,8 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         ----------
         X : {}
         y : {}
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Per-sample weights for the R² computation.
         convert_dtype : bool (default = True)
             When True, automatically convert the input to the data type used
             to train the model. This may increase memory usage.
@@ -309,4 +320,4 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return r2_score(y, y_pred)
+        return r2_score(y, y_pred, sample_weight=sample_weight)

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -243,7 +243,8 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
-    int treeid)
+    int treeid,
+    const DataT* sample_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -252,67 +253,75 @@ class DecisionTree {
       params.split_criterion = default_criterion;
     }
     using IdxT = int;
-    // Dispatch objective
+    // sample_weight==nullptr selects the unweighted Builder with main's exact
+    // argument list (no behavior change); non-null selects the Weighted*
+    // objective with sample_weight as the trailing Builder ctor argument.
     if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GINI) {
-      return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                 s,
-                                                                 treeid,
-                                                                 seed,
-                                                                 params,
-                                                                 data,
-                                                                 labels,
-                                                                 nrows,
-                                                                 ncols,
-                                                                 row_ids,
-                                                                 unique_labels,
-                                                                 quantiles)
-        .train();
+      if (sample_weight == nullptr) {
+        return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                   s,
+                                                                   treeid,
+                                                                   seed,
+                                                                   params,
+                                                                   data,
+                                                                   labels,
+                                                                   nrows,
+                                                                   ncols,
+                                                                   row_ids,
+                                                                   unique_labels,
+                                                                   quantiles)
+          .train();
+      } else {
+        return Builder<WeightedGiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                           s,
+                                                                           treeid,
+                                                                           seed,
+                                                                           params,
+                                                                           data,
+                                                                           labels,
+                                                                           nrows,
+                                                                           ncols,
+                                                                           row_ids,
+                                                                           unique_labels,
+                                                                           quantiles,
+                                                                           sample_weight)
+          .train();
+      }
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
-      return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    s,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    row_ids,
-                                                                    unique_labels,
-                                                                    quantiles)
-        .train();
+      if (sample_weight == nullptr) {
+        return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                      s,
+                                                                      treeid,
+                                                                      seed,
+                                                                      params,
+                                                                      data,
+                                                                      labels,
+                                                                      nrows,
+                                                                      ncols,
+                                                                      row_ids,
+                                                                      unique_labels,
+                                                                      quantiles)
+          .train();
+      } else {
+        return Builder<WeightedEntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                              s,
+                                                                              treeid,
+                                                                              seed,
+                                                                              params,
+                                                                              data,
+                                                                              labels,
+                                                                              nrows,
+                                                                              ncols,
+                                                                              row_ids,
+                                                                              unique_labels,
+                                                                              quantiles,
+                                                                              sample_weight)
+          .train();
+      }
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
-      return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                s,
-                                                                treeid,
-                                                                seed,
-                                                                params,
-                                                                data,
-                                                                labels,
-                                                                nrows,
-                                                                ncols,
-                                                                row_ids,
-                                                                unique_labels,
-                                                                quantiles)
-        .train();
-    } else if (std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::POISSON) {
-      return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    s,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    row_ids,
-                                                                    unique_labels,
-                                                                    quantiles)
-        .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
-      return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+      if (sample_weight == nullptr) {
+        return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                   s,
                                                                   treeid,
                                                                   seed,
@@ -324,10 +333,72 @@ class DecisionTree {
                                                                   row_ids,
                                                                   unique_labels,
                                                                   quantiles)
-        .train();
+          .train();
+      } else {
+        return Builder<WeightedMSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                          s,
+                                                                          treeid,
+                                                                          seed,
+                                                                          params,
+                                                                          data,
+                                                                          labels,
+                                                                          nrows,
+                                                                          ncols,
+                                                                          row_ids,
+                                                                          unique_labels,
+                                                                          quantiles,
+                                                                          sample_weight)
+          .train();
+      }
     } else if (std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
-      return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+               params.split_criterion == CRITERION::POISSON) {
+      if (sample_weight == nullptr) {
+        return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                      s,
+                                                                      treeid,
+                                                                      seed,
+                                                                      params,
+                                                                      data,
+                                                                      labels,
+                                                                      nrows,
+                                                                      ncols,
+                                                                      row_ids,
+                                                                      unique_labels,
+                                                                      quantiles)
+          .train();
+      } else {
+        return Builder<WeightedPoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                              s,
+                                                                              treeid,
+                                                                              seed,
+                                                                              params,
+                                                                              data,
+                                                                              labels,
+                                                                              nrows,
+                                                                              ncols,
+                                                                              row_ids,
+                                                                              unique_labels,
+                                                                              quantiles,
+                                                                              sample_weight)
+          .train();
+      }
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
+      if (sample_weight == nullptr) {
+        return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    s,
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    row_ids,
+                                                                    unique_labels,
+                                                                    quantiles)
+          .train();
+      } else {
+        return Builder<WeightedGammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                             s,
                                                                             treeid,
                                                                             seed,
@@ -338,8 +409,42 @@ class DecisionTree {
                                                                             ncols,
                                                                             row_ids,
                                                                             unique_labels,
-                                                                            quantiles)
-        .train();
+                                                                            quantiles,
+                                                                            sample_weight)
+          .train();
+      }
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+      if (sample_weight == nullptr) {
+        return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                              s,
+                                                                              treeid,
+                                                                              seed,
+                                                                              params,
+                                                                              data,
+                                                                              labels,
+                                                                              nrows,
+                                                                              ncols,
+                                                                              row_ids,
+                                                                              unique_labels,
+                                                                              quantiles)
+          .train();
+      } else {
+        return Builder<WeightedInverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                                      s,
+                                                                                      treeid,
+                                                                                      seed,
+                                                                                      params,
+                                                                                      data,
+                                                                                      labels,
+                                                                                      nrows,
+                                                                                      ncols,
+                                                                                      row_ids,
+                                                                                      unique_labels,
+                                                                                      quantiles,
+                                                                                      sample_weight)
+          .train();
+      }
     } else {
       ASSERT(false, "Unknown split criterion.");
     }

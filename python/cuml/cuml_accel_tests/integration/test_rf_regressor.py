@@ -1,8 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_regression
 from sklearn.ensemble import RandomForestRegressor
@@ -27,6 +28,20 @@ def test_rf_n_estimators_reg(regression_data, n_estimators):
     X, y = regression_data
     reg = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
     reg.fit(X, y)
+    _ = r2_score(y, reg.predict(X))
+
+
+@pytest.mark.parametrize("sample_weight_kind", [None, "uniform", "skewed"])
+def test_rf_sample_weight_reg(regression_data, sample_weight_kind):
+    X, y = regression_data
+    if sample_weight_kind is None:
+        sw = None
+    elif sample_weight_kind == "uniform":
+        sw = np.ones(len(y))
+    else:
+        sw = np.random.default_rng(0).uniform(0.5, 5.0, size=len(y))
+    reg = RandomForestRegressor(n_estimators=50, random_state=42)
+    reg.fit(X, y, sample_weight=sw)
     _ = r2_score(y, reg.predict(X))
 
 
