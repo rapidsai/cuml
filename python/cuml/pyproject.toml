@@ -107,6 +107,8 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
+    "cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*",
+    "cuda-core>=1.0.0",
     "cython>=3.2.2",
     "hdbscan>=0.8.39",
     "hypothesis>=6.0,<7",
@@ -114,7 +116,6 @@ test = [
     "lightgbm",
     "nltk",
     "numpydoc<1.9",
-    "nvidia-ml-py>=12",
     "pynndescent",
     "pytest",
     "pytest-benchmark",

@@ -598,8 +598,8 @@ dependencies:
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
-          # 'nvidia-ml-py' provides the 'pynvml' module
-          - nvidia-ml-py>=12
+          - cuda-bindings>=12.9.6,!=13.0.*,!=13.1.*
+          - cuda-core>=1.0.0
         # TODO: uncomment these two lines once `onnxruntime` has Python 3.14 support (and conda packages built)
           # - *onnxruntime
           # - *skl2onnx
