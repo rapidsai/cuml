@@ -591,10 +591,30 @@ def check_array(
         raise ValueError(f"Unsupported {mem_type=!r}")
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
+
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
         dtype = [np.dtype(i) for i in dtype]
+
+    is_sparse = cp_sp.issparse(array) or sp.issparse(array)
+    if is_sparse and (
+        mem_type == "device" or (mem_type is None and cp_sp.issparse(array))
+    ):
+        # XXX: cupyx.scipy.sparse doesn't support integral dtypes. If a dtype
+        # is specified, we filter to only supported types (erroring if no
+        # supported types specified). If dtype=None, we use the input dtype if
+        # supported, and the closest floating type otherwise.
+        if dtype is not None:
+            if not any(d.kind in "fb" for d in dtype):
+                raise ValueError(
+                    f"No dtype in {dtype} is supported by cupyx.scipy.sparse"
+                )
+            dtype = [d for d in dtype if d.kind in "fb"]
+        elif array.dtype.kind not in "fb":
+            dtype = [
+                np.dtype("f4") if array.dtype.itemsize <= 4 else np.dtype("f8")
+            ]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
@@ -629,13 +649,13 @@ def check_array(
         else:
             dtype = array_dtype
     elif dtype is not None:
-        # No original dtype, use first dtype in list inputs
+        # No original dtype, use first provided dtype
         dtype = dtype[0]
 
     # Coerce `array` to numpy/cupy/scipy.sparse/cupyx.scipy.sparse values as
     # requested. For dataframe-like inputs also extract the index for later use.
     index = None
-    if cp_sp.issparse(array) or sp.issparse(array):
+    if is_sparse:
         orig_sparse_array = array
         # Handle sparse inputs
         if isinstance(accept_sparse, str):
@@ -667,17 +687,23 @@ def check_array(
             ensure_min_features=ensure_min_features,
         )
 
-        # Coerce data to accepted dtype if needed
-        if dtype is not None and array.dtype != dtype:
-            array = array.astype(dtype)
-
-        # Coerce to device or host if needed
-        if mem_type == "device" and not cp_sp.issparse(array):
-            if array.ndim != 2:
-                raise ValueError("cupyx.scipy.sparse only supports 2D arrays")
-            array = getattr(cp_sp, f"{array.format}_matrix")(array)
-        elif mem_type == "host" and not sp.issparse(array):
+        # Coerce to proper dtype and mem_type if needed
+        if mem_type == "host" and not sp.issparse(array):
+            # Coerce to device, then coerce dtype. We do this to save device
+            # memory, and since scipy supports more dtypes.
             array = array.get()
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+        else:
+            # Otherwise coerce dtype, then mem_type if needed
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+            if mem_type == "device" and not cp_sp.issparse(array):
+                if array.ndim != 2:
+                    raise ValueError(
+                        "cupyx.scipy.sparse only supports 2D arrays"
+                    )
+                array = getattr(cp_sp, f"{array.format}_matrix")(array)
 
         # Copy if needed
         if copy and array is orig_sparse_array:

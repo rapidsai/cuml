@@ -13,3 +13,4 @@ examples in this section is available in the cuML GitHub repository at `examples
    plot_kmeans_digits.ipynb
    third-party-apps.rst
    onnx_export.ipynb
+   hyperparameter_search.ipynb
