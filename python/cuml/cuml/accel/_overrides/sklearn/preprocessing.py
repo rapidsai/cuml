@@ -19,6 +19,7 @@ __all__ = (
     "PolynomialFeatures",
     "TargetEncoder",
     "LabelEncoder",
+    "LabelBinarizer",
 )
 
 
@@ -56,6 +57,13 @@ class PolynomialFeatures(ArrayAPIProxyBase):
 
 class LabelEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.LabelEncoder
+
+
+class LabelBinarizer(ProxyBase):
+    _gpu_class = cuml.preprocessing.LabelBinarizer
+
+    def _gpu_inverse_transform(self, Y, threshold=None):
+        return self._gpu.inverse_transform(Y, threshold=threshold)
 
 
 def _check_targetencoder_y(y):
