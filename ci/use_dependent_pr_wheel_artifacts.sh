@@ -34,7 +34,9 @@ LIBCUVS_WH=$(
 )
 
 rapids-logger "Downloading RAFT PR #${RAFT_PR} python wheel artifacts"
-PYLIBRAFT_WH=$(rapids-get-pr-artifact raft "${RAFT_PR}" python wheel --stable)
+# raft has two python wheels (pylibraft, raft_dask); each is uploaded under its
+# own artifact name, so we must override the default repo-derived package name.
+PYLIBRAFT_WH=$(rapids-get-pr-artifact raft "${RAFT_PR}" python wheel --stable --pkg_name pylibraft)
 
 rapids-logger "Downloading cuVS PR #${CUVS_PR} python wheel artifacts"
 CUVS_WH=$(rapids-get-pr-artifact cuvs "${CUVS_PR}" python wheel --stable)
