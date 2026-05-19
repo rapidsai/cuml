@@ -25,8 +25,8 @@ class _RandomForestMixin:
                 ) from None
             raise
 
-        if sample_weight is not None:
-            raise UnsupportedOnGPU("`sample_weight` is not supported")
+        # sample_weight is supported on GPU; class_weight='balanced_subsample'
+        # stays gated in RandomForestClassifier._params_from_cpu.
 
         if y is not None:
             y = check_array(
@@ -48,7 +48,7 @@ class _RandomForestMixin:
 
     def _gpu_fit(self, X, y, sample_weight=None):
         self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.fit(X, y)
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_predict(self, X):
         self._check_inputs(X)
@@ -56,7 +56,7 @@ class _RandomForestMixin:
 
     def _gpu_score(self, X, y, sample_weight=None):
         self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.score(X, y)
+        return self._gpu.score(X, y, sample_weight=sample_weight)
 
 
 class RandomForestRegressor(ProxyBase, _RandomForestMixin):

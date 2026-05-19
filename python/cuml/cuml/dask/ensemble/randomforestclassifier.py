@@ -158,7 +158,14 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
+    def fit(
+        self,
+        X,
+        y,
+        sample_weight=None,
+        convert_dtype=False,
+        broadcast_data=False,
+    ):
         """
         Fit the input data with a Random Forest classifier
 
@@ -199,6 +206,9 @@ class RandomForestClassifier(
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
+        sample_weight : None
+            Not supported for the distributed (MNMG) Random Forest; must be
+            ``None``. Use the single-GPU estimator for weighted training.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
@@ -207,8 +217,13 @@ class RandomForestClassifier(
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
-
         """
+        if sample_weight is not None:
+            raise NotImplementedError(
+                "sample_weight is not yet supported for distributed "
+                "RandomForest training. Use the single-GPU estimator or "
+                "open an issue if you need MNMG support."
+            )
         # Handle both Dask Arrays and Dask Series/DataFrames
         if isinstance(y, dask.array.Array):
             # For Dask Arrays, use dask.array.unique

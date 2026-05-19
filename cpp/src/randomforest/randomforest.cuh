@@ -33,6 +33,7 @@
 #define omp_get_max_threads() 1
 #endif
 
+#include <exception>
 #include <map>
 
 namespace ML {
@@ -117,10 +118,15 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks = nullptr)
+           bool* bootstrap_masks  = nullptr,
+           const T* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
+    if (sample_weight != nullptr) {
+      ASSERT(DT::is_dev_ptr(sample_weight),
+             "RF Error: Expected sample_weight to be a GPU pointer");
+    }
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;
     if (this->rf_params.bootstrap) {
@@ -160,52 +166,66 @@ class RandomForest {
 
     forest->n_features = n_cols;
 
+    // An exception escaping the OMP region (e.g. the smem RAFT_EXPECTS in
+    // computeSplitSmemSize) would std::terminate; capture the first and
+    // rethrow on the caller thread as a catchable raft::logic_error.
+    std::exception_ptr build_exc;
+
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
-      int stream_id = omp_get_thread_num();
-      auto s        = handle.get_stream_from_stream_pool(stream_id);
+      try {
+        int stream_id = omp_get_thread_num();
+        auto s        = handle.get_stream_from_stream_pool(stream_id);
 
-      this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
+        this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
-      /* Build individual tree in the forest.
-        - input is a pointer to orig data that have n_cols features and n_rows rows.
-        - n_sampled_rows: # rows sampled for tree's bootstrap sample.
-        - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements)
-          used to build the bootstrapped sample.
-          Expectation: Each tree node will contain (a) # n_sampled_rows and
-          (b) a pointer to a list of row numbers w.r.t original data.
-      */
+        /* Build individual tree in the forest.
+          - input is a pointer to orig data that have n_cols features and n_rows rows.
+          - n_sampled_rows: # rows sampled for tree's bootstrap sample.
+          - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements)
+            used to build the bootstrapped sample.
+            Expectation: Each tree node will contain (a) # n_sampled_rows and
+            (b) a pointer to a list of row numbers w.r.t original data.
+        */
 
-      forest->trees[i] = DT::DecisionTree::fit(handle,
-                                               s,
-                                               input,
-                                               n_cols,
-                                               n_rows,
-                                               labels,
-                                               &selected_rows[stream_id],
-                                               n_unique_labels,
-                                               this->rf_params.tree_params,
-                                               this->rf_params.seed,
-                                               quantiles,
-                                               i);
+        forest->trees[i] = DT::DecisionTree::fit(handle,
+                                                 s,
+                                                 input,
+                                                 n_cols,
+                                                 n_rows,
+                                                 labels,
+                                                 &selected_rows[stream_id],
+                                                 n_unique_labels,
+                                                 this->rf_params.tree_params,
+                                                 this->rf_params.seed,
+                                                 quantiles,
+                                                 i,
+                                                 sample_weight);
 
-      // Store bootstrap mask if device buffer is provided
-      if (bootstrap_masks != nullptr) {
-        // Calculate pointer offset for this tree's mask
-        bool* tree_mask = bootstrap_masks + (i * n_rows);
+        // Store bootstrap mask if device buffer is provided
+        if (bootstrap_masks != nullptr) {
+          // Calculate pointer offset for this tree's mask
+          bool* tree_mask = bootstrap_masks + (i * n_rows);
 
-        // Use Thrust to create boolean mask: first fill with false, then mark selected rows
-        thrust::fill(rmm::exec_policy(s), tree_mask, tree_mask + n_rows, false);
-        thrust::scatter(rmm::exec_policy(s),
-                        thrust::make_constant_iterator(true),
-                        thrust::make_constant_iterator(true) + n_sampled_rows,
-                        selected_rows[stream_id].data(),
-                        tree_mask);
+          // Use Thrust to create boolean mask: first fill with false, then mark selected rows
+          thrust::fill(rmm::exec_policy(s), tree_mask, tree_mask + n_rows, false);
+          thrust::scatter(rmm::exec_policy(s),
+                          thrust::make_constant_iterator(true),
+                          thrust::make_constant_iterator(true) + n_sampled_rows,
+                          selected_rows[stream_id].data(),
+                          tree_mask);
+        }
+      } catch (...) {
+#pragma omp critical
+        {
+          if (!build_exc) build_exc = std::current_exception();
+        }
       }
     }
     // Cleanup
     handle.sync_stream_pool();
     handle.sync_stream();
+    if (build_exc) std::rethrow_exception(build_exc);
   }
 
   /**

@@ -121,12 +121,15 @@ XFAILS = {
         "check_do_not_raise_errors_in_init_or_set_params": "RandomForestRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
         "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
         "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
+        "check_class_weight_classifiers": "class_weight maps to sample_weight, which quantile binning makes non-equivalent to sklearn-exact reweighting",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

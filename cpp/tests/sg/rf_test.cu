@@ -955,6 +955,527 @@ Tree #0
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 
+// ---- sample_weight fit-level gtests ----------------------------------------
+
+namespace {
+
+// Deterministic config shared by every equivalence test: bootstrap off so the
+// duplicated-rows population (A) and the weighted population (B) match exactly.
+RF_params WeightedEquivParams(CRITERION crit)
+{
+  return set_rf_params(/*max_depth*/ 8,
+                       /*max_leaves*/ -1,
+                       /*max_features*/ 1.0f,
+                       /*max_n_bins*/ 128,
+                       /*min_samples_leaf*/ 1,
+                       /*min_samples_split*/ 2,
+                       /*min_impurity_decrease*/ 0.0f,
+                       /*bootstrap*/ false,
+                       /*n_trees*/ 1,
+                       /*max_samples*/ 1.0f,
+                       /*seed*/ 42,
+                       crit,
+                       /*n_streams*/ 1,
+                       128);
+}
+
+// Matched binning: max_n_bins > rows so every distinct value is its own
+// edge and duplication cannot shift the grid, making dup-K == weight-K
+// integer-exact (design 0.1 R6).
+RF_params MatchedBinParams(CRITERION crit, int bins)
+{
+  return set_rf_params(/*max_depth*/ 8,
+                       /*max_leaves*/ -1,
+                       /*max_features*/ 1.0f,
+                       /*max_n_bins*/ bins,
+                       /*min_samples_leaf*/ 1,
+                       /*min_samples_split*/ 2,
+                       /*min_impurity_decrease*/ 0.0f,
+                       /*bootstrap*/ false,
+                       /*n_trees*/ 1,
+                       /*max_samples*/ 1.0f,
+                       /*seed*/ 42,
+                       crit,
+                       /*n_streams*/ 1,
+                       bins);
+}
+
+// Continuous, per-feature-distinct host data (row-major) so exact bin ties are
+// measure-zero. Small integer weights in [1, 3].
+template <typename DataT>
+void GenWeightedFixture(int n_rows,
+                        int n_cols,
+                        int n_classes,
+                        std::vector<DataT>& X_rm,
+                        std::vector<int>& y,
+                        std::vector<int>& w)
+{
+  std::mt19937 rng(2026);
+  std::uniform_real_distribution<double> ux(-5.0, 5.0);
+  std::uniform_int_distribution<int> uw(1, 3);
+  X_rm.resize(static_cast<std::size_t>(n_rows) * n_cols);
+  y.resize(n_rows);
+  w.resize(n_rows);
+  for (int r = 0; r < n_rows; ++r) {
+    for (int c = 0; c < n_cols; ++c)
+      X_rm[static_cast<std::size_t>(r) * n_cols + c] = DataT(ux(rng) + 0.001 * c);
+    y[r] = r % n_classes;
+    w[r] = uw(rng);
+  }
+}
+
+// Column-major device buffer (cuML RF fit expects Fortran order).
+template <typename DataT>
+thrust::device_vector<DataT> ToColMajorDevice(const std::vector<DataT>& X_rm,
+                                              int n_rows,
+                                              int n_cols)
+{
+  std::vector<DataT> cm(static_cast<std::size_t>(n_rows) * n_cols);
+  for (int r = 0; r < n_rows; ++r)
+    for (int c = 0; c < n_cols; ++c)
+      cm[static_cast<std::size_t>(c) * n_rows + r] = X_rm[static_cast<std::size_t>(r) * n_cols + c];
+  return thrust::device_vector<DataT>(cm.begin(), cm.end());
+}
+
+template <typename DataT, typename LabelT>
+std::shared_ptr<RandomForestMetaData<DataT, LabelT>> FitClassifier(
+  const raft::handle_t& handle,
+  thrust::device_vector<DataT>& X_cm,
+  thrust::device_vector<int>& y,
+  int n_rows,
+  int n_cols,
+  int n_classes,
+  RF_params rf_params,
+  DataT* sample_weight)
+{
+  auto forest = std::make_shared<RandomForestMetaData<DataT, LabelT>>();
+  fit(handle,
+      forest.get(),
+      X_cm.data().get(),
+      n_rows,
+      n_cols,
+      y.data().get(),
+      n_classes,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      sample_weight);
+  return forest;
+}
+
+// Host tree walk: x[col] <= quesval goes left (decisiontree.cuh:387).
+template <typename DataT, typename LabelT>
+int RouteToLeaf(const std::vector<SparseTreeNode<DataT, LabelT>>& tree, const DataT* row)
+{
+  int nid = 0;
+  while (!tree[nid].IsLeaf()) {
+    nid = (row[tree[nid].ColumnId()] <= tree[nid].QueryValue()) ? tree[nid].LeftChildId()
+                                                                : tree[nid].RightChildId();
+  }
+  return nid;
+}
+
+// Co-clustering equality: rows i,j share a leaf in A iff they share one in B.
+// Leaf ids are NOT comparable across A and B (different node-array sizes).
+template <typename DataT, typename LabelT>
+void ExpectSameLeafPartition(const std::vector<SparseTreeNode<DataT, LabelT>>& a,
+                             const std::vector<SparseTreeNode<DataT, LabelT>>& b,
+                             const std::vector<DataT>& X_rm,
+                             int n_rows,
+                             int n_cols)
+{
+  std::vector<int> la(n_rows), lb(n_rows);
+  for (int r = 0; r < n_rows; ++r) {
+    const DataT* row = &X_rm[static_cast<std::size_t>(r) * n_cols];
+    la[r]            = RouteToLeaf(a, row);
+    lb[r]            = RouteToLeaf(b, row);
+  }
+  for (int i = 0; i < n_rows; ++i)
+    for (int j = i + 1; j < n_rows; ++j)
+      EXPECT_EQ(la[i] == la[j], lb[i] == lb[j])
+        << "leaf-partition divergence at rows " << i << "," << j;
+}
+
+}  // namespace
+
+template <typename DataT>
+void RunClassifierSampleWeightEquivalence()
+{
+  const int n_rows = 80, n_cols = 4, n_classes = 3;
+  std::vector<DataT> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<DataT>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  // Duplicated dataset for the unweighted fit A.
+  std::vector<DataT> Xd_rm;
+  std::vector<int> yd;
+  for (int r = 0; r < n_rows; ++r)
+    for (int k = 0; k < w[r]; ++k) {
+      yd.push_back(y[r]);
+      for (int c = 0; c < n_cols; ++c)
+        Xd_rm.push_back(X_rm[static_cast<std::size_t>(r) * n_cols + c]);
+    }
+  const int nd = static_cast<int>(yd.size());
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  auto Xd_cm = ToColMajorDevice<DataT>(Xd_rm, nd, n_cols);
+  auto X_cm  = ToColMajorDevice<DataT>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> yd_dev(yd.begin(), yd.end());
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+  std::vector<DataT> wd(w.begin(), w.end());
+  thrust::device_vector<DataT> w_dev(wd.begin(), wd.end());
+
+  // Matched binning (see MatchedBinParams / design 0.1 R6): identical grid
+  // for the duplicated-unweighted and weighted fits, so dup-K == weight-K is
+  // integer-exact on both F and D. Default-bin topology is NOT asserted.
+  const int bins = nd + 16;
+  auto A         = FitClassifier<DataT, int>(
+    handle, Xd_cm, yd_dev, nd, n_cols, n_classes, MatchedBinParams(GINI, bins), nullptr);
+  auto B = FitClassifier<DataT, int>(handle,
+                                     X_cm,
+                                     y_dev,
+                                     n_rows,
+                                     n_cols,
+                                     n_classes,
+                                     MatchedBinParams(GINI, bins),
+                                     w_dev.data().get());
+
+  const auto& at  = A->trees[0]->sparsetree;
+  const auto& bt  = B->trees[0]->sparsetree;
+  const auto& wnc = B->trees[0]->weighted_node_count;
+
+  // Identical tree structure under the matched grid.
+  ASSERT_EQ(at.size(), bt.size());
+  ASSERT_EQ(wnc.size(), bt.size());
+  // Load-bearing kernel-correctness anchor: B's weighted count per node
+  // equals A's duplicated instance count, integer-exact.
+  for (std::size_t i = 0; i < bt.size(); ++i)
+    EXPECT_EQ(double(at[i].InstanceCount()), wnc[i]);
+  // Original rows induce an identical leaf partition.
+  ExpectSameLeafPartition<DataT, int>(at, bt, X_rm, n_rows, n_cols);
+}
+
+TEST(RfTests, ClassifierFit_SampleWeightEquivalenceMatchedBinsF)
+{
+  RunClassifierSampleWeightEquivalence<float>();
+}
+TEST(RfTests, ClassifierFit_SampleWeightEquivalenceMatchedBinsD)
+{
+  RunClassifierSampleWeightEquivalence<double>();
+}
+
+template <typename DataT>
+void RunRegressorSampleWeightEquivalence()
+{
+  const int n_rows = 80, n_cols = 4;
+  std::vector<DataT> X_rm;
+  std::vector<int> ylbl, w;
+  GenWeightedFixture<DataT>(n_rows, n_cols, /*n_classes*/ 7, X_rm, ylbl, w);
+  std::vector<DataT> y(n_rows);
+  for (int r = 0; r < n_rows; ++r)
+    y[r] = DataT(ylbl[r]) + DataT(0.5);
+
+  std::vector<DataT> Xd_rm;
+  std::vector<DataT> yd;
+  for (int r = 0; r < n_rows; ++r)
+    for (int k = 0; k < w[r]; ++k) {
+      yd.push_back(y[r]);
+      for (int c = 0; c < n_cols; ++c)
+        Xd_rm.push_back(X_rm[static_cast<std::size_t>(r) * n_cols + c]);
+    }
+  const int nd = static_cast<int>(yd.size());
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  auto Xd_cm = ToColMajorDevice<DataT>(Xd_rm, nd, n_cols);
+  auto X_cm  = ToColMajorDevice<DataT>(X_rm, n_rows, n_cols);
+  thrust::device_vector<DataT> yd_dev(yd.begin(), yd.end());
+  thrust::device_vector<DataT> y_dev(y.begin(), y.end());
+  std::vector<DataT> wd(w.begin(), w.end());
+  thrust::device_vector<DataT> w_dev(wd.begin(), wd.end());
+
+  // Matched binning (see classifier variant / design 0.1 R6): identical grid
+  // for the duplicated-unweighted and weighted fits => integer-exact dup-K ==
+  // weight-K on both float and double.
+  const int bins = nd + 16;
+  auto A         = std::make_shared<RandomForestMetaData<DataT, DataT>>();
+  fit(handle,
+      A.get(),
+      Xd_cm.data().get(),
+      nd,
+      n_cols,
+      yd_dev.data().get(),
+      MatchedBinParams(MSE, bins),
+      rapids_logger::level_enum::info,
+      nullptr,
+      nullptr);
+  auto B = std::make_shared<RandomForestMetaData<DataT, DataT>>();
+  fit(handle,
+      B.get(),
+      X_cm.data().get(),
+      n_rows,
+      n_cols,
+      y_dev.data().get(),
+      MatchedBinParams(MSE, bins),
+      rapids_logger::level_enum::info,
+      nullptr,
+      w_dev.data().get());
+
+  const auto& at  = A->trees[0]->sparsetree;
+  const auto& bt  = B->trees[0]->sparsetree;
+  const auto& wnc = B->trees[0]->weighted_node_count;
+
+  ASSERT_EQ(at.size(), bt.size());
+  ASSERT_EQ(wnc.size(), bt.size());
+  for (std::size_t i = 0; i < bt.size(); ++i)
+    EXPECT_EQ(double(at[i].InstanceCount()), wnc[i]);
+  ExpectSameLeafPartition<DataT, DataT>(at, bt, X_rm, n_rows, n_cols);
+}
+
+TEST(RfTests, RegressorFit_SampleWeightEquivalenceMatchedBinsF)
+{
+  RunRegressorSampleWeightEquivalence<float>();
+}
+TEST(RfTests, RegressorFit_SampleWeightEquivalenceMatchedBinsD)
+{
+  RunRegressorSampleWeightEquivalence<double>();
+}
+
+// Unweighted backstop: sample_weight=nullptr must leave the side-vector empty.
+TEST(RfTests, UnweightedWeightedNodeCountIsEmpty)
+{
+  const int n_rows = 60, n_cols = 4, n_classes = 2;
+  std::vector<float> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<float>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+
+  auto clf = FitClassifier<float, int>(
+    handle, X_cm, y_dev, n_rows, n_cols, n_classes, WeightedEquivParams(GINI), nullptr);
+  for (const auto& tree : clf->trees)
+    EXPECT_TRUE(tree->weighted_node_count.empty());
+
+  std::vector<float> yr(n_rows);
+  for (int r = 0; r < n_rows; ++r)
+    yr[r] = float(y[r]) + 0.5f;
+  thrust::device_vector<float> yr_dev(yr.begin(), yr.end());
+  auto reg = std::make_shared<RandomForestMetaData<float, float>>();
+  fit(handle,
+      reg.get(),
+      X_cm.data().get(),
+      n_rows,
+      n_cols,
+      yr_dev.data().get(),
+      WeightedEquivParams(MSE),
+      rapids_logger::level_enum::info,
+      nullptr,
+      nullptr);
+  for (const auto& tree : reg->trees)
+    EXPECT_TRUE(tree->weighted_node_count.empty());
+}
+
+// Side-vector lockstep + child-sum invariant. The child-sum equality is
+// algebraically true by construction (Push: right = parent - left); this test
+// validates the index-lockstep with sparsetree and the unit-weight kernel.
+TEST(RfTests, WeightedChildSumInvariant)
+{
+  const int n_rows = 80, n_cols = 4, n_classes = 3;
+  std::vector<float> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<float>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+
+  std::vector<float> wnu(w.begin(), w.end());
+  thrust::device_vector<float> wnu_dev(wnu.begin(), wnu.end());
+  auto B          = FitClassifier<float, int>(handle,
+                                     X_cm,
+                                     y_dev,
+                                     n_rows,
+                                     n_cols,
+                                     n_classes,
+                                     WeightedEquivParams(GINI),
+                                     wnu_dev.data().get());
+  const auto& bt  = B->trees[0]->sparsetree;
+  const auto& wnc = B->trees[0]->weighted_node_count;
+  ASSERT_EQ(wnc.size(), bt.size());
+  // Push sets right_wc = parent_wc - left_wc, so the child-sum is exact in
+  // double (observed residual 0.0); abs_tol is a conservative FP margin.
+  const double abs_tol = 1e-9;
+  for (std::size_t nid = 0; nid < bt.size(); ++nid)
+    if (!bt[nid].IsLeaf())
+      EXPECT_NEAR(wnc[bt[nid].LeftChildId()] + wnc[bt[nid].RightChildId()], wnc[nid], abs_tol);
+
+  std::vector<float> ones(n_rows, 1.0f);
+  thrust::device_vector<float> ones_dev(ones.begin(), ones.end());
+  auto U           = FitClassifier<float, int>(handle,
+                                     X_cm,
+                                     y_dev,
+                                     n_rows,
+                                     n_cols,
+                                     n_classes,
+                                     WeightedEquivParams(GINI),
+                                     ones_dev.data().get());
+  const auto& ut   = U->trees[0]->sparsetree;
+  const auto& uwnc = U->trees[0]->weighted_node_count;
+  ASSERT_EQ(uwnc.size(), ut.size());
+  for (std::size_t nid = 0; nid < ut.size(); ++nid)
+    EXPECT_EQ(uwnc[nid], double(ut[nid].InstanceCount()));
+}
+
+// Unweighted classification is bit-identical across runs (integer atomics are
+// associative). Guards a nondeterminism regression only.
+TEST(RfTests, ClassifierFit_UnweightedDeterminism)
+{
+  const int n_rows = 80, n_cols = 4, n_classes = 3;
+  std::vector<float> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<float>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+
+  std::shared_ptr<RandomForestMetaData<float, int>> ref;
+  for (int run = 0; run < 5; ++run) {
+    auto f = FitClassifier<float, int>(
+      handle, X_cm, y_dev, n_rows, n_cols, n_classes, WeightedEquivParams(GINI), nullptr);
+    if (run == 0)
+      ref = f;
+    else
+      EXPECT_EQ(ref->trees[0]->sparsetree, f->trees[0]->sparsetree);
+  }
+}
+
+// Regressor mirror of ClassifierFit_UnweightedDeterminism: the ordered
+// pool merge also makes the unweighted AggregateBin path deterministic
+// (load-bearing side effect; the classifier test only covers CountBin).
+TEST(RfTests, RegressorFit_UnweightedDeterminism)
+{
+  const int n_rows = 80, n_cols = 4;
+  std::vector<float> X_rm;
+  std::vector<int> ylbl, w;
+  GenWeightedFixture<float>(n_rows, n_cols, /*n_classes*/ 7, X_rm, ylbl, w);
+  std::vector<float> y(n_rows);
+  for (int r = 0; r < n_rows; ++r)
+    y[r] = float(ylbl[r]) + 0.5f;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<float> y_dev(y.begin(), y.end());
+
+  std::shared_ptr<RandomForestMetaData<float, float>> ref;
+  for (int run = 0; run < 5; ++run) {
+    auto f = std::make_shared<RandomForestMetaData<float, float>>();
+    fit(handle,
+        f.get(),
+        X_cm.data().get(),
+        n_rows,
+        n_cols,
+        y_dev.data().get(),
+        WeightedEquivParams(MSE),
+        rapids_logger::level_enum::info,
+        nullptr,
+        nullptr);
+    if (run == 0)
+      ref = f;
+    else
+      EXPECT_EQ(ref->trees[0]->sparsetree, f->trees[0]->sparsetree);
+  }
+}
+
+// Weighted classification predictions agree across repeated fits. Observed
+// agreement = 1.000000 at n=12000 (pool reduction deterministic for
+// num_blocks <= POOL_SIZE); the assertion floor is documented at its site.
+TEST(RfTests, ClassifierFit_WeightedApproxDeterminism)
+{
+  const int n_rows = 12000, n_cols = 6, n_classes = 4;
+  std::vector<float> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<float>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+  std::vector<float> wf(w.begin(), w.end());
+  thrust::device_vector<float> w_dev(wf.begin(), wf.end());
+
+  auto leaves = [&](const std::shared_ptr<RandomForestMetaData<float, int>>& f) {
+    std::vector<int> L(n_rows);
+    for (int r = 0; r < n_rows; ++r)
+      L[r] = RouteToLeaf(f->trees[0]->sparsetree, &X_rm[static_cast<std::size_t>(r) * n_cols]);
+    return L;
+  };
+  auto ref = FitClassifier<float, int>(
+    handle, X_cm, y_dev, n_rows, n_cols, n_classes, WeightedEquivParams(GINI), w_dev.data().get());
+  auto Lref = leaves(ref);
+  for (int run = 1; run < 5; ++run) {
+    auto f      = FitClassifier<float, int>(handle,
+                                       X_cm,
+                                       y_dev,
+                                       n_rows,
+                                       n_cols,
+                                       n_classes,
+                                       WeightedEquivParams(GINI),
+                                       w_dev.data().get());
+    auto L      = leaves(f);
+    int matched = 0;
+    for (int r = 0; r < n_rows; ++r)
+      matched += (L[r] == Lref[r]);
+    // Observed agreement 1.0 over 4 fits at n=12000 (pool deterministic for
+    // num_blocks <= POOL_SIZE); 0.9995 floor margins larger-size FP-atomic
+    // ordering the design does not control.
+    EXPECT_GE(double(matched) / n_rows, 0.9995);
+  }
+}
+
+// Per-block smem budget exceeded surfaces as raft::logic_error, not CUDA OOM.
+TEST(RfTests, BuilderSmemBudgetExceeded_Throws)
+{
+  const int n_rows = 6000, n_cols = 10, n_classes = 300;
+  std::vector<float> X_rm;
+  std::vector<int> y, w;
+  GenWeightedFixture<float>(n_rows, n_cols, n_classes, X_rm, y, w);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto X_cm = ToColMajorDevice<float>(X_rm, n_rows, n_cols);
+  thrust::device_vector<int> y_dev(y.begin(), y.end());
+  std::vector<float> wf(w.begin(), w.end());
+  thrust::device_vector<float> w_dev(wf.begin(), wf.end());
+
+  try {
+    FitClassifier<float, int>(handle,
+                              X_cm,
+                              y_dev,
+                              n_rows,
+                              n_cols,
+                              n_classes,
+                              WeightedEquivParams(GINI),
+                              w_dev.data().get());
+    FAIL() << "expected a shared-memory budget exception";
+  } catch (const raft::logic_error& e) {
+    const std::string msg = e.what();
+    EXPECT_TRUE(msg.find("shared-memory") != std::string::npos ||
+                msg.find("max_n_bins") != std::string::npos ||
+                msg.find("n_classes") != std::string::npos)
+      << "unexpected message: " << msg;
+  }
+}
+
 //-------------------------------------------------------------------------------------------------------------------------------------
 namespace DT {
 
@@ -969,6 +1490,7 @@ struct ObjectiveTestParameters {
 
 template <typename ObjectiveT>
 class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
+ protected:
   typedef typename ObjectiveT::DataT DataT;
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::IdxT IdxT;
@@ -1307,25 +1829,30 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   void SetUp() override
   {
-    srand(params.seed);
-    params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
-    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
+    // Guarded on the unweighted bin type: the weighted ObjectiveT still
+    // instantiates this inherited virtual, so it must compile-discard there
+    // (the 5-arg GainPerSplit / unweighted GenHist do not exist for it).
+    if constexpr (std::is_same_v<BinT, CountBin> || std::is_same_v<BinT, AggregateBin>) {
+      params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
+      srand(params.seed);
+      ObjectiveT objective(params.n_classes, params.min_samples_leaf);
 
-    auto data                 = GenRandomData();
-    auto [cdf_hist, pdf_hist] = GenHist(data);
-    auto split_bin_index      = RandUnder(params.max_n_bins);
-    auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
+      auto data                 = GenRandomData();
+      auto [cdf_hist, pdf_hist] = GenHist(data);
+      auto split_bin_index      = RandUnder(params.max_n_bins);
+      auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
 
-    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
-                                                  split_bin_index,
-                                                  params.max_n_bins,
-                                                  NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
-                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+      auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
+                                                    split_bin_index,
+                                                    params.max_n_bins,
+                                                    NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
+                                                    NumLeftOfBin(cdf_hist, split_bin_index));
 
-    // The gain may actually be NaN. If so, a comparison between the result and
-    // ground truth would yield false, even if they are both (correctly) NaNs.
-    if (!std::isnan(ground_truth_gain) || !std::isnan(hypothesis_gain)) {
-      ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+      // The gain may actually be NaN. If so, a comparison between the result
+      // and ground truth would yield false, even if both are (correctly) NaN.
+      if (!std::isnan(ground_truth_gain) || !std::isnan(hypothesis_gain)) {
+        ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+      }
     }
   }
 };
@@ -1445,6 +1972,313 @@ TEST_P(GiniObjectiveTestF, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestF,
                         ::testing::ValuesIn(gini_objective_test_parameters));
+
+// Derives from ObjectiveTest to reuse its unweighted ground-truth helpers,
+// but owns SetUp (base's 5-arg GainPerSplit path is incompatible with the
+// weighted 6-arg one) and seeds exactly one RNG, so there is no double-seed.
+template <typename ObjectiveT>
+class WeightedObjectiveTest : public ObjectiveTest<ObjectiveT> {
+  using Base  = ObjectiveTest<ObjectiveT>;
+  using DataT = typename Base::DataT;
+  using IdxT  = typename ObjectiveT::IdxT;
+  using BinT  = typename ObjectiveT::BinT;
+
+  std::vector<DataT> GenWeightedData(std::mt19937& rng)
+  {
+    std::vector<DataT> data(this->params.n_rows);
+    if constexpr (std::is_same_v<BinT, WeightedCountBin>) {
+      std::uniform_int_distribution<int> uc(0, this->params.n_classes - 1);
+      for (auto& d : data)
+        d = DataT(uc(rng));
+    } else {
+      std::normal_distribution<double> nd(1.0, 2.0);
+      for (auto& d : data) {
+        double v;
+        do {
+          v = nd(rng);
+        } while (v <= 0);
+        d = DataT(v);
+      }
+    }
+    return data;
+  }
+
+  std::vector<BinT> GenWeightedHist(const std::vector<DataT>& data,
+                                    const std::vector<DataT>& weights)
+  {
+    std::vector<BinT> cdf, pdf;
+    IdxT bin_width = raft::ceildiv(this->params.n_rows, this->params.max_n_bins);
+    for (int c = 0; c < this->params.n_classes; ++c) {
+      for (int b = 0; b < this->params.max_n_bins; ++b) {
+        IdxT begin = b * bin_width;
+        IdxT end   = std::min<IdxT>(begin + bin_width, this->params.n_rows);
+        BinT bin;
+        for (IdxT k = begin; k < end; ++k) {
+          double w = double(weights[k]);
+          if constexpr (std::is_same_v<BinT, WeightedCountBin>) {
+            if (int(data[k]) == c) {
+              bin.weighted_sum += w;
+              bin.count += 1;
+            }
+          } else {
+            bin.label_sum += w * double(data[k]);
+            bin.weighted_count += w;
+            bin.count += 1;
+          }
+        }
+        auto cumulative = b > 0 ? cdf.back() : BinT();
+        pdf.push_back(bin);
+        cdf.push_back(bin);
+        cdf.back() += cumulative;
+      }
+    }
+    return cdf;
+  }
+
+  double NumWeightedLeftOfBin(const std::vector<BinT>& cdf, IdxT idx)
+  {
+    double w = 0.0;
+    for (int c = 0; c < this->params.n_classes; ++c) {
+      const BinT& bin = cdf[this->params.max_n_bins * c + idx];
+      if constexpr (std::is_same_v<BinT, WeightedCountBin>)
+        w += bin.weighted_sum;
+      else
+        w += bin.weighted_count;
+    }
+    return w;
+  }
+
+  // Weighted Gini reference: counts replaced by weighted sums.
+  double WeightedGiniGroundTruthGain(const std::vector<DataT>& data,
+                                     const std::vector<DataT>& weights,
+                                     std::size_t split_bin)
+  {
+    IdxT bin_width  = raft::ceildiv(this->params.n_rows, this->params.max_n_bins);
+    std::size_t cut = std::min<std::size_t>((split_bin + 1) * bin_width, data.size());
+    auto impurity   = [&](std::size_t lo, std::size_t hi) {
+      double tot = 0.0;
+      std::vector<double> per(this->params.n_classes, 0.0);
+      for (std::size_t k = lo; k < hi; ++k) {
+        per[int(data[k])] += double(weights[k]);
+        tot += double(weights[k]);
+      }
+      double g = 0.0;
+      for (double p : per) {
+        double pr = tot > 0 ? p / tot : 0.0;
+        g += pr * (1 - pr);
+      }
+      return std::make_pair(g, tot);
+    };
+    auto [gp, wt] = impurity(0, data.size());
+    auto [gl, wl] = impurity(0, cut);
+    auto [gr, wr] = impurity(cut, data.size());
+    if (wl <= 0 || wr <= 0) return -std::numeric_limits<double>::max();
+    return gp - (wl / wt) * gl - (wr / wt) * gr;
+  }
+
+  // Weighted Entropy reference: counts replaced by weighted sums.
+  double WeightedEntropyGroundTruthGain(const std::vector<DataT>& data,
+                                        const std::vector<DataT>& weights,
+                                        std::size_t split_bin)
+  {
+    IdxT bin_width  = raft::ceildiv(this->params.n_rows, this->params.max_n_bins);
+    std::size_t cut = std::min<std::size_t>((split_bin + 1) * bin_width, data.size());
+    auto entropy    = [&](std::size_t lo, std::size_t hi) {
+      double tot = 0.0;
+      std::vector<double> per(this->params.n_classes, 0.0);
+      for (std::size_t k = lo; k < hi; ++k) {
+        per[int(data[k])] += double(weights[k]);
+        tot += double(weights[k]);
+      }
+      double h = 0.0;
+      for (double p : per) {
+        double pr = tot > 0 ? p / tot : 0.0;
+        if (pr > 0) h += -pr * std::log(pr) / std::log(2.0);
+      }
+      return std::make_pair(h, tot);
+    };
+    auto [hp, wt] = entropy(0, data.size());
+    auto [hl, wl] = entropy(0, cut);
+    auto [hr, wr] = entropy(cut, data.size());
+    if (wl <= 0 || wr <= 0) return -std::numeric_limits<double>::max();
+    return hp - (wl / wt) * hl - (wr / wt) * hr;
+  }
+
+  // Weighted MSE reference, mirroring WeightedMSEObjectiveFunction exactly.
+  double WeightedMSEGroundTruthGain(const std::vector<DataT>& data,
+                                    const std::vector<DataT>& weights,
+                                    std::size_t split_bin)
+  {
+    IdxT bin_width  = raft::ceildiv(this->params.n_rows, this->params.max_n_bins);
+    std::size_t cut = std::min<std::size_t>((split_bin + 1) * bin_width, data.size());
+    auto acc        = [&](std::size_t lo, std::size_t hi) {
+      double sw = 0.0, swy = 0.0;
+      for (std::size_t k = lo; k < hi; ++k) {
+        sw += double(weights[k]);
+        swy += double(weights[k]) * double(data[k]);
+      }
+      return std::make_pair(sw, swy);
+    };
+    auto [swT, swyT] = acc(0, data.size());
+    auto [swL, swyL] = acc(0, cut);
+    auto [swR, swyR] = acc(cut, data.size());
+    if (swL <= 0 || swR <= 0) return -std::numeric_limits<double>::max();
+    double parent = -swyT * swyT / swT;
+    double left   = -swyL * swyL / swL;
+    double right  = -swyR * swyR / swR;
+    return (parent - (left + right)) * 0.5 / swT;
+  }
+
+ public:
+  void SetUp() override
+  {
+    this->params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
+    std::mt19937 rng(this->params.seed);
+    ObjectiveT objective(this->params.n_classes, this->params.min_samples_leaf);
+
+    auto data = GenWeightedData(rng);
+    std::uniform_real_distribution<double> uw(0.5, 2.0);
+    std::vector<DataT> weights(this->params.n_rows), ones(this->params.n_rows, DataT(1));
+    for (auto& w : weights)
+      w = DataT(uw(rng));
+
+    auto split_bin = this->RandUnder(this->params.max_n_bins);
+
+    // (1) Non-unit weighted hypothesis vs an independent weighted reference.
+    // Poisson/Gamma/InverseGaussian reuse the WeightedMSE scaffold and are
+    // covered by the (2) unit-weight anchor below, not a separate reference.
+    auto cdf_w = GenWeightedHist(data, weights);
+    IdxT len   = this->NumLeftOfBin(cdf_w, this->params.max_n_bins - 1);
+    IdxT nLeft = this->NumLeftOfBin(cdf_w, split_bin);
+    double wL  = NumWeightedLeftOfBin(cdf_w, split_bin);
+    DataT hyp_w =
+      objective.GainPerSplit(&cdf_w[0], split_bin, this->params.max_n_bins, len, nLeft, wL);
+    if constexpr (std::is_same_v<ObjectiveT, WeightedGiniObjectiveFunction<DataT, int, int>>) {
+      double gt = WeightedGiniGroundTruthGain(data, weights, split_bin);
+      if (!std::isnan(gt) && !std::isnan(double(hyp_w)) &&
+          gt != -std::numeric_limits<double>::max())
+        ASSERT_NEAR(gt, double(hyp_w), this->params.tolerance);
+    } else if constexpr (std::is_same_v<ObjectiveT,
+                                        WeightedEntropyObjectiveFunction<DataT, int, int>>) {
+      double gt = WeightedEntropyGroundTruthGain(data, weights, split_bin);
+      if (!std::isnan(gt) && !std::isnan(double(hyp_w)) &&
+          gt != -std::numeric_limits<double>::max())
+        ASSERT_NEAR(gt, double(hyp_w), this->params.tolerance);
+    } else if constexpr (std::is_same_v<ObjectiveT,
+                                        WeightedMSEObjectiveFunction<DataT, DataT, int>>) {
+      double gt = WeightedMSEGroundTruthGain(data, weights, split_bin);
+      if (!std::isnan(gt) && !std::isnan(double(hyp_w)) &&
+          gt != -std::numeric_limits<double>::max())
+        ASSERT_NEAR(gt, double(hyp_w), this->params.tolerance);
+    }
+
+    // (2) unit-weight anchor: weighted GainPerSplit at w=1 must match the
+    // existing unweighted reference for every objective.
+    auto cdf_1  = GenWeightedHist(data, ones);
+    IdxT len1   = this->NumLeftOfBin(cdf_1, this->params.max_n_bins - 1);
+    IdxT nLeft1 = this->NumLeftOfBin(cdf_1, split_bin);
+    double wL1  = NumWeightedLeftOfBin(cdf_1, split_bin);
+    DataT hyp_1 =
+      objective.GainPerSplit(&cdf_1[0], split_bin, this->params.max_n_bins, len1, nLeft1, wL1);
+    DataT gt_u;
+    if constexpr (std::is_same_v<ObjectiveT, WeightedGiniObjectiveFunction<DataT, int, int>>)
+      gt_u = this->GiniGroundTruthGain(data, split_bin);
+    else if constexpr (std::is_same_v<ObjectiveT,
+                                      WeightedEntropyObjectiveFunction<DataT, int, int>>)
+      gt_u = this->EntropyGroundTruthGain(data, split_bin);
+    else if constexpr (std::is_same_v<ObjectiveT, WeightedMSEObjectiveFunction<DataT, DataT, int>>)
+      gt_u = this->MSEGroundTruthGain(data, split_bin);
+    else if constexpr (std::is_same_v<ObjectiveT,
+                                      WeightedPoissonObjectiveFunction<DataT, DataT, int>>)
+      gt_u = this->PoissonGroundTruthGain(data, split_bin);
+    else if constexpr (std::is_same_v<ObjectiveT,
+                                      WeightedGammaObjectiveFunction<DataT, DataT, int>>)
+      gt_u = this->GammaGroundTruthGain(data, split_bin);
+    else
+      gt_u = this->InverseGaussianGroundTruthGain(data, split_bin);
+    if (!std::isnan(double(gt_u)) && !std::isnan(double(hyp_1)) &&
+        gt_u != -std::numeric_limits<DataT>::max())
+      ASSERT_NEAR(double(gt_u), double(hyp_1), this->params.tolerance);
+  }
+};
+
+typedef WeightedObjectiveTest<WeightedGiniObjectiveFunction<double, int, int>>
+  WeightedGiniObjectiveTestD;
+TEST_P(WeightedGiniObjectiveTestD, weightedGiniObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedGiniObjectiveTestD,
+                        ::testing::ValuesIn(gini_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedGiniObjectiveFunction<float, int, int>>
+  WeightedGiniObjectiveTestF;
+TEST_P(WeightedGiniObjectiveTestF, weightedGiniObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedGiniObjectiveTestF,
+                        ::testing::ValuesIn(gini_objective_test_parameters));
+
+typedef WeightedObjectiveTest<WeightedEntropyObjectiveFunction<double, int, int>>
+  WeightedEntropyObjectiveTestD;
+TEST_P(WeightedEntropyObjectiveTestD, weightedEntropyObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedEntropyObjectiveTestD,
+                        ::testing::ValuesIn(entropy_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedEntropyObjectiveFunction<float, int, int>>
+  WeightedEntropyObjectiveTestF;
+TEST_P(WeightedEntropyObjectiveTestF, weightedEntropyObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedEntropyObjectiveTestF,
+                        ::testing::ValuesIn(entropy_objective_test_parameters));
+
+typedef WeightedObjectiveTest<WeightedMSEObjectiveFunction<double, double, int>>
+  WeightedMSEObjectiveTestD;
+TEST_P(WeightedMSEObjectiveTestD, weightedMSEObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedMSEObjectiveTestD,
+                        ::testing::ValuesIn(mse_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedMSEObjectiveFunction<float, float, int>>
+  WeightedMSEObjectiveTestF;
+TEST_P(WeightedMSEObjectiveTestF, weightedMSEObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedMSEObjectiveTestF,
+                        ::testing::ValuesIn(mse_objective_test_parameters));
+
+typedef WeightedObjectiveTest<WeightedPoissonObjectiveFunction<double, double, int>>
+  WeightedPoissonObjectiveTestD;
+TEST_P(WeightedPoissonObjectiveTestD, weightedPoissonObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedPoissonObjectiveTestD,
+                        ::testing::ValuesIn(poisson_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedPoissonObjectiveFunction<float, float, int>>
+  WeightedPoissonObjectiveTestF;
+TEST_P(WeightedPoissonObjectiveTestF, weightedPoissonObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedPoissonObjectiveTestF,
+                        ::testing::ValuesIn(poisson_objective_test_parameters));
+
+typedef WeightedObjectiveTest<WeightedGammaObjectiveFunction<double, double, int>>
+  WeightedGammaObjectiveTestD;
+TEST_P(WeightedGammaObjectiveTestD, weightedGammaObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedGammaObjectiveTestD,
+                        ::testing::ValuesIn(gamma_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedGammaObjectiveFunction<float, float, int>>
+  WeightedGammaObjectiveTestF;
+TEST_P(WeightedGammaObjectiveTestF, weightedGammaObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedGammaObjectiveTestF,
+                        ::testing::ValuesIn(gamma_objective_test_parameters));
+
+typedef WeightedObjectiveTest<WeightedInverseGaussianObjectiveFunction<double, double, int>>
+  WeightedInverseGaussianObjectiveTestD;
+TEST_P(WeightedInverseGaussianObjectiveTestD, weightedInverseGaussianObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedInverseGaussianObjectiveTestD,
+                        ::testing::ValuesIn(invgauss_objective_test_parameters));
+typedef WeightedObjectiveTest<WeightedInverseGaussianObjectiveFunction<float, float, int>>
+  WeightedInverseGaussianObjectiveTestF;
+TEST_P(WeightedInverseGaussianObjectiveTestF, weightedInverseGaussianObjective) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        WeightedInverseGaussianObjectiveTestF,
+                        ::testing::ValuesIn(invgauss_objective_test_parameters));
 
 #ifndef NDEBUG
 // Feature sampling bias test

@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 import treelite
 from cudf.pandas import LOADED as cudf_pandas_active
+from scipy.stats import spearmanr
 from sklearn.datasets import (
     fetch_california_housing,
     load_breast_cancer,
@@ -33,6 +34,7 @@ import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
@@ -221,6 +223,12 @@ def test_default_parameters():
     # Different default split_criterion
     assert reg_params["split_criterion"] == "mse"
     assert clf_params["split_criterion"] == "gini"
+
+    # class_weight is classifier-only (sklearn parity: the regressor has
+    # no such parameter).
+    assert "class_weight" not in reg_params
+    assert clf_params["class_weight"] is None
+    clf_params.pop("class_weight")
 
     # Drop differing params
     for name in ["max_features", "split_criterion"]:
@@ -1418,3 +1426,259 @@ def test_rf_feature_zero_bias(datatype, n_features):
     # If feature 0 is severely under-sampled, accuracy will be much lower
     # Observed: mean=0.003, range=[0.001, 0.005], stderr=0.000
     assert cuml_acc >= (sk_acc - 0.10)
+
+
+@pytest.mark.parametrize("class_weight", [None, "balanced", {0: 1.0, 1: 5.0}])
+def test_rf_classifier_class_weight_matches_sklearn(small_clf, class_weight):
+    X, y = small_clf
+    cu_clf = curfc(
+        n_estimators=50,
+        n_streams=1,
+        random_state=42,
+        class_weight=class_weight,
+    ).fit(X, y)
+    sk_clf = skrfc(
+        n_estimators=50, random_state=42, class_weight=class_weight
+    ).fit(X, y)
+    cu_score = accuracy_score(y, cu_clf.predict(X))
+    sk_score = accuracy_score(y, sk_clf.predict(X))
+    # Observed: delta=0.000 for class_weight in {None, balanced, {0:1,1:5}}
+    # over 5 fits (unit fixture); 0.07 is the conventional accuracy band.
+    assert abs(cu_score - sk_score) < 0.07
+
+
+def test_rf_regressor_sample_weight_matches_sklearn(large_reg):
+    X, y = large_reg
+    rng = np.random.default_rng(0)
+    sw = rng.uniform(0.1, 10.0, size=len(y))
+    cu_reg = curfr(n_estimators=50, n_streams=1, random_state=42).fit(
+        X, y, sample_weight=sw
+    )
+    sk_reg = skrfr(n_estimators=50, random_state=42).fit(
+        X, y, sample_weight=sw
+    )
+    cu_r2 = cu_reg.score(X, y)
+    sk_r2 = sk_reg.score(X, y)
+    # Observed: r2_delta mean=0.0003, range=[0.0003, 0.0003] over 5 fits;
+    # 0.1 band absorbs the quantile-vs-exact weighted-split delta.
+    assert abs(cu_r2 - sk_r2) < 0.1
+
+
+def test_rf_classifier_unit_weights_agree_with_unweighted(small_clf):
+    # np.ones(n) takes the weighted path (FP weighted_sum leaf); None takes
+    # the unweighted path (integer-count leaf). Equivalent, not bit-identical.
+    X, y = small_clf
+    cu1 = curfc(n_estimators=20, n_streams=1, random_state=42).fit(
+        X, y, sample_weight=np.ones(len(y))
+    )
+    cu2 = curfc(n_estimators=20, n_streams=1, random_state=42).fit(X, y)
+    agreement = (cu1.predict(X) == cu2.predict(X)).mean()
+    # Observed: agreement=1.000 (min over 5 fits); 0.999 floor allows
+    # for weighted-path FP variance on other hardware.
+    assert agreement >= 0.999
+
+
+def test_rf_classifier_sample_weight_changes_predictions(small_clf):
+    X, y = small_clf
+    # Near-zero weight on class 0 should push predictions toward class 1
+    # (works even on a separable fixture, where both fit train labels).
+    sw = np.where(y == 1, 1.0, 1e-6)
+    cu_weighted = curfc(n_estimators=50, n_streams=1, random_state=42).fit(
+        X, y, sample_weight=sw
+    )
+    cu_unweighted = curfc(n_estimators=50, n_streams=1, random_state=42).fit(
+        X, y
+    )
+    frac1_weighted = (cu_weighted.predict(X) == 1).mean()
+    frac1_unweighted = (cu_unweighted.predict(X) == 1).mean()
+    assert frac1_weighted > frac1_unweighted
+
+
+def test_rf_feature_importances_weighted_tracks_weighting(small_clf):
+    # cuML uses a single-term BestMetric*count importance scheme, not
+    # sklearn's three-term decomposition; rank agreement, not value parity.
+
+    X, y = small_clf
+    rng = np.random.default_rng(0)
+    sw = rng.uniform(0.5, 2.0, size=len(y))
+    cu_w = curfc(n_estimators=50, n_streams=1, random_state=42).fit(
+        X, y, sample_weight=sw
+    )
+    cu_u = curfc(n_estimators=50, n_streams=1, random_state=42).fit(X, y)
+    sk_w = skrfc(n_estimators=50, random_state=42).fit(X, y, sample_weight=sw)
+    fi = cu_w.feature_importances_
+    assert np.all(np.isfinite(fi)) and abs(fi.sum() - 1.0) < 1e-5
+    # Observed: rho mean=0.927, min=0.926 over 5 fits; 0.7 floor is a
+    # wide margin (cuML's importance scheme differs from sklearn's).
+    rho, _ = spearmanr(fi, sk_w.feature_importances_)
+    assert rho >= 0.7
+    assert not np.allclose(
+        cu_w.feature_importances_, cu_u.feature_importances_
+    )
+
+
+@pytest.mark.parametrize("raise_via", ["accel_proxy", "direct"])
+def test_rf_classifier_class_weight_balanced_subsample_raises(
+    small_clf, raise_via
+):
+    X, y = small_clf
+    if raise_via == "accel_proxy":
+        sk = skrfc(class_weight="balanced_subsample", random_state=42)
+        sk.fit(X, y)
+        with pytest.raises(
+            UnsupportedOnGPU, match=r"balanced_subsample.*not supported"
+        ):
+            curfc.from_sklearn(sk)
+    else:
+        with pytest.raises(
+            ValueError, match=r"balanced_subsample.*not supported"
+        ):
+            curfc(class_weight="balanced_subsample", random_state=42).fit(X, y)
+
+
+def test_rf_classifier_class_weight_dict_missing_class_raises(small_clf):
+    X, y = small_clf
+    bad_dict = {0: 1.0, 99: 2.0}
+    with pytest.raises(ValueError, match=r"not in class_weight"):
+        curfc(class_weight=bad_dict, random_state=42).fit(X, y)
+
+
+def test_rf_classifier_class_weight_dict_missing_class_no_extras_succeeds(
+    small_clf,
+):
+    X, y = small_clf
+    partial_dict = {0: 2.0}
+    cu_clf = curfc(class_weight=partial_dict, random_state=42).fit(X, y)
+    assert cu_clf.predict(X).shape == (len(y),)
+
+
+def test_rf_sample_weight_wrong_length_raises(small_clf):
+    X, y = small_clf
+    bad_sw = np.ones((len(y), 2))
+    with pytest.raises(
+        ValueError,
+        match=r"Sample weights must be 1D array or scalar, got 2D array",
+    ):
+        curfc(random_state=42).fit(X, y, sample_weight=bad_sw)
+
+
+def test_rf_sample_weight_all_zeros_raises(small_clf):
+    X, y = small_clf
+    bad_sw = np.zeros(len(y))
+    with pytest.raises(
+        ValueError,
+        match=r"Sample weights must contain at least one non-zero number",
+    ):
+        curfc(random_state=42).fit(X, y, sample_weight=bad_sw)
+
+
+def test_rf_sample_weight_negative_accepted_matches_sklearn(small_clf):
+    # sklearn 1.5+ silently accepts negative weights; cuml's check_sample_weight
+    # only rejects negatives under ensure_non_negative, which RF does not set.
+    X, y = small_clf
+    rng = np.random.default_rng(0)
+    sw = rng.uniform(-1.0, 1.0, size=len(y))
+    cu_clf = curfc(n_estimators=20, random_state=42).fit(
+        X, y, sample_weight=sw
+    )
+    skrfc(n_estimators=20, random_state=42).fit(X, y, sample_weight=sw)
+    assert set(cu_clf.predict(X).tolist()).issubset({0, 1})
+    assert not np.any(np.isnan(cu_clf.predict_proba(X)))
+
+
+def test_rf_classifier_class_weight_balanced_single_class_y():
+    X = np.random.default_rng(0).normal(size=(50, 5)).astype(np.float32)
+    y = np.zeros(50, dtype=np.int32)
+    cu_clf = curfc(
+        class_weight="balanced", n_estimators=20, random_state=42
+    ).fit(X, y)
+    assert (cu_clf.predict(X) == 0).all()
+
+
+def test_rf_regressor_sample_weight_wrong_length_raises(small_clf):
+    X, y = small_clf
+    bad_sw = np.ones((len(y), 2))
+    with pytest.raises(
+        ValueError,
+        match=r"Sample weights must be 1D array or scalar, got 2D array",
+    ):
+        curfr(random_state=42).fit(
+            X, y.astype(np.float32), sample_weight=bad_sw
+        )
+
+
+def test_rf_regressor_sample_weight_all_zeros_raises(small_clf):
+    X, y = small_clf
+    bad_sw = np.zeros(len(y))
+    with pytest.raises(
+        ValueError,
+        match=r"Sample weights must contain at least one non-zero number",
+    ):
+        curfr(random_state=42).fit(
+            X, y.astype(np.float32), sample_weight=bad_sw
+        )
+
+
+def test_rf_classifier_smem_exceeded_raises():
+    # n_classes=300 + n_bins=128 + WeightedCountBin(16B) = 614 KB histogram,
+    # over every supported per-block smem cap (228 KB Hopper/Blackwell).
+    rng = np.random.default_rng(0)
+    n = 6000
+    X = rng.normal(size=(n, 10)).astype(np.float32)
+    y = rng.integers(0, 300, size=n, dtype=np.int32)
+    sw = rng.uniform(0.5, 2.0, size=n)
+    # RAFT_EXPECTS -> raft::logic_error -> RuntimeError across the Cython
+    # except+ boundary.
+    with pytest.raises(
+        RuntimeError,
+        match=r"shared-memory|max_n_bins|n_classes",
+    ):
+        curfc(n_estimators=2, n_bins=128, random_state=42).fit(
+            X, y, sample_weight=sw
+        )
+
+
+def test_rf_classifier_score_uses_sample_weight(small_clf):
+    X, y = small_clf
+    clf = curfc(n_estimators=20, n_streams=1, random_state=42).fit(X, y)
+    pred = clf.predict(X)
+    # Flip 10 evaluation labels so the model is provably wrong there, then
+    # weight those samples 50x. weighted accuracy must drop below unweighted
+    # regardless of how well the model fits the rest.
+    y_eval = y.copy()
+    wrong = np.arange(10)
+    y_eval[wrong] = 1 - y_eval[wrong]
+    sw = np.ones(len(y))
+    sw[wrong] = 50.0
+    weighted = clf.score(X, y_eval, sample_weight=sw)
+    unweighted = clf.score(X, y_eval)
+    expected = accuracy_score(y_eval, pred, sample_weight=sw)
+    assert weighted == pytest.approx(expected)
+    assert weighted < unweighted
+
+
+def test_rf_regressor_score_uses_sample_weight(large_reg):
+    X, y = large_reg
+    rng = np.random.default_rng(0)
+    sw = rng.uniform(0.1, 10.0, size=len(y))
+    reg = curfr(n_estimators=20, n_streams=1, random_state=42).fit(X, y)
+    weighted = reg.score(X, y, sample_weight=sw)
+    unweighted = reg.score(X, y)
+    expected = r2_score(y, reg.predict(X), sample_weight=sw)
+    assert weighted == pytest.approx(expected)
+    assert weighted != pytest.approx(unweighted)
+
+
+def test_rf_classifier_class_weight_and_sample_weight_combine(small_clf):
+    # The classifier folds class_weight and sample_weight through one
+    # process_class_weight call; exercise that combined branch.
+    X, y = small_clf
+    rng = np.random.default_rng(0)
+    sw = rng.uniform(0.5, 2.0, size=len(y))
+    clf = curfc(
+        n_estimators=20,
+        n_streams=1,
+        random_state=42,
+        class_weight={0: 1.0, 1: 3.0},
+    ).fit(X, y, sample_weight=sw)
+    assert set(clf.predict(X).tolist()).issubset(set(y.tolist()))
