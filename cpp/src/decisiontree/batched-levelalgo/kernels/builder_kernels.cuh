@@ -417,6 +417,7 @@ void launchComputeSplitKernel(BinT* histograms,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              IdxT pool_slots,
                               dim3 grid,
                               size_t smem_size,
                               cudaStream_t builder_stream);

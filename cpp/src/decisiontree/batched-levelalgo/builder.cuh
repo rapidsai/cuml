@@ -476,12 +476,14 @@ struct Builder {
     int n_large_nodes = 0;  // large nodes are nodes having training instances larger than block
                             // size, hence require global memory for histogram construction
     int n_blocks_dimx = 0;  // gridDim.x required for computeSplitKernel
+    size_t max_blocks_per_node = 1;  // batch-wide max blocks-per-node; sizes the weighted pool
     for (std::size_t i = 0; i < work_items.size(); i++) {
       auto item = work_items[i];
       int n_blocks_per_node =
         std::max(raft::ceildiv(item.instances.count, size_t(TPB_DEFAULT)), size_t(1));
 
       if (n_blocks_per_node > 1) ++n_large_nodes;
+      max_blocks_per_node = std::max(max_blocks_per_node, static_cast<size_t>(n_blocks_per_node));
 
       for (int b = 0; b < n_blocks_per_node; b++) {
         h_workload_info[n_blocks_dimx + b] = {int(i), n_large_nodes - 1, b, n_blocks_per_node};
@@ -489,7 +491,7 @@ struct Builder {
       n_blocks_dimx += n_blocks_per_node;
     }
     raft::update_device(workload_info, h_workload_info, n_blocks_dimx, builder_stream);
-    return std::make_pair(n_blocks_dimx, n_large_nodes);
+    return std::make_tuple(n_blocks_dimx, n_large_nodes, max_blocks_per_node);
   }
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
@@ -502,7 +504,8 @@ struct Builder {
     // get the current set of nodes to be worked upon
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
 
-    auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
+    auto [n_blocks_dimx, n_large_nodes, max_blocks_per_node] =
+      this->updateWorkloadInfo(work_items);
 
     // do feature-sampling
     if (dataset.n_sampled_cols != dataset.N) {
@@ -582,7 +585,7 @@ struct Builder {
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
-      computeSplit(c, n_blocks_dimx, n_large_nodes);
+      computeSplit(c, n_blocks_dimx, n_large_nodes, max_blocks_per_node);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
 
@@ -644,7 +647,10 @@ struct Builder {
     return smem_size;
   }
 
-  void computeSplit(IdxT col, size_t n_blocks_dimx, size_t n_large_nodes)
+  void computeSplit(IdxT col,
+                    size_t n_blocks_dimx,
+                    size_t n_large_nodes,
+                    size_t max_blocks_per_node)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
@@ -660,13 +666,16 @@ struct Builder {
     // classes, features and (large)nodes.
     int len_histograms = n_bins * n_classes * n_blocks_dimy * n_large_nodes;
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
+    // The weighted pool holds one slot per block; sizing to this batch's max
+    // blocks-per-node instead of the POOL_SIZE ceiling avoids zeroing unused
+    // slots. Blocks keep distinct slots; at the ceiling it is plain POOL_SIZE.
+    size_t pool_slots = std::min(static_cast<size_t>(POOL_SIZE), max_blocks_per_node);
     if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
                   std::is_same_v<BinT, WeightedAggregateBin>) {
       // Weighted bins only: pool-based ordered cross-block reduction for FP
       // determinism of the double accumulators. Unweighted bins keep main's
       // direct atomicAdd merge (routing them here cost 27-45% on n=None).
-      size_t pool_len =
-        static_cast<size_t>(POOL_SIZE) * n_bins * n_classes * n_blocks_dimy * n_large_nodes;
+      size_t pool_len = pool_slots * n_bins * n_classes * n_blocks_dimy * n_large_nodes;
       if (pool_buf.size() < pool_len) { pool_buf.resize(pool_len, builder_stream); }
       RAFT_CUDA_TRY(cudaMemsetAsync(pool_buf.data(), 0, sizeof(BinT) * pool_len, builder_stream));
     }
@@ -691,6 +700,7 @@ struct Builder {
                                                                treeid,
                                                                workload_info,
                                                                seed,
+                                                               static_cast<IdxT>(pool_slots),
                                                                grid,
                                                                smem_size,
                                                                builder_stream);

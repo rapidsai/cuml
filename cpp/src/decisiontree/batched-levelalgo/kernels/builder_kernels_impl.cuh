@@ -277,7 +277,8 @@ static __global__ void computeSplitKernel(BinT* histograms,
                                           ObjectiveT objective,
                                           IdxT treeid,
                                           const WorkloadInfo<IdxT>* workload_info,
-                                          uint64_t seed)
+                                          uint64_t seed,
+                                          IdxT pool_slots)
 {
   // dynamic shared memory
   extern __shared__ char smem[];
@@ -369,12 +370,11 @@ static __global__ void computeSplitKernel(BinT* histograms,
 
       __syncthreads();
     } else {
-      // Weighted bins only: fixed-order pool reduction for FP determinism.
-      // Fully deterministic when num_blocks_per_node <= POOL_SIZE; above
-      // that, slot collisions via AtomicAdd break FP-exact determinism.
+      // Weighted bins only: fixed-order pool reduction for FP determinism,
+      // deterministic unless this batch's max blocks-per-node saturates POOL_SIZE.
       auto pool_slot_stride = max_n_bins * objective.NumClasses();
-      auto slot             = offset_blockid % POOL_SIZE;
-      auto pool_offset = ((large_nid * gridDim.y) + blockIdx.y) * POOL_SIZE * pool_slot_stride +
+      auto slot             = offset_blockid % pool_slots;
+      auto pool_offset = ((large_nid * gridDim.y) + blockIdx.y) * pool_slots * pool_slot_stride +
                          slot * pool_slot_stride;
       for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
         BinT::AtomicAdd(pool + pool_offset + i, shared_histogram[i]);
@@ -388,8 +388,9 @@ static __global__ void computeSplitKernel(BinT* histograms,
       if (!last) return;
 
       // last block: serial reduce across pool slots in fixed slot order
-      auto pool_base = ((large_nid * gridDim.y) + blockIdx.y) * POOL_SIZE * pool_slot_stride;
-      int n_slots    = num_blocks < POOL_SIZE ? static_cast<int>(num_blocks) : POOL_SIZE;
+      auto pool_base = ((large_nid * gridDim.y) + blockIdx.y) * pool_slots * pool_slot_stride;
+      int n_slots = num_blocks < pool_slots ? static_cast<int>(num_blocks)
+                                            : static_cast<int>(pool_slots);
       for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
         BinT merged{};
         for (int s = 0; s < n_slots; ++s) {
@@ -449,6 +450,7 @@ void launchComputeSplitKernel(BinT* histograms,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              IdxT pool_slots,
                               dim3 grid,
                               size_t smem_size,
                               cudaStream_t builder_stream)
@@ -470,7 +472,8 @@ void launchComputeSplitKernel(BinT* histograms,
                                                        objective,
                                                        treeid,
                                                        workload_info,
-                                                       seed);
+                                                       seed,
+                                                       pool_slots);
 }
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
@@ -522,6 +525,7 @@ template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _Obj
   _IdxT treeid,
   const WorkloadInfo<_IdxT>* workload_info,
   uint64_t seed,
+  _IdxT pool_slots,
   dim3 grid,
   size_t smem_size,
   cudaStream_t builder_stream);
