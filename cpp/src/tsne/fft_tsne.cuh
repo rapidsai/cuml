@@ -25,12 +25,16 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cuda/std/functional>
+#include <thrust/binary_search.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
 #include <thrust/reduce.h>
+#include <thrust/scan.h>
+#include <thrust/sort.h>
 #include <thrust/transform.h>
 
 #include <cufft_utils.h>
+#include <stdint.h>
 
 #include <cmath>
 #include <utility>
@@ -164,6 +168,12 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 {
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
+  // Fixed seeds use deterministic accumulation paths; unseeded runs keep the
+  // original faster atomic/reduction paths.
+  const bool fixed_seed                  = params.random_state >= 0;
+  const bool deterministic_interpolation = fixed_seed;
+  const bool deterministic_potentials    = fixed_seed;
+  const bool deterministic_attractive    = fixed_seed;
 
   // Get device properties
   //---------------------------------------------------
@@ -227,25 +237,23 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   DB(value_t, y_interpolated_values_device, n * n_interpolation_points);
   raft::linalg::zero(
     y_interpolated_values_device.data(), y_interpolated_values_device.size(), stream);
+  const value_idx n_interpolation_segments = total_interpolation_points * n_terms;
+  DB(uint64_t, interpolation_point_sort_keys, deterministic_interpolation ? n : 0);
+  DB(value_idx, sorted_interpolation_point_indices, deterministic_interpolation ? n : 0);
+  DB(uint64_t, interpolation_box_keys, deterministic_interpolation ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_box_offsets, deterministic_interpolation ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_counts, deterministic_interpolation ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_offsets, deterministic_interpolation ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_box_indices, deterministic_interpolation ? n : 0);
+  DB(value_t, interpolation_chunk_partials, deterministic_interpolation ? n * 36 : 0);
   DB(value_t, potentialsQij_device, n * n_terms);
   raft::linalg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
   DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
   raft::linalg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
-  DB(value_t,
-     all_interpolated_values_device,
-     n_terms * n_interpolation_points * n_interpolation_points * n);
-  raft::linalg::zero(
-    all_interpolated_values_device.data(), all_interpolated_values_device.size(), stream);
-  DB(value_t, output_values, n_terms * n_interpolation_points * n_interpolation_points * n);
-  raft::linalg::zero(output_values.data(), output_values.size(), stream);
-  DB(value_t,
-     all_interpolated_indices,
-     n_terms * n_interpolation_points * n_interpolation_points * n);
-  raft::linalg::zero(all_interpolated_indices.data(), all_interpolated_indices.size(), stream);
-  DB(value_t, output_indices, n_terms * n_interpolation_points * n_interpolation_points * n);
-  raft::linalg::zero(output_indices.data(), output_indices.size(), stream);
   DB(value_t, chargesQij_device, n * n_terms);
   raft::linalg::zero(chargesQij_device.data(), chargesQij_device.size(), stream);
+  DB(value_idx, attractive_row_ids, deterministic_attractive ? n + 1 : 0);
+  DB(value_idx, attractive_row_offsets, deterministic_attractive ? n + 1 : 0);
   DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
   raft::linalg::zero(box_lower_bounds_device.data(), box_lower_bounds_device.size(), stream);
   DB(value_t, kernel_tilde_device, n_fft_coeffs * n_fft_coeffs);
@@ -285,6 +293,24 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                 n_interpolation_points * sizeof(value_t),
                                 cudaMemcpyHostToDevice,
                                 stream));
+
+  if (deterministic_attractive) {
+    // Precompute COO row ranges once so attractive forces can be accumulated
+    // row-by-row in a fixed order each iteration.
+    auto row_blocks = raft::ceildiv(n + 1, (value_idx)NTHREADS_128);
+    FFT::fill_sequence<<<row_blocks, NTHREADS_128, 0, stream>>>(attractive_row_ids.data(), n);
+    thrust::lower_bound(thrust_policy,
+                        ROW,
+                        ROW + NNZ,
+                        attractive_row_ids.begin(),
+                        attractive_row_ids.end(),
+                        attractive_row_offsets.begin());
+  }
+  if (deterministic_interpolation) {
+    auto box_blocks = raft::ceildiv(n_total_boxes + 1, (value_idx)NTHREADS_128);
+    FFT::fill_interpolation_box_keys<<<box_blocks, NTHREADS_128, 0, stream>>>(
+      interpolation_box_keys.data(), n_total_boxes, n);
+  }
 #undef DB
 
   cufftHandle plan_kernel_tilde;
@@ -327,9 +353,10 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                n_terms,
                                &work_size_idft));
 
-  value_t momentum      = params.pre_momentum;
-  value_t learning_rate = params.pre_learning_rate;
-  value_t exaggeration  = params.early_exaggeration;
+  value_t momentum                             = params.pre_momentum;
+  value_t learning_rate                        = params.pre_learning_rate;
+  value_t exaggeration                         = params.early_exaggeration;
+  constexpr value_idx interpolation_chunk_size = 256;
 
   value_t kl_div = 0;
   int iter       = 0;
@@ -358,7 +385,6 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
     auto max_coord   = minmax_pair.second;
 
     value_t box_width = (max_coord - min_coord) / static_cast<value_t>(n_boxes_per_dim);
-
     //// Precompute FFT
 
     // Left and right bounds of each box, first the lower bounds in the x
@@ -433,19 +459,87 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         n_interpolation_points,
         n);
 
-      num_blocks = raft::ceildiv(n_terms * n_interpolation_points * n_interpolation_points * n,
-                                 (value_idx)NTHREADS_128);
-      FFT::compute_interpolated_indices<<<num_blocks, NTHREADS_128, 0, stream>>>(
-        w_coefficients_device.data(),
-        point_box_idx_device.data(),
-        chargesQij_device.data(),
-        x_interpolated_values_device.data(),
-        y_interpolated_values_device.data(),
-        n,
-        n_interpolation_points,
-        n_boxes_per_dim,
-        n_terms);
+      if (deterministic_interpolation) {
+        // Sort points by box with point id as a tie-breaker. Each box is then
+        // reduced in deterministic chunk order instead of using atomic adds.
+        num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
+        FFT::compute_interpolation_point_sort_inputs<<<num_blocks, NTHREADS_128, 0, stream>>>(
+          interpolation_point_sort_keys.data(),
+          sorted_interpolation_point_indices.data(),
+          point_box_idx_device.data(),
+          n);
+        thrust::sort_by_key(thrust_policy,
+                            interpolation_point_sort_keys.begin(),
+                            interpolation_point_sort_keys.end(),
+                            sorted_interpolation_point_indices.begin());
+        thrust::lower_bound(thrust_policy,
+                            interpolation_point_sort_keys.begin(),
+                            interpolation_point_sort_keys.end(),
+                            interpolation_box_keys.begin(),
+                            interpolation_box_keys.end(),
+                            interpolation_box_offsets.begin());
+        const auto n_boxes = n_total_boxes;
+        auto chunk_blocks  = raft::ceildiv(n_boxes + 1, (value_idx)NTHREADS_128);
+        FFT::compute_interpolation_chunk_counts<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
+          interpolation_chunk_counts.data(),
+          interpolation_box_offsets.data(),
+          n_boxes,
+          interpolation_chunk_size);
+        thrust::exclusive_scan(thrust_policy,
+                               interpolation_chunk_counts.begin(),
+                               interpolation_chunk_counts.end(),
+                               interpolation_chunk_offsets.begin());
+        value_idx n_active_chunks = 0;
+        RAFT_CUDA_TRY(cudaMemcpyAsync(&n_active_chunks,
+                                      interpolation_chunk_offsets.data() + n_boxes,
+                                      sizeof(value_idx),
+                                      cudaMemcpyDeviceToHost,
+                                      stream));
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
+        chunk_blocks = raft::ceildiv(n_boxes, (value_idx)NTHREADS_128);
+        FFT::fill_interpolation_chunk_boxes<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
+          interpolation_chunk_box_indices.data(),
+          interpolation_chunk_counts.data(),
+          interpolation_chunk_offsets.data(),
+          n_boxes);
+
+        chunk_blocks = raft::ceildiv(n_active_chunks * 36, (value_idx)NTHREADS_128);
+        FFT::compute_interpolated_chunk_partials_3_4<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
+          interpolation_chunk_partials.data(),
+          interpolation_chunk_box_indices.data(),
+          interpolation_chunk_offsets.data(),
+          interpolation_box_offsets.data(),
+          sorted_interpolation_point_indices.data(),
+          chargesQij_device.data(),
+          x_interpolated_values_device.data(),
+          y_interpolated_values_device.data(),
+          n,
+          interpolation_chunk_size,
+          n_active_chunks);
+
+        num_blocks = raft::ceildiv(n_interpolation_segments, (value_idx)NTHREADS_128);
+        FFT::reduce_interpolated_chunk_partials_3_4<<<num_blocks, NTHREADS_128, 0, stream>>>(
+          w_coefficients_device.data(),
+          interpolation_chunk_partials.data(),
+          interpolation_chunk_offsets.data(),
+          interpolation_chunk_counts.data(),
+          n_boxes_per_dim,
+          n_interpolation_segments);
+      } else {
+        num_blocks = raft::ceildiv(n_terms * n_interpolation_points * n_interpolation_points * n,
+                                   (value_idx)NTHREADS_128);
+        FFT::compute_interpolated_indices<<<num_blocks, NTHREADS_128, 0, stream>>>(
+          w_coefficients_device.data(),
+          point_box_idx_device.data(),
+          chargesQij_device.data(),
+          x_interpolated_values_device.data(),
+          y_interpolated_values_device.data(),
+          n,
+          n_interpolation_points,
+          n_boxes_per_dim,
+          n_terms);
+      }
       // Step 2: Compute the values v_{m, n} at the equispaced nodes, multiply
       // the kernel matrix with the coefficients w
       num_blocks =
@@ -472,16 +566,31 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         y_tilde_values.data(), fft_output.data(), n_fft_coeffs, n_fft_coeffs_half, n_terms);
 
       // Step 3: Compute the potentials \tilde{\phi}
-      num_blocks = raft::ceildiv(n_terms * n_interpolation_points * n_interpolation_points * n,
-                                 (value_idx)NTHREADS_128);
-      FFT::compute_potential_indices<value_idx, value_t, n_terms, n_interpolation_points>
-        <<<num_blocks, NTHREADS_128, 0, stream>>>(potentialsQij_device.data(),
-                                                  point_box_idx_device.data(),
-                                                  y_tilde_values.data(),
-                                                  x_interpolated_values_device.data(),
-                                                  y_interpolated_values_device.data(),
-                                                  n,
-                                                  n_boxes_per_dim);
+      if (deterministic_potentials) {
+        num_blocks = raft::ceildiv(n_terms * n, (value_idx)NTHREADS_128);
+        FFT::compute_potential_indices_deterministic<value_idx,
+                                                     value_t,
+                                                     n_terms,
+                                                     n_interpolation_points>
+          <<<num_blocks, NTHREADS_128, 0, stream>>>(potentialsQij_device.data(),
+                                                    point_box_idx_device.data(),
+                                                    y_tilde_values.data(),
+                                                    x_interpolated_values_device.data(),
+                                                    y_interpolated_values_device.data(),
+                                                    n,
+                                                    n_boxes_per_dim);
+      } else {
+        num_blocks = raft::ceildiv(n_terms * n_interpolation_points * n_interpolation_points * n,
+                                   (value_idx)NTHREADS_128);
+        FFT::compute_potential_indices<value_idx, value_t, n_terms, n_interpolation_points>
+          <<<num_blocks, NTHREADS_128, 0, stream>>>(potentialsQij_device.data(),
+                                                    point_box_idx_device.data(),
+                                                    y_tilde_values.data(),
+                                                    x_interpolated_values_device.data(),
+                                                    y_interpolated_values_device.data(),
+                                                    n,
+                                                    n_boxes_per_dim);
+      }
     }
 
     value_t normalization;
@@ -497,7 +606,6 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         potentialsQij_device.data(),
         n,
         n_terms);
-
       auto norm_vec_thrust = thrust::device_pointer_cast(normalization_vec_device.data());
 
       value_t sumQ  = thrust::reduce(thrust_policy,
@@ -517,12 +625,38 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         value_t* Qs      = tmp.data();
         value_t* KL_divs = tmp.data();
 
-        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-          attractive_forces_device.data(), Qs, VAL, ROW, COL, Y, n, NNZ, dof);
+        if (deterministic_attractive) {
+          num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
+          FFT::compute_Pij_x_Qij_deterministic_rows<<<num_blocks, NTHREADS_128, 0, stream>>>(
+            attractive_forces_device.data(),
+            Qs,
+            VAL,
+            COL,
+            attractive_row_offsets.data(),
+            Y,
+            n,
+            dof);
+        } else {
+          FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+            attractive_forces_device.data(), Qs, VAL, ROW, COL, Y, n, NNZ, dof);
+        }
         kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
       } else {
-        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-          attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ, dof);
+        if (deterministic_attractive) {
+          num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
+          FFT::compute_Pij_x_Qij_deterministic_rows<<<num_blocks, NTHREADS_128, 0, stream>>>(
+            attractive_forces_device.data(),
+            (value_t*)nullptr,
+            VAL,
+            COL,
+            attractive_row_offsets.data(),
+            Y,
+            n,
+            dof);
+        } else {
+          FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+            attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ, dof);
+        }
       }
     }
 
@@ -571,7 +705,6 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                        0.0f,
                                        cuda::std::plus<value_t>()) /
                         attractive_forces_device.size();
-
     if (grad_norm <= params.min_grad_norm) {
       CUML_LOG_DEBUG("Breaking early as `min_grad_norm` was satisfied, after %d iterations", iter);
       break;
