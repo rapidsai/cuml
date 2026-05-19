@@ -379,6 +379,9 @@ def test_svr(random_state, sparse, kernel):
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter was deprecated:FutureWarning"
 )
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
+)
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
 @pytest.mark.parametrize("kernel", ["rbf", "precomputed"])

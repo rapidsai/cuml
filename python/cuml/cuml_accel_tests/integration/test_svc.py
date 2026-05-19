@@ -37,6 +37,12 @@ def test_svc(binary):
     assert svc.score(X, y) > 0.5
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter was deprecated:FutureWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
+)
 def test_svc_probability(binary):
     X, y = binary
     svc = SVC(probability=True).fit(X, y)
