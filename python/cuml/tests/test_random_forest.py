@@ -36,6 +36,12 @@ from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
+
 
 @pytest.fixture(
     scope="session",
@@ -183,9 +189,30 @@ def special_reg(request):
     return X, y
 
 
+@pytest.mark.filterwarnings(
+    "default:The default value of 'max_depth':FutureWarning"
+)
 def test_default_parameters():
-    reg_params = curfr().get_params()
-    clf_params = curfc().get_params()
+    X = np.array([[1.0, 2.0]], dtype=np.float32)
+    y_reg = np.array([1.0], dtype=np.float32)
+    y_clf = np.array([1], dtype=np.int32)
+
+    reg = curfr()
+    reg_params = reg.get_params()
+    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
+        reg.fit(X, y_reg)
+
+    clf = curfc()
+    clf_params = clf.get_params()
+    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
+        clf.fit(X, y_clf)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        curfr(max_depth=16).fit(X, y_reg).get_params()
+        curfr(max_depth=None).fit(X, y_reg).get_params()
+        curfc(max_depth=16).fit(X, y_clf).get_params()
+        curfc(max_depth=None).fit(X, y_clf).get_params()
 
     # Different default max_features
     assert reg_params["max_features"] == 1.0
@@ -297,7 +324,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
         n_streams=1,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
 
@@ -306,7 +332,6 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
     if X.shape[0] < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -347,7 +372,6 @@ def test_rf_classification_unorder(
         n_streams=1,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
 
@@ -356,7 +380,6 @@ def test_rf_classification_unorder(
     if X.shape[0] < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -411,7 +434,6 @@ def test_rf_regression(
         n_streams=1,
         n_estimators=50,
         max_leaves=-1,
-        max_depth=16,
     )
     cuml_model.fit(X_train, y_train)
     preds = cuml_model.predict(X_test)
@@ -421,7 +443,6 @@ def test_rf_regression(
     if X.shape[0] < 1000:  # mode != "stress"
         sk_model = skrfr(
             n_estimators=50,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -490,7 +511,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
-        sk_model = skrfc(max_depth=16, random_state=10)
+        sk_model = skrfc(random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
@@ -522,7 +543,7 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
     preds = cuml_model.predict(X_test, convert_dtype=True)
     r2 = r2_score(y_test, preds)
     if X.shape[0] < 500000:
-        sk_model = skrfr(max_depth=16, random_state=10)
+        sk_model = skrfr(random_state=10)
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_preds)
@@ -564,7 +585,6 @@ def rf_classification(
         random_state=999,
         n_estimators=40,
         max_leaves=-1,
-        max_depth=16,
         n_streams=1,
     )
     if array_type == "dataframe":
@@ -588,7 +608,6 @@ def rf_classification(
     if y.size < 500000:
         sk_model = skrfc(
             n_estimators=40,
-            max_depth=16,
             min_samples_split=2,
             max_features=max_features,
             random_state=10,
@@ -966,6 +985,15 @@ def test_rf_multiclass_classifier_gtil_integration(tmpdir):
     np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
 
 
+def test_classifier_predict_log_proba():
+    X, y = make_classification(random_state=42)
+    model = curfc(random_state=42).fit(X, y)
+    proba = model.predict_proba(X)
+    sol = np.log(proba)
+    log_proba = model.predict_log_proba(X)
+    np.testing.assert_allclose(log_proba, sol, rtol=1e-5)
+
+
 @pytest.mark.parametrize(
     "estimator, make_data",
     [
@@ -1303,7 +1331,10 @@ def test_rf_oob_without_bootstrap():
     X, y = make_classification(n_samples=100, n_features=10, random_state=42)
 
     clf = curfc(
-        n_estimators=10, oob_score=True, bootstrap=False, random_state=42
+        n_estimators=10,
+        oob_score=True,
+        bootstrap=False,
+        random_state=42,
     )
 
     # Should raise ValueError when oob_score=True but bootstrap=False

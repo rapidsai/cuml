@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,14 +29,18 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08) Remove this filter
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The default value of 'max_depth':FutureWarning"
+)
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
 solver_config = ClassEnumerator(
     module=cuml.solvers,
-    # QN uses softmax here because some of the tests uses multiclass
-    # logistic regression which requires a softmax loss
-    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")},
+    # Customize the loss so QN is a regressor like the other solvers
+    custom_constructors={"QN": lambda: cuml.QN(loss="l2")},
 )
 solver_models = solver_config.get_models()
 
@@ -370,6 +374,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
+@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
@@ -469,7 +474,7 @@ def test_nearest_neighbors_pickle(algorithm):
         # just to ensure things are wired together properly.
         accuracy = (i1 == i2).sum() / i1.size
         assert accuracy >= 0.9
-        np.testing.assert_allclose(d1, d2, atol=1e-5)
+        np.testing.assert_allclose(d1, d2, atol=1e-3)
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)

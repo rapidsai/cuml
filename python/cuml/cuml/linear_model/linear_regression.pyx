@@ -4,14 +4,12 @@ import enum
 import warnings
 
 import cupy as cp
+import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray, cuda_ptr
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
@@ -25,6 +23,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
 )
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
 from libc.stdint cimport uintptr_t
@@ -228,7 +227,13 @@ class LinearRegression(Base,
         self.copy_X = copy_X
 
     def _fit_libcuml(
-        self, X_m, y_m, sample_weight_m=None, X_is_copy=False, y_is_copy=False
+        self,
+        X,
+        y,
+        sample_weight=None,
+        may_mutate_X=False,
+        may_mutate_y=False,
+        may_mutate_sample_weight=False,
     ):
         """Fit a LinearRegression using a libcuml solver"""
         cdef int algo = (
@@ -236,26 +241,26 @@ class LinearRegression(Base,
         )
 
         # All libcuml solvers require F-ordered X, and mutate the inputs.
-        X_m = input_to_cuml_array(
-            X_m, order="F", deepcopy=(self.copy_X and not X_is_copy)
-        ).array
-        if not y_is_copy:
-            y_m = input_to_cuml_array(y_m, deepcopy=True).array
+        X = cp.asarray(X, order="F", copy=None if may_mutate_X else True)
+        if not may_mutate_y:
+            y = y.copy()
+        if sample_weight is not None and not may_mutate_sample_weight:
+            sample_weight = sample_weight.copy()
 
-        coef = CumlArray.zeros(
-            (X_m.shape[1],) if y_m.ndim == 1 else (1, X_m.shape[1]),
-            dtype=X_m.dtype,
+        coef = cp.zeros(
+            (X.shape[1],) if y.ndim == 1 else (1, X.shape[1]),
+            dtype=X.dtype,
         )
 
-        cdef size_t n_rows = X_m.shape[0]
-        cdef size_t n_cols = X_m.shape[1]
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t y_ptr = y_m.ptr
+        cdef size_t n_rows = X.shape[0]
+        cdef size_t n_cols = X.shape[1]
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
         cdef uintptr_t sample_weight_ptr = (
-            0 if sample_weight_m is None else sample_weight_m.ptr
+            0 if sample_weight is None else sample_weight.data.ptr
         )
-        cdef uintptr_t coef_ptr = coef.ptr
-        cdef bool is_float32 = X_m.dtype == np.float32
+        cdef uintptr_t coef_ptr = coef.data.ptr
+        cdef bool is_float32 = X.dtype == np.float32
         cdef float intercept_f32
         cdef double intercept_f64
         # Always use 2 streams to expose concurrency in the eig computation
@@ -294,70 +299,38 @@ class LinearRegression(Base,
 
         if self.fit_intercept:
             intercept = intercept_f32 if is_float32 else intercept_f64
-            if y_m.ndim == 1:
-                intercept = X_m.dtype.type(intercept)
+            if y.ndim == 1:
+                intercept = X.dtype.type(intercept)
             else:
-                intercept = CumlArray.full((1,), intercept, dtype=X_m.dtype)
+                intercept = cp.full((1,), intercept, dtype=X.dtype)
         else:
             intercept = 0.0
 
         return coef, intercept
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        if X_is_sparse := is_sparse(X):
-            X_m = SparseCumlArray(
-                X, convert_to_dtype=np.float32 if X.dtype.kind != "f" else None
-            )
-            X_is_copy = False
-        else:
-            X_m = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                order="K",
-            ).array
-            X_is_copy = cuda_ptr(X) != X_m.ptr
-
-        n_rows, n_cols = X_m.shape
-
-        if X_m.shape[0] < 2:
-            raise ValueError(
-                f"Found array with {n_rows} sample(s) (shape={X_m.shape}) while "
-                f"a minimum of 2 is required."
-            )
-        if X_m.shape[1] < 1:
-            raise ValueError(
-                f"Found array with {n_cols} feature(s) (shape={X_m.shape}) while "
-                f"a minimum of 1 is required."
-            )
-
-        y_m = input_to_cuml_array(
+        X_orig, y_orig, sample_weight_orig = X, y, sample_weight
+        X, y, sample_weight = check_inputs(
+            self,
+            X,
             y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=n_rows,
-            order="K",
-        ).array
-        y_is_copy = cuda_ptr(y) != y_m.ptr
-
-        if cp.isscalar(sample_weight):
-            # sample_weight as a scalar is equivalent to unweighted
-            sample_weight = None
-        elif sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X_m.dtype,
-                convert_to_dtype=(X_m.dtype if convert_dtype else None),
-                check_rows=n_rows,
-                check_cols=1,
-                deepcopy=True,
-            ).array
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            ensure_min_samples=2,
+            accept_sparse=True,
+            accept_multi_output=True,
+            reset=True,
+        )
+        X_is_copy = cuda_ptr(X) != cuda_ptr(X_orig)
+        y_is_copy = cuda_ptr(y) != cuda_ptr(y_orig)
+        sample_weight_is_copy = cuda_ptr(sample_weight) != cuda_ptr(sample_weight_orig)
 
         if self.algorithm not in (
             "auto", "eig", "svd", "lsmr", "qr", "svd-qr", "svd-jacobi"
@@ -368,13 +341,13 @@ class LinearRegression(Base,
         fallback_reason = None
         if self.algorithm == "lsmr":
             solver = "lsmr"
-        elif X_is_sparse:
+        elif sp.issparse(X):
             solver = "lsmr"
             fallback_reason = "sparse X"
-        elif X_m.shape[1] == 1:
+        elif X.shape[1] == 1:
             solver = "svd"
             fallback_reason = "single-column X"
-        elif y_m.ndim == 2 and y_m.shape[1] > 1:
+        elif y.ndim == 2 and y.shape[1] > 1:
             solver = "svd"
             fallback_reason = "multi-column y"
         else:
@@ -392,26 +365,28 @@ class LinearRegression(Base,
 
         if solver == "libcuml":
             coef, intercept = self._fit_libcuml(
-                X_m, y_m, sample_weight, X_is_copy=X_is_copy, y_is_copy=y_is_copy
+                X,
+                y,
+                sample_weight,
+                may_mutate_X=X_is_copy or not self.copy_X,
+                may_mutate_y=y_is_copy,
+                may_mutate_sample_weight=sample_weight_is_copy,
             )
         else:
             coef, intercept, _ = fit_least_squares(
-                X_m.to_output("cupy"),
-                y_m.to_output("cupy"),
-                sample_weight=(
-                    None if sample_weight is None else sample_weight.to_output("cupy")
-                ),
+                X,
+                y,
+                sample_weight=sample_weight,
                 fit_intercept=self.fit_intercept,
                 alpha=0.0,
                 may_mutate_X=X_is_copy or not self.copy_X,
                 may_mutate_y=y_is_copy,
                 solver=solver,
             )
-            if not cp.isscalar(intercept):
-                intercept = CumlArray(data=intercept)
-            coef = CumlArray(data=coef)
 
-        self.coef_ = coef
+        if not cp.isscalar(intercept):
+            intercept = CumlArray(data=intercept)
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept
 
         return self

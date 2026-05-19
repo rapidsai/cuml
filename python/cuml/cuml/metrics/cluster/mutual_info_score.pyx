@@ -63,8 +63,8 @@ def cython_mutual_info_score(labels_true, labels_pred) -> float:
         labels_pred
     )
 
-    cdef uintptr_t ground_truth_ptr = y_true.ptr
-    cdef uintptr_t preds_ptr = y_pred.ptr
+    cdef uintptr_t ground_truth_ptr = y_true.data.ptr
+    cdef uintptr_t preds_ptr = y_pred.data.ptr
 
     mi = mutual_info_score(handle_[0],
                            <int*> ground_truth_ptr,

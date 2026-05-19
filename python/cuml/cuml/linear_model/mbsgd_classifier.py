@@ -6,8 +6,9 @@ import cupy as cp
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, preprocess_labels
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
 from cuml.linear_model.base import LinearClassifierMixin
@@ -173,21 +174,14 @@ class MBSGDClassifier(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
         """
         Fit the model with X and y.
 
         """
-        y, classes = preprocess_labels(y)
-        if len(classes) > 2:
-            raise ValueError(
-                f"MBSGDClassifier only supports binary classification, got "
-                f"{len(classes)} classes"
-            )
-        self.classes_ = classes
-
-        coef, intercept = fit_sgd(
+        coef, intercept, classes = fit_sgd(
+            self,
             X,
             y,
             convert_dtype=convert_dtype,
@@ -204,9 +198,11 @@ class MBSGDClassifier(
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
+            return_classes=True,
         )
-        self.coef_ = coef
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept
+        self.classes_ = classes
         return self
 
     @generate_docstring(
@@ -223,12 +219,11 @@ class MBSGDClassifier(
         Predicts the y for X.
 
         """
-        scores = self.decision_function(
-            X, convert_dtype=convert_dtype
-        ).to_output("cupy")
-
+        scores = self.decision_function(X, convert_dtype=convert_dtype)
         thresh = 0 if self.loss == "hinge" else 0.5
-        indices = (scores > thresh).view(cp.int8)
+        indices = (scores.to_output("cupy") > thresh).view(cp.int8)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(indices, self.classes_, output_type=output_type)
+        return decode_labels(
+            indices, self.classes_, output_type=output_type, index=scores.index
+        )

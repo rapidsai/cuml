@@ -7,13 +7,11 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
 from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
@@ -23,7 +21,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -565,7 +563,7 @@ class TSNE(Base,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -589,20 +587,26 @@ class TSNE(Base,
         cdef int X_nnz = 0
         cdef bool sparse_fit = is_sparse(X)
 
-        # Normalize input X
+        X, index = check_inputs(
+            self,
+            X,
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_sparse="csr",
+            reset=True,
+            return_index=True,
+        )
+
         if sparse_fit:
-            X_m = SparseCumlArray(X, convert_to_dtype=cupy.float32)
-            n_samples, n_features = X_m.shape
-            X_ptr = <uintptr_t>X_m.data.ptr
-            X_indptr_ptr = <uintptr_t>X_m.indptr.ptr
-            X_indices_ptr = <uintptr_t>X_m.indices.ptr
-            X_nnz = X_m.nnz
+            n_samples, n_features = X.shape
+            X_ptr = <uintptr_t>X.data.data.ptr
+            X_indptr_ptr = <uintptr_t>X.indptr.data.ptr
+            X_indices_ptr = <uintptr_t>X.indices.data.ptr
+            X_nnz = X.nnz
         else:
-            X_m, n_samples, n_features, _ = input_to_cuml_array(
-                X, order='F', check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None)
-            )
-            X_ptr = X_m.ptr
+            n_samples, n_features = X.shape
+            X_ptr = <uintptr_t>X.data.ptr
 
         # Initialize TSNEParams
         cdef TSNEParams params
@@ -616,23 +620,26 @@ class TSNE(Base,
         if knn_graph is not None:
             knn_indices, knn_dists = extract_knn_graph(knn_graph, params.n_neighbors)
 
+            knn_dists_cp = knn_dists.to_output("cupy")
+
             if sparse_fit:
                 # Sparse fitting requires the indices to be int32
-                knn_indices = input_to_cuml_array(
-                    knn_indices, convert_to_dtype=np.int32
-                ).array
+                knn_indices_cp = cupy.asarray(
+                    knn_indices.to_output("cupy"), dtype=np.int32
+                )
+            else:
+                knn_indices_cp = knn_indices.to_output("cupy")
 
-            knn_dists_ptr = knn_dists.ptr
-            knn_indices_ptr = knn_indices.ptr
+            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
+            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
 
         # Allocate output array
-        embedding = CumlArray.zeros(
+        embedding = cupy.zeros(
             (n_samples, self.n_components),
             order="F",
             dtype=np.float32,
-            index=X_m.index,
         )
-        cdef uintptr_t embed_ptr = embedding.ptr
+        cdef uintptr_t embed_ptr = <uintptr_t>embedding.data.ptr
 
         # Execute fit
         handle = get_handle()
@@ -676,7 +683,7 @@ class TSNE(Base,
         self._kl_divergence_ = kl_divergence
         self.n_iter_ = n_iter
         self.learning_rate_ = params.pre_learning_rate
-        self.embedding_ = embedding
+        self.embedding_ = CumlArray(data=embedding, index=index)
 
         return self
 

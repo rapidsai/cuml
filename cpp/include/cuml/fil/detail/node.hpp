@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cuml/fil/detail/index_type.hpp>
 #include <cuml/fil/detail/raft_proto/gpu_support.hpp>
+#include <cuml/fil/exceptions.hpp>
 #include <cuml/fil/tree_layout.hpp>
 
 #include <iostream>
@@ -104,14 +105,15 @@ struct alignas(detail::get_node_alignment<threshold_t, index_t, metadata_storage
 
   // TODO(wphicks): Add custom type to ensure given child offset is at least
   // one
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnarrowing"
-  HOST DEVICE constexpr node(threshold_type value             = threshold_type{},
-                             bool is_leaf_node                = true,
-                             bool default_to_distant_child    = false,
-                             bool is_categorical_node         = false,
-                             metadata_storage_type feature    = metadata_storage_type{},
-                             offset_type distant_child_offset = offset_type{})
+
+  // Assumption: Node construction occurs on the host. This allows us to perform
+  // bound check on the 'feature' parameter.
+  constexpr node(threshold_type value             = threshold_type{},
+                 bool is_leaf_node                = true,
+                 bool default_to_distant_child    = false,
+                 bool is_categorical_node         = false,
+                 metadata_storage_type feature    = metadata_storage_type{},
+                 offset_type distant_child_offset = offset_type{})
     : aligned_data{
         .inner_data = {
           {.value = value},
@@ -120,12 +122,12 @@ struct alignas(detail::get_node_alignment<threshold_t, index_t, metadata_storage
   {
   }
 
-  HOST DEVICE constexpr node(index_type index,
-                             bool is_leaf_node                = true,
-                             bool default_to_distant_child    = false,
-                             bool is_categorical_node         = false,
-                             metadata_storage_type feature    = metadata_storage_type{},
-                             offset_type distant_child_offset = offset_type{})
+  constexpr node(index_type index,
+                 bool is_leaf_node                = true,
+                 bool default_to_distant_child    = false,
+                 bool is_categorical_node         = false,
+                 metadata_storage_type feature    = metadata_storage_type{},
+                 offset_type distant_child_offset = offset_type{})
     : aligned_data{
         .inner_data = {
           {.index = index},
@@ -133,7 +135,6 @@ struct alignas(detail::get_node_alignment<threshold_t, index_t, metadata_storage
           construct_metadata(is_leaf_node, default_to_distant_child, is_categorical_node, feature)}}
   {
   }
-#pragma GCC diagnostic pop
 
   /* The index of the feature for this node */
   HOST DEVICE auto constexpr feature_index() const
@@ -213,6 +214,13 @@ struct alignas(detail::get_node_alignment<threshold_t, index_t, metadata_storage
                                            bool is_categorical_node      = false,
                                            metadata_storage_type feature = metadata_storage_type{})
   {
+    // Ensure that 'feature' is not truncated.
+    static_assert(std::is_unsigned_v<metadata_storage_type>, "metadata storage must be unsigned");
+    if (feature > FEATURE_MASK) {
+      throw model_import_error{std::string{"The 'feature' value in the node must be at most "} +
+                               std::to_string(FEATURE_MASK) + "."};
+    }
+
     return metadata_storage_type(
       (is_leaf_node << LEAF_BIT) + (default_to_distant_child << DEFAULT_DISTANT_BIT) +
       (is_categorical_node << CATEGORICAL_BIT) + (feature & FEATURE_MASK));

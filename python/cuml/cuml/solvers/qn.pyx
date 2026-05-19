@@ -2,16 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
+import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.validation import (
+    check_array,
+    check_inputs,
+    check_is_fitted,
+)
 from cuml.metrics import accuracy_score
 
 from libc.stdint cimport uintptr_t
@@ -81,9 +85,14 @@ cdef void init_qn_params(
     level_enum verbose,
 ):
     """Initialize a `qn_params` from the corresponding python parameters."""
+    if loss == "logistic":
+        # Automatically promote logistic -> softmax for multiclass problems
+        loss = "softmax" if n_classes > 2 else "sigmoid"
+
     # Validate hyperparameters
     if (loss_type := SUPPORTED_LOSSES.get(loss)) is None:
         raise ValueError(f"{loss=!r} is unsupported")
+
     if loss_type == Loss.SOFTMAX:
         if n_classes <= 2:
             raise ValueError(
@@ -113,13 +122,14 @@ cdef void init_qn_params(
 
 
 def fit_qn(
+    estimator,
     X,
     y,
     sample_weight=None,
     *,
     convert_dtype=True,
-    int n_classes=0,
-    loss="sigmoid",
+    loss="l2",
+    class_weight=None,
     bool fit_intercept=True,
     double l1_strength=0.0,
     double l2_strength=0.0,
@@ -131,70 +141,79 @@ def fit_qn(
     bool penalty_normalized=True,
     init_coef=None,
     level_enum verbose=level_enum.warn,
+    return_classes=False,
 ):
     """Fit a linear model using a Quasi-newton method.
 
     Parameters
     ----------
+    estimator : Base
+        The estimator being fit.
     X : array-like, shape=(n_samples, n_features)
         The training data.
     y : array-like, shape=(n_samples,)
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_to_dtype : bool, default=True
+    convert_dtype : bool, default=True
         When set to True, will convert array inputs to be of the proper dtypes.
-    n_classes : int, default=0
-        The number of classes in `y` if fitting a classifier, or 0 if fitting a
-        regressor.
+    class_weight : dict or 'balanced', default=None
+        Weights associated per-classes, or None for uniform weights. If 'balanced',
+        weights inversely proportional to the class frequencies will be used.
+    return_classes : bool, default=False
+        Whether to preprocess `y` and return the classes. Defaults to False.
     **kwargs
         Remaining keyword arguments match the hyperparameters
         to ``QN``, see the ``QN`` docs for more information.
 
     Returns
     -------
-    coef : CumlArray, shape=(1, n_features) or (n_classes, n_features)
+    coef : cupy.ndarray, shape=(1, n_features) or (n_classes, n_features)
         The fit coefficients.
-    intercept : CumlArray, shape=(1,) or (n_classes,)
+    intercept : cupy.ndarray, shape=(1,) or (n_classes,)
         Intercept added to the decision function.
     n_iter : int
         The number of iterations taken by the solver.
     objective : float
         The value of the objective function.
+    classes : numpy.ndarray, shape=(n_classes,)
+        The classes. Only returned if ``return_classes=True``.
     """
     handle = get_handle()
 
-    cdef bool sparse_X = is_sparse(X)
-    cdef int n_rows, n_cols
-
-    if sparse_X:
-        X_m = SparseCumlArray(X, convert_index=np.int32)
-        n_rows, n_cols = X_m.shape
-        dtype = X_m.dtype
-    else:
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="K",
-        )
-
-    y_m = input_to_cuml_array(
+    out = check_inputs(
+        estimator,
+        X,
         y,
-        check_dtype=dtype,
-        convert_to_dtype=(dtype if convert_dtype else None),
-        check_rows=n_rows,
-        check_cols=1,
-    ).array
+        sample_weight,
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        accept_sparse="csr",
+        ensure_min_samples=2,
+        y_dtype=(None if return_classes else ...),
+        return_classes=return_classes,
+        reset=True,
+    )
+    if return_classes:
+        X, y, sample_weight, classes = out
+        n_classes = len(classes)
+    else:
+        X, y, sample_weight = out
+        n_classes = 0
 
-    if sample_weight is not None:
-        sample_weight = input_to_cuml_array(
-            sample_weight,
-            check_dtype=dtype,
-            check_rows=n_rows,
-            check_cols=1,
-            convert_to_dtype=(dtype if convert_dtype else None)
-        ).array
+    if class_weight is not None:
+        if not return_classes:
+            raise ValueError("class_weights is only supported for classifiers")
+        _, sample_weight = process_class_weight(
+            classes,
+            y,
+            class_weight=class_weight,
+            sample_weight=sample_weight,
+            dtype=X.dtype
+        )
+    if return_classes:
+        # Coerce `y` to X dtype for classifier only _after_ processing class weights
+        y = y.astype(X.dtype, copy=False)
 
     # Validate and process hyperparameters
     cdef qn_params params
@@ -214,43 +233,45 @@ def fit_qn(
         verbose=verbose,
     )
 
-    coef_n_cols = n_classes if n_classes > 2 else 1
-    coef_n_rows = n_cols + 1 if fit_intercept else n_cols
+    coef_shape = (
+        ((X.shape[1] + 1) if fit_intercept else X.shape[1]),
+        (n_classes if n_classes > 2 else 1),
+    )
 
     if init_coef is None:
-        coef = CumlArray.zeros((coef_n_rows, coef_n_cols), dtype=dtype, order="C")
+        coef = cp.zeros(coef_shape, dtype=X.dtype, order="C")
     else:
-        coef = input_to_cuml_array(
-            init_coef,
-            order="C",
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_rows=coef_n_rows,
-            check_cols=coef_n_cols,
-        ).array
+        coef = check_array(
+            init_coef, dtype=X.dtype, convert_dtype=convert_dtype, order="C",
+        )
+        if coef.shape != coef_shape:
+            raise ValueError(f"Expected coef.shape == ({coef_shape}), got {coef.shape}")
 
+    cdef bool sparse_X = sp.issparse(X)
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
     cdef uintptr_t X_ptr, X_indices_ptr, X_indptr_ptr
     cdef int X_nnz
     cdef bool X_is_col_major
     if sparse_X:
-        X_ptr = X_m.data.ptr
-        X_indices_ptr = X_m.indices.ptr
-        X_indptr_ptr = X_m.indptr.ptr
-        X_nnz = X_m.nnz
+        X_ptr = X.data.data.ptr
+        X_indices_ptr = X.indices.data.ptr
+        X_indptr_ptr = X.indptr.data.ptr
+        X_nnz = X.nnz
     else:
-        X_ptr = X_m.ptr
-        X_is_col_major = X_m.order == "F"
+        X_ptr = X.data.ptr
+        X_is_col_major = X.flags["F_CONTIGUOUS"]
 
-    cdef uintptr_t y_ptr = y_m.ptr
-    cdef uintptr_t coef_ptr = coef.ptr
+    cdef uintptr_t y_ptr = y.data.ptr
+    cdef uintptr_t coef_ptr = coef.data.ptr
     cdef uintptr_t sample_weight_ptr = (
-        0 if sample_weight is None else sample_weight.ptr
+        0 if sample_weight is None else sample_weight.data.ptr
     )
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef float objective_f32
     cdef double objective_f64
     cdef int n_iter
-    cdef bool use_float32 = dtype == np.float32
+    cdef bool use_float32 = X.dtype == np.float32
 
     with nogil:
         if sparse_X:
@@ -324,19 +345,20 @@ def fit_qn(
 
     objective = objective_f32 if use_float32 else objective_f64
 
-    coef = coef.to_output("cupy")
-
     if fit_intercept:
-        intercept = CumlArray(data=coef[-1])
-        coef = CumlArray(data=coef[:-1].T)
+        intercept = coef[-1]
+        coef = coef[:-1].T
     else:
         if n_classes <= 2:
-            intercept = CumlArray.zeros(shape=1)
+            intercept = cp.zeros(shape=1, dtype=X.dtype)
         else:
-            intercept = CumlArray.zeros(shape=n_classes)
-        coef = CumlArray(data=coef.T)
+            intercept = cp.zeros(shape=n_classes, dtype=X.dtype)
+        coef = coef.T
 
-    return coef, intercept, n_iter, objective
+    if return_classes:
+        return coef, intercept, n_iter, objective, classes
+    else:
+        return coef, intercept, n_iter, objective
 
 
 class QN(Base):
@@ -516,15 +538,14 @@ class QN(Base):
         self.penalty_normalized = penalty_normalized
 
     @generate_docstring(X="dense_sparse")
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
         """
         Fit the model with X and y.
         """
-        if self.loss in {"logistic", "sigmoid", "softmax", "svc_l1", "svc_l2"}:
-            self.n_classes_ = len(np.unique(y))
-        else:
-            self.n_classes_ = 0
+        is_classifier = (
+            self.loss in {"logistic", "sigmoid", "softmax", "svc_l1", "svc_l2"}
+        )
 
         if self.warm_start and hasattr(self, "coef_"):
             init_coef = self.coef_.to_output("cupy").T
@@ -535,12 +556,12 @@ class QN(Base):
         else:
             init_coef = None
 
-        coef, intercept, n_iter, objective = fit_qn(
+        out = fit_qn(
+            self,
             X,
             y,
             sample_weight=sample_weight,
             convert_dtype=convert_dtype,
-            n_classes=self.n_classes_,
             loss=self.loss,
             fit_intercept=self.fit_intercept,
             l1_strength=self.l1_strength,
@@ -553,9 +574,18 @@ class QN(Base):
             penalty_normalized=self.penalty_normalized,
             init_coef=init_coef,
             verbose=self._verbose_level,
+            return_classes=is_classifier,
         )
-        self.coef_ = coef
-        self.intercept_ = intercept
+        if is_classifier:
+            coef, intercept, n_iter, objective, classes = out
+            n_classes = len(classes)
+        else:
+            coef, intercept, n_iter, objective = out
+            n_classes = 0
+
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = CumlArray(data=intercept)
+        self.n_classes_ = n_classes
         self.n_iter_ = n_iter
         self.objective = objective
 
@@ -565,19 +595,16 @@ class QN(Base):
     @reflect
     def predict(self, X, *, convert_dtype=True) -> CumlArray:
         """Predicts the y for X."""
-        if is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=self.coef_.dtype).to_output("cupy")
-            out_index = None
-        else:
-            X_m = input_to_cuml_array(
-                X,
-                check_dtype=self.coef_.dtype,
-                convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-                check_cols=self.n_features_in_,
-                order="K",
-            ).array
-            out_index = X_m.index
-            X = X_m.to_output("cupy")
+        check_is_fitted(self)
+
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            accept_sparse=True,
+            return_index=True,
+        )
 
         coef = self.coef_.to_output("cupy")
         intercept = self.intercept_.to_output("cupy")
@@ -594,7 +621,7 @@ class QN(Base):
             else:
                 out = cp.argmax(out, axis=1)
 
-        return CumlArray(data=out, index=out_index)
+        return CumlArray(data=out, index=index)
 
     @run_in_internal_context
     def score(self, X, y):

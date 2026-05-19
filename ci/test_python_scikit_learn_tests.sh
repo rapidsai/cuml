@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test script outside the script directory
@@ -12,7 +12,7 @@ rapids-logger "Running scikit-learn tests with cuML acceleration"
 # Do not immediately exit on error
 set +e
 
-timeout 1h ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh \
+timeout -v --signal=SIGINT --kill-after=60s 1h ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-tests.sh \
     --numprocesses=8 \
     --dist=worksteal \
     --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel-scikit-learn.xml"

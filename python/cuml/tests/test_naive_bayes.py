@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -617,3 +617,29 @@ def test_categorical_parameters(
 
     assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4, atol=1e-10)
     assert_array_equal(y_hat, y_hat_sk)
+
+
+@pytest.mark.parametrize(
+    "cls", [BernoulliNB, CategoricalNB, ComplementNB, MultinomialNB]
+)
+def test_sample_weight_deprecated(cls):
+    X = np.array([[1, 2], [3, 4], [5, 6]])
+    y = np.array([0, 1, 1])
+    classes = np.array([0, 1])
+    sample_weight = np.full(3, 0.5, dtype="float32")
+
+    # Passing _anything_ leads to a warning, even if it's supported
+    with pytest.warns(FutureWarning, match="sample_weight"):
+        cls().fit(X, y, sample_weight=None)
+    with pytest.warns(FutureWarning, match="sample_weight"):
+        cls().partial_fit(X, y, classes=classes, sample_weight=None)
+
+    # Passing an actual array also errors
+    with pytest.raises(NotImplementedError, match="sample_weight"):
+        with pytest.warns(FutureWarning, match="sample_weight"):
+            cls().fit(X, y, sample_weight=sample_weight)
+    with pytest.raises(NotImplementedError, match="sample_weight"):
+        with pytest.warns(FutureWarning, match="sample_weight"):
+            cls().partial_fit(
+                X, y, classes=classes, sample_weight=sample_weight
+            )

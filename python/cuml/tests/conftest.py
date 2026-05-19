@@ -95,6 +95,7 @@ hypothesis.settings.register_profile(
     parent=hypothesis.settings.get_profile("default"),
     phases=HYPOTHESIS_DEFAULT_PHASES,
     max_examples=20,
+    report_multiple_bugs=False,
     suppress_health_check=HEALTH_CHECKS_SUPPRESSED_BY_DEFAULT,
 )
 

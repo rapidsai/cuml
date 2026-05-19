@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -37,13 +37,12 @@ function(ConfigureTest)
   target_link_libraries(
     ${_CUML_TEST_NAME}
     PRIVATE ${CUML_CPP_TARGET}
-            $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
             CUDA::cublas${_ctk_static_suffix}
             CUDA::curand${_ctk_static_suffix}
             CUDA::cusolver${_ctk_static_suffix}
-            CUDA::cudart${_ctk_static_suffix}
             CUDA::cusparse${_ctk_static_suffix}
             $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_static_suffix_cufft}>
+            CUDA::cudart_static
             rmm::rmm
             raft::raft
             GTest::gtest
@@ -110,7 +109,12 @@ if(all_algo OR fil_algo)
   ConfigureTest(PREFIX SG NAME DEVICE_BUFFER_TEST sg/fil/raft_proto/buffer.cu ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME FOREST_TRAVERSAL_TEST sg/forest/traversal_forest.cpp ML_INCLUDE)
   ConfigureTest(PREFIX SG NAME TREELITE_TRAVERSAL_TEST sg/forest/treelite_traversal.cpp ML_INCLUDE)
-  ConfigureTest(PREFIX SG NAME TREELITE_IMPORTER_TEST sg/fil/treelite_importer.cpp ML_INCLUDE)
+  ConfigureTest(
+    PREFIX SG
+    NAME TREELITE_IMPORTER_TEST
+         sg/fil/treelite_importer.cpp sg/fil/treelite_importer_invalid_inputs.cpp
+         sg/fil/decision_forest_builder_invalid_inputs.cpp ML_INCLUDE
+  )
 endif()
 
 # todo: organize linear models better
@@ -198,10 +202,6 @@ if(all_algo OR umap_algo)
   ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST sg/umap_parametrizable_test.cu ML_INCLUDE)
 endif()
 
-if(BUILD_CUML_C_LIBRARY)
-  ConfigureTest(PREFIX SG NAME HANDLE_TEST sg/handle_test.cu ML_INCLUDE)
-endif()
-
 # ##################################################################################################
 # * build test_ml_mg executable ----------------------------------------------
 
@@ -259,20 +259,3 @@ if(BUILD_PRIMS_TESTS)
 endif()
 
 rapids_test_install_relocatable(INSTALL_COMPONENT_SET testing DESTINATION bin/gtests/libcuml)
-
-# ##################################################################################################
-# * build C-API test library -------------------------------------------------
-
-if(BUILD_CUML_C_LIBRARY)
-
-  enable_language(C)
-
-  add_library(
-    ${CUML_C_TEST_TARGET} SHARED
-    c_api/dbscan_api_test.c c_api/glm_api_test.c c_api/holtwinters_api_test.c c_api/knn_api_test.c
-    c_api/svm_api_test.c
-  )
-
-  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
-
-endif()

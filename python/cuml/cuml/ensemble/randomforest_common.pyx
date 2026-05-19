@@ -167,6 +167,9 @@ def compute_max_features(
         )
 
 
+_DEPRECATED_MAX_DEPTH_DEFAULT = "deprecated"
+
+
 class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
@@ -244,7 +247,9 @@ class BaseRandomForestModel(Base, InteropMixin):
         return {
             "n_estimators": self.n_estimators,
             "criterion": criterion,
-            "max_depth": self.max_depth,
+            "max_depth": (
+                16 if self.max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT else self.max_depth
+            ),
             "min_samples_split": self.min_samples_split,
             "min_samples_leaf": self.min_samples_leaf,
             "max_features": self.max_features,
@@ -307,7 +312,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         n_estimators=100,
         bootstrap=True,
         max_samples=1.0,
-        max_depth=16,
+        max_depth=_DEPRECATED_MAX_DEPTH_DEFAULT,
         max_leaves=-1,
         max_features='sqrt',
         n_bins=128,
@@ -403,29 +408,41 @@ class BaseRandomForestModel(Base, InteropMixin):
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
+            ensure_all_finite=True,
         )
 
     def _fit_forest(self, X, y):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t y_ptr = y.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
         cdef int max_depth_c
-        if self.max_depth is None:
+        max_depth = self.max_depth
+
+        if max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT:
+            warnings.warn(
+                "The default value of 'max_depth' will change from 16 to "
+                # rapids-pre-commit-hooks: disable-next-line
+                "None (unlimited depth) in release 26.08. To suppress this "
+                "warning, set 'max_depth' explicitly.",
+                FutureWarning, stacklevel=3)
+            max_depth = 16
+
+        if max_depth is None:
             max_depth_c = np.iinfo(np.int32).max
-        elif not isinstance(self.max_depth, int) or self.max_depth <= 0:
+        elif not isinstance(max_depth, int) or max_depth <= 0:
             raise ValueError(
                 f"max_depth must be a positive integer or None (unlimited); "
-                f"got {self.max_depth!r}"
+                f"got {max_depth!r}"
             )
         else:
-            max_depth_c = self.max_depth
+            max_depth_c = max_depth
 
         # Validate OOB score parameter
         if callable(self.oob_score):

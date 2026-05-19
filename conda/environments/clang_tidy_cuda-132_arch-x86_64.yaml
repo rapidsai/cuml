@@ -6,11 +6,13 @@ channels:
 - conda-forge
 dependencies:
 - c-compiler
-- cmake>=3.30.4
+- clang-tools==20.1.8
+- clang==20.1.8
+- cmake>=4.0
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-version=13.1
+- cuda-version=13.2
 - cxx-compiler
 - gcc_linux-64=14.*
 - libcublas-dev
@@ -18,9 +20,11 @@ dependencies:
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
-- libcuvs==26.6.*,>=0.0.0a0
-- libraft-headers==26.6.*,>=0.0.0a0
-- librmm==26.6.*,>=0.0.0a0
+- libcuvs==26.8.*,>=0.0.0a0
+- libraft-headers==26.8.*,>=0.0.0a0
+- librmm==26.8.*,>=0.0.0a0
+- llvm-openmp==20.1.8
 - ninja
 - sysroot_linux-64==2.28
-name: cpp_all_cuda-131_arch-x86_64
+- tomli
+name: clang_tidy_cuda-132_arch-x86_64

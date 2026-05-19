@@ -4,8 +4,8 @@
 #
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.internals import get_handle
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -57,34 +57,56 @@ def kl_divergence(P, Q, convert_dtype=True):
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    P_m, n_features_p, _, dtype_p = \
-        input_to_cuml_array(P, check_cols=1,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
-    Q_m, n_features_q, _, _ = \
-        input_to_cuml_array(Q, check_cols=1,
-                            convert_to_dtype=(dtype_p if convert_dtype
-                                              else None),
-                            check_dtype=[dtype_p])
+    P_m = check_array(
+        P,
+        ensure_2d=False,
+        order='C',
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        input_name='P',
+    )
+    if P_m.ndim == 2 and P_m.shape[1] != 1:
+        raise ValueError(
+            "P must have shape (n_samples,) or (n_samples, 1), got "
+            f"{P_m.shape}"
+        )
+    P_m = P_m.ravel()
+    dtype_p = P_m.dtype
 
-    if n_features_p != n_features_q:
-        raise ValueError("Incompatible dimension for P and Q arrays: \
-                         P.shape == ({}) while Q.shape == ({})"
-                         .format(n_features_p, n_features_q))
+    Q_m = check_array(
+        Q,
+        ensure_2d=False,
+        order='C',
+        dtype=[dtype_p],
+        convert_dtype=convert_dtype,
+        input_name='Q',
+    )
+    if Q_m.ndim == 2 and Q_m.shape[1] != 1:
+        raise ValueError(
+            "Q must have shape (n_samples,) or (n_samples, 1), got "
+            f"{Q_m.shape}"
+        )
+    Q_m = Q_m.ravel()
 
-    cdef uintptr_t d_P_ptr = P_m.ptr
-    cdef uintptr_t d_Q_ptr = Q_m.ptr
+    cdef int n_features_p = P_m.shape[0]
+    if Q_m.shape[0] != n_features_p:
+        raise ValueError(
+            "Incompatible dimension for P and Q arrays: "
+            f"P.shape == ({n_features_p},) while Q.shape == ({Q_m.shape[0]},)"
+        )
+
+    cdef uintptr_t d_P_ptr = P_m.data.ptr
+    cdef uintptr_t d_Q_ptr = Q_m.data.ptr
 
     if (dtype_p == np.float32):
         res = c_kl_divergence(handle_[0],
                               <float*> d_P_ptr,
                               <float*> d_Q_ptr,
-                              <int> n_features_p)
+                              n_features_p)
     else:
         res = c_kl_divergence(handle_[0],
                               <double*> d_P_ptr,
                               <double*> d_Q_ptr,
-                              <int> n_features_p)
+                              n_features_p)
 
     return res

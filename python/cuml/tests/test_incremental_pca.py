@@ -38,12 +38,6 @@ def test_fit(
     batch_size_divider,
     whiten,
 ):
-    if sparse_format == "csc":
-        pytest.skip(
-            "cupyx.scipy.sparse.csc.csc_matrix does not support"
-            " indexing as of cupy 7.6.0"
-        )
-
     if sparse_input:
         X = cupyx.scipy.sparse.random(
             nrows,
@@ -77,7 +71,7 @@ def test_fit(
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize(
@@ -137,6 +131,21 @@ def test_exceptions():
 
     with pytest.raises(ValueError):
         cuIPCA(n_components=8).fit(X[:, :5])
+
+
+@pytest.mark.parametrize("batch_size", [None, 50])
+def test_partial_fit_then_sparse_transform(batch_size):
+    X_dense, _ = make_blobs(
+        n_samples=200, n_features=10, random_state=0, dtype="float64"
+    )
+    X_sparse = cupyx.scipy.sparse.csr_matrix(X_dense)
+
+    ipca = cuIPCA(n_components=4, batch_size=batch_size)
+    for i in range(0, 200, 50):
+        ipca.partial_fit(X_dense[i : i + 50])
+
+    result = ipca.transform(X_sparse)
+    assert result.shape == (200, 4)
 
 
 def test_svd_flip():

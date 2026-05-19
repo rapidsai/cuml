@@ -11,6 +11,7 @@ import scipy.sparse as scipy_sparse
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from sklearn import svm
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.datasets import (
     load_iris,
     make_blobs,
@@ -215,7 +216,13 @@ def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
     df1 = cuSVC.decision_function(X_test)
     assert df1.dtype == X_train.dtype
 
-    sklSVC = svm.SVC(**params)
+    # sklearn here is just a reference value for decision_function, which does
+    # not depend on calibration (the value of `probability`). The `probability`
+    # parametrization of the test exists to verify that cuml's probability=True
+    # path doesn't break decision_function on our side, so we drop probability
+    # from the sklearn kwargs (sklearn 1.9 warns on any explicit value, and
+    # 1.11 will remove the parameter entirely).
+    sklSVC = svm.SVC(**{k: v for k, v in params.items() if k != "probability"})
     sklSVC.fit(X_train, y_train)
     df2 = sklSVC.decision_function(X_test)
 
@@ -300,7 +307,8 @@ def test_svc_predict_proba(in_type, n_classes):
 
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_m.to_output(in_type), y_m.to_output(in_type))
-    sklSVC = svm.SVC(**params)
+    sk_params = {k: v for k, v in params.items() if k != "probability"}
+    sklSVC = CalibratedClassifierCV(svm.SVC(**sk_params), ensemble=False)
     sklSVC.fit(X_train, y_train)
 
     tol = 1e-2 if n_classes == 2 else 1e-1
@@ -344,7 +352,11 @@ def test_svc_weights(class_weight, sample_weight, probability):
         cu_score = cuSVC.score(X_1, y_1)
         assert cu_score > 0.9
 
-    sklSVC = svm.SVC(**params)
+    sk_params = {k: v for k, v in params.items() if k != "probability"}
+    if probability:
+        sklSVC = CalibratedClassifierCV(svm.SVC(**sk_params), ensemble=False)
+    else:
+        sklSVC = svm.SVC(**sk_params)
     sklSVC.fit(X, y, sample_weight)
     if not probability:
         # TODO: SVC estimators with probability=True don't expose all the fitted
