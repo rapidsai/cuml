@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import warnings
+
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
@@ -21,6 +23,23 @@ from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
 )
 from cuml.neighbors.kde import VALID_KERNELS, kde_score_samples
+
+
+def _coerce_russellrao_binary(arr, *, input_name):
+    """Coerce values to {0, 1} for the russellrao metric, warning on non-binary input.
+
+    The fused KDE kernel computes RussellRao assuming binary inputs, matching
+    the behavior of ``cuml.metrics.pairwise_distances`` for this metric.
+    """
+    cp_arr = arr.to_output("cupy")
+    if not bool(cp.logical_or(cp_arr == 0, cp_arr == 1).all()):
+        warnings.warn(
+            f"{input_name} was converted to boolean for metric 'russellrao'"
+        )
+        dtype = cp_arr.dtype
+        coerced = cp.where(cp_arr != 0, dtype.type(1), dtype.type(0))
+        return CumlArray.from_input(coerced, order="C")
+    return arr
 
 
 class KernelDensity(Base, InteropMixin):
@@ -177,6 +196,12 @@ class KernelDensity(Base, InteropMixin):
         if self.kernel not in VALID_KERNELS:
             raise ValueError(f"kernel={self.kernel!r} is not supported")
 
+        if self.metric == "nan_euclidean":
+            raise NotImplementedError(
+                "metric='nan_euclidean' is not supported by cuML's "
+                "KernelDensity; the fused kernel has no NaN-aware path."
+            )
+
         if isinstance(self.bandwidth, str):
             if self.bandwidth not in ("scott", "silverman"):
                 raise ValueError(
@@ -196,6 +221,9 @@ class KernelDensity(Base, InteropMixin):
         )
         if self._sample_weight is not None:
             check_non_negative(self._sample_weight, input_name="sample_weight")
+
+        if self.metric == "russellrao":
+            self._X = _coerce_russellrao_binary(self._X, input_name="X")
 
         if isinstance(self.bandwidth, str):
             if self.bandwidth == "scott":
@@ -236,6 +264,9 @@ class KernelDensity(Base, InteropMixin):
             convert_dtype=convert_dtype,
             order="C",
         )
+        if self.metric == "russellrao":
+            X = _coerce_russellrao_binary(X, input_name="X")
+
         if self.metric_params:
             if len(self.metric_params) != 1:
                 raise ValueError(
