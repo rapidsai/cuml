@@ -420,6 +420,54 @@ def test_all_kernels_all_metrics(metric, kernel):
     )
 
 
+def test_nan_euclidean_not_supported():
+    """metric='nan_euclidean' is rejected with a clear error.
+
+    The fused KDE kernel has no NaN-aware path, so we raise instead of
+    silently producing wrong results.
+    """
+    rng = np.random.RandomState(0)
+    X = rng.randn(20, 3).astype(np.float64)
+    kde = KernelDensity(metric="nan_euclidean")
+    with pytest.raises(NotImplementedError, match="nan_euclidean"):
+        kde.fit(X)
+
+
+def test_russellrao_coerces_non_binary_with_warning():
+    """Non-binary inputs to metric='russellrao' are coerced to {0, 1} with a warning.
+
+    Mirrors the long-standing behavior of cuml.metrics.pairwise_distances for
+    this metric. Output must match a reference computed on the coerced data.
+    """
+    rng = np.random.RandomState(0)
+    X = rng.uniform(-1.0, 2.0, size=(30, 4)).astype(np.float64)
+    Q = rng.uniform(-1.0, 2.0, size=(5, 4)).astype(np.float64)
+
+    kde = KernelDensity(kernel="gaussian", metric="russellrao", bandwidth=1.0)
+    with pytest.warns(UserWarning, match="converted to boolean"):
+        kde.fit(X)
+    with pytest.warns(UserWarning, match="converted to boolean"):
+        cuml_log = as_type("numpy", kde.score_samples(Q))
+
+    X_bin = np.where(X != 0.0, 1.0, 0.0)
+    Q_bin = np.where(Q != 0.0, 1.0, 0.0)
+    ref = compute_kernel_naive(
+        Q_bin, X_bin, "gaussian", "russellrao", 1.0, None
+    )
+    assert np.allclose(np.exp(cuml_log), ref, rtol=1e-4, atol=1e-4)
+
+
+@pytest.mark.filterwarnings("error::UserWarning")
+def test_russellrao_binary_no_warning():
+    """Already-binary inputs to metric='russellrao' do not trigger a warning."""
+    rng = np.random.RandomState(0)
+    X = rng.randint(0, 2, size=(30, 4)).astype(np.float64)
+    Q = rng.randint(0, 2, size=(5, 4)).astype(np.float64)
+    kde = KernelDensity(kernel="gaussian", metric="russellrao", bandwidth=1.0)
+    kde.fit(X)
+    kde.score_samples(Q)
+
+
 def test_tiling_multipass():
     """Multi-pass tiling path (small n_query, large n_train) matches reference.
 
