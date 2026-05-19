@@ -428,6 +428,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         if max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT:
             warnings.warn(
                 "The default value of 'max_depth' will change from 16 to "
+                # rapids-pre-commit-hooks: disable-next-line
                 "None (unlimited depth) in release 26.08. To suppress this "
                 "warning, set 'max_depth' explicitly.",
                 FutureWarning, stacklevel=3)
