@@ -1,8 +1,10 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
 
 rapids-logger "Create clang_tidy conda environment"
 . /opt/conda/etc/profile.d/conda.sh

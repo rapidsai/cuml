@@ -1,13 +1,11 @@
 #=============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 #=============================================================================
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(RAFT_FORK "achirkin")
-set(RAFT_PINNED_TAG "enh-predictable-resources")
 
 function(find_and_configure_raft)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL CLONE_ON_PIN NVTX)
@@ -29,9 +27,6 @@ function(find_and_configure_raft)
     set(RAFT_NVTX ${PKG_NVTX})
 
     message(VERBOSE "CUML: raft FIND_PACKAGE_ARGUMENTS COMPONENTS ${RAFT_COMPONENTS}")
-
-    include("${rapids-cmake-dir}/cpm/package_override.cmake")
-    rapids_cpm_package_override("${CMAKE_CURRENT_LIST_DIR}/raft_cpm_override.json")
 
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
@@ -61,8 +56,8 @@ endfunction()
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION          ${CUML_MIN_VERSION_raft}
-      FORK             ${RAFT_FORK}
-      PINNED_TAG       ${RAFT_PINNED_TAG}
+      FORK             rapidsai
+      PINNED_TAG       ${rapids-cmake-checkout-tag}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_RAFT_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local raft clone in build directory

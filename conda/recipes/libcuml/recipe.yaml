@@ -77,15 +77,11 @@ cache:
       - rapids-logger =0.2
       - treelite ${{ treelite_version }}
       - cuda-cudart-dev
-      # Required when CPM builds cuVS from source (integration branches with pinned cuVS).
-      # main uses prebuilt libcuvs from conda and does not need these.
-      - cuda-nvrtc-dev
       - libcublas-dev
       - libcufft-dev
       - libcurand-dev
       - libcusolver-dev
       - libcusparse-dev
-      - libnvjitlink-dev
 
 outputs:
   - package:
@@ -125,14 +121,13 @@ outputs:
         - libcurand
         - libcusolver
         - libcusparse
-        # Integration: cuVS is statically linked (CUML_USE_CUVS_STATIC=ON); do not run-export libcuvs.
+        - libcuvs =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
         - treelite ${{ treelite_version }}
       ignore_run_exports:
         by_name:
           - cuda-cudart
-          - cuda-nvrtc
           - cuda-version
           - flatbuffers
           - libcurand
@@ -141,7 +136,6 @@ outputs:
           - libcufft
           - libcublas
           - libcusolver
-          - libnvjitlink
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}
@@ -170,7 +164,6 @@ outputs:
       ignore_run_exports:
         by_name:
           - cuda-cudart
-          - cuda-nvrtc
           - cuda-version
           - libcublas
           - libcufft
@@ -178,7 +171,6 @@ outputs:
           - libcusolver
           - libcusparse
           - librmm
-          - libnvjitlink
     about:
       homepage: ${{ load_from_file("python/libcuml/pyproject.toml").project.urls.Homepage }}
       license: ${{ load_from_file("python/libcuml/pyproject.toml").project.license }}

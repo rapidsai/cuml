@@ -15,6 +15,7 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 # generate constraints, the constraints will limit the version of the
 # dependencies that can be installed later on when installing the wheel
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
 
 # notes:
 #

@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
+
 . /opt/conda/etc/profile.d/conda.sh
 
 rapids-logger "Configuring conda strict channel priority"

@@ -1,8 +1,10 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
 
 source rapids-configure-sccache
 source rapids-date-string

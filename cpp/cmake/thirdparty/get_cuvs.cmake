@@ -1,13 +1,11 @@
 #=============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 #=============================================================================
 
 set(CUML_MIN_VERSION_cuvs "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-set(CUVS_FORK "rapidsai")
-set(CUVS_PINNED_TAG "achirkin-patch-5")
 
 function(find_and_configure_cuvs)
     set(oneValueArgs VERSION FORK PINNED_TAG EXCLUDE_FROM_ALL USE_CUVS_STATIC COMPILE_LIBRARY CLONE_ON_PIN)
@@ -34,9 +32,6 @@ function(find_and_configure_cuvs)
     if(SINGLEGPU)
       set(CUVS_BUILD_MG_ALGOS OFF)
     endif()
-
-    include("${rapids-cmake-dir}/cpm/package_override.cmake")
-    rapids_cpm_package_override("${CMAKE_CURRENT_LIST_DIR}/cuvs_cpm_override.json")
 
     rapids_cpm_find(cuvs ${PKG_VERSION}
       GLOBAL_TARGETS      cuvs::cuvs
@@ -66,8 +61,8 @@ endfunction()
 # To use a different CUVS locally, set the CMake variable
 # CPM_cuvs_SOURCE=/path/to/local/cuvs
 find_and_configure_cuvs(VERSION          ${CUML_MIN_VERSION_cuvs}
-      FORK             ${CUVS_FORK}
-      PINNED_TAG       ${CUVS_PINNED_TAG}
+      FORK             rapidsai
+      PINNED_TAG       ${rapids-cmake-checkout-tag}
       EXCLUDE_FROM_ALL ${CUML_EXCLUDE_CUVS_FROM_ALL}
       # When PINNED_TAG above doesn't match cuml,
       # force local cuvs clone in build directory

@@ -11,7 +11,6 @@ dependencies:
 - cmake>=4.0
 - cuda-cudart-dev
 - cuda-nvcc
-- cuda-nvrtc-dev
 - cuda-profiler-api
 - cuda-python>=13.0.1,<14.0
 - cuda-version=13.2
@@ -38,7 +37,6 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libcuvs==26.6.*,>=0.0.0a0
-- libnvjitlink-dev
 - libopenblas<=0.3.30
 - libraft==26.6.*,>=0.0.0a0
 - librmm==26.6.*,>=0.0.0a0
