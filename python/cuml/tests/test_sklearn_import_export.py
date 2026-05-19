@@ -379,6 +379,9 @@ def test_svr(random_state, sparse, kernel):
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter was deprecated:FutureWarning"
 )
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
+)
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
 @pytest.mark.parametrize("kernel", ["rbf", "precomputed"])
@@ -1036,6 +1039,30 @@ def test_label_encoder():
     np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
 
     sol = np.array([0, 1, 1, 0])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "c", "a"])
+    cu_model = cuml.preprocessing.LabelBinarizer().fit(y)
+    sk_model = sklearn.preprocessing.LabelBinarizer().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+    assert roundtrip.y_type_ == cu_model.y_type_
+    assert roundtrip.sparse_input_ == cu_model.sparse_input_
+
+    sol = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]])
     cu_out = cu_model2.transform(y)
     sk_out = sk_model2.transform(y)
 
