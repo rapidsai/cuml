@@ -7,7 +7,8 @@ set -euo pipefail
 # Support invoking test_cpp.sh outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../
 
-source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/ci/use_dependent_pr_artifacts.sh"
+_CI_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+source "${_CI_DIR}/use_dependent_pr_conda_artifacts.sh"
 
 . /opt/conda/etc/profile.d/conda.sh
 

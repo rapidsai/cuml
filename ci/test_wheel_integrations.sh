@@ -5,7 +5,7 @@
 set -euo pipefail
 
 source rapids-init-pip
-source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_wheel_artifacts.sh"
 
 RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 CUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-package-name "wheel_python" cuml --stable --cuda "$RAPIDS_CUDA_VERSION")")

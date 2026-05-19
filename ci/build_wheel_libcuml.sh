@@ -5,7 +5,7 @@
 set -euo pipefail
 
 source rapids-init-pip
-source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_wheel_artifacts.sh"
 
 package_name="libcuml"
 package_dir="python/libcuml"

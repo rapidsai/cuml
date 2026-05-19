@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_artifacts.sh"
+source "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/use_dependent_pr_conda_artifacts.sh"
 
 source rapids-configure-sccache
 source rapids-date-string
