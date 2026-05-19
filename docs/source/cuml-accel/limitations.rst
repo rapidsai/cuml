@@ -509,7 +509,7 @@ SVC
 - If ``y`` is multiclass.
 - If ``probability=True``. The ``probability`` parameter is deprecated in
   ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend using
-  wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifier`` like
+  wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV`` like
   ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
   supported across ``scikit-learn`` versions, and won't require CPU fallback.
 
