@@ -123,6 +123,10 @@ class RandomForest {
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
+    if (sample_weight != nullptr) {
+      ASSERT(DT::is_dev_ptr(sample_weight),
+             "RF Error: Expected sample_weight to be a GPU pointer");
+    }
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;
     if (this->rf_params.bootstrap) {
