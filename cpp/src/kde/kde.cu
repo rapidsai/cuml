@@ -25,7 +25,7 @@ void score_samples(raft::resources const& handle,
                    T bandwidth,
                    T sum_weights,
                    DensityKernelType kernel,
-                   cuvs::distance::DistanceType metric,
+                   ML::distance::DistanceType metric,
                    T metric_arg)
 {
   auto query_view =
@@ -37,6 +37,8 @@ void score_samples(raft::resources const& handle,
     weights
       ? std::make_optional(raft::make_device_vector_view<const T, std::int64_t>(weights, n_train))
       : std::nullopt;
+  auto cuvs_kernel = static_cast<cuvs::distance::DensityKernelType>(kernel);
+  auto cuvs_metric = static_cast<cuvs::distance::DistanceType>(metric);
 
   cuvs::distance::kde(handle,
                       query_view,
@@ -45,8 +47,8 @@ void score_samples(raft::resources const& handle,
                       output_view,
                       bandwidth,
                       sum_weights,
-                      kernel,
-                      metric,
+                      cuvs_kernel,
+                      cuvs_metric,
                       metric_arg);
 }
 
@@ -61,7 +63,7 @@ template void score_samples<float>(raft::resources const&,
                                    float,
                                    float,
                                    DensityKernelType,
-                                   cuvs::distance::DistanceType,
+                                   ML::distance::DistanceType,
                                    float);
 
 template void score_samples<double>(raft::resources const&,
@@ -75,7 +77,7 @@ template void score_samples<double>(raft::resources const&,
                                     double,
                                     double,
                                     DensityKernelType,
-                                    cuvs::distance::DistanceType,
+                                    ML::distance::DistanceType,
                                     double);
 
 }  // namespace ML::KDE

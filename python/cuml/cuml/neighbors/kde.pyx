@@ -12,38 +12,24 @@ from cuml.internals.base import get_handle
 from libc.stdint cimport int64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
 
+from cuml.metrics.distance_type cimport DistanceType
 from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
 
 
 # All types and the wrapper function come from the single cuML header,
-# which transitively includes the cuVS distance headers.
+# without requiring cuVS headers in the generated extension target.
 # handle_t extends raft::device_resources (raft::resources), so passing
 # handle_t to a raft::resources const& parameter is valid.
 # The alias _cuml_kde_score_samples avoids shadowing the Python def below.
 cdef extern from "cuml/neighbors/kde.hpp" nogil:
 
-    ctypedef enum class DistanceType "cuvs::distance::DistanceType":
-        L2SqrtUnexpanded "cuvs::distance::DistanceType::L2SqrtUnexpanded"
-        L2Expanded "cuvs::distance::DistanceType::L2Expanded"
-        L1 "cuvs::distance::DistanceType::L1"
-        Linf "cuvs::distance::DistanceType::Linf"
-        LpUnexpanded "cuvs::distance::DistanceType::LpUnexpanded"
-        CosineExpanded "cuvs::distance::DistanceType::CosineExpanded"
-        CorrelationExpanded "cuvs::distance::DistanceType::CorrelationExpanded"
-        Canberra "cuvs::distance::DistanceType::Canberra"
-        HellingerExpanded "cuvs::distance::DistanceType::HellingerExpanded"
-        JensenShannon "cuvs::distance::DistanceType::JensenShannon"
-        HammingUnexpanded "cuvs::distance::DistanceType::HammingUnexpanded"
-        KLDivergence "cuvs::distance::DistanceType::KLDivergence"
-        RusselRaoExpanded "cuvs::distance::DistanceType::RusselRaoExpanded"
-
-    ctypedef enum class DensityKernelType "cuvs::distance::DensityKernelType":
-        Gaussian "cuvs::distance::DensityKernelType::Gaussian"
-        Tophat "cuvs::distance::DensityKernelType::Tophat"
-        Epanechnikov "cuvs::distance::DensityKernelType::Epanechnikov"
-        Exponential "cuvs::distance::DensityKernelType::Exponential"
-        Linear "cuvs::distance::DensityKernelType::Linear"
-        Cosine "cuvs::distance::DensityKernelType::Cosine"
+    ctypedef enum class DensityKernelType "ML::KDE::DensityKernelType":
+        Gaussian "ML::KDE::DensityKernelType::Gaussian"
+        Tophat "ML::KDE::DensityKernelType::Tophat"
+        Epanechnikov "ML::KDE::DensityKernelType::Epanechnikov"
+        Exponential "ML::KDE::DensityKernelType::Exponential"
+        Linear "ML::KDE::DensityKernelType::Linear"
+        Cosine "ML::KDE::DensityKernelType::Cosine"
 
     void _cuml_kde_score_samples \
         "ML::KDE::score_samples"(const handle_t &handle,

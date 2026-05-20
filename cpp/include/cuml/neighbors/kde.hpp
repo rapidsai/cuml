@@ -4,16 +4,22 @@
  */
 #pragma once
 
-#include <raft/core/resources.hpp>
+#include <cuml/common/distance_type.hpp>
 
-#include <cuvs/distance/distance.hpp>
-#include <cuvs/distance/kde.hpp>
+#include <raft/core/resources.hpp>
 
 #include <cstdint>
 
 namespace ML::KDE {
 
-using cuvs::distance::DensityKernelType;
+enum class DensityKernelType : int {
+  Gaussian     = 0,
+  Tophat       = 1,
+  Epanechnikov = 2,
+  Exponential  = 3,
+  Linear       = 4,
+  Cosine       = 5
+};
 
 /**
  * @brief Compute normalized log-density scores for query samples.
@@ -50,7 +56,7 @@ void score_samples(raft::resources const& handle,
                    T bandwidth,
                    T sum_weights,
                    DensityKernelType kernel,
-                   cuvs::distance::DistanceType metric,
+                   ML::distance::DistanceType metric,
                    T metric_arg);
 
 extern template void score_samples<float>(raft::resources const&,
@@ -64,7 +70,7 @@ extern template void score_samples<float>(raft::resources const&,
                                           float,
                                           float,
                                           DensityKernelType,
-                                          cuvs::distance::DistanceType,
+                                          ML::distance::DistanceType,
                                           float);
 
 extern template void score_samples<double>(raft::resources const&,
@@ -78,7 +84,7 @@ extern template void score_samples<double>(raft::resources const&,
                                            double,
                                            double,
                                            DensityKernelType,
-                                           cuvs::distance::DistanceType,
+                                           ML::distance::DistanceType,
                                            double);
 
 }  // namespace ML::KDE
