@@ -25,21 +25,28 @@ from cuml.metrics.pairwise_distances import (
 from cuml.neighbors.kde import VALID_KERNELS, kde_score_samples
 
 
+def _as_cupy_array(arr):
+    return (
+        arr.to_output("cupy")
+        if isinstance(arr, CumlArray)
+        else cp.asarray(arr)
+    )
+
+
 def _coerce_russellrao_binary(arr, *, input_name):
     """Coerce values to {0, 1} for the russellrao metric, warning on non-binary input.
 
     The fused KDE kernel computes RussellRao assuming binary inputs, matching
     the behavior of ``cuml.metrics.pairwise_distances`` for this metric.
     """
-    cp_arr = arr.to_output("cupy")
+    cp_arr = _as_cupy_array(arr)
     if not bool(cp.logical_or(cp_arr == 0, cp_arr == 1).all()):
         warnings.warn(
             f"{input_name} was converted to boolean for metric 'russellrao'"
         )
         dtype = cp_arr.dtype
-        coerced = cp.where(cp_arr != 0, dtype.type(1), dtype.type(0))
-        return CumlArray.from_input(coerced, order="C")
-    return arr
+        return cp.where(cp_arr != 0, dtype.type(1), dtype.type(0))
+    return cp_arr
 
 
 class KernelDensity(Base, InteropMixin):
