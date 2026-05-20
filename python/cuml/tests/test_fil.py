@@ -47,6 +47,10 @@ pytestmark = [
     pytest.mark.filterwarnings(
         "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
     ),
+    # TODO(26.10) Remove this filter, once cuml.fil is removed
+    pytest.mark.filterwarnings(
+        "ignore:.*set_fil_device_type is deprecated:FutureWarning"
+    ),
     # TODO(26.08) Remove this filter
     pytest.mark.filterwarnings(
         "ignore:The default value of 'max_depth':FutureWarning"

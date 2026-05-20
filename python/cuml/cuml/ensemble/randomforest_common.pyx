@@ -12,7 +12,7 @@ import cupy as cp
 import numpy as np
 import treelite.sklearn
 
-from cuml.fil.fil import ForestInference
+from cuml.fil.compat import ForestInference
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
