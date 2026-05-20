@@ -10,7 +10,7 @@ import numpy as np
 from cupyx.scipy.special import gammainc
 
 from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
+from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.outputs import reflect, run_in_internal_context
 from cuml.internals.validation import (
@@ -22,15 +22,65 @@ from cuml.internals.validation import (
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
 )
-from cuml.neighbors.kde import VALID_KERNELS, kde_score_samples
+
+from libc.stdint cimport int64_t, uintptr_t
+from libcpp cimport bool as cpp_bool
+from pylibraft.common.handle cimport handle_t
+
+from cuml.metrics.distance_type cimport DistanceType
 
 
-def _as_cupy_array(arr):
-    return (
-        arr.to_output("cupy")
-        if isinstance(arr, CumlArray)
-        else cp.asarray(arr)
-    )
+cdef extern from "cuml/neighbors/kde.hpp" nogil:
+
+    ctypedef enum class DensityKernelType "ML::KDE::DensityKernelType":
+        Gaussian "ML::KDE::DensityKernelType::Gaussian"
+        Tophat "ML::KDE::DensityKernelType::Tophat"
+        Epanechnikov "ML::KDE::DensityKernelType::Epanechnikov"
+        Exponential "ML::KDE::DensityKernelType::Exponential"
+        Linear "ML::KDE::DensityKernelType::Linear"
+        Cosine "ML::KDE::DensityKernelType::Cosine"
+
+    void _cuml_kde_score_samples \
+        "ML::KDE::score_samples"(const handle_t &handle,
+                                 const float *query,
+                                 const float *train,
+                                 const float *weights,
+                                 float *output,
+                                 int64_t n_query,
+                                 int64_t n_train,
+                                 int64_t n_features,
+                                 float bandwidth,
+                                 float sum_weights,
+                                 DensityKernelType kernel,
+                                 DistanceType metric,
+                                 float metric_arg) except +
+
+    void _cuml_kde_score_samples \
+        "ML::KDE::score_samples"(const handle_t &handle,
+                                 const double *query,
+                                 const double *train,
+                                 const double *weights,
+                                 double *output,
+                                 int64_t n_query,
+                                 int64_t n_train,
+                                 int64_t n_features,
+                                 double bandwidth,
+                                 double sum_weights,
+                                 DensityKernelType kernel,
+                                 DistanceType metric,
+                                 double metric_arg) except +
+
+
+KDE_KERNEL_TYPES = {
+    "gaussian": DensityKernelType.Gaussian,
+    "tophat": DensityKernelType.Tophat,
+    "epanechnikov": DensityKernelType.Epanechnikov,
+    "exponential": DensityKernelType.Exponential,
+    "linear": DensityKernelType.Linear,
+    "cosine": DensityKernelType.Cosine,
+}
+
+VALID_KERNELS = list(KDE_KERNEL_TYPES.keys())
 
 
 def _coerce_russellrao_binary(arr, *, input_name):
@@ -39,10 +89,11 @@ def _coerce_russellrao_binary(arr, *, input_name):
     The fused KDE kernel computes RussellRao assuming binary inputs, matching
     the behavior of ``cuml.metrics.pairwise_distances`` for this metric.
     """
-    cp_arr = _as_cupy_array(arr)
+    cp_arr = cp.asarray(arr)
     if not bool(cp.logical_or(cp_arr == 0, cp_arr == 1).all()):
         warnings.warn(
-            f"{input_name} was converted to boolean for metric 'russellrao'"
+            f"{input_name} was converted to boolean for metric 'russellrao'",
+            stacklevel=2,
         )
         dtype = cp_arr.dtype
         return cp.where(cp_arr != 0, dtype.type(1), dtype.type(0))
@@ -228,6 +279,9 @@ class KernelDensity(Base, InteropMixin):
         )
         if self._sample_weight is not None:
             check_non_negative(self._sample_weight, input_name="sample_weight")
+            self._sample_weight = cp.asarray(self._sample_weight)
+
+        self._X = cp.asarray(self._X)
 
         if self.metric == "russellrao":
             self._X = _coerce_russellrao_binary(self._X, input_name="X")
@@ -273,6 +327,8 @@ class KernelDensity(Base, InteropMixin):
         )
         if self.metric == "russellrao":
             X = _coerce_russellrao_binary(X, input_name="X")
+        else:
+            X = cp.asarray(X)
 
         if self.metric_params:
             if len(self.metric_params) != 1:
@@ -283,24 +339,84 @@ class KernelDensity(Base, InteropMixin):
         else:
             metric_arg = 2.0
 
+        if self.metric not in SUPPORTED_METRICS:
+            raise ValueError(f"metric={self.metric!r} is not supported")
+
         sum_weights = (
             float(cp.sum(self._sample_weight))
             if self._sample_weight is not None
             else float(self._X.shape[0])
         )
 
-        log_probabilities = kde_score_samples(
-            X,
-            self._X,
-            self._sample_weight,
-            self.bandwidth_,
-            sum_weights,
-            self.kernel,
-            self.metric,
-            metric_arg,
+        cdef DensityKernelType kernel_enum = KDE_KERNEL_TYPES[self.kernel]
+        cdef DistanceType metric_enum = SUPPORTED_METRICS[self.metric]
+
+        cdef cpp_bool is_float32 = X.dtype == np.float32
+        cdef int64_t n_query = X.shape[0]
+        cdef int64_t n_train = self._X.shape[0]
+        cdef int64_t n_features = X.shape[1] if len(X.shape) > 1 else 1
+
+        output = cp.empty(n_query, dtype=X.dtype)
+
+        cdef uintptr_t query_ptr = X.data.ptr
+        cdef uintptr_t train_ptr = self._X.data.ptr
+        cdef uintptr_t weight_ptr = 0
+        if self._sample_weight is not None:
+            weight_ptr = self._sample_weight.data.ptr
+        cdef uintptr_t output_ptr = output.data.ptr
+
+        cdef const float* weights_f = (
+            <const float*>weight_ptr if weight_ptr != 0
+            else <const float*>NULL
+        )
+        cdef const double* weights_d = (
+            <const double*>weight_ptr if weight_ptr != 0
+            else <const double*>NULL
         )
 
-        return log_probabilities
+        cdef double c_bandwidth = <double>self.bandwidth_
+        cdef double c_sum_weights = <double>sum_weights
+        cdef double c_metric_arg = <double>metric_arg
+
+        handle = get_handle()
+        cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
+
+        with nogil:
+            if is_float32:
+                _cuml_kde_score_samples(
+                    handle_[0],
+                    <const float*>query_ptr,
+                    <const float*>train_ptr,
+                    weights_f,
+                    <float*>output_ptr,
+                    n_query,
+                    n_train,
+                    n_features,
+                    <float>c_bandwidth,
+                    <float>c_sum_weights,
+                    kernel_enum,
+                    metric_enum,
+                    <float>c_metric_arg,
+                )
+            else:
+                _cuml_kde_score_samples(
+                    handle_[0],
+                    <const double*>query_ptr,
+                    <const double*>train_ptr,
+                    weights_d,
+                    <double*>output_ptr,
+                    n_query,
+                    n_train,
+                    n_features,
+                    c_bandwidth,
+                    c_sum_weights,
+                    kernel_enum,
+                    metric_enum,
+                    c_metric_arg,
+                )
+        handle.sync()
+
+        return CumlArray(data=output)
 
     @run_in_internal_context
     def score(self, X, y=None) -> float:
