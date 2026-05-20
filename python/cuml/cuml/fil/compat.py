@@ -40,6 +40,8 @@ class set_fil_device_type:
     May optionally be used as a context-manager to set the device type only
     within a context.
 
+    This is deprecated and will be removed in 26.10.
+
     Parameters
     ----------
     device_type : {'cpu', 'gpu'}
@@ -64,6 +66,10 @@ class set_fil_device_type:
     """
 
     def __init__(self, device_type):
+        warnings.warn(
+            "cuml.fil.set_fil_device_type is deprecated and will be removed in 26.10. ",
+            FutureWarning,
+        )
         device_type = DeviceType.from_str(device_type)
         self._previous = GlobalSettings().fil_device_type
         GlobalSettings().fil_device_type = device_type
