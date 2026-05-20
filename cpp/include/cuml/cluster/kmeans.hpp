@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -72,6 +72,45 @@ void fit(const raft::handle_t& handle,
          int64_t n_samples,
          int64_t n_features,
          const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
+
+/**
+ * @brief Compute multi-GPU k-means clustering from multiple local device partitions.
+ *
+ * Each rank passes its local row-major partitions directly. The partitions are
+ * processed by cuVS without first concatenating them into one device allocation.
+ *
+ * @param[in]     handle              The handle to the cuML library context.
+ * @param[in]     params              Parameters for KMeans model.
+ * @param[in]     X_parts             Device pointers for local row-major partitions.
+ * @param[in]     n_samples_parts     Number of rows for each local partition.
+ * @param[in]     n_parts             Number of local partitions.
+ * @param[in]     n_features          Number of columns in every local partition.
+ * @param[in]     sample_weight_parts Optional device pointers for local partition weights.
+ * @param[inout]  centroids           Input/output cluster centroids.
+ * @param[out]    inertia             Sum of squared distances to closest centroids.
+ * @param[out]    n_iter              Number of iterations run.
+ */
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float** X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const float** sample_weight_parts,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double** X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const double** sample_weight_parts,
          double* centroids,
          double& inertia,
          int64_t& n_iter);

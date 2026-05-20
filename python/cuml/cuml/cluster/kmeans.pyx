@@ -25,6 +25,7 @@ from cuml.internals.validation import (
 
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
@@ -170,6 +171,113 @@ cdef _kmeans_fit(
     return n_iter_32 if indices_i32 else n_iter_64
 
 
+cdef _kmeans_fit_parts(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    X_parts,
+    sample_weight_parts,
+    centers,
+):
+    """Fit kmeans centers from multiple local device partitions."""
+    cdef int64_t n_parts = len(X_parts)
+    if n_parts == 0:
+        raise ValueError("Expected at least one non-empty KMeansMG partition.")
+
+    cdef int64_t n_cols = X_parts[0].shape[1]
+    cdef bool values_f32 = X_parts[0].dtype == cp.float32
+    cdef bool has_weights = sample_weight_parts is not None
+
+    cdef const float **X32_parts = NULL
+    cdef const double **X64_parts = NULL
+    cdef const float **W32_parts = NULL
+    cdef const double **W64_parts = NULL
+    cdef int64_t *n_rows_parts = NULL
+
+    cdef uintptr_t centers_ptr = centers.data.ptr
+    cdef int64_t n_iter_64 = 0
+    cdef float inertia_32 = 0
+    cdef double inertia_64 = 0
+    cdef int64_t i
+
+    try:
+        n_rows_parts = <int64_t*>malloc(n_parts * sizeof(int64_t))
+        if n_rows_parts == NULL:
+            raise MemoryError()
+
+        if values_f32:
+            X32_parts = <const float **>malloc(n_parts * sizeof(uintptr_t))
+            if X32_parts == NULL:
+                raise MemoryError()
+            if has_weights:
+                W32_parts = <const float **>malloc(n_parts * sizeof(uintptr_t))
+                if W32_parts == NULL:
+                    raise MemoryError()
+        else:
+            X64_parts = <const double **>malloc(n_parts * sizeof(uintptr_t))
+            if X64_parts == NULL:
+                raise MemoryError()
+            if has_weights:
+                W64_parts = <const double **>malloc(n_parts * sizeof(uintptr_t))
+                if W64_parts == NULL:
+                    raise MemoryError()
+
+        for i in range(n_parts):
+            n_rows_parts[i] = <int64_t>X_parts[i].shape[0]
+            if values_f32:
+                X32_parts[i] = <const float*><uintptr_t>X_parts[i].data.ptr
+                if has_weights:
+                    W32_parts[i] = (
+                        <const float*><uintptr_t>sample_weight_parts[i].data.ptr
+                    )
+            else:
+                X64_parts[i] = <const double*><uintptr_t>X_parts[i].data.ptr
+                if has_weights:
+                    W64_parts[i] = (
+                        <const double*><uintptr_t>sample_weight_parts[i].data.ptr
+                    )
+
+        with nogil:
+            if values_f32:
+                lib.fit(
+                    handle,
+                    params,
+                    X32_parts,
+                    n_rows_parts,
+                    n_parts,
+                    n_cols,
+                    W32_parts,
+                    <float*>centers_ptr,
+                    inertia_32,
+                    n_iter_64,
+                )
+            else:
+                lib.fit(
+                    handle,
+                    params,
+                    X64_parts,
+                    n_rows_parts,
+                    n_parts,
+                    n_cols,
+                    W64_parts,
+                    <double*>centers_ptr,
+                    inertia_64,
+                    n_iter_64,
+                )
+    finally:
+        if X32_parts != NULL:
+            free(X32_parts)
+        if X64_parts != NULL:
+            free(X64_parts)
+        if W32_parts != NULL:
+            free(W32_parts)
+        if W64_parts != NULL:
+            free(W64_parts)
+        if n_rows_parts != NULL:
+            free(n_rows_parts)
+
+    return n_iter_64
+
+
 cdef _kmeans_predict(
     handle_t& handle,
     lib.KMeansParams &params,
@@ -261,6 +369,149 @@ cdef _kmeans_predict(
                 )
 
     inertia = inertia_f32 if values_f32 else inertia_f64
+
+    return labels, inertia
+
+
+cdef _kmeans_predict_to_labels(
+    handle_t& handle,
+    lib.KMeansParams &params,
+    X,
+    sample_weight,
+    centers,
+    labels,
+    int64_t label_offset,
+):
+    """Predict labels into a preallocated labels array and return inertia."""
+    cdef int64_t n_rows = X.shape[0]
+    if n_rows == 0:
+        return 0.0
+
+    cdef int64_t n_cols = X.shape[1]
+    cdef bool labels_i32 = labels.dtype == cp.int32
+
+    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t centers_ptr = centers.data.ptr
+    cdef uintptr_t sample_weight_ptr = sample_weight.data.ptr
+    cdef uintptr_t labels_ptr = labels.data.ptr + label_offset * (
+        4 if labels_i32 else 8
+    )
+
+    cdef bool values_f32 = X.dtype == cp.float32
+
+    cdef float inertia_f32 = 0
+    cdef double inertia_f64 = 0
+
+    with nogil:
+        if values_f32:
+            if labels_i32:
+                lib.predict(
+                    handle,
+                    params,
+                    <float*>centers_ptr,
+                    <float*>X_ptr,
+                    <int>n_rows,
+                    <int>n_cols,
+                    <float*>sample_weight_ptr,
+                    True,
+                    <int*>labels_ptr,
+                    inertia_f32,
+                )
+            else:
+                lib.predict(
+                    handle,
+                    params,
+                    <float*>centers_ptr,
+                    <float*>X_ptr,
+                    <int64_t>n_rows,
+                    <int64_t>n_cols,
+                    <float*>sample_weight_ptr,
+                    True,
+                    <int64_t*>labels_ptr,
+                    inertia_f32,
+                )
+        else:
+            if labels_i32:
+                lib.predict(
+                    handle,
+                    params,
+                    <double*>centers_ptr,
+                    <double*>X_ptr,
+                    <int>n_rows,
+                    <int>n_cols,
+                    <double*>sample_weight_ptr,
+                    True,
+                    <int*>labels_ptr,
+                    inertia_f64,
+                )
+            else:
+                lib.predict(
+                    handle,
+                    params,
+                    <double*>centers_ptr,
+                    <double*>X_ptr,
+                    <int64_t>n_rows,
+                    <int64_t>n_cols,
+                    <double*>sample_weight_ptr,
+                    True,
+                    <int64_t*>labels_ptr,
+                    inertia_f64,
+                )
+
+    return inertia_f32 if values_f32 else inertia_f64
+
+
+cdef _kmeans_predict_parts(
+    handle_t& handle,
+    lib.KMeansParams &params,
+    X_parts,
+    sample_weight_parts,
+    centers,
+):
+    """Predict labels for local partitions without concatenating inputs."""
+    cdef int64_t total_rows = 0
+    cdef int64_t offset = 0
+    cdef int64_t n_clusters = centers.shape[0]
+    cdef int64_t n_cols = centers.shape[1]
+    cdef bool labels_i32 = _kmeans_indices_i32(n_clusters, n_cols)
+    cdef int64_t i
+    cdef int64_t n_rows
+    cdef bool has_weights = sample_weight_parts is not None
+    cdef double inertia = 0.0
+
+    for i in range(len(X_parts)):
+        n_rows = <int64_t>X_parts[i].shape[0]
+        total_rows += n_rows
+        labels_i32 = (
+            labels_i32
+            and _kmeans_indices_i32(n_rows, X_parts[i].shape[1])
+        )
+
+    labels = cp.empty(
+        shape=total_rows,
+        dtype=(cp.int32 if labels_i32 else cp.int64),
+    )
+
+    for i in range(len(X_parts)):
+        n_rows = <int64_t>X_parts[i].shape[0]
+        if n_rows == 0:
+            continue
+
+        if has_weights:
+            sample_weight = sample_weight_parts[i]
+        else:
+            sample_weight = cp.ones(shape=n_rows, dtype=X_parts[i].dtype)
+
+        inertia += _kmeans_predict_to_labels(
+            handle,
+            params,
+            X_parts[i],
+            sample_weight,
+            centers,
+            labels,
+            offset,
+        )
+        offset += n_rows
 
     return labels, inertia
 
@@ -589,6 +840,130 @@ class KMeans(Base,
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
         labels, inertia = _kmeans_predict(handle_[0], params, X, sample_weight, centers)
         handle.sync()
+
+        # Store fitted attributes and return
+        self.cluster_centers_ = CumlArray(data=centers)
+        self.labels_ = CumlArray(data=labels)
+        self.inertia_ = inertia
+        self.n_iter_ = n_iter
+
+        return self
+
+    @run_in_internal_context
+    def _fit_mg_parts(
+        self,
+        X_parts,
+        sample_weight_parts=None,
+        *,
+        convert_dtype=True,
+    ) -> "KMeans":
+        """Fit KMeansMG from multiple local partitions without concatenating X."""
+        if len(X_parts) == 0:
+            raise ValueError("Expected at least one KMeansMG partition.")
+
+        if sample_weight_parts is not None:
+            if len(sample_weight_parts) != len(X_parts):
+                raise ValueError(
+                    "Expected sample_weight partitions to match X partitions. "
+                    f"Got {len(sample_weight_parts)} weights for "
+                    f"{len(X_parts)} partitions."
+                )
+
+        self._set_output_type(X_parts[0])
+
+        X_arys = []
+        sample_weight_arys = [] if sample_weight_parts is not None else None
+        fit_dtype = None
+
+        for i in range(len(X_parts)):
+            check_dtype = ("float32", "float64") if i == 0 else fit_dtype
+            if sample_weight_parts is None:
+                X_m = check_inputs(
+                    self,
+                    X_parts[i],
+                    dtype=check_dtype,
+                    convert_dtype=convert_dtype,
+                    order="C",
+                    ensure_min_samples=0,
+                    reset=(i == 0),
+                )
+            else:
+                X_m, sample_weight_m = check_inputs(
+                    self,
+                    X_parts[i],
+                    sample_weight=sample_weight_parts[i],
+                    dtype=check_dtype,
+                    convert_dtype=convert_dtype,
+                    order="C",
+                    ensure_min_samples=0,
+                    reset=(i == 0),
+                )
+                sample_weight_arys.append(sample_weight_m)
+
+            if i == 0:
+                fit_dtype = X_m.dtype
+
+            X_arys.append(X_m)
+
+        n_rows = sum(X_m.shape[0] for X_m in X_arys)
+        if n_rows == 0:
+            raise ValueError("KMeansMG received no samples on this rank.")
+
+        n_cols = X_arys[0].shape[1]
+        non_empty_indices = [
+            i for i, X_m in enumerate(X_arys) if X_m.shape[0] > 0
+        ]
+        fit_X_arys = [X_arys[i] for i in non_empty_indices]
+        if sample_weight_arys is None:
+            fit_sample_weight_arys = None
+        else:
+            fit_sample_weight_arys = [
+                sample_weight_arys[i] for i in non_empty_indices
+            ]
+
+        # Allocate output cluster_centers_
+        if isinstance(self.init, str):
+            centers = cp.zeros(
+                shape=(self.n_clusters, n_cols), dtype=fit_dtype, order="C",
+            )
+        else:
+            # Initial array provided, coerce to device array and validate
+            centers = check_array(
+                self.init,
+                order="C",
+                dtype=fit_dtype,
+                convert_dtype=convert_dtype,
+            ).copy()
+            if centers.shape[0] != self.n_clusters:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of clusters {self.n_clusters}."
+                )
+            if centers.shape[1] != n_cols:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of features of the data {n_cols}."
+                )
+
+        cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
+        cdef lib.KMeansParams params
+        _kmeans_init_params(self, params)
+
+        n_iter = _kmeans_fit_parts(
+            handle_[0],
+            params,
+            fit_X_arys,
+            fit_sample_weight_arys,
+            centers,
+        )
+        labels, inertia = _kmeans_predict_parts(
+            handle_[0],
+            params,
+            X_arys,
+            sample_weight_arys,
+            centers,
+        )
+        self.handle.sync()
 
         # Store fitted attributes and return
         self.cluster_centers_ = CumlArray(data=centers)
