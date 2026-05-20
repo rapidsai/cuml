@@ -260,26 +260,26 @@ def test_bad_sample_weight_errors():
         kde.fit(X, sample_weight=np.array([[1, 2], [3, 4]]))
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Reference pairwise distances for metrics absent from sklearn.pairwise
 # (must match the corresponding DistOp accumulate/finalize in kde.cu exactly)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 
 def _hellinger_dist(X, Y):
-    """sqrt(max(0, 1 - Σ sqrt(xi·yi)))  — matches DistOp<HellingerExpanded>."""
+    """sqrt(max(0, 1 - sum sqrt(xi * yi))) - matches DistOp<HellingerExpanded>."""
     sx = np.sqrt(np.maximum(X, 0.0))
     sy = np.sqrt(np.maximum(Y, 0.0))
     return np.sqrt(np.maximum(1.0 - sx @ sy.T, 0.0))
 
 
 def _jensenshannon_dist(X, Y):
-    """sqrt(0.5·Σ(a·log(a/m) + b·log(b/m)))  — matches DistOp<JensenShannon>."""
+    """sqrt(0.5 * sum(a * log(a/m) + b * log(b/m))) - matches DistOp<JensenShannon>."""
     out = np.zeros((len(X), len(Y)))
     for i, a in enumerate(X):
         for j, b in enumerate(Y):
             m = 0.5 * (a + b)
-            # Mirror device guards: log(0) → 0
+            # Mirror device guards: log(0) -> 0
             logM = np.where(m > 0, np.log(np.where(m > 0, m, 1.0)), 0.0)
             logA = np.where(a > 0, np.log(np.where(a > 0, a, 1.0)), 0.0)
             logB = np.where(b > 0, np.log(np.where(b > 0, b, 1.0)), 0.0)
@@ -289,7 +289,7 @@ def _jensenshannon_dist(X, Y):
 
 
 def _kldivergence_dist(X, Y):
-    """Σ a·log(a/b) for a,b > 0  — matches DistOp<KLDivergence>."""
+    """sum a * log(a/b) for a,b > 0 - matches DistOp<KLDivergence>."""
     out = np.zeros((len(X), len(Y)))
     for i, a in enumerate(X):
         for j, b in enumerate(Y):

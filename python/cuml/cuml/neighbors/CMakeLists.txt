@@ -6,7 +6,7 @@
 # =============================================================================
 
 set(cython_sources "")
-add_module_gpu_default("kde.pyx" ${knn_algo} ${neighbors_algo})
+add_module_gpu_default("kernel_density.pyx" ${knn_algo} ${neighbors_algo})
 add_module_gpu_default("kneighbors_classifier.pyx" ${kneighbors_classifier_algo} ${neighbors_algo})
 add_module_gpu_default("kneighbors_regressor.pyx" ${kneighbors_regressor_algo} ${neighbors_algo})
 add_module_gpu_default("nearest_neighbors.pyx" ${nearest_neighbors_algo} ${neighbors_algo})
