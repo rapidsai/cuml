@@ -1,8 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cupy as cp
 import numpy as np
+import sklearn
+from packaging.version import Version
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.metaestimators import available_if
 
@@ -25,6 +29,8 @@ from cuml.internals.validation import (
 )
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
+
+SKLEARN_19 = Version(sklearn.__version__) >= Version("1.9.0.dev0")
 
 
 class SVC(SVMBase, ClassifierMixin):
@@ -105,6 +111,11 @@ class SVC(SVMBase, ClassifierMixin):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
     probability : bool (default = False)
+        .. deprecated:: 26.06
+            ``probability`` is deprecated and will be removed in version
+            26.08. Use ``CalibratedClassifierCV(SVC(), ensemble=False)``
+            from ``sklearn.calibration`` for probability estimates instead.
+
         Set to ``True`` to enable probability estimates
         (``predict_proba``/``predict_log_proba``). Note that
         ``probability=True`` requires your training data have at least 5
@@ -188,18 +199,18 @@ class SVC(SVMBase, ClassifierMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if model.probability is True:
+            # probability=True is deprecated; cuml.accel falls back to
+            # native sklearn's own CalibratedClassifierCV.
+            raise UnsupportedOnGPU("`probability=True` is not supported")
+
         params = super()._params_from_cpu(model)
         params.pop(
             "epsilon"
         )  # SVC doesn't expose `epsilon` in the constructor
-        # sklearn 1.9 changed the default of `probability` from False to the
-        # sentinel string "deprecated"; coerce to the bool cuml uses.
-        probability = model.probability
-        if probability == "deprecated":
-            probability = False
+        # probability omitted; True rejected above, default restores it.
         params.update(
             {
-                "probability": probability,
                 "random_state": model.random_state,
                 "class_weight": model.class_weight,
                 "decision_function_shape": model.decision_function_shape,
@@ -212,9 +223,14 @@ class SVC(SVMBase, ClassifierMixin):
         params.pop(
             "epsilon"
         )  # SVC doesn't expose `epsilon` in the constructor
+        # sklearn <1.9 rejects the ``"deprecated"`` sentinel; resolve it there.
+        if SKLEARN_19:
+            probability = self.probability
+        else:
+            probability = self._effective_probability
         params.update(
             {
-                "probability": self.probability,
+                "probability": probability,
                 "random_state": self.random_state,
                 "class_weight": self.class_weight,
                 "decision_function_shape": self.decision_function_shape,
@@ -265,7 +281,7 @@ class SVC(SVMBase, ClassifierMixin):
         nochange_steps=1000,
         verbose=False,
         output_type=None,
-        probability=False,
+        probability="deprecated",
         random_state=None,
         class_weight=None,
         decision_function_shape="ovo",
@@ -287,6 +303,10 @@ class SVC(SVMBase, ClassifierMixin):
         self.random_state = random_state
         self.class_weight = class_weight
         self.decision_function_shape = decision_function_shape
+
+    @property
+    def _effective_probability(self):
+        return False if self.probability == "deprecated" else self.probability
 
     @property
     @reflect
@@ -326,6 +346,9 @@ class SVC(SVMBase, ClassifierMixin):
 
         params = self.get_params()
         decision_function_shape = params.pop("decision_function_shape")
+        # Pin the sentinel on inner clones so they don't re-fire the
+        # deprecation warning the outer fit already emitted.
+        params["probability"] = "deprecated"
         wrappers = {"ovo": OneVsOneClassifier, "ovr": OneVsRestClassifier}
         if (multiclass_cls := wrappers.get(decision_function_shape)) is None:
             raise ValueError(
@@ -375,7 +398,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         params = {
             **self.get_params(),
-            "probability": False,
+            "probability": "deprecated",
             "output_type": "numpy",
             "class_weight": None,
         }
@@ -433,6 +456,16 @@ class SVC(SVMBase, ClassifierMixin):
         Fit the model with X and y.
 
         """
+        if self.probability != "deprecated":
+            warnings.warn(
+                "The `probability` parameter is deprecated and will be "
+                "removed in cuML version 26.08. Use "
+                "`CalibratedClassifierCV(SVC(), ensemble=False)` from "
+                "`sklearn.calibration` instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
@@ -476,7 +509,7 @@ class SVC(SVMBase, ClassifierMixin):
             balanced_with_sample_weight=False,
         )
 
-        if self.probability:
+        if self._effective_probability:
             return self._fit_proba(X, y, sample_weight)
 
         if len(classes) > 2:
@@ -507,7 +540,7 @@ class SVC(SVMBase, ClassifierMixin):
             inds = self._multiclass.predict(X)
             index = inds.index
             inds = inds.to_output("cupy")
-        elif self.probability:
+        elif self._effective_probability:
             probs = self.predict_proba(X)
             index = probs.index
             inds = cp.argmax(probs.to_output("cupy"), axis=1)
@@ -522,7 +555,7 @@ class SVC(SVMBase, ClassifierMixin):
             inds, self.classes_, output_type=output_type, index=index
         )
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         skip_parameters_heading=True,
         return_values={
@@ -584,7 +617,7 @@ class SVC(SVMBase, ClassifierMixin):
 
         return CumlArray(data=proba, index=index)
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         return_values={
             "name": "preds",

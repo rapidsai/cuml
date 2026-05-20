@@ -37,14 +37,18 @@ def test_svc(binary):
     assert svc.score(X, y) > 0.5
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter was deprecated:FutureWarning"
-)
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
 )
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
+)
 def test_svc_probability(binary):
     X, y = binary
+    # cuml.accel no longer accelerates `probability=True`; this fit falls
+    # back to native sklearn `SVC(probability=True)`. predict_proba still
+    # works through the native path.
     svc = SVC(probability=True).fit(X, y)
     # Inference and score works
     assert svc.score(X, y) > 0.5
