@@ -375,7 +375,7 @@ class IncrementalPCA(PCA):
         )
         self.singular_values_ = CumlArray(data=S[: self.n_components_])
         self.mean_ = CumlArray(data=col_mean)
-        self.var_ = col_var
+        self.var_ = CumlArray(data=col_var)
         self.explained_variance_ = CumlArray(
             data=explained_variance[: self.n_components_]
         )
@@ -491,19 +491,19 @@ class IncrementalPCA(PCA):
             "n_samples_seen_": model.n_samples_seen_,
             "noise_variance_": model.noise_variance_,
         }
-        for name in ["batch_size_", "n_features_in_", "feature_names_in_"]:
-            try:
-                out[name] = getattr(model, name)
-            except AttributeError:
-                pass
+        if (batch_size_ := getattr(model, "batch_size_", None)) is not None:
+            out["batch_size_"] = batch_size_
+        if (
+            n_features_in_ := getattr(model, "n_features_in_", None)
+        ) is not None:
+            out["n_features_in_"] = n_features_in_
+        if (
+            feature_names_in_ := getattr(model, "feature_names_in_", None)
+        ) is not None:
+            out["feature_names_in_"] = feature_names_in_
         return out
 
     def _attrs_to_cpu(self, model):
-        var_ = self.var_
-        try:
-            var_ = to_cpu(var_)
-        except AttributeError:
-            var_ = cp.asnumpy(var_)
         out = {
             "components_": to_cpu(self.components_),
             "explained_variance_": to_cpu(self.explained_variance_),
@@ -512,7 +512,7 @@ class IncrementalPCA(PCA):
             ),
             "singular_values_": to_cpu(self.singular_values_),
             "mean_": to_cpu(self.mean_),
-            "var_": var_,
+            "var_": to_cpu(self.var_),
             "n_components_": self.n_components_,
             "n_samples_seen_": self.n_samples_seen_,
             "noise_variance_": self.noise_variance_,
