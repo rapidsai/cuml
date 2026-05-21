@@ -950,7 +950,7 @@ def test_device_selection(device_id, model_kind, tmp_path):
                 n_streams=1,
             )
             cuml_model.fit(cp.array(X), cp.array(y))
-            fm = cuml_model.as_nvforest()
+            fm = cuml_model.as_fil()
     else:
         raise NotImplementedError()
 

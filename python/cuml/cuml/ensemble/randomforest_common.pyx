@@ -417,7 +417,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
             ensure_all_finite=True,
-            suppress_deprecation_warning=True,
+            _suppress_deprecation_warning=True,
         )
 
     def as_nvforest(

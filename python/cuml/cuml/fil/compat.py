@@ -100,10 +100,10 @@ class ForestInference(Base, CMajorInputTagMixin):
         precision="single",
         device_id=None,
         ensure_all_finite=False,
-        suppress_deprecation_warning=False,
+        _suppress_deprecation_warning=False,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
-        if not suppress_deprecation_warning:
+        if not _suppress_deprecation_warning:
             warnings.warn(
                 "cuml.fil.ForestInference is deprecated and will be removed in 26.10. "
                 "Use nvforest.load_model() or nvforest.load_from_sklearn() instead.",
@@ -128,7 +128,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         else:
             self.model = None
         self.ensure_all_finite = ensure_all_finite
-        self.suppress_deprecation_warning = suppress_deprecation_warning
+        self._suppress_deprecation_warning = _suppress_deprecation_warning
 
     @property
     def align_bytes(self):
@@ -227,7 +227,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj = cls(
             output_type=output_type,
             verbose=verbose,
-            suppress_deprecation_warning=True,
+            _suppress_deprecation_warning=True,
         )
         obj.model = nvforest.load_model(
             model_file=path,
@@ -269,7 +269,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj = cls(
             output_type=output_type,
             verbose=verbose,
-            suppress_deprecation_warning=True,
+            _suppress_deprecation_warning=True,
         )
         obj.model = nvforest.load_from_sklearn(
             skl_model=skl_model,
@@ -309,7 +309,7 @@ class ForestInference(Base, CMajorInputTagMixin):
         obj = cls(
             output_type=output_type,
             verbose=verbose,
-            suppress_deprecation_warning=True,
+            _suppress_deprecation_warning=True,
         )
         obj.model = nvforest.load_from_treelite_model(
             tl_model=tl_model,
@@ -503,5 +503,5 @@ class ForestInference(Base, CMajorInputTagMixin):
             "precision",
             "device_id",
             "ensure_all_finite",
-            "suppress_deprecation_warning",
+            "_suppress_deprecation_warning",
         ]
