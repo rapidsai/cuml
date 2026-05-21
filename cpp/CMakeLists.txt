@@ -49,7 +49,6 @@ option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
@@ -79,9 +78,6 @@ message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_
 message(VERBOSE "CUML_CPP: Building ml-prims tests: ${BUILD_PRIMS_TESTS}")
 message(VERBOSE "CUML_CPP: Building C++ API usage examples: ${BUILD_CUML_EXAMPLES}")
 message(VERBOSE "CUML_CPP: Building cuML C++ benchmark tests: ${BUILD_CUML_BENCH}")
-message(VERBOSE
-        "CUML_CPP: Building the MPI+NCCL Communicator (used for testing): ${BUILD_CUML_MPI_COMMS}"
-)
 message(VERBOSE
         "CUML_CPP: Enabling detection of conda environment for dependencies: ${DETECT_CONDA_ENV}"
 )
@@ -125,7 +121,10 @@ set_property(
 )
 message(VERBOSE "CUML: LIBCUML_LOGGING_LEVEL = '${LIBCUML_LOGGING_LEVEL}'.")
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   # Needed because GoogleBenchmark changes the state of FindThreads.cmake, causing subsequent runs
   # to have different values for the `Threads::Threads` target. Setting this flag ensures
   # `Threads::Threads` is the same value in first run and subsequent runs.
@@ -137,7 +136,6 @@ endif()
 
 set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-set(CUML_MG_TEST_TARGET "ml_mg")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
 # ##################################################################################################
@@ -206,13 +204,6 @@ if(SINGLEGPU)
   message(STATUS "CUML_CPP: Detected SINGLEGPU build option")
   message(STATUS "CUML_CPP: Disabling Multi-GPU components and comms libraries")
   set(BUILD_CUML_MG_TESTS OFF)
-  set(BUILD_CUML_MPI_COMMS OFF)
-  set(WITH_UCX OFF)
-endif()
-
-if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
-  message(STATUS "CUML_CPP: Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
-  set(BUILD_CUML_MPI_COMMS ON)
 endif()
 
 if(USE_CCACHE)
@@ -254,8 +245,15 @@ include(${rapids-cmake-dir}/cpm/rapids_logger.cmake)
 rapids_cpm_rapids_logger(BUILD_EXPORT_SET cuml-exports INSTALL_EXPORT_SET cuml-exports)
 create_logger_macros(CUML "ML::default_logger()" include/cuml/common)
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   find_package(Threads)
+endif()
+
+if(BUILD_CUML_MG_TESTS)
+  find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
 # CCCL before RMM, and RMM before RAFT
@@ -276,7 +274,10 @@ endif()
 
 # cumlprims_mg functionality has been moved into cuML directly
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   include(${rapids-cmake-dir}/cpm/gtest.cmake)
   rapids_cpm_gtest(BUILD_STATIC)
 endif()
@@ -585,7 +586,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-            $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE $<INSTALL_INTERFACE:include>
   )
 
@@ -597,14 +597,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   # These are always private:
-  list(
-    APPEND
-    _cuml_cpp_private_libs
-    $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
-    $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}>
-    ${OpenMP_CXX_LIB_NAMES}
-    $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
-    $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
+  list(APPEND _cuml_cpp_private_libs $<TARGET_NAME_IF_EXISTS:GPUTreeShap::GPUTreeShap>
+       $<$<BOOL:${LINK_CUFFT}>:CUDA::cufft${_ctk_fft_static_suffix}> ${OpenMP_CXX_LIB_NAMES}
   )
 
   # Add CTK include paths because we're going to make our CTK library links private below
@@ -770,7 +764,10 @@ endif()
 # ##################################################################################################
 # * build test executables ---------------------------------------------------
 
-if(BUILD_CUML_TESTS)
+if(BUILD_CUML_TESTS
+   OR BUILD_CUML_MG_TESTS
+   OR BUILD_PRIMS_TESTS
+)
   include(CTest)
   add_subdirectory(tests)
 endif()

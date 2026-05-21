@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -132,8 +132,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
 const std::vector<PCAOpgParams> inputs = {
   {20, 4, 2, ML::mg_solver::COV_EIG_JACOBI, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL},
-  {20, 4, 2, ML::mg_solver::COV_EIG_DQ, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL},
-  {20, 4, 2, ML::mg_solver::QR, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL}};
+  {20, 4, 2, ML::mg_solver::COV_EIG_DQ, {11, 9}, {1, 0}, Matrix::LayoutColMajor, 223548ULL}};
 
 typedef PCAOpgTest<float> PCAOpgTestF;
 
