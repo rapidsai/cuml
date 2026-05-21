@@ -37,6 +37,7 @@ dependencies:
 - libcusolver-dev
 - libcusparse-dev
 - libcuvs==26.6.*,>=0.0.0a0
+- libnvforest==26.6.*,>=0.0.0a0
 - libraft==26.6.*,>=0.0.0a0
 - librmm==26.6.*,>=0.0.0a0
 - lightgbm
@@ -49,6 +50,7 @@ dependencies:
 - numpy>=1.26,<3.0
 - numpydoc
 - numpydoc<1.9
+- nvforest==26.6.*,>=0.0.0a0
 - nvidia-ml-py>=12
 - onnxruntime
 - packaging
