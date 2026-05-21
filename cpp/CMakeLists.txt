@@ -276,6 +276,7 @@ endif()
 
 if(LINK_NVFOREST)
   include(cmake/thirdparty/get_nvforest.cmake)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
 endif()
 
 if(all_algo OR treeshap_algo)
@@ -569,7 +570,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(LINK_NVFOREST)
-    list(APPEND _cuml_cpp_public_libs nvforest::nvforest++)
+    list(APPEND _cuml_cpp_public_libs ${CUML_NVFOREST_TARGET})
   endif()
 
   # These are always private:
