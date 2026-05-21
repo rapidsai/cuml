@@ -375,11 +375,12 @@ class BaseRandomForestModel(Base, InteropMixin):
         self, layout="depth_first", default_chunk_size=None, align_bytes=None,
     ):
         """
-        Create a Forest Inference (FIL) inference model from the trained cuML
-        Random Forest model.
+        Create a Forest Inference (FIL) model from the cuML model.
 
-        Note. This function is deprecated and scheduled to be removed in 26.10.
-        Use as_nvforest() instead.
+        .. deprecated:: 26.06
+
+            The ``as_fil`` method is deprecated and will be removed in 26.08.
+            Please use ``as_nvforest`` instead.
 
         Parameters
         ----------
@@ -424,8 +425,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self, layout="depth_first", default_chunk_size=None, align_bytes=None,
     ):
         """
-        Create a nvForest inference model from the trained cuML
-        Random Forest model.
+        Create a nvForest model from the cuML model.
 
         Parameters
         ----------
