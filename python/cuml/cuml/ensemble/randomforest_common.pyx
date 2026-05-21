@@ -379,7 +379,7 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         .. deprecated:: 26.06
 
-            The ``as_fil`` method is deprecated and will be removed in 26.08.
+            The ``as_fil`` method is deprecated and will be removed in 26.10.
             Please use ``as_nvforest`` instead.
 
         Parameters
