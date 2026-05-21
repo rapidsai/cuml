@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/fil/tree_layout.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace fil {
 /**
  * The default memory layout for FIL trees if not otherwise specified
@@ -24,4 +25,4 @@ auto constexpr static const preferred_tree_layout = tree_layout::breadth_first;
 auto constexpr static const reserved_node_metadata_bits = 3;
 
 }  // namespace fil
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

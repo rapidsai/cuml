@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -13,7 +14,7 @@
 
 #include <cstddef>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace HDBSCAN {
 namespace Common {
 
@@ -573,4 +574,4 @@ void compute_inverse_label_map(const raft::handle_t& handle,
                                float cluster_selection_epsilon);
 
 }  // namespace HDBSCAN::HELPER
-}  // END namespace ML
+}  // END namespace CUML_EXPORT ML

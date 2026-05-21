@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/fil/constants.hpp>
 #include <cuml/fil/detail/device_initialization.hpp>
 #include <cuml/fil/detail/forest.hpp>
@@ -27,7 +28,7 @@
 #include <optional>
 #include <variant>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace fil {
 
 /**
@@ -480,4 +481,4 @@ inline auto get_forest_variant_index(bool use_double_thresholds,
           (index_type{double_precision} << index_type{1}) + index_type{large_trees});
 }
 }  // namespace fil
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

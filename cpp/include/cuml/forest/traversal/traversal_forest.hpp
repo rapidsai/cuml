@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/forest/traversal/traversal_node.hpp>
 #include <cuml/forest/traversal/traversal_order.hpp>
 
@@ -10,7 +11,7 @@
 #include <queue>
 #include <stack>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace forest {
 
 namespace detail {
@@ -187,4 +188,4 @@ struct traversal_forest {
 };
 
 }  // namespace forest
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

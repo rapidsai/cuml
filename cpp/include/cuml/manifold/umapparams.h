@@ -7,9 +7,10 @@
 
 #include <cuml/common/callback.hpp>
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace graph_build_params {
 
@@ -221,4 +222,4 @@ class UMAPParams {
   Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

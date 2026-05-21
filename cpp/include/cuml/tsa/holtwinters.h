@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,11 +7,13 @@
 
 #include "holtwinters_params.h"
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace HoltWinters {
 
 /**
@@ -142,4 +144,4 @@ void forecast(const raft::handle_t& handle,
               double* forecast_d);
 
 }  // namespace HoltWinters
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

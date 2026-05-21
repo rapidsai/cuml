@@ -1,10 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
-namespace ML {
+#include <cuml/common/export.hpp>
+
+namespace CUML_EXPORT ML {
 namespace forest {
 
 /* A class used to specify the order in which nodes of a forest should be
@@ -35,4 +37,4 @@ enum class forest_order : unsigned char {
 };
 
 }  // namespace forest
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

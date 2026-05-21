@@ -7,11 +7,13 @@
 
 #include "params.hpp"
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 void pcaFit(const raft::handle_t& handle,
             float* input,
@@ -84,4 +86,4 @@ void pcaTransform(const raft::handle_t& handle,
                   double* mu,
                   const paramsPCA& prms);
 
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML
