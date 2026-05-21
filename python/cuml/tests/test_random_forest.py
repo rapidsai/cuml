@@ -690,11 +690,12 @@ def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
     acc = accuracy_score(y_test, preds)
     np.testing.assert_almost_equal(acc, cuml_model.score(X_test, y_test))
 
-    nvforest_model = cuml_model.as_nvforest()
+    nvforest_model = cuml_model.as_nvforest(layout=nvforest_layout)
 
-    nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
-    nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
-    assert acc == nvforest_model_acc
+    with cuml.using_output_type("numpy"):
+        nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
+        nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
+        assert acc == nvforest_model_acc
 
     tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree
@@ -750,10 +751,12 @@ def test_rf_regression_sparse(special_reg, datatype, nvforest_layout):
     preds = cuml_model.predict(X_test, layout=nvforest_layout)
     r2 = r2_score(y_test, preds)
 
-    nvforest_model = cuml_model.as_nvforest()
-    nvforest_model_preds = nvforest_model.predict(X_test)
-    nvforest_model_preds = np.reshape(nvforest_model_preds, np.shape(y_test))
-    nvforest_model_r2 = r2_score(y_test, nvforest_model_preds)
+    nvforest_model = cuml_model.as_nvforest(layout=nvforest_layout)
+
+    nvforest_model_preds = cp.reshape(
+        nvforest_model.predict(X_test), np.shape(y_test)
+    )
+    nvforest_model_r2 = r2_score(cp.asarray(y_test), nvforest_model_preds)
     assert r2 == nvforest_model_r2
 
     tl_model = cuml_model.as_treelite()

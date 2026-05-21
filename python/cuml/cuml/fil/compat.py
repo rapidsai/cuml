@@ -311,6 +311,7 @@ class ForestInference(Base, CMajorInputTagMixin):
             "and will be removed in 26.10. "
             "Use nvforest.load_from_treelite_model() instead.",
             FutureWarning,
+            stacklevel=2,
         )
         obj = cls(
             output_type=output_type,
