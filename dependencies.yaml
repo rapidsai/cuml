@@ -19,9 +19,11 @@ files:
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_numba_cuda
+      - depends_on_nvforest
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -49,9 +51,11 @@ files:
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_numba_cuda
+      - depends_on_nvforest
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rapids_logger
@@ -73,6 +77,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft_headers
       - depends_on_librmm
   checks:
@@ -91,6 +96,7 @@ files:
       - cuda
       - cuda_version
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft_headers
       - depends_on_librmm
   docs:
@@ -101,6 +107,7 @@ files:
       - py_version
       - depends_on_cuml
       - depends_on_libcuml
+      - depends_on_libnvforest
       - depends_on_rapids_dask_dependency
       - depends_on_dask_cuda
       - depends_on_dask_cudf
@@ -110,6 +117,7 @@ files:
     includes:
       - cuda_version
       - depends_on_libcuml
+      - depends_on_libnvforest
       - test_libcuml
       - test_cpp
   test_python:
@@ -119,6 +127,7 @@ files:
       - depends_on_cuml
       - depends_on_cupy
       - depends_on_libcuml
+      - depends_on_nvforest
       - py_version
       - test_python
       - test_python_xgboost
@@ -129,6 +138,7 @@ files:
       - depends_on_cuml
       - depends_on_cupy
       - depends_on_libcuml
+      - depends_on_libnvforest
       - py_version
       - test_python
       - test_python_xgboost
@@ -147,6 +157,7 @@ files:
       - depends_on_dask_cuda
       - depends_on_dask_cudf
       - depends_on_numba_cuda
+      - depends_on_nvforest
       - depends_on_pylibraft
       - depends_on_raft_dask
       - depends_on_rmm
@@ -172,8 +183,10 @@ files:
       - depends_on_cuda_python
       - depends_on_libcuml
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
+      - depends_on_nvforest
       - depends_on_pylibraft
       - depends_on_rmm
       - py_build_cuml
@@ -189,6 +202,7 @@ files:
       - depends_on_cupy
       - depends_on_libcuml
       - depends_on_numba_cuda
+      - depends_on_nvforest
       - depends_on_pylibraft
       - depends_on_rmm
       - py_run_cuml
@@ -236,6 +250,7 @@ files:
     includes:
       - common_build
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_rapids_logger
@@ -247,6 +262,7 @@ files:
     includes:
       - cuda_wheels
       - depends_on_libcuvs
+      - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
       - depends_on_rapids_logger
@@ -854,6 +870,29 @@ dependencies:
       - output_types: conda
         packages:
           - &libcuvs_unsuffixed libcuvs==26.8.*,>=0.0.0a0
+  depends_on_libnvforest:
+    common:
+      - output_types: conda
+        packages:
+          - &libnvforest_unsuffixed libnvforest==26.8.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libnvforest-cu12==26.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libnvforest-cu13==26.8.*,>=0.0.0a0
+          - {matrix: null, packages: [*libnvforest_unsuffixed]}
   depends_on_libraft:
     common:
       - output_types: conda
@@ -927,6 +966,31 @@ dependencies:
           - matrix:
             packages:
               - *numba_cuda
+  depends_on_nvforest:
+    common:
+      - output_types: conda
+        packages:
+          - &nvforest_unsuffixed nvforest==26.8.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - nvforest-cu12==26.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - nvforest-cu13==26.8.*,>=0.0.0a0
+          - matrix:
+            packages:
+              - *nvforest_unsuffixed
   depends_on_pylibraft:
     common:
       - output_types: conda
