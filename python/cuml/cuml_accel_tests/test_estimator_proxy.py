@@ -739,6 +739,15 @@ def test_incremental_pca_set_output():
     assert out.columns[0].startswith("incrementalpca")
 
 
+@pytest.mark.parametrize("method", ["fit_transform", "partial_fit"])
+def test_incremental_pca_rejects_unsupported_fit_params(method):
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    with pytest.raises(TypeError):
+        getattr(model, method)(X, sample_weight=np.ones(X.shape[0]))
+
+
 def test_get_feature_names_out():
     model = PCA(n_components=5)
 
