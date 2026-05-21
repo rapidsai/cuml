@@ -156,6 +156,16 @@ Additional notes:
 - Parameters for the ``"randomized"`` solver like ``random_state``,
   ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
+IncrementalPCA
+^^^^^^^^^^^^^^
+
+``IncrementalPCA`` has no known estimator-specific ``cuml.accel`` limitations.
+
+Additional notes:
+
+- ``partial_fit`` does not support sparse input. This matches scikit-learn;
+  use ``fit`` for sparse input or provide dense batches to ``partial_fit``.
+
 TruncatedSVD
 ^^^^^^^^^^^^
 
