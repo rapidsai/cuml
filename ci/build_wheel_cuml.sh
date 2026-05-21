@@ -31,6 +31,7 @@ EXCLUDE_ARGS=(
   --exclude "libcusparse.so.*"
   --exclude "libnvJitLink.so.*"
   --exclude "librapids_logger.so"
+  --exclude "libnvforest++.so"
   --exclude "librmm.so"
 )
 

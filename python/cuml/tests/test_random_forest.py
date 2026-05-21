@@ -9,6 +9,7 @@ import random
 import warnings
 
 import cudf
+import cupy as cp
 import numpy as np
 import pytest
 import treelite
@@ -507,6 +508,14 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
 
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
+
+    if not convert_dtype:
+        with pytest.raises(
+            ValueError, match=r".*Expected array with dtype in.*"
+        ):
+            preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
+        return
+
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
@@ -647,14 +656,14 @@ def test_rf_classification_proba(
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_layout", ["depth_first", "breadth_first", "layered"]
+    "nvforest_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_classification_sparse(small_clf, datatype, fil_layout):
+def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
     num_trees = 50
 
     X, y = small_clf
@@ -677,16 +686,15 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
         max_depth=40,
     )
     cuml_model.fit(X_train, y_train)
-    preds = cuml_model.predict(X_test, layout=fil_layout)
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     acc = accuracy_score(y_test, preds)
     np.testing.assert_almost_equal(acc, cuml_model.score(X_test, y_test))
 
-    fil_model = cuml_model.as_fil()
+    nvforest_model = cuml_model.as_nvforest()
 
-    with cuml.using_output_type("numpy"):
-        fil_model_preds = fil_model.predict(X_test)
-        fil_model_acc = accuracy_score(y_test, fil_model_preds)
-        assert acc == fil_model_acc
+    nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
+    nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
+    assert acc == nvforest_model_acc
 
     tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree
@@ -709,14 +717,14 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_layout", ["depth_first", "breadth_first", "layered"]
+    "nvforest_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_regression_sparse(special_reg, datatype, fil_layout):
+def test_rf_regression_sparse(special_reg, datatype, nvforest_layout):
     num_trees = 50
 
     X, y = special_reg
@@ -739,16 +747,14 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
     )
     cuml_model.fit(X_train, y_train)
 
-    preds = cuml_model.predict(X_test, layout=fil_layout)
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     r2 = r2_score(y_test, preds)
 
-    fil_model = cuml_model.as_fil()
-
-    with cuml.using_output_type("numpy"):
-        fil_model_preds = fil_model.predict(X_test)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-        fil_model_r2 = r2_score(y_test, fil_model_preds)
-        assert r2 == fil_model_r2
+    nvforest_model = cuml_model.as_nvforest()
+    nvforest_model_preds = nvforest_model.predict(X_test)
+    nvforest_model_preds = np.reshape(nvforest_model_preds, np.shape(y_test))
+    nvforest_model_r2 = r2_score(y_test, nvforest_model_preds)
+    assert r2 == nvforest_model_r2
 
     tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree

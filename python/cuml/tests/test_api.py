@@ -15,6 +15,11 @@ import cuml.internals.mixins as cumix
 from cuml.internals.base import Base
 from cuml.testing.utils import ClassEnumerator
 
+# TODO(26.10) Remove this filter, once cuml.fil is removed
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+)
+
 ###############################################################################
 #                        Helper functions and classes                         #
 ###############################################################################
