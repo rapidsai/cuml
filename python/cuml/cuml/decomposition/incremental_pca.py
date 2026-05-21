@@ -282,6 +282,8 @@ class IncrementalPCA(PCA):
 
         if first_call := getattr(self, "n_samples_seen_", 0) == 0:
             self._set_output_type(X)
+        # `fit()` pre-validates X once and calls us per batch with
+        # check_input=False; skip re-running check_features in that case.
         if check_input or not hasattr(self, "n_features_in_"):
             check_features(self, X, reset=first_call)
 
