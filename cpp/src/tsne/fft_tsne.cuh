@@ -17,6 +17,8 @@
 
 #include <common/device_utils.cuh>
 
+#include <raft/core/copy.cuh>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/init.cuh>
 #include <raft/stats/sum.cuh>
@@ -28,8 +30,11 @@
 #include <thrust/binary_search.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
+#include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
@@ -190,6 +195,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   constexpr value_idx min_num_intervals      = 50;
   // The number of "charges" or s+2 sums i.e. number of kernel sums
   constexpr value_idx n_terms = 4;
+  constexpr value_idx n_interpolation_coefficients_per_chunk =
+    n_interpolation_points * n_interpolation_points * n_terms;
   value_idx n_boxes_per_dim   = min_num_intervals;
 
   // FFTW is faster on numbers that can be written as 2^a 3^b 5^c 7^d 11^e 13^f
@@ -245,7 +252,9 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   DB(value_idx, interpolation_chunk_counts, deterministic_interpolation ? n_total_boxes + 1 : 0);
   DB(value_idx, interpolation_chunk_offsets, deterministic_interpolation ? n_total_boxes + 1 : 0);
   DB(value_idx, interpolation_chunk_box_indices, deterministic_interpolation ? n : 0);
-  DB(value_t, interpolation_chunk_partials, deterministic_interpolation ? n * 36 : 0);
+  DB(value_t,
+     interpolation_chunk_partials,
+     deterministic_interpolation ? n * n_interpolation_coefficients_per_chunk : 0);
   DB(value_t, potentialsQij_device, n * n_terms);
   raft::linalg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
   DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
@@ -297,8 +306,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   if (deterministic_attractive) {
     // Precompute COO row ranges once so attractive forces can be accumulated
     // row-by-row in a fixed order each iteration.
-    auto row_blocks = raft::ceildiv(n + 1, (value_idx)NTHREADS_128);
-    FFT::fill_sequence<<<row_blocks, NTHREADS_128, 0, stream>>>(attractive_row_ids.data(), n);
+    thrust::sequence(
+      thrust_policy, attractive_row_ids.begin(), attractive_row_ids.end(), value_idx{0});
     thrust::lower_bound(thrust_policy,
                         ROW,
                         ROW + NNZ,
@@ -307,9 +316,15 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                         attractive_row_offsets.begin());
   }
   if (deterministic_interpolation) {
-    auto box_blocks = raft::ceildiv(n_total_boxes + 1, (value_idx)NTHREADS_128);
-    FFT::fill_interpolation_box_keys<<<box_blocks, NTHREADS_128, 0, stream>>>(
-      interpolation_box_keys.data(), n_total_boxes, n);
+    auto box_indices = thrust::make_counting_iterator<value_idx>(0);
+    thrust::transform(
+      thrust_policy,
+      box_indices,
+      box_indices + n_total_boxes + 1,
+      interpolation_box_keys.begin(),
+      [n] __device__(value_idx box) {
+        return static_cast<uint64_t>(box) * static_cast<uint64_t>(n);
+      });
   }
 #undef DB
 
@@ -462,12 +477,20 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
       if (deterministic_interpolation) {
         // Sort points by box with point id as a tie-breaker. Each box is then
         // reduced in deterministic chunk order instead of using atomic adds.
-        num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
-        FFT::compute_interpolation_point_sort_inputs<<<num_blocks, NTHREADS_128, 0, stream>>>(
-          interpolation_point_sort_keys.data(),
-          sorted_interpolation_point_indices.data(),
-          point_box_idx_device.data(),
-          n);
+        auto point_indices = thrust::make_counting_iterator<value_idx>(0);
+        thrust::transform(
+          thrust_policy,
+          point_indices,
+          point_indices + n,
+          interpolation_point_sort_keys.begin(),
+          [point_box_idx = point_box_idx_device.data(), n] __device__(value_idx i) {
+            return static_cast<uint64_t>(point_box_idx[i]) * static_cast<uint64_t>(n) +
+                   static_cast<uint64_t>(i);
+          });
+        thrust::sequence(thrust_policy,
+                         sorted_interpolation_point_indices.begin(),
+                         sorted_interpolation_point_indices.end(),
+                         value_idx{0});
         thrust::sort_by_key(thrust_policy,
                             interpolation_point_sort_keys.begin(),
                             interpolation_point_sort_keys.end(),
@@ -479,32 +502,43 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                             interpolation_box_keys.end(),
                             interpolation_box_offsets.begin());
         const auto n_boxes = n_total_boxes;
-        auto chunk_blocks  = raft::ceildiv(n_boxes + 1, (value_idx)NTHREADS_128);
-        FFT::compute_interpolation_chunk_counts<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
-          interpolation_chunk_counts.data(),
-          interpolation_box_offsets.data(),
-          n_boxes,
-          interpolation_chunk_size);
+        auto box_indices   = thrust::make_counting_iterator<value_idx>(0);
+        thrust::transform(
+          thrust_policy,
+          box_indices,
+          box_indices + n_boxes + 1,
+          interpolation_chunk_counts.begin(),
+          [box_offsets = interpolation_box_offsets.data(),
+           n_boxes,
+           interpolation_chunk_size] __device__(value_idx box) {
+            if (box == n_boxes) { return value_idx{0}; }
+            const value_idx n_points = box_offsets[box + 1] - box_offsets[box];
+            return (n_points + interpolation_chunk_size - 1) / interpolation_chunk_size;
+          });
         thrust::exclusive_scan(thrust_policy,
                                interpolation_chunk_counts.begin(),
                                interpolation_chunk_counts.end(),
                                interpolation_chunk_offsets.begin());
         value_idx n_active_chunks = 0;
-        RAFT_CUDA_TRY(cudaMemcpyAsync(&n_active_chunks,
-                                      interpolation_chunk_offsets.data() + n_boxes,
-                                      sizeof(value_idx),
-                                      cudaMemcpyDeviceToHost,
-                                      stream));
-        RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+        raft::copy(&n_active_chunks, interpolation_chunk_offsets.data() + n_boxes, 1, stream);
+        raft::resource::sync_stream(handle);
 
-        chunk_blocks = raft::ceildiv(n_boxes, (value_idx)NTHREADS_128);
-        FFT::fill_interpolation_chunk_boxes<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
-          interpolation_chunk_box_indices.data(),
-          interpolation_chunk_counts.data(),
-          interpolation_chunk_offsets.data(),
-          n_boxes);
+        thrust::for_each(
+          thrust_policy,
+          box_indices,
+          box_indices + n_boxes,
+          [chunk_box_indices = interpolation_chunk_box_indices.data(),
+           chunk_counts      = interpolation_chunk_counts.data(),
+           chunk_offsets     = interpolation_chunk_offsets.data()] __device__(value_idx box) {
+            const value_idx start = chunk_offsets[box];
+            const value_idx count = chunk_counts[box];
+            for (value_idx chunk = 0; chunk < count; ++chunk) {
+              chunk_box_indices[start + chunk] = box;
+            }
+          });
 
-        chunk_blocks = raft::ceildiv(n_active_chunks * 36, (value_idx)NTHREADS_128);
+        auto chunk_blocks = raft::ceildiv(n_active_chunks * n_interpolation_coefficients_per_chunk,
+                                          (value_idx)NTHREADS_128);
         FFT::compute_interpolated_chunk_partials_3_4<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
           interpolation_chunk_partials.data(),
           interpolation_chunk_box_indices.data(),

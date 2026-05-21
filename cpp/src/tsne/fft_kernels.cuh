@@ -14,8 +14,6 @@
 
 #include <cuComplex.h>
 
-#include <stdint.h>
-
 namespace ML {
 namespace TSNE {
 namespace FFT {
@@ -180,68 +178,9 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
               chargesQij[i * n_terms + current_term]);
 }
 
-template <typename value_idx>
-CUML_KERNEL void compute_interpolation_point_sort_inputs(uint64_t* __restrict__ sort_keys,
-                                                         value_idx* __restrict__ point_indices,
-                                                         const value_idx* const point_box_indices,
-                                                         const value_idx N)
-{
-  value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID >= N) return;
-
-  sort_keys[TID] = static_cast<uint64_t>(point_box_indices[TID]) * static_cast<uint64_t>(N) +
-                   static_cast<uint64_t>(TID);
-  point_indices[TID] = TID;
-}
-
-template <typename value_idx>
-CUML_KERNEL void fill_interpolation_box_keys(uint64_t* __restrict__ box_keys,
-                                             const value_idx n_boxes,
-                                             const value_idx N)
-{
-  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID > n_boxes) return;
-
-  box_keys[TID] = static_cast<uint64_t>(TID) * static_cast<uint64_t>(N);
-}
-
 // Split each sorted box span into fixed-size chunks. Partial sums are computed
 // per chunk, then reduced by increasing chunk id to keep the result reproducible
 // while avoiding one thread walking very large boxes.
-template <typename value_idx>
-CUML_KERNEL void compute_interpolation_chunk_counts(value_idx* __restrict__ chunk_counts,
-                                                    const value_idx* const box_offsets,
-                                                    const value_idx n_boxes,
-                                                    const value_idx chunk_size)
-{
-  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID > n_boxes) return;
-
-  if (TID == n_boxes) {
-    chunk_counts[TID] = 0;
-    return;
-  }
-
-  const value_idx n_points = box_offsets[TID + 1] - box_offsets[TID];
-  chunk_counts[TID]        = (n_points + chunk_size - 1) / chunk_size;
-}
-
-template <typename value_idx>
-CUML_KERNEL void fill_interpolation_chunk_boxes(value_idx* __restrict__ chunk_box_indices,
-                                                const value_idx* const chunk_counts,
-                                                const value_idx* const chunk_offsets,
-                                                const value_idx n_boxes)
-{
-  const value_idx box = threadIdx.x + blockIdx.x * blockDim.x;
-  if (box >= n_boxes) return;
-
-  const value_idx start = chunk_offsets[box];
-  const value_idx count = chunk_counts[box];
-  for (value_idx chunk = 0; chunk < count; ++chunk) {
-    chunk_box_indices[start + chunk] = box;
-  }
-}
-
 template <typename value_idx, typename value_t>
 CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
   value_t* __restrict__ chunk_partials,
@@ -257,16 +196,21 @@ CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
   const value_idx n_active_chunks)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID >= n_active_chunks * 36) return;
+  constexpr value_idx n_interpolation_points       = 3;
+  constexpr value_idx n_terms                      = 4;
+  constexpr value_idx n_coefficients_per_node      = n_interpolation_points * n_terms;
+  constexpr value_idx n_coefficients_per_box_chunk = n_interpolation_points *
+                                                     n_interpolation_points * n_terms;
+  if (TID >= n_active_chunks * n_coefficients_per_box_chunk) return;
 
-  const value_idx active_chunk = TID / 36;
-  const value_idx coeff        = TID - active_chunk * 36;
+  const value_idx active_chunk = TID / n_coefficients_per_box_chunk;
+  const value_idx coeff        = TID - active_chunk * n_coefficients_per_box_chunk;
   const value_idx box_idx      = chunk_box_indices[active_chunk];
   const value_idx local_chunk  = active_chunk - chunk_offsets[box_idx];
-  const value_idx interp_i     = coeff / 12;
-  const value_idx remainder    = coeff - interp_i * 12;
-  const value_idx interp_j     = remainder >> 2;
-  const value_idx current_term = remainder & 3;
+  const value_idx interp_i     = coeff / n_coefficients_per_node;
+  const value_idx remainder    = coeff - interp_i * n_coefficients_per_node;
+  const value_idx interp_j     = remainder / n_terms;
+  const value_idx current_term = remainder % n_terms;
 
   const value_idx start =
     min(box_offsets[box_idx] + local_chunk * chunk_size, box_offsets[box_idx + 1]);
@@ -293,25 +237,30 @@ CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_
                                                         const value_idx n_coefficients)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr value_idx n_interpolation_points       = 3;
+  constexpr value_idx n_terms                      = 4;
+  constexpr value_idx n_coefficients_per_box_chunk = n_interpolation_points *
+                                                     n_interpolation_points * n_terms;
   if (TID >= n_coefficients) return;
 
-  const value_idx coeff        = TID & 3;
-  const value_idx idx          = TID >> 2;
-  const value_idx n_nodes      = n_boxes * 3;
+  const value_idx coeff        = TID % n_terms;
+  const value_idx idx          = TID / n_terms;
+  const value_idx n_nodes      = n_boxes * n_interpolation_points;
   const value_idx node_j       = idx % n_nodes;
   const value_idx node_i       = idx / n_nodes;
-  const value_idx box_i        = node_i / 3;
-  const value_idx interp_i     = node_i - box_i * 3;
-  const value_idx box_j        = node_j / 3;
-  const value_idx interp_j     = node_j - box_j * 3;
+  const value_idx box_i        = node_i / n_interpolation_points;
+  const value_idx interp_i     = node_i - box_i * n_interpolation_points;
+  const value_idx box_j        = node_j / n_interpolation_points;
+  const value_idx interp_j     = node_j - box_j * n_interpolation_points;
   const value_idx box_idx      = box_j * n_boxes + box_i;
-  const value_idx partial_coef = (interp_i * 3 + interp_j) * 4 + coeff;
+  const value_idx partial_coef =
+    (interp_i * n_interpolation_points + interp_j) * n_terms + coeff;
 
   value_t sum                 = 0;
   const value_idx chunk_start = chunk_offsets[box_idx];
   const value_idx chunk_count = chunk_counts[box_idx];
   for (value_idx chunk = 0; chunk < chunk_count; ++chunk) {
-    sum += chunk_partials[(chunk_start + chunk) * 36 + partial_coef];
+    sum += chunk_partials[(chunk_start + chunk) * n_coefficients_per_box_chunk + partial_coef];
   }
 
   w_coefficients_device[TID] = sum;
@@ -505,15 +454,6 @@ CUML_KERNEL void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   if (Qs) {  // when computing KL div
     Qs[TID] = Q;
   }
-}
-
-template <typename value_idx>
-CUML_KERNEL void fill_sequence(value_idx* __restrict__ values, const value_idx n)
-{
-  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID > n) return;
-
-  values[TID] = TID;
 }
 
 // Deterministic equivalent of compute_Pij_x_Qij_kernel. Each thread owns one

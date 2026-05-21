@@ -20,7 +20,6 @@
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/sparse/op/sort.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/util/cudart_utils.hpp>
@@ -263,9 +262,9 @@ class TSNE_runner {
                                 handle);
 
     if (params.algorithm == TSNE_ALGORITHM::FFT && params.random_state >= 0) {
-      // Canonicalize fixed-seed FFT inputs so equal COO entries are consumed in
-      // the same row/column/value order across runs.
-      raft::sparse::op::coo_sort(&COO_Matrix, stream);
+      // Canonicalize fixed-seed FFT inputs with value as a tie-breaker for
+      // duplicate (row, col) entries. raft::sparse::op::coo_sort orders by
+      // (row, col) only and carries values as payload.
       auto policy    = handle.get_thrust_policy();
       auto coo_begin = thrust::make_zip_iterator(
         cuda::std::make_tuple(COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));
