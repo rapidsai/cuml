@@ -197,7 +197,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   constexpr value_idx n_terms = 4;
   constexpr value_idx n_interpolation_coefficients_per_chunk =
     n_interpolation_points * n_interpolation_points * n_terms;
-  value_idx n_boxes_per_dim   = min_num_intervals;
+  value_idx n_boxes_per_dim = min_num_intervals;
 
   // FFTW is faster on numbers that can be written as 2^a 3^b 5^c 7^d 11^e 13^f
   // where e+f is either 0 or 1, and the other exponents are arbitrary
@@ -317,14 +317,13 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   }
   if (deterministic_interpolation) {
     auto box_indices = thrust::make_counting_iterator<value_idx>(0);
-    thrust::transform(
-      thrust_policy,
-      box_indices,
-      box_indices + n_total_boxes + 1,
-      interpolation_box_keys.begin(),
-      [n] __device__(value_idx box) {
-        return static_cast<uint64_t>(box) * static_cast<uint64_t>(n);
-      });
+    thrust::transform(thrust_policy,
+                      box_indices,
+                      box_indices + n_total_boxes + 1,
+                      interpolation_box_keys.begin(),
+                      [n] __device__(value_idx box) {
+                        return static_cast<uint64_t>(box) * static_cast<uint64_t>(n);
+                      });
   }
 #undef DB
 
@@ -478,15 +477,15 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         // Sort points by box with point id as a tie-breaker. Each box is then
         // reduced in deterministic chunk order instead of using atomic adds.
         auto point_indices = thrust::make_counting_iterator<value_idx>(0);
-        thrust::transform(
-          thrust_policy,
-          point_indices,
-          point_indices + n,
-          interpolation_point_sort_keys.begin(),
-          [point_box_idx = point_box_idx_device.data(), n] __device__(value_idx i) {
-            return static_cast<uint64_t>(point_box_idx[i]) * static_cast<uint64_t>(n) +
-                   static_cast<uint64_t>(i);
-          });
+        thrust::transform(thrust_policy,
+                          point_indices,
+                          point_indices + n,
+                          interpolation_point_sort_keys.begin(),
+                          [point_box_idx = point_box_idx_device.data(), n] __device__(value_idx i) {
+                            return static_cast<uint64_t>(point_box_idx[i]) *
+                                     static_cast<uint64_t>(n) +
+                                   static_cast<uint64_t>(i);
+                          });
         thrust::sequence(thrust_policy,
                          sorted_interpolation_point_indices.begin(),
                          sorted_interpolation_point_indices.end(),
@@ -503,18 +502,18 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                             interpolation_box_offsets.begin());
         const auto n_boxes = n_total_boxes;
         auto box_indices   = thrust::make_counting_iterator<value_idx>(0);
-        thrust::transform(
-          thrust_policy,
-          box_indices,
-          box_indices + n_boxes + 1,
-          interpolation_chunk_counts.begin(),
-          [box_offsets = interpolation_box_offsets.data(),
-           n_boxes,
-           interpolation_chunk_size] __device__(value_idx box) {
-            if (box == n_boxes) { return value_idx{0}; }
-            const value_idx n_points = box_offsets[box + 1] - box_offsets[box];
-            return (n_points + interpolation_chunk_size - 1) / interpolation_chunk_size;
-          });
+        thrust::transform(thrust_policy,
+                          box_indices,
+                          box_indices + n_boxes + 1,
+                          interpolation_chunk_counts.begin(),
+                          [box_offsets = interpolation_box_offsets.data(),
+                           n_boxes,
+                           interpolation_chunk_size] __device__(value_idx box) {
+                            if (box == n_boxes) { return value_idx{0}; }
+                            const value_idx n_points = box_offsets[box + 1] - box_offsets[box];
+                            return (n_points + interpolation_chunk_size - 1) /
+                                   interpolation_chunk_size;
+                          });
         thrust::exclusive_scan(thrust_policy,
                                interpolation_chunk_counts.begin(),
                                interpolation_chunk_counts.end(),

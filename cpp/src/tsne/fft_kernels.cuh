@@ -195,12 +195,12 @@ CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
   const value_idx chunk_size,
   const value_idx n_active_chunks)
 {
-  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  constexpr value_idx n_interpolation_points       = 3;
-  constexpr value_idx n_terms                      = 4;
-  constexpr value_idx n_coefficients_per_node      = n_interpolation_points * n_terms;
-  constexpr value_idx n_coefficients_per_box_chunk = n_interpolation_points *
-                                                     n_interpolation_points * n_terms;
+  const value_idx TID                         = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr value_idx n_interpolation_points  = 3;
+  constexpr value_idx n_terms                 = 4;
+  constexpr value_idx n_coefficients_per_node = n_interpolation_points * n_terms;
+  constexpr value_idx n_coefficients_per_box_chunk =
+    n_interpolation_points * n_interpolation_points * n_terms;
   if (TID >= n_active_chunks * n_coefficients_per_box_chunk) return;
 
   const value_idx active_chunk = TID / n_coefficients_per_box_chunk;
@@ -236,11 +236,11 @@ CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_
                                                         const value_idx n_boxes,
                                                         const value_idx n_coefficients)
 {
-  const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  constexpr value_idx n_interpolation_points       = 3;
-  constexpr value_idx n_terms                      = 4;
-  constexpr value_idx n_coefficients_per_box_chunk = n_interpolation_points *
-                                                     n_interpolation_points * n_terms;
+  const value_idx TID                        = threadIdx.x + blockIdx.x * blockDim.x;
+  constexpr value_idx n_interpolation_points = 3;
+  constexpr value_idx n_terms                = 4;
+  constexpr value_idx n_coefficients_per_box_chunk =
+    n_interpolation_points * n_interpolation_points * n_terms;
   if (TID >= n_coefficients) return;
 
   const value_idx coeff        = TID % n_terms;
@@ -253,8 +253,7 @@ CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_
   const value_idx box_j        = node_j / n_interpolation_points;
   const value_idx interp_j     = node_j - box_j * n_interpolation_points;
   const value_idx box_idx      = box_j * n_boxes + box_i;
-  const value_idx partial_coef =
-    (interp_i * n_interpolation_points + interp_j) * n_terms + coeff;
+  const value_idx partial_coef = (interp_i * n_interpolation_points + interp_j) * n_terms + coeff;
 
   value_t sum                 = 0;
   const value_idx chunk_start = chunk_offsets[box_idx];
