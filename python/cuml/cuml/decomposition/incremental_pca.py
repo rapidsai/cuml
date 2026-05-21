@@ -8,6 +8,7 @@ import numbers
 import cupy as cp
 
 import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse_utils import is_sparse
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
@@ -179,6 +180,7 @@ class IncrementalPCA(PCA):
     """
 
     _cpu_class_path = "sklearn.decomposition.IncrementalPCA"
+    var_ = CumlArrayDescriptor(order="F")
 
     def __init__(
         self,
