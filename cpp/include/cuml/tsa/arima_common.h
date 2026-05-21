@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/aligned.hpp>
@@ -15,7 +17,7 @@
 
 #include <algorithm>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 /**
  * Structure to hold the ARIMA order (makes it easier to pass as an argument)
@@ -275,4 +277,4 @@ struct ARIMAMemory {
   }
 };
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

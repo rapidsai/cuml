@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
-namespace ML {
+#include <cuml/common/export.hpp>
+namespace CUML_EXPORT ML {
 namespace fil {
 
 /** Enum representing possible row-wise operations on output */
@@ -24,4 +25,4 @@ enum struct element_op : unsigned char {
 };
 
 }  // namespace fil
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

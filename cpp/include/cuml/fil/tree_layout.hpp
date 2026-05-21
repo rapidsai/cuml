@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
-namespace ML {
+#include <cuml/common/export.hpp>
+namespace CUML_EXPORT ML {
 namespace fil {
 enum class tree_layout : unsigned char {
   depth_first   = 0,
@@ -16,4 +17,4 @@ enum class tree_layout : unsigned char {
 };
 
 }
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

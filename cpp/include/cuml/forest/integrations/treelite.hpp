@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/forest/exceptions.hpp>
 #include <cuml/forest/traversal/traversal_forest.hpp>
 #include <cuml/forest/traversal/traversal_node.hpp>
@@ -13,7 +14,7 @@
 #include <numeric>
 #include <vector>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace forest {
 
 using TREELITE_NODE_ID_T = int;
@@ -223,4 +224,4 @@ auto node_accumulate(treelite::Model const& tl_model, T init, lambda_t&& lambda)
 }
 
 }  // namespace forest
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

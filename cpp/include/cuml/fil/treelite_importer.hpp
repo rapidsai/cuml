@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/fil/constants.hpp>
 #include <cuml/fil/decision_forest.hpp>
 #include <cuml/fil/detail/decision_forest_builder.hpp>
@@ -25,7 +26,7 @@
 #include <cmath>
 #include <variant>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace fil {
 
 namespace detail {
@@ -506,4 +507,4 @@ inline auto import_from_treelite_handle(
 }
 
 }  // namespace fil
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

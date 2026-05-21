@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
+
 #include <exception>
 #include <string>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace fil {
 
 /** Exception indicating model is incompatible with FIL */
@@ -61,4 +63,4 @@ struct runtime_error : std::exception {
 };
 
 }  // namespace fil
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

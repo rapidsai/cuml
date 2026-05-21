@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
+#include <cuml/common/export.hpp>
 #include <cuml/fil/constants.hpp>
 #include <cuml/fil/detail/forest.hpp>
 #include <cuml/fil/detail/index_type.hpp>
@@ -88,7 +89,7 @@
 /* Macro which expands to the declaration of an inference template for a forest
  * of the type indicated by the variant index */
 #define CUML_FIL_INFER_TEMPLATE(template_type, dev, variant_index, categorical) \
-  template_type void infer<dev, categorical, CUML_FIL_FOREST(variant_index)>
+  template_type CUML_EXPORT void infer<dev, categorical, CUML_FIL_FOREST(variant_index)>
 
 /* Macro which expands to the declaration of an inference template for a forest
  * of the type indicated by the variant index on the given device type without

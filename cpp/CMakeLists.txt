@@ -568,6 +568,13 @@ if(BUILD_CUML_CPP_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
+  set_target_properties(
+    cuml_objs
+    PROPERTIES CXX_VISIBILITY_PRESET hidden
+               CUDA_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON
+  )
+
   target_compile_definitions(cuml_objs PUBLIC DISABLE_CUSPARSE_DEPRECATED)
 
   target_compile_options(
