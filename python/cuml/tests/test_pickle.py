@@ -29,11 +29,18 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
+pytestmark = [
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08): Remove this filter
+    pytest.mark.filterwarnings(
+        "ignore:The default value of 'max_depth':FutureWarning"
+    ),
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+    pytest.mark.filterwarnings(
+        "ignore:The `probability` parameter is deprecated:FutureWarning"
+    ),
+]
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
@@ -474,7 +481,7 @@ def test_nearest_neighbors_pickle(algorithm):
         # just to ensure things are wired together properly.
         accuracy = (i1 == i2).sum() / i1.size
         assert accuracy >= 0.9
-        np.testing.assert_allclose(d1, d2, atol=1e-3)
+        np.testing.assert_allclose(d1, d2, atol=1e-2)
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)

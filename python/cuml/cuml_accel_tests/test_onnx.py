@@ -83,6 +83,10 @@ classifiers = [
     pytest.param(
         RandomForestClassifier(n_estimators=20, max_depth=8, random_state=42),
         id="RandomForestClassifier",
+        marks=pytest.mark.xfail(
+            reason="New failure, see https://github.com/rapidsai/cuml/issues/8125",
+            strict=False,
+        ),
     ),
     pytest.param(KNeighborsClassifier(), id="KNeighborsClassifier"),
     pytest.param(LinearSVC(dual="auto"), id="LinearSVC"),

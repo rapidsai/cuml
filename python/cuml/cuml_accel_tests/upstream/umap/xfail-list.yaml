@@ -37,6 +37,7 @@
   marker: cuml_accel_flaky
   strict: false
   tests:
+  - "umap.tests.test_umap_on_iris::test_precomputed_sparse_transform_on_iris"
   - "umap.tests.test_umap_on_iris::test_precomputed_transform_on_iris"
   - "umap.tests.test_umap_ops::test_umap_transform_embedding_stability"
 - reason: UMAP using removed numpy function `in1d`

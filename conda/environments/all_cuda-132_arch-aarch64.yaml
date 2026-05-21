@@ -47,7 +47,7 @@ dependencies:
 - nltk
 - numba-cuda>=0.22.2,<0.29.0
 - numba>=0.60.0,<0.65.0
-- numpy>=1.23,<3.0
+- numpy>=1.26,<3.0
 - numpydoc
 - numpydoc<1.9
 - nvidia-ml-py>=12

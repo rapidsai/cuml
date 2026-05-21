@@ -54,6 +54,10 @@ def test_regression_datasets(exact_shap_regression_dataset, model):
             ) <= 1e-5
 
 
+# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 def test_exact_classification_datasets(exact_shap_classification_dataset):
     X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
