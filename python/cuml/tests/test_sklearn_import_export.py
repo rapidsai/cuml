@@ -376,6 +376,7 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"

@@ -214,6 +214,7 @@ def test_linear_svc_decision_function(
 
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove once `probability` is removed from cuml.svm.LinearSVC.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter is deprecated:FutureWarning"
