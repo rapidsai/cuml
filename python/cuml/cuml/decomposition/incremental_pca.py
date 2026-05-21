@@ -12,7 +12,7 @@ from cuml.common.sparse_utils import is_sparse
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import to_cpu, to_gpu
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.validation import (
     check_array,
     check_features,
@@ -477,6 +477,9 @@ class IncrementalPCA(PCA):
             "batch_size": self.batch_size,
         }
 
+    # Bypass PCA._attrs_*: sklearn IncrementalPCA lacks PCA's `n_samples_`.
+    # Call InteropMixin directly for universal `n_features_in_` /
+    # `feature_names_in_` handling.
     def _attrs_from_cpu(self, model):
         out = {
             "components_": to_gpu(model.components_, order="F"),
@@ -492,17 +495,10 @@ class IncrementalPCA(PCA):
             "n_components_": model.n_components_,
             "n_samples_seen_": model.n_samples_seen_,
             "noise_variance_": model.noise_variance_,
+            **InteropMixin._attrs_from_cpu(self, model),
         }
         if (batch_size_ := getattr(model, "batch_size_", None)) is not None:
             out["batch_size_"] = batch_size_
-        if (
-            n_features_in_ := getattr(model, "n_features_in_", None)
-        ) is not None:
-            out["n_features_in_"] = n_features_in_
-        if (
-            feature_names_in_ := getattr(model, "feature_names_in_", None)
-        ) is not None:
-            out["feature_names_in_"] = feature_names_in_
         return out
 
     def _attrs_to_cpu(self, model):
@@ -518,17 +514,10 @@ class IncrementalPCA(PCA):
             "n_components_": self.n_components_,
             "n_samples_seen_": self.n_samples_seen_,
             "noise_variance_": self.noise_variance_,
+            **InteropMixin._attrs_to_cpu(self, model),
         }
         if (batch_size_ := getattr(self, "batch_size_", None)) is not None:
             out["batch_size_"] = batch_size_
-        if (
-            n_features_in_ := getattr(self, "n_features_in_", None)
-        ) is not None:
-            out["n_features_in_"] = n_features_in_
-        if (
-            feature_names_in_ := getattr(self, "feature_names_in_", None)
-        ) is not None:
-            out["feature_names_in_"] = feature_names_in_
         return out
 
 
