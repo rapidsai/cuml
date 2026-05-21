@@ -110,9 +110,13 @@ class ForestInference(Base, CMajorInputTagMixin):
                 FutureWarning,
                 stacklevel=2,
             )
-        if treelite_model is not None and isinstance(
-            treelite_model, treelite.Model
-        ):
+        if treelite_model is None:
+            self.model = None
+        elif isinstance(treelite_model, (treelite.Model, bytes)):
+            if isinstance(treelite_model, bytes):
+                treelite_model = treelite.Model.deserialize_bytes(
+                    treelite_model
+                )
             self.model = nvforest.load_from_treelite_model(
                 tl_model=treelite_model,
                 device="gpu"
@@ -126,7 +130,9 @@ class ForestInference(Base, CMajorInputTagMixin):
                 handle=get_handle(),
             )
         else:
-            self.model = None
+            raise ValueError(
+                f"Unrecognized type for treelite_model: {type(treelite_model)}"
+            )
         self.ensure_all_finite = ensure_all_finite
         self._suppress_deprecation_warning = _suppress_deprecation_warning
 
