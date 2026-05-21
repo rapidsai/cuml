@@ -678,7 +678,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         Compute OOB score using per-tree predictions and bootstrap masks.
         """
         # Get per-tree predictions using nvForest
-        nvforest_model = self.as_nvforest()
+        nvforest_model = self._get_inference_nvforest_model()
         # Per tree predictions shape: (n_samples, n_trees) for regression
         #                          or (n_samples, n_trees, n_classes) for classification
         per_tree_preds = nvforest_model.predict_per_tree(X)
