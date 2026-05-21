@@ -7,17 +7,15 @@ use cases.
 CUDA Streams and Synchronization
 --------------------------------
 
-Functions and methods in ``cuml`` are written using a variety of technologies.
-As such, while *most* methods run on the CUDA `per-thread default stream`_
-(PTDS), some methods might run on the `legacy default stream`_ (also known as
-the NULL stream) instead.
+Functions and methods in cuML are written using a variety of technologies. As
+such, while *most* methods run on the CUDA `per-thread default stream`_ (PTDS),
+some methods might run on the `legacy default stream`_ (also known as the NULL
+stream) instead.
 
-We currently provide no method to configure the stream a method runs on; this
-is considered an implementation detail, and not something that is exposed to
-the user. What stream a method runs on may change between versions as
-implementations evolve, we make no guarantee of which stream is used. Likewise,
-we don't guarantee that the output of a ``cuml`` method or function will have
-been synchronized before returning.
+cuML does not currently expose stream selection as part of its public API and
+makes no guarantees on whether a particular method runs on the PTDS or legacy
+default stream. Likewise there is no guarantee that the output of a cuML method
+or function has been synchronized before returning.
 
 For users, if you follow the following guideline you shouldn't have any
 concurrency issues:
@@ -36,10 +34,10 @@ concurrency issues:
 Selecting the CUDA Device
 -------------------------
 
-``cuml`` methods run on device 0 by default. We do not guarantee that setting
-the device programmatically at runtime (e.g. using ``cupy.cuda.Device`` or
-other methods) will work. To specify a specific device to run on, we recommend
-using the ``CUDA_VISIBLE_DEVICES`` (`doc
+All single-GPU cuML methods run on device 0 by default. Setting a device via
+the :class:`cupy.cuda.Device` or :class:`cuda.core.Device` APIs is currently
+not supported. To specify a device to run on, we recommend using the
+``CUDA_VISIBLE_DEVICES`` (`doc
 <https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/environment-variables.html#cuda-visible-devices>`_)
 environment variable. For example:
 
@@ -47,19 +45,23 @@ environment variable. For example:
 
     CUDA_VISIBLE_DEVICES=2 python myscript.py
 
+cuML does contain a few single-node multi-GPU implementations. When available,
+these take a ``device_ids`` parameter to specify which devices to run on. See
+the `cuml.manifold.UMAP` docs for an example.
+
 
 Configuring the Memory Allocator
 --------------------------------
 
-Memory allocations in ``cuml`` are made using the `Rapids Memory Manager`_
-(RMM). We don't do any configuration of RMM on import; allocations are made
-using the default memory resource (``rmm.mr.CudaMemoryResource``).
+Memory allocations in cuML are made using the `Rapids Memory Manager`_ (RMM).
+We don't do any configuration of RMM on import; allocations are made using the
+default memory resource (:class:`rmm.mr.CudaMemoryResource`).
 
 Some applications may run better using an alternative memory resource. A few
 common options:
 
-- A good default to try is the ``rmm.mr.CudaAsyncMemoryResource``. This is a
-  stream-ordered pooling resource, and may be faster for your application.
+- A good default to try is the :class:`rmm.mr.CudaAsyncMemoryResource`. This is
+  a stream-ordered pooling resource, and may be faster for your application.
 
   .. code-block:: python
 
@@ -68,10 +70,10 @@ common options:
     rmm.mr.set_current_device_resource(rmm.mr.CudaAsyncMemoryResource())
 
 
-- Users working with large data may want to enable ``cuml`` to use `CUDA
-  Unified Memory`_ to enable GPU memory oversubscription. To do this, we
-  recommend using ``rmm.mr.ManagedMemoryResource`` wrapped in a
-  ``rmm.mr.PrefetchResourceAdaptor`` to minimize paging overhead.
+- Users working with large data may want to enable cuML to use `CUDA Unified
+  Memory`_ to enable GPU memory oversubscription. To do this, we recommend
+  using :class:`rmm.mr.ManagedMemoryResource` wrapped in a
+  :class:`rmm.mr.PrefetchResourceAdaptor` to minimize paging overhead.
 
   .. code-block:: python
 
