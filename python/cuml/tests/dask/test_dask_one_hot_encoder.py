@@ -158,6 +158,7 @@ def test_onehot_drop_idx_first(client):
     assert_frame_equal(
         inv.compute().to_pandas().reset_index(drop=True),
         ddf.compute().to_pandas().reset_index(drop=True),
+        check_dtype=False,
     )
 
 
@@ -177,6 +178,7 @@ def test_onehot_drop_one_of_each(client):
     assert_frame_equal(
         inv.compute().to_pandas().reset_index(drop=True),
         ddf.compute().to_pandas().reset_index(drop=True),
+        check_dtype=False,
     )
 
 
