@@ -24,10 +24,10 @@ def _from_df_to_cupy(df):
     for col in df.columns:
         if not is_numeric_dtype(df[col].dtype):
             if isinstance(df, pd.DataFrame):
-                df[col] = [ord(c) for c in df[col]]
+                df[col] = [c if pd.isna(c) else ord(c) for c in df[col]]
             else:
                 df[col] = [
-                    ord(c) if c is not None else c for c in df[col].to_numpy()
+                    c if pd.isna(c) else ord(c) for c in df[col].to_numpy()
                 ]
     return cp.array(from_df_to_numpy(df))
 

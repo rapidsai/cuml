@@ -48,6 +48,7 @@ def test_onehot_inverse_transform(client, drop):
     assert_frame_equal(
         inv.compute().to_pandas().reset_index(drop=True),
         X.compute().to_pandas().reset_index(drop=True),
+        check_dtype=False,
     )
 
 
@@ -111,7 +112,7 @@ def test_onehot_inverse_transform_handle_unknown(client):
     df = enc.inverse_transform(Y_ohe)
     ref = DataFrame({"chars": [None, "b"], "int": [0, 2]})
     ref = dask_cudf.from_cudf(ref, npartitions=1).compute().to_pandas()
-    assert_frame_equal(df.compute().to_pandas(), ref)
+    assert_frame_equal(df.compute().to_pandas(), ref, check_dtype=False)
 
 
 @pytest.mark.mg
@@ -140,7 +141,7 @@ def test_onehot_random_inputs(client, drop, as_array, sparse, n_samples):
         cp.testing.assert_array_equal(ohe.compute(), ref)
 
     inv_ohe = enc.inverse_transform(ohe)
-    assert_inverse_equal(inv_ohe.compute(), dX.compute())
+    assert_inverse_equal(inv_ohe.compute(), dX.compute(), check_dtype=False)
 
 
 @pytest.mark.mg

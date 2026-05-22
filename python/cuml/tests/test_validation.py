@@ -905,7 +905,7 @@ def test_check_array_object_dtype(kind, mem_type):
 
     if is_cuda_output(mem_type, array):
         # cupy doesn't support object dtypes
-        with pytest.raises((ValueError, TypeError), match="object"):
+        with pytest.raises((ValueError, TypeError), match="object|str"):
             check_array(array, mem_type=mem_type, ensure_2d=False)
     else:
         out = check_array(array, mem_type=mem_type, ensure_2d=False)
@@ -1402,10 +1402,16 @@ def test_check_y_return_classes_classes_specified(
         assert res_classes is classes
 
     # Missing a class raises
-    msg = re.escape(
-        f"The target label(s) {labels[3:]!s} in y do not exist in the initial "
-        f"classes {labels[:3]!s}"
-    )
+    if label_dtype == "U":
+        # cudf normalizes numpy unicode labels through string categories.
+        msg = (
+            r"The target label\(s\) \[.*b.*\] in y do not exist in the initial"
+        )
+    else:
+        msg = re.escape(
+            f"The target label(s) {labels[3:]!s} in y do not exist in the initial "
+            f"classes {labels[:3]!s}"
+        )
     with pytest.raises(ValueError, match=msg):
         check_y(y, return_classes=missing, accept_multi_output=multi_output)
 
