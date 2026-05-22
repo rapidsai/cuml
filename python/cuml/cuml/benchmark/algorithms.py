@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import functools
+import inspect
 import shutil
 import sys
 import tempfile
@@ -54,6 +55,22 @@ except ImportError:
 cuml = None
 cuml_metrics = None
 treelite = None
+
+
+def _with_default_cpu_parallelism(cpu_class, args):
+    """Use max CPU parallelism when the estimator exposes n_jobs."""
+    if cpu_class is None:
+        return args
+    try:
+        signature = inspect.signature(cpu_class)
+    except (TypeError, ValueError):
+        return args
+
+    updated_args = dict(args)
+    if "n_jobs" in signature.parameters and "n_jobs" not in updated_args:
+        updated_args["n_jobs"] = -1
+    return updated_args
+
 
 # GPU-specific helper functions (only available when GPU libs present)
 _build_cpu_skl_classifier = None
@@ -224,6 +241,7 @@ class AlgorithmPair:
 
         all_args = {**self.shared_args, **self.cpu_args}
         all_args = {**all_args, **override_setup_args}
+        all_args = _with_default_cpu_parallelism(self.cpu_class, all_args)
 
         if "cpu_setup_result" not in all_args:
             cpu_obj = self.cpu_class(**all_args)
@@ -262,6 +280,7 @@ class AlgorithmPair:
     def setup_cpu(self, data, **override_args):
         all_args = {**self.shared_args, **self.cpu_args}
         all_args = {**all_args, **override_args}
+        all_args = _with_default_cpu_parallelism(self.cpu_class, all_args)
         if self.setup_cpu_func is not None:
             return {
                 "cpu_setup_result": self.setup_cpu_func(
@@ -670,7 +689,7 @@ def all_algorithms():
                 HDBSCAN,
                 cuml_HDBSCAN,
                 shared_args={},
-                cpu_args={},
+                cpu_args={"core_dist_n_jobs": -1},
                 name="HDBSCAN",
                 accepts_labels=False,
             )
