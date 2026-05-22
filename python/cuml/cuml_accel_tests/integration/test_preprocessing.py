@@ -4,8 +4,11 @@
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse as sp
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import (
+    LabelBinarizer,
+    LabelEncoder,
     MaxAbsScaler,
     MinMaxScaler,
     PolynomialFeatures,
@@ -107,3 +110,51 @@ def test_polynomial_features():
     model.set_output(transform="pandas")
     out_df = model.transform(X)
     assert isinstance(out_df, pd.DataFrame)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "a", "b"])
+    enc = LabelEncoder()
+    y2 = enc.fit_transform(y)
+    np.testing.assert_array_equal(y2, np.array([0, 1, 0, 1]))
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b"]))
+    y3 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y3, y)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "a", "c"])
+    enc = LabelBinarizer()
+
+    y2 = enc.fit_transform(y)
+    sol = np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
+    np.testing.assert_array_equal(y2, sol)
+
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b", "c"]))
+    assert enc.classes_.dtype == y.dtype
+    assert enc.y_type_ == "multiclass"
+
+    y3 = enc.transform(np.array(["a", "d"]))
+    sol = np.array([[1, 0, 0], [0, 0, 0]])
+    np.testing.assert_array_equal(y3, sol)
+
+    y4 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y4, y)
+
+
+@pytest.mark.parametrize("sparse", [True, False])
+def test_label_binarizer_multilabel_indicator(sparse):
+    y = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    if sparse:
+        y = sp.csr_matrix(y)
+    enc = LabelBinarizer().fit(y)
+    np.testing.assert_array_equal(enc.classes_, np.array([0, 1, 2]))
+    assert enc.y_type_ == "multilabel-indicator"
+
+    y2 = enc.inverse_transform(y)
+    if sparse:
+        assert isinstance(y2, sp.csr_matrix)
+        np.testing.assert_array_equal(y.toarray(), y2.toarray())
+    else:
+        assert isinstance(y2, np.ndarray)
+        np.testing.assert_array_equal(y, y2)

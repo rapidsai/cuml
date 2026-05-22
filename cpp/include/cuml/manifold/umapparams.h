@@ -200,12 +200,10 @@ class UMAPParams {
 
   /**
    * If true, optimization epochs will be executed with reduced GPU
-   * parallelism. This is only relevant when random_state is set.
-   * Enable this if you observe outliers in the resulting embeddings
-   * with random_state configured. This may slow the optimization
-   * step by more than 2x, but end-to-end runtime is typically similar
-   * since optimization step is not the bottleneck. Use this to resolve rare
-   * edge cases where the default heuristics do not trigger.
+   * parallelism. This is commonly useful for deterministic runs with
+   * random_state set, and may also be enabled to avoid outliers for
+   * spectral initialization. This may slow the optimization step. Use this to resolve
+   * rare edge cases where the default heuristics do not trigger.
    */
   bool force_serial_epochs = false;
 

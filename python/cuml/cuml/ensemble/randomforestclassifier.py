@@ -11,7 +11,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.validation import check_features, check_inputs
+from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
 
 
@@ -74,6 +74,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         .. note:: This default differs from scikit-learn's random forest,
           which defaults to unlimited depth.
 
+        .. rapids-pre-commit-hooks: disable-next-line
         .. versionchanged:: 26.08
           The default of `max_depth` will change from `16` to `None`.
     max_leaves : int (default = -1)
@@ -281,15 +282,21 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        check_features(self, X)
-        inds = fil.predict(X, threshold=threshold)
-        index = inds.index
-        inds = inds.to_output("cupy")
+        X_converted, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        inds = nvforest_model.predict(X_converted, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
         return decode_labels(
@@ -336,13 +343,21 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        check_features(self, X)
-        return fil.predict_proba(X)
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        return CumlArray(nvforest_model.predict_proba(X), index=index)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],

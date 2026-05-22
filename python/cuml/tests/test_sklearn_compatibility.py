@@ -13,7 +13,7 @@ from cuml.cluster import (
     KMeans,
     SpectralClustering,
 )
-from cuml.covariance import LedoitWolf
+from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.kernel_ridge import KernelRidge
@@ -74,11 +74,13 @@ ESTIMATORS = [
     KNeighborsRegressor(),
     KNeighborsClassifier(),
     KernelDensity(),
+    EmpiricalCovariance(),
     LedoitWolf(),
     Ridge(),
     ElasticNet(),
     Lasso(),
     LinearRegression(),
+    # rapids-pre-commit-hooks: disable-next-line
     # TODO(26.08): Remove explicit default
     RandomForestClassifier(max_depth=None),
     RandomForestRegressor(max_depth=None),
@@ -207,7 +209,9 @@ XFAILS = {
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",
+    },
+    EmpiricalCovariance: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -243,7 +247,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -256,7 +259,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -269,7 +271,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -282,7 +283,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",

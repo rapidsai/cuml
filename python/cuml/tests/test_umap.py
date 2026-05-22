@@ -3,6 +3,7 @@
 #
 import copy
 import platform
+from importlib.metadata import version as package_version
 
 import cupy as cp
 import cupyx
@@ -32,6 +33,11 @@ from cuml.testing.utils import (
 )
 
 dataset_names = ["iris", "digits", "wine", "blobs"]
+
+UMAP_VERSION = Version(package_version("umap-learn"))
+UMAP_NUMBA_REGRESSION = Version(numba.__version__) >= Version(
+    "0.62.0"
+) and UMAP_VERSION < Version("0.5.12")
 
 
 @pytest.mark.parametrize(
@@ -427,6 +433,40 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
+# n_components values cover the three sequential-kernel dispatch paths in
+# call_optimize_sequential_kernel:
+#   - 2  : per-thread register kernel (low end)
+#   - 21 : per-thread register kernel (boundary, n_components <= 21)
+#   - 50 : per-warp component-parallel kernel (n_components >  21)
+@pytest.mark.parametrize("n_components", [2, 21, 50])
+@pytest.mark.parametrize("init", ["random", "spectral"])
+def test_umap_force_serial_epochs_reproducibility(n_components, init):
+    n_samples = 8000
+    n_features = 200
+
+    data, _ = make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=10, random_state=42
+    )
+    data = data.astype(np.float32)
+
+    def get_embedding():
+        return cuUMAP(
+            init=init,
+            n_components=n_components,
+            random_state=42,
+            force_serial_epochs=True,
+            build_algo="brute_force_knn",
+        ).fit_transform(data, convert_dtype=True)
+
+    cuml_embedding1 = get_embedding()
+    cuml_embedding2 = get_embedding()
+
+    assert not np.isnan(cuml_embedding1).any()
+    assert not np.isnan(cuml_embedding2).any()
+
+    np.testing.assert_array_equal(cuml_embedding1, cuml_embedding2)
+
+
 @pytest.mark.parametrize(
     "n_components,random_state",
     [
@@ -686,8 +726,8 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     "ignore:Graph is not fully connected.*:UserWarning"
 )
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION,
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_fuzzy_simplicial_set(n_rows, n_features, n_neighbors):
@@ -988,13 +1028,17 @@ def test_umap_small_fit_large_transform():
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("n_components", [2, 5])
 @pytest.mark.parametrize("random_state", [None, 42])
-@pytest.mark.parametrize("force_serial_epochs", [True, False])
-@pytest.mark.xfail(
-    reason="With current heuristics, UMAP may produce outliers on GPUs with high SM counts."
-)
+@pytest.mark.parametrize("force_serial_epochs", [True, False, None])
 def test_umap_outliers(
-    n_neighbors, n_components, random_state, force_serial_epochs
+    n_neighbors, n_components, random_state, force_serial_epochs, request
 ):
+    if force_serial_epochs is False:
+        request.node.add_marker(
+            pytest.mark.xfail(
+                reason="With current heuristics, UMAP may produce outliers "
+                "on GPUs with high SM counts when force_serial_epochs is False."
+            )
+        )
     if random_state is None:
         n_rows = 50_000
         build_algo = "nn_descent"
@@ -1032,6 +1076,54 @@ def test_umap_outliers(
         (gpu_umap_embeddings >= -threshold)
         & (gpu_umap_embeddings <= threshold)
     )
+
+
+# Cases:
+#   - (2, *, None): auto-enable for both init kinds.
+#   - (25/50, random, True): per-warp sequential kernel (cpl=1 and
+#     cpl=2).
+#   - (513, spectral, None): dispatches to the parallel
+#     batch kernel for n_components > 512.
+#   - (513, random, True): explicit force_serial_epochs=True past the serial
+#     kernel's upper bound must raise error at the Python layer
+@pytest.mark.parametrize(
+    "n_components,init,force_serial_epochs,expect_raises",
+    [
+        (2, "random", None, False),
+        (2, "spectral", None, False),
+        (25, "random", True, False),
+        (50, "random", True, False),
+        (513, "spectral", None, False),
+        (513, "random", True, True),
+    ],
+)
+def test_umap_force_serial_epochs_dispatch(
+    n_components, init, force_serial_epochs, expect_raises
+):
+    data, _ = make_moons(n_samples=5000, noise=0.0, random_state=42)
+    data = data.astype(np.float32)
+
+    model = cuUMAP(
+        n_components=n_components,
+        n_neighbors=15,
+        init=init,
+        force_serial_epochs=force_serial_epochs,
+        random_state=42,
+        build_algo="brute_force_knn",
+    )
+
+    if expect_raises:
+        with pytest.raises(ValueError, match="force_serial_epochs=True"):
+            model.fit(data)
+        return
+
+    embedding = model.fit_transform(data)
+    assert embedding.shape == (data.shape[0], n_components)
+    assert np.isfinite(embedding).all()
+
+    # Skip for the high-n_components case that falls back to the parallel batch kernel.
+    if n_components <= 50:
+        assert np.all(np.abs(embedding) <= 50.0)
 
 
 @pytest.mark.parametrize("precomputed_type", ["tuple", "knn_graph"])
@@ -1165,8 +1257,8 @@ def test_umap_custom_init_errors():
 
 
 @pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION,
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_umap_sigmas_rhos():
@@ -1205,9 +1297,8 @@ def test_umap_sigmas_rhos():
 
 
 @pytest.mark.xfail(
-    (Version(numba.__version__) >= Version("0.62.0"))
-    and (platform.machine() == "x86_64"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+    UMAP_NUMBA_REGRESSION and (platform.machine() == "x86_64"),
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 def test_inverse_transform():
