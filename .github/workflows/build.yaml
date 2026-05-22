@@ -180,3 +180,12 @@ jobs:
       package-name: cuml
       package-type: python
       publish-wheel-search-key: cuml_wheel_python_abi3
+  devcontainers:
+    name: Build devcontainers
+    secrets: inherit  # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
+    permissions:
+      packages: write
+    with:
+      push: true
+      cuda: '["12.9", "13.2"]'
