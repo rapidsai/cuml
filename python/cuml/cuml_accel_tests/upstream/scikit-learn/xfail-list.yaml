@@ -1162,17 +1162,17 @@
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
 - reason: Upstream sklearn pandas string dtype expectations differ with pandas 3
-  condition: pandas>=3 and scikit-learn<1.8
+  condition: pandas>=3 and scikit-learn<1.7.2
   tests:
   - "sklearn.preprocessing.tests.test_encoders::test_encoder_dtypes_pandas"
 - reason: Upstream sklearn pandas tests use numpy dtype helpers that do not support pandas 3 string dtypes
-  condition: pandas>=3 and scikit-learn<1.8
+  condition: pandas>=3 and scikit-learn<1.7.2
   tests:
   - "sklearn.compose.tests.test_column_transformer::test_column_transformer_remainder_pandas[pd-index-expected_cols4]"
   - "sklearn.compose.tests.test_column_transformer::test_make_column_transformer_pandas"
   - "sklearn.preprocessing.tests.test_function_transformer::test_function_transformer_with_dataframe_and_check_inverse_True"
 - reason: Upstream sklearn test expects pre-pandas-3 Series module names
-  condition: pandas>=3 and scikit-learn<1.8
+  condition: pandas>=3 and scikit-learn<1.7.2
   tests:
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-bool]"
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-dict]"
