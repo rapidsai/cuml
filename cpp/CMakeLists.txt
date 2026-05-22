@@ -70,8 +70,12 @@ option(CUML_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the sta
 # dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
+option(CUML_EXCLUDE_NVFOREST_FROM_ALL "Exclude nvForest targets from cuML's 'all' target" OFF)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
+option(CUML_NVFOREST_CLONE_ON_PIN
+       "Explicitly clone nvForest branch when pinned to non-feature branch" ON
+)
 
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
@@ -270,6 +274,11 @@ if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
 endif()
 
+if(LINK_NVFOREST)
+  include(cmake/thirdparty/get_nvforest.cmake)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+endif()
+
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
 endif()
@@ -365,42 +374,6 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(all_algo OR treeshap_algo)
     target_sources(cuml_objs PRIVATE src/explainer/tree_shap.cu)
-  endif()
-
-  # FIL components
-  if(all_algo OR fil_algo)
-    if(CUML_ENABLE_GPU)
-      target_sources(
-        cuml_objs
-        PRIVATE src/fil/infer0.cu
-                src/fil/infer1.cu
-                src/fil/infer2.cu
-                src/fil/infer3.cu
-                src/fil/infer4.cu
-                src/fil/infer5.cu
-                src/fil/infer6.cu
-                src/fil/infer7.cu
-                src/fil/infer8.cu
-                src/fil/infer9.cu
-                src/fil/infer10.cu
-                src/fil/infer11.cu
-      )
-    endif()
-    target_sources(
-      cuml_objs
-      PRIVATE src/fil/infer0.cpp
-              src/fil/infer1.cpp
-              src/fil/infer2.cpp
-              src/fil/infer3.cpp
-              src/fil/infer4.cpp
-              src/fil/infer5.cpp
-              src/fil/infer6.cpp
-              src/fil/infer7.cpp
-              src/fil/infer8.cpp
-              src/fil/infer9.cpp
-              src/fil/infer10.cpp
-              src/fil/infer11.cpp
-    )
   endif()
 
   # todo: organize linear models better
@@ -594,6 +567,10 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   if(CUML_USE_TREELITE_STATIC AND (TARGET treelite::treelite_static))
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET cuml_objs)
+  endif()
+
+  if(LINK_NVFOREST)
+    list(APPEND _cuml_cpp_public_libs ${CUML_NVFOREST_TARGET})
   endif()
 
   # These are always private:

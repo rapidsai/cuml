@@ -5,10 +5,6 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <cuml/fil/detail/raft_proto/device_type.hpp>
-#include <cuml/fil/infer_kind.hpp>
-#include <cuml/fil/tree_layout.hpp>
-#include <cuml/fil/treelite_importer.hpp>
 #include <cuml/tree/algo_helper.h>
 
 #include <raft/core/handle.hpp>
@@ -37,6 +33,10 @@
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
+#include <nvforest/detail/raft_proto/device_type.hpp>
+#include <nvforest/infer_kind.hpp>
+#include <nvforest/tree_layout.hpp>
+#include <nvforest/treelite_importer.hpp>
 #include <test_utils.h>
 #include <treelite/tree.h>
 
@@ -177,7 +177,7 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
 }
 
 template <typename DataT, typename LabelT>
-std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
+std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
   const raft::handle_t& handle,
   RfTestParams params,
   DataT* X_transpose,
@@ -186,12 +186,12 @@ std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
   auto pred      = std::shared_ptr<thrust::device_vector<LabelT>>();
   auto workspace = std::shared_ptr<thrust::device_vector<DataT>>();  // Scratch space
   if constexpr (std::is_integral_v<LabelT>) {
-    // For classifiers, allocate extra scratch space to store probabilities from FIL
+    // For classifiers, allocate extra scratch space to store probabilities from nvForest
     // We will perform argmax to convert probabilities into class outputs.
     pred      = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
     workspace = std::make_shared<thrust::device_vector<DataT>>(params.n_rows * params.n_labels);
   } else {
-    // For regressors, no need to post-process predictions from FIL
+    // For regressors, no need to post-process predictions from nvForest
     static_assert(std::is_same_v<LabelT, DataT>,
                   "LabelT and DataT must be identical for regression task");
     pred      = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
@@ -200,25 +200,25 @@ std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto fil_model = ML::fil::import_from_treelite_handle(model,
-                                                        ML::fil::tree_layout::breadth_first,
-                                                        128,
-                                                        std::is_same_v<DataT, double>,
-                                                        raft_proto::device_type::gpu,
-                                                        handle.get_device(),
-                                                        handle.get_next_usable_stream());
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              std::is_same_v<DataT, double>,
+                                                              raft_proto::device_type::gpu,
+                                                              handle.get_device(),
+                                                              handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  fil_model.predict(handle,
-                    workspace->data().get(),
-                    X_transpose,
-                    params.n_rows,
-                    raft_proto::device_type::gpu,
-                    raft_proto::device_type::gpu,
-                    ML::fil::infer_kind::default_kind,
-                    1);
+  nvforest_model.predict(handle,
+                         workspace->data().get(),
+                         X_transpose,
+                         params.n_rows,
+                         raft_proto::device_type::gpu,
+                         raft_proto::device_type::gpu,
+                         nvforest::infer_kind::default_kind,
+                         1);
   handle.sync_stream();
   handle.sync_stream_pool();
 
@@ -259,10 +259,10 @@ std::shared_ptr<thrust::device_vector<LabelT>> FilPredict(
 }
 
 template <typename DataT, typename LabelT>
-auto FilPredictProba(const raft::handle_t& handle,
-                     RfTestParams params,
-                     DataT* X_transpose,
-                     RandomForestMetaData<DataT, LabelT>* forest)
+auto nvForestPredictProba(const raft::handle_t& handle,
+                          RfTestParams params,
+                          DataT* X_transpose,
+                          RandomForestMetaData<DataT, LabelT>* forest)
 {
   static_assert(std::is_integral_v<LabelT>, "Must be classification");
 
@@ -271,25 +271,25 @@ auto FilPredictProba(const raft::handle_t& handle,
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest, params.n_cols);
 
-  auto fil_model = ML::fil::import_from_treelite_handle(model,
-                                                        ML::fil::tree_layout::breadth_first,
-                                                        128,
-                                                        std::is_same_v<DataT, double>,
-                                                        raft_proto::device_type::gpu,
-                                                        handle.get_device(),
-                                                        handle.get_next_usable_stream());
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              std::is_same_v<DataT, double>,
+                                                              raft_proto::device_type::gpu,
+                                                              handle.get_device(),
+                                                              handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  fil_model.predict(handle,
-                    pred->data().get(),
-                    X_transpose,
-                    params.n_rows,
-                    raft_proto::device_type::gpu,
-                    raft_proto::device_type::gpu,
-                    ML::fil::infer_kind::default_kind,
-                    1);
+  nvforest_model.predict(handle,
+                         pred->data().get(),
+                         X_transpose,
+                         params.n_rows,
+                         raft_proto::device_type::gpu,
+                         raft_proto::device_type::gpu,
+                         nvforest::infer_kind::default_kind,
+                         1);
   handle.sync_stream();
   handle.sync_stream_pool();
 
@@ -495,37 +495,38 @@ class RfSpecialisedTest {
     return std::abs(max_element - second_max_element);
   }
 
-  // Compare fil against native rf predictions
+  // Compare nvForest against native rf predictions
   // Only for single precision models
-  void TestFilPredict()
+  void TestNvForestPredict()
   {
     if constexpr (std::is_same_v<DataT, double>) {
       return;
     } else {
       auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
       raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-      auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
+      auto nvforest_pred = nvForestPredict(handle, params, X_transpose.data().get(), forest.get());
 
-      thrust::host_vector<float> h_fil_pred(*fil_pred);
+      thrust::host_vector<float> h_nvforest_pred(*nvforest_pred);
       thrust::host_vector<float> h_pred(*predictions);
 
-      thrust::host_vector<float> h_fil_pred_prob;
+      thrust::host_vector<float> h_nvforest_pred_prob;
       if constexpr (std::is_integral_v<LabelT>) {
-        h_fil_pred_prob = *FilPredictProba(handle, params, X_transpose.data().get(), forest.get());
+        h_nvforest_pred_prob =
+          *nvForestPredictProba(handle, params, X_transpose.data().get(), forest.get());
       }
 
       float tol = 1e-2;
-      for (std::size_t i = 0; i < h_fil_pred.size(); i++) {
+      for (std::size_t i = 0; i < h_nvforest_pred.size(); i++) {
         // If the output probabilities are very similar for different classes
-        // FIL may output a different class due to numerical differences
+        // nvForest may output a different class due to numerical differences
         // Skip these cases
         if constexpr (std::is_integral_v<LabelT>) {
           int num_outputs = forest->trees[0]->num_outputs;
-          auto min_diff   = MinDifference(&h_fil_pred_prob[i * num_outputs], num_outputs);
+          auto min_diff   = MinDifference(&h_nvforest_pred_prob[i * num_outputs], num_outputs);
           if (min_diff < tol) continue;
         }
 
-        EXPECT_LE(abs(h_fil_pred[i] - h_pred[i]), tol);
+        EXPECT_LE(abs(h_nvforest_pred[i] - h_pred[i]), tol);
       }
     }
   }
@@ -570,7 +571,7 @@ class RfSpecialisedTest {
     TestMinImpurity();
     TestTreeSize();
     TestInstanceCounts();
-    TestFilPredict();
+    TestNvForestPredict();
     TestFeatureImportances();
   }
 
@@ -677,30 +678,30 @@ TEST(RfTests, IntegerOverflow)
   // Check we have actually learned something
   EXPECT_GT(forest->trees[0]->leaf_counter, 1);
 
-  // See if FIL overflows
+  // See if nvForest overflows
   thrust::device_vector<float> pred(m);
   TreeliteModelHandle model;
   build_treelite_forest(&model, forest_ptr, n);
 
-  auto fil_model = ML::fil::import_from_treelite_handle(model,
-                                                        ML::fil::tree_layout::breadth_first,
-                                                        128,
-                                                        false,
-                                                        raft_proto::device_type::gpu,
-                                                        handle.get_device(),
-                                                        handle.get_next_usable_stream());
+  auto nvforest_model = nvforest::import_from_treelite_handle(model,
+                                                              nvforest::tree_layout::breadth_first,
+                                                              128,
+                                                              false,
+                                                              raft_proto::device_type::gpu,
+                                                              handle.get_device(),
+                                                              handle.get_next_usable_stream());
   handle.sync_stream();
   handle.sync_stream_pool();
   delete static_cast<treelite::Model*>(model);
 
-  fil_model.predict(handle,
-                    pred.data().get(),
-                    X.data().get(),
-                    m,
-                    raft_proto::device_type::gpu,
-                    raft_proto::device_type::gpu,
-                    ML::fil::infer_kind::default_kind,
-                    1);
+  nvforest_model.predict(handle,
+                         pred.data().get(),
+                         X.data().get(),
+                         m,
+                         raft_proto::device_type::gpu,
+                         raft_proto::device_type::gpu,
+                         nvforest::infer_kind::default_kind,
+                         1);
   handle.sync_stream();
   handle.sync_stream_pool();
 }

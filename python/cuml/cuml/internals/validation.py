@@ -381,7 +381,7 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     input_name : str or None, default=None
         The input parameter name to use in error messages.
     """
-    if not np.isdtype(array.dtype, "real floating"):
+    if not array.dtype.kind == "f":
         # No-op for non floating inputs
         return
 
@@ -514,6 +514,19 @@ def _index_as_mem_type(index, mem_type=None):
     return index
 
 
+if np.lib.NumpyVersion(np.__version__) >= "2.0.0b1":
+    np_asarray = np.asarray
+else:
+
+    def np_asarray(x, dtype=None, order=None, copy=None):
+        """A compatibility shim for `np.asarray`.
+
+        numpy 2.0 added the `copy` arg to `np.asarray`, as well as changed the
+        meaning of copy=False to "error if a copy required" rather than "only
+        copy if needed" (which is now `copy=None`)."""
+        return np.array(x, dtype=dtype, order=order or "K", copy=bool(copy))
+
+
 def check_array(
     array,
     *,
@@ -608,10 +621,30 @@ def check_array(
         raise ValueError(f"Unsupported {mem_type=!r}")
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
+
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
         dtype = [_as_numpy_dtype(i) for i in dtype]
+
+    is_sparse = cp_sp.issparse(array) or sp.issparse(array)
+    if is_sparse and (
+        mem_type == "device" or (mem_type is None and cp_sp.issparse(array))
+    ):
+        # XXX: cupyx.scipy.sparse doesn't support integral dtypes. If a dtype
+        # is specified, we filter to only supported types (erroring if no
+        # supported types specified). If dtype=None, we use the input dtype if
+        # supported, and the closest floating type otherwise.
+        if dtype is not None:
+            if not any(d.kind in "fb" for d in dtype):
+                raise ValueError(
+                    f"No dtype in {dtype} is supported by cupyx.scipy.sparse"
+                )
+            dtype = [d for d in dtype if d.kind in "fb"]
+        elif array.dtype.kind not in "fb":
+            dtype = [
+                np.dtype("f4") if array.dtype.itemsize <= 4 else np.dtype("f8")
+            ]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
@@ -627,7 +660,7 @@ def check_array(
     # Infer proper output dtype
     if array_dtype is not None:
         # Check for complex inputs before conversion when possible
-        if np.isdtype(array_dtype, "complex floating"):
+        if array_dtype.kind == "c":
             raise ValueError("Complex data not supported")
         if dtype is None:
             dtype = array_dtype
@@ -643,13 +676,13 @@ def check_array(
         else:
             dtype = array_dtype
     elif dtype is not None:
-        # No original dtype, use first dtype in list inputs
+        # No original dtype, use first provided dtype
         dtype = dtype[0]
 
     # Coerce `array` to numpy/cupy/scipy.sparse/cupyx.scipy.sparse values as
     # requested. For dataframe-like inputs also extract the index for later use.
     index = None
-    if cp_sp.issparse(array) or sp.issparse(array):
+    if is_sparse:
         orig_sparse_array = array
         # Handle sparse inputs
         if isinstance(accept_sparse, str):
@@ -681,17 +714,23 @@ def check_array(
             ensure_min_features=ensure_min_features,
         )
 
-        # Coerce data to accepted dtype if needed
-        if dtype is not None and array.dtype != dtype:
-            array = array.astype(dtype)
-
-        # Coerce to device or host if needed
-        if mem_type == "device" and not cp_sp.issparse(array):
-            if array.ndim != 2:
-                raise ValueError("cupyx.scipy.sparse only supports 2D arrays")
-            array = getattr(cp_sp, f"{array.format}_matrix")(array)
-        elif mem_type == "host" and not sp.issparse(array):
+        # Coerce to proper dtype and mem_type if needed
+        if mem_type == "host" and not sp.issparse(array):
+            # Coerce to device, then coerce dtype. We do this to save device
+            # memory, and since scipy supports more dtypes.
             array = array.get()
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+        else:
+            # Otherwise coerce dtype, then mem_type if needed
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+            if mem_type == "device" and not cp_sp.issparse(array):
+                if array.ndim != 2:
+                    raise ValueError(
+                        "cupyx.scipy.sparse only supports 2D arrays"
+                    )
+                array = getattr(cp_sp, f"{array.format}_matrix")(array)
 
         # Copy if needed
         if copy and array is orig_sparse_array:
@@ -730,7 +769,7 @@ def check_array(
             elif (
                 mem_type is None
                 and cudf.pandas.LOADED
-                and np.isdtype(array.dtype, ("numeric", "bool"))
+                and array.dtype.kind in "iufb"
             ):
                 # We treat pandas objects with supported dtypes as device
                 # memory when running under cudf.pandas. Note that the output
@@ -759,8 +798,7 @@ def check_array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
-                # XXX: using np.array for compat with numpy < 2
-                array = np.array(
+                array = np_asarray(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
 
@@ -788,7 +826,7 @@ def check_array(
         )
 
     # Check for complex inputs after conversion for cases when `dtype=None`
-    if np.isdtype(array.dtype, "complex floating"):
+    if array.dtype.kind == "c":
         raise ValueError("Complex data not supported")
 
     # Validate data meets expected value requirements
@@ -1084,10 +1122,7 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if (
-                np.isdtype(y.dtype, ("numeric", "bool"))
-                and return_classes is True
-            ):
+            if y.dtype.kind in "iufb" and return_classes is True:
                 y = cp.asarray(y)
             elif (
                 y.dtype == "object"
