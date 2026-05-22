@@ -51,7 +51,9 @@ def decode_labels(y_encoded, classes, output_type="cupy", index=None):
             # At least one class is non-numeric, we need to use cudf
             out = cudf.DataFrame(
                 {
-                    i: cudf.Series(c)
+                    i: cudf.Series(
+                        c, dtype=("object" if c.dtype.kind in "OU" else None)
+                    )
                     .take(y_encoded[:, i])
                     .reset_index(drop=True)
                     for i, c in enumerate(classes)
@@ -75,7 +77,12 @@ def decode_labels(y_encoded, classes, output_type="cupy", index=None):
             # Non-numeric classes. We use cudf since it supports all types, and will
             # error appropriately later on when converting to outputs like `cupy`
             # that don't support strings.
-            out = cudf.Series(classes).take(y_encoded).reset_index(drop=True)
+            cudf_dtype = "object" if classes.dtype.kind in "OU" else None
+            out = (
+                cudf.Series(classes, dtype=cudf_dtype)
+                .take(y_encoded)
+                .reset_index(drop=True)
+            )
             if index is not None:
                 out.index = index
 
