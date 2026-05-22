@@ -29,6 +29,7 @@ import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
+from pandas.api.types import is_bool_dtype
 from sklearn.base import clone
 from sklearn.utils import Bunch
 
@@ -974,7 +975,7 @@ def _is_empty_column_selection(column):
     boolean array).
 
     """
-    if hasattr(column, 'dtype') and np.issubdtype(column.dtype, np.bool_):
+    if hasattr(column, 'dtype') and is_bool_dtype(column.dtype):
         return not column.any()
     elif hasattr(column, '__len__'):
         return (len(column) == 0 or
