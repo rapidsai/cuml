@@ -12,6 +12,7 @@ import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
 import scipy.sparse
+from packaging.version import Version
 from pandas.api.types import is_extension_array_dtype, is_string_dtype
 
 import cuml.internals.nvtx as nvtx
@@ -21,6 +22,7 @@ from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 
 global_settings = GlobalSettings()
+PANDAS_VERSION = Version(pd.__version__)
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
 
@@ -525,6 +527,9 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
 
     try:
         if isinstance(X, (pd.DataFrame, pd.Series)):
+            # TODO: Drop this pandas 2 branch once pandas 2 support is removed.
+            if PANDAS_VERSION < Version("3.0"):
+                return X.astype(to_dtype, copy=None)
             return X.astype(to_dtype)
         return X.astype(to_dtype, copy=False)
     except AttributeError:

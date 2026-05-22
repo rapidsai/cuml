@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import sklearn
+from packaging.version import Version
 from pandas.api.types import is_extension_array_dtype, is_string_dtype
 from sklearn.exceptions import DataConversionWarning
 from sklearn.utils.validation import check_is_fitted
@@ -31,6 +32,8 @@ __all__ = (
     "check_inputs",
     "check_classification_targets",
 )
+
+PANDAS_VERSION = Version(pd.__version__)
 
 
 def _as_numpy_dtype(dtype):
@@ -858,7 +861,12 @@ def check_cudf(
     elif isinstance(array, pd.DataFrame):
         f16_cols = array.select_dtypes("float16").columns.tolist()
         if f16_cols:
-            array = array.astype({c: "float32" for c in f16_cols})
+            dtype = {c: "float32" for c in f16_cols}
+            # TODO: Drop this pandas 2 branch once pandas 2 support is removed.
+            if PANDAS_VERSION < Version("3.0"):
+                array = array.astype(dtype, copy=False)
+            else:
+                array = array.astype(dtype)
         array = cudf.DataFrame(array)
     elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
         # Remaining array-like inputs go through check_array first (without
