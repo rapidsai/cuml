@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,6 +12,7 @@ import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
 import scipy.sparse
+from pandas.api.types import is_extension_array_dtype, is_string_dtype
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
@@ -182,6 +183,11 @@ def determine_array_dtype(X):
             dtype = X.dtype
         except AttributeError:
             dtype = None
+
+    if dtype is not None and (
+        is_string_dtype(dtype) or is_extension_array_dtype(dtype)
+    ):
+        return np.dtype("object")
 
     return dtype
 
@@ -518,6 +524,8 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
             return CumlArray(data=arr)
 
     try:
+        if isinstance(X, (pd.DataFrame, pd.Series)):
+            return X.astype(to_dtype, copy=None)
         return X.astype(to_dtype, copy=False)
     except AttributeError:
         raise TypeError("Received unsupported input type: %s" % type(X))

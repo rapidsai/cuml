@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import sklearn
+from pandas.api.types import is_extension_array_dtype, is_string_dtype
 from sklearn.exceptions import DataConversionWarning
 from sklearn.utils.validation import check_is_fitted
 
@@ -30,6 +31,25 @@ __all__ = (
     "check_inputs",
     "check_classification_targets",
 )
+
+
+def _as_numpy_dtype(dtype):
+    """Normalize pandas extension dtypes for numpy/cupy conversion."""
+    try:
+        return np.dtype(dtype)
+    except TypeError:
+        if is_string_dtype(dtype) or is_extension_array_dtype(dtype):
+            return np.dtype("object")
+        raise
+
+
+def _dataframe_numpy_dtype(dtypes):
+    """Infer a NumPy dtype for dataframe-like inputs."""
+    if all(isinstance(dt, np.dtype) for dt in dtypes):
+        return np.result_type(*dtypes)
+    if any(dt == "object" or is_string_dtype(dt) for dt in dtypes):
+        return np.dtype("object")
+    return None
 
 
 def check_random_seed(random_state) -> int:
@@ -190,9 +210,16 @@ def _get_feature_names(X):
     if isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         feature_names = np.asarray(X.columns, dtype=object)
     elif hasattr(X, "__dataframe__"):
-        feature_names = np.asarray(
-            list(X.__dataframe__().column_names()), dtype=object
-        )
+        pandas4_warning = getattr(pd.errors, "Pandas4Warning", FutureWarning)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The Dataframe Interchange Protocol is deprecated.*",
+                category=pandas4_warning,
+            )
+            feature_names = np.asarray(
+                list(X.__dataframe__().column_names()), dtype=object
+            )
     else:
         return None
 
@@ -581,20 +608,17 @@ def check_array(
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
     if isinstance(array, (cudf.DataFrame, pd.DataFrame)):
-        if all(isinstance(dt, np.dtype) for dt in array.dtypes):
-            array_dtype = np.result_type(*array.dtypes)
-        elif any(dt == "object" for dt in array.dtypes):
-            array_dtype = np.dtype("object")
-        else:
-            array_dtype = None
+        array_dtype = _dataframe_numpy_dtype(array.dtypes)
     else:
         array_dtype = getattr(array, "dtype", None)
-        if not isinstance(array_dtype, np.dtype):
+        if not isinstance(array_dtype, np.dtype) and array_dtype is not None:
+            array_dtype = _as_numpy_dtype(array_dtype)
+        elif not isinstance(array_dtype, np.dtype):
             array_dtype = None
 
     # Infer proper output dtype
@@ -1023,7 +1047,7 @@ def check_y(
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
 
     # Extract the index from `y` (if available)
     if isinstance(y, (pd.DataFrame, pd.Series, cudf.DataFrame, cudf.Series)):
