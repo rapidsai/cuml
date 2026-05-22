@@ -335,11 +335,13 @@ class StratifiedKFold(_KFoldBase):
 
         got = grpby.apply(lambda df: df.assign(order=range(len(df))))
         got = got.sort_values("ids")
+        ids = got["ids"].to_cupy()
 
         for i in range(self.n_splits):
             mask = got["order"] % self.n_splits == i
-            train = got.loc[~mask, "ids"].values
-            test = got.loc[mask, "ids"].values
+            fold_mask = mask.to_cupy()
+            train = ids[~fold_mask]
+            test = ids[fold_mask]
             if len(test) == 0:
                 break
             yield train, test
