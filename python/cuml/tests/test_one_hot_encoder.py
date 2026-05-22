@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from cudf import DataFrame
+from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 from cuml.preprocessing import OneHotEncoder
@@ -21,12 +22,12 @@ from cuml.testing.utils import (
 def _from_df_to_cupy(df):
     """Transform char columns to integer columns, and then create an array"""
     for col in df.columns:
-        if not np.issubdtype(df[col].dtype, np.number):
+        if not is_numeric_dtype(df[col].dtype):
             if isinstance(df, pd.DataFrame):
-                df[col] = [ord(c) for c in df[col]]
+                df[col] = [c if pd.isna(c) else ord(c) for c in df[col]]
             else:
                 df[col] = [
-                    ord(c) if c is not None else c for c in df[col].to_numpy()
+                    c if pd.isna(c) else ord(c) for c in df[col].to_numpy()
                 ]
     return cp.array(from_df_to_numpy(df))
 

@@ -458,7 +458,7 @@ def generate_inputs_from_categories(
         return df, ary
 
 
-def assert_inverse_equal(ours, ref):
+def assert_inverse_equal(ours, ref, **kwargs):
     if isinstance(ours, cp.ndarray):
         cp.testing.assert_array_equal(ours, ref)
     else:
@@ -466,7 +466,7 @@ def assert_inverse_equal(ours, ref):
             ours = ours.to_pandas()
         if hasattr(ref, "to_pandas"):
             ref = ref.to_pandas()
-        pd.testing.assert_frame_equal(ours, ref)
+        pd.testing.assert_frame_equal(ours, ref, **kwargs)
 
 
 def from_df_to_numpy(df):

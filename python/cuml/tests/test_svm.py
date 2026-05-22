@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
+import warnings
 
 import cudf
 import cupy as cp
@@ -35,6 +36,14 @@ from cuml.testing.utils import (
     stress_param,
     svm_array_equal,
     unit_param,
+)
+
+# Many tests below pass `probability=` to cuml SVC/LinearSVC on purpose;
+# silence the FutureWarning module-wide.
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
 )
 
 IS_ARM = platform.processor() == "aarch64"
@@ -643,6 +652,134 @@ def test_svc_probability_n_iter():
     model = cuml.SVC(probability=True).fit(X, y)
     assert model.n_iter_.dtype == np.int32
     assert model.n_iter_.shape == (1,)
+
+
+@pytest.mark.parametrize("explicit_value", [True, False])
+def test_svc_probability_emits_future_warning(explicit_value):
+    # cuml-side half of #7982.
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
+    ):
+        cu_svm.SVC(probability=explicit_value).fit(X, y)
+
+
+def test_svc_default_does_not_emit_probability_warning():
+    # If the user does not pass `probability=`, no FutureWarning should fire.
+    # The default sentinel string `"deprecated"` is treated as `probability=False`.
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
+            category=FutureWarning,
+        )
+        cu_svm.SVC().fit(X, y)
+
+
+@pytest.mark.parametrize("explicit_value", [True, False])
+def test_linear_svc_probability_emits_future_warning(explicit_value):
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
+    ):
+        cu_svm.LinearSVC(probability=explicit_value).fit(X, y)
+
+
+def test_linear_svc_default_does_not_emit_probability_warning():
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
+            category=FutureWarning,
+        )
+        cu_svm.LinearSVC().fit(X, y)
+
+
+def test_svc_probability_warning_fires_once():
+    # Inner clones (CalibratedClassifierCV folds, multiclass binaries) pin
+    # the sentinel so the FutureWarning fires only on the outer fit, not
+    # per inner fit.
+    X_bin, y_bin = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cu_svm.SVC(probability=True).fit(X_bin, y_bin)
+    matched = [
+        w
+        for w in caught
+        if issubclass(w.category, FutureWarning)
+        and "is deprecated and will be removed in cuML" in str(w.message)
+    ]
+    assert len(matched) == 1
+
+    X_mc, y_mc = make_classification(
+        n_samples=60,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=3,
+        random_state=0,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cu_svm.SVC(probability=False).fit(X_mc, y_mc)
+    matched = [
+        w
+        for w in caught
+        if issubclass(w.category, FutureWarning)
+        and "is deprecated and will be removed in cuML" in str(w.message)
+    ]
+    assert len(matched) == 1
 
 
 # Tests for kernel='precomputed'

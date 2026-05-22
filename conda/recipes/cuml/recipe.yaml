@@ -80,6 +80,7 @@ requirements:
     - cudf =${{ minor_version }}
     - cython >=3.2.2
     - libcuml =${{ version }}
+    - nvforest =${{ minor_version }}
     - pip
     - pylibraft =${{ minor_version }}
     - python =${{ py_abi_min }}
@@ -100,7 +101,8 @@ requirements:
     - libcuml =${{ version }}
     - numba >=0.60.0,<0.65.0
     - numba-cuda >=0.22.2,<0.29.0
-    - numpy >=1.23,<3.0
+    - numpy >=1.26,<3.0
+    - nvforest =${{ minor_version }}
     - scikit-learn >=1.4
     - scipy >=1.14.0
     - packaging
