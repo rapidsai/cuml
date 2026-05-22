@@ -858,7 +858,7 @@ def check_cudf(
     elif isinstance(array, pd.DataFrame):
         f16_cols = array.select_dtypes("float16").columns.tolist()
         if f16_cols:
-            array = array.astype({c: "float32" for c in f16_cols}, copy=False)
+            array = array.astype({c: "float32" for c in f16_cols})
         array = cudf.DataFrame(array)
     elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
         # Remaining array-like inputs go through check_array first (without

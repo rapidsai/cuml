@@ -525,7 +525,7 @@ def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):
 
     try:
         if isinstance(X, (pd.DataFrame, pd.Series)):
-            return X.astype(to_dtype, copy=None)
+            return X.astype(to_dtype)
         return X.astype(to_dtype, copy=False)
     except AttributeError:
         raise TypeError("Received unsupported input type: %s" % type(X))
