@@ -36,7 +36,7 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.fil import ForestInference, fil
+from cuml.fil import ForestInference
 from cuml.internals.base import Base
 from cuml.internals.global_settings import (
     GlobalSettings,
@@ -95,7 +95,6 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
-    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",

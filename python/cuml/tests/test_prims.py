@@ -24,8 +24,6 @@ def test_monotonic_without_classes(arr_type, dtype, copy):
 
     monotonic, returned_classes = make_monotonic(arr, copy=copy)
 
-    cp.cuda.Stream.null.synchronize()
-
     # Verify monotonic mapping: [0, 15, 10, 50, 20, 50] -> [0, 2, 1, 4, 3, 4]
     # (sorted unique: 0->0, 10->1, 15->2, 20->3, 50->4)
     expected_monotonic = cp.array([0, 2, 1, 4, 3, 4], dtype=dtype)
@@ -56,8 +54,6 @@ def test_monotonic_inversion(dtype):
     # Invert: use classes array to map indices back to original values
     inverted = classes[monotonic]
 
-    cp.cuda.Stream.null.synchronize()
-
     assert array_equal(inverted, original)
 
 
@@ -73,8 +69,6 @@ def test_monotonic_with_explicit_classes(dtype, copy):
     monotonic, returned_classes = make_monotonic(
         labels, classes=classes, copy=copy
     )
-
-    cp.cuda.Stream.null.synchronize()
 
     # Labels should map to their position in the original classes array
     # 5 -> 0, 2 -> 1, 8 -> 2
@@ -99,8 +93,6 @@ def test_monotonic_unknown_labels(dtype):
     labels = cp.array([1, 999, 2, 3, -1], dtype=dtype)
 
     monotonic, _ = make_monotonic(labels, classes=classes, copy=True)
-
-    cp.cuda.Stream.null.synchronize()
 
     # Unknown labels (999, -1) should map to len(classes) = 3
     # 1 -> 0, 999 -> 3, 2 -> 1, 3 -> 2, -1 -> 3

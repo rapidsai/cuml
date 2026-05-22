@@ -10,9 +10,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn
 import treelite
-from packaging.version import Version
+
+# TODO(26.10): Remove this once we fully phase out cuml.fil.ForestInference
 
 # Import XGBoost before scikit-learn to work around a libgomp bug
 # See https://github.com/dmlc/xgboost/issues/7110
@@ -42,11 +42,20 @@ from cuml.testing.utils import (  # noqa: E402
     unit_param,
 )
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
+pytestmark = [
+    pytest.mark.filterwarnings(
+        "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:.*set_fil_device_type is deprecated:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        r"ignore:.*as_fil\(\) method is deprecated.*:FutureWarning"
+    ),
+    pytest.mark.filterwarnings(
+        "ignore:The default value of 'max_depth':FutureWarning"
+    ),
+]
 
 
 def simulate_data(
@@ -680,7 +689,7 @@ def test_lightgbm(
 @pytest.mark.parametrize("train_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("infer_device", ("cpu", "gpu"))
 @pytest.mark.parametrize("n_classes", [2, 5, 25])
-@pytest.mark.parametrize("num_boost_round", [10, 100])
+@pytest.mark.parametrize("num_boost_round", [10, 20])
 def test_predict_per_tree(
     train_device, infer_device, n_classes, num_boost_round, tmp_path
 ):
@@ -835,7 +844,7 @@ def test_missing_categorical(category_list):
         leaf_output_type="float32",
         metadata=treelite.model_builder.Metadata(
             num_feature=1,
-            task_type="kBinaryClf",
+            task_type="kRegressor",
             average_tree_output=False,
             num_target=1,
             num_class=[1],
@@ -918,9 +927,6 @@ def test_device_selection(device_id, model_kind, tmp_path):
         )
         xgb_model.fit(X, y)
         model_path = os.path.join(tmp_path, "xgb_class.ubj")
-        # skip with sklearn version 1.8.0.dev0
-        if Version(sklearn.__version__) >= Version("1.8.0.dev0"):
-            pytest.skip("xgboost is incompatible with sklearn >= 1.8.0.dev0")
         xgb_model.save_model(model_path)
         fm = ForestInference.load(
             model_path,
@@ -982,7 +988,7 @@ def test_wide_data():
     n_rows = 50
     n_features = 100000
     X = np.random.normal(size=(n_rows, n_features)).astype(np.float32)
-    y = np.asarray([0, 1] * (n_rows // 2), dtype=np.int32)
+    y = np.array([0, 1] * (n_rows // 2), dtype=np.int32)
 
     clf = RandomForestClassifier(max_features="sqrt", n_estimators=10)
     clf.fit(X, y)

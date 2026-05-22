@@ -29,11 +29,18 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
+pytestmark = [
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08): Remove this filter
+    pytest.mark.filterwarnings(
+        "ignore:The default value of 'max_depth':FutureWarning"
+    ),
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+    pytest.mark.filterwarnings(
+        "ignore:The `probability` parameter is deprecated:FutureWarning"
+    ),
+]
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 

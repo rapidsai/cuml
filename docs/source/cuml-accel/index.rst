@@ -58,6 +58,8 @@ executing the following line magic at the top (before other imports):
 You can see an example of this in :doc:`this example
 <examples/plot_kmeans_digits>`.
 
+.. _cuml-accel-env-var:
+
 Environment Variable
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -74,6 +76,10 @@ environment variable to ``1`` or ``true`` (case insensitive).
 
 Note that any python program running with the environment defined this way
 will load the accelerator, which may result in a measurable startup overhead.
+
+This approach is especially useful for accelerating
+:doc:`third-party applications <examples/third-party-apps>` whose code you do not
+control.
 
 Additionally, if ``cuml`` is not installed properly in your environment, the
 ``CUML_ACCEL_ENABLED`` environment variable will be silently ignored (and
