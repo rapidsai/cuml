@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,19 +18,20 @@ void generate_partitions(float* data,
                          int my_rank,
                          cudaStream_t stream)
 {
-  Random::make_blobs<float, int>(data,
-                                 (int*)outputs,
-                                 (int)n_rows,
-                                 (int)n_cols,
-                                 n_clusters,
-                                 stream,
-                                 true,
-                                 nullptr,
-                                 nullptr,
-                                 1.0,
-                                 -10.0,
-                                 10.0,
-                                 my_rank);
+  raft::random::make_blobs<float, int>(data,
+                                       (int*)outputs,
+                                       (int)n_rows,
+                                       (int)n_cols,
+                                       n_clusters,
+                                       stream,
+                                       true,
+                                       nullptr,
+                                       nullptr,
+                                       1.0f,
+                                       true,
+                                       -10.0f,
+                                       10.0f,
+                                       static_cast<uint64_t>(my_rank));
   raft::linalg::convert_array(outputs, (int*)outputs, n_rows, stream);
 }
 
@@ -46,8 +47,6 @@ class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
      */
     knn_regress(knn_th.handle,
                 &(knn_th.out_parts),
-                &(knn_th.out_i_parts),
-                &(knn_th.out_d_parts),
                 knn_th.index_parts,
                 *(knn_th.idx_desc),
                 knn_th.query_parts,
@@ -65,7 +64,7 @@ class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
 
     int actual   = 1;
     int expected = 1;
-    return raft::CompareApprox<int>(1)(actual, expected);
+    return MLCommon::CompareApprox<int>(1)(actual, expected);
   }
 };
 
