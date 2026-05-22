@@ -15,7 +15,12 @@ from cuml.cluster import (
 )
 from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
-from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.ensemble import (
+    ExtraTreesClassifier,
+    ExtraTreesRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
@@ -84,6 +89,8 @@ ESTIMATORS = [
     # TODO(26.08): Remove explicit default
     RandomForestClassifier(max_depth=None),
     RandomForestRegressor(max_depth=None),
+    ExtraTreesClassifier(max_depth=None),
+    ExtraTreesRegressor(max_depth=None),
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),
@@ -126,6 +133,18 @@ XFAILS = {
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
         "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
         "check_class_weight_classifiers": "class_weight maps to sample_weight, which quantile binning makes non-equivalent to sklearn-exact reweighting",
+    },
+    ExtraTreesRegressor: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_regressor_data_not_an_array": "ExtraTreesRegressor does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
+        "check_fit2d_1sample": "SPLITTER_RANDOM requires n_bins >= 2; a 1-sample fit forces n_bins=1",
+    },
+    ExtraTreesClassifier: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_classifier_data_not_an_array": "ExtraTreesClassifier does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
+        "check_fit2d_1sample": "SPLITTER_RANDOM requires n_bins >= 2; a 1-sample fit forces n_bins=1",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

@@ -17,6 +17,17 @@ namespace CUML_EXPORT ML {
 
 namespace DT {
 
+/**
+ * Selects the per-node split-finding strategy. SPLITTER_BEST evaluates every
+ * candidate bin edge and picks the highest-gain split (RandomForest behavior).
+ * SPLITTER_RANDOM draws one uniformly random bin edge per candidate feature
+ * and scores only that draw (ExtraTrees behavior).
+ */
+enum Splitter {
+  SPLITTER_BEST   = 0,
+  SPLITTER_RANDOM = 1,
+};
+
 struct DecisionTreeParams {
   /**
    * Maximum tree depth. Set to INT32_MAX for unlimited depth
@@ -58,6 +69,12 @@ struct DecisionTreeParams {
    * used only for batched-level algo
    */
   int max_batch_size;
+  /**
+   * Per-node split-finding strategy. Defaults to SPLITTER_BEST to preserve
+   * byte-identical RandomForest behavior; SPLITTER_RANDOM selects the
+   * ExtraTrees random-split path.
+   */
+  Splitter splitter = SPLITTER_BEST;
 };
 
 /**
@@ -77,6 +94,9 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
               in a batch. This is used only for batched-level algo. Default
               value 4096.
+ * @param[in] cfg_splitter: per-node split-finding strategy. Default
+              SPLITTER_BEST preserves RandomForest behavior; SPLITTER_RANDOM
+              selects the ExtraTrees random-split path.
  */
 void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth               = -1,
@@ -87,7 +107,8 @@ void set_tree_params(DecisionTreeParams& params,
                      int cfg_min_samples_split       = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      CRITERION cfg_split_criterion   = CRITERION_END,
-                     int cfg_max_batch_size          = 4096);
+                     int cfg_max_batch_size          = 4096,
+                     Splitter cfg_splitter           = SPLITTER_BEST);
 
 template <class T, class L>
 struct TreeMetaDataNode {

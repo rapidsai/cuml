@@ -8,7 +8,12 @@ from cuml.accel.estimator_proxy import ProxyBase
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.validation import check_array
 
-__all__ = ("RandomForestRegressor", "RandomForestClassifier")
+__all__ = (
+    "ExtraTreesClassifier",
+    "ExtraTreesRegressor",
+    "RandomForestClassifier",
+    "RandomForestRegressor",
+)
 
 
 class _RandomForestMixin:
@@ -38,6 +43,7 @@ class _RandomForestMixin:
                 input_name="y",
             )
             if len(y.shape) > 1 and y.shape[1] > 1:
+                # Catches ExtraTreesClassifier too (subclass), which is intended.
                 if isinstance(self, RandomForestClassifier) and self.oob_score:
                     raise ValueError(
                         "The type of target cannot be used to compute OOB estimates"
@@ -91,3 +97,11 @@ class RandomForestClassifier(ProxyBase, _RandomForestMixin):
 
     def __getitem__(self, index):
         return self._call_method("__getitem__", index)
+
+
+class ExtraTreesRegressor(RandomForestRegressor):
+    _gpu_class = cuml.ensemble.ExtraTreesRegressor
+
+
+class ExtraTreesClassifier(RandomForestClassifier):
+    _gpu_class = cuml.ensemble.ExtraTreesClassifier

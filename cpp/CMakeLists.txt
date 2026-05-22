@@ -364,6 +364,18 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/decisiontree/batched-levelalgo/kernels/mse-float.cu
               src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
               src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_entropy-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_entropy-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_gamma-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_gamma-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_gini-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_gini-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_inverse_gaussian-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_inverse_gaussian-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_mse-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_mse-float.cu
+              src/decisiontree/batched-levelalgo/kernels/random_poisson-double.cu
+              src/decisiontree/batched-levelalgo/kernels/random_poisson-float.cu
               src/decisiontree/batched-levelalgo/kernels/weighted_entropy-double.cu
               src/decisiontree/batched-levelalgo/kernels/weighted_entropy-float.cu
               src/decisiontree/batched-levelalgo/kernels/weighted_gamma-double.cu
@@ -376,6 +388,18 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/decisiontree/batched-levelalgo/kernels/weighted_mse-float.cu
               src/decisiontree/batched-levelalgo/kernels/weighted_poisson-double.cu
               src/decisiontree/batched-levelalgo/kernels/weighted_poisson-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_entropy-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_entropy-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_gamma-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_gamma-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_gini-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_gini-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_inverse_gaussian-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_inverse_gaussian-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_mse-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_mse-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_poisson-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted_random_poisson-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()

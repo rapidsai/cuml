@@ -422,5 +422,72 @@ void launchComputeSplitKernel(BinT* histograms,
                               size_t smem_size,
                               cudaStream_t builder_stream);
 
+// Random-split-position helper. threadIdx.x is intentionally absent from the
+// fnv1a32 chain (one draw per (node, feature), not per thread). HDI so the
+// gtest oracle can byte-compare against a host-side Python port.
+template <typename IdxT>
+HDI IdxT
+et_split_position(uint64_t seed, uint64_t treeid, uint64_t nodeid, uint64_t col, IdxT n_bins)
+{
+  uint64_t subsequence = fnv1a32_basis;
+  subsequence          = fnv1a32(subsequence, static_cast<uint32_t>(treeid));
+  subsequence          = fnv1a32(subsequence, static_cast<uint32_t>(nodeid));
+  subsequence          = fnv1a32(subsequence, static_cast<uint32_t>(col));
+  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
+  raft::random::UniformIntDistParams<IdxT, uint64_t> params;
+  // Half-open [0, n_bins - 1): n_bins quantile slots define n_bins - 1 split
+  // positions between adjacent slots; the last slot is never a valid split.
+  params.start = 0;
+  params.end   = n_bins - 1;
+  params.diff  = static_cast<uint64_t>(params.end - params.start);
+  IdxT idx;
+  raft::random::custom_next(gen, &idx, params, IdxT(0), IdxT(0));
+  return idx;
+}
+
+// ExtraTrees direct-single-threshold launcher. Definition in
+// builder_random_kernels_impl.cuh; instantiated by the random_*-{float,double}
+// translation units.
+template <typename DataT,
+          typename LabelT,
+          typename IdxT,
+          int TPB,
+          typename ObjectiveT,
+          typename BinT>
+void launchRandomSplitKernel(BinT* histograms,
+                             BinT* pool,
+                             IdxT max_n_bins,
+                             IdxT min_samples_split,
+                             IdxT max_leaves,
+                             const Dataset<DataT, LabelT, IdxT>& dataset,
+                             const Quantiles<DataT, IdxT>& quantiles,
+                             const NodeWorkItem* work_items,
+                             IdxT colStart,
+                             const IdxT* colids,
+                             int* done_count,
+                             int* mutex,
+                             volatile Split<DataT, IdxT>* splits,
+                             ObjectiveT& objective,
+                             IdxT treeid,
+                             const WorkloadInfo<IdxT>* workload_info,
+                             uint64_t seed,
+                             IdxT pool_slots,
+                             dim3 grid,
+                             size_t smem_size,
+                             cudaStream_t builder_stream);
+
+// Per-block smem for randomSplitKernel; takes max() with the evalBestSplit
+// per-warp Split scratch so small-n_classes paths never under-allocate.
+// Inline here so the dispatch site can size without the kernel impl header.
+template <typename BinT, typename DataT, typename IdxT, int TPB>
+HDI size_t randomSplitSmemSizeBytes(int n_classes)
+{
+  size_t bin_bytes = static_cast<size_t>(n_classes) * sizeof(BinT);
+  size_t kernel_sz = 2 * bin_bytes + sizeof(int) + sizeof(BinT);
+  size_t reduce_sz =
+    static_cast<size_t>(raft::ceildiv(TPB, raft::WarpSize)) * sizeof(Split<DataT, IdxT>);
+  return kernel_sz > reduce_sz ? kernel_sz : reduce_sz;
+}
+
 }  // namespace DT
 }  // namespace ML

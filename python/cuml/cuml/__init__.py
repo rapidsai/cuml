@@ -31,6 +31,8 @@ from cuml.datasets.regression import make_regression
 from cuml.decomposition.incremental_pca import IncrementalPCA
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.ensemble.extra_trees_classifier import ExtraTreesClassifier
+from cuml.ensemble.extra_trees_regressor import ExtraTreesRegressor
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
@@ -110,6 +112,8 @@ __all__ = [
     "ElasticNet",
     "EmpiricalCovariance",
     "ExponentialSmoothing",
+    "ExtraTreesClassifier",
+    "ExtraTreesRegressor",
     "ForestInference",
     "GaussianRandomProjection",
     "Handle",

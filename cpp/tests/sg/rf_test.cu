@@ -2286,6 +2286,40 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         WeightedInverseGaussianObjectiveTestF,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
 
+// validity_check uses the legacy ASSERT macro which throws raft::exception
+// (RAFT_EXPECTS would throw raft::logic_error). All non-splitter args are
+// pinned to known-valid values so this test isolates the new splitter gate.
+TEST(RfTests, SplitterRangeCheck)
+{
+  DT::DecisionTreeParams p;
+
+  EXPECT_NO_THROW(
+    DT::set_tree_params(p, 8, -1, 1.0f, 128, 1, 2, 0.0f, CRITERION_END, 4096, DT::SPLITTER_BEST));
+  EXPECT_EQ(p.splitter, DT::SPLITTER_BEST);
+
+  EXPECT_NO_THROW(
+    DT::set_tree_params(p, 8, -1, 1.0f, 128, 1, 2, 0.0f, CRITERION_END, 4096, DT::SPLITTER_RANDOM));
+  EXPECT_EQ(p.splitter, DT::SPLITTER_RANDOM);
+
+  EXPECT_NO_THROW(DT::set_tree_params(p, 8, -1, 1.0f, 128, 1, 2, 0.0f, CRITERION_END, 4096));
+  EXPECT_EQ(p.splitter, DT::SPLITTER_BEST);
+
+  EXPECT_THROW(
+    DT::set_tree_params(
+      p, 8, -1, 1.0f, 128, 1, 2, 0.0f, CRITERION_END, 4096, static_cast<DT::Splitter>(99)),
+    raft::exception);
+
+  // SPLITTER_RANDOM rejects max_n_bins < 2 (the Lemire chain in et_split_position
+  // divides by n_bins - 1 and would be undefined at n_bins = 1).
+  EXPECT_THROW(
+    DT::set_tree_params(p, 8, -1, 1.0f, 1, 1, 2, 0.0f, CRITERION_END, 4096, DT::SPLITTER_RANDOM),
+    raft::exception);
+
+  // SPLITTER_BEST tolerates max_n_bins = 1; existing RF tests exercise low n_bins.
+  EXPECT_NO_THROW(
+    DT::set_tree_params(p, 8, -1, 1.0f, 1, 1, 2, 0.0f, CRITERION_END, 4096, DT::SPLITTER_BEST));
+}
+
 #ifndef NDEBUG
 // Feature sampling bias test
 struct FeatureSamplingBiasTestParams {

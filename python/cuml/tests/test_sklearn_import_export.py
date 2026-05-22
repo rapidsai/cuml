@@ -882,6 +882,64 @@ def test_random_forest_regressor(random_state, oob_score):
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
 
+
+@pytest.mark.parametrize("class_weight", [None, "balanced", {0: 1, 1: 2}])
+def test_extra_trees_classifier(random_state, class_weight):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state,
+    )
+
+    cu_model = cuml.ExtraTreesClassifier(
+        max_depth=None, class_weight=class_weight,
+    ).fit(X, y)
+    sk_model = sklearn.ensemble.ExtraTreesClassifier(
+        max_depth=None, class_weight=class_weight,
+    ).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.ExtraTreesClassifier.from_sklearn(sk_model)
+
+    assert isinstance(sk_model2, sklearn.ensemble.ExtraTreesClassifier)
+    assert isinstance(cu_model2, cuml.ExtraTreesClassifier)
+
+    # classes_ transfers properly
+    assert isinstance(sk_model2.classes_, np.ndarray)
+    assert isinstance(cu_model2.classes_, np.ndarray)
+    assert (sk_model2.classes_ == cu_model2.classes_).all()
+
+    assert_roundtrip_consistency(
+        cu_model, cu_model2, exclude=("classes_", "feature_importances_")
+    )
+
+    # Both default to bootstrap=False; round-tripped models preserve it.
+    assert cu_model.bootstrap is False
+    assert sk_model2.bootstrap is False
+    assert cu_model2.bootstrap is False
+
+    # Can infer + refit on converted models
+    assert sk_model2.score(X, y) > 0.7
+    assert cu_model2.score(X, y) > 0.7
+    cu_model2.fit(X, y)
+    sk_model2.fit(X, y)
+
+
+def test_extra_trees_regressor(random_state):
+    X, y = make_regression(n_samples=200, random_state=random_state)
+    X = X.astype("float32")
+
+    cu_model = cuml.ExtraTreesRegressor(max_depth=None).fit(X, y)
+    sk_model = sklearn.ensemble.ExtraTreesRegressor(max_depth=None).fit(X, y)
+
+    sk_model2 = cu_model.as_sklearn()
+    cu_model2 = cuml.ExtraTreesRegressor.from_sklearn(sk_model)
+
+    assert isinstance(sk_model2, sklearn.ensemble.ExtraTreesRegressor)
+    assert isinstance(cu_model2, cuml.ExtraTreesRegressor)
+
+    assert_roundtrip_consistency(
+        cu_model, cu_model2, exclude=("feature_importances_",)
+    )
+
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7

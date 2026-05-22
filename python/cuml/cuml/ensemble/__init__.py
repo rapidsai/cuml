@@ -4,5 +4,7 @@
 #
 
 
+from cuml.ensemble.extra_trees_classifier import ExtraTreesClassifier
+from cuml.ensemble.extra_trees_regressor import ExtraTreesRegressor
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor

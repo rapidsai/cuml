@@ -220,7 +220,8 @@ RF_params set_rf_params(int max_depth,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
-                        int max_batch_size);
+                        int max_batch_size,
+                        DT::Splitter cfg_splitter = DT::SPLITTER_BEST);
 
 // ----------------------------- Regression ----------------------------------- //
 

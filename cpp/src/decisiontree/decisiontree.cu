@@ -32,6 +32,17 @@ void validity_check(const DecisionTreeParams params)
   ASSERT((params.min_samples_split >= 2),
          "Invalid value for min_samples_split: %d. Should be >= 2.",
          params.min_samples_split);
+  ASSERT((params.splitter == SPLITTER_BEST) || (params.splitter == SPLITTER_RANDOM),
+         "Invalid splitter value %d. Expected SPLITTER_BEST (0) or SPLITTER_RANDOM (1).",
+         static_cast<int>(params.splitter));
+  // SPLITTER_RANDOM's Lemire chain in et_split_position divides by
+  // max_n_bins - 1, undefined at n_bins < 2. The check stays ET-only so
+  // existing RF tests at low n_bins keep their behavior.
+  if (params.splitter == SPLITTER_RANDOM) {
+    ASSERT((params.max_n_bins >= 2),
+           "SPLITTER_RANDOM requires max_n_bins >= 2; got %d",
+           params.max_n_bins);
+  }
 }
 
 /**
@@ -47,6 +58,7 @@ void validity_check(const DecisionTreeParams params)
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: batch size for experimental backend
+ * @param[in] cfg_splitter: per-node split-finding strategy
  */
 void set_tree_params(DecisionTreeParams& params,
                      int cfg_max_depth,
@@ -57,7 +69,8 @@ void set_tree_params(DecisionTreeParams& params,
                      int cfg_min_samples_split,
                      float cfg_min_impurity_decrease,
                      CRITERION cfg_split_criterion,
-                     int cfg_max_batch_size)
+                     int cfg_max_batch_size,
+                     Splitter cfg_splitter)
 {
   params.max_depth             = cfg_max_depth;
   params.max_leaves            = cfg_max_leaves;
@@ -68,6 +81,7 @@ void set_tree_params(DecisionTreeParams& params,
   params.split_criterion       = cfg_split_criterion;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size        = cfg_max_batch_size;
+  params.splitter              = cfg_splitter;
   validity_check(params);
 }
 

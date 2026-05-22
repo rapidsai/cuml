@@ -155,6 +155,12 @@ if(all_algo OR randomforest_algo)
     GPUS 1
     PERCENT 100
   )
+  ConfigureTest(
+    PREFIX SG
+    NAME EXTRATREES_TEST sg/extratrees_test.cu ML_INCLUDE
+    GPUS 1
+    PERCENT 100
+  )
 endif()
 
 # todo: separate solvers better

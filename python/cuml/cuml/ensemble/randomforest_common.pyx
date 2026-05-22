@@ -36,6 +36,11 @@ from cuml.internals.treelite cimport (
 )
 
 
+cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DT" nogil:
+    cdef enum Splitter:
+        SPLITTER_BEST,
+        SPLITTER_RANDOM
+
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
     cdef enum CRITERION:
         GINI,
@@ -64,7 +69,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         uint64_t seed,
         CRITERION split_criterion,
         int cfg_n_streams,
-        int max_batch_size
+        int max_batch_size,
+        Splitter cfg_splitter
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -95,6 +101,12 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         level_enum verbosity,
         T* sample_weight
     ) except +
+
+
+_splitter_lookup = {
+    "best": SPLITTER_BEST,
+    "random": SPLITTER_RANDOM,
+}
 
 
 _split_criterion_lookup = {
@@ -175,6 +187,10 @@ _DEPRECATED_MAX_DEPTH_DEFAULT = "deprecated"
 
 class BaseRandomForestModel(Base, InteropMixin):
 
+    # Subclasses override to "random" for ExtraTrees. Not a user-facing
+    # parameter; sklearn keeps RandomForest and ExtraTrees as distinct classes.
+    _splitter = "best"
+
     @classmethod
     def _get_param_names(cls):
         return [
@@ -247,6 +263,9 @@ class BaseRandomForestModel(Base, InteropMixin):
                 f"`split_criterion={self.split_criterion!r}` is not supported"
             )
 
+        # sklearn rejects max_samples != None when bootstrap=False.
+        max_samples = self.max_samples if self.bootstrap else None
+
         return {
             "n_estimators": self.n_estimators,
             "criterion": criterion,
@@ -260,7 +279,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": self.min_impurity_decrease,
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
-            "max_samples": self.max_samples,
+            "max_samples": max_samples,
             "oob_score": self.oob_score,
         }
 
@@ -535,6 +554,14 @@ class BaseRandomForestModel(Base, InteropMixin):
         else:
             n_bins = self.n_bins
 
+        cdef Splitter cfg_splitter
+        try:
+            cfg_splitter = _splitter_lookup[self._splitter]
+        except KeyError:
+            raise ValueError(
+                f"Unknown _splitter={self._splitter!r}; expected one of "
+                f"{sorted(_splitter_lookup)}"
+            ) from None
         cdef RF_params params = set_rf_params(
             max_depth_c,
             self.max_leaves,
@@ -550,6 +577,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             _normalize_split_criterion(self.split_criterion),
             self.n_streams,
             self.max_batch_size,
+            cfg_splitter,
         )
 
         cdef TreeliteModelHandle tl_handle

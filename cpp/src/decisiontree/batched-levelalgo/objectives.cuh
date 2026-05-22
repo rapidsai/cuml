@@ -83,6 +83,39 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
+
+  // left[j].x and parent[j].x are per-class unweighted counts; right side is
+  // computed inline as parent[j].x - left[j].x.
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft = 0;
+    IdxT len   = 0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeft += left[j].x;
+      len += parent[j].x;
+    }
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
+    constexpr DataT One = DataT(1.0);
+    auto invLen         = One / len;
+    auto invLeft        = One / nLeft;
+    auto invRight       = One / nRight;
+    auto gain           = DataT(0.0);
+    for (IdxT j = 0; j < nclasses; ++j) {
+      auto lval_i = left[j].x;
+      auto lval   = DataT(lval_i);
+      gain += lval * invLeft * lval * invLen;
+      auto rval_i = parent[j].x - lval_i;
+      auto rval   = DataT(rval_i);
+      gain += rval * invRight * rval * invLen;
+      auto val = DataT(parent[j].x) * invLen;
+      gain -= val * val;
+    }
+    return gain;
+  }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     // Output probability
@@ -168,6 +201,42 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft = 0;
+    IdxT len   = 0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeft += left[j].x;
+      len += parent[j].x;
+    }
+    IdxT nRight = len - nLeft;
+    auto gain   = DataT(0.0);
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto invLeft  = DataT(1.0) / nLeft;
+    auto invRight = DataT(1.0) / nRight;
+    auto invLen   = DataT(1.0) / len;
+    for (IdxT c = 0; c < nclasses; ++c) {
+      auto lval_i = left[c].x;
+      if (lval_i != 0) {
+        auto lval = DataT(lval_i);
+        gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
+      }
+      auto rval_i = parent[c].x - lval_i;
+      if (rval_i != 0) {
+        auto rval = DataT(rval_i);
+        gain += raft::log(rval * invRight) / raft::log(DataT(2)) * rval * invLen;
+      }
+      auto val_i = parent[c].x;
+      if (val_i != 0) {
+        auto val = DataT(val_i) * invLen;
+        gain -= val * raft::log(val) / raft::log(DataT(2));
+      }
+    }
+    return gain;
+  }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     // Output probability
@@ -241,6 +310,27 @@ class MSEObjectiveFunction {
       sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
     }
     return sp;
+  }
+
+  // Regressor side stats are single AggregateBin tuples; only left[0] and
+  // parent[0] are consulted (per_side_cells = NumClasses() = 1).
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft  = left[0].count;
+    IdxT len    = parent[0].count;
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto invLen          = DataT(1.0) / len;
+    auto label_sum       = parent[0].label_sum;
+    auto left_label_sum  = left[0].label_sum;
+    auto right_label_sum = label_sum - left_label_sum;
+    DataT parent_obj     = -label_sum * label_sum * invLen;
+    DataT left_obj       = -(left_label_sum * left_label_sum) / nLeft;
+    DataT right_obj      = -(right_label_sum * right_label_sum) / nRight;
+    DataT gain           = parent_obj - (left_obj + right_obj);
+    gain *= DataT(0.5) * invLen;
+    return gain;
   }
 
   DI IdxT NumClasses() const { return 1; }
@@ -324,6 +414,27 @@ class PoissonObjectiveFunction {
     return sp;
   }
 
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft  = left[0].count;
+    IdxT len    = parent[0].count;
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto invLen          = DataT(1) / len;
+    auto label_sum       = parent[0].label_sum;
+    auto left_label_sum  = left[0].label_sum;
+    auto right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / nLeft);
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / nRight);
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invLen;
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
@@ -402,6 +513,28 @@ class GammaObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft  = left[0].count;
+    IdxT len    = parent[0].count;
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto invLen           = DataT(1) / len;
+    DataT label_sum       = parent[0].label_sum;
+    DataT left_label_sum  = left[0].label_sum;
+    DataT right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = len * raft::log(label_sum * invLen);
+    DataT left_obj   = nLeft * raft::log(left_label_sum / nLeft);
+    DataT right_obj  = nRight * raft::log(right_label_sum / nRight);
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invLen;
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
@@ -480,6 +613,27 @@ class InverseGaussianObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeft  = left[0].count;
+    IdxT len    = parent[0].count;
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto label_sum       = parent[0].label_sum;
+    auto left_label_sum  = left[0].label_sum;
+    auto right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
+    DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
+    DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain / (2 * len);
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
@@ -560,6 +714,42 @@ class WeightedGiniObjectiveFunction {
     }
     return sp;
   }
+
+  // ExtraTrees counterpart of GainPerSplit. Reads whole-side stats from
+  // left[j].weighted_sum / .count and parent[j].weighted_sum / .count.
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount = 0;
+    IdxT len        = 0;
+    double wLeft    = 0.0;
+    double wLen     = 0.0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeftCount += left[j].count;
+      len += parent[j].count;
+      wLeft += left[j].weighted_sum;
+      wLen += parent[j].weighted_sum;
+    }
+    IdxT nRightCount = len - nLeftCount;
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    double wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+
+    auto invWLen   = DataT(1.0) / DataT(wLen);
+    auto invWLeft  = DataT(1.0) / DataT(wLeft);
+    auto invWRight = DataT(1.0) / DataT(wRight);
+    auto gain      = DataT(0.0);
+    for (IdxT j = 0; j < nclasses; ++j) {
+      auto lval = DataT(left[j].weighted_sum);
+      gain += lval * invWLeft * lval * invWLen;
+      auto rval = DataT(parent[j].weighted_sum - left[j].weighted_sum);
+      gain += rval * invWRight * rval * invWLen;
+      auto val = DataT(parent[j].weighted_sum) * invWLen;
+      gain -= val * val;
+    }
+    return gain;
+  }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     double total = 0.0;
@@ -642,6 +832,42 @@ class WeightedEntropyObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount = 0;
+    IdxT len        = 0;
+    double wLeft    = 0.0;
+    double wLen     = 0.0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      nLeftCount += left[j].count;
+      len += parent[j].count;
+      wLeft += left[j].weighted_sum;
+      wLen += parent[j].weighted_sum;
+    }
+    IdxT nRightCount = len - nLeftCount;
+    auto gain        = DataT(0.0);
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    double wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+
+    auto invWLeft  = DataT(1.0) / DataT(wLeft);
+    auto invWRight = DataT(1.0) / DataT(wRight);
+    auto invWLen   = DataT(1.0) / DataT(wLen);
+    for (IdxT c = 0; c < nclasses; ++c) {
+      auto lval = DataT(left[c].weighted_sum);
+      if (lval != DataT(0))
+        gain += raft::log(lval * invWLeft) / raft::log(DataT(2)) * lval * invWLen;
+      auto rval = DataT(parent[c].weighted_sum - left[c].weighted_sum);
+      if (rval != DataT(0))
+        gain += raft::log(rval * invWRight) / raft::log(DataT(2)) * rval * invWLen;
+      auto val = DataT(parent[c].weighted_sum) * invWLen;
+      if (val != DataT(0)) gain -= val * raft::log(val) / raft::log(DataT(2));
+    }
+    return gain;
+  }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     double total = 0.0;
@@ -704,6 +930,30 @@ class WeightedMSEObjectiveFunction {
         {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeftCount, wLeft), nLeftCount});
     }
     return sp;
+  }
+
+  // Regressor side stats are single WeightedAggregateBin tuples; only left[0]
+  // and parent[0] are consulted (per_side_cells = NumClasses() = 1).
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount  = left[0].count;
+    IdxT len         = parent[0].count;
+    IdxT nRightCount = len - nLeftCount;
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto wLeft  = left[0].weighted_count;
+    auto wLen   = parent[0].weighted_count;
+    auto wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+    auto invWLen        = DataT(1.0) / DataT(wLen);
+    auto label_sum      = parent[0].label_sum;
+    DataT parent_obj    = -label_sum * label_sum * invWLen;
+    DataT left_obj      = -(left[0].label_sum * left[0].label_sum) / DataT(wLeft);
+    DataT right_lbl_sum = label_sum - left[0].label_sum;
+    DataT right_obj     = -(right_lbl_sum * right_lbl_sum) / DataT(wRight);
+    DataT gain          = parent_obj - (left_obj + right_obj);
+    gain *= DataT(0.5) * invWLen;
+    return gain;
   }
 
   DI IdxT NumClasses() const { return 1; }
@@ -774,6 +1024,31 @@ class WeightedPoissonObjectiveFunction {
     return sp;
   }
 
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount  = left[0].count;
+    IdxT len         = parent[0].count;
+    IdxT nRightCount = len - nLeftCount;
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto wLeft  = left[0].weighted_count;
+    auto wLen   = parent[0].weighted_count;
+    auto wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+    auto invWLen         = DataT(1) / DataT(wLen);
+    auto label_sum       = parent[0].label_sum;
+    auto left_label_sum  = left[0].label_sum;
+    auto right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = -label_sum * raft::log(label_sum * invWLen);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / DataT(wLeft));
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / DataT(wRight));
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invWLen;
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
@@ -841,6 +1116,32 @@ class WeightedGammaObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount  = left[0].count;
+    IdxT len         = parent[0].count;
+    IdxT nRightCount = len - nLeftCount;
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto wLeft  = left[0].weighted_count;
+    auto wLen   = parent[0].weighted_count;
+    auto wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+    auto invWLen          = DataT(1) / DataT(wLen);
+    DataT label_sum       = parent[0].label_sum;
+    DataT left_label_sum  = left[0].label_sum;
+    DataT right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = DataT(wLen) * raft::log(label_sum * invWLen);
+    DataT left_obj   = DataT(wLeft) * raft::log(left_label_sum / DataT(wLeft));
+    DataT right_obj  = DataT(wRight) * raft::log(right_label_sum / DataT(wRight));
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invWLen;
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
@@ -907,6 +1208,31 @@ class WeightedInverseGaussianObjectiveFunction {
     }
     return sp;
   }
+
+  HDI DataT GainFromSideStats(BinT const* left, BinT const* parent) const
+  {
+    IdxT nLeftCount  = left[0].count;
+    IdxT len         = parent[0].count;
+    IdxT nRightCount = len - nLeftCount;
+    if (nLeftCount < min_samples_leaf || nRightCount < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    auto wLeft  = left[0].weighted_count;
+    auto wLen   = parent[0].weighted_count;
+    auto wRight = wLen - wLeft;
+    if (wLeft <= 0.0 || wRight <= 0.0) return -std::numeric_limits<DataT>::max();
+    auto label_sum       = parent[0].label_sum;
+    auto left_label_sum  = left[0].label_sum;
+    auto right_label_sum = label_sum - left_label_sum;
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+    DataT parent_obj = -DataT(wLen) * DataT(wLen) / label_sum;
+    DataT left_obj   = -DataT(wLeft) * DataT(wLeft) / left_label_sum;
+    DataT right_obj  = -DataT(wRight) * DataT(wRight) / right_label_sum;
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain / (DataT(2) * DataT(wLen));
+    return gain;
+  }
+
   DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)

@@ -325,6 +325,8 @@ def all_algorithms():
         cuml_LogisticRegression = cuml.linear_model.LogisticRegression
         cuml_RandomForestClassifier = cuml.ensemble.RandomForestClassifier
         cuml_RandomForestRegressor = cuml.ensemble.RandomForestRegressor
+        cuml_ExtraTreesClassifier = cuml.ensemble.ExtraTreesClassifier
+        cuml_ExtraTreesRegressor = cuml.ensemble.ExtraTreesRegressor
         cuml_TSNE = cuml.manifold.TSNE
         cuml_SVC = cuml.svm.SVC
         cuml_SVR = cuml.svm.SVR
@@ -346,6 +348,7 @@ def all_algorithms():
         )
         cuml_LogisticRegression = None
         cuml_RandomForestClassifier = cuml_RandomForestRegressor = None
+        cuml_ExtraTreesClassifier = cuml_ExtraTreesRegressor = None
         cuml_TSNE = cuml_SVC = cuml_SVR = cuml_LinearSVC = cuml_LinearSVR = (
             None
         )
@@ -474,6 +477,28 @@ def all_algorithms():
             shared_args={},
             cpu_args={"n_jobs": -1},
             name="RandomForestRegressor",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+        AlgorithmPair(
+            sklearn.ensemble.ExtraTreesClassifier,
+            cuml_ExtraTreesClassifier,
+            shared_args={},
+            cpu_args={"n_jobs": -1},
+            name="ExtraTreesClassifier",
+            accepts_labels=True,
+            cpu_data_prep_hook=_labels_to_int_hook,
+            cuml_data_prep_hook=_labels_to_int_hook
+            if is_cuml_available()
+            else None,
+            accuracy_function=metrics.accuracy_score,
+        ),
+        AlgorithmPair(
+            sklearn.ensemble.ExtraTreesRegressor,
+            cuml_ExtraTreesRegressor,
+            shared_args={},
+            cpu_args={"n_jobs": -1},
+            name="ExtraTreesRegressor",
             accepts_labels=True,
             accuracy_function=metrics.r2_score,
         ),

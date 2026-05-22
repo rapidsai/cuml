@@ -475,7 +475,7 @@ struct Builder {
   {
     int n_large_nodes = 0;  // large nodes are nodes having training instances larger than block
                             // size, hence require global memory for histogram construction
-    int n_blocks_dimx = 0;  // gridDim.x required for computeSplitKernel
+    int n_blocks_dimx          = 0;  // gridDim.x required for computeSplitKernel
     size_t max_blocks_per_node = 1;  // batch-wide max blocks-per-node; sizes the weighted pool
     for (std::size_t i = 0; i < work_items.size(); i++) {
       auto item = work_items[i];
@@ -504,8 +504,7 @@ struct Builder {
     // get the current set of nodes to be worked upon
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
 
-    auto [n_blocks_dimx, n_large_nodes, max_blocks_per_node] =
-      this->updateWorkloadInfo(work_items);
+    auto [n_blocks_dimx, n_large_nodes, max_blocks_per_node] = this->updateWorkloadInfo(work_items);
 
     // do feature-sampling
     if (dataset.n_sampled_cols != dataset.N) {
@@ -647,6 +646,23 @@ struct Builder {
     return smem_size;
   }
 
+  // Random-split kernel's smem footprint: scales with n_classes only, never
+  // with max_n_bins. The max() against the evalBestSplit reduction temporary
+  // mirrors the best-split smem helper above so the kernel cannot underrun.
+  auto randomSplitSmemSize()
+  {
+    auto available_smem = handle.get_device_properties().sharedMemPerBlock;
+    size_t smem_size =
+      randomSplitSmemSizeBytes<BinT, DataT, IdxT, TPB_DEFAULT>(dataset.num_outputs);
+    RAFT_EXPECTS(available_smem >= smem_size,
+                 "Required shared-memory per block (%zu bytes) for the ET "
+                 "random-split kernel exceeds the device limit (%zu bytes). "
+                 "Reduce n_classes (num_outputs).",
+                 smem_size,
+                 available_smem);
+    return smem_size;
+  }
+
   void computeSplit(IdxT col,
                     size_t n_blocks_dimx,
                     size_t n_large_nodes,
@@ -659,12 +675,18 @@ struct Builder {
     auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
-    // compute required dynamic shared memory
-    auto smem_size = computeSplitSmemSize();
+    const bool is_et   = (params.splitter == DT::SPLITTER_RANDOM);
+    // Smem and pool footprints differ per splitter: the best-split path scales
+    // with max_n_bins * n_classes per block; the random-split path writes only
+    // 2 * n_classes cells per (node, feature) for left + parent stats.
+    auto smem_size = is_et ? randomSplitSmemSize() : computeSplitSmemSize();
     dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
-    // required total length (in bins) of the global segmented histograms over all
-    // classes, features and (large)nodes.
-    int len_histograms = n_bins * n_classes * n_blocks_dimy * n_large_nodes;
+    // ET only touches 2 * n_classes cells per (large_node, feature); RF
+    // touches n_bins * n_classes. size_t matches the pool-size path below
+    // and avoids int overflow on large bin/class/batch combinations.
+    size_t per_block_cells =
+      is_et ? size_t(2) * n_classes : size_t(n_bins) * n_classes;
+    size_t len_histograms = per_block_cells * n_blocks_dimy * n_large_nodes;
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
     // The weighted pool holds one slot per block; sizing to this batch's max
     // blocks-per-node instead of the POOL_SIZE ceiling avoids zeroing unused
@@ -673,37 +695,62 @@ struct Builder {
     if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
                   std::is_same_v<BinT, WeightedAggregateBin>) {
       // Weighted bins only: pool-based ordered cross-block reduction for FP
-      // determinism of the double accumulators. Unweighted bins keep main's
-      // direct atomicAdd merge (routing them here cost 27-45% on n=None).
-      size_t pool_len = pool_slots * n_bins * n_classes * n_blocks_dimy * n_large_nodes;
+      // determinism. ET shrinks the per-slot footprint from
+      // max_n_bins * n_classes (RF) to 2 * n_classes (left + parent cells).
+      size_t pool_slot_stride = is_et ? size_t(2) * n_classes : size_t(n_bins) * n_classes;
+      size_t pool_len         = pool_slots * pool_slot_stride * n_blocks_dimy * n_large_nodes;
       if (pool_buf.size() < pool_len) { pool_buf.resize(pool_len, builder_stream); }
       RAFT_CUDA_TRY(cudaMemsetAsync(pool_buf.data(), 0, sizeof(BinT) * pool_len, builder_stream));
     }
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf);
-    // call the computeSplitKernel
-    raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
-                                                               pool_buf.data(),
-                                                               params.max_n_bins,
-                                                               params.min_samples_split,
-                                                               params.max_leaves,
-                                                               dataset,
-                                                               quantiles,
-                                                               d_work_items,
-                                                               col,
-                                                               colids,
-                                                               done_count,
-                                                               mutex,
-                                                               splits,
-                                                               objective,
-                                                               treeid,
-                                                               workload_info,
-                                                               seed,
-                                                               static_cast<IdxT>(pool_slots),
-                                                               grid,
-                                                               smem_size,
-                                                               builder_stream);
+    if (is_et) {
+      raft::common::nvtx::range kernel_scope("randomSplitKernel @builder.cuh [batched-levelalgo]");
+      launchRandomSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
+                                                                pool_buf.data(),
+                                                                params.max_n_bins,
+                                                                params.min_samples_split,
+                                                                params.max_leaves,
+                                                                dataset,
+                                                                quantiles,
+                                                                d_work_items,
+                                                                col,
+                                                                colids,
+                                                                done_count,
+                                                                mutex,
+                                                                splits,
+                                                                objective,
+                                                                treeid,
+                                                                workload_info,
+                                                                seed,
+                                                                static_cast<IdxT>(pool_slots),
+                                                                grid,
+                                                                smem_size,
+                                                                builder_stream);
+    } else {
+      raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
+      launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
+                                                                 pool_buf.data(),
+                                                                 params.max_n_bins,
+                                                                 params.min_samples_split,
+                                                                 params.max_leaves,
+                                                                 dataset,
+                                                                 quantiles,
+                                                                 d_work_items,
+                                                                 col,
+                                                                 colids,
+                                                                 done_count,
+                                                                 mutex,
+                                                                 splits,
+                                                                 objective,
+                                                                 treeid,
+                                                                 workload_info,
+                                                                 seed,
+                                                                 static_cast<IdxT>(pool_slots),
+                                                                 grid,
+                                                                 smem_size,
+                                                                 builder_stream);
+    }
   }
 
   // Set the leaf value predictions in batch

@@ -552,7 +552,8 @@ RF_params set_rf_params(int max_depth,
                         uint64_t seed,
                         CRITERION split_criterion,
                         int cfg_n_streams,
-                        int max_batch_size)
+                        int max_batch_size,
+                        DT::Splitter cfg_splitter)
 {
   DT::DecisionTreeParams tree_params;
   DT::set_tree_params(tree_params,
@@ -564,7 +565,8 @@ RF_params set_rf_params(int max_depth,
                       min_samples_split,
                       min_impurity_decrease,
                       split_criterion,
-                      max_batch_size);
+                      max_batch_size,
+                      cfg_splitter);
   RF_params rf_params;
   rf_params.n_trees     = n_trees;
   rf_params.bootstrap   = bootstrap;
