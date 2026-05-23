@@ -5,11 +5,13 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <raft/core/error.hpp>
 
 #include <stdint.h>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 // Dense input uses int64_t until FAISS is updated
 typedef int64_t knn_indices_dense_t;
@@ -123,4 +125,4 @@ struct manifold_precomputed_knn_inputs_t : public manifold_inputs_t<value_t> {
   }
 };
 
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

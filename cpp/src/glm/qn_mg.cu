@@ -7,6 +7,7 @@
 #include "qn/mg/standardization.cuh"
 #include "qn/simple_mat/dense.hpp"
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/linear_model/qn_mg.hpp>
@@ -183,13 +184,15 @@ std::vector<T> getUniquelabelsMG(const raft::handle_t& handle,
   return distinct_mg<T>(handle, data_y->ptr, n_rows);
 }
 
-template std::vector<float> getUniquelabelsMG(const raft::handle_t& handle,
-                                              Matrix::PartDescriptor& input_desc,
-                                              std::vector<Matrix::Data<float>*>& labels);
+template CUML_EXPORT std::vector<float> getUniquelabelsMG(
+  const raft::handle_t& handle,
+  Matrix::PartDescriptor& input_desc,
+  std::vector<Matrix::Data<float>*>& labels);
 
-template std::vector<double> getUniquelabelsMG(const raft::handle_t& handle,
-                                               Matrix::PartDescriptor& input_desc,
-                                               std::vector<Matrix::Data<double>*>& labels);
+template CUML_EXPORT std::vector<double> getUniquelabelsMG(
+  const raft::handle_t& handle,
+  Matrix::PartDescriptor& input_desc,
+  std::vector<Matrix::Data<double>*>& labels);
 
 template <typename T>
 void qnFit(raft::handle_t& handle,
@@ -217,29 +220,29 @@ void qnFit(raft::handle_t& handle,
                 num_iters);
 }
 
-template void qnFit(raft::handle_t& handle,
-                    std::vector<Matrix::Data<float>*>& input_data,
-                    Matrix::PartDescriptor& input_desc,
-                    std::vector<Matrix::Data<float>*>& labels,
-                    float* coef,
-                    const qn_params& pams,
-                    bool X_col_major,
-                    bool standardization,
-                    int n_classes,
-                    float* f,
-                    int* num_iters);
+template CUML_EXPORT void qnFit(raft::handle_t& handle,
+                                std::vector<Matrix::Data<float>*>& input_data,
+                                Matrix::PartDescriptor& input_desc,
+                                std::vector<Matrix::Data<float>*>& labels,
+                                float* coef,
+                                const qn_params& pams,
+                                bool X_col_major,
+                                bool standardization,
+                                int n_classes,
+                                float* f,
+                                int* num_iters);
 
-template void qnFit(raft::handle_t& handle,
-                    std::vector<Matrix::Data<double>*>& input_data,
-                    Matrix::PartDescriptor& input_desc,
-                    std::vector<Matrix::Data<double>*>& labels,
-                    double* coef,
-                    const qn_params& pams,
-                    bool X_col_major,
-                    bool standardization,
-                    int n_classes,
-                    double* f,
-                    int* num_iters);
+template CUML_EXPORT void qnFit(raft::handle_t& handle,
+                                std::vector<Matrix::Data<double>*>& input_data,
+                                Matrix::PartDescriptor& input_desc,
+                                std::vector<Matrix::Data<double>*>& labels,
+                                double* coef,
+                                const qn_params& pams,
+                                bool X_col_major,
+                                bool standardization,
+                                int n_classes,
+                                double* f,
+                                int* num_iters);
 
 template <typename T, typename I>
 void qnFitSparse_impl(const raft::handle_t& handle,
@@ -331,61 +334,63 @@ void qnFitSparse(raft::handle_t& handle,
                    input_desc.uniqueRanks().size());
 }
 
-template void qnFitSparse<float, int>(raft::handle_t& handle,
-                                      std::vector<Matrix::Data<float>*>& input_values,
-                                      int* input_cols,
-                                      int* input_row_ids,
-                                      int X_nnz,
-                                      Matrix::PartDescriptor& input_desc,
-                                      std::vector<Matrix::Data<float>*>& labels,
-                                      float* coef,
-                                      const qn_params& pams,
-                                      bool standardization,
-                                      int n_classes,
-                                      float* f,
-                                      int* num_iters);
+template CUML_EXPORT void qnFitSparse<float, int>(raft::handle_t& handle,
+                                                  std::vector<Matrix::Data<float>*>& input_values,
+                                                  int* input_cols,
+                                                  int* input_row_ids,
+                                                  int X_nnz,
+                                                  Matrix::PartDescriptor& input_desc,
+                                                  std::vector<Matrix::Data<float>*>& labels,
+                                                  float* coef,
+                                                  const qn_params& pams,
+                                                  bool standardization,
+                                                  int n_classes,
+                                                  float* f,
+                                                  int* num_iters);
 
-template void qnFitSparse<double, int>(raft::handle_t& handle,
-                                       std::vector<Matrix::Data<double>*>& input_values,
-                                       int* input_cols,
-                                       int* input_row_ids,
-                                       int X_nnz,
-                                       Matrix::PartDescriptor& input_desc,
-                                       std::vector<Matrix::Data<double>*>& labels,
-                                       double* coef,
-                                       const qn_params& pams,
-                                       bool standardization,
-                                       int n_classes,
-                                       double* f,
-                                       int* num_iters);
+template CUML_EXPORT void qnFitSparse<double, int>(raft::handle_t& handle,
+                                                   std::vector<Matrix::Data<double>*>& input_values,
+                                                   int* input_cols,
+                                                   int* input_row_ids,
+                                                   int X_nnz,
+                                                   Matrix::PartDescriptor& input_desc,
+                                                   std::vector<Matrix::Data<double>*>& labels,
+                                                   double* coef,
+                                                   const qn_params& pams,
+                                                   bool standardization,
+                                                   int n_classes,
+                                                   double* f,
+                                                   int* num_iters);
 
-template void qnFitSparse<float, int64_t>(raft::handle_t& handle,
-                                          std::vector<Matrix::Data<float>*>& input_values,
-                                          int64_t* input_cols,
-                                          int64_t* input_row_ids,
-                                          int64_t X_nnz,
-                                          Matrix::PartDescriptor& input_desc,
-                                          std::vector<Matrix::Data<float>*>& labels,
-                                          float* coef,
-                                          const qn_params& pams,
-                                          bool standardization,
-                                          int n_classes,
-                                          float* f,
-                                          int* num_iters);
+template CUML_EXPORT void qnFitSparse<float, int64_t>(
+  raft::handle_t& handle,
+  std::vector<Matrix::Data<float>*>& input_values,
+  int64_t* input_cols,
+  int64_t* input_row_ids,
+  int64_t X_nnz,
+  Matrix::PartDescriptor& input_desc,
+  std::vector<Matrix::Data<float>*>& labels,
+  float* coef,
+  const qn_params& pams,
+  bool standardization,
+  int n_classes,
+  float* f,
+  int* num_iters);
 
-template void qnFitSparse<double, int64_t>(raft::handle_t& handle,
-                                           std::vector<Matrix::Data<double>*>& input_values,
-                                           int64_t* input_cols,
-                                           int64_t* input_row_ids,
-                                           int64_t X_nnz,
-                                           Matrix::PartDescriptor& input_desc,
-                                           std::vector<Matrix::Data<double>*>& labels,
-                                           double* coef,
-                                           const qn_params& pams,
-                                           bool standardization,
-                                           int n_classes,
-                                           double* f,
-                                           int* num_iters);
+template CUML_EXPORT void qnFitSparse<double, int64_t>(
+  raft::handle_t& handle,
+  std::vector<Matrix::Data<double>*>& input_values,
+  int64_t* input_cols,
+  int64_t* input_row_ids,
+  int64_t X_nnz,
+  Matrix::PartDescriptor& input_desc,
+  std::vector<Matrix::Data<double>*>& labels,
+  double* coef,
+  const qn_params& pams,
+  bool standardization,
+  int n_classes,
+  double* f,
+  int* num_iters);
 
 };  // namespace opg
 };  // namespace GLM
