@@ -182,7 +182,6 @@
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-full]"
   - "sklearn.decomposition.tests.test_pca::test_sparse_pca_solver_error[42-csr_matrix-randomized]"
   - "sklearn.ensemble.tests.test_forest::test_backend_respected"
-  - "sklearn.ensemble.tests.test_forest::test_class_weights[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-False-1]"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-False-None]"
   - "sklearn.ensemble.tests.test_forest::test_estimators_samples[RandomForestClassifier-True-1]"
@@ -929,6 +928,10 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
+- reason: quantile-binned split finding makes sample weighting non-equivalent to data duplication
+  marker: cuml_accel_test_estimators
+  condition: scikit-learn>=1.6
+  tests:
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_dense_data]"

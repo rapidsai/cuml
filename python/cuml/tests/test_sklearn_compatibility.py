@@ -119,10 +119,13 @@ XFAILS = {
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "quantile-binned split finding makes sample weighting non-equivalent to data duplication",
+        "check_class_weight_classifiers": "class_weight maps to sample_weight, which quantile binning makes non-equivalent to sklearn-exact reweighting",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

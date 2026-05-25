@@ -795,8 +795,9 @@ def test_kernel_density(random_state, kernel, bandwidth, metric):
     assert_kde_close(cu_model, cu_model2)
 
 
+@pytest.mark.parametrize("class_weight", [None, "balanced", {0: 1, 1: 2}])
 @pytest.mark.parametrize("oob_score", [False, True])
-def test_random_forest_classifier(random_state, oob_score):
+def test_random_forest_classifier(random_state, oob_score, class_weight):
     X, y = make_classification(
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
@@ -804,10 +805,12 @@ def test_random_forest_classifier(random_state, oob_score):
     cu_model = cuml.RandomForestClassifier(
         oob_score=oob_score,
         max_depth=None,
+        class_weight=class_weight,
     ).fit(X, y)
     sk_model = sklearn.ensemble.RandomForestClassifier(
         oob_score=oob_score,
         max_depth=None,
+        class_weight=class_weight,
     ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()

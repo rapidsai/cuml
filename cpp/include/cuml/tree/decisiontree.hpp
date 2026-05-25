@@ -97,6 +97,13 @@ struct TreeMetaDataNode {
   double train_time;
   std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
+  // Per-node sum of sample_weight, parallel to sparsetree. Empty for
+  // unweighted fits; populated only when sample_weight is provided so the
+  // unweighted tree-build path stays byte-identical to the no-weight build.
+  // Used internally by compute_feature_importances to normalize per-node
+  // BestMetric by weighted mass; not serialized to JSON or Treelite by
+  // design (Treelite carries inference structure only; JSON is debug-only).
+  std::vector<double> weighted_node_count;
   int num_outputs;
 };
 

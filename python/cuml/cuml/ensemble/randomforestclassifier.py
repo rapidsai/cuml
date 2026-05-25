@@ -5,7 +5,7 @@ import cupy as cp
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -124,6 +124,16 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
+    class_weight : dict or 'balanced' (default = None)
+        By default all classes have a weight one. However, a dictionary
+        can be provided with weights associated with classes
+        in the form ``{class_label: weight}``. The "balanced" mode
+        uses the values of y to automatically adjust weights
+        inversely proportional to class frequencies in the input data
+        as ``n_samples / (n_classes * np.bincount(y))``. Note that
+        these weights will be multiplied with sample_weight
+        (passed through the fit method) if sample_weight is specified.
+        ``'balanced_subsample'`` is not supported.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -168,10 +178,23 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
     @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "class_weight"]
+
+    @classmethod
     def _params_from_cpu(cls, model):
-        if model.class_weight is not None:
-            raise UnsupportedOnGPU("`class_weight` is not supported")
-        return super()._params_from_cpu(model)
+        # 'balanced_subsample' is per-tree resampling cuml cannot express.
+        if model.class_weight == "balanced_subsample":
+            raise UnsupportedOnGPU(
+                "`class_weight='balanced_subsample'` is not supported"
+            )
+        return {
+            "class_weight": model.class_weight,
+            **super()._params_from_cpu(model),
+        }
+
+    def _params_to_cpu(self):
+        return {"class_weight": self.class_weight, **super()._params_to_cpu()}
 
     def _attrs_from_cpu(self, model):
         return {
@@ -205,6 +228,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         random_state=None,
         n_streams=4,
         oob_score=False,
+        class_weight=None,
         verbose=False,
         output_type=None,
     ):
@@ -227,6 +251,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             verbose=verbose,
             output_type=output_type,
         )
+        self.class_weight = class_weight
 
     @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
@@ -238,21 +263,35 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         convert_dtype_cast="np.float32",
     )
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
 
         Parameters
         ----------
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Per-sample weights. If ``class_weight`` is also set, the two are
+            combined (multiplied) into a single per-row weight. The
+            unweighted training path is used only when both
+            ``sample_weight`` and ``class_weight`` are ``None``.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X, y, classes = check_inputs(
+        # Not expressible as per-tree weighted bootstrap; reject at fit time.
+        if self.class_weight == "balanced_subsample":
+            raise ValueError(
+                "class_weight='balanced_subsample' is not supported; use "
+                "'balanced' or a {class_label: weight} dict"
+            )
+        X, y, sample_weight, classes = check_inputs(
             self,
             X,
             y,
+            sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
@@ -262,7 +301,19 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        return self._fit_forest(X, y)
+        # Fold class_weight into one per-row sample_weight (None+None stays
+        # None: unweighted C++ path). balanced_with_sample_weight=False
+        # matches sklearn's compute-then-multiply order (1.5 _forest.py).
+        if self.class_weight is not None or sample_weight is not None:
+            _, sample_weight = process_class_weight(
+                classes,
+                y,
+                self.class_weight,
+                sample_weight,
+                dtype=X.dtype,
+                balanced_with_sample_weight=False,
+            )
+        return self._fit_forest(X, y, sample_weight)
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
@@ -451,6 +502,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self,
         X,
         y,
+        sample_weight=None,
         *,
         threshold=0.5,
         convert_dtype=True,
@@ -465,6 +517,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         ----------
         X : {}
         y : {}
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Per-sample weights for the accuracy computation.
         threshold : float (default = 0.5)
             Threshold used for classification predictions
         convert_dtype : bool (default = True)
@@ -496,4 +550,4 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return accuracy_score(y, y_pred)
+        return accuracy_score(y, y_pred, sample_weight=sample_weight)

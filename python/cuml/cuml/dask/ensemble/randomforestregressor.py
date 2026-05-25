@@ -141,7 +141,15 @@ class RandomForestRegressor(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
+    def fit(
+        self,
+        X,
+        y,
+        convert_dtype=False,
+        broadcast_data=False,
+        *,
+        sample_weight=None,
+    ):
         """
         Fit the input data with a Random Forest regression model
 
@@ -178,6 +186,9 @@ class RandomForestRegressor(
         y : Dask cuDF DataFrame or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
+        sample_weight : None
+            Not supported for the distributed (MNMG) Random Forest; must be
+            ``None``. Use the single-GPU estimator for weighted training.
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
             y to be the same data type as X if they differ. This will increase
@@ -186,8 +197,13 @@ class RandomForestRegressor(
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
-
         """
+        if sample_weight is not None:
+            raise NotImplementedError(
+                "sample_weight is not yet supported for distributed "
+                "RandomForest training. Use the single-GPU estimator or "
+                "open an issue if you need MNMG support."
+            )
         self.internal_model = None
         self._fit(
             model=self.rfs,
