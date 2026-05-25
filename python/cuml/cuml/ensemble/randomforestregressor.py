@@ -7,7 +7,7 @@ from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_features, check_inputs
+from cuml.internals.validation import check_inputs
 from cuml.metrics import r2_score
 
 
@@ -241,19 +241,27 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        check_features(self, X)
-        preds = fil.predict(X)
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        preds = nvforest_model.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
-            preds = CumlArray(preds.to_output("cupy").reshape(-1))
-        return preds
+            preds = preds.reshape(-1)
+        return CumlArray(preds, index=index)
 
     @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",

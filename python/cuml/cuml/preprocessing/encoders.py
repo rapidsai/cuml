@@ -268,6 +268,7 @@ class OneHotEncoder(BaseEncoder):
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
                 drop_vals = self.drop[feature]
+                cats = cudf.Series(cats)
                 # Match the dtype of the drop values to the dtype of the categories
                 # seen during `fit`. In particular if arrow strings and object dtypes
                 # are used, then having a mix means `isin` won't work correctly.
@@ -280,7 +281,6 @@ class OneHotEncoder(BaseEncoder):
                         "categories.".format(feature)
                     )
                     raise ValueError(msg)
-                cats = cudf.Series(cats)
                 idx = cats.isin(drop_vals)
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -57,7 +57,8 @@ class SVR : public RegressionFixture<D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      *(this->model));
+                      *(this->model),
+                      static_cast<D*>(nullptr));
       this->handle->sync_stream(this->stream);
       ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
     });
