@@ -349,6 +349,12 @@ def test_adjusted_rand_score_small(nrows):
 )
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
+    if metric == "l1":
+        pytest.xfail(
+            "Batched l1 silhouette score is unstable; "
+            "see https://github.com/rapidsai/cuml/issues/8145"
+        )
+
     cuml_score = cu_silhouette_score(
         X, labels, metric=metric, chunksize=int(X.shape[0] / chunk_divider)
     )

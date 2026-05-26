@@ -37,6 +37,7 @@ def test_svc(binary):
     assert svc.score(X, y) > 0.5
 
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"

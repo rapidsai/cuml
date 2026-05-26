@@ -4,8 +4,8 @@
  */
 
 #pragma once
-
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <raft/random/rng_state.hpp>
 
@@ -17,7 +17,8 @@ struct params;
 
 }  // end namespace cuvs::cluster::kmeans
 
-namespace ML::kmeans {
+namespace CUML_EXPORT ML {
+namespace kmeans {
 
 struct KMeansParams {
   enum class InitMethod { KMeansPlusPlus, Random, Array };
@@ -36,4 +37,5 @@ struct KMeansParams {
   cuvs::cluster::kmeans::params to_cuvs() const;
 };
 
-}  // end namespace ML::kmeans
+}  // end namespace kmeans
+}  // end namespace CUML_EXPORT ML

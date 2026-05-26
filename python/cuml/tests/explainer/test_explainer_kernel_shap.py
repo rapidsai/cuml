@@ -20,6 +20,7 @@ from cuml import KernelExplainer, Lasso
 from cuml.testing.datasets import with_dtype
 from cuml.testing.utils import ClassEnumerator, get_shap_values
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
@@ -84,6 +85,7 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             )
 
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
     "ignore:The `probability` parameter is deprecated:FutureWarning"

@@ -1,18 +1,19 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 enum TSNE_ALGORITHM { EXACT, BARNES_HUT, FFT };
 
@@ -175,4 +176,4 @@ void TSNE_fit_sparse(const raft::handle_t& handle,
                      float* kl_div = nullptr,
                      int* n_iter   = nullptr);
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

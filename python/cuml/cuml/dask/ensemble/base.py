@@ -46,6 +46,7 @@ class BaseRandomForestModel(object):
             )
         self.workers = workers
         self._set_internal_model(None)
+        # rapids-pre-commit-hooks: disable-next-line
         # TODO(26.08): Drop along with the single-GPU deprecation in
         # cuml.ensemble.randomforest_common.
         # Record whether the user explicitly set `max_depth`; the warning is
@@ -100,11 +101,13 @@ class BaseRandomForestModel(object):
         return n_estimators_per_worker
 
     def _fit(self, model, dataset, convert_dtype, broadcast_data):
+        # rapids-pre-commit-hooks: disable-next-line
         # TODO(26.08): Drop along with the single-GPU deprecation in
         # cuml.ensemble.randomforest_common.
         if not getattr(self, "_max_depth_user_set", True):
             warnings.warn(
                 "The default value of 'max_depth' will change from 16 to "
+                # rapids-pre-commit-hooks: disable-next-line
                 "None (unlimited depth) in release 26.08. To suppress this "
                 "warning, set 'max_depth' explicitly.",
                 FutureWarning,
@@ -252,6 +255,7 @@ class BaseRandomForestModel(object):
         return params_of_each_model
 
     def _set_params(self, **params):
+        # rapids-pre-commit-hooks: disable-next-line
         # TODO(26.08): Drop along with the single-GPU deprecation in
         # cuml.ensemble.randomforest_common.
         if "max_depth" in params:

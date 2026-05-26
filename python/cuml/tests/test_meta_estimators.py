@@ -15,6 +15,7 @@ from cuml.preprocessing import StandardScaler
 from cuml.svm import SVC
 from cuml.testing.utils import ClassEnumerator
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"

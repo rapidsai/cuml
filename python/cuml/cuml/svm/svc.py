@@ -459,6 +459,7 @@ class SVC(SVMBase, ClassifierMixin):
         if self.probability != "deprecated":
             warnings.warn(
                 "The `probability` parameter is deprecated and will be "
+                # rapids-pre-commit-hooks: disable-next-line
                 "removed in cuML version 26.08. Use "
                 "`CalibratedClassifierCV(SVC(), ensemble=False)` from "
                 "`sklearn.calibration` instead.",
