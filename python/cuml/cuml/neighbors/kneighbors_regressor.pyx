@@ -156,12 +156,28 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
     def __init__(
         self,
         *,
+        n_neighbors=5,
+        algorithm="auto",
+        metric="euclidean",
         weights="uniform",
+        p=2,
+        algo_params=None,
+        metric_params=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
-        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
+        super().__init__(
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            metric=metric,
+            p=p,
+            algo_params=algo_params,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            verbose=verbose,
+            output_type=output_type,
+        )
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')

@@ -118,24 +118,20 @@ XFAILS = {
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
         "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
         "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "KNeighborsClassifier does not handle non-array data",
     },
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
     },

@@ -322,7 +322,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         min_impurity_decrease=0.0,
         max_batch_size=4096,
         random_state=None,
-        criterion=None,
         n_streams=4,
         oob_score=False,
         verbose=False,
