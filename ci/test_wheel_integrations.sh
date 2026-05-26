@@ -29,8 +29,10 @@ rapids-pip-retry install \
   "${CUML_WHEELHOUSE}"/cuml*.whl
 
 # Step 2: Install BERTopic
+# XXX: torch implicitly relies on a cupy feature that depends on pytest in
+# cupy >= 14.1.0. For now we add an explicit dependency on pytest here.
 rapids-logger "Installing BERTopic"
-rapids-pip-retry install --prefer-binary bertopic
+rapids-pip-retry install --prefer-binary bertopic pytest
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"
