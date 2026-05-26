@@ -119,12 +119,10 @@ XFAILS = {
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
-        "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
-        "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

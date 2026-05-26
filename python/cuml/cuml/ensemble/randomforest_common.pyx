@@ -643,8 +643,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
         self.n_outputs_ = 1
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
-        # Ensure cached nvforest model is reset
-        self._nvforest_model = None
+        # Reload nvforest model
+        self._nvforest_model = self.as_nvforest()
 
         # Compute OOB score if requested
         if self.oob_score:
