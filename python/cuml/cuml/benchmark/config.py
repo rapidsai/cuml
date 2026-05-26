@@ -292,8 +292,8 @@ def load_config_file(config_path: str) -> dict[str, Any]:
             f"Top-level YAML document must be a mapping: {abs_path}"
         )
 
-    _validate_config_structure(raw)
     validate_config(raw)
+    _validate_config_structure(raw)
     return raw
 
 
