@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -9,7 +9,6 @@ import cupy as cp
 import cupyx as cpx
 import numpy as np
 import pytest
-from cupyx.scipy.sparse import coo_matrix
 from scipy import stats
 from sklearn.preprocessing import normalize as sk_normalize
 from sklearn.utils._mask import _get_mask as sk_get_mask
@@ -20,7 +19,6 @@ from cuml.thirdparty_adapters.adapters import (
     _masked_column_mean,
     _masked_column_median,
     _masked_column_mode,
-    check_array,
 )
 from cuml.thirdparty_adapters.sparsefuncs_fast import (
     _csc_mean_variance_axis0,
@@ -62,62 +60,6 @@ def sparse_random_dataset(request, random_seed):
     elif request.param == "cupy-csc":
         X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
-
-
-@pytest.mark.skipif(
-    IS_ARM,
-    reason="Test fails unexpectedly on ARM. "
-    "github.com/rapidsai/cuml/issues/5100",
-)
-def test_check_array():
-    # accept_sparse
-    arr = coo_matrix((3, 4), dtype=cp.float64)
-    check_array(arr, accept_sparse=True)
-    with pytest.raises(ValueError):
-        check_array(arr, accept_sparse=False)
-
-    # dtype
-    arr = cp.array([[1, 2]], dtype=cp.int64)
-    check_array(arr, dtype=cp.int64, copy=False)
-
-    arr = cp.array([[1, 2]], dtype=cp.float32)
-    new_arr = check_array(arr, dtype=cp.int64)
-    assert new_arr.dtype == cp.int64
-
-    # order
-    arr = cp.array([[1, 2]], dtype=cp.int64, order="F")
-    new_arr = check_array(arr, order="F")
-    assert new_arr.flags.f_contiguous
-    new_arr = check_array(arr, order="C")
-    assert new_arr.flags.c_contiguous
-
-    # force_all_finite
-    arr = cp.array([[1, cp.inf]])
-    check_array(arr, force_all_finite=False)
-    with pytest.raises(ValueError):
-        check_array(arr, force_all_finite=True)
-
-    # ensure_2d
-    arr = cp.array([1, 2], dtype=cp.float32)
-    check_array(arr, ensure_2d=False)
-    with pytest.raises(ValueError):
-        check_array(arr, ensure_2d=True)
-
-    # ensure_2d
-    arr = cp.array([[1, 2, 3], [4, 5, 6]], dtype=cp.float32)
-    check_array(arr, ensure_2d=True)
-
-    # ensure_min_samples
-    arr = cp.array([[1, 2]], dtype=cp.float32)
-    check_array(arr, ensure_min_samples=1)
-    with pytest.raises(ValueError):
-        check_array(arr, ensure_min_samples=2)
-
-    # ensure_min_features
-    arr = cp.array([[]], dtype=cp.float32)
-    check_array(arr, ensure_min_features=0)
-    with pytest.raises(ValueError):
-        check_array(arr, ensure_min_features=1)
 
 
 def test_csr_mean_variance_axis0(failure_logger, sparse_random_dataset):

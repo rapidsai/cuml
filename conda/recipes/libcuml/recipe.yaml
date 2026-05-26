@@ -106,6 +106,7 @@ outputs:
         - cuda-version =${{ cuda_version }}
         - rapids-logger =0.2
         - libcuvs =${{ minor_version }}
+        - libnvforest =${{ minor_version }}
         - librmm =${{ minor_version }}
         - treelite ${{ treelite_version }}
         - cuda-cudart-dev
@@ -116,13 +117,13 @@ outputs:
         - libcusparse
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
-        - cuda-cudart
         - libcublas
         - libcufft
         - libcurand
         - libcusolver
         - libcusparse
         - libcuvs =${{ minor_version }}
+        - libnvforest =${{ minor_version }}
         - librmm =${{ minor_version }}
         - rapids-logger =0.2
         - treelite ${{ treelite_version }}
@@ -162,7 +163,6 @@ outputs:
       run:
         - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
         - ${{ pin_subpackage("libcuml", exact=True) }}
-        - cuda-cudart
       ignore_run_exports:
         by_name:
           - cuda-cudart

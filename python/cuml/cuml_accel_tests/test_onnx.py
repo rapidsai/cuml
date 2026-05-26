@@ -82,6 +82,7 @@ def regression_data():
 classifiers = [
     pytest.param(
         RandomForestClassifier(n_estimators=20, max_depth=8, random_state=42),
+        marks=xfail_skl2onnx_bug,
         id="RandomForestClassifier",
     ),
     pytest.param(KNeighborsClassifier(), id="KNeighborsClassifier"),

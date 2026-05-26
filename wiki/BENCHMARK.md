@@ -7,6 +7,24 @@ This document describes how to run the cuML benchmark suite. The tools support t
 
 The benchmark runner also supports YAML manifests. A manifest is the declarative source of truth for a benchmark suite, while CLI flags can be used to filter or override selected fields at runtime.
 
+## Contents
+
+- [Running the benchmarks](#running-the-benchmarks)
+- [Common options](#common-options)
+- [Examples](#examples)
+- [YAML manifests](#yaml-manifests)
+  - [Manifest structure](#top-level-schema)
+  - [`suite`](#suite)
+  - [`profiles`](#profiles)
+  - [Compact `variants`](#compact-variants)
+  - [`defaults`](#defaults)
+  - [Benchmark entry schema](#benchmark-entry-schema)
+  - [Choosing dimensions](#choosing-dimensions)
+  - [Creating your own manifest](#creating-your-own-manifest)
+  - [CLI overrides in config mode](#cli-overrides-in-config-mode)
+- [Input types](#input-types)
+- [Manifest structural validation](#manifest-structural-validation)
+
 ## Running the benchmarks
 
 ### Full mode (cuML installed)
@@ -30,6 +48,7 @@ To run a YAML-defined suite:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
   --profile default \
+  --backends gpu \
   --output results.json
 ```
 
@@ -39,7 +58,7 @@ To run the tiny harness-validation manifest:
 python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/test.yaml \
   --profile default \
-  --skip-gpu
+  --backends cpu
 ```
 
 ### Standalone mode (from the repository)
@@ -60,13 +79,22 @@ cd python/cuml/cuml/benchmark/
 python run_benchmarks.py \
   --config configs/test.yaml \
   --profile default \
-  --skip-gpu
+  --backends cpu
 ```
 
 The following Python packages are required for standalone mode:
 
 ```bash
-pip install numpy pandas pyyaml scikit-learn scipy
+pip install numpy pandas scikit-learn scipy
+```
+
+YAML manifests require PyYAML and msgspec. If either is not installed, the
+benchmark CLI will print install instructions. You can install them with:
+
+```bash
+conda install -c conda-forge pyyaml msgspec
+# or
+python -m pip install pyyaml msgspec
 ```
 
 ### CPU-only mode
@@ -122,7 +150,7 @@ Run with parameter sweeps and save a JSON artifact:
 ```bash
 python -m cuml.benchmark --dataset classification \
   --max-rows 100000 --min-rows 10000 \
-  --dataset-param-sweep n_classes=[2] \
+  --dataset-param-sweep n_classes=[2,4] \
   --cuml-param-sweep n_estimators=[10,100] \
   --output results.json \
   RandomForestClassifier
@@ -159,7 +187,7 @@ python -m cuml.benchmark \
   --config python/cuml/cuml/benchmark/configs/test.yaml \
   --profile default \
   --num-rows 500 \
-  --skip-gpu
+  --backends cpu
 ```
 
 In config mode, only explicitly provided CLI flags override the manifest. Parser defaults do not silently replace YAML values.
@@ -633,4 +661,26 @@ The subprocess activation keeps `cuml.accel` import-time behavior isolated from 
 
 ## Input types
 
-With GPU/cuML you can use `--input-type` such as `numpy`, `pandas`, or `cudf`. Without GPU, only `numpy` and `pandas` are valid; the script will warn and switch to `numpy` if needed.
+With GPU/cuML you can use `--input-type` such as `numpy`, `pandas`, `cupy`, or `cudf`. Without GPU, only `numpy` and `pandas` are valid; the script will warn and switch to `numpy` if needed.
+
+## Manifest structural validation
+
+The benchmark manifest structure is validated by typed `msgspec` models in
+`python/cuml/cuml/benchmark/config.py`. The prose in this document explains the
+fields and gives examples, while the `msgspec` models provide the structural
+contract for parsing YAML manifests.
+
+To generate a JSON Schema from the `msgspec` manifest model:
+
+```bash
+python - <<'PY'
+import json
+from cuml.benchmark.config import benchmark_manifest_json_schema
+
+print(json.dumps(benchmark_manifest_json_schema(), indent=2))
+PY
+```
+
+Some semantic checks, such as post-default required fields, unknown algorithm
+names, and compact `variants` conflicts, are still enforced by custom Python
+validation after the structural conversion step.

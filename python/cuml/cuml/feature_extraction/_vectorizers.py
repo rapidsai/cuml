@@ -901,7 +901,9 @@ class HashingVectorizer(_VectorizerMixin):
         tokenized_df["token"] = tokenized_df["token"].hash_values()
         if self.alternate_sign:
             # below logic is equivalent to: value *= ((h >= 0) * 2) - 1
-            tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
+            tokenized_df["value"] = (tokenized_df["token"] >= 0).astype(
+                cp.int8
+            ) * 2 - 1
             tokenized_df["token"] = (
                 tokenized_df["token"].abs() % self.n_features
             )

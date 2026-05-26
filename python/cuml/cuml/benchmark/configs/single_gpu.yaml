@@ -243,18 +243,18 @@ benchmarks:
       narrow:
         features: [32]
         tiers:
-          default: {rows: [25000000]}
-          nightly: {rows: [100000000]}
+          default: {rows: [75000000]}
+          nightly: {rows: [300000000]}
       medium:
         features: [128]
         tiers:
-          default: {rows: [6000000]}
-          nightly: {rows: [24000000]}
+          default: {rows: [18000000]}
+          nightly: {rows: [72000000]}
       wide:
         features: [512]
         tiers:
-          default: {rows: [2000000]}
-          nightly: {rows: [8000000]}
+          default: {rows: [6000000]}
+          nightly: {rows: [24000000]}
 
   - id: srp_fit
     algorithm: SparseRandomProjection
@@ -491,18 +491,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [2100000]}
-          nightly: {rows: [10500000]}
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [520000]}
-          nightly: {rows: [2600000]}
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [260000]}
-          nightly: {rows: [1300000]}
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
 
   - id: minmaxscaler_fittransform
     algorithm: MinMaxScaler
@@ -513,18 +513,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [2100000]}
-          nightly: {rows: [10500000]}
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [520000]}
-          nightly: {rows: [2600000]}
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [260000]}
-          nightly: {rows: [1300000]}
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
 
   - id: maxabsscaler_fittransform
     algorithm: MaxAbsScaler
@@ -535,18 +535,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [2100000]}
-          nightly: {rows: [10500000]}
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [520000]}
-          nightly: {rows: [2600000]}
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [260000]}
-          nightly: {rows: [1300000]}
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
 
   - id: normalizer_fittransform
     algorithm: Normalizer
@@ -557,18 +557,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [2000000]}
-          nightly: {rows: [8000000]}
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [600000]}
-          nightly: {rows: [2400000]}
+          default: {rows: [60000]}
+          nightly: {rows: [240000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [320000]}
-          nightly: {rows: [1280000]}
+          default: {rows: [32000]}
+          nightly: {rows: [128000]}
 
   - id: simpleimputer_fittransform
     algorithm: SimpleImputer
@@ -579,18 +579,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [2100000]}
-          nightly: {rows: [10500000]}
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [520000]}
-          nightly: {rows: [2600000]}
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [260000]}
-          nightly: {rows: [1300000]}
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
 
   - id: robustscaler_fittransform
     algorithm: RobustScaler
@@ -601,18 +601,18 @@ benchmarks:
       narrow:
         features: [128]
         tiers:
-          default: {rows: [3000000]}
-          nightly: {rows: [12000000]}
+          default: {rows: [300000]}
+          nightly: {rows: [1200000]}
       medium:
         features: [512]
         tiers:
-          default: {rows: [700000]}
-          nightly: {rows: [2800000]}
+          default: {rows: [70000]}
+          nightly: {rows: [280000]}
       wide:
         features: [1024]
         tiers:
-          default: {rows: [6000]}
-          nightly: {rows: [24000]}
+          default: {rows: [600]}
+          nightly: {rows: [2400]}
 
   - id: polynomialfeatures_fittransform
     algorithm: PolynomialFeatures

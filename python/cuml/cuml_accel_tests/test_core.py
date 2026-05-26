@@ -19,7 +19,11 @@ def proxy_base_subclasses():
     for mod in ACCELERATED_MODULES:
         importlib.import_module(mod)
 
-    return sorted(ProxyBase.__subclasses__(), key=lambda cls: cls.__name__)
+    out = [
+        cls for cls in ProxyBase.__subclasses__() if hasattr(cls, "_gpu_class")
+    ]
+    out.sort(key=lambda cls: cls.__name__)
+    return out
 
 
 def test_multiple_import_styles_work():

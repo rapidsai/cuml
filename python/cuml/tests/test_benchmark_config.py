@@ -10,7 +10,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from cuml.benchmark.config import BenchmarkConfigError, load_and_resolve_config
+from cuml.benchmark.config import (
+    BenchmarkConfigError,
+    load_and_resolve_config,
+    load_config_file,
+)
 from cuml.benchmark.run_benchmarks import (
     _run_config_benchmarks,
     extract_param_overrides,
@@ -70,6 +74,20 @@ def test_extract_param_overrides_accepts_json_style_lists():
         {"n_classes": 8, "n_estimators": 10},
         {"n_classes": 8, "n_estimators": 100},
     ]
+
+
+def test_checked_in_benchmark_manifests_match_msgspec_schema():
+    pytest.importorskip("msgspec")
+    pytest.importorskip("yaml")
+    configs_dir = (
+        Path(__file__).resolve().parents[1] / "cuml" / "benchmark" / "configs"
+    )
+
+    manifest_paths = sorted(configs_dir.glob("*.yaml"))
+    assert manifest_paths
+
+    for manifest_path in manifest_paths:
+        load_config_file(str(manifest_path))
 
 
 def test_load_and_resolve_config_default_profile_filters_single_gpu_manifest():

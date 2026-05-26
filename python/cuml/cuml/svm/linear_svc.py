@@ -1,18 +1,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cupy as cp
-import numpy as np
 from sklearn.exceptions import NotFittedError
 from sklearn.utils.metaestimators import available_if
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, process_class_weight
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -21,13 +21,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import (
-    check_consistent_length,
-    check_features,
-    check_is_fitted,
-    check_sample_weight,
-    check_y,
-)
+from cuml.internals.validation import check_is_fitted
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -62,6 +56,11 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         The string 'balanced' is also accepted, in which case
         ``class_weight[i] = n_samples / (n_classes * n_samples_of_class[i])``
     probability: bool, default=False
+        .. deprecated:: 26.06
+            ``probability`` is deprecated and will be removed in version
+            26.08. Use ``CalibratedClassifierCV(LinearSVC(), ensemble=False)``
+            from ``sklearn.calibration`` for probability estimates instead.
+
         Set to True to enable probability estimate methods (``predict_proba``,
         ``predict_log_proba``).
     tol : float, default=1e-4
@@ -163,6 +162,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
                 f"`multi_class={model.multi_class}` is not supported"
             )
 
+        # probability omitted: sklearn.LinearSVC has no such param.
         return {
             "penalty": model.penalty,
             "loss": model.loss,
@@ -188,9 +188,9 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     def _attrs_from_cpu(self, model):
         return {
-            "coef_": to_gpu(model.coef_, order="F", dtype=np.float64),
+            "coef_": to_gpu(model.coef_, order="F", dtype=cp.float64),
             "intercept_": to_gpu(
-                model.intercept_, order="F", dtype=np.float64
+                model.intercept_, order="F", dtype=cp.float64
             ),
             "classes_": model.classes_,
             "prob_scale_": None,
@@ -200,8 +200,8 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     def _attrs_to_cpu(self, model):
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
-            "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
+            "coef_": to_cpu(self.coef_, order="C", dtype=cp.float64),
+            "intercept_": to_cpu(self.intercept_, order="C", dtype=cp.float64),
             "classes_": self.classes_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
@@ -216,7 +216,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         fit_intercept=True,
         penalized_intercept=False,
         class_weight=None,
-        probability=False,
+        probability="deprecated",
         tol=1e-4,
         max_iter=1000,
         linesearch_max_iter=100,
@@ -242,41 +242,37 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.n_streams = n_streams
         self.multi_class = multi_class
 
+    @property
+    def _effective_probability(self):
+        return False if self.probability == "deprecated" else self.probability
+
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
-        y, classes = check_y(y, return_classes=True)
-        X = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            check_rows=y.shape[0],
-            order="F",
-        ).array
+        if self.probability != "deprecated":
+            warnings.warn(
+                "The `probability` parameter is deprecated and will be "
+                # rapids-pre-commit-hooks: disable-next-line
+                "removed in cuML version 26.08. Use "
+                "`CalibratedClassifierCV(LinearSVC(), ensemble=False)` from "
+                "`sklearn.calibration` instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
 
-        _, sample_weight = process_class_weight(
-            classes,
+        coef, intercept, n_iter, prob_scale, classes = cuml.svm.linear.fit(
+            self,
+            X,
             y,
-            class_weight=self.class_weight,
-            sample_weight=check_sample_weight(sample_weight),
-            dtype=X.dtype,
-        )
-        check_consistent_length(X, y, sample_weight)
-
-        coef, intercept, n_iter, prob_scale = cuml.svm.linear.fit(
-            X,
-            CumlArray(data=y.astype(X.dtype, copy=False)),
-            sample_weight=(
-                None
-                if sample_weight is None
-                else CumlArray(data=sample_weight)
-            ),
-            n_classes=len(classes),
+            sample_weight,
+            convert_dtype=convert_dtype,
+            is_classifier=True,
             n_streams=self.n_streams,
-            probability=self.probability,
+            probability=self._effective_probability,
+            class_weight=self.class_weight,
             loss=self.loss,
             penalty=self.penalty,
             fit_intercept=self.fit_intercept,
@@ -289,11 +285,15 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             epsilon=0.0,
             verbose=self._verbose_level,
         )
-        self.coef_ = coef
-        self.intercept_ = intercept
-        self.classes_ = classes
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = (
+            intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
+        )
         self.n_iter_ = n_iter
-        self.prob_scale_ = prob_scale
+        self.prob_scale_ = (
+            None if prob_scale is None else CumlArray(data=prob_scale)
+        )
+        self.classes_ = classes
         return self
 
     @generate_docstring(
@@ -307,14 +307,12 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
-        if self.probability:
-            scores = self.predict_proba(
-                X, convert_dtype=convert_dtype
-            ).to_output("cupy")
+        if self._effective_probability:
+            scores = self.predict_proba(X, convert_dtype=convert_dtype)
         else:
-            scores = self.decision_function(
-                X, convert_dtype=convert_dtype
-            ).to_output("cupy")
+            scores = self.decision_function(X, convert_dtype=convert_dtype)
+        index = scores.index
+        scores = scores.to_output("cupy")
         if scores.ndim == 1:
             inds = (scores >= 0).view(cp.int8)
         else:
@@ -322,9 +320,11 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
+        )
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         return_values={
             "name": "probs",
@@ -341,25 +341,18 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         to be available.
         """
         check_is_fitted(self)
-        check_features(self, X)
-
         if self.prob_scale_ is None:
             raise NotFittedError(
                 "predict_proba is not available when fitted with probability=False"
             )
         scores = self.decision_function(X, convert_dtype=convert_dtype)
-        scores = input_to_cuml_array(
-            scores,
-            check_dtype=self.coef_.dtype,
-            order="C",
-        ).array
         return cuml.svm.linear.compute_probabilities(
             scores,
-            self.prob_scale_,
+            self.prob_scale_.to_output("cupy"),
             n_streams=self.n_streams,
         )
 
-    @available_if(lambda self: self.probability)
+    @available_if(lambda self: self._effective_probability)
     @generate_docstring(
         return_values={
             "name": "probs",

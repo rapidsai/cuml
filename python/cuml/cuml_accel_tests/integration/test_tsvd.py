@@ -1,10 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
 import pytest
+import sklearn
+from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import make_classification
 from sklearn.decomposition import TruncatedSVD
@@ -100,11 +102,19 @@ def test_truncated_svd_tol(svd_data, tol):
 
 
 @pytest.mark.parametrize(
-    "power_iteration_normalizer", ["auto", "OR", "LU", "none"]
+    "power_iteration_normalizer", ["auto", "QR", "LU", "none"]
 )
 def test_truncated_svd_power_iteration_normalizer(
     svd_data, power_iteration_normalizer
 ):
+    if (
+        Version(sklearn.__version__) < Version("1.9.0.dev0")
+        and power_iteration_normalizer == "QR"
+    ):
+        pytest.skip(
+            "power_iteration_normalizer 'QR' is not supported in scikit-learn < 1.9.0"
+        )
+
     X, _ = svd_data
     svd = TruncatedSVD(
         n_components=10,

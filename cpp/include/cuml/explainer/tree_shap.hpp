@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 
 #include <cstddef>
@@ -12,7 +13,7 @@
 #include <memory>
 #include <variant>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Explainer {
 
 template <typename T>
@@ -57,4 +58,4 @@ void gpu_treeshap_taylor_interactions(TreePathHandle path_info,
                                       std::size_t out_preds_size);
 
 }  // namespace Explainer
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

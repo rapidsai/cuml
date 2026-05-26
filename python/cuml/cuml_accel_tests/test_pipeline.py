@@ -9,8 +9,11 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy as sp
+import sklearn
+from packaging.version import Version
 from sklearn.base import BaseEstimator
 from sklearn.cluster import DBSCAN, KMeans
+from sklearn.compose import ColumnTransformer
 from sklearn.datasets import make_classification, make_regression
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.linear_model import (
@@ -26,9 +29,16 @@ from sklearn.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
-from sklearn.pipeline import Pipeline, make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import FeatureUnion, Pipeline, make_pipeline
+from sklearn.preprocessing import RobustScaler, StandardScaler
 from umap import UMAP
+
+SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+requires_sklearn_18 = pytest.mark.skipif(
+    not SKLEARN_18,
+    reason="scikit-learn >= 1.8 required for StandardScaler acceleration",
+)
 
 
 class MockMethod:
@@ -216,6 +226,7 @@ def test_pipeline_adding_none_value_as_labels(classification_data):
     ],
 )
 @pytest.mark.parametrize("nested", [False, True])
+@requires_sklearn_18
 def test_pipeline_data_transfer(
     order, enabled, nested, regression_data, patch_methods
 ):
@@ -279,6 +290,7 @@ def test_pipeline_data_transfer(
         ),
     ],
 )
+@requires_sklearn_18
 def test_pipeline_transform_data_transfer(
     pipeline, scaler, pca, regression_data, patch_methods
 ):
@@ -303,6 +315,7 @@ def test_pipeline_transform_data_transfer(
     assert on_device(StandardScaler.inverse_transform, scaler[1])
 
 
+@requires_sklearn_18
 def test_pipeline_data_transfer_with_host_fallback(
     regression_data, patch_methods
 ):
@@ -321,6 +334,7 @@ def test_pipeline_data_transfer_with_host_fallback(
     assert isinstance(out, np.ndarray)
 
 
+@requires_sklearn_18
 def test_pipeline_set_output():
     X, _ = make_regression(random_state=42)
     X2 = make_pipeline(
@@ -329,6 +343,7 @@ def test_pipeline_set_output():
     assert isinstance(X2, pd.DataFrame)
 
 
+@requires_sklearn_18
 def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
     X, y = make_classification(random_state=42, n_classes=2)
     y = np.array(["a", "b"]).take(y)
@@ -342,3 +357,53 @@ def test_pipeline_classifier_predict_non_numeric_labels(patch_methods):
     assert isinstance(LogisticRegression.predict.args[0], cp.ndarray)
     # User-facing output is always numpy
     assert isinstance(out, np.ndarray)
+
+
+@requires_sklearn_18
+def test_column_transfomer_in_pipeline_works():
+    """Ensure outputs of steps in `ColumnTransformer` return as numpy"""
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((200, 20)).astype(np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+
+    ct = ColumnTransformer(
+        [
+            ("svd", TruncatedSVD(n_components=5), slice(0, 10)),
+            ("pass", "passthrough", slice(10, 20)),
+        ]
+    )
+
+    pipe = Pipeline(
+        [
+            ("ct", ct),  # Shouldn't be accelerated
+            ("scaler", RobustScaler()),  # Not accelerated
+            ("ridge", Ridge()),  # Accelerated
+        ]
+    )
+
+    pipe.fit(X, y)
+
+
+@requires_sklearn_18
+def test_feature_union_in_pipeline_works():
+    """Ensure outputs of steps in `FeatureUnion` return as numpy"""
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((200, 20)).astype(np.float32)
+    y = rng.standard_normal(200).astype(np.float32)
+
+    union = FeatureUnion(
+        [
+            ("svd", TruncatedSVD(n_components=2)),
+            ("pca", PCA(n_components=2)),
+        ]
+    )
+
+    pipe = Pipeline(
+        [
+            ("features", union),  # Shouldn't be accelerated
+            ("scaler", RobustScaler()),  # Not accelerated
+            ("ridge", Ridge()),  # Accelerated
+        ]
+    )
+
+    pipe.fit(X, y)

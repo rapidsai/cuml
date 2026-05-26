@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from cudf import DataFrame
+from cudf.testing import assert_frame_equal
 from sklearn.preprocessing import OrdinalEncoder as skOrdinalEncoder
 
 from cuml.preprocessing import OrdinalEncoder
@@ -33,8 +34,8 @@ def test_ordinal_encoder_df(test_sample) -> None:
     inv_Xt = enc.inverse_transform(Xt)
     inv_Xt_1 = enc.inverse_transform(Xt_1)
 
-    assert inv_Xt.equals(X)
-    assert inv_Xt_1.equals(X_1)
+    assert_frame_equal(inv_Xt, X, check_dtype=False)
+    assert_frame_equal(inv_Xt_1, X_1, check_dtype=False)
 
     assert enc.n_features_in_ == 2
 
@@ -108,7 +109,9 @@ def test_handle_unknown(as_array: bool) -> None:
 
     enc = OrdinalEncoder(handle_unknown="error")
     enc = enc.fit(X)
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         enc.transform(Y)
 
     enc = OrdinalEncoder(handle_unknown="ignore")
