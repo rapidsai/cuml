@@ -8,6 +8,8 @@
 #include "quantiles.h"
 #include "random_utils.cuh"
 
+#include <cuml/common/export.hpp>
+
 #include <raft/core/error.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
@@ -86,13 +88,13 @@ using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
                                        std::shared_ptr<rmm::device_uvector<int>>>;
 
 template <typename T>
-QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle,
-                                        const T* data,
-                                        int max_n_bins,
-                                        int n_rows,
-                                        int n_cols,
-                                        int oversampling_factor = 4,
-                                        uint64_t seed           = uint64_t{0})
+CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle,
+                                                    const T* data,
+                                                    int max_n_bins,
+                                                    int n_rows,
+                                                    int n_cols,
+                                                    int oversampling_factor = 4,
+                                                    uint64_t seed           = uint64_t{0})
 {
   raft::common::nvtx::push_range("computeQuantiles");
   RAFT_EXPECTS(max_n_bins > 0, "max_n_bins must be positive");

@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 /**
  * Batch division by mask step 1: build an index of the position of each series
@@ -188,4 +190,4 @@ void merge_series(const raft::handle_t& handle,
                   int n_sub,
                   int n_obs);
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML
