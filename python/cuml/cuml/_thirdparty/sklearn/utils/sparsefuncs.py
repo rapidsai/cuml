@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Manoj Kumar
 # SPDX-FileCopyrightText: Thomas Unterthiner
 # SPDX-FileCopyrightText: Giorgio Patrini
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -205,7 +205,7 @@ def _min_or_max_axis(X, axis, min_or_max):
     else:
         res = gpu_sp.coo_matrix((value, (major_index, np.zeros(len(value)))),
                                 dtype=X.dtype, shape=(M, 1))
-    return res.A.ravel()
+    return res.toarray().ravel()
 
 
 def _sparse_min_or_max(X, axis, min_or_max):
