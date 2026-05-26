@@ -159,6 +159,9 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
                                               const value_idx n_boxes,
                                               const value_idx n_terms)
 {
+  // Fast unseeded path: many points can contribute to the same interpolation
+  // coefficient, so this uses atomicAdd. The resulting accumulation order is
+  // scheduler-dependent and therefore not byte reproducible.
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
 
@@ -178,9 +181,11 @@ CUML_KERNEL void compute_interpolated_indices(value_t* __restrict__ w_coefficien
               chargesQij[i * n_terms + current_term]);
 }
 
-// Split each sorted box span into fixed-size chunks. Partial sums are computed
-// per chunk, then reduced by increasing chunk id to keep the result reproducible
-// while avoiding one thread walking very large boxes.
+// Deterministic seeded path for the FFT interpolation coefficients. Points are
+// sorted by (box, point id) before this kernel runs, so every chunk covers a
+// fixed contiguous range of points in a single box. Each thread computes one
+// coefficient for one chunk by walking that range in increasing point-id order.
+// The chunking keeps high-occupancy boxes parallel without using atomicAdd.
 template <typename value_idx, typename value_t>
 CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
   value_t* __restrict__ chunk_partials,
@@ -220,6 +225,8 @@ CUML_KERNEL void compute_interpolated_chunk_partials_3_4(
 
   value_t sum = 0;
   for (value_idx offset = start; offset < end; ++offset) {
+    // sorted_point_indices is ordered by (box, point id), making this
+    // floating-point reduction order identical across repeated seeded runs.
     const value_idx i = sorted_point_indices[offset];
     sum += x_interpolated_values[i + x_offset] * y_interpolated_values[i + y_offset] *
            chargesQij[(i << 2) + current_term];
@@ -236,6 +243,9 @@ CUML_KERNEL void reduce_interpolated_chunk_partials_3_4(value_t* __restrict__ w_
                                                         const value_idx n_boxes,
                                                         const value_idx n_coefficients)
 {
+  // Finish the deterministic interpolation reduction. Each output coefficient
+  // is owned by one thread, which sums the precomputed chunk partials in
+  // increasing chunk order for that box.
   const value_idx TID                        = threadIdx.x + blockIdx.x * blockDim.x;
   constexpr value_idx n_interpolation_points = 3;
   constexpr value_idx n_terms                = 4;
@@ -362,6 +372,8 @@ CUML_KERNEL void compute_potential_indices_deterministic(value_t* __restrict__ p
   value_t potential = 0;
   for (value_idx interp_i = 0; interp_i < n_interpolation_points; interp_i++) {
     for (value_idx interp_j = 0; interp_j < n_interpolation_points; interp_j++) {
+      // The 3x3 stencil is tiny, so assigning one thread per output lets us
+      // preserve parallelism while replacing atomics with a fixed nested loop.
       const value_idx idx =
         (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
         (box_j * n_interpolation_points) + interp_j;
@@ -455,8 +467,10 @@ CUML_KERNEL void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   }
 }
 
-// Deterministic equivalent of compute_Pij_x_Qij_kernel. Each thread owns one
-// row and walks that row's sorted COO span in order, avoiding atomic adds.
+// Deterministic equivalent of compute_Pij_x_Qij_kernel. The COO matrix has been
+// sorted lexicographically by (row, col, value), and row_offsets gives each row's
+// contiguous span. One thread owns the row and walks that span in order, so the
+// attractive force sum uses the same floating-point order on every seeded run.
 template <typename value_idx, typename value_t>
 CUML_KERNEL void compute_Pij_x_Qij_deterministic_rows(value_t* __restrict__ attr_forces,
                                                       value_t* __restrict__ Qs,

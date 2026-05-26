@@ -264,7 +264,8 @@ class TSNE_runner {
     if (params.algorithm == TSNE_ALGORITHM::FFT && params.random_state >= 0) {
       // Canonicalize fixed-seed FFT inputs with value as a tie-breaker for
       // duplicate (row, col) entries. raft::sparse::op::coo_sort orders by
-      // (row, col) only and carries values as payload.
+      // (row, col) only and carries values as payload; that is not enough for
+      // byte-identical sums when duplicate edges are later walked row-wise.
       auto policy    = handle.get_thrust_policy();
       auto coo_begin = thrust::make_zip_iterator(
         cuda::std::make_tuple(COO_Matrix.rows(), COO_Matrix.cols(), COO_Matrix.vals()));

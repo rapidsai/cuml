@@ -305,7 +305,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 
   if (deterministic_attractive) {
     // Precompute COO row ranges once so attractive forces can be accumulated
-    // row-by-row in a fixed order each iteration.
+    // row-by-row in a fixed order each iteration. lower_bound is deterministic
+    // because ROW has already been sorted by the fixed-seed COO canonicalization.
     thrust::sequence(
       thrust_policy, attractive_row_ids.begin(), attractive_row_ids.end(), value_idx{0});
     thrust::lower_bound(thrust_policy,
@@ -316,6 +317,9 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                         attractive_row_offsets.begin());
   }
   if (deterministic_interpolation) {
+    // Build one search key per interpolation box. lower_bound uses these keys
+    // after the point sort below to recover each box's [begin, end) span without
+    // atomics or scheduler-dependent grouping.
     auto box_indices = thrust::make_counting_iterator<value_idx>(0);
     thrust::transform(thrust_policy,
                       box_indices,
@@ -475,7 +479,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 
       if (deterministic_interpolation) {
         // Sort points by box with point id as a tie-breaker. Each box is then
-        // reduced in deterministic chunk order instead of using atomic adds.
+        // reduced in deterministic chunk order instead of using atomic adds, so
+        // fixed-seed runs use the same coefficient accumulation order.
         auto point_indices = thrust::make_counting_iterator<value_idx>(0);
         thrust::transform(thrust_policy,
                           point_indices,
@@ -502,6 +507,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                             interpolation_box_offsets.begin());
         const auto n_boxes = n_total_boxes;
         auto box_indices   = thrust::make_counting_iterator<value_idx>(0);
+        // Count how many fixed-size chunks each box needs. The exclusive scan
+        // maps boxes to a compact active-chunk list while preserving box order.
         thrust::transform(thrust_policy,
                           box_indices,
                           box_indices + n_boxes + 1,
@@ -522,6 +529,9 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         raft::copy(&n_active_chunks, interpolation_chunk_offsets.data() + n_boxes, 1, stream);
         raft::resource::sync_stream(handle);
 
+        // Expand the compact chunk offsets into chunk -> box ids. This lets the
+        // partial-sum kernel run only active chunks while still deriving each
+        // chunk's deterministic point range from the sorted box offsets.
         thrust::for_each(
           thrust_policy,
           box_indices,
@@ -538,6 +548,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 
         auto chunk_blocks = raft::ceildiv(n_active_chunks * n_interpolation_coefficients_per_chunk,
                                           (value_idx)NTHREADS_128);
+        // First pass: compute fixed-order partial sums inside each box chunk.
         FFT::compute_interpolated_chunk_partials_3_4<<<chunk_blocks, NTHREADS_128, 0, stream>>>(
           interpolation_chunk_partials.data(),
           interpolation_chunk_box_indices.data(),
@@ -552,6 +563,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
           n_active_chunks);
 
         num_blocks = raft::ceildiv(n_interpolation_segments, (value_idx)NTHREADS_128);
+        // Second pass: reduce those chunk partials by increasing chunk id to
+        // produce the final interpolation coefficients deterministically.
         FFT::reduce_interpolated_chunk_partials_3_4<<<num_blocks, NTHREADS_128, 0, stream>>>(
           w_coefficients_device.data(),
           interpolation_chunk_partials.data(),
@@ -600,6 +613,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
 
       // Step 3: Compute the potentials \tilde{\phi}
       if (deterministic_potentials) {
+        // Seeded runs avoid atomicAdd here: each thread owns one
+        // (point, charge-term) output and accumulates its 3x3 stencil directly.
         num_blocks = raft::ceildiv(n_terms * n, (value_idx)NTHREADS_128);
         FFT::compute_potential_indices_deterministic<value_idx,
                                                      value_t,
@@ -659,6 +674,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         value_t* KL_divs = tmp.data();
 
         if (deterministic_attractive) {
+          // Seeded runs accumulate each COO row with one owning thread instead
+          // of atomically adding edge contributions into attr_forces.
           num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
           FFT::compute_Pij_x_Qij_deterministic_rows<<<num_blocks, NTHREADS_128, 0, stream>>>(
             attractive_forces_device.data(),
@@ -676,6 +693,8 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
       } else {
         if (deterministic_attractive) {
+          // Same deterministic row-wise attractive-force accumulation as the
+          // final iteration, but without storing Q values for KL divergence.
           num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
           FFT::compute_Pij_x_Qij_deterministic_rows<<<num_blocks, NTHREADS_128, 0, stream>>>(
             attractive_forces_device.data(),
