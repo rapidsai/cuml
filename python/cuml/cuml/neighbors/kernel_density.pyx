@@ -8,6 +8,7 @@ import warnings
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
+from sklearn.exceptions import DataConversionWarning
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
@@ -89,15 +90,14 @@ def _coerce_russellrao_binary(arr, *, input_name):
     The fused KDE kernel computes RussellRao assuming binary inputs, matching
     the behavior of ``cuml.metrics.pairwise_distances`` for this metric.
     """
-    cp_arr = cp.asarray(arr)
-    if not bool(cp.logical_or(cp_arr == 0, cp_arr == 1).all()):
+    if not bool(cp.logical_or(arr == 0, arr == 1).all()):
         warnings.warn(
             f"{input_name} was converted to boolean for metric 'russellrao'",
+            DataConversionWarning,
             stacklevel=2,
         )
-        dtype = cp_arr.dtype
-        return cp.where(cp_arr != 0, dtype.type(1), dtype.type(0))
-    return cp_arr
+        return cp.where(arr != 0, arr.dtype.type(1), arr.dtype.type(0))
+    return arr
 
 
 class KernelDensity(Base, InteropMixin):
@@ -277,14 +277,10 @@ class KernelDensity(Base, InteropMixin):
             order="C",
             reset=True,
         )
-        if self._sample_weight is not None:
-            check_non_negative(self._sample_weight, input_name="sample_weight")
-            self._sample_weight = cp.asarray(self._sample_weight)
-
-        self._X = cp.asarray(self._X)
-
         if self.metric == "russellrao":
             self._X = _coerce_russellrao_binary(self._X, input_name="X")
+        if self._sample_weight is not None:
+            check_non_negative(self._sample_weight, input_name="sample_weight")
 
         if isinstance(self.bandwidth, str):
             if self.bandwidth == "scott":
@@ -327,8 +323,6 @@ class KernelDensity(Base, InteropMixin):
         )
         if self.metric == "russellrao":
             X = _coerce_russellrao_binary(X, input_name="X")
-        else:
-            X = cp.asarray(X)
 
         if self.metric_params:
             if len(self.metric_params) != 1:

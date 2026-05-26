@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
 
 import cupy as cp
 import numpy as np
@@ -12,7 +13,7 @@ from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from sklearn.datasets import make_blobs
-from sklearn.exceptions import NotFittedError
+from sklearn.exceptions import DataConversionWarning, NotFittedError
 from sklearn.metrics import pairwise_distances as skl_pairwise_distances
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors._ball_tree import kernel_norm
@@ -53,7 +54,9 @@ def _cosine_kernel_norm(h, d):
 
 # not in log probability space
 def compute_kernel_naive(Y, X, kernel, metric, h, sample_weight):
-    d = skl_pairwise_distances(Y, X, metric)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DataConversionWarning)
+        d = skl_pairwise_distances(Y, X, metric)
     if kernel == "cosine":
         norm = _cosine_kernel_norm(h, X.shape[1])
     else:
@@ -444,9 +447,9 @@ def test_russellrao_coerces_non_binary_with_warning():
     Q = rng.uniform(-1.0, 2.0, size=(5, 4)).astype(np.float64)
 
     kde = KernelDensity(kernel="gaussian", metric="russellrao", bandwidth=1.0)
-    with pytest.warns(UserWarning, match="converted to boolean"):
+    with pytest.warns(DataConversionWarning, match="converted to boolean"):
         kde.fit(X)
-    with pytest.warns(UserWarning, match="converted to boolean"):
+    with pytest.warns(DataConversionWarning, match="converted to boolean"):
         cuml_log = as_type("numpy", kde.score_samples(Q))
 
     X_bin = np.where(X != 0.0, 1.0, 0.0)
@@ -457,15 +460,16 @@ def test_russellrao_coerces_non_binary_with_warning():
     assert np.allclose(np.exp(cuml_log), ref, rtol=1e-4, atol=1e-4)
 
 
-@pytest.mark.filterwarnings("error::UserWarning")
 def test_russellrao_binary_no_warning():
     """Already-binary inputs to metric='russellrao' do not trigger a warning."""
     rng = np.random.RandomState(0)
     X = rng.randint(0, 2, size=(30, 4)).astype(np.float64)
     Q = rng.randint(0, 2, size=(5, 4)).astype(np.float64)
     kde = KernelDensity(kernel="gaussian", metric="russellrao", bandwidth=1.0)
-    kde.fit(X)
-    kde.score_samples(Q)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DataConversionWarning)
+        kde.fit(X)
+        kde.score_samples(Q)
 
 
 def test_tiling_multipass():
