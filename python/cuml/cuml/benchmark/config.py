@@ -249,7 +249,9 @@ def _load_msgspec_module():
 def _validate_config_structure(raw_config: dict[str, Any]) -> None:
     """Validate manifest structure with typed msgspec models."""
     msgspec = _load_msgspec_module()
-    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(msgspec)
+    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(
+        msgspec
+    )
 
     try:
         msgspec.convert(raw_config, type=manifest_model)
@@ -262,7 +264,9 @@ def _validate_config_structure(raw_config: dict[str, Any]) -> None:
 def benchmark_manifest_json_schema() -> dict[str, Any]:
     """Return a JSON Schema generated from the msgspec manifest model."""
     msgspec = _load_msgspec_module()
-    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(msgspec)
+    manifest_model = BenchmarkManifest or _build_benchmark_manifest_model(
+        msgspec
+    )
     return msgspec.json.schema(manifest_model)
 
 
