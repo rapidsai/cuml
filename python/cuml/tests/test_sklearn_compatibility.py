@@ -182,7 +182,7 @@ XFAILS = {
     },
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
+        "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
