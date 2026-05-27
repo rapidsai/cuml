@@ -928,11 +928,58 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
   }
 };
 
+template <typename T>
+class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::sequence(data.begin(), data.end(), T(0));
+
+    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+      handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+
+    int n_bins;
+    raft::copy(&n_bins, n_bins_array->data(), 1, handle.get_stream());
+    handle.sync_stream();
+
+    ASSERT_EQ(n_bins, params.max_n_bins);
+
+    thrust::host_vector<T> h_quantiles(params.max_n_bins);
+    raft::update_host(
+      h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
+    handle.sync_stream();
+
+    double total_abs_rank_error = 0.0;
+    double max_abs_rank_error   = 0.0;
+    for (int bin = 0; bin < n_bins; ++bin) {
+      double expected_rank = static_cast<double>(bin + 1) / params.max_n_bins;
+      double actual_rank   = (static_cast<double>(h_quantiles[bin]) + 1.0) / params.n_rows;
+      double rank_error    = std::abs(actual_rank - expected_rank);
+      total_abs_rank_error += rank_error;
+      max_abs_rank_error = std::max(max_abs_rank_error, rank_error);
+    }
+
+    double mean_abs_rank_error = total_abs_rank_error / n_bins;
+    double sample_count        = static_cast<double>(params.max_n_bins * 4);
+    double rank_error_scale    = 1.0 / std::sqrt(sample_count);
+    EXPECT_LT(mean_abs_rank_error, rank_error_scale);
+    EXPECT_LT(max_abs_rank_error, 3.0 * rank_error_scale);
+  }
+};
+
 const std::vector<QuantileTestParameters> inputs = {{1000, 16, 6078587519764079670LLU},
                                                     {1130, 32, 4884670006177930266LLU},
                                                     {1752, 67, 9175325892580481371LLU},
                                                     {2307, 99, 9507819643927052255LLU},
                                                     {5000, 128, 9507819643927052255LLU}};
+
+const std::vector<QuantileTestParameters> rank_error_inputs = {
+  {10000, 128, 9507819643927052255LLU}};
 
 // float type quantile test
 typedef RFQuantileTest<float> RFQuantileTestF;
@@ -979,6 +1026,18 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestF, ::testing::V
 typedef RFSampledQuantileDeterminismTest<double> RFSampledQuantileDeterminismTestD;
 TEST_P(RFSampledQuantileDeterminismTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFSampledQuantileDeterminismTestD, ::testing::ValuesIn(inputs));
+
+typedef RFSampledQuantileRankErrorTest<float> RFSampledQuantileRankErrorTestF;
+TEST_P(RFSampledQuantileRankErrorTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        RFSampledQuantileRankErrorTestF,
+                        ::testing::ValuesIn(rank_error_inputs));
+
+typedef RFSampledQuantileRankErrorTest<double> RFSampledQuantileRankErrorTestD;
+TEST_P(RFSampledQuantileRankErrorTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        RFSampledQuantileRankErrorTestD,
+                        ::testing::ValuesIn(rank_error_inputs));
 
 //------------------------------------------------------------------------------------------------------
 

@@ -41,7 +41,11 @@ static __global__ void gatherUniformSampledColumnKernel(
   col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed));
   col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed >> 32));
   col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(col));
+  // Sampling is with replacement. Duplicate values from sample collisions are
+  // removed later when quantile candidates are compacted with thrust::unique.
   for (int sample_idx = tid; sample_idx < sample_count; sample_idx += blockDim.x * gridDim.x) {
+    // Use sample_idx as the generator subsequence so each output position is
+    // deterministic and independent of the CUDA block/thread layout.
     raft::random::PCGenerator gen(col_seed, static_cast<uint64_t>(sample_idx), uint64_t(0));
     raft::random::UniformIntDistParams<int, uint64_t> uniform_int_dist_params;
     uniform_int_dist_params.start = 0;
@@ -87,6 +91,27 @@ using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
                                        std::shared_ptr<rmm::device_uvector<T>>,
                                        std::shared_ptr<rmm::device_uvector<int>>>;
 
+/**
+ * @brief Compute per-feature quantile split candidates from uniformly sampled rows.
+ *
+ * Each feature column is sampled independently with replacement using a deterministic
+ * seed derived from `seed`, the feature index, and the output sample index. When the
+ * requested sample budget is at least the local row count, the full column is used.
+ *
+ * @tparam T Floating-point input type.
+ * @param handle RAFT handle used for stream and resource access.
+ * @param data Column-major input matrix with shape `[n_cols, n_rows]`.
+ * @param max_n_bins Maximum number of quantile candidates to retain per feature.
+ * @param n_rows Number of rows in `data`.
+ * @param n_cols Number of columns in `data`.
+ * @param oversampling_factor Multiplier applied to `max_n_bins` to choose the
+ * sampled row budget per feature before sorting and quantile extraction. The
+ * default of 4 is a conservative choice while still bounding memory; for fixed
+ * `max_n_bins`, rank error decreases like O(1 / sqrt(oversampling_factor)), so
+ * returns from increasing this are strongly diminishing.
+ * @param seed User seed for deterministic sampling.
+ * @return Quantile metadata and owning device buffers for quantile values and bin counts.
+ */
 template <typename T>
 CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle,
                                                     const T* data,
@@ -97,6 +122,7 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
                                                     uint64_t seed           = uint64_t{0})
 {
   raft::common::nvtx::push_range("computeQuantiles");
+  RAFT_EXPECTS(data != nullptr, "data pointer must not be null");
   RAFT_EXPECTS(max_n_bins > 0, "max_n_bins must be positive");
   RAFT_EXPECTS(n_rows > 0, "n_rows must be positive");
   RAFT_EXPECTS(n_cols > 0, "n_cols must be positive");
@@ -128,6 +154,7 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
   n_blocks      = std::min(n_blocks, 1024);
 
   for (int col = 0; col < n_cols; col++) {
+    raft::common::nvtx::push_range("sample quantile column");
     if (sample_count == n_rows) {
       RAFT_CUDA_TRY(cudaMemcpyAsync(sampled_column.data(),
                                     data + static_cast<int64_t>(col) * n_rows,
@@ -139,7 +166,9 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
         sampled_column.data(), data, sample_count, n_rows, col, seed);
       RAFT_CUDA_TRY(cudaGetLastError());
     }
+    raft::common::nvtx::pop_range();
 
+    raft::common::nvtx::push_range("sort sampled quantile column");
     RAFT_CUDA_TRY(cub::DeviceRadixSort::SortKeys((void*)(d_temp_storage.data()),
                                                  temp_storage_bytes,
                                                  sampled_column.data(),
@@ -148,10 +177,11 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
                                                  0,
                                                  8 * sizeof(T),
                                                  stream));
-    RAFT_CUDA_TRY(cudaGetLastError());
+    raft::common::nvtx::pop_range();
 
     int quantile_offset = col * max_n_bins;
     int bins_offset     = col;
+    raft::common::nvtx::push_range("computeQuantilesKernel @quantiles.cuh");
     computeQuantilesKernel<<<1, std::min(1024, max_n_bins), 0, stream>>>(
       quantiles_array->data() + quantile_offset,
       n_bins_array->data() + bins_offset,
@@ -159,6 +189,7 @@ CUML_EXPORT QuantileReturnValue<T> computeQuantiles(const raft::handle_t& handle
       max_n_bins,
       sample_count);
     RAFT_CUDA_TRY(cudaGetLastError());
+    raft::common::nvtx::pop_range();
   }
 
   handle.sync_stream(stream);
