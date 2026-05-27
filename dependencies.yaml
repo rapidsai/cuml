@@ -496,7 +496,6 @@ dependencies:
           - sphinx
           - sphinx-copybutton
           - sphinx-markdown-tables
-          - pyyaml
       - output_types: conda
         packages:
           - doxygen=1.9.1
@@ -613,6 +612,7 @@ dependencies:
           - certifi
           - *cython
           - hypothesis>=6.0,<7
+          - msgspec
           - nltk
           # upstream sklearn docstring tests require numpydoc<1.9
           - numpydoc<1.9
@@ -621,12 +621,12 @@ dependencies:
         # TODO: uncomment these two lines once `onnxruntime` has Python 3.14 support (and conda packages built)
           # - *onnxruntime
           # - *skl2onnx
-          - pyyaml
           - pytest
           - pytest-benchmark
           - pytest-cases
           - pytest-cov
           - pytest-xdist
+          - pyyaml
           - seaborn
           - statsmodels
           - umap-learn>=0.5.7,<0.5.13

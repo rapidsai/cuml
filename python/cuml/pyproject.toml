@@ -113,6 +113,7 @@ test = [
     "hypothesis>=6.0,<7",
     "ipython>=7.32.0",
     "lightgbm",
+    "msgspec",
     "nltk",
     "numpydoc<1.9",
     "nvidia-ml-py>=12",
