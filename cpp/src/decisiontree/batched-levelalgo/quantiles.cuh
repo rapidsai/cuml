@@ -1,11 +1,13 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include "quantiles.h"
+
+#include <cuml/common/export.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
@@ -57,7 +59,7 @@ using QuantileReturnValue = std::tuple<ML::DT::Quantiles<T, int>,
                                        std::shared_ptr<rmm::device_uvector<int>>>;
 
 template <typename T>
-QuantileReturnValue<T> computeQuantiles(
+CUML_EXPORT QuantileReturnValue<T> computeQuantiles(
   const raft::handle_t& handle, const T* data, int max_n_bins, int n_rows, int n_cols)
 {
   raft::common::nvtx::push_range("computeQuantiles");

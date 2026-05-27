@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,10 +7,11 @@
 
 #include "pca.hpp"
 
+#include <cuml/common/export.hpp>
 #include <cuml/prims/opg/matrix/data.hpp>
 #include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace PCA {
 namespace opg {
 
@@ -176,4 +177,4 @@ void inverse_transform(raft::handle_t& handle,
 
 };  // end namespace opg
 };  // end namespace PCA
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/tsa/arima_common.h>
 
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Datasets {
 
 /**
@@ -51,4 +52,4 @@ void make_arima(const raft::handle_t& handle,
 /** @} */
 
 }  // namespace Datasets
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

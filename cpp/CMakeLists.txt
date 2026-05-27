@@ -427,7 +427,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR knn_algo)
-    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu)
+    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu src/kde/kde.cu)
   endif()
 
   if(all_algo OR hierarchicalclustering_algo)
@@ -539,6 +539,13 @@ if(BUILD_CUML_CPP_LIBRARY)
                CUDA_STANDARD_REQUIRED ON
                POSITION_INDEPENDENT_CODE ON
                INTERFACE_POSITION_INDEPENDENT_CODE ON
+  )
+
+  set_target_properties(
+    cuml_objs
+    PROPERTIES CXX_VISIBILITY_PRESET hidden
+               CUDA_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON
   )
 
   target_compile_definitions(cuml_objs PUBLIC DISABLE_CUSPARSE_DEPRECATED)
