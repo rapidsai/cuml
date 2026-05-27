@@ -120,7 +120,7 @@ void predict(raft::handle_t& handle,
     if (order.n_exog > 0) {
       MLCommon::TimeSeries::prepare_data(arima_mem.exog_diff,
                                          d_exog,
-                                         order.n_exog * batch_size,
+                                         checked_mul<int>(order.n_exog, batch_size),
                                          n_obs,
                                          order.d,
                                          order.D,
@@ -134,7 +134,7 @@ void predict(raft::handle_t& handle,
         MLCommon::TimeSeries::prepare_future_data(exog_fut_buffer.data(),
                                                   d_exog,
                                                   d_exog_fut,
-                                                  order.n_exog * batch_size,
+                                                  checked_mul<int>(order.n_exog, batch_size),
                                                   n_obs,
                                                   num_steps,
                                                   order.d,
@@ -159,7 +159,7 @@ void predict(raft::handle_t& handle,
   double* d_pred = arima_mem.pred;
 
   // Create temporary array for the forecasts
-  rmm::device_uvector<double> fc_buffer(num_steps * batch_size, stream);
+  rmm::device_uvector<double> fc_buffer(checked_mul<std::size_t>(num_steps, batch_size), stream);
   double* d_y_fc = fc_buffer.data();
 
   // Compute the residual and forecast
@@ -195,7 +195,7 @@ void predict(raft::handle_t& handle,
   // The prediction loop starts by filling undefined predictions with NaN,
   // then computes the predictions from the observations and residuals
   if (start < n_obs) {
-    int res_offset = diff ? order.d + order.s * order.D : 0;
+    int res_offset = diff ? checked_add<int>(order.d, checked_mul<int>(order.s, order.D)) : 0;
     int p_start    = std::max(start, res_offset);
     int p_end      = std::min(n_obs, end);
     int dD         = diff ? order.d + order.D : 0;
@@ -678,7 +678,7 @@ void _arma_least_squares(raft::handle_t& handle,
   auto cublas_handle      = handle_impl.get_cublas_handle();
   auto counting           = thrust::make_counting_iterator(0);
 
-  int batch_size = bm_y.batches();
+  int batch_size = narrow_cast<int>(bm_y.batches());
   int n_obs      = narrow_cast<int>(bm_y.shape().first);
 
   int ps = p * s, qs = q * s;
@@ -848,7 +848,7 @@ void _start_params(raft::handle_t& handle,
                    const MLCommon::LinAlg::Batched::Matrix<double>& bm_exog,
                    const ARIMAOrder& order)
 {
-  int batch_size      = bm_exog.batches();
+  int batch_size      = narrow_cast<int>(bm_exog.batches());
   cudaStream_t stream = bm_exog.stream();
 
   // Estimate exog coefficients and subtract component to endog.
@@ -911,7 +911,10 @@ void _start_params(raft::handle_t& handle,
     // In other cases, we initialize to zero
     else {
       RAFT_CUDA_TRY(
-        cudaMemsetAsync(params.beta, 0, order.n_exog * batch_size * sizeof(double), stream));
+        cudaMemsetAsync(params.beta,
+                        0,
+                        checked_mul<std::size_t>(order.n_exog, batch_size, sizeof(double)),
+                        stream));
     }
   }
 
@@ -976,7 +979,7 @@ void estimate_x0(raft::handle_t& handle,
   }
 
   // Difference if necessary, copy otherwise
-  int const d_sD = order.d + order.s * order.D;
+  int const d_sD = checked_add<int>(order.d, checked_mul<int>(order.s, order.D));
   if (n_obs <= d_sD) {
     RAFT_FAIL("ARIMA: n_obs (%d) must be greater than d + s*D (%d) for differencing", n_obs, d_sD);
   }
@@ -992,7 +995,7 @@ void estimate_x0(raft::handle_t& handle,
   if (order.n_exog > 0) {
     MLCommon::TimeSeries::prepare_data(bm_exog_diff.raw_data(),
                                        d_exog,
-                                       order.n_exog * batch_size,
+                                       checked_mul<int>(order.n_exog, batch_size),
                                        n_obs,
                                        order.d,
                                        order.D,

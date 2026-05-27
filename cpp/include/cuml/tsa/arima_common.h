@@ -102,14 +102,20 @@ struct ARIMAParams {
   void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
-    if (order.k && !tr) rmm_alloc.deallocate(stream, mu, batch_size * sizeof(DataT));
+    std::size_t const bs                     = static_cast<std::size_t>(batch_size);
+    if (order.k && !tr)
+      rmm_alloc.deallocate(stream, mu, checked_mul<std::size_t>(bs, sizeof(DataT)));
     if (order.n_exog && !tr)
-      rmm_alloc.deallocate(stream, beta, order.n_exog * batch_size * sizeof(DataT));
-    if (order.p) rmm_alloc.deallocate(stream, ar, order.p * batch_size * sizeof(DataT));
-    if (order.q) rmm_alloc.deallocate(stream, ma, order.q * batch_size * sizeof(DataT));
-    if (order.P) rmm_alloc.deallocate(stream, sar, order.P * batch_size * sizeof(DataT));
-    if (order.Q) rmm_alloc.deallocate(stream, sma, order.Q * batch_size * sizeof(DataT));
-    rmm_alloc.deallocate(stream, sigma2, batch_size * sizeof(DataT));
+      rmm_alloc.deallocate(stream, beta, checked_mul<std::size_t>(order.n_exog, bs, sizeof(DataT)));
+    if (order.p)
+      rmm_alloc.deallocate(stream, ar, checked_mul<std::size_t>(order.p, bs, sizeof(DataT)));
+    if (order.q)
+      rmm_alloc.deallocate(stream, ma, checked_mul<std::size_t>(order.q, bs, sizeof(DataT)));
+    if (order.P)
+      rmm_alloc.deallocate(stream, sar, checked_mul<std::size_t>(order.P, bs, sizeof(DataT)));
+    if (order.Q)
+      rmm_alloc.deallocate(stream, sma, checked_mul<std::size_t>(order.Q, bs, sizeof(DataT)));
+    rmm_alloc.deallocate(stream, sigma2, checked_mul<std::size_t>(bs, sizeof(DataT)));
   }
 
   /**

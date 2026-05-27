@@ -255,7 +255,7 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
   cudaStream_t stream     = handle.get_stream();
   cublasHandle_t cublas_h = handle.get_cublas_handle();
 
-  const int end         = start_periods * frequency;
+  const int end         = ML::checked_mul<int>(start_periods, frequency);
   const int filter_size = (frequency / 2) * 2 + 1;
   if (end < filter_size) {
     RAFT_FAIL(
@@ -264,7 +264,9 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
       end,
       filter_size);
   }
-  const int trend_len             = end - filter_size + 1;
+  // end >= filter_size guaranteed by the check above, so the subtraction is safe;
+  // checked_sub makes the underflow guard explicit.
+  const int trend_len             = ML::checked_sub<int>(end, filter_size - 1);
   std::size_t const batch_trend_n = ML::checked_mul<std::size_t>(batch_size, trend_len);
 
   // Set filter

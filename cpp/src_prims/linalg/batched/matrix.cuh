@@ -1292,7 +1292,7 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
   int n                  = ML::narrow_cast<int>(A.shape().first);
   std::size_t const n_sz = static_cast<std::size_t>(n);
   std::size_t const n2   = ML::checked_mul<std::size_t>(n_sz, n_sz);
-  int batch_size         = A.batches();
+  int batch_size         = ML::narrow_cast<int>(A.batches());
   auto stream            = A.stream();
 
   std::size_t const n2_batch = ML::checked_mul<std::size_t>(n2, batch_size);
@@ -1575,7 +1575,7 @@ template <typename T>
 void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S, int max_iter_per_step = 20)
 {
   int n          = ML::narrow_cast<int>(A.shape().first);
-  int batch_size = A.batches();
+  int batch_size = ML::narrow_cast<int>(A.batches());
   auto stream    = A.stream();
 
   // Start with a Hessenberg decomposition
@@ -1823,7 +1823,7 @@ CUML_KERNEL void trsyl_kernel(
 template <typename T>
 Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S, const Matrix<T>& F)
 {
-  int batch_size = R.batches();
+  int batch_size = ML::narrow_cast<int>(R.batches());
   auto stream    = R.stream();
   int n          = ML::narrow_cast<int>(R.shape().first);
 
@@ -1858,7 +1858,7 @@ void _direct_lyapunov_helper(const Matrix<T>& A,
                              int r)
 {
   auto stream    = A.stream();
-  int batch_size = A.batches();
+  int batch_size = ML::narrow_cast<int>(A.batches());
   int r2         = r * r;
   auto counting  = thrust::make_counting_iterator(0);
 
@@ -1897,7 +1897,7 @@ void _direct_lyapunov_helper(const Matrix<T>& A,
 template <typename T>
 Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
 {
-  int batch_size = A.batches();
+  int batch_size = ML::narrow_cast<int>(A.batches());
   auto stream    = A.stream();
   int n          = ML::narrow_cast<int>(A.shape().first);
   // n is guarded to <= 5 below for the direct path; widen n2 anyway to keep
@@ -1916,7 +1916,9 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
       n2, n2, batch_size, A.cublasHandle(), stream, false);
     MLCommon::LinAlg::Batched::Matrix<T> X(n, n, batch_size, A.cublasHandle(), stream, false);
 
-    rmm::device_uvector<int> P(ML::checked_mul<std::size_t>(n, batch_size), stream);
+    // Matrix::inv is called on the n2*n2 Kronecker-product matrix I_m_AxA, so
+    // cublasgetrfBatched writes n2 pivots per batch element, not n.
+    rmm::device_uvector<int> P(ML::checked_mul<std::size_t>(n2, batch_size), stream);
     rmm::device_uvector<int> info(batch_size, stream);
 
     MLCommon::LinAlg::Batched::_direct_lyapunov_helper(

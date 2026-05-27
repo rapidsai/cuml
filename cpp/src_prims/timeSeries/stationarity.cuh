@@ -310,11 +310,16 @@ void kpss_test(const DataT* d_y,
 {
   const DataT* d_y_diff;
 
-  int const d_sD = d + s * D;
-  if (n_obs <= static_cast<IdxT>(d_sD)) {
-    RAFT_FAIL("stationarity: n_obs must be greater than d + s*D (%d)", d_sD);
+  // Compute d + s*D in int64_t with overflow detection. d, s, D are user-facing
+  // ARIMA parameters (typically small), but s*D in raw int could wrap for
+  // pathological inputs and produce a misleading bounds check below.
+  std::int64_t const d_sD = ML::checked_add<std::int64_t>(d, ML::checked_mul<std::int64_t>(s, D));
+  if (static_cast<std::int64_t>(n_obs) <= d_sD) {
+    RAFT_FAIL("stationarity: n_obs (%lld) must be greater than d + s*D (%lld)",
+              static_cast<long long>(n_obs),
+              static_cast<long long>(d_sD));
   }
-  IdxT const n_obs_diff = n_obs - d_sD;
+  IdxT const n_obs_diff = n_obs - static_cast<IdxT>(d_sD);
 
   // Compute differenced series
   rmm::device_uvector<DataT> diff_buffer(0, stream);

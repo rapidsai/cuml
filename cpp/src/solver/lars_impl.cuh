@@ -1113,8 +1113,10 @@ void larsPredict(const raft::handle_t& handle,
     // We collect active columns of X to contiguous space
     std::size_t const active_count = checked_mul<std::size_t>(n_active, ld_X);
     X_active_cols.resize(active_count, stream);
-    const int TPB = 64;
-    raft::cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
+    const int TPB       = 64;
+    auto const n_blocks = narrow_cast<ML::cuda_launch_t>(
+      raft::ceildiv<std::size_t>(active_count, static_cast<std::size_t>(TPB)));
+    raft::cache::get_vecs<<<n_blocks, TPB, 0, stream>>>(
       X, ld_X, active_idx, n_active, X_active_cols.data());
     RAFT_CUDA_TRY(cudaGetLastError());
     X = X_active_cols.data();

@@ -70,7 +70,8 @@ reviews:
           a count, index, or dimension — e.g. `int n = c.size();`,
           `int n = m_shape.first;`, or passing a `size_t` to a function
           parameter typed `int`. Require `ML::narrow_cast<int>(...)` (which
-          traps if the value does not fit) or widening the receiver / API.
+          traps if the value does not fit, including negative-to-unsigned
+          sign loss) or widening the receiver / API.
         - Public estimator entry points (anything reachable from cython/pylibraft
           bindings) that accept count-like `int` parameters without an
           upper-bound / shape validation step before allocations or launches.
@@ -78,6 +79,10 @@ reviews:
           dimensions for kernel launches. Require widening to `size_t` and a
           check against device launch limits where the product can plausibly
           exceed 2^31.
+        - A value passed directly to a `<<<grid, block, ...>>>` launch that
+          relies on an implicit conversion to `unsigned int`. Require
+          `ML::narrow_cast<ML::cuda_launch_t>(...)` for grid/block dimensions
+          so the conversion is checked and the call site is explicit.
 
         Do not flag arithmetic that is purely inside `__device__` / `__global__`
         code — the rule is host-side only. Performance-sensitive kernel bodies

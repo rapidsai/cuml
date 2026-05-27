@@ -218,13 +218,15 @@ void make_arima(DataT* out,
   // Block dim is 32 * n_warps; checked_mul traps if the product overflows int
   // before reaching the launcher. CUDA enforces the per-block thread limit
   // itself, which varies by device.
-  int const n_warps = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
-  int const threads = ML::checked_mul<int>(32, n_warps);
-  size_t const shared_mem_size =
+  int const n_warps            = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
+  int const threads            = ML::checked_mul<int>(32, n_warps);
+  size_t const shared_mem_size = ML::checked_mul<std::size_t>(
     ML::checked_add<std::size_t>(ML::checked_mul<std::size_t>(2, effective_len),
-                                 static_cast<std::size_t>(n_warps)) *
-    sizeof(double);
-  make_arima_kernel<<<batch_size, threads, shared_mem_size, stream>>>(d_diff,
+                                 static_cast<std::size_t>(n_warps)),
+    sizeof(double));
+  auto const grid_dim  = ML::narrow_cast<ML::cuda_launch_t>(batch_size);
+  auto const block_dim = ML::narrow_cast<ML::cuda_launch_t>(threads);
+  make_arima_kernel<<<grid_dim, block_dim, shared_mem_size, stream>>>(d_diff,
                                                                       residuals.data(),
                                                                       params.mu,
                                                                       params.ar,

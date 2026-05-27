@@ -292,7 +292,14 @@ branch-free.
   target type. Use at sites where an existing API forces narrowing (e.g.
   passing a `size_t` size to a function that takes `int`, or storing
   `pair::first` into an `int`). Preserves the cast but ensures it doesn't
-  silently corrupt the value.
+  silently corrupt the value. A true widening (target strictly wider than
+  source) skips the magnitude check, but a negative source into an unsigned
+  target still traps — sign loss is always an error.
+- `ML::cuda_launch_t` — alias for the integer type expected by CUDA launch
+  configuration (`dim3` components, shared-mem size). Use
+  `ML::narrow_cast<ML::cuda_launch_t>(...)` for values destined for a `<<<>>>`
+  grid/block dimension so the call site is self-documenting and the trap
+  happens host-side instead of as a silent narrow at the launch syntax.
 
 Use them anywhere a count-product, count-sum, count-difference, or
 count-quotient is passed to an allocator, a `dim3`, a span constructor, or a
@@ -323,6 +330,10 @@ e.g. `n_obs > d + s*D`) before any allocation or launch.
   upper-bound validation before downstream allocation.
 - Grid/block dimension arithmetic in `int` where the product can plausibly
   exceed 2^31 on large inputs.
+- A value computed in `int` (or `size_t`) that is passed directly into a
+  `<<<grid, block, ...>>>` launch and relies on the implicit conversion to
+  `unsigned int`. Require `ML::narrow_cast<ML::cuda_launch_t>(...)` so the
+  conversion is checked and the call site is explicit.
 
 ---
 

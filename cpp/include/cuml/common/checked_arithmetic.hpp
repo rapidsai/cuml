@@ -16,6 +16,17 @@
 namespace ML {
 
 /**
+ * @brief Integer type expected by CUDA launch configuration (`dim3` components,
+ * shared-mem size, etc.).
+ *
+ * Prefer `ML::narrow_cast<ML::cuda_launch_t>(...)` over a bare
+ * `narrow_cast<unsigned int>(...)` when the value is destined for a `<<<>>>`
+ * grid/block dimension. This keeps call sites self-documenting and lets us
+ * adapt to future CUDA API changes in one place.
+ */
+using cuda_launch_t = unsigned int;
+
+/**
  * @file checked_arithmetic.hpp
  *
  * Host-side integer arithmetic helpers that trap on overflow, underflow, or
@@ -81,9 +92,18 @@ constexpr T widen_or_fail(U value, char const* op)
   }
   if constexpr (sizeof(U) > sizeof(T) ||
                 (sizeof(U) == sizeof(T) && std::signed_integral<U> != std::signed_integral<T>)) {
-    using common       = std::common_type_t<std::make_unsigned_t<U>, std::make_unsigned_t<T>>;
-    auto const abs_val = static_cast<common>(value < 0 ? -static_cast<long long>(value)
-                                                       : static_cast<long long>(value));
+    using common = std::common_type_t<std::make_unsigned_t<U>, std::make_unsigned_t<T>>;
+    // Compute |value| entirely in `common` (unsigned). For negative values use
+    // `0 - value` rather than `-value`, because negating a signed integer at
+    // its minimum is UB, while unsigned subtraction is well-defined modular
+    // arithmetic and yields the correct magnitude.
+    common abs_val{};
+    if constexpr (std::signed_integral<U>) {
+      abs_val = value < 0 ? static_cast<common>(0) - static_cast<common>(value)
+                          : static_cast<common>(value);
+    } else {
+      abs_val = static_cast<common>(value);
+    }
     if (abs_val > static_cast<common>(std::numeric_limits<T>::max())) {
       RAFT_FAIL("checked_arithmetic: operand magnitude %llu does not fit target type in %s",
                 static_cast<unsigned long long>(abs_val),
@@ -124,6 +144,12 @@ constexpr T checked_add_pair(T a, T b)
  * `std::size_t` size to a function that takes `int`, or storing a `pair::first`
  * into an `int` variable. The cast itself is preserved; this helper only
  * ensures it doesn't silently corrupt the value.
+ *
+ * When @c T is strictly wider than @c U the magnitude check is skipped (no
+ * bit-level loss is possible), so a misplaced `narrow_cast<std::size_t>(int)`
+ * on a non-negative value is a free `static_cast`. Sign-loss is still flagged:
+ * a negative source with an unsigned target traps regardless of widths, since
+ * sign loss is a real correctness bug even on a "widening" conversion.
  *
  * Example:
  * @code
