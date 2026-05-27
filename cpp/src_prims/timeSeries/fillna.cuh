@@ -109,8 +109,9 @@ namespace TimeSeries {
 template <typename T>
 void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
 {
-  rmm::device_uvector<FillnaTemp> indices_fwd(batch_size * n_obs, stream);
-  rmm::device_uvector<FillnaTemp> indices_bwd(batch_size * n_obs, stream);
+  std::size_t const total = ML::checked_mul<std::size_t>(batch_size, n_obs);
+  rmm::device_uvector<FillnaTemp> indices_fwd(total, stream);
+  rmm::device_uvector<FillnaTemp> indices_bwd(total, stream);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
   thrust::counting_iterator<int> counting(0);

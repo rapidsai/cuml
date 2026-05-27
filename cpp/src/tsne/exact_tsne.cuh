@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <raft/util/cudart_utils.hpp>
@@ -48,21 +49,23 @@ std::pair<float, int> Exact_TSNE(value_t* VAL,
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
   rmm::device_uvector<value_t> norm(n, stream);
-  rmm::device_uvector<value_t> Z_sum(2 * n, stream);
+  rmm::device_uvector<value_t> Z_sum(checked_mul<std::size_t>(2, n), stream);
   rmm::device_uvector<value_t> means(dim, stream);
 
-  rmm::device_uvector<value_t> attract(n * dim, stream);
-  rmm::device_uvector<value_t> repel(n * dim, stream);
+  std::size_t const n_dim = checked_mul<std::size_t>(n, dim);
 
-  rmm::device_uvector<value_t> velocity(n * dim, stream);
+  rmm::device_uvector<value_t> attract(n_dim, stream);
+  rmm::device_uvector<value_t> repel(n_dim, stream);
+
+  rmm::device_uvector<value_t> velocity(n_dim, stream);
   RAFT_CUDA_TRY(
     cudaMemsetAsync(velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
-  rmm::device_uvector<value_t> gains(n * dim, stream);
+  rmm::device_uvector<value_t> gains(n_dim, stream);
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gains.data());
-  thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
+  thrust::fill(thrust::cuda::par.on(stream), begin, begin + n_dim, 1.0f);
 
-  rmm::device_uvector<value_t> gradient(n * dim, stream);
+  rmm::device_uvector<value_t> gradient(n_dim, stream);
 
   rmm::device_uvector<value_t> tmp(NNZ, stream);
   value_t* Qs      = tmp.data();

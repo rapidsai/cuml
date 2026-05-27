@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
 
 #include <raft/util/cudart_utils.hpp>
@@ -70,14 +71,23 @@ struct ARIMAParams {
   void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
     rmm::device_async_resource_ref rmm_alloc = rmm::mr::get_current_device_resource_ref();
-    if (order.k && !tr) mu = (DataT*)rmm_alloc.allocate(stream, batch_size * sizeof(DataT));
+    std::size_t const bs                     = static_cast<std::size_t>(batch_size);
+    if (order.k && !tr)
+      mu = (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(bs, sizeof(DataT)));
     if (order.n_exog && !tr)
-      beta = (DataT*)rmm_alloc.allocate(stream, order.n_exog * batch_size * sizeof(DataT));
-    if (order.p) ar = (DataT*)rmm_alloc.allocate(stream, order.p * batch_size * sizeof(DataT));
-    if (order.q) ma = (DataT*)rmm_alloc.allocate(stream, order.q * batch_size * sizeof(DataT));
-    if (order.P) sar = (DataT*)rmm_alloc.allocate(stream, order.P * batch_size * sizeof(DataT));
-    if (order.Q) sma = (DataT*)rmm_alloc.allocate(stream, order.Q * batch_size * sizeof(DataT));
-    sigma2 = (DataT*)rmm_alloc.allocate(stream, batch_size * sizeof(DataT));
+      beta = (DataT*)rmm_alloc.allocate(stream,
+                                        checked_mul<std::size_t>(order.n_exog, bs, sizeof(DataT)));
+    if (order.p)
+      ar = (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(order.p, bs, sizeof(DataT)));
+    if (order.q)
+      ma = (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(order.q, bs, sizeof(DataT)));
+    if (order.P)
+      sar =
+        (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(order.P, bs, sizeof(DataT)));
+    if (order.Q)
+      sma =
+        (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(order.Q, bs, sizeof(DataT)));
+    sigma2 = (DataT*)rmm_alloc.allocate(stream, checked_mul<std::size_t>(bs, sizeof(DataT)));
   }
 
   /**

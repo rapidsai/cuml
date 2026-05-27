@@ -16,6 +16,8 @@
 
 #include "arima_helpers.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
+
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/mean.cuh>
@@ -308,14 +310,18 @@ void kpss_test(const DataT* d_y,
 {
   const DataT* d_y_diff;
 
-  int n_obs_diff = n_obs - d - s * D;
+  int const d_sD = d + s * D;
+  if (n_obs <= static_cast<IdxT>(d_sD)) {
+    RAFT_FAIL("stationarity: n_obs must be greater than d + s*D (%d)", d_sD);
+  }
+  IdxT const n_obs_diff = n_obs - d_sD;
 
   // Compute differenced series
   rmm::device_uvector<DataT> diff_buffer(0, stream);
   if (d == 0 && D == 0) {
     d_y_diff = d_y;
   } else {
-    diff_buffer.resize(batch_size * n_obs_diff, stream);
+    diff_buffer.resize(ML::checked_mul<std::size_t>(batch_size, n_obs_diff), stream);
     prepare_data(diff_buffer.data(), d_y, batch_size, n_obs, d, D, s, stream);
     d_y_diff = diff_buffer.data();
   }

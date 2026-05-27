@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include <common/nvtx.hpp>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
@@ -127,7 +128,8 @@ void predict(raft::handle_t& handle,
                                          stream);
 
       if (num_steps > 0) {
-        exog_fut_buffer.resize(num_steps * order.n_exog * batch_size, stream);
+        exog_fut_buffer.resize(checked_mul<std::size_t>(num_steps, order.n_exog, batch_size),
+                               stream);
 
         MLCommon::TimeSeries::prepare_future_data(exog_fut_buffer.data(),
                                                   d_exog,
@@ -677,7 +679,7 @@ void _arma_least_squares(raft::handle_t& handle,
   auto counting           = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
-  int n_obs      = bm_y.shape().first;
+  int n_obs      = narrow_cast<int>(bm_y.shape().first);
 
   int ps = p * s, qs = q * s;
   int p_ar = std::max(ps, 2 * qs);
@@ -753,11 +755,15 @@ void _arma_least_squares(raft::handle_t& handle,
     MLCommon::LinAlg::Batched::b_2dcopy(bm_y, r, 0, n_obs - r, 1);
 
   // The residuals will be computed only if sigma2 is requested
+  if (n_obs <= r) { RAFT_FAIL("ARIMA fit: n_obs (%d) must be greater than r (%d)", n_obs, r); }
+  std::size_t const residual_rows = checked_sub<std::size_t>(n_obs, r);
   MLCommon::LinAlg::Batched::Matrix<double> bm_final_residual(
-    n_obs - r, 1, batch_size, cublas_handle, stream, false);
+    residual_rows, 1, batch_size, cublas_handle, stream, false);
   if (estimate_sigma2) {
-    raft::copy(
-      bm_final_residual.raw_data(), bm_arma_fit.raw_data(), (n_obs - r) * batch_size, stream);
+    raft::copy(bm_final_residual.raw_data(),
+               bm_arma_fit.raw_data(),
+               checked_mul<std::size_t>(residual_rows, batch_size),
+               stream);
   }
 
   // ARMA fit
@@ -959,24 +965,30 @@ void estimate_x0(raft::handle_t& handle,
   const double* d_y_no_missing;
   rmm::device_uvector<double> y_no_missing(0, stream);
   if (missing) {
-    y_no_missing.resize(n_obs * batch_size, stream);
+    std::size_t const yn = checked_mul<std::size_t>(n_obs, batch_size);
+    y_no_missing.resize(yn, stream);
     d_y_no_missing = y_no_missing.data();
 
-    raft::copy(y_no_missing.data(), d_y, n_obs * batch_size, stream);
+    raft::copy(y_no_missing.data(), d_y, yn, stream);
     MLCommon::TimeSeries::fillna(y_no_missing.data(), batch_size, n_obs, stream);
   } else {
     d_y_no_missing = d_y;
   }
 
   // Difference if necessary, copy otherwise
+  int const d_sD = order.d + order.s * order.D;
+  if (n_obs <= d_sD) {
+    RAFT_FAIL("ARIMA: n_obs (%d) must be greater than d + s*D (%d) for differencing", n_obs, d_sD);
+  }
+  std::size_t const diff_rows = checked_sub<std::size_t>(n_obs, d_sD);
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
-    n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle, stream, false);
+    diff_rows, 1, batch_size, cublas_handle, stream, false);
   MLCommon::TimeSeries::prepare_data(
     bm_yd.raw_data(), d_y_no_missing, batch_size, n_obs, order.d, order.D, order.s, stream);
 
   // Difference or copy exog
   MLCommon::LinAlg::Batched::Matrix<double> bm_exog_diff(
-    n_obs - order.d - order.s * order.D, order.n_exog, batch_size, cublas_handle, stream, false);
+    diff_rows, order.n_exog, batch_size, cublas_handle, stream, false);
   if (order.n_exog > 0) {
     MLCommon::TimeSeries::prepare_data(bm_exog_diff.raw_data(),
                                        d_exog,
