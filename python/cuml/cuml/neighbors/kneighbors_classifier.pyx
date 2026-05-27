@@ -74,6 +74,36 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
+    p : float (default=2)
+        Parameter for the Minkowski metric. When p = 1, this is equivalent to
+        manhattan distance (l1), and euclidean distance (l2) for p = 2. For
+        arbitrary p, minkowski distance (lp) is used.
+    algo_params : dict, optional (default=None)
+        Used to configure the nearest neighbor algorithm to be used.
+        If set to None, parameters will be generated automatically.
+        Parameters for algorithm ``'brute'`` when inputs are sparse:
+
+            - batch_size_index : (int) number of rows in each batch of \
+                                 index array
+            - batch_size_query : (int) number of rows in each batch of \
+                                 query array
+
+        Parameters for algorithm ``'ivfflat'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+
+        Parameters for algorithm ``'ivfpq'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+            - M: (int) number of subquantizers
+            - n_bits: (int) bits allocated per subquantizer
+            - usePrecomputedTables : (bool) whether to use precomputed tables
+    metric_params : dict, optional (default = None)
+        Additional keyword arguments for the metric function.
+    n_jobs : int (default = None)
+        Ignored, here for scikit-learn API compatibility.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -154,12 +184,28 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
     def __init__(
         self,
         *,
+        n_neighbors=5,
+        algorithm="auto",
+        metric="euclidean",
         weights="uniform",
+        p=2,
+        algo_params=None,
+        metric_params=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
-        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
+        super().__init__(
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            metric=metric,
+            p=p,
+            algo_params=algo_params,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            verbose=verbose,
+            output_type=output_type,
+        )
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
