@@ -43,6 +43,7 @@ dependencies:
 - librmm==26.8.*,>=0.0.0a0
 - lightgbm
 - matplotlib-base
+- msgspec
 - nbsphinx
 - ninja
 - nltk

@@ -15,18 +15,19 @@ import pandas as pd
 # Supports both package and standalone execution
 try:
     from cuml.benchmark import datagen
-    from cuml.benchmark.gpu_check import is_cuml_available, is_gpu_available
+    from cuml.benchmark.gpu_check import is_gpu_available
 except ImportError:
     if not any("cuml/benchmark" in p for p in sys.path):
         raise
     import datagen  # noqa: E402
-    from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
+    from gpu_check import is_gpu_available  # noqa: E402
 
-# Conditional GPU imports
-cudf_Series = None
 
-if is_cuml_available():
-    from cudf import Series as cudf_Series
+def _metric_array_to_numpy(data):
+    """Convert metric inputs to NumPy for sklearn compatibility."""
+    if data is None:
+        return None
+    return datagen._convert_to_numpy(data)
 
 
 class BenchmarkTimer:
@@ -314,11 +315,8 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                 else:
                     y_pred_cuml = cuml_model.transform(X_test)
 
-                # Handle cudf Series conversion
-                if is_cuml_available() and isinstance(
-                    y_pred_cuml, cudf_Series
-                ):
-                    y_pred_cuml = y_pred_cuml.to_numpy()
+                y_test = _metric_array_to_numpy(y_test)
+                y_pred_cuml = _metric_array_to_numpy(y_pred_cuml)
                 cuml_accuracy = algo_pair.accuracy_function(
                     y_test, y_pred_cuml
                 )
@@ -351,9 +349,9 @@ class AccuracyComparisonRunner(SpeedupComparisonRunner):
                     y_pred_cpu = cpu_model.predict(X_test)
                 else:
                     y_pred_cpu = cpu_model.transform(X_test)
-                cpu_accuracy = algo_pair.accuracy_function(
-                    y_test, np.asarray(y_pred_cpu)
-                )
+                y_test = _metric_array_to_numpy(y_test)
+                y_pred_cpu = _metric_array_to_numpy(y_pred_cpu)
+                cpu_accuracy = algo_pair.accuracy_function(y_test, y_pred_cpu)
 
         if n_samples == 0:
             # Update n_samples = training samples + testing samples
