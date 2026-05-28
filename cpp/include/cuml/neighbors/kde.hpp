@@ -5,12 +5,14 @@
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <raft/core/resources.hpp>
 
 #include <cstdint>
 
-namespace ML::KDE {
+namespace CUML_EXPORT ML {
+namespace KDE {
 
 enum class DensityKernelType : int {
   Gaussian     = 0,
@@ -87,4 +89,5 @@ extern template void score_samples<double>(raft::resources const&,
                                            ML::distance::DistanceType,
                                            double);
 
-}  // namespace ML::KDE
+}  // namespace KDE
+}  // namespace CUML_EXPORT ML
