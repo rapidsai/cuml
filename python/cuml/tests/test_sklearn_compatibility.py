@@ -3,9 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import importlib
+import inspect
+import pkgutil
+import warnings
+
 import pytest
 from sklearn.utils import estimator_checks
 
+import cuml
 from cuml.cluster import (
     DBSCAN,
     HDBSCAN,
@@ -13,18 +19,24 @@ from cuml.cluster import (
     KMeans,
     SpectralClustering,
 )
+from cuml.compose import ColumnTransformer
 from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.feature_extraction.text import TfidfTransformer
+from cuml.internals.base import Base
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
     LinearRegression,
     LogisticRegression,
+    MBSGDClassifier,
+    MBSGDRegressor,
     Ridge,
 )
-from cuml.manifold import TSNE, UMAP
+from cuml.manifold import TSNE, UMAP, SpectralEmbedding
+from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.naive_bayes import (
     BernoulliNB,
     CategoricalNB,
@@ -37,6 +49,27 @@ from cuml.neighbors import (
     KNeighborsClassifier,
     KNeighborsRegressor,
     NearestNeighbors,
+)
+from cuml.preprocessing import (
+    Binarizer,
+    FunctionTransformer,
+    KBinsDiscretizer,
+    KernelCenterer,
+    LabelBinarizer,
+    LabelEncoder,
+    MaxAbsScaler,
+    MinMaxScaler,
+    MissingIndicator,
+    Normalizer,
+    OneHotEncoder,
+    OrdinalEncoder,
+    PolynomialFeatures,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+    TargetEncoder,
 )
 from cuml.random_projection import (
     GaussianRandomProjection,
@@ -88,6 +121,95 @@ ESTIMATORS = [
     SpectralClustering(),
     LogisticRegression(),
 ]
+
+
+_MODULE_TO_IGNORE = {
+    "dask",
+    "accel",
+    "solvers",
+    "tsa",
+    "explainer",
+    "fil",
+    "experimental",
+    "benchmark",
+}
+
+
+def _all_cuml_estimators():
+    """Discover all public cuml estimator classes (subclasses of Base)."""
+    estimators = set()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+
+        for _, modname, _ in pkgutil.walk_packages(
+            cuml.__path__, prefix="cuml."
+        ):
+            module_parts = modname.split(".")
+            if (
+                any(part in _MODULE_TO_IGNORE for part in module_parts)
+                or "._" in modname
+            ):
+                continue
+
+            try:
+                mod = importlib.import_module(modname)
+            except ImportError:
+                continue
+
+            for _, obj in inspect.getmembers(mod, inspect.isclass):
+                name = obj.__name__
+                if name.startswith("_"):
+                    continue
+                if name.endswith("MG") or "Base" in name:
+                    continue
+                obj_parts = obj.__module__.split(".")
+                if any(part in _MODULE_TO_IGNORE for part in obj_parts):
+                    continue
+                if not issubclass(obj, Base) or obj is Base:
+                    continue
+                if getattr(obj, "__abstractmethods__", None):
+                    continue
+                estimators.add(obj)
+
+    return estimators
+
+
+EXCLUDED = {
+    # Linear model
+    MBSGDClassifier: "Not yet sklearn-compatible",
+    MBSGDRegressor: "Not yet sklearn-compatible",
+    # Meta-estimators
+    OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
+    OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
+    # Manifold
+    SpectralEmbedding: "Not yet tested for sklearn compat",
+    # Feature extraction
+    TfidfTransformer: "Text feature extraction, not yet tested",
+    # Preprocessing (cuml-native)
+    LabelEncoder: "Label transformer, not yet tested",
+    TargetEncoder: "Target encoder, not yet tested",
+    LabelBinarizer: "Label transformer, not yet tested",
+    OneHotEncoder: "Categorical encoder, not yet tested",
+    OrdinalEncoder: "Categorical encoder, not yet tested",
+    # Preprocessing (vendored sklearn)
+    StandardScaler: "Vendored sklearn preprocessing, not yet tested",
+    MinMaxScaler: "Vendored sklearn preprocessing, not yet tested",
+    MaxAbsScaler: "Vendored sklearn preprocessing, not yet tested",
+    RobustScaler: "Vendored sklearn preprocessing, not yet tested",
+    Normalizer: "Vendored sklearn preprocessing, not yet tested",
+    Binarizer: "Vendored sklearn preprocessing, not yet tested",
+    KernelCenterer: "Vendored sklearn preprocessing, not yet tested",
+    PolynomialFeatures: "Vendored sklearn preprocessing, not yet tested",
+    PowerTransformer: "Vendored sklearn preprocessing, not yet tested",
+    QuantileTransformer: "Vendored sklearn preprocessing, not yet tested",
+    KBinsDiscretizer: "Vendored sklearn preprocessing, not yet tested",
+    SimpleImputer: "Vendored sklearn preprocessing, not yet tested",
+    MissingIndicator: "Vendored sklearn preprocessing, not yet tested",
+    FunctionTransformer: "Vendored sklearn preprocessing, not yet tested",
+    # Compose
+    ColumnTransformer: "Vendored sklearn compose, not yet tested",
+}
 
 
 XFAILS = {
@@ -314,3 +436,31 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
+
+
+def test_all_estimators_covered():
+    all_estimators = _all_cuml_estimators()
+    tested = {type(est) for est in ESTIMATORS}
+    excluded = set(EXCLUDED)
+
+    overlap = tested & excluded
+    assert not overlap, "Estimators both tested and excluded: " + ", ".join(
+        c.__name__ for c in sorted(overlap, key=lambda c: c.__name__)
+    )
+
+    uncovered = all_estimators - tested - excluded
+    assert not uncovered, (
+        "Estimators not in ESTIMATORS or EXCLUDED: "
+        + ", ".join(
+            c.__name__ for c in sorted(uncovered, key=lambda c: c.__name__)
+        )
+        + ". Add them to ESTIMATORS or EXCLUDED with a reason."
+    )
+
+    stale = excluded - all_estimators
+    assert not stale, (
+        "EXCLUDED contains classes not found by discovery: "
+        + ", ".join(
+            c.__name__ for c in sorted(stale, key=lambda c: c.__name__)
+        )
+    )
