@@ -33,7 +33,6 @@ __all__ = (
     "check_classification_targets",
 )
 
-PANDAS_VERSION = Version(pd.__version__)
 _CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
 
 
@@ -914,12 +913,7 @@ def check_cudf(
     elif isinstance(array, pd.DataFrame):
         f16_cols = array.select_dtypes("float16").columns.tolist()
         if f16_cols:
-            dtype = {c: "float32" for c in f16_cols}
-            # TODO: Drop this pandas 2 branch once pandas 2 support is removed.
-            if PANDAS_VERSION < Version("3.0"):
-                array = array.astype(dtype, copy=False)
-            else:
-                array = array.astype(dtype)
+            array = array.astype({c: "float32" for c in f16_cols})
         array = cudf.DataFrame(array)
     elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
         # Remaining array-like inputs go through check_array first (without
