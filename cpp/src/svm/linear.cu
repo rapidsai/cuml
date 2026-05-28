@@ -5,6 +5,7 @@
 
 #include <common/nvtx.hpp>
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>
@@ -419,40 +420,40 @@ void computeProbabilities(const raft::handle_t& handle,
 }
 
 // Explicit instantiations for library
-template int fit<float>(const raft::handle_t& handle,
-                        const Params& params,
-                        const std::size_t nRows,
-                        const std::size_t nCols,
-                        const int nClasses,
-                        const float* classes,
-                        const float* X,
-                        const float* y,
-                        const float* sampleWeight,
-                        float* w,
-                        float* probScale);
-template int fit<double>(const raft::handle_t& handle,
-                         const Params& params,
-                         const std::size_t nRows,
-                         const std::size_t nCols,
-                         const int nClasses,
-                         const double* classes,
-                         const double* X,
-                         const double* y,
-                         const double* sampleWeight,
-                         double* w,
-                         double* probScale);
-template void computeProbabilities<float>(const raft::handle_t& handle,
-                                          const std::size_t nRows,
-                                          const int nClasses,
-                                          const float* probScale,
-                                          float* scores,
-                                          float* out);
-template void computeProbabilities<double>(const raft::handle_t& handle,
-                                           const std::size_t nRows,
-                                           const int nClasses,
-                                           const double* probScale,
-                                           double* scores,
-                                           double* out);
+template CUML_EXPORT int fit<float>(const raft::handle_t& handle,
+                                    const Params& params,
+                                    const std::size_t nRows,
+                                    const std::size_t nCols,
+                                    const int nClasses,
+                                    const float* classes,
+                                    const float* X,
+                                    const float* y,
+                                    const float* sampleWeight,
+                                    float* w,
+                                    float* probScale);
+template CUML_EXPORT int fit<double>(const raft::handle_t& handle,
+                                     const Params& params,
+                                     const std::size_t nRows,
+                                     const std::size_t nCols,
+                                     const int nClasses,
+                                     const double* classes,
+                                     const double* X,
+                                     const double* y,
+                                     const double* sampleWeight,
+                                     double* w,
+                                     double* probScale);
+template CUML_EXPORT void computeProbabilities<float>(const raft::handle_t& handle,
+                                                      const std::size_t nRows,
+                                                      const int nClasses,
+                                                      const float* probScale,
+                                                      float* scores,
+                                                      float* out);
+template CUML_EXPORT void computeProbabilities<double>(const raft::handle_t& handle,
+                                                       const std::size_t nRows,
+                                                       const int nClasses,
+                                                       const double* probScale,
+                                                       double* scores,
+                                                       double* out);
 
 }  // namespace linear
 }  // namespace SVM

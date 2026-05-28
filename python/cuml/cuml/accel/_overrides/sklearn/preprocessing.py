@@ -19,6 +19,7 @@ __all__ = (
     "PolynomialFeatures",
     "TargetEncoder",
     "LabelEncoder",
+    "LabelBinarizer",
 )
 
 
@@ -58,6 +59,13 @@ class LabelEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.LabelEncoder
 
 
+class LabelBinarizer(ProxyBase):
+    _gpu_class = cuml.preprocessing.LabelBinarizer
+
+    def _gpu_inverse_transform(self, Y, threshold=None):
+        return self._gpu.inverse_transform(Y, threshold=threshold)
+
+
 def _check_targetencoder_y(y):
     """Check if inputs are supported on GPU.
 
@@ -76,13 +84,13 @@ def _check_targetencoder_y(y):
 class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 
-    def _gpu_fit(self, X, y, **kwargs):
+    def _gpu_fit(self, X, y):
         _check_targetencoder_y(y)
-        return self._gpu.fit(X, y, **kwargs)
+        return self._gpu.fit(X, y)
 
-    def _gpu_fit_transform(self, X, y, **kwargs):
+    def _gpu_fit_transform(self, X, y, **params):
         _check_targetencoder_y(y)
-        return self._gpu.fit_transform(X, y, **kwargs)
+        return self._gpu.fit_transform(X, y, **params)
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.

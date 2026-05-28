@@ -347,6 +347,11 @@ def test_regressor_predict_dtype(cls):
 # rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )

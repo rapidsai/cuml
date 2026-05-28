@@ -1,13 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <type_traits>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Internals {
 
 class Callback {
@@ -36,4 +38,4 @@ class GraphBasedDimRedCallback : public Callback {
 };
 
 }  // namespace Internals
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

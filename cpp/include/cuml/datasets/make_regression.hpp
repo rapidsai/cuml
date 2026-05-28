@@ -1,9 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+
+#include <cuml/common/export.hpp>
 
 #include <cstdint>
 
@@ -11,7 +13,7 @@ namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Datasets {
 
 /**
@@ -105,4 +107,4 @@ void make_regression(const raft::handle_t& handle,
                      uint64_t seed        = 0ULL);
 
 }  // namespace Datasets
-}  // namespace ML
+}  // namespace CUML_EXPORT ML
