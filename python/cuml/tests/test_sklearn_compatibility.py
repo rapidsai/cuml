@@ -120,6 +120,7 @@ ESTIMATORS = [
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),
+    StandardScaler(),
 ]
 
 
@@ -164,6 +165,9 @@ def _all_cuml_estimators():
                 if name.endswith("MG") or "Base" in name:
                     continue
                 obj_parts = obj.__module__.split(".")
+                # A second round of filtering. Needed to make sure classes that are
+                # defined in ignored modules are skipped even if they are exposed
+                # via non-ignored modules.
                 if any(part in _MODULE_TO_IGNORE for part in obj_parts):
                     continue
                 if not issubclass(obj, Base) or obj is Base:
@@ -177,23 +181,22 @@ def _all_cuml_estimators():
 
 EXCLUDED = {
     # Linear model
-    MBSGDClassifier: "Not yet sklearn-compatible",
-    MBSGDRegressor: "Not yet sklearn-compatible",
+    MBSGDClassifier: "Not yet tested for sklearn compat",
+    MBSGDRegressor: "Not yet tested for sklearn compat",
     # Meta-estimators
     OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
     OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
     # Manifold
     SpectralEmbedding: "Not yet tested for sklearn compat",
     # Feature extraction
-    TfidfTransformer: "Text feature extraction, not yet tested",
+    TfidfTransformer: "Not yet tested for sklearn compat",
     # Preprocessing (cuml-native)
-    LabelEncoder: "Label transformer, not yet tested",
-    TargetEncoder: "Target encoder, not yet tested",
-    LabelBinarizer: "Label transformer, not yet tested",
-    OneHotEncoder: "Categorical encoder, not yet tested",
-    OrdinalEncoder: "Categorical encoder, not yet tested",
+    LabelEncoder: "Not yet tested for sklearn compat",
+    TargetEncoder: "Not yet tested for sklearn compat",
+    LabelBinarizer: "Not yet tested for sklearn compat",
+    OneHotEncoder: "Not yet tested for sklearn compat",
+    OrdinalEncoder: "Not yet tested for sklearn compat",
     # Preprocessing (vendored sklearn)
-    StandardScaler: "Vendored sklearn preprocessing, not yet tested",
     MinMaxScaler: "Vendored sklearn preprocessing, not yet tested",
     MaxAbsScaler: "Vendored sklearn preprocessing, not yet tested",
     RobustScaler: "Vendored sklearn preprocessing, not yet tested",
@@ -208,7 +211,7 @@ EXCLUDED = {
     MissingIndicator: "Vendored sklearn preprocessing, not yet tested",
     FunctionTransformer: "Vendored sklearn preprocessing, not yet tested",
     # Compose
-    ColumnTransformer: "Vendored sklearn compose, not yet tested",
+    ColumnTransformer: "Vendored __init__ defaults transformers=None, breaking set_params/get_params",
 }
 
 
@@ -343,6 +346,14 @@ XFAILS = {
     },
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+    },
+    StandardScaler: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
+        "check_fit_score_takes_y": "Vendored StandardScaler does not accept y in transform",
+        "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
+        "check_estimator_sparse_tag": "Sparse tag inconsistent with with_mean=True default",
+        "check_transformer_data_not_an_array": "Non-array data leads to an exception",
     },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
