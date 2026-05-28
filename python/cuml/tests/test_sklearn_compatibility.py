@@ -350,7 +350,7 @@ XFAILS = {
     StandardScaler: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
-        "check_fit_score_takes_y": "Vendored StandardScaler does not accept y in transform",
+        "check_fit_score_takes_y": "AttributeError: 'int' object has no attribute 'repeat'",
         "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
         "check_estimator_sparse_tag": "Sparse tag inconsistent with with_mean=True default",
         "check_transformer_data_not_an_array": "Non-array data leads to an exception",
