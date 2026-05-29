@@ -35,7 +35,6 @@ import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
-from cuml.internals.interop import UnsupportedOnGPU
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
@@ -1536,25 +1535,116 @@ def test_rf_feature_importances_weighted_tracks_weighting(small_clf):
         assert rho >= 0.7
 
 
-@pytest.mark.parametrize("raise_via", ["accel_proxy", "direct"])
-def test_rf_classifier_class_weight_balanced_subsample_raises(
-    small_clf, raise_via
+def _imbalanced_binary(n_majority=540, n_minority=60, seed=0):
+    # 90:10 binary fixture with tight class separation (loc=0.6) so the
+    # unweighted classifier under-recalls the minority class at shallow
+    # depth, giving balanced_subsample room to lift recall.
+    rng = np.random.default_rng(seed)
+    X_maj = rng.normal(0.0, 1.0, size=(n_majority, 4)).astype(np.float32)
+    X_min = rng.normal(0.6, 1.0, size=(n_minority, 4)).astype(np.float32)
+    X = np.vstack([X_maj, X_min])
+    y = np.concatenate(
+        [np.zeros(n_majority), np.ones(n_minority)]
+    ).astype(np.int32)
+    return X, y
+
+
+def test_rf_classifier_class_weight_balanced_subsample_lifts_minority_recall():
+    from sklearn.metrics import recall_score
+
+    X, y = _imbalanced_binary()
+    bs = curfc(
+        n_estimators=50,
+        max_depth=4,
+        n_streams=1,
+        random_state=42,
+        class_weight="balanced_subsample",
+    ).fit(X, y)
+    unw = curfc(
+        n_estimators=50, max_depth=4, n_streams=1, random_state=42
+    ).fit(X, y)
+    # Observed: bs ~0.82, unw ~0.17 on this 90:10 loc=0.6 fixture.
+    assert recall_score(y, bs.predict(X), pos_label=1) > recall_score(
+        y, unw.predict(X), pos_label=1
+    )
+
+
+def test_rf_classifier_class_weight_balanced_subsample_bootstrap_true_no_warning():
+    # Negative pair for the bootstrap=False UserWarning: bootstrap=True
+    # must NOT trigger the collapse notice.
+    X, y = _imbalanced_binary()
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=r"balanced_subsample.*falling back",
+            category=UserWarning,
+        )
+        curfc(
+            n_estimators=10,
+            max_depth=4,
+            n_streams=1,
+            random_state=42,
+            bootstrap=True,
+            class_weight="balanced_subsample",
+        ).fit(X, y)
+
+
+def test_rf_classifier_class_weight_balanced_subsample_bootstrap_false_warns_and_collapses(
+    small_clf,
 ):
     X, y = small_clf
-    if raise_via == "accel_proxy":
-        if X.shape[0] >= 500000:
-            pytest.skip("sklearn fit on stress fixture too slow")
-        sk = skrfc(class_weight="balanced_subsample", random_state=42)
-        sk.fit(X, y)
-        with pytest.raises(
-            UnsupportedOnGPU, match=r"balanced_subsample.*not supported"
-        ):
-            curfc.from_sklearn(sk)
-    else:
-        with pytest.raises(
-            ValueError, match=r"balanced_subsample.*not supported"
-        ):
-            curfc(class_weight="balanced_subsample", random_state=42).fit(X, y)
+    with pytest.warns(
+        UserWarning,
+        match=r"balanced_subsample.*requires bootstrap=True.*falling back to 'balanced'",
+    ):
+        bs = curfc(
+            n_estimators=20,
+            n_streams=1,
+            random_state=42,
+            bootstrap=False,
+            class_weight="balanced_subsample",
+        ).fit(X, y)
+    b = curfc(
+        n_estimators=20,
+        n_streams=1,
+        random_state=42,
+        bootstrap=False,
+        class_weight="balanced",
+    ).fit(X, y)
+    # _effective_class_weight collapses balanced_subsample -> 'balanced'
+    # on bootstrap=False; predictions must match exactly (no double-count).
+    cp.testing.assert_array_equal(bs.predict(X), b.predict(X))
+
+
+def test_rf_classifier_class_weight_balanced_subsample_accel_proxy_roundtrip(
+    small_clf,
+):
+    X, y = small_clf
+    if X.shape[0] >= 500000:
+        pytest.skip("sklearn fit on stress fixture too slow")
+    sk = skrfc(class_weight="balanced_subsample", random_state=42).fit(X, y)
+    # Previously raised UnsupportedOnGPU; cuml now accepts the value and
+    # round-trips it verbatim through _params_from_cpu.
+    cu = curfc.from_sklearn(sk)
+    assert cu.class_weight == "balanced_subsample"
+
+
+def test_rf_classifier_class_weight_balanced_subsample_feature_importances_well_formed():
+    # cuml's `BestMetric * weighted_node_count` differs in shape from
+    # sklearn's `weighted_n_node_samples * impurity_delta` on this path,
+    # so assert well-formedness rather than parity.
+    X, y = _imbalanced_binary()
+    cu = curfc(
+        n_estimators=50,
+        max_depth=4,
+        n_streams=1,
+        random_state=42,
+        class_weight="balanced_subsample",
+    ).fit(X, y)
+    fi = cu.feature_importances_
+    assert np.all(np.isfinite(fi))
+    assert np.isclose(fi.sum(), 1.0)
+    assert (fi > 0).any()
 
 
 def test_rf_classifier_class_weight_dict_missing_class_raises(small_clf):

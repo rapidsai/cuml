@@ -28,6 +28,13 @@ struct Dataset {
   IdxT num_outputs;
   /** per-row sample weights, or nullptr when unweighted */
   const DataT* sample_weight;
+  /**
+   * Per-tree class-weight vector of length `num_outputs`, or nullptr when no
+   * per-tree weighting is requested. Populated only on the
+   * `class_weight='balanced_subsample'` path; the histogram kernel will read
+   * `tree_class_weight[label]` and fold it into the sample weight.
+   */
+  const DataT* tree_class_weight = nullptr;
 };
 
 }  // namespace DT

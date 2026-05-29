@@ -52,6 +52,10 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         INVERSE_GAUSSIAN,
         CRITERION_END
 
+    cdef enum ClassWeightMode:
+        CW_NONE,
+        CW_BALANCED_SUBSAMPLE
+
     cdef struct RF_params:
         pass
 
@@ -70,7 +74,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         CRITERION split_criterion,
         int cfg_n_streams,
         int max_batch_size,
-        Splitter cfg_splitter
+        Splitter cfg_splitter,
+        ClassWeightMode cfg_class_weight_mode
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -562,6 +567,14 @@ class BaseRandomForestModel(Base, InteropMixin):
                 f"Unknown _splitter={self._splitter!r}; expected one of "
                 f"{sorted(_splitter_lookup)}"
             ) from None
+        # Read the classifier's `_effective_class_weight` property so the
+        # bootstrap=False fallback ('balanced_subsample' -> 'balanced') is
+        # honored. Regressor has neither attribute; getattr falls through.
+        cdef ClassWeightMode cfg_class_weight_mode = (
+            CW_BALANCED_SUBSAMPLE
+            if getattr(self, "_effective_class_weight", None) == "balanced_subsample"
+            else CW_NONE
+        )
         cdef RF_params params = set_rf_params(
             max_depth_c,
             self.max_leaves,
@@ -578,6 +591,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             self.n_streams,
             self.max_batch_size,
             cfg_splitter,
+            cfg_class_weight_mode,
         )
 
         cdef TreeliteModelHandle tl_handle

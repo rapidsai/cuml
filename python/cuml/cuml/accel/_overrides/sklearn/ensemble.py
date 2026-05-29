@@ -30,9 +30,6 @@ class _RandomForestMixin:
                 ) from None
             raise
 
-        # sample_weight is supported on GPU; class_weight='balanced_subsample'
-        # stays gated in RandomForestClassifier._params_from_cpu.
-
         if y is not None:
             y = check_array(
                 y,

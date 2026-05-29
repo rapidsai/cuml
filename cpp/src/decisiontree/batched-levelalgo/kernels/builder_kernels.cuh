@@ -89,7 +89,11 @@ void launchWeightedLeftCountKernel(const IdxT min_samples_leaf,
                                    double* node_wnLeft,
                                    cudaStream_t builder_stream);
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT,
+          typename NodeT,
+          typename ObjectiveT,
+          typename DataT,
+          bool HasTreeClassWeight = false>
 void launchLeafKernel(ObjectiveT objective,
                       DatasetT& dataset,
                       const NodeT* tree,
@@ -399,7 +403,8 @@ template <typename DataT,
           typename IdxT,
           int TPB,
           typename ObjectiveT,
-          typename BinT>
+          typename BinT,
+          bool HasTreeClassWeight = false>
 void launchComputeSplitKernel(BinT* histograms,
                               BinT* pool,
                               IdxT n_bins,
@@ -453,7 +458,8 @@ template <typename DataT,
           typename IdxT,
           int TPB,
           typename ObjectiveT,
-          typename BinT>
+          typename BinT,
+          bool HasTreeClassWeight = false>
 void launchRandomSplitKernel(BinT* histograms,
                              BinT* pool,
                              IdxT max_n_bins,

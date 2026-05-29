@@ -284,7 +284,8 @@ struct Builder {
           rmm::device_uvector<IdxT>* row_ids,
           IdxT n_classes,
           const QuantilesT& q,
-          const DataT* sample_weight = nullptr)
+          const DataT* sample_weight      = nullptr,
+          const DataT* tree_class_weight  = nullptr)
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
@@ -298,7 +299,8 @@ struct Builder {
               max(1, IdxT(params.max_features * n_cols)),
               row_ids->data(),
               n_classes,
-              sample_weight},
+              sample_weight,
+              tree_class_weight},
       quantiles(q),
       d_buff(0, builder_stream),
       pool_buf(0, builder_stream)
@@ -704,8 +706,41 @@ struct Builder {
     }
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf);
+    // Routing: HasTreeClassWeight=true only on weighted-classifier BinT with a
+    // non-null tree_class_weight buffer. Unweighted and weighted-regression
+    // paths always take the default false template branch.
+    constexpr bool kIsWeightedClassifierBin = std::is_same_v<BinT, WeightedCountBin>;
+    const bool use_tree_class_weight =
+      kIsWeightedClassifierBin && (dataset.tree_class_weight != nullptr);
     if (is_et) {
       raft::common::nvtx::range kernel_scope("randomSplitKernel @builder.cuh [batched-levelalgo]");
+      if constexpr (kIsWeightedClassifierBin) {
+        if (use_tree_class_weight) {
+          launchRandomSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT, BinT, true>(
+            histograms,
+            pool_buf.data(),
+            params.max_n_bins,
+            params.min_samples_split,
+            params.max_leaves,
+            dataset,
+            quantiles,
+            d_work_items,
+            col,
+            colids,
+            done_count,
+            mutex,
+            splits,
+            objective,
+            treeid,
+            workload_info,
+            seed,
+            static_cast<IdxT>(pool_slots),
+            grid,
+            smem_size,
+            builder_stream);
+          return;
+        }
+      }
       launchRandomSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
                                                                 pool_buf.data(),
                                                                 params.max_n_bins,
@@ -729,6 +764,33 @@ struct Builder {
                                                                 builder_stream);
     } else {
       raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
+      if constexpr (kIsWeightedClassifierBin) {
+        if (use_tree_class_weight) {
+          launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT, BinT, true>(
+            histograms,
+            pool_buf.data(),
+            params.max_n_bins,
+            params.min_samples_split,
+            params.max_leaves,
+            dataset,
+            quantiles,
+            d_work_items,
+            col,
+            colids,
+            done_count,
+            mutex,
+            splits,
+            objective,
+            treeid,
+            workload_info,
+            seed,
+            static_cast<IdxT>(pool_slots),
+            grid,
+            smem_size,
+            builder_stream);
+          return;
+        }
+      }
       launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
                                                                  pool_buf.data(),
                                                                  params.max_n_bins,
@@ -779,14 +841,40 @@ struct Builder {
       RAFT_CUDA_TRY(
         cudaMemsetAsync(d_leaves.data(), 0, sizeof(DataT) * d_leaves.size(), builder_stream));
       size_t smem_size = sizeof(BinT) * dataset.num_outputs;
-      launchLeafKernel(objective,
-                       dataset,
-                       d_tree.data(),
-                       d_instance_ranges.data(),
-                       d_leaves.data(),
-                       batch_size,
-                       smem_size,
-                       builder_stream);
+      // Leaf-prediction histogram must apply the same per-tree class weight
+      // the split kernel did (class_weight='balanced_subsample').
+      constexpr bool kIsWeightedClassifierBin = std::is_same_v<BinT, WeightedCountBin>;
+      if constexpr (kIsWeightedClassifierBin) {
+        if (dataset.tree_class_weight != nullptr) {
+          launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT, true>(
+            objective,
+            dataset,
+            d_tree.data(),
+            d_instance_ranges.data(),
+            d_leaves.data(),
+            batch_size,
+            smem_size,
+            builder_stream);
+        } else {
+          launchLeafKernel(objective,
+                           dataset,
+                           d_tree.data(),
+                           d_instance_ranges.data(),
+                           d_leaves.data(),
+                           batch_size,
+                           smem_size,
+                           builder_stream);
+        }
+      } else {
+        launchLeafKernel(objective,
+                         dataset,
+                         d_tree.data(),
+                         d_instance_ranges.data(),
+                         d_leaves.data(),
+                         batch_size,
+                         smem_size,
+                         builder_stream);
+      }
       raft::update_host(tree->vector_leaf.data() + batch_begin * dataset.num_outputs,
                         d_leaves.data(),
                         batch_size * dataset.num_outputs,

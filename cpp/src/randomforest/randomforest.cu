@@ -553,7 +553,8 @@ RF_params set_rf_params(int max_depth,
                         CRITERION split_criterion,
                         int cfg_n_streams,
                         int max_batch_size,
-                        DT::Splitter cfg_splitter)
+                        DT::Splitter cfg_splitter,
+                        ClassWeightMode cfg_class_weight_mode)
 {
   DT::DecisionTreeParams tree_params;
   DT::set_tree_params(tree_params,
@@ -568,13 +569,14 @@ RF_params set_rf_params(int max_depth,
                       max_batch_size,
                       cfg_splitter);
   RF_params rf_params;
-  rf_params.n_trees     = n_trees;
-  rf_params.bootstrap   = bootstrap;
-  rf_params.max_samples = max_samples;
-  rf_params.seed        = seed;
-  rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
+  rf_params.n_trees            = n_trees;
+  rf_params.bootstrap          = bootstrap;
+  rf_params.max_samples        = max_samples;
+  rf_params.seed               = seed;
+  rf_params.n_streams          = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
-  rf_params.tree_params = tree_params;
+  rf_params.tree_params        = tree_params;
+  rf_params.class_weight_mode  = cfg_class_weight_mode;
   validity_check(rf_params);
   return rf_params;
 }

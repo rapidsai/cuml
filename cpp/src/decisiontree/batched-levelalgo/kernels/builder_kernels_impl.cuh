@@ -173,7 +173,11 @@ void launchWeightedLeftCountKernel(const IdxT min_samples_leaf,
       min_samples_leaf, min_impurity_decrease, dataset, work_items, splits, node_wnLeft);
 }
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT,
+          typename NodeT,
+          typename ObjectiveT,
+          typename DataT,
+          bool HasTreeClassWeight = false>
 static __global__ void leafKernel(ObjectiveT objective,
                                   DatasetT dataset,
                                   const NodeT* tree,
@@ -198,6 +202,12 @@ static __global__ void leafKernel(ObjectiveT objective,
     if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
                   std::is_same_v<BinT, WeightedAggregateBin>) {
       auto weight = dataset.sample_weight ? dataset.sample_weight[row] : DataT(1.0);
+      if constexpr (HasTreeClassWeight) {
+        // Leaf histogram must apply the same per-tree class weight the split
+        // kernel did; otherwise leaf probs collapse to the unweighted
+        // majority and the model under-predicts the minority.
+        weight *= dataset.tree_class_weight[label];
+      }
       BinT::IncrementHistogram(histogram, 1, 0, label, weight);
     } else {
       BinT::IncrementHistogram(histogram, 1, 0, label);
@@ -210,7 +220,11 @@ static __global__ void leafKernel(ObjectiveT objective,
   }
 }
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT,
+          typename NodeT,
+          typename ObjectiveT,
+          typename DataT,
+          bool HasTreeClassWeight>
 void launchLeafKernel(ObjectiveT objective,
                       DatasetT& dataset,
                       const NodeT* tree,
@@ -221,8 +235,9 @@ void launchLeafKernel(ObjectiveT objective,
                       cudaStream_t builder_stream)
 {
   int num_blocks = batch_size;
-  leafKernel<<<num_blocks, TPB_DEFAULT, smem_size, builder_stream>>>(
-    objective, dataset, tree, instance_ranges, leaves);
+  leafKernel<DatasetT, NodeT, ObjectiveT, DataT, HasTreeClassWeight>
+    <<<num_blocks, TPB_DEFAULT, smem_size, builder_stream>>>(
+      objective, dataset, tree, instance_ranges, leaves);
 }
 
 /**
@@ -260,7 +275,8 @@ template <typename DataT,
           typename IdxT,
           int TPB,
           typename ObjectiveT,
-          typename BinT>
+          typename BinT,
+          bool HasTreeClassWeight = false>
 static __global__ void computeSplitKernel(BinT* histograms,
                                           BinT* pool,
                                           IdxT max_n_bins,
@@ -339,6 +355,12 @@ static __global__ void computeSplitKernel(BinT* histograms,
     if constexpr (std::is_same_v<BinT, WeightedCountBin> ||
                   std::is_same_v<BinT, WeightedAggregateBin>) {
       auto weight = dataset.sample_weight ? dataset.sample_weight[row] : DataT(1.0);
+      if constexpr (HasTreeClassWeight) {
+        // class_weight='balanced_subsample': fold the per-tree class weight
+        // into the per-sample weight. Reachable only when the dispatcher
+        // picked HasTreeClassWeight=true on a weighted-BinT path.
+        weight *= dataset.tree_class_weight[label];
+      }
       BinT::IncrementHistogram(shared_histogram, n_bins, start, label, weight);
     } else {
       BinT::IncrementHistogram(shared_histogram, n_bins, start, label);
@@ -432,7 +454,8 @@ template <typename DataT,
           typename IdxT,
           int TPB,
           typename ObjectiveT,
-          typename BinT>
+          typename BinT,
+          bool HasTreeClassWeight>
 void launchComputeSplitKernel(BinT* histograms,
                               BinT* pool,
                               IdxT max_n_bins,
@@ -455,7 +478,7 @@ void launchComputeSplitKernel(BinT* histograms,
                               size_t smem_size,
                               cudaStream_t builder_stream)
 {
-  computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+  computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT, BinT, HasTreeClassWeight>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
                                                        pool,
                                                        max_n_bins,
@@ -529,5 +552,43 @@ template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _Obj
   dim3 grid,
   size_t smem_size,
   cudaStream_t builder_stream);
+
+// HasTreeClassWeight=true instantiation, emitted only when the including .cu
+// file is a weighted-classifier (gini/entropy). Weighted-regression bins reuse
+// the same template body but cannot index tree_class_weight[label] (LabelT=DataT).
+#ifdef INSTANTIATE_TREE_CLASS_WEIGHT
+template void
+launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT, true>(
+  _BinT* histograms,
+  _BinT* pool,
+  _IdxT n_bins,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
+  const Quantiles<_DataT, _IdxT>& quantiles,
+  const NodeWorkItem* work_items,
+  _IdxT colStart,
+  const _IdxT* colids,
+  int* done_count,
+  int* mutex,
+  volatile Split<_DataT, _IdxT>* splits,
+  _ObjectiveT& objective,
+  _IdxT treeid,
+  const WorkloadInfo<_IdxT>* workload_info,
+  uint64_t seed,
+  _IdxT pool_slots,
+  dim3 grid,
+  size_t smem_size,
+  cudaStream_t builder_stream);
+template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT, true>(
+  _ObjectiveT objective,
+  _DatasetT& dataset,
+  const _NodeT* tree,
+  const InstanceRange* instance_ranges,
+  _DataT* leaves,
+  int batch_size,
+  size_t smem_size,
+  cudaStream_t builder_stream);
+#endif
 }  // namespace DT
 }  // namespace ML

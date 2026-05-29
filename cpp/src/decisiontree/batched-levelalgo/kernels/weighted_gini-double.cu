@@ -20,4 +20,7 @@ using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML
 
+// class_weight='balanced_subsample' needs the HasTreeClassWeight=true
+// instantiation of launchComputeSplitKernel on the weighted-classifier path.
+#define INSTANTIATE_TREE_CLASS_WEIGHT
 #include "builder_kernels_impl.cuh"

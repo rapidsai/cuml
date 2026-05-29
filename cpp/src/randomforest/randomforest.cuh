@@ -38,6 +38,61 @@
 
 namespace ML {
 
+/**
+ * Per-tree class-weight kernel: counts each class's occurrences in the
+ * bootstrap (`labels[selected_rows[k]]` for k in [0, n_sampled_rows)) into
+ * shared memory, then writes `n_sampled_rows / (n_unique_labels * count[c])`
+ * per class to `tree_class_weight`. Classes missing from the bootstrap get
+ * `1` so the weight buffer stays finite; those entries are never read since
+ * no row of that class is in `selected_rows`. One block, n_unique_labels
+ * ints of dynamic shared memory.
+ */
+template <class DataT, class LabelT>
+static __global__ void compute_per_tree_class_weight_kernel(const LabelT* labels,
+                                                            const int* selected_rows,
+                                                            int n_sampled_rows,
+                                                            int n_unique_labels,
+                                                            DataT* tree_class_weight)
+{
+  extern __shared__ int s_counts[];
+  for (int c = threadIdx.x; c < n_unique_labels; c += blockDim.x) {
+    s_counts[c] = 0;
+  }
+  __syncthreads();
+  for (int k = threadIdx.x; k < n_sampled_rows; k += blockDim.x) {
+    int label = static_cast<int>(labels[selected_rows[k]]);
+    atomicAdd(&s_counts[label], 1);
+  }
+  __syncthreads();
+  for (int c = threadIdx.x; c < n_unique_labels; c += blockDim.x) {
+    tree_class_weight[c] =
+      (s_counts[c] > 0)
+        ? DataT(n_sampled_rows) / (DataT(n_unique_labels) * DataT(s_counts[c]))
+        : DataT(1);
+  }
+}
+
+/**
+ * Host launcher for the per-tree class-weight kernel. Called once per tree on
+ * the `class_weight='balanced_subsample'` path between bootstrap-row sampling
+ * and the tree's split-finding launches.
+ */
+template <class DataT, class LabelT>
+void compute_per_tree_class_weight(const LabelT* labels,
+                                   const int* selected_rows,
+                                   int n_sampled_rows,
+                                   int n_unique_labels,
+                                   DataT* tree_class_weight,
+                                   cudaStream_t stream)
+{
+  constexpr int kBlockSize = 256;
+  size_t smem_size         = static_cast<size_t>(n_unique_labels) * sizeof(int);
+  compute_per_tree_class_weight_kernel<DataT, LabelT>
+    <<<1, kBlockSize, smem_size, stream>>>(
+      labels, selected_rows, n_sampled_rows, n_unique_labels, tree_class_weight);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+}
+
 template <class T, class L>
 class RandomForest {
  protected:
@@ -192,6 +247,23 @@ class RandomForest {
             (b) a pointer to a list of row numbers w.r.t original data.
         */
 
+        // Per-tree class-weight buffer for `class_weight='balanced_subsample'`.
+        // Sized to n_unique_labels only on that path; the unweighted and
+        // Python-pre-folded paths leave the buffer empty and pass nullptr.
+        rmm::device_uvector<T> tree_class_weight_buf(
+          this->rf_params.class_weight_mode == CW_BALANCED_SUBSAMPLE ? n_unique_labels : 0,
+          s);
+        const T* tree_class_weight = nullptr;
+        if (this->rf_params.class_weight_mode == CW_BALANCED_SUBSAMPLE) {
+          compute_per_tree_class_weight<T, L>(labels,
+                                              selected_rows[stream_id].data(),
+                                              n_sampled_rows,
+                                              n_unique_labels,
+                                              tree_class_weight_buf.data(),
+                                              s);
+          tree_class_weight = tree_class_weight_buf.data();
+        }
+
         forest->trees[i] = DT::DecisionTree::fit(handle,
                                                  s,
                                                  input,
@@ -204,7 +276,8 @@ class RandomForest {
                                                  this->rf_params.seed,
                                                  quantiles,
                                                  i,
-                                                 sample_weight);
+                                                 sample_weight,
+                                                 tree_class_weight);
 
         // Store bootstrap mask if device buffer is provided
         if (bootstrap_masks != nullptr) {

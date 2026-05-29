@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import warnings
+
 import cupy as cp
 
 import cuml.internals
@@ -9,7 +11,6 @@ from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
@@ -124,16 +125,22 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
-    class_weight : dict or 'balanced' (default = None)
+    class_weight : dict, 'balanced', or 'balanced_subsample' (default = None)
         By default all classes have a weight one. However, a dictionary
         can be provided with weights associated with classes
         in the form ``{class_label: weight}``. The "balanced" mode
         uses the values of y to automatically adjust weights
         inversely proportional to class frequencies in the input data
-        as ``n_samples / (n_classes * np.bincount(y))``. Note that
-        these weights will be multiplied with sample_weight
-        (passed through the fit method) if sample_weight is specified.
-        ``'balanced_subsample'`` is not supported.
+        as ``n_samples / (n_classes * np.bincount(y))``. The
+        "balanced_subsample" mode is the same as "balanced" except
+        weights are computed per tree from the bootstrap sample's
+        class distribution; if ``bootstrap=False`` it falls back to
+        "balanced" with a ``UserWarning``. These weights are multiplied
+        with ``sample_weight`` (passed through the fit method) if
+        ``sample_weight`` is specified.
+
+        .. versionchanged:: 26.08
+            ``'balanced_subsample'`` is now accepted.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -183,11 +190,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        # 'balanced_subsample' is per-tree resampling cuml cannot express.
-        if model.class_weight == "balanced_subsample":
-            raise UnsupportedOnGPU(
-                "`class_weight='balanced_subsample'` is not supported"
-            )
         return {
             "class_weight": model.class_weight,
             **super()._params_from_cpu(model),
@@ -253,6 +255,15 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         self.class_weight = class_weight
 
+    @property
+    def _effective_class_weight(self):
+        # 'balanced_subsample' has no per-tree bootstrap without bootstrap=True
+        # so it collapses to 'balanced'. fit() emits a UserWarning the first
+        # time this property's collapse fires (keyed on the same predicate).
+        if self.class_weight == "balanced_subsample" and not self.bootstrap:
+            return "balanced"
+        return self.class_weight
+
     @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python",
@@ -281,11 +292,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        # Not expressible as per-tree weighted bootstrap; reject at fit time.
-        if self.class_weight == "balanced_subsample":
-            raise ValueError(
-                "class_weight='balanced_subsample' is not supported; use "
-                "'balanced' or a {class_label: weight} dict"
+        # sklearn does the same fallback silently; cuml warns.
+        if self.class_weight == "balanced_subsample" and not self.bootstrap:
+            warnings.warn(
+                "class_weight='balanced_subsample' requires bootstrap=True; "
+                "falling back to 'balanced'.",
+                UserWarning,
+                stacklevel=2,
             )
         X, y, sample_weight, classes = check_inputs(
             self,
@@ -301,14 +314,20 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        # Fold class_weight into one per-row sample_weight (None+None stays
-        # None: unweighted C++ path). balanced_with_sample_weight=False
-        # matches sklearn's compute-then-multiply order (1.5 _forest.py).
-        if self.class_weight is not None or sample_weight is not None:
+        effective = self._effective_class_weight
+        if effective == "balanced_subsample":
+            # Per-tree weights run on-device; bypass process_class_weight.
+            # Synthesize unit sample_weight so the weighted C++ path is taken.
+            if sample_weight is None:
+                sample_weight = cp.ones(X.shape[0], dtype=X.dtype)
+        elif effective is not None or sample_weight is not None:
+            # Fold dict / 'balanced' into one per-row sample_weight (None+None
+            # stays None: unweighted C++ path). balanced_with_sample_weight=
+            # False matches sklearn's compute-then-multiply order.
             _, sample_weight = process_class_weight(
                 classes,
                 y,
-                self.class_weight,
+                effective,
                 sample_weight,
                 dtype=X.dtype,
                 balanced_with_sample_weight=False,

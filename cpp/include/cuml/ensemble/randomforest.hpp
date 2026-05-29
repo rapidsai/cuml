@@ -26,6 +26,18 @@ enum RF_type {
 
 enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
 
+/**
+ * Selects how classifier `class_weight` is applied during forest fitting.
+ * CW_NONE means no per-tree class-weight computation: any dict or
+ * 'balanced' value is pre-folded into `sample_weight` Python-side.
+ * CW_BALANCED_SUBSAMPLE computes per-tree weights on-device from each
+ * bootstrap's class distribution, matching sklearn's same-named mode.
+ */
+enum ClassWeightMode {
+  CW_NONE               = 0,
+  CW_BALANCED_SUBSAMPLE = 1,
+};
+
 struct RF_metrics {
   RF_type rf_type;
 
@@ -83,6 +95,12 @@ struct RF_params {
    */
   int n_streams;
   DT::DecisionTreeParams tree_params;
+  /**
+   * Classifier class_weight mode. Defaults to CW_NONE so unweighted and
+   * Python-pre-folded ('balanced' / dict) paths stay byte-identical;
+   * CW_BALANCED_SUBSAMPLE triggers per-tree class-weight compute on-device.
+   */
+  ClassWeightMode class_weight_mode = CW_NONE;
 };
 
 /* Update labels so they are unique from 0 to n_unique_vals.
@@ -221,7 +239,8 @@ RF_params set_rf_params(int max_depth,
                         CRITERION split_criterion,
                         int cfg_n_streams,
                         int max_batch_size,
-                        DT::Splitter cfg_splitter = DT::SPLITTER_BEST);
+                        DT::Splitter cfg_splitter           = DT::SPLITTER_BEST,
+                        ClassWeightMode cfg_class_weight_mode = CW_NONE);
 
 // ----------------------------- Regression ----------------------------------- //
 

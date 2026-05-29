@@ -244,7 +244,8 @@ class DecisionTree {
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
     int treeid,
-    const DataT* sample_weight = nullptr)
+    const DataT* sample_weight     = nullptr,
+    const DataT* tree_class_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -284,7 +285,8 @@ class DecisionTree {
                                                                            row_ids,
                                                                            unique_labels,
                                                                            quantiles,
-                                                                           sample_weight)
+                                                                           sample_weight,
+                                                                           tree_class_weight)
           .train();
       }
     } else if (not std::is_same<DataT, LabelT>::value and
@@ -316,7 +318,8 @@ class DecisionTree {
                                                                               row_ids,
                                                                               unique_labels,
                                                                               quantiles,
-                                                                              sample_weight)
+                                                                              sample_weight,
+                                                                              tree_class_weight)
           .train();
       }
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {

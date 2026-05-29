@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification, make_regression
@@ -195,13 +196,72 @@ def test_class_weight_recovers_minority(imbalanced_clf, class_weight):
     assert recall_weighted >= recall_plain
 
 
-def test_class_weight_balanced_subsample_rejected(small_clf):
+def test_class_weight_balanced_subsample_default_bootstrap_false_collapses(
+    small_clf,
+):
+    # ExtraTreesClassifier defaults bootstrap=False; balanced_subsample
+    # collapses to 'balanced' with a UserWarning and the resulting
+    # predictions must match an explicit 'balanced' fit byte-for-byte.
     X, y = small_clf
-    clf = ExtraTreesClassifier(
-        n_estimators=10, class_weight="balanced_subsample",
+    with pytest.warns(
+        UserWarning,
+        match=r"balanced_subsample.*requires bootstrap=True.*falling back to 'balanced'",
+    ):
+        bs = ExtraTreesClassifier(
+            n_estimators=20,
+            max_depth=6,
+            n_streams=1,
+            random_state=42,
+            class_weight="balanced_subsample",
+        ).fit(X, y)
+    b = ExtraTreesClassifier(
+        n_estimators=20,
+        max_depth=6,
+        n_streams=1,
+        random_state=42,
+        class_weight="balanced",
+    ).fit(X, y)
+    cp.testing.assert_array_equal(bs.predict(X), b.predict(X))
+
+
+def test_class_weight_balanced_subsample_bootstrap_true_lifts_minority_recall():
+    # On bootstrap=True (so the per-tree compute path actually runs), the
+    # mode lifts minority-class recall vs the unweighted ET on an
+    # imbalanced 90:10 fixture; the bootstrap=False UserWarning must not
+    # fire on this path.
+    import warnings
+
+    from sklearn.metrics import recall_score
+
+    rng = np.random.default_rng(0)
+    X_maj = rng.normal(0.0, 1.0, size=(360, 4)).astype(np.float32)
+    X_min = rng.normal(1.5, 1.0, size=(40, 4)).astype(np.float32)
+    X = np.vstack([X_maj, X_min])
+    y = np.concatenate([np.zeros(360), np.ones(40)]).astype(np.int32)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=r"balanced_subsample.*falling back",
+            category=UserWarning,
+        )
+        bs = ExtraTreesClassifier(
+            n_estimators=50,
+            max_depth=8,
+            n_streams=1,
+            random_state=42,
+            bootstrap=True,
+            class_weight="balanced_subsample",
+        ).fit(X, y)
+    unw = ExtraTreesClassifier(
+        n_estimators=50,
+        max_depth=8,
+        n_streams=1,
+        random_state=42,
+        bootstrap=True,
+    ).fit(X, y)
+    assert recall_score(y, bs.predict(X), pos_label=1) > recall_score(
+        y, unw.predict(X), pos_label=1
     )
-    with pytest.raises(ValueError, match=r"balanced_subsample.* not supported"):
-        clf.fit(X, y)
 
 
 def test_bootstrap_true_oob_score(small_clf):
