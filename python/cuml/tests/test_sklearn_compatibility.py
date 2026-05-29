@@ -3,15 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import importlib
-import inspect
-import pkgutil
-import warnings
-
 import pytest
 from sklearn.utils import estimator_checks
 
-import cuml
 from cuml.cluster import (
     DBSCAN,
     HDBSCAN,
@@ -24,7 +18,6 @@ from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.feature_extraction.text import TfidfTransformer
-from cuml.internals.base import Base
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
@@ -76,6 +69,7 @@ from cuml.random_projection import (
     SparseRandomProjection,
 )
 from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
+from cuml.testing.utils import get_all_base_subclasses
 
 # Skip these tests as parameterize_with_checks does not support
 # strict_xfail in older versions of scikit-learn.
@@ -138,45 +132,15 @@ _MODULE_TO_IGNORE = {
 
 def _all_cuml_estimators():
     """Discover all public cuml estimator classes (subclasses of Base)."""
-    estimators = set()
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-
-        for _, modname, _ in pkgutil.walk_packages(
-            cuml.__path__, prefix="cuml."
-        ):
-            module_parts = modname.split(".")
-            if (
-                any(part in _MODULE_TO_IGNORE for part in module_parts)
-                or "._" in modname
-            ):
-                continue
-
-            try:
-                mod = importlib.import_module(modname)
-            except ImportError:
-                continue
-
-            for _, obj in inspect.getmembers(mod, inspect.isclass):
-                name = obj.__name__
-                if name.startswith("_"):
-                    continue
-                if name.endswith("MG") or "Base" in name:
-                    continue
-                obj_parts = obj.__module__.split(".")
-                # A second round of filtering. Needed to make sure classes that are
-                # defined in ignored modules are skipped even if they are exposed
-                # via non-ignored modules.
-                if any(part in _MODULE_TO_IGNORE for part in obj_parts):
-                    continue
-                if not issubclass(obj, Base) or obj is Base:
-                    continue
-                if getattr(obj, "__abstractmethods__", None):
-                    continue
-                estimators.add(obj)
-
-    return estimators
+    return {
+        cls
+        for cls in get_all_base_subclasses().values()
+        if not (cls.__name__.endswith("MG") or "Base" in cls.__name__)
+        and not getattr(cls, "__abstractmethods__", None)
+        and not any(
+            part in _MODULE_TO_IGNORE for part in cls.__module__.split(".")
+        )
+    }
 
 
 EXCLUDED = {
