@@ -744,7 +744,7 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0
+          - cupy>=13.6.0,!=14.0.0,!=14.1.0
     # NOTE: This is intentionally not broken into groups by a 'cuda_suffixed' selector like
     #       other packages with -cu{nn}x suffixes in this file.
     #       All RAPIDS wheel builds (including in devcontainers) expect cupy to be suffixed.
@@ -756,25 +756,25 @@ dependencies:
               cuda: "12.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda12x>=13.6.0a0
+              - cupy-cuda12x>=13.6.0a0,!=14.0.0,!=14.1.0
           - matrix:
               cuda: "13.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0
+              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
           - matrix:
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0
+              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
           # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0
+              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cupy-cuda13x>=13.6.0
+              - cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
       - output_types: requirements
         matrices:
           - matrix:
