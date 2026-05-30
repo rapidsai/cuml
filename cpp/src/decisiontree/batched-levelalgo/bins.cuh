@@ -9,15 +9,17 @@ namespace ML {
 namespace DT {
 
 struct CountBin {
-  int x;
+  // double covers both the unweighted count path and the future weighted-count
+  // path with one bin type; 32-bit int would overflow on large weighted counts.
+  double x;
   CountBin(CountBin const&) = default;
-  HDI CountBin(int x_) : x(x_) {}
-  HDI CountBin() : x(0) {}
+  HDI CountBin(double x_) : x(x_) {}
+  HDI CountBin() : x(0.0) {}
 
   DI static void IncrementHistogram(CountBin* hist, int n_bins, int b, int label)
   {
     auto offset = label * n_bins + b;
-    CountBin::AtomicAdd(hist + offset, {1});
+    CountBin::AtomicAdd(hist + offset, {1.0});
   }
   DI static void AtomicAdd(CountBin* address, CountBin val) { atomicAdd(&address->x, val.x); }
   HDI CountBin& operator+=(const CountBin& b)

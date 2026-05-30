@@ -52,7 +52,7 @@ class GiniObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     for (IdxT j = 0; j < nclasses; ++j) {
-      int val_i   = 0;
+      double val_i = 0.0;
       auto lval_i = hist[n_bins * j + i].x;
       auto lval   = DataT(lval_i);
       gain += lval * invLeft * lval * invLen;
@@ -86,7 +86,7 @@ class GiniObjectiveFunction {
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     // Output probability
-    int total = 0;
+    double total = 0.0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
     }
@@ -130,7 +130,7 @@ class EntropyObjectiveFunction {
       auto invRight{DataT(1.0) / nRight};
       auto invLen{DataT(1.0) / len};
       for (IdxT c = 0; c < nclasses; ++c) {
-        int val_i   = 0;
+        double val_i = 0.0;
         auto lval_i = hist[n_bins * c + i].x;
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
@@ -171,7 +171,7 @@ class EntropyObjectiveFunction {
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     // Output probability
-    int total = 0;
+    double total = 0.0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
     }
