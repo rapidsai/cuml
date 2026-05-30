@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <cusparse_v2.h>
@@ -14,7 +15,7 @@ namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Sparse {
 
 constexpr int DEFAULT_BATCH_SIZE = 1 << 16;
@@ -40,4 +41,4 @@ void brute_force_knn(raft::handle_t& handle,
                      ML::distance::DistanceType metric = ML::distance::DistanceType::L2Expanded,
                      float metricArg                   = 0);
 };  // end namespace Sparse
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

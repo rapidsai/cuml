@@ -4,6 +4,7 @@
  */
 
 #include <cuml/cluster/kmeans.hpp>
+#include <cuml/cluster/kmeans_params.hpp>
 
 #include <raft/core/handle.hpp>
 

@@ -672,25 +672,11 @@
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
-- reason: cuML TargetEncoder fit docstring attributes differ from sklearn conventions
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[TargetEncoder-TargetEncoder]"
-- reason: cuML TargetEncoder has different error messages for y validation
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.preprocessing.tests.test_target_encoder::test_errors[y1-Target type was inferred to be 'multiclass-multioutput']"
-- reason: cuML TargetEncoder has different error messages than sklearn
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_estimators_empty_data_messages]"
-- reason: cuML TargetEncoder has different internal data structures than sklearn
-  marker: cuml_accel_bugs
-  tests:
-  - "sklearn.tests.test_common::test_estimators[TargetEncoder()-check_transformer_data_not_an_array]"
 - reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
   marker: cuml_accel_bugs
   tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-5.0-auto-3]"
+  - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-auto-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-5.0-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-continuous-auto-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_fit_transform_not_associated_with_y_if_ordinal_categorical_is_not[42]"
@@ -1175,6 +1161,24 @@
 - reason: The sklearn test has the error message accidentally flipped, our message is correct
   tests:
   - "sklearn.linear_model.tests.test_ridge::test_ridge_individual_penalties"
+- reason: Upstream sklearn pandas string dtype expectations differ with pandas 3
+  condition: pandas>=3 and scikit-learn<1.7.2
+  tests:
+  - "sklearn.preprocessing.tests.test_encoders::test_encoder_dtypes_pandas"
+- reason: Upstream sklearn pandas tests use numpy dtype helpers that do not support pandas 3 string dtypes
+  condition: pandas>=3 and scikit-learn<1.7.2
+  tests:
+  - "sklearn.compose.tests.test_column_transformer::test_column_transformer_remainder_pandas[pd-index-expected_cols4]"
+  - "sklearn.compose.tests.test_column_transformer::test_make_column_transformer_pandas"
+  - "sklearn.preprocessing.tests.test_function_transformer::test_function_transformer_with_dataframe_and_check_inverse_True"
+- reason: Upstream sklearn test expects pre-pandas-3 Series module names
+  condition: pandas>=3 and scikit-learn<1.7.2
+  tests:
+  - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-bool]"
+  - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-dict]"
+  - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-float]"
+  - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-int]"
+  - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-str]"
 - reason: cuML SpectralClustering does not emit "not fully connected" UserWarning
   condition: scikit-learn<1.7,>=1.5
   tests:

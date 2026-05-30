@@ -66,7 +66,7 @@ jobs:
       arch: "amd64"
       branch: ${{ inputs.branch }}
       build_type: ${{ inputs.build_type || 'branch' }}
-      container_image: "rapidsai/ci-conda:26.06-cuda13.0.2-ubuntu22.04-py3.13"
+      container_image: "rapidsai/ci-conda:26.08-cuda13.0.2-ubuntu22.04-py3.13"
       date: ${{ inputs.date }}
       node_type: "gpu-l4-latest-1"
       script: "ci/build_docs.sh"
@@ -180,3 +180,12 @@ jobs:
       package-name: cuml
       package-type: python
       publish-wheel-search-key: cuml_wheel_python_abi3
+  devcontainers:
+    name: Build devcontainers
+    secrets: inherit  # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/build-devcontainers.yaml@main
+    permissions:
+      packages: write
+    with:
+      push: true
+      cuda: '["12.9", "13.2"]'

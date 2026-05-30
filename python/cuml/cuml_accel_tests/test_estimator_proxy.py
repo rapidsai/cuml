@@ -17,7 +17,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
@@ -28,7 +28,7 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from cuml.accel import is_proxy
 from cuml.accel.estimator_proxy import ProxyBase
@@ -76,6 +76,13 @@ def test_method_metadata():
 
     cpu_sig = inspect.signature(cpu_cls.fit)
     assert inspect.signature(LogisticRegression.fit) == cpu_sig
+
+
+def test_init_no_parameters_signature():
+    """On Python < 3.13 `inspect.signature` has a bug that led to `__init__`s
+    of proxies with no parameters mistakenly having `*args, **kwargs` in
+    the signature. This test checks that we successfully work around that."""
+    assert not inspect.signature(LabelEncoder).parameters
 
 
 def test_sklearn_introspect_estimator_type():
@@ -134,6 +141,15 @@ def test_init_positional_and_keyword():
     with pytest.raises(TypeError):
         # Can't pass keyword-only parameters in as positional
         PCA(10, False)
+
+    model = IncrementalPCA()
+    assert model.n_components is None
+
+    model = IncrementalPCA(n_components=10)
+    assert model.n_components == 10
+
+    model = IncrementalPCA(10)
+    assert model.n_components == 10
 
 
 def test_repr():
@@ -688,6 +704,48 @@ def test_set_output(methods):
     assert isinstance(out, np.ndarray)
     # No host transfer required
     assert not hasattr(model._cpu, "n_features_in_")
+
+
+def test_incremental_pca_partial_fit():
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    model.partial_fit(X[:20])
+    gpu = model._gpu
+
+    assert gpu is not None
+    assert int(gpu.n_samples_seen_) == 20
+
+    model.partial_fit(X[20:])
+
+    assert model._gpu is gpu
+    assert int(model._gpu.n_samples_seen_) == 40
+    assert not hasattr(model._cpu, "components_")
+
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+    assert out.shape[1] == 3
+
+
+def test_incremental_pca_set_output():
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    assert model.set_output(transform="pandas") is model
+    model.partial_fit(X)
+
+    out = model.transform(X)
+    assert isinstance(out, pd.DataFrame)
+    assert out.columns[0].startswith("incrementalpca")
+
+
+@pytest.mark.parametrize("method", ["fit_transform", "partial_fit"])
+def test_incremental_pca_rejects_unsupported_fit_params(method):
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    with pytest.raises(TypeError):
+        getattr(model, method)(X, sample_weight=np.ones(X.shape[0]))
 
 
 def test_get_feature_names_out():

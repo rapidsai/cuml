@@ -110,6 +110,7 @@ def test_base_subclass_init_matches_docs(child_class: str):
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
 # ignore ColumnTransformer init warning and max_depth deprecation
 @pytest.mark.filterwarnings("ignore:Transformers are required")
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
@@ -176,6 +177,7 @@ EXCEPTIONS = {
     "LabelBinarizer.fit": ["self", "y"],
     "LabelBinarizer.fit_transform": ["self", "y"],
     "LabelBinarizer.transform": ["self", "y"],
+    "EmpiricalCovariance.score": ["self", "X_test", "y"],
     "LedoitWolf.score": ["self", "X_test", "y"],
 }
 
@@ -230,6 +232,7 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
+            # rapids-pre-commit-hooks: disable-next-line
             # TODO(26.08): remove "deprecated"
             assert sig.parameters["sample_weight"].default in (
                 None,
@@ -299,6 +302,7 @@ def test_get_handle_device_ids():
         and hasattr(cls, "predict")
     ],
 )
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_regressor_predict_dtype(cls):
@@ -340,8 +344,14 @@ def test_regressor_predict_dtype(cls):
         (cuml.naive_bayes.MultinomialNB, None),
     ],
 )
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08) Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )

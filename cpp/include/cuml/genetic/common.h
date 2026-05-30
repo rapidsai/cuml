@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,12 +7,14 @@
 
 #include "node.h"
 
+#include <cuml/common/export.hpp>
+
 #include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
 
-namespace cuml {
+namespace CUML_EXPORT cuml {
 namespace genetic {
 
 /** fitness metric types */
@@ -177,4 +179,4 @@ struct param {
 };  // struct param
 
 }  // namespace genetic
-}  // namespace cuml
+}  // namespace CUML_EXPORT cuml

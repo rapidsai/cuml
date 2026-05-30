@@ -6,9 +6,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 permissions: {}
-
 jobs:
   # Please keep pr-builder as the top job here
   pr-builder:
@@ -99,11 +97,13 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/scripts/**'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
           - '!.github/workflows/trigger-breaking-change-alert.yaml'
           - '!.pre-commit-config.yaml'
+          - '!SECURITY.md'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
@@ -123,6 +123,7 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/scripts/**'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -131,6 +132,7 @@ jobs:
           - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_docs.sh'
           - '!ci/build_python.sh'
           - '!ci/build_wheel*.sh'
@@ -158,6 +160,7 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/scripts/**'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -166,6 +169,7 @@ jobs:
           - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
@@ -190,6 +194,7 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/scripts/**'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -198,6 +203,7 @@ jobs:
           - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_wheel*.sh'
           - '!ci/check_style.sh'
           - '!ci/release/update-version.sh'
@@ -227,6 +233,7 @@ jobs:
           - '!.github/labeler.yml'
           - '!.github/ops-bot.yaml'
           - '!.github/release.yml'
+          - '!.github/scripts/**'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -235,6 +242,7 @@ jobs:
           - '!BUILD.md'
           - '!CONTRIBUTING.md'
           - '!README.md'
+          - '!SECURITY.md'
           - '!ci/build_cpp.sh'
           - '!ci/build_python.sh'
           - '!ci/check_style.sh'
@@ -284,7 +292,7 @@ jobs:
       build_type: pull-request
       node_type: "cpu8"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.06-latest"
+      container_image: "rapidsai/ci-conda:26.08-latest"
       script: "ci/run_clang_tidy.sh"
   conda-cpp-build:
     needs: checks
@@ -443,7 +451,7 @@ jobs:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.06-latest"
+      container_image: "rapidsai/ci-conda:26.08-latest"
       script: "ci/test_notebooks.sh"
   docs-build:
     needs: [conda-python-build, changed-files]
@@ -460,7 +468,7 @@ jobs:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
       arch: "amd64"
-      container_image: "rapidsai/ci-conda:26.06-cuda13.0.2-ubuntu22.04-py3.13"
+      container_image: "rapidsai/ci-conda:26.08-cuda13.0.2-ubuntu22.04-py3.13"
       script: "ci/build_docs.sh"
   wheel-build-libcuml:
     needs: checks
@@ -541,7 +549,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
     with:
       arch: '["amd64", "arm64"]'
-      cuda: '["13.1"]'
+      cuda: '["13.2"]'
       node_type: "cpu8"
       env: |
         SCCACHE_DIST_MAX_RETRIES=inf
@@ -558,7 +566,7 @@ jobs:
     if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
     continue-on-error: true
     permissions:
-      actions: read
+      actions: write
     steps:
       - name: Telemetry summarize
         uses: rapidsai/shared-actions/telemetry-dispatch-summarize@main

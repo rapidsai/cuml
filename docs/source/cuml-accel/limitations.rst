@@ -156,6 +156,16 @@ Additional notes:
 - Parameters for the ``"randomized"`` solver like ``random_state``,
   ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
+IncrementalPCA
+^^^^^^^^^^^^^^
+
+``IncrementalPCA`` has no known estimator-specific ``cuml.accel`` limitations.
+
+Additional notes:
+
+- ``partial_fit`` does not support sparse input. This matches scikit-learn;
+  use ``fit`` for sparse input or provide dense batches to ``partial_fit``.
+
 TruncatedSVD
 ^^^^^^^^^^^^
 
@@ -458,16 +468,25 @@ PolynomialFeatures
 - If ``order`` is ``"F"``.
 - When run on scikit-learn < 1.8.
 
+LabelEncoder
+^^^^^^^^^^^^
+
+``LabelEncoder`` supports all cases and will never fall back to CPU.
+
+LabelBinarizer
+^^^^^^^^^^^^^^
+
+``LabelBinarizer`` supports all cases and will never fall back to CPU.
+
 TargetEncoder
 ^^^^^^^^^^^^^
 
 ``TargetEncoder`` will fall back to CPU in the following cases:
 
 - If ``categories`` is not ``"auto"``.
-- If ``y`` is a multiclass target (sklearn uses one-hot encoding internally).
-- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds work fine).
-- If ``X`` has object dtype with numeric values.
-- If ``y`` has object dtype.
+- If ``y`` is a multiclass target.
+- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds
+  work fine).
 
 Additional notes:
 
@@ -498,7 +517,11 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
-- If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
+- If ``probability=True``. The ``probability`` parameter is deprecated in
+  ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend using
+  wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV`` like
+  ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
+  supported across ``scikit-learn`` versions, and won't require CPU fallback.
 
 Additional notes:
 

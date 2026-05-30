@@ -13,7 +13,7 @@ from cuml.cluster import (
     KMeans,
     SpectralClustering,
 )
-from cuml.covariance import LedoitWolf
+from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
 from cuml.kernel_ridge import KernelRidge
@@ -74,11 +74,13 @@ ESTIMATORS = [
     KNeighborsRegressor(),
     KNeighborsClassifier(),
     KernelDensity(),
+    EmpiricalCovariance(),
     LedoitWolf(),
     Ridge(),
     ElasticNet(),
     Lasso(),
     LinearRegression(),
+    # rapids-pre-commit-hooks: disable-next-line
     # TODO(26.08): Remove explicit default
     RandomForestClassifier(max_depth=None),
     RandomForestRegressor(max_depth=None),
@@ -116,24 +118,18 @@ XFAILS = {
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
-        "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
-        "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "KNeighborsClassifier does not handle non-array data",
     },
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
     },
@@ -180,7 +176,7 @@ XFAILS = {
     },
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
+        "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
@@ -207,7 +203,9 @@ XFAILS = {
     },
     KernelDensity: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_all_zero_sample_weights_error": "KernelDensity does not validate all-zero sample weights",
+    },
+    EmpiricalCovariance: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
     },
     LedoitWolf: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
@@ -243,7 +241,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -256,7 +253,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -269,7 +265,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
@@ -282,7 +277,6 @@ XFAILS = {
         "check_sample_weights_not_an_array": "sample_weight not implemented",
         "check_sample_weights_shape": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_all_zero_sample_weights_error": "sample_weight not implemented",
         "check_sample_weights_list": "sample_weight not implemented",
         "check_sample_weights_not_overwritten": "sample_weight not implemented",
         "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",

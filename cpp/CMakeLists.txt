@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../cmake/rapids_config.cmake)
 
@@ -58,7 +58,6 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
@@ -71,8 +70,12 @@ option(CUML_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the sta
 # dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
+option(CUML_EXCLUDE_NVFOREST_FROM_ALL "Exclude nvForest targets from cuML's 'all' target" OFF)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
+option(CUML_NVFOREST_CLONE_ON_PIN
+       "Explicitly clone nvForest branch when pinned to non-feature branch" ON
+)
 
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
@@ -93,7 +96,6 @@ message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
-message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
@@ -174,7 +176,7 @@ if(NOT DISABLE_OPENMP)
 endif()
 
 # CUDA runtime
-rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+rapids_cuda_init_runtime(USE_STATIC ON)
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -270,6 +272,11 @@ endif()
 
 if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
+endif()
+
+if(LINK_NVFOREST)
+  include(cmake/thirdparty/get_nvforest.cmake)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
 endif()
 
 if(all_algo OR treeshap_algo)
@@ -369,42 +376,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/explainer/tree_shap.cu)
   endif()
 
-  # FIL components
-  if(all_algo OR fil_algo)
-    if(CUML_ENABLE_GPU)
-      target_sources(
-        cuml_objs
-        PRIVATE src/fil/infer0.cu
-                src/fil/infer1.cu
-                src/fil/infer2.cu
-                src/fil/infer3.cu
-                src/fil/infer4.cu
-                src/fil/infer5.cu
-                src/fil/infer6.cu
-                src/fil/infer7.cu
-                src/fil/infer8.cu
-                src/fil/infer9.cu
-                src/fil/infer10.cu
-                src/fil/infer11.cu
-      )
-    endif()
-    target_sources(
-      cuml_objs
-      PRIVATE src/fil/infer0.cpp
-              src/fil/infer1.cpp
-              src/fil/infer2.cpp
-              src/fil/infer3.cpp
-              src/fil/infer4.cpp
-              src/fil/infer5.cpp
-              src/fil/infer6.cpp
-              src/fil/infer7.cpp
-              src/fil/infer8.cpp
-              src/fil/infer9.cpp
-              src/fil/infer10.cpp
-              src/fil/infer11.cpp
-    )
-  endif()
-
   # todo: organize linear models better
   if(all_algo
      OR linearregression_algo
@@ -456,7 +427,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR knn_algo)
-    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu)
+    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu src/kde/kde.cu)
   endif()
 
   if(all_algo OR hierarchicalclustering_algo)
@@ -570,6 +541,13 @@ if(BUILD_CUML_CPP_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
+  set_target_properties(
+    cuml_objs
+    PROPERTIES CXX_VISIBILITY_PRESET hidden
+               CUDA_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON
+  )
+
   target_compile_definitions(cuml_objs PUBLIC DISABLE_CUSPARSE_DEPRECATED)
 
   target_compile_options(
@@ -598,6 +576,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET cuml_objs)
   endif()
 
+  if(LINK_NVFOREST)
+    list(APPEND _cuml_cpp_public_libs ${CUML_NVFOREST_TARGET})
+  endif()
+
   # These are always private:
   list(
     APPEND
@@ -609,10 +591,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
   )
 
-  if(CUDA_STATIC_RUNTIME)
-    # Add CTK include paths because we're going to make our CTK library links private below
-    target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
-  endif()
+  # Add CTK include paths because we're going to make our CTK library links private below
+  target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 
   # The visibility of these depend on whether we're linking the CTK statically
 

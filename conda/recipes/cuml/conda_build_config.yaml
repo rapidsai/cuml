@@ -8,7 +8,7 @@ cuda_compiler:
   - cuda-nvcc
 
 cmake_version:
-  - ">=3.30.4"
+  - ">=4.0"
 
 c_stdlib:
   - sysroot

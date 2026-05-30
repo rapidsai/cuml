@@ -6,12 +6,13 @@
 #pragma once
 
 #include <cuml/cluster/kmeans_params.hpp>
+#include <cuml/common/export.hpp>
 
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace kmeans {
 
@@ -227,4 +228,4 @@ void transform(const raft::handle_t& handle,
                int64_t n_features,
                double* X_new);
 };  // end namespace kmeans
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

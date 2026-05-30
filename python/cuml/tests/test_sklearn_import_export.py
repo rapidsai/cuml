@@ -8,6 +8,7 @@ import pytest
 import scipy.sparse
 import sklearn
 import sklearn.kernel_ridge
+import sklearn.preprocessing
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
@@ -375,8 +376,13 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter was deprecated:FutureWarning"
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
 )
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
@@ -392,47 +398,62 @@ def test_svc(random_state, sparse, probability, kernel):
             )
         K = X @ X.T  # Linear kernel matrix
         original = cuml.SVC(kernel="precomputed")
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            K,
+            y,
+            exclude_params=["probability"],
+        )
     else:
         if sparse:
             X = scipy.sparse.coo_matrix(X)
         original = cuml.SVC()
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            X,
+            y,
+            exclude_params=["probability"],
+        )
 
         # Check inference works after conversion. sklearn 1.9 deprecated the
         # `probability` parameter; avoid passing it on the sklearn side when
         # False (the default) to avoid the FutureWarning.
         cu_model = cuml.SVC(probability=probability).fit(X, y)
-        if probability:
-            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
-        else:
-            sk_model = sklearn.svm.SVC().fit(X, y)
-
-        cu_model2 = cuml.SVC.from_sklearn(sk_model)
         sk_model2 = cu_model.as_sklearn()
-
-        cu_score = cu_model2.score(X, y)
-        assert cu_score > 0.7
-
         sk_score = sk_model2.score(X, y)
         assert sk_score > 0.7
 
         if probability:
-            # Check that predict_proba works
-            cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(cu_pred_prob, y) > 0.7
+            # `cuml.SVC.from_sklearn` rejects probability=True so cuml.accel
+            # falls back to native sklearn for calibrated SVC.
+            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+            with pytest.raises(
+                UnsupportedOnGPU,
+                match=r"`probability=True` is not supported",
+            ):
+                cuml.SVC.from_sklearn(sk_model)
+
+            # The cuml-direct path (used here via cu_model.as_sklearn()) still
+            # wires up probA_ / probB_ for predict_proba on the sklearn side.
             sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
             assert accuracy_score(sk_pred_prob, y) > 0.7
 
-            # Check that probA_, probB_ are wired up properly
             for attr in ["probA_", "probB_"]:
                 val = getattr(sk_model2, attr)
                 assert isinstance(val, np.ndarray)
                 assert val.dtype == "float64"
                 assert val.shape == (1,)
+        else:
+            sk_model = sklearn.svm.SVC().fit(X, y)
+            cu_model2 = cuml.SVC.from_sklearn(sk_model)
 
-        # Check n_support_ is correctly set
-        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+            cu_score = cu_model2.score(X, y)
+            assert cu_score > 0.7
+
+            # Check n_support_ is correctly set
+            assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
 
 @pytest.mark.parametrize("kind", ["SVC", "SVR"])
@@ -1018,3 +1039,49 @@ def test_target_encoder(random_state):
 
     assert array_equal(original_output, sklearn_output)
     assert array_equal(original_output, roundtrip_output)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "b", "a"])
+    cu_model = cuml.preprocessing.LabelEncoder().fit(y)
+    sk_model = sklearn.preprocessing.LabelEncoder().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+
+    sol = np.array([0, 1, 1, 0])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "c", "a"])
+    cu_model = cuml.preprocessing.LabelBinarizer().fit(y)
+    sk_model = sklearn.preprocessing.LabelBinarizer().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+    assert roundtrip.y_type_ == cu_model.y_type_
+    assert roundtrip.sparse_input_ == cu_model.sparse_input_
+
+    sol = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)

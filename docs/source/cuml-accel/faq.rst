@@ -52,8 +52,10 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
     * ``sklearn.cluster.SpectralClustering``
+    * ``sklearn.covariance.EmpiricalCovariance``
     * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
+    * ``sklearn.decomposition.IncrementalPCA``
     * ``sklearn.decomposition.TruncatedSVD``
     * ``sklearn.ensemble.RandomForestClassifier``
     * ``sklearn.ensemble.RandomForestRegressor``
@@ -73,6 +75,8 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.preprocessing.MinMaxScaler``
     * ``sklearn.preprocessing.MaxAbsScaler``
     * ``sklearn.preprocessing.PolynomialFeatures``
+    * ``sklearn.preprocessing.LabelEncoder``
+    * ``sklearn.preprocessing.LabelBinarizer``
     * ``sklearn.preprocessing.TargetEncoder``
     * ``sklearn.svm.SVC``
     * ``sklearn.svm.SVR``

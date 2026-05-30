@@ -15,6 +15,11 @@ import cuml.internals.mixins as cumix
 from cuml.internals.base import Base
 from cuml.testing.utils import ClassEnumerator
 
+# TODO(26.10) Remove this filter, once cuml.fil is removed
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+)
+
 ###############################################################################
 #                        Helper functions and classes                         #
 ###############################################################################
@@ -197,6 +202,7 @@ def test_mro(model):
 @pytest.mark.parametrize("model_name", list(models.keys()))
 # ignore random forest float64 warnings and max_depth deprecation
 @pytest.mark.filterwarnings("ignore:To use pickling or GPU-based")
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter
 @pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_fit_function(dataset, model_name):

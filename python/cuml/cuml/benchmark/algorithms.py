@@ -32,7 +32,6 @@ try:
         fit_kneighbors,
         fit_predict,
         fit_transform,
-        predict,
         transform,
     )
     from cuml.benchmark.gpu_check import is_cuml_available
@@ -45,7 +44,6 @@ except ImportError:
         fit_kneighbors,
         fit_predict,
         fit_transform,
-        predict,
         transform,
     )
     from gpu_check import is_cuml_available  # noqa: E402
@@ -57,12 +55,7 @@ treelite = None
 
 # GPU-specific helper functions (only available when GPU libs present)
 _build_cpu_skl_classifier = None
-_build_fil_classifier = None
-_build_fil_skl_classifier = None
-_build_gtil_classifier = None
 _build_mnmg_umap = None
-_build_optimized_fil_classifier = None
-_treelite_fil_accuracy_score = None
 
 # cuML preprocessing classes (fallback to sklearn if not available)
 MaxAbsScaler = sklearn.preprocessing.MaxAbsScaler
@@ -91,16 +84,11 @@ if is_cuml_available():
     cuml = _cuml
     cuml_metrics = _cuml_metrics
 
-    # Import GPU-specific helper functions (package path; standalone uses except above)
-    from cuml.benchmark.bench_helper_funcs import (
-        _build_cpu_skl_classifier,
-        _build_fil_classifier,
-        _build_fil_skl_classifier,
-        _build_gtil_classifier,
-        _build_mnmg_umap,
-        _build_optimized_fil_classifier,
-        _treelite_fil_accuracy_score,
-    )
+    # Import GPU-specific helper functions (support package + standalone execution)
+    try:
+        from cuml.benchmark.bench_helper_funcs import _build_mnmg_umap
+    except ImportError:
+        from bench_helper_funcs import _build_mnmg_umap  # noqa: E402
 
 # Optional treelite import
 try:
@@ -346,7 +334,6 @@ def all_algorithms():
         cuml_KNeighborsRegressor = cuml.neighbors.KNeighborsRegressor
         cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB
         cuml_UMAP = cuml.manifold.UMAP
-        cuml_ForestInference = cuml.ForestInference
         accuracy_fn = cuml_metrics.accuracy_score
         r2_fn = cuml_metrics.r2_score
         trustworthiness_fn = cuml_metrics.trustworthiness
@@ -363,7 +350,7 @@ def all_algorithms():
             None
         )
         cuml_KNeighborsClassifier = cuml_KNeighborsRegressor = None
-        cuml_MultinomialNB = cuml_UMAP = cuml_ForestInference = None
+        cuml_MultinomialNB = cuml_UMAP = None
         accuracy_fn = metrics.accuracy_score
         r2_fn = metrics.r2_score
         trustworthiness_fn = None
@@ -711,70 +698,6 @@ def all_algorithms():
                 accepts_labels=True,
                 accuracy_function=cuml_metrics.accuracy_score,
             )
-        )
-
-    # Add FIL algorithms if treelite and cuML are available
-    if (
-        is_cuml_available()
-        and treelite is not None
-        and _build_fil_classifier is not None
-    ):
-        algorithms.extend(
-            [
-                AlgorithmPair(
-                    treelite,
-                    cuml_ForestInference,
-                    shared_args=dict(num_rounds=100, max_depth=10),
-                    cuml_args=dict(
-                        is_classifier=False,
-                        threshold=0.5,
-                        precision="float32",
-                        layout="depth_first",
-                    ),
-                    name="FIL",
-                    accepts_labels=False,
-                    setup_cpu_func=_build_gtil_classifier,
-                    setup_cuml_func=_build_fil_classifier,
-                    cpu_data_prep_hook=_treelite_format_hook,
-                    accuracy_function=_treelite_fil_accuracy_score,
-                    bench_func=predict,
-                ),
-                AlgorithmPair(
-                    treelite,
-                    cuml_ForestInference,
-                    shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
-                    cuml_args=dict(
-                        is_classifier=False,
-                        threshold=0.5,
-                        precision="float32",
-                        layout="depth_first",
-                    ),
-                    name="Sparse-FIL-SKL",
-                    accepts_labels=False,
-                    setup_cpu_func=_build_cpu_skl_classifier,
-                    setup_cuml_func=_build_fil_skl_classifier,
-                    accuracy_function=_treelite_fil_accuracy_score,
-                    bench_func=predict,
-                ),
-                AlgorithmPair(
-                    treelite,
-                    cuml_ForestInference,
-                    shared_args=dict(num_rounds=100, max_depth=10),
-                    cuml_args=dict(
-                        is_classifier=False,
-                        threshold=0.5,
-                        precision="float32",
-                        layout="depth_first",
-                    ),
-                    name="FIL-Optimized",
-                    accepts_labels=False,
-                    setup_cpu_func=_build_gtil_classifier,
-                    setup_cuml_func=_build_optimized_fil_classifier,
-                    cpu_data_prep_hook=_treelite_format_hook,
-                    accuracy_function=_treelite_fil_accuracy_score,
-                    bench_func=predict,
-                ),
-            ]
         )
 
     # Add MNMG (multi-node multi-GPU) algorithms if cuML.dask is available
