@@ -96,7 +96,7 @@ requirements:
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
-    - cupy >=13.6.0
+    - cupy >=13.6.0,!=14.0.0,!=14.1.0
     - joblib >=0.11
     - libcuml =${{ version }}
     - numba >=0.60.0,<0.65.0
