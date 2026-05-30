@@ -315,6 +315,89 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
 
 
 @pytest.mark.mg
+@pytest.mark.parametrize("nrows", [2000])
+@pytest.mark.parametrize("ncols", [16])
+@pytest.mark.parametrize("nclusters", [5])
+@pytest.mark.parametrize("n_parts", [2, 4, 8])
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("with_weights", [False, True])
+def test_parts_fit_matches_concatenated(
+    nrows, ncols, nclusters, n_parts, dtype, with_weights, client
+):
+    from cuml.cluster import KMeans as cumlKMeans
+    from cuml.dask.cluster import KMeans as daskKMeans
+    from cuml.dask.datasets import make_blobs
+
+    X_dask, _ = make_blobs(
+        n_samples=nrows,
+        n_features=ncols,
+        centers=nclusters,
+        n_parts=n_parts,
+        cluster_std=0.5,
+        random_state=42,
+        dtype=dtype,
+    )
+
+    X_local = cp.asarray(X_dask.compute(), dtype=dtype)
+
+    if with_weights:
+        rng = cp.random.RandomState(0)
+        weights_local = rng.uniform(0.5, 1.5, size=nrows).astype(dtype)
+        chunk_size = int(nrows / n_parts)
+        weights_dask = da.from_array(weights_local, chunks=(chunk_size,))
+    else:
+        weights_local = None
+        weights_dask = None
+
+    rng = cp.random.RandomState(123)
+    init_centers = rng.choice(nrows, size=nclusters, replace=False)
+    init = cp.asarray(X_local[init_centers], dtype=dtype)
+
+    dask_model = daskKMeans(
+        n_clusters=nclusters,
+        init=cp.asnumpy(init),
+        n_init=1,
+        max_iter=300,
+        tol=1e-6,
+        random_state=10,
+    )
+    dask_model.fit(X_dask, sample_weight=weights_dask)
+
+    local_model = cumlKMeans(
+        n_clusters=nclusters,
+        init=cp.asnumpy(init),
+        n_init=1,
+        max_iter=300,
+        tol=1e-6,
+        random_state=10,
+    )
+    local_model.fit(X_local, sample_weight=weights_local)
+
+    rtol = 1e-4 if dtype == "float32" else 1e-6
+    atol = 1e-3 if dtype == "float32" else 1e-6
+
+    dask_centers = cp.asarray(dask_model.cluster_centers_)
+    local_centers = cp.asarray(local_model.cluster_centers_)
+    dask_order = cp.argsort(dask_centers[:, 0]).get()
+    local_order = cp.argsort(local_centers[:, 0]).get()
+
+    cp.testing.assert_allclose(
+        dask_centers[dask_order],
+        local_centers[local_order],
+        rtol=rtol,
+        atol=atol,
+    )
+
+    assert dask_model.n_iter_ == local_model.n_iter_
+    np.testing.assert_allclose(
+        float(dask_model.inertia_),
+        float(local_model.inertia_),
+        rtol=rtol,
+        atol=atol,
+    )
+
+
+@pytest.mark.mg
 def test_nclusters_exceeds_n_samples(client):
     """Test that n_clusters > n_samples raises a clear ValueError."""
     from cuml.dask.cluster import KMeans
