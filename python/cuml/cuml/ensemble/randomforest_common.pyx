@@ -78,7 +78,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        T* sample_weight
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -91,7 +92,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        T* sample_weight
     ) except +
 
 
@@ -458,7 +460,7 @@ class BaseRandomForestModel(Base, InteropMixin):
             handle=get_handle(),
         )
 
-    def _fit_forest(self, X, y):
+    def _fit_forest(self, X, y, sample_weight=None):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
@@ -466,6 +468,14 @@ class BaseRandomForestModel(Base, InteropMixin):
         cdef uintptr_t y_ptr = y.data.ptr
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
+
+        # sample_weight is pre-validated by check_inputs; None becomes a NULL
+        # pointer at the C boundary (the kernel treats NULL as weight=1.0).
+        cdef uintptr_t sample_weight_ptr_val = (
+            sample_weight.data.ptr if sample_weight is not None else 0
+        )
+        cdef float* sample_weight_f = <float*> sample_weight_ptr_val
+        cdef double* sample_weight_d = <double*> sample_weight_ptr_val
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
@@ -575,7 +585,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        sample_weight_f
                     )
                 else:
                     fit_treelite(
@@ -589,7 +600,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        sample_weight_d
                     )
             else:
                 if is_float32:
@@ -603,7 +615,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        sample_weight_f
                     )
                 else:
                     fit_treelite(
@@ -616,7 +629,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        sample_weight_d
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to

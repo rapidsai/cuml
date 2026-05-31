@@ -640,6 +640,299 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            n_labels,
                                                                            double_precision)));
 
+// Unit-weight invariance: classifier fit with `sample_weight = 1.0` matches
+// the `nullptr` path byte-for-byte.
+TEST(RfTests, ClassifierSampleWeightOnesMatchesNullptr)
+{
+  constexpr int m = 500;
+  constexpr int n = 8;
+  thrust::device_vector<float> X(m * n);
+  thrust::device_vector<float> w(m, 1.0f);
+  raft::random::Rng r(7);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, nullptr);
+  std::vector<int> h_y(m);
+  std::mt19937 host_rng(7);
+  for (int i = 0; i < m; ++i)
+    h_y[i] = host_rng() & 1;
+  thrust::device_vector<int> y = h_y;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(4, 32, 1.0, 32, 1, 2, 0.0, false, 5, 1.0, 42, CRITERION::GINI, 1, 128);
+
+  auto forest_null = std::make_shared<RandomForestMetaData<float, int>>();
+  auto forest_ones = std::make_shared<RandomForestMetaData<float, int>>();
+  fit(handle,
+      forest_null.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn);
+  fit(handle,
+      forest_ones.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn,
+      nullptr,
+      w.data().get());
+
+  ASSERT_EQ(forest_null->trees.size(), forest_ones->trees.size());
+  for (size_t t = 0; t < forest_null->trees.size(); ++t) {
+    auto& tn = forest_null->trees[t];
+    auto& to = forest_ones->trees[t];
+    ASSERT_EQ(tn->leaf_counter, to->leaf_counter) << "tree " << t;
+    ASSERT_EQ(tn->depth_counter, to->depth_counter) << "tree " << t;
+    ASSERT_EQ(tn->sparsetree, to->sparsetree) << "tree " << t;
+    ASSERT_EQ(tn->vector_leaf.size(), to->vector_leaf.size()) << "tree " << t;
+    for (size_t i = 0; i < tn->vector_leaf.size(); ++i) {
+      ASSERT_FLOAT_EQ(tn->vector_leaf[i], to->vector_leaf[i])
+        << "tree " << t << " leaf-element " << i;
+    }
+  }
+}
+
+// Unit-weight invariance: regressor fit with `sample_weight = 1.0` matches
+// the `nullptr` path byte-for-byte.
+TEST(RfTests, RegressorSampleWeightOnesMatchesNullptr)
+{
+  constexpr int m = 400;
+  constexpr int n = 6;
+  thrust::device_vector<float> X(m * n);
+  thrust::device_vector<float> y(m);
+  thrust::device_vector<float> w(m, 1.0f);
+  raft::random::Rng r(11);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, nullptr);
+  r.normal(y.data().get(), y.size(), 0.0f, 1.0f, nullptr);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(4, 32, 1.0, 32, 1, 2, 0.0, false, 5, 1.0, 42, CRITERION::MSE, 1, 128);
+
+  auto forest_null = std::make_shared<RandomForestMetaData<float, float>>();
+  auto forest_ones = std::make_shared<RandomForestMetaData<float, float>>();
+  fit(handle,
+      forest_null.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      rf_params,
+      rapids_logger::level_enum::warn);
+  fit(handle,
+      forest_ones.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      rf_params,
+      rapids_logger::level_enum::warn,
+      nullptr,
+      w.data().get());
+
+  ASSERT_EQ(forest_null->trees.size(), forest_ones->trees.size());
+  for (size_t t = 0; t < forest_null->trees.size(); ++t) {
+    auto& tn = forest_null->trees[t];
+    auto& to = forest_ones->trees[t];
+    ASSERT_EQ(tn->leaf_counter, to->leaf_counter) << "tree " << t;
+    ASSERT_EQ(tn->depth_counter, to->depth_counter) << "tree " << t;
+    ASSERT_EQ(tn->sparsetree, to->sparsetree) << "tree " << t;
+    ASSERT_EQ(tn->vector_leaf.size(), to->vector_leaf.size()) << "tree " << t;
+    for (size_t i = 0; i < tn->vector_leaf.size(); ++i) {
+      ASSERT_FLOAT_EQ(tn->vector_leaf[i], to->vector_leaf[i])
+        << "tree " << t << " leaf-element " << i;
+    }
+  }
+}
+
+namespace DT {
+
+// Shared two-bin AggregateBin CDF for the four regressor weighted ground-truth
+// tests: hist[0] = LEFT prefix (label_sum=8, count=2), hist[1] = total
+// (label_sum=20, count=4). W_total=6, W_left=4, W_right=2, nLeft=2, len=4.
+static void RegressorWeightedHist(AggregateBin (&hist)[2])
+{
+  hist[0] = AggregateBin{8.0, 2};
+  hist[1] = AggregateBin{20.0, 4};
+}
+
+template <typename ObjectiveT, typename DataT>
+static DataT RegressorWeightedGainAt(DataT W_total, DataT W_left)
+{
+  AggregateBin hist[2];
+  RegressorWeightedHist(hist);
+  ObjectiveT objective(/* nclasses */ 1, /* min_samples_leaf */ 0);
+  return objective.GainPerSplit(hist,
+                                /* i */ 0,
+                                /* n_bins */ 2,
+                                /* len */ 4,
+                                /* nLeft */ 2,
+                                static_cast<double>(W_total),
+                                static_cast<double>(W_left));
+}
+
+// Weighted MSE proxy = 0.5 * (-L^2/W + L_l^2/W_l + L_r^2/W_r) / W; expected 16/9.
+TEST(RfTests, MSEWeightedGainPerSplitGroundTruth)
+{
+  auto g_d = RegressorWeightedGainAt<MSEObjectiveFunction<double, double, int>, double>(6.0, 4.0);
+  ASSERT_NEAR(16.0 / 9.0, g_d, 1e-9);
+  auto g_f = RegressorWeightedGainAt<MSEObjectiveFunction<float, float, int>, float>(6.0f, 4.0f);
+  ASSERT_NEAR(16.0f / 9.0f, g_f, 1e-5f);
+}
+
+// Weighted Poisson half-deviance proxy: -sum L_k * log(L_k/W_k) / W. Expected
+// computed inline so a sign-flip in the implementation surfaces here.
+TEST(RfTests, PoissonWeightedGainPerSplitGroundTruth)
+{
+  const double parent   = -20.0 * std::log(20.0 / 6.0);
+  const double left     = -8.0 * std::log(8.0 / 4.0);
+  const double right    = -12.0 * std::log(12.0 / 2.0);
+  const double expected = (parent - (left + right)) / 6.0;
+  auto g_d =
+    RegressorWeightedGainAt<PoissonObjectiveFunction<double, double, int>, double>(6.0, 4.0);
+  ASSERT_NEAR(expected, g_d, 1e-9);
+  auto g_f =
+    RegressorWeightedGainAt<PoissonObjectiveFunction<float, float, int>, float>(6.0f, 4.0f);
+  ASSERT_NEAR(static_cast<float>(expected), g_f, 1e-5f);
+}
+
+// Weighted Gamma half-deviance proxy: sum W_k * log(L_k/W_k) / W (parent term
+// scaled by W, not -L). Expected computed inline.
+TEST(RfTests, GammaWeightedGainPerSplitGroundTruth)
+{
+  const double parent   = 6.0 * std::log(20.0 / 6.0);
+  const double left     = 4.0 * std::log(8.0 / 4.0);
+  const double right    = 2.0 * std::log(12.0 / 2.0);
+  const double expected = (parent - (left + right)) / 6.0;
+  auto g_d = RegressorWeightedGainAt<GammaObjectiveFunction<double, double, int>, double>(6.0, 4.0);
+  ASSERT_NEAR(expected, g_d, 1e-9);
+  auto g_f = RegressorWeightedGainAt<GammaObjectiveFunction<float, float, int>, float>(6.0f, 4.0f);
+  ASSERT_NEAR(static_cast<float>(expected), g_f, 1e-5f);
+}
+
+// Weighted Inverse Gaussian half-deviance proxy: -W_k^2 / L_k summed, scaled
+// by 1/(2*W). Expected = 2/45 from the shared histogram.
+TEST(RfTests, InverseGaussianWeightedGainPerSplitGroundTruth)
+{
+  const double expected = 2.0 / 45.0;
+  auto g_d = RegressorWeightedGainAt<InverseGaussianObjectiveFunction<double, double, int>, double>(
+    6.0, 4.0);
+  ASSERT_NEAR(expected, g_d, 1e-9);
+  auto g_f =
+    RegressorWeightedGainAt<InverseGaussianObjectiveFunction<float, float, int>, float>(6.0f, 4.0f);
+  ASSERT_NEAR(static_cast<float>(expected), g_f, 1e-5f);
+}
+
+// GainPerSplit honors its integer nLeft argument for the min_samples_leaf
+// gate, independent of the weighted W_left. Asymmetric class counts so the
+// finite gain is provably nonzero (no per-class cancellation).
+TEST(RfTests, ClassifierGainPerSplitNLeftGateRespectsIntegerCount)
+{
+  const int n_bins                = 2;
+  const int nclass                = 2;
+  CountBin shist[n_bins * nclass] = {
+    CountBin{1.0},
+    CountBin{3.0},  // class 0: bin-0 prefix, bin-1 CDF total
+    CountBin{2.0},
+    CountBin{3.0},  // class 1
+  };
+  GiniObjectiveFunction<float, int, int> gini_strict(nclass, /* min_samples_leaf */ 3);
+  // Same weighted (W_total, W_left) both calls; only integer nLeft differs.
+  // len=10 keeps nRight >= leaf so the assertion isolates the nLeft side.
+  float gain_fail = gini_strict.GainPerSplit(shist,
+                                             /* i */ 0,
+                                             n_bins,
+                                             /* len */ 10,
+                                             /* nLeft */ 2,
+                                             /* W_total */ 6.0,
+                                             /* W_left */ 3.0);
+  float gain_ok   = gini_strict.GainPerSplit(shist,
+                                           /* i */ 0,
+                                           n_bins,
+                                           /* len */ 10,
+                                           /* nLeft */ 5,
+                                           /* W_total */ 6.0,
+                                           /* W_left */ 3.0);
+  ASSERT_EQ(gain_fail, -std::numeric_limits<float>::max());
+  ASSERT_GT(gain_ok, 0.0f);  // non-trivial positive gain proves no cancellation
+}
+
+// SetLeafVector is __device__-only; one-thread kernel wraps it for host gtests.
+template <typename ObjectiveT, typename BinT, typename DataT>
+__global__ void RunSetLeafVectorKernel(BinT const* shist,
+                                       int nclasses,
+                                       DataT* out,
+                                       double weighted_total)
+{
+  ObjectiveT::SetLeafVector(shist, nclasses, out, weighted_total);
+}
+
+template <typename ObjectiveT, typename BinT, typename DataT>
+static void RunSetLeafVectorOnDevice(std::vector<BinT> const& shist_host,
+                                     std::vector<DataT>& out_host,
+                                     double weighted_total)
+{
+  thrust::device_vector<BinT> shist_dev = shist_host;
+  thrust::device_vector<DataT> out_dev  = out_host;
+  RunSetLeafVectorKernel<ObjectiveT, BinT, DataT><<<1, 1>>>(shist_dev.data().get(),
+                                                            static_cast<int>(out_host.size()),
+                                                            out_dev.data().get(),
+                                                            weighted_total);
+  RAFT_CUDA_TRY(cudaDeviceSynchronize());
+  thrust::copy(out_dev.begin(), out_dev.end(), out_host.begin());
+}
+
+// All-zero-weight leaf: classifier SetLeafVector emits a uniform distribution
+// instead of NaN (0/0). Covers Gini and Entropy.
+TEST(RfTests, ClassifierSetLeafVectorAllZeroWeightYieldsUniform)
+{
+  const int nclasses          = 3;
+  std::vector<CountBin> shist = {CountBin{0.0}, CountBin{0.0}, CountBin{0.0}};
+  std::vector<float> out(nclasses, -1.0f);
+  RunSetLeafVectorOnDevice<GiniObjectiveFunction<float, int, int>, CountBin, float>(
+    shist, out, /* weighted_total */ 0.0);
+  for (int i = 0; i < nclasses; ++i)
+    ASSERT_FLOAT_EQ(out[i], 1.0f / static_cast<float>(nclasses));
+  std::fill(out.begin(), out.end(), -1.0f);
+  RunSetLeafVectorOnDevice<EntropyObjectiveFunction<float, int, int>, CountBin, float>(
+    shist, out, /* weighted_total */ 0.0);
+  for (int i = 0; i < nclasses; ++i)
+    ASSERT_FLOAT_EQ(out[i], 1.0f / static_cast<float>(nclasses));
+}
+
+// All-zero-weight leaf: regressor SetLeafVector emits 0 instead of NaN. Covers
+// all four regressor objectives.
+TEST(RfTests, RegressorSetLeafVectorAllZeroWeightYieldsZero)
+{
+  std::vector<AggregateBin> shist = {AggregateBin{0.0, 0}};
+  std::vector<float> out(1, -1.0f);
+  RunSetLeafVectorOnDevice<MSEObjectiveFunction<float, float, int>, AggregateBin, float>(
+    shist, out, /* weighted_total */ 0.0);
+  ASSERT_FLOAT_EQ(out[0], 0.0f);
+  out[0] = -1.0f;
+  RunSetLeafVectorOnDevice<PoissonObjectiveFunction<float, float, int>, AggregateBin, float>(
+    shist, out, /* weighted_total */ 0.0);
+  ASSERT_FLOAT_EQ(out[0], 0.0f);
+  out[0] = -1.0f;
+  RunSetLeafVectorOnDevice<GammaObjectiveFunction<float, float, int>, AggregateBin, float>(
+    shist, out, /* weighted_total */ 0.0);
+  ASSERT_FLOAT_EQ(out[0], 0.0f);
+  out[0]            = -1.0f;
+  using IGObjective = InverseGaussianObjectiveFunction<float, float, int>;
+  RunSetLeafVectorOnDevice<IGObjective, AggregateBin, float>(shist, out, /* weighted_total */ 0.0);
+  ASSERT_FLOAT_EQ(out[0], 0.0f);
+}
+
+}  // namespace DT
+
 TEST(RfTests, IntegerOverflow)
 {
   std::size_t m = 1000000;
@@ -1438,11 +1731,19 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto split_bin_index      = RandUnder(params.max_n_bins);
     auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
 
-    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
-                                                  split_bin_index,
-                                                  params.max_n_bins,
-                                                  NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
-                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+    // Both Gini/Entropy (CountBin) and the regressor objectives (AggregateBin)
+    // now take weighted denominators (W_total, W_left). Tests are unweighted,
+    // so W == n; pass the unweighted sums through the weighted slots.
+    auto W_total = static_cast<double>(NumLeftOfBin(cdf_hist, params.max_n_bins - 1));
+    auto W_left  = static_cast<double>(NumLeftOfBin(cdf_hist, split_bin_index));
+    DataT hypothesis_gain;
+    hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
+                                             split_bin_index,
+                                             params.max_n_bins,
+                                             NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
+                                             NumLeftOfBin(cdf_hist, split_bin_index),
+                                             W_total,
+                                             W_left);
 
     // The gain may actually be NaN. If so, a comparison between the result and
     // ground truth would yield false, even if they are both (correctly) NaNs.

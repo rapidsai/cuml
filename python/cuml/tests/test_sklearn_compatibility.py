@@ -119,10 +119,14 @@ XFAILS = {
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "Quantile binning means sample_weight is not equivalent to row duplication",
+        "check_sample_weight_equivalence_on_sparse_data": "RandomForestRegressor does not handle sparse data",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": "Quantile binning means sample_weight is not equivalent to row duplication",
+        "check_sample_weight_equivalence_on_sparse_data": "RandomForestClassifier does not handle sparse data",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

@@ -34,6 +34,7 @@ import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
+from cuml.metrics import accuracy_score as cuml_accuracy_score
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
@@ -1427,3 +1428,248 @@ def test_rf_feature_zero_bias(datatype, n_features):
     # If feature 0 is severely under-sampled, accuracy will be much lower
     # Observed: mean=0.003, range=[0.001, 0.005], stderr=0.000
     assert cuml_acc >= (sk_acc - 0.10)
+
+
+@pytest.fixture
+def sample_weight_clf_data():
+    X, y = make_classification(
+        n_samples=500,
+        n_features=10,
+        n_classes=3,
+        n_informative=5,
+        random_state=42,
+    )
+    return cp.asarray(X, dtype=cp.float32), cp.asarray(y, dtype=cp.int32)
+
+
+@pytest.fixture
+def sample_weight_reg_data():
+    X, y = make_regression(
+        n_samples=300, n_features=8, n_informative=4, random_state=42
+    )
+    return cp.asarray(X, dtype=cp.float32), cp.asarray(y, dtype=cp.float32)
+
+
+def test_rfc_sample_weight_ones_matches_none(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    base = curfc(n_estimators=10, max_depth=4, random_state=0, n_streams=1)
+    weighted = curfc(n_estimators=10, max_depth=4, random_state=0, n_streams=1)
+    base.fit(X, y)
+    weighted.fit(X, y, sample_weight=cp.ones(len(y), dtype=cp.float32))
+    p_base = cp.asnumpy(base.predict(X))
+    p_weighted = cp.asnumpy(weighted.predict(X))
+    assert np.array_equal(p_base, p_weighted)
+
+
+def test_rfc_sample_weight_none_does_not_raise(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    p_no_arg = cp.asnumpy(
+        curfc(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+        .fit(X, y)
+        .predict(X)
+    )
+    p_none = cp.asnumpy(
+        curfc(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+        .fit(X, y, sample_weight=None)
+        .predict(X)
+    )
+    assert np.array_equal(p_no_arg, p_none)
+
+
+def test_rfc_sample_weight_biases_minority_class():
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_classes=2, random_state=42
+    )
+    X = cp.asarray(X, dtype=cp.float32)
+    y = cp.asarray(y, dtype=cp.int32)
+    weights = cp.where(y == 0, 10.0, 0.1).astype(cp.float32)
+
+    uniform = curfc(n_estimators=20, max_depth=4, random_state=0, n_streams=1)
+    biased = curfc(n_estimators=20, max_depth=4, random_state=0, n_streams=1)
+    uniform.fit(X, y)
+    biased.fit(X, y, sample_weight=weights)
+
+    n_class0_uniform = int((cp.asnumpy(uniform.predict(X)) == 0).sum())
+    n_class0_biased = int((cp.asnumpy(biased.predict(X)) == 0).sum())
+    # Observed: uniform=90, heavily-weighted-class-0=178 out of 200 rows.
+    assert n_class0_biased > n_class0_uniform
+
+
+def test_rfc_sample_weight_sklearn_parity_nonuniform(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    rng = np.random.default_rng(7)
+    w = rng.uniform(0.5, 2.0, len(y)).astype(np.float32)
+    w_cp = cp.asarray(w)
+
+    cu = curfc(n_estimators=20, max_depth=6, random_state=0, n_streams=1)
+    sk = skrfc(n_estimators=20, max_depth=6, random_state=0)
+    cu.fit(X, y, sample_weight=w_cp)
+    sk.fit(cp.asnumpy(X), cp.asnumpy(y), sample_weight=w)
+
+    cu_acc = accuracy_score(cp.asnumpy(y), cp.asnumpy(cu.predict(X)))
+    sk_acc = accuracy_score(cp.asnumpy(y), sk.predict(cp.asnumpy(X)))
+    # Observed: cu=0.95, sk=0.94, gap=0.01. Tolerance covers quantile-binning
+    # divergence + RNG drift across CUDA versions.
+    assert abs(cu_acc - sk_acc) < 0.07
+
+
+def test_rfc_sample_weight_positional_or_keyword(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    w = cp.ones(len(y), dtype=cp.float32)
+    p_pos = cp.asnumpy(
+        curfc(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+        .fit(X, y, w)
+        .predict(X)
+    )
+    p_kw = cp.asnumpy(
+        curfc(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+        .fit(X, y, sample_weight=w)
+        .predict(X)
+    )
+    assert np.array_equal(p_pos, p_kw)
+
+
+def test_rfc_score_with_sample_weight(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    rng = np.random.default_rng(1)
+    w = cp.asarray(rng.uniform(0.5, 2.0, len(y)).astype(np.float32))
+
+    clf = curfc(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+    clf.fit(X, y)
+    y_pred = clf.predict(X)
+    s_unweighted = clf.score(X, y)
+    s_weighted = clf.score(X, y, sample_weight=w)
+    assert s_unweighted == pytest.approx(float(cuml_accuracy_score(y, y_pred)))
+    assert s_weighted == pytest.approx(
+        float(cuml_accuracy_score(y, y_pred, sample_weight=w))
+    )
+
+
+def test_rfc_sample_weight_wrong_length_raises(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    clf = curfc(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+    with pytest.raises(ValueError, match=r"inconsistent number"):
+        clf.fit(X, y, sample_weight=cp.ones(len(y) + 5, dtype=cp.float32))
+
+
+def test_rfc_sample_weight_all_zero_raises(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    clf = curfc(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+    with pytest.raises(
+        ValueError, match=r"Sample weights must contain at least one non-zero"
+    ):
+        clf.fit(X, y, sample_weight=cp.zeros(len(y), dtype=cp.float32))
+
+
+def test_rfr_sample_weight_ones_matches_none(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    base = curfr(n_estimators=10, max_depth=4, random_state=0, n_streams=1)
+    weighted = curfr(n_estimators=10, max_depth=4, random_state=0, n_streams=1)
+    base.fit(X, y)
+    weighted.fit(X, y, sample_weight=cp.ones(len(y), dtype=cp.float32))
+    p_base = cp.asnumpy(base.predict(X))
+    p_weighted = cp.asnumpy(weighted.predict(X))
+    assert np.array_equal(p_base, p_weighted)
+
+
+def test_rfr_sample_weight_none_does_not_raise(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    p_no_arg = cp.asnumpy(
+        curfr(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+        .fit(X, y)
+        .predict(X)
+    )
+    p_none = cp.asnumpy(
+        curfr(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+        .fit(X, y, sample_weight=None)
+        .predict(X)
+    )
+    assert np.array_equal(p_no_arg, p_none)
+
+
+def test_rfr_score_with_sample_weight(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    rng = np.random.default_rng(1)
+    w = cp.asarray(rng.uniform(0.5, 2.0, len(y)).astype(np.float32))
+
+    reg = curfr(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+    reg.fit(X, y)
+    y_pred = reg.predict(X)
+    s_unweighted = reg.score(X, y)
+    s_weighted = reg.score(X, y, sample_weight=w)
+    assert s_unweighted == pytest.approx(float(r2_score(y, y_pred)))
+    assert s_weighted == pytest.approx(
+        float(r2_score(y, y_pred, sample_weight=w))
+    )
+
+
+def test_rfr_sample_weight_biases_prediction():
+    # Heavily upweight the top-half of the target; weighted-fit MAE on those
+    # rows should be lower than unweighted-fit MAE (which averages globally).
+    X, y = make_regression(
+        n_samples=200, n_features=5, n_informative=3, random_state=42
+    )
+    X = cp.asarray(X, dtype=cp.float32)
+    y = cp.asarray(y, dtype=cp.float32)
+    high = y > cp.median(y)
+    weights = cp.where(high, 10.0, 0.1).astype(cp.float32)
+
+    uniform = curfr(n_estimators=20, max_depth=4, random_state=0, n_streams=1)
+    biased = curfr(n_estimators=20, max_depth=4, random_state=0, n_streams=1)
+    uniform.fit(X, y)
+    biased.fit(X, y, sample_weight=weights)
+
+    err_uniform = float(cp.mean(cp.abs(uniform.predict(X)[high] - y[high])))
+    err_biased = float(cp.mean(cp.abs(biased.predict(X)[high] - y[high])))
+    # Observed: err_uniform ~ 87, err_biased ~ 41 on the upweighted half.
+    assert err_biased < err_uniform
+
+
+def test_rfr_sample_weight_sklearn_parity_nonuniform(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    rng = np.random.default_rng(7)
+    w = rng.uniform(0.5, 2.0, len(y)).astype(np.float32)
+    w_cp = cp.asarray(w)
+
+    cu = curfr(n_estimators=20, max_depth=6, random_state=0, n_streams=1)
+    sk = skrfr(n_estimators=20, max_depth=6, random_state=0)
+    cu.fit(X, y, sample_weight=w_cp)
+    sk.fit(cp.asnumpy(X), cp.asnumpy(y), sample_weight=w)
+
+    cu_r2 = r2_score(y, cu.predict(X))
+    sk_r2 = float(sk.score(cp.asnumpy(X), cp.asnumpy(y)))
+    # Observed: cu r2 ~ 0.91, sk r2 ~ 0.93, gap ~ 0.02. Tolerance covers
+    # quantile-binning divergence + RNG drift across CUDA versions.
+    assert abs(float(cu_r2) - sk_r2) < 0.10
+
+
+def test_rfr_sample_weight_wrong_length_raises(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    reg = curfr(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+    with pytest.raises(ValueError, match=r"inconsistent number"):
+        reg.fit(X, y, sample_weight=cp.ones(len(y) + 5, dtype=cp.float32))
+
+
+def test_rfr_sample_weight_all_zero_raises(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    reg = curfr(n_estimators=2, max_depth=2, random_state=0, n_streams=1)
+    with pytest.raises(
+        ValueError, match=r"Sample weights must contain at least one non-zero"
+    ):
+        reg.fit(X, y, sample_weight=cp.zeros(len(y), dtype=cp.float32))
+
+
+def test_rfr_sample_weight_positional_or_keyword(sample_weight_reg_data):
+    X, y = sample_weight_reg_data
+    w = cp.ones(len(y), dtype=cp.float32)
+    p_pos = cp.asnumpy(
+        curfr(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+        .fit(X, y, w)
+        .predict(X)
+    )
+    p_kw = cp.asnumpy(
+        curfr(n_estimators=5, max_depth=3, random_state=0, n_streams=1)
+        .fit(X, y, sample_weight=w)
+        .predict(X)
+    )
+    assert np.array_equal(p_pos, p_kw)

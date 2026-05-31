@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -52,12 +52,12 @@ class RFRegressor : public RegressionFixture<D> {
       auto* mPtr = &model.model;
       fit(*this->handle,
           mPtr,
-          this->data.X,
+          this->data.X.data(),
           this->params.nrows,
           this->params.ncols,
-          this->data.y,
+          this->data.y.data(),
           rfParams);
-      handle->sync_stream(this->stream);
+      this->handle->sync_stream(this->stream);
     });
   }
 
@@ -75,14 +75,14 @@ std::vector<RegParams> getInputs()
   struct std::vector<RegParams> out;
   RegParams p;
   p.data.rowMajor = false;
-  p.regression    = {.shuffle        = true,  // Better to shuffle when n_informative < ncols
-                     .effective_rank = -1,    // dataset generation will be faster
+  p.regression    = {.effective_rank = -1,  // dataset generation will be faster
                      .bias           = 4.5,
                      .tail_strength  = 0.5,  // unused when effective_rank = -1
                      .noise          = 1.0,
+                     .shuffle        = true,  // Better to shuffle when n_informative < ncols
                      .seed           = 12345ULL};
 
-  p.rf                          = set_rf_params(10,                 /*max_depth */
+  p.rf = set_rf_params(8,                  /*max_depth */
                        (1 << 20),          /* max_leaves */
                        0.3,                /* max_features */
                        32,                 /* max_n_bins */
@@ -90,25 +90,23 @@ std::vector<RegParams> getInputs()
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */
                        true,               /* bootstrap */
-                       500,                /* n_trees */
+                       100,                /* n_trees */
                        1.f,                /* max_samples */
                        1234ULL,            /* seed */
                        ML::CRITERION::MSE, /* split_criterion */
                        8,                  /* n_streams */
                        128                 /* max_batch_size */
   );
-  std::vector<DimInfo> dim_info = {{500000, 500, 400}};
+  // Scaled down from {500000, 500, 400} so the bench finishes in minutes;
+  // restore on a follow-up that addresses the FIXME.
+  std::vector<DimInfo> dim_info = {{100000, 100, 80}};
   for (auto& di : dim_info) {
-    // Let's run Bosch only for float type
-    if (!std::is_same<D, float>::value && di.ncols == 968) continue;
     p.data.nrows                  = di.nrows;
     p.data.ncols                  = di.ncols;
     p.regression.n_informative    = di.n_informative;
     p.rf.tree_params.max_features = 1.f;
-    for (auto max_depth : std::vector<int>({7, 11, 15})) {
-      p.rf.tree_params.max_depth = max_depth;
-      out.push_back(p);
-    }
+    p.rf.tree_params.max_depth    = 8;
+    out.push_back(p);
   }
   return out;
 }

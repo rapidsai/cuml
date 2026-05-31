@@ -158,7 +158,15 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
+    def fit(
+        self,
+        X,
+        y,
+        convert_dtype=False,
+        broadcast_data=False,
+        *,
+        sample_weight=None,
+    ):
         """
         Fit the input data with a Random Forest classifier
 
@@ -207,8 +215,18 @@ class RandomForestClassifier(
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
+        sample_weight : array-like of shape (n_samples,), optional (default = None)
+            Not supported on the distributed estimator; a non-None value raises
+            ``NotImplementedError``.
 
         """
+        if sample_weight is not None:
+            raise NotImplementedError(
+                "sample_weight is not supported for distributed "
+                "RandomForestClassifier; use the single-GPU "
+                "cuml.ensemble.RandomForestClassifier instead "
+                "(tracking issue: #8186)"
+            )
         # Handle both Dask Arrays and Dask Series/DataFrames
         if isinstance(y, dask.array.Array):
             # For Dask Arrays, use dask.array.unique

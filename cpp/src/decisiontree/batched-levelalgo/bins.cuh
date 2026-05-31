@@ -9,17 +9,17 @@ namespace ML {
 namespace DT {
 
 struct CountBin {
-  // double covers both the unweighted count path and the future weighted-count
-  // path with one bin type; 32-bit int would overflow on large weighted counts.
+  // double covers both the unweighted count path (weight=1.0) and the
+  // per-sample-weighted path; 32-bit int would overflow on large weighted counts.
   double x;
   CountBin(CountBin const&) = default;
   HDI CountBin(double x_) : x(x_) {}
   HDI CountBin() : x(0.0) {}
 
-  DI static void IncrementHistogram(CountBin* hist, int n_bins, int b, int label)
+  DI static void IncrementHistogram(CountBin* hist, int n_bins, int b, int label, double weight)
   {
     auto offset = label * n_bins + b;
-    CountBin::AtomicAdd(hist + offset, {1.0});
+    CountBin::AtomicAdd(hist + offset, {weight});
   }
   DI static void AtomicAdd(CountBin* address, CountBin val) { atomicAdd(&address->x, val.x); }
   HDI CountBin& operator+=(const CountBin& b)
@@ -35,6 +35,8 @@ struct CountBin {
 };
 
 struct AggregateBin {
+  // `label_sum` carries `label * weight`; `count` stays unweighted so
+  // `min_samples_leaf` checks operate on the integer sample count.
   double label_sum;
   int count;
 
@@ -42,9 +44,10 @@ struct AggregateBin {
   HDI AggregateBin() : label_sum(0.0), count(0) {}
   HDI AggregateBin(double label_sum, int count) : label_sum(label_sum), count(count) {}
 
-  DI static void IncrementHistogram(AggregateBin* hist, int n_bins, int b, double label)
+  DI static void IncrementHistogram(
+    AggregateBin* hist, int n_bins, int b, double label, double weight)
   {
-    AggregateBin::AtomicAdd(hist + b, {label, 1});
+    AggregateBin::AtomicAdd(hist + b, {label * weight, 1});
   }
   DI static void AtomicAdd(AggregateBin* address, AggregateBin val)
   {
@@ -63,5 +66,6 @@ struct AggregateBin {
     return b;
   }
 };
+static_assert(sizeof(AggregateBin) == 16, "AggregateBin layout drift");
 }  // namespace DT
 }  // namespace ML

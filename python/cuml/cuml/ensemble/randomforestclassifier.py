@@ -238,21 +238,28 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         convert_dtype_cast="np.float32",
     )
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype=True
+    ) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
 
         Parameters
         ----------
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Sample weights. If None, then samples are equally weighted.
+            Quantile-binned split finding means weighting a row is not
+            equivalent to duplicating it.
         convert_dtype : bool, optional (default = True)
             When set to True, the fit method will, when necessary, convert
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X, y, classes = check_inputs(
+        X, y, sample_weight, classes = check_inputs(
             self,
             X,
             y,
+            sample_weight=sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
@@ -262,7 +269,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        return self._fit_forest(X, y)
+        return self._fit_forest(X, y, sample_weight=sample_weight)
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
@@ -451,6 +458,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self,
         X,
         y,
+        sample_weight=None,
         *,
         threshold=0.5,
         convert_dtype=True,
@@ -465,6 +473,8 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         ----------
         X : {}
         y : {}
+        sample_weight : array-like of shape (n_samples,) (default = None)
+            Per-sample weights forwarded to ``accuracy_score``.
         threshold : float (default = 0.5)
             Threshold used for classification predictions
         convert_dtype : bool (default = True)
@@ -496,4 +506,4 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return accuracy_score(y, y_pred)
+        return accuracy_score(y, y_pred, sample_weight=sample_weight)

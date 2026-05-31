@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -209,3 +209,19 @@ def test_oob_score(classification_data):
 
     # Check attribute exists and is a float
     assert isinstance(clf.oob_score_, float)
+
+
+def test_rf_sample_weight_runs_on_gpu(classification_data):
+    # cuml.accel proxy forwards sample_weight to the GPU classifier path
+    # for both fit() and score().
+    X, y = classification_data
+    w = np.random.RandomState(0).uniform(0.5, 2.0, len(y)).astype(np.float32)
+    clf = RandomForestClassifier(n_estimators=10, random_state=42)
+    clf.fit(X, y, sample_weight=w)
+    y_pred = clf.predict(X)
+    s_unweighted = clf.score(X, y)
+    s_weighted = clf.score(X, y, sample_weight=w)
+    assert s_unweighted == pytest.approx(accuracy_score(y, y_pred))
+    assert s_weighted == pytest.approx(
+        accuracy_score(y, y_pred, sample_weight=w)
+    )

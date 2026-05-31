@@ -1,8 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_regression
 from sklearn.ensemble import RandomForestRegressor
@@ -192,3 +193,17 @@ def test_oob_score(regression_data):
 
     # Check attribute exists and is a float
     assert isinstance(reg.oob_score_, float)
+
+
+def test_rf_sample_weight_runs_on_gpu(regression_data):
+    # cuml.accel proxy forwards sample_weight to the GPU regressor path
+    # for both fit() and score().
+    X, y = regression_data
+    w = np.random.RandomState(0).uniform(0.5, 2.0, len(y)).astype(np.float32)
+    reg = RandomForestRegressor(n_estimators=10, random_state=42)
+    reg.fit(X, y, sample_weight=w)
+    y_pred = reg.predict(X)
+    s_unweighted = reg.score(X, y)
+    s_weighted = reg.score(X, y, sample_weight=w)
+    assert s_unweighted == pytest.approx(r2_score(y, y_pred))
+    assert s_weighted == pytest.approx(r2_score(y, y_pred, sample_weight=w))

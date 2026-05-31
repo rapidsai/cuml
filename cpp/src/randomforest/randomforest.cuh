@@ -117,7 +117,8 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks = nullptr)
+           bool* bootstrap_masks  = nullptr,
+           const T* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
@@ -187,7 +188,8 @@ class RandomForest {
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
                                                quantiles,
-                                               i);
+                                               i,
+                                               sample_weight);
 
       // Store bootstrap mask if device buffer is provided
       if (bootstrap_masks != nullptr) {

@@ -518,3 +518,58 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
 
     if transform_broadcast:
         assert cuml_mod.internal_model is None
+
+
+def _tiny_dataset():
+    # Single-chunk so the helper is topology-agnostic across worker counts.
+    X = cp.asarray(np.random.RandomState(0).rand(10, 3), dtype=cp.float32)
+    y = cp.asarray(np.array([0, 1] * 5), dtype=cp.int32)
+    w = cp.ones(len(y), dtype=cp.float32)
+    return from_array(X, chunks=(len(y), -1)), from_array(y, chunks=len(y)), w
+
+
+# The raises_not_implemented tests omit ignore_empty_partitions=True on
+# purpose: the NotImplementedError fires inside the subclass fit() before
+# control reaches base._fit where the empty-partition check lives.
+def test_dask_rfc_sample_weight_raises_not_implemented(client):
+    X, y, w = _tiny_dataset()
+    with pytest.raises(
+        NotImplementedError,
+        match=r"sample_weight is not supported for distributed RandomForest",
+    ):
+        cuRFC_mg(client=client, n_estimators=2, max_depth=2).fit(
+            X, y, sample_weight=w
+        )
+
+
+def test_dask_rfr_sample_weight_raises_not_implemented(client):
+    X, y, w = _tiny_dataset()
+    y = y.astype(cp.float32)
+    with pytest.raises(
+        NotImplementedError,
+        match=r"sample_weight is not supported for distributed RandomForest",
+    ):
+        cuRFR_mg(client=client, n_estimators=2, max_depth=2).fit(
+            X, y, sample_weight=w
+        )
+
+
+def test_dask_rfc_sample_weight_none_does_not_raise(client):
+    X, y, _ = _tiny_dataset()
+    cuRFC_mg(
+        client=client,
+        n_estimators=2,
+        max_depth=2,
+        ignore_empty_partitions=True,
+    ).fit(X, y, sample_weight=None)
+
+
+def test_dask_rfr_sample_weight_none_does_not_raise(client):
+    X, y, _ = _tiny_dataset()
+    y = y.astype(cp.float32)
+    cuRFR_mg(
+        client=client,
+        n_estimators=2,
+        max_depth=2,
+        ignore_empty_partitions=True,
+    ).fit(X, y, sample_weight=None)

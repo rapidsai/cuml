@@ -12,7 +12,7 @@ __all__ = ("RandomForestRegressor", "RandomForestClassifier")
 
 
 class _RandomForestMixin:
-    def _check_inputs(self, X, y=None, sample_weight=None):
+    def _check_inputs(self, X, y=None):
         # Fallback to CPU if NaN in X
         try:
             check_array(
@@ -24,9 +24,6 @@ class _RandomForestMixin:
                     "Missing values are not supported"
                 ) from None
             raise
-
-        if sample_weight is not None:
-            raise UnsupportedOnGPU("`sample_weight` is not supported")
 
         if y is not None:
             y = check_array(
@@ -47,16 +44,16 @@ class _RandomForestMixin:
                 )
 
     def _gpu_fit(self, X, y, sample_weight=None):
-        self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.fit(X, y)
+        self._check_inputs(X, y)
+        return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_predict(self, X):
         self._check_inputs(X)
         return self._gpu.predict(X)
 
     def _gpu_score(self, X, y, sample_weight=None):
-        self._check_inputs(X, y, sample_weight=sample_weight)
-        return self._gpu.score(X, y)
+        self._check_inputs(X, y)
+        return self._gpu.score(X, y, sample_weight=sample_weight)
 
 
 class RandomForestRegressor(ProxyBase, _RandomForestMixin):

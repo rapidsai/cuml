@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -26,6 +26,8 @@ struct Dataset {
   IdxT* row_ids;
   /** Number of classes or regression outputs*/
   IdxT num_outputs;
+  /** per-row sample weights (length M); nullptr when no per-sample weighting */
+  const DataT* sample_weight = nullptr;
 };
 
 }  // namespace DT

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -243,7 +243,8 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
-    int treeid)
+    int treeid,
+    const DataT* sample_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -265,7 +266,8 @@ class DecisionTree {
                                                                  ncols,
                                                                  row_ids,
                                                                  unique_labels,
-                                                                 quantiles)
+                                                                 quantiles,
+                                                                 sample_weight)
         .train();
     } else if (not std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::ENTROPY) {
@@ -280,7 +282,8 @@ class DecisionTree {
                                                                     ncols,
                                                                     row_ids,
                                                                     unique_labels,
-                                                                    quantiles)
+                                                                    quantiles,
+                                                                    sample_weight)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -294,7 +297,8 @@ class DecisionTree {
                                                                 ncols,
                                                                 row_ids,
                                                                 unique_labels,
-                                                                quantiles)
+                                                                quantiles,
+                                                                sample_weight)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::POISSON) {
@@ -309,7 +313,8 @@ class DecisionTree {
                                                                     ncols,
                                                                     row_ids,
                                                                     unique_labels,
-                                                                    quantiles)
+                                                                    quantiles,
+                                                                    sample_weight)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -323,7 +328,8 @@ class DecisionTree {
                                                                   ncols,
                                                                   row_ids,
                                                                   unique_labels,
-                                                                  quantiles)
+                                                                  quantiles,
+                                                                  sample_weight)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
@@ -338,7 +344,8 @@ class DecisionTree {
                                                                             ncols,
                                                                             row_ids,
                                                                             unique_labels,
-                                                                            quantiles)
+                                                                            quantiles,
+                                                                            sample_weight)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

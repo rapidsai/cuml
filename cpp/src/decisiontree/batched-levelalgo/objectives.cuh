@@ -38,57 +38,85 @@ class GiniObjectiveFunction {
   /**
    * @brief compute the gini impurity reduction for each split
    */
-  HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
+  HDI DataT
+  GainPerSplit(BinT* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, double W_total, double W_left)
   {
-    IdxT nRight         = len - nLeft;
-    constexpr DataT One = DataT(1.0);
-    auto invLen         = One / len;
-    auto invLeft        = One / nLeft;
-    auto invRight       = One / nRight;
-    auto gain           = DataT(0.0);
-
-    // if there aren't enough samples in this split, don't bother!
+    IdxT nRight = len - nLeft;
+    // min_samples_leaf gate stays on the unweighted counts: sklearn enforces
+    // min_samples_leaf against the integer left/right sample counts.
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
+    // Skip splits where one side has all-zero weights but nonzero sample count.
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
+
+    // Weighted Gini proxy: argmax of sum_c w_left_c^2/W_left + w_right_c^2/W_right.
+    // The leading 1/W_total scaling drops a constant term that's identical
+    // across split candidates within a node.
+    auto invW      = DataT(1.0) / DataT(W_total);
+    auto invWLeft  = DataT(1.0) / DataT(W_left);
+    auto invWRight = DataT(1.0) / DataT(W_right);
+    auto gain      = DataT(0.0);
+
     for (IdxT j = 0; j < nclasses; ++j) {
-      double val_i = 0.0;
-      auto lval_i  = hist[n_bins * j + i].x;
-      auto lval    = DataT(lval_i);
-      gain += lval * invLeft * lval * invLen;
+      auto lval      = DataT(hist[n_bins * j + i].x);
+      auto total_sum = DataT(hist[n_bins * j + n_bins - 1].x);
+      auto rval      = total_sum - lval;
 
-      val_i += lval_i;
-      auto total_sum = hist[n_bins * j + n_bins - 1].x;
-      auto rval_i    = total_sum - lval_i;
-      auto rval      = DataT(rval_i);
-      gain += rval * invRight * rval * invLen;
+      gain += lval * invWLeft * lval * invW;
+      gain += rval * invWRight * rval * invW;
 
-      val_i += rval_i;
-      auto val = DataT(val_i) * invLen;
+      auto val = total_sum * invW;
       gain -= val * val;
     }
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
+  DI Split<DataT, IdxT> Gain(
+    BinT* shist, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins, int const* unweighted_cdf)
   {
+    // Hoist W_total out of the per-bin loop. The total weighted node sample
+    // count is the last-bin CDF value summed over classes.
+    double W_total = 0.0;
+    for (IdxT j = 0; j < nclasses; ++j)
+      W_total += shist[n_bins * j + n_bins - 1].x;
+
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      IdxT nLeft = 0;
-      for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += shist[n_bins * j + i].x;
-      }
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      // Read the unweighted prefix-count directly: under fractional
+      // sample_weight the per-class weighted CDF can't carry the integer
+      // sample count that min_samples_leaf and Split::nLeft need.
+      IdxT nLeft = unweighted_cdf[i];
+
+      // Weighted left-side total at bin i, summed over classes.
+      double W_left = 0.0;
+      for (IdxT j = 0; j < nclasses; ++j)
+        W_left += shist[n_bins * j + i].x;
+
+      sp.update(
+        {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft, W_total, W_left), nLeft});
     }
     return sp;
   }
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist,
+                               int nclasses,
+                               DataT* out,
+                               double /* weighted_total, unused for classifier */)
   {
     // Output probability
     double total = 0.0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
+    }
+    if (total <= 0.0) {
+      // All zero-weight leaf: emit a uniform distribution so downstream consumers
+      // see a finite vector and so argmax stays deterministic across builds.
+      DataT uniform = DataT(1.0) / DataT(nclasses);
+      for (int i = 0; i < nclasses; i++)
+        out[i] = uniform;
+      return;
     }
     for (int i = 0; i < nclasses; i++) {
       out[i] = DataT(shist[i].x) / total;
@@ -118,62 +146,86 @@ class EntropyObjectiveFunction {
   /**
    * @brief compute the Entropy (or information gain) for each split
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(
+    BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, double W_total, double W_left)
   {
-    IdxT nRight{len - nLeft};
-    auto gain{DataT(0.0)};
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+    IdxT nRight = len - nLeft;
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
-    } else {
-      auto invLeft{DataT(1.0) / nLeft};
-      auto invRight{DataT(1.0) / nRight};
-      auto invLen{DataT(1.0) / len};
-      for (IdxT c = 0; c < nclasses; ++c) {
-        double val_i = 0.0;
-        auto lval_i  = hist[n_bins * c + i].x;
-        if (lval_i != 0) {
-          auto lval = DataT(lval_i);
-          gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
-        }
 
-        val_i += lval_i;
-        auto total_sum = hist[n_bins * c + n_bins - 1].x;
-        auto rval_i    = total_sum - lval_i;
-        if (rval_i != 0) {
-          auto rval = DataT(rval_i);
-          gain += raft::log(rval * invRight) / raft::log(DataT(2)) * rval * invLen;
-        }
+    // Skip splits where one side has all-zero weights but nonzero sample count.
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
 
-        val_i += rval_i;
-        if (val_i != 0) {
-          auto val = DataT(val_i) * invLen;
-          gain -= val * raft::log(val) / raft::log(DataT(2));
-        }
+    auto invWLeft  = DataT(1.0) / DataT(W_left);
+    auto invWRight = DataT(1.0) / DataT(W_right);
+    auto invW      = DataT(1.0) / DataT(W_total);
+    auto gain      = DataT(0.0);
+
+    for (IdxT c = 0; c < nclasses; ++c) {
+      auto lval_i = hist[n_bins * c + i].x;
+      if (lval_i != 0) {
+        auto lval = DataT(lval_i);
+        gain += raft::log(lval * invWLeft) / raft::log(DataT(2)) * lval * invW;
       }
 
-      return gain;
+      auto total_sum = hist[n_bins * c + n_bins - 1].x;
+      auto rval_i    = total_sum - lval_i;
+      if (rval_i != 0) {
+        auto rval = DataT(rval_i);
+        gain += raft::log(rval * invWRight) / raft::log(DataT(2)) * rval * invW;
+      }
+
+      if (total_sum != 0) {
+        auto val = DataT(total_sum) * invW;
+        gain -= val * raft::log(val) / raft::log(DataT(2));
+      }
     }
+
+    return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels,
+                             DataT* squantiles,
+                             IdxT col,
+                             IdxT len,
+                             IdxT n_bins,
+                             int const* unweighted_cdf)
   {
+    double W_total = 0.0;
+    for (IdxT c = 0; c < nclasses; ++c)
+      W_total += scdf_labels[n_bins * c + n_bins - 1].x;
+
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      IdxT nLeft = 0;
-      for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += scdf_labels[n_bins * j + i].x;
-      }
-      sp.update({squantiles[i], col, GainPerSplit(scdf_labels, i, n_bins, len, nLeft), nLeft});
+      IdxT nLeft = unweighted_cdf[i];
+
+      double W_left = 0.0;
+      for (IdxT c = 0; c < nclasses; ++c)
+        W_left += scdf_labels[n_bins * c + i].x;
+
+      sp.update({squantiles[i],
+                 col,
+                 GainPerSplit(scdf_labels, i, n_bins, len, nLeft, W_total, W_left),
+                 nLeft});
     }
     return sp;
   }
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist,
+                               int nclasses,
+                               DataT* out,
+                               double /* weighted_total, unused for classifier */)
   {
     // Output probability
     double total = 0.0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
+    }
+    if (total <= 0.0) {
+      DataT uniform = DataT(1.0) / DataT(nclasses);
+      for (int i = 0; i < nclasses; i++)
+        out[i] = uniform;
+      return;
     }
     for (int i = 0; i < nclasses; i++) {
       out[i] = DataT(shist[i].x) / total;
@@ -211,44 +263,68 @@ class MSEObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       mean-squared errors.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         IdxT len,
+                         IdxT nLeft,
+                         double W_total,
+                         double W_left) const
   {
-    auto gain{DataT(0)};
     IdxT nRight{len - nLeft};
-    auto invLen = DataT(1.0) / len;
-    // if there aren't enough samples in this split, don't bother!
+    // min_samples_leaf gate stays on the unweighted integer count: sklearn
+    // enforces min_samples_leaf against the sample count, not the weight sum.
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
-    } else {
-      auto label_sum        = hist[n_bins - 1].label_sum;
-      DataT parent_obj      = -label_sum * label_sum * invLen;
-      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
-      DataT right_label_sum = hist[i].label_sum - label_sum;
-      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain                  = parent_obj - (left_obj + right_obj);
-      gain *= DataT(0.5) * invLen;
-
-      return gain;
     }
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
+
+    // Weighted MSE proxy (sklearn 1.7.2 _criterion.pyx:1089-1118): replace n
+    // with sum(weight) in every denominator so leaf-mean is
+    // sum(label*weight)/sum(weight).
+    auto invW             = DataT(1.0) / DataT(W_total);
+    auto label_sum        = hist[n_bins - 1].label_sum;
+    DataT parent_obj      = -DataT(label_sum) * DataT(label_sum) * invW;
+    DataT left_obj        = -DataT(hist[i].label_sum * hist[i].label_sum) / DataT(W_left);
+    DataT right_label_sum = label_sum - hist[i].label_sum;
+    DataT right_obj       = -(right_label_sum * right_label_sum) / DataT(W_right);
+    DataT gain            = parent_obj - (left_obj + right_obj);
+    gain *= DataT(0.5) * invW;
+    return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT len,
+                             IdxT n_bins,
+                             double const* weighted_cdf) const
   {
+    // AggregateBin.count is the unweighted sample count (see bins.cuh); the
+    // weighted CDF lives in the parallel companion buffer.
+    double W_total = weighted_cdf[n_bins - 1];
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      auto nLeft    = shist[i].count;
+      double W_left = weighted_cdf[i];
+      sp.update(
+        {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft, W_total, W_left), nLeft});
     }
     return sp;
   }
 
   DI IdxT NumClasses() const { return 1; }
 
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out, double weighted_total)
   {
+    if (weighted_total <= 0.0) {
+      for (int i = 0; i < nclasses; i++)
+        out[i] = DataT(0);
+      return;
+    }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = DataT(shist[i].label_sum / weighted_total);
     }
   }
 };
@@ -285,15 +361,20 @@ class PoissonObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       poisson half deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         IdxT len,
+                         IdxT nLeft,
+                         double W_total,
+                         double W_left) const
   {
-    // get the lens'
     IdxT nRight = len - nLeft;
-    auto invLen = DataT(1) / len;
-
-    // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
+
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
 
     auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
@@ -303,33 +384,48 @@ class PoissonObjectiveFunction {
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
-    DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
-    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / nRight);
+    // Weighted Poisson half-deviance (sklearn 1.7.2 _criterion.pyx:1597-1642):
+    // swap sample-count denominators for sum(weight) so the predicted-mean per
+    // leaf is sum(label*weight)/sum(weight).
+    auto invW        = DataT(1.0) / DataT(W_total);
+    DataT parent_obj = -label_sum * raft::log(label_sum * invW);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / DataT(W_left));
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / DataT(W_right));
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain * invLen;
+    gain             = gain * invW;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT len,
+                             IdxT n_bins,
+                             double const* weighted_cdf) const
   {
+    double W_total = weighted_cdf[n_bins - 1];
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      auto nLeft    = shist[i].count;
+      double W_left = weighted_cdf[i];
+      sp.update(
+        {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft, W_total, W_left), nLeft});
     }
     return sp;
   }
 
   DI IdxT NumClasses() const { return 1; }
 
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out, double weighted_total)
   {
+    if (weighted_total <= 0.0) {
+      for (int i = 0; i < nclasses; i++)
+        out[i] = DataT(0);
+      return;
+    }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = DataT(shist[i].label_sum / weighted_total);
     }
   }
 };
@@ -365,14 +461,20 @@ class GammaObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       gamma half deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         IdxT len,
+                         IdxT nLeft,
+                         double W_total,
+                         double W_left) const
   {
     IdxT nRight = len - nLeft;
-    auto invLen = DataT(1) / len;
-
-    // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
+
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
 
     DataT label_sum       = hist[n_bins - 1].label_sum;
     DataT left_label_sum  = (hist[i].label_sum);
@@ -382,32 +484,46 @@ class GammaObjectiveFunction {
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
-    DataT parent_obj = len * raft::log(label_sum * invLen);
-    DataT left_obj   = nLeft * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = nRight * raft::log(right_label_sum / nRight);
+    // Weighted Gamma half-deviance: the n coefficients become sum(weight) so
+    // the formula stays scale-equivariant under sample reweighting.
+    auto invW        = DataT(1.0) / DataT(W_total);
+    DataT parent_obj = DataT(W_total) * raft::log(label_sum * invW);
+    DataT left_obj   = DataT(W_left) * raft::log(left_label_sum / DataT(W_left));
+    DataT right_obj  = DataT(W_right) * raft::log(right_label_sum / DataT(W_right));
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain * invLen;
+    gain             = gain * invW;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT len,
+                             IdxT n_bins,
+                             double const* weighted_cdf) const
   {
+    double W_total = weighted_cdf[n_bins - 1];
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      auto nLeft    = shist[i].count;
+      double W_left = weighted_cdf[i];
+      sp.update(
+        {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft, W_total, W_left), nLeft});
     }
     return sp;
   }
   DI IdxT NumClasses() const { return 1; }
 
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out, double weighted_total)
   {
+    if (weighted_total <= 0.0) {
+      for (int i = 0; i < nclasses; i++)
+        out[i] = DataT(0);
+      return;
+    }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = DataT(shist[i].label_sum / weighted_total);
     }
   }
 };
@@ -443,14 +559,20 @@ class InverseGaussianObjectiveFunction {
    *       and is mathematically equivalent to the respective differences of
    *       inverse gaussian deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         IdxT len,
+                         IdxT nLeft,
+                         double W_total,
+                         double W_left) const
   {
-    // get the lens'
     IdxT nRight = len - nLeft;
-
-    // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
+
+    double W_right = W_total - W_left;
+    if (W_left <= 0.0 || W_right <= 0.0) return -std::numeric_limits<DataT>::max();
 
     auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
@@ -460,32 +582,45 @@ class InverseGaussianObjectiveFunction {
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
-    DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
-    DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
-    DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
+    // Weighted Inverse Gaussian half-deviance: substitute n with sum(weight)
+    // so the formula stays scale-equivariant under sample reweighting.
+    DataT parent_obj = -DataT(W_total) * DataT(W_total) / label_sum;
+    DataT left_obj   = -DataT(W_left) * DataT(W_left) / left_label_sum;
+    DataT right_obj  = -DataT(W_right) * DataT(W_right) / right_label_sum;
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain / (2 * len);
+    gain             = gain / (DataT(2.0) * DataT(W_total));
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT len,
+                             IdxT n_bins,
+                             double const* weighted_cdf) const
   {
+    double W_total = weighted_cdf[n_bins - 1];
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      auto nLeft    = shist[i].count;
+      double W_left = weighted_cdf[i];
+      sp.update(
+        {squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft, W_total, W_left), nLeft});
     }
     return sp;
   }
   DI IdxT NumClasses() const { return 1; }
 
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out, double weighted_total)
   {
+    if (weighted_total <= 0.0) {
+      for (int i = 0; i < nclasses; i++)
+        out[i] = DataT(0);
+      return;
+    }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = DataT(shist[i].label_sum / weighted_total);
     }
   }
 };

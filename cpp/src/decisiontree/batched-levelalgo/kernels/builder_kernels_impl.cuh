@@ -132,19 +132,35 @@ static __global__ void leafKernel(ObjectiveT objective,
   auto& node     = tree[node_id];
   auto range     = instance_ranges[node_id];
   if (!node.IsLeaf()) return;
-  auto tid = threadIdx.x;
+  auto tid                     = threadIdx.x;
+  constexpr bool kIsClassifier = std::is_same<BinT, CountBin>::value;
+  constexpr bool kIsRegressor  = std::is_same<BinT, AggregateBin>::value;
+  static_assert(kIsClassifier || kIsRegressor, "unknown BinT in leafKernel");
+  // Regressor leaf mean is sum(label*weight) / sum(weight); accumulate the
+  // weighted denominator once in shared memory and hand it to SetLeafVector.
+  // Classifier ignores the value.
+  __shared__ double shared_weight_at_leaf;
+  if constexpr (kIsRegressor) {
+    if (tid == 0) shared_weight_at_leaf = 0.0;
+  }
   for (int i = tid; i < dataset.num_outputs; i += blockDim.x) {
     histogram[i] = BinT();
   }
   __syncthreads();
+  bool has_weight = (dataset.sample_weight != nullptr);
   for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
-    auto label = dataset.labels[dataset.row_ids[i]];
-    BinT::IncrementHistogram(histogram, 1, 0, label);
+    auto row      = dataset.row_ids[i];
+    auto label    = dataset.labels[row];
+    double weight = has_weight ? static_cast<double>(dataset.sample_weight[row]) : 1.0;
+    BinT::IncrementHistogram(histogram, 1, 0, label, weight);
+    if constexpr (kIsRegressor) { atomicAdd(&shared_weight_at_leaf, weight); }
   }
   __syncthreads();
   if (tid == 0) {
+    double weighted_total = 0.0;
+    if constexpr (kIsRegressor) { weighted_total = shared_weight_at_leaf; }
     ObjectiveT::SetLeafVector(
-      histogram, dataset.num_outputs, leaves + dataset.num_outputs * node_id);
+      histogram, dataset.num_outputs, leaves + dataset.num_outputs * node_id, weighted_total);
   }
 }
 
@@ -200,6 +216,8 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 static __global__ void computeSplitKernel(BinT* histograms,
+                                          int* unweighted_histograms,
+                                          double* weighted_count_histograms,
                                           IdxT max_n_bins,
                                           IdxT min_samples_split,
                                           IdxT max_leaves,
@@ -242,37 +260,57 @@ static __global__ void computeSplitKernel(BinT* histograms,
   // getting the n_bins for that feature
   int n_bins = quantiles.n_bins_array[col];
 
-  auto end                  = range_start + range_len;
-  auto shared_histogram_len = n_bins * objective.NumClasses();
-  auto* shared_histogram    = alignPointer<BinT>(smem);
-  auto* shared_quantiles    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* shared_done         = alignPointer<int>(shared_quantiles + n_bins);
-  IdxT stride               = blockDim.x * num_blocks;
-  IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
+  constexpr bool kIsClassifier = std::is_same<BinT, CountBin>::value;
+  constexpr bool kIsRegressor  = std::is_same<BinT, AggregateBin>::value;
+  static_assert(kIsClassifier || kIsRegressor, "unknown BinT in computeSplitKernel");
+
+  auto end                      = range_start + range_len;
+  auto shared_histogram_len     = n_bins * objective.NumClasses();
+  auto* shared_histogram        = alignPointer<BinT>(smem);
+  int* shared_unweighted        = nullptr;
+  double* shared_weighted_count = nullptr;
+  DataT* shared_quantiles;
+  int* shared_done;
+  if constexpr (kIsClassifier) {
+    shared_unweighted = alignPointer<int>(shared_histogram + shared_histogram_len);
+    shared_quantiles  = alignPointer<DataT>(shared_unweighted + n_bins);
+  } else if constexpr (kIsRegressor) {
+    shared_weighted_count = alignPointer<double>(shared_histogram + shared_histogram_len);
+    shared_quantiles      = alignPointer<DataT>(shared_weighted_count + n_bins);
+  } else {
+    shared_quantiles = alignPointer<DataT>(shared_histogram + shared_histogram_len);
+  }
+  shared_done = alignPointer<int>(shared_quantiles + n_bins);
+  IdxT stride = blockDim.x * num_blocks;
+  IdxT tid    = threadIdx.x + offset_blockid * blockDim.x;
 
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
+  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
+    if constexpr (kIsClassifier) shared_unweighted[b] = 0;
+    if constexpr (kIsRegressor) shared_weighted_count[b] = 0.0;
     shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
+  }
 
   // synchronizing above changes across block
   __syncthreads();
 
-  // compute pdf shared histogram for all bins for all classes in shared mem
-
+  bool has_weight = (dataset.sample_weight != nullptr);
   // Must be 64 bit - can easily grow larger than a 32 bit int
   std::size_t col_offset = std::size_t(col) * dataset.M;
   for (auto i = range_start + tid; i < end; i += stride) {
     // each thread works over a data point and strides to the next
-    auto row   = dataset.row_ids[i];
-    auto data  = dataset.data[row + col_offset];
-    auto label = dataset.labels[row];
+    auto row      = dataset.row_ids[i];
+    auto data     = dataset.data[row + col_offset];
+    auto label    = dataset.labels[row];
+    double weight = has_weight ? static_cast<double>(dataset.sample_weight[row]) : 1.0;
 
     // `start` is lowest index such that data <= shared_quantiles[start]
     IdxT start = lower_bound(shared_quantiles, n_bins, data);
-    // ++shared_histogram[start]
-    BinT::IncrementHistogram(shared_histogram, n_bins, start, label);
+    BinT::IncrementHistogram(shared_histogram, n_bins, start, label, weight);
+    if constexpr (kIsClassifier) atomicAdd(&shared_unweighted[start], 1);
+    if constexpr (kIsRegressor) atomicAdd(&shared_weighted_count[start], weight);
   }
 
   // synchronizing above changes across block
@@ -281,8 +319,18 @@ static __global__ void computeSplitKernel(BinT* histograms,
     // update the corresponding global location
     auto histograms_offset =
       ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
+    auto companion_offset = ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins;
     for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
       BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
+    }
+    if constexpr (kIsClassifier) {
+      for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
+        atomicAdd(&unweighted_histograms[companion_offset + b], shared_unweighted[b]);
+      }
+    } else if constexpr (kIsRegressor) {
+      for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
+        atomicAdd(&weighted_count_histograms[companion_offset + b], shared_weighted_count[b]);
+      }
     }
 
     __threadfence();  // for commit guarantee
@@ -297,6 +345,13 @@ static __global__ void computeSplitKernel(BinT* histograms,
     // store the complete global histogram in shared memory of last block
     for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
       shared_histogram[i] = histograms[histograms_offset + i];
+    if constexpr (kIsClassifier) {
+      for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
+        shared_unweighted[b] = unweighted_histograms[companion_offset + b];
+    } else if constexpr (kIsRegressor) {
+      for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
+        shared_weighted_count[b] = weighted_count_histograms[companion_offset + b];
+    }
 
     __syncthreads();
   }
@@ -309,13 +364,21 @@ static __global__ void computeSplitKernel(BinT* histograms,
     // now, `shared_histogram[n_bins * c + i]` will have count of datapoints of class `c`
     // that are less than or equal to `shared_quantiles[i]`.
   }
+  if constexpr (kIsClassifier) { pdf_to_cdf<int, IdxT, TPB>(shared_unweighted, n_bins); }
+  if constexpr (kIsRegressor) { pdf_to_cdf<double, IdxT, TPB>(shared_weighted_count, n_bins); }
 
   __syncthreads();
 
   // calculate the best candidate bins (one for each thread in the block) in current feature and
   // corresponding information gain for splitting
-  Split<DataT, IdxT> sp =
-    objective.Gain(shared_histogram, shared_quantiles, col, range_len, n_bins);
+  Split<DataT, IdxT> sp;
+  if constexpr (kIsClassifier) {
+    sp =
+      objective.Gain(shared_histogram, shared_quantiles, col, range_len, n_bins, shared_unweighted);
+  } else {
+    sp = objective.Gain(
+      shared_histogram, shared_quantiles, col, range_len, n_bins, shared_weighted_count);
+  }
 
   __syncthreads();
 
@@ -332,6 +395,8 @@ template <typename DataT,
           typename ObjectiveT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
+                              int* unweighted_histograms,
+                              double* weighted_count_histograms,
                               IdxT max_n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,
@@ -353,6 +418,8 @@ void launchComputeSplitKernel(BinT* histograms,
 {
   computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
+                                                       unweighted_histograms,
+                                                       weighted_count_histograms,
                                                        max_n_bins,
                                                        min_samples_split,
                                                        max_leaves,
@@ -393,6 +460,8 @@ template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
 
 template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _BinT* histograms,
+  int* unweighted_histograms,
+  double* weighted_count_histograms,
   _IdxT n_bins,
   _IdxT min_samples_split,
   _IdxT max_leaves,

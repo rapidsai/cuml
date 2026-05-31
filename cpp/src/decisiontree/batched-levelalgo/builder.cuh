@@ -162,6 +162,17 @@ struct Builder {
   IdxT* n_nodes;
   /** buffer of segmented histograms*/
   BinT* histograms;
+  /** Classifier companion: per-bin unweighted sample counts for
+   *  `min_samples_leaf` + `Split::nLeft` under fractional weights. */
+  int* unweighted_histograms = nullptr;
+  /** Regressor companion: per-bin sum-of-weights totals for the weighted
+   *  gain denominator and leaf mean. */
+  double* weighted_count_histograms = nullptr;
+  // Compile-time gates on the builder's BinT type; mutually exclusive.
+  static constexpr bool kIsClassifier = std::is_same<typename ObjectiveT::BinT, CountBin>::value;
+  static constexpr bool kIsRegressor = std::is_same<typename ObjectiveT::BinT, AggregateBin>::value;
+  static_assert(kIsClassifier || kIsRegressor,
+                "Builder<ObjectiveT>::BinT must be CountBin or AggregateBin");
   /** threadblock arrival count */
   int* done_count;
   /** mutex array used for atomically updating best split */
@@ -199,7 +210,8 @@ struct Builder {
           IdxT n_cols,
           rmm::device_uvector<IdxT>* row_ids,
           IdxT n_classes,
-          const QuantilesT& q)
+          const QuantilesT& q,
+          const DataT* sample_weight = nullptr)
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
@@ -212,7 +224,8 @@ struct Builder {
               int(row_ids->size()),
               max(1, IdxT(params.max_features * n_cols)),
               row_ids->data(),
-              n_classes},
+              n_classes,
+              sample_weight},
       quantiles(q),
       d_buff(0, builder_stream)
   {
@@ -266,8 +279,15 @@ struct Builder {
     size_t max_len_histograms =
       max_batch * params.max_n_bins * n_blks_for_cols * dataset.num_outputs;
 
-    d_wsize += calculateAlignedBytes(sizeof(IdxT));                               // n_nodes
-    d_wsize += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);          // histograms
+    d_wsize += calculateAlignedBytes(sizeof(IdxT));                       // n_nodes
+    d_wsize += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);  // histograms
+    size_t max_len_companion = max_batch * params.max_n_bins * n_blks_for_cols;
+    if constexpr (kIsClassifier) {
+      d_wsize += calculateAlignedBytes(sizeof(int) * max_len_companion);  // unweighted_histograms
+    } else if constexpr (kIsRegressor) {
+      d_wsize +=
+        calculateAlignedBytes(sizeof(double) * max_len_companion);  // weighted_count_histograms
+    }
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch * n_blks_for_cols);  // done_count
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);                    // mutex
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);                 // splits
@@ -304,6 +324,14 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
     histograms = reinterpret_cast<BinT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);
+    size_t max_len_companion = max_batch * (params.max_n_bins) * n_blks_for_cols;
+    if constexpr (kIsClassifier) {
+      unweighted_histograms = reinterpret_cast<int*>(d_wspace);
+      d_wspace += calculateAlignedBytes(sizeof(int) * max_len_companion);
+    } else if constexpr (kIsRegressor) {
+      weighted_count_histograms = reinterpret_cast<double*>(d_wspace);
+      d_wspace += calculateAlignedBytes(sizeof(double) * max_len_companion);
+    }
     done_count = reinterpret_cast<int*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
     mutex = reinterpret_cast<int*>(d_wspace);
@@ -487,12 +515,20 @@ struct Builder {
   auto computeSplitSmemSize()
   {
     size_t smem_size_1 =
-      params.max_n_bins * dataset.num_outputs * sizeof(BinT) +  // shared_histogram size
-      params.max_n_bins * sizeof(DataT) +                       // shared_quantiles size
-      sizeof(int);                                              // shared_done size
-    // Extra room for alignment (see alignPointer in
-    // computeSplitKernel)
-    smem_size_1 += sizeof(DataT) + 3 * sizeof(int);
+      params.max_n_bins * dataset.num_outputs * sizeof(BinT) +  // shared_histogram
+      params.max_n_bins * sizeof(DataT) +                       // shared_quantiles
+      sizeof(int);                                              // shared_done
+    int n_align_slots = 3;  // shared_histogram, shared_quantiles, shared_done
+    if constexpr (kIsClassifier) {
+      smem_size_1 += params.max_n_bins * sizeof(int);  // shared_unweighted
+      n_align_slots = 4;
+    } else if constexpr (kIsRegressor) {
+      smem_size_1 += params.max_n_bins * sizeof(double);  // shared_weighted_count
+      n_align_slots = 4;
+    }
+    // Worst-case alignPointer slack per slot is sizeof(largest-following-type)-1.
+    // The regressor companion is double-aligned, so use 8 bytes per slot.
+    smem_size_1 += n_align_slots * sizeof(double);
     // Calculate the shared memory needed for evalBestSplit
     size_t smem_size_2 = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
     // Pick the max of two
@@ -517,12 +553,22 @@ struct Builder {
     // required total length (in bins) of the global segmented histograms over all
     // classes, features and (large)nodes.
     int len_histograms = n_bins * n_classes * n_blocks_dimy * n_large_nodes;
+    int len_companion  = n_bins * n_blocks_dimy * n_large_nodes;
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
+    if constexpr (kIsClassifier) {
+      RAFT_CUDA_TRY(
+        cudaMemsetAsync(unweighted_histograms, 0, sizeof(int) * len_companion, builder_stream));
+    } else if constexpr (kIsRegressor) {
+      RAFT_CUDA_TRY(cudaMemsetAsync(
+        weighted_count_histograms, 0, sizeof(double) * len_companion, builder_stream));
+    }
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf);
     // call the computeSplitKernel
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
     launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
+                                                               unweighted_histograms,
+                                                               weighted_count_histograms,
                                                                params.max_n_bins,
                                                                params.min_samples_split,
                                                                params.max_leaves,
