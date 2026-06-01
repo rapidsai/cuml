@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -53,8 +53,8 @@ class GiniObjectiveFunction {
 
     for (IdxT j = 0; j < nclasses; ++j) {
       double val_i = 0.0;
-      auto lval_i = hist[n_bins * j + i].x;
-      auto lval   = DataT(lval_i);
+      auto lval_i  = hist[n_bins * j + i].x;
+      auto lval    = DataT(lval_i);
       gain += lval * invLeft * lval * invLen;
 
       val_i += lval_i;
@@ -131,7 +131,7 @@ class EntropyObjectiveFunction {
       auto invLen{DataT(1.0) / len};
       for (IdxT c = 0; c < nclasses; ++c) {
         double val_i = 0.0;
-        auto lval_i = hist[n_bins * c + i].x;
+        auto lval_i  = hist[n_bins * c + i].x;
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
           gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
