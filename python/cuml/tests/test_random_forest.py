@@ -37,12 +37,6 @@ from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
-
 
 @pytest.fixture(
     scope="session",
@@ -190,9 +184,6 @@ def special_reg(request):
     return X, y
 
 
-@pytest.mark.filterwarnings(
-    "default:The default value of 'max_depth':FutureWarning"
-)
 def test_default_parameters():
     X = np.array([[1.0, 2.0]], dtype=np.float32)
     y_reg = np.array([1.0], dtype=np.float32)
@@ -200,13 +191,11 @@ def test_default_parameters():
 
     reg = curfr()
     reg_params = reg.get_params()
-    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        reg.fit(X, y_reg)
+    reg.fit(X, y_reg)
 
     clf = curfc()
     clf_params = clf.get_params()
-    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        clf.fit(X, y_clf)
+    clf.fit(X, y_clf)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
@@ -222,6 +211,9 @@ def test_default_parameters():
     # Different default split_criterion
     assert reg_params["split_criterion"] == "mse"
     assert clf_params["split_criterion"] == "gini"
+
+    assert reg_params["max_depth"] is None
+    assert clf_params["max_depth"] is None
 
     # Drop differing params
     for name in ["max_features", "split_criterion"]:

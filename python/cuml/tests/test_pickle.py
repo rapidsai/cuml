@@ -31,11 +31,6 @@ from cuml.tsa.arima import ARIMA
 
 pytestmark = [
     # rapids-pre-commit-hooks: disable-next-line
-    # TODO(26.08): Remove this filter
-    pytest.mark.filterwarnings(
-        "ignore:The default value of 'max_depth':FutureWarning"
-    ),
-    # rapids-pre-commit-hooks: disable-next-line
     # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
     pytest.mark.filterwarnings(
         "ignore:The `probability` parameter is deprecated:FutureWarning"
@@ -381,7 +376,6 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
