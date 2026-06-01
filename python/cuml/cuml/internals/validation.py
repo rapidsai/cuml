@@ -33,7 +33,7 @@ __all__ = (
     "check_classification_targets",
 )
 
-PANDAS_VERSION = Version(pd.__version__)
+_CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
 
 
 def _as_numpy_dtype(dtype):
@@ -444,13 +444,13 @@ def check_non_negative(array, *, input_name=None) -> None:
         raise ValueError(f"Negative values in data{suffix}")
 
 
-def _ensure_int32_sparse(array):
-    """Convert sparse array to int32 indices if possible, and error otherwise"""
+def _requires_int64_sparse(array):
+    """Check if a sparse array requires int64 indices"""
     INT32_MAX = (1 << 31) - 1
-
-    # All sparse arrays must have shapes and nnz that fit in an int32. In addition,
-    # CSR, CSC, and BSR must have indices/indptr that fit in an int32.
-    if (
+    # A sparse array requires int64 indices if:
+    # - It has shape or nnz that doesn't fit in an int32
+    # - CSR/CSC/BSR have indices/indptr that don't fit in an int32
+    return (
         any(s > INT32_MAX for s in array.shape)
         or array.nnz > INT32_MAX
         or (
@@ -459,7 +459,12 @@ def _ensure_int32_sparse(array):
                 len(array.indices) > INT32_MAX or len(array.indptr) > INT32_MAX
             )
         )
-    ):
+    )
+
+
+def _ensure_int32_sparse(array):
+    """Convert sparse array to int32 indices if possible, and error otherwise"""
+    if _requires_int64_sparse(array):
         raise ValueError(
             "Only sparse matrices with int32 indices are currently supported."
         )
@@ -701,7 +706,16 @@ def check_array(
         if array.format not in accept_sparse:
             array = array.asformat(accept_sparse[0])
         if not accept_large_sparse:
+            # Try to coerce to int32 indices, erroring otherwise
             array = _ensure_int32_sparse(array)
+        elif (
+            _requires_int64_sparse(array)
+            and mem_type == "device"
+            and not _CUPY_SUPPORTS_LARGE_SPARSE
+        ):
+            raise ValueError(
+                "Sparse matrices with int64 indices require cupy >= 14.1.0"
+            )
 
         # Validate dimensions and shape are as expected. We do this here
         # _before_ host/device conversion, since cupyx doesn't have a sparse
@@ -716,7 +730,7 @@ def check_array(
 
         # Coerce to proper dtype and mem_type if needed
         if mem_type == "host" and not sp.issparse(array):
-            # Coerce to device, then coerce dtype. We do this to save device
+            # Coerce to host, then coerce dtype. We do this to save device
             # memory, and since scipy supports more dtypes.
             array = array.get()
             if dtype is not None and array.dtype != dtype:
@@ -899,12 +913,7 @@ def check_cudf(
     elif isinstance(array, pd.DataFrame):
         f16_cols = array.select_dtypes("float16").columns.tolist()
         if f16_cols:
-            dtype = {c: "float32" for c in f16_cols}
-            # TODO: Drop this pandas 2 branch once pandas 2 support is removed.
-            if PANDAS_VERSION < Version("3.0"):
-                array = array.astype(dtype, copy=False)
-            else:
-                array = array.astype(dtype)
+            array = array.astype({c: "float32" for c in f16_cols})
         array = cudf.DataFrame(array)
     elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
         # Remaining array-like inputs go through check_array first (without
