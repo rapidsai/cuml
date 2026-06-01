@@ -158,11 +158,15 @@ def test_rf_warm_start(classification_data, warm_start):
     _ = accuracy_score(y, clf.predict(X))
 
 
-@pytest.mark.parametrize("class_weight", [None, "balanced", {0: 1, 1: 2}])
+@pytest.mark.parametrize(
+    "class_weight", [None, "balanced", "balanced_subsample", {0: 1, 1: 2}]
+)
 def test_rf_class_weight(classification_data, class_weight):
     X, y = classification_data
     clf = RandomForestClassifier(
-        class_weight=class_weight, n_estimators=50, random_state=42
+        class_weight=class_weight,
+        n_estimators=50,
+        random_state=42,
     )
     clf.fit(X, y)
     _ = accuracy_score(y, clf.predict(X))

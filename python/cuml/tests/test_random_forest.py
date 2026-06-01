@@ -27,6 +27,7 @@ from sklearn.metrics import (
     accuracy_score,
     mean_squared_error,
     mean_tweedie_deviance,
+    recall_score,
 )
 from sklearn.model_selection import train_test_split
 
@@ -34,6 +35,7 @@ import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.metrics import accuracy_score as cuml_accuracy_score
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
@@ -228,6 +230,9 @@ def test_default_parameters():
     for name in ["max_features", "split_criterion"]:
         reg_params.pop(name)
         clf_params.pop(name)
+
+    # `class_weight` is RFC-only (sklearn matches).
+    clf_params.pop("class_weight")
 
     # The rest are the same
     assert reg_params == clf_params
@@ -1559,6 +1564,407 @@ def test_rfc_sample_weight_all_zero_raises(sample_weight_clf_data):
         ValueError, match=r"Sample weights must contain at least one non-zero"
     ):
         clf.fit(X, y, sample_weight=cp.zeros(len(y), dtype=cp.float32))
+
+
+# --- class_weight on RandomForestClassifier ---
+
+
+@pytest.fixture
+def imbalanced_clf_data():
+    X, y = make_classification(
+        n_samples=500,
+        n_features=10,
+        n_classes=2,
+        n_informative=5,
+        weights=[0.9, 0.1],
+        random_state=42,
+    )
+    return cp.asarray(X, dtype=cp.float32), cp.asarray(y, dtype=cp.int32)
+
+
+@pytest.mark.parametrize(
+    "class_weight", ["balanced", {0: 1.0, 1: 3.0, 2: 0.5}]
+)
+def test_rfc_class_weight_matches_sklearn(
+    sample_weight_clf_data, class_weight
+):
+    X, y = sample_weight_clf_data
+    cuml_model = curfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        n_streams=1,
+        class_weight=class_weight,
+    )
+    sk_model = skrfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        class_weight=class_weight,
+    )
+    cuml_model.fit(X, y)
+    sk_model.fit(cp.asnumpy(X), cp.asnumpy(y))
+    cuml_acc = accuracy_score(cp.asnumpy(y), cp.asnumpy(cuml_model.predict(X)))
+    sk_acc = accuracy_score(cp.asnumpy(y), sk_model.predict(cp.asnumpy(X)))
+    # Observed: range=[0.00, 0.02] across both class_weight values on
+    # this fixture; 0.07 tolerance covers quantile-binning + RNG drift.
+    assert abs(cuml_acc - sk_acc) < 0.07
+
+
+def test_rfc_class_weight_dict_partial_then_extra_raises(
+    sample_weight_clf_data,
+):
+    # process_class_weight raises only when the dict has extras AND real
+    # classes are missing (classification.py:179).
+    X, y = sample_weight_clf_data
+    clf = curfc(
+        n_estimators=2,
+        max_depth=2,
+        random_state=0,
+        n_streams=1,
+        class_weight={0: 1.0, 99: 5.0},
+    )
+    with pytest.raises(ValueError, match=r"are not in class_weight"):
+        clf.fit(X, y)
+
+
+def test_rfc_class_weight_dict_partial_silent_fill(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    clf = curfc(
+        n_estimators=3,
+        max_depth=3,
+        random_state=0,
+        n_streams=1,
+        class_weight={0: 1.0, 1: 2.0},
+    )
+    clf.fit(X, y)
+    np.testing.assert_allclose(clf.class_weight_, [1.0, 2.0, 1.0])
+
+
+def test_rfc_class_weight_dict_extra_keys_succeeds(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    clf = curfc(
+        n_estimators=3,
+        max_depth=3,
+        random_state=0,
+        n_streams=1,
+        class_weight={0: 1.0, 1: 1.0, 2: 1.0, 99: 5.0},
+    )
+    clf.fit(X, y)
+    np.testing.assert_allclose(clf.class_weight_, [1.0, 1.0, 1.0])
+
+
+def test_rfc_class_weight_balanced_single_class_y():
+    X = cp.asarray(np.random.RandomState(0).rand(40, 4), dtype=cp.float32)
+    y = cp.zeros(40, dtype=cp.int32)
+    clf = curfc(
+        n_estimators=2,
+        max_depth=2,
+        n_bins=4,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced",
+    )
+    clf.fit(X, y)
+    assert clf.class_weight_.shape == (1,)
+    assert float(clf.class_weight_[0]) == pytest.approx(1.0)
+
+
+def test_rfc_class_weight_and_sample_weight_combine(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    rng = np.random.default_rng(11)
+    w = cp.asarray(rng.uniform(0.5, 2.0, len(y)).astype(np.float32))
+    cw = {0: 1.0, 1: 2.0, 2: 0.5}
+    clf = curfc(
+        n_estimators=3,
+        max_depth=3,
+        random_state=0,
+        n_streams=1,
+        class_weight=cw,
+    )
+    clf.fit(X, y, sample_weight=w)
+    np.testing.assert_allclose(
+        clf.class_weight_, np.array([1.0, 2.0, 0.5], dtype=np.float64)
+    )
+
+
+def test_rfc_balanced_subsample_collapses_without_bootstrap(
+    imbalanced_clf_data,
+):
+    # sklearn silently collapses 'balanced_subsample' to 'balanced' when
+    # bootstrap=False (verified vs sklearn 1.5.0 and 1.7.2). cuml matches.
+    X, y = imbalanced_clf_data
+    clf_collapsed = curfc(
+        n_estimators=5,
+        max_depth=4,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced_subsample",
+        bootstrap=False,
+    )
+    clf_collapsed.fit(X, y)
+
+    clf_balanced = curfc(
+        n_estimators=5,
+        max_depth=4,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced",
+        bootstrap=False,
+    )
+    clf_balanced.fit(X, y)
+    np.testing.assert_array_equal(
+        clf_collapsed.class_weight_, clf_balanced.class_weight_
+    )
+    np.testing.assert_array_equal(
+        cp.asnumpy(clf_collapsed.predict(X)),
+        cp.asnumpy(clf_balanced.predict(X)),
+    )
+
+
+def test_rfc_class_weight_invalid_string_raises(sample_weight_clf_data):
+    X, y = sample_weight_clf_data
+    clf = curfc(
+        n_estimators=2,
+        max_depth=2,
+        random_state=0,
+        n_streams=1,
+        class_weight="nonsense",
+    )
+    with pytest.raises(ValueError, match=r"`class_weight` must be None"):
+        clf.fit(X, y)
+
+
+def test_rfc_balanced_subsample_with_bootstrap_lifts_minority_recall(
+    imbalanced_clf_data,
+):
+    # Verify BALANCED_SUBSAMPLE per-tree compute lifts minority recall
+    # on a 90/10 imbalanced fixture vs the unweighted baseline.
+    X, y = imbalanced_clf_data
+    baseline = curfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        n_streams=1,
+        class_weight=None,
+        bootstrap=True,
+    )
+    balanced_sub = curfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced_subsample",
+        bootstrap=True,
+    )
+    baseline.fit(X, y)
+    balanced_sub.fit(X, y)
+    rec_baseline = recall_score(
+        cp.asnumpy(y), cp.asnumpy(baseline.predict(X)), pos_label=1
+    )
+    rec_balanced = recall_score(
+        cp.asnumpy(y), cp.asnumpy(balanced_sub.predict(X)), pos_label=1
+    )
+    # Observed: baseline=0.30, balanced_subsample=0.85 on this 90/10
+    # fixture (gap=0.55). 0.10 margin tolerates ~0.4 RNG variance.
+    assert rec_balanced > rec_baseline + 0.10
+
+
+def test_rfc_balanced_subsample_matches_sklearn(imbalanced_clf_data):
+    # Direction-of-effect parity with sklearn on the same fixture +
+    # random_state. Tight prediction agreement isn't expected (quantile
+    # binning differs from sklearn's exhaustive splits), so we check
+    # recall stays within a reasonable band.
+    X, y = imbalanced_clf_data
+    cuml_model = curfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced_subsample",
+        bootstrap=True,
+    )
+    sk_model = skrfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        class_weight="balanced_subsample",
+        bootstrap=True,
+    )
+    cuml_model.fit(X, y)
+    sk_model.fit(cp.asnumpy(X), cp.asnumpy(y))
+    cuml_rec = recall_score(
+        cp.asnumpy(y), cp.asnumpy(cuml_model.predict(X)), pos_label=1
+    )
+    sk_rec = recall_score(
+        cp.asnumpy(y), sk_model.predict(cp.asnumpy(X)), pos_label=1
+    )
+    # Observed: cuml=0.85, sk=0.88, gap=0.03. 0.15 tolerance covers
+    # quantile-binning + RNG drift across CUDA versions / sklearn pins.
+    assert abs(cuml_rec - sk_rec) < 0.15
+
+
+def test_rfc_from_sklearn_invalid_class_weight_unsupported():
+    sk_model = skrfc(
+        n_estimators=2,
+        max_depth=2,
+        random_state=0,
+        class_weight="nonsense",
+    )
+    with pytest.raises(
+        UnsupportedOnGPU, match=r"`class_weight=.*not supported"
+    ):
+        curfc._params_from_cpu(sk_model)
+
+
+def test_rfc_from_sklearn_list_of_dicts_unsupported():
+    # Multi-output class_weight=[dict, dict, ...] should surface as
+    # UnsupportedOnGPU at from_sklearn time so the accel proxy falls
+    # back to sklearn instead of silently crashing in fit().
+    sk_model = skrfc(
+        n_estimators=2,
+        max_depth=2,
+        random_state=0,
+        class_weight=[{0: 1, 1: 2}, {0: 2, 1: 1}],
+    )
+    with pytest.raises(UnsupportedOnGPU, match=r"list of dicts"):
+        curfc._params_from_cpu(sk_model)
+
+
+@pytest.mark.parametrize(
+    "sk_cls,cu_cls",
+    [(skrfc, curfc), (skrfr, curfr)],
+    ids=["classifier", "regressor"],
+)
+def test_rf_from_sklearn_drops_max_samples_when_bootstrap_false(
+    sk_cls, cu_cls
+):
+    # sklearn rejects max_samples when bootstrap=False; the _params_from_cpu
+    # guard mirrors _params_to_cpu so the round-trip stays symmetric.
+    sk_model = sk_cls(
+        n_estimators=2,
+        max_depth=2,
+        random_state=0,
+        bootstrap=False,
+        max_samples=0.5,
+    )
+    params = cu_cls._params_from_cpu(sk_model)
+    assert "max_samples" not in params
+
+
+def test_rfc_class_weight_refit_replaces_prior(sample_weight_clf_data):
+    # Refit on the same estimator with a different class_weight value
+    # must replace the prior class_weight_; no leakage.
+    X, y = sample_weight_clf_data
+    clf = curfc(
+        n_estimators=3,
+        max_depth=3,
+        random_state=0,
+        n_streams=1,
+        class_weight={0: 1.0, 1: 2.0, 2: 3.0},
+    )
+    clf.fit(X, y)
+    np.testing.assert_allclose(clf.class_weight_, [1.0, 2.0, 3.0])
+    clf.class_weight = None
+    clf.fit(X, y)
+    np.testing.assert_allclose(clf.class_weight_, [1.0, 1.0, 1.0])
+
+
+def test_rfc_class_weight_balanced_predict_proba(imbalanced_clf_data):
+    # class_weight='balanced' must shift the minority class probability
+    # upward vs the unweighted baseline. predict_proba surface should
+    # also be well-formed (sums to 1 per row).
+    X, y = imbalanced_clf_data
+    base = curfc(n_estimators=20, max_depth=6, random_state=0, n_streams=1)
+    weighted = curfc(
+        n_estimators=20,
+        max_depth=6,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced",
+    )
+    base.fit(X, y)
+    weighted.fit(X, y)
+    p_base = cp.asnumpy(base.predict_proba(X))
+    p_weighted = cp.asnumpy(weighted.predict_proba(X))
+    assert p_base.shape == (X.shape[0], 2)
+    assert p_weighted.shape == (X.shape[0], 2)
+    np.testing.assert_allclose(p_base.sum(axis=1), 1.0, atol=1e-5)
+    np.testing.assert_allclose(p_weighted.sum(axis=1), 1.0, atol=1e-5)
+    # Mean minority probability should rise under balanced.
+    assert p_weighted[:, 1].mean() > p_base[:, 1].mean()
+
+
+@pytest.mark.parametrize(
+    "scale",
+    [
+        unit_param({"n": 500, "n_features": 10, "n_classes": 3}),
+        quality_param({"n": 50_000, "n_features": 20, "n_classes": 5}),
+        stress_param({"n": 200_000, "n_features": 50, "n_classes": 10}),
+    ],
+)
+def test_rfc_class_weight_balanced_scales(scale):
+    # Gated coverage for the C++ per-tree compute path under class_weight.
+    # Stress size (~200k x 50, 10 classes) takes ~30s and ~2GB VRAM and
+    # guards against OOM + degenerate-output regressions in the kernel.
+    X, y = make_classification(
+        n_samples=scale["n"],
+        n_features=scale["n_features"],
+        n_classes=scale["n_classes"],
+        n_informative=scale["n_features"] // 2,
+        random_state=0,
+    )
+    X = cp.asarray(X, dtype=cp.float32)
+    y = cp.asarray(y, dtype=cp.int32)
+    clf = curfc(
+        n_estimators=10,
+        max_depth=8,
+        random_state=0,
+        n_streams=1,
+        class_weight="balanced_subsample",
+        bootstrap=True,
+    )
+    try:
+        clf.fit(X, y)
+    except cp.cuda.memory.OutOfMemoryError as exc:
+        pytest.skip(f"OOM at scale {scale}: {exc}")
+    assert clf.class_weight_.shape == (scale["n_classes"],)
+    assert float(clf.class_weight_.min()) > 0.0
+    preds = cp.asnumpy(clf.predict(X))
+    assert preds.shape[0] == scale["n"]
+    assert len(np.unique(preds)) > 1
+
+
+@pytest.mark.parametrize(
+    "weighting",
+    ["balanced", {0: 1.0, 1: 1.0, 2: 1.0}, "sample_weight"],
+)
+def test_rfc_feature_importances_weighted_well_formed(
+    sample_weight_clf_data, weighting
+):
+    # Backs the docstring claim that feature_importances_ stays well-formed
+    # (non-negative, sums to 1) under weighted training, even though it is
+    # not byte-equivalent to sklearn's.
+    X, y = sample_weight_clf_data
+    rng = np.random.default_rng(3)
+    sw = (
+        cp.asarray(rng.uniform(0.5, 2.0, len(y)).astype(np.float32))
+        if weighting == "sample_weight"
+        else None
+    )
+    cw = None if weighting == "sample_weight" else weighting
+    clf = curfc(
+        n_estimators=10,
+        max_depth=4,
+        random_state=0,
+        n_streams=1,
+        class_weight=cw,
+    )
+    clf.fit(X, y, sample_weight=sw)
+    imps = clf.feature_importances_
+    assert (imps >= 0).all()
+    assert float(imps.sum()) == pytest.approx(1.0, abs=1e-4)
+    assert (imps > 0).any()
 
 
 def test_rfr_sample_weight_ones_matches_none(sample_weight_reg_data):

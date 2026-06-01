@@ -79,7 +79,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         bool* bootstrap_masks,
         T* feature_importances,
         level_enum verbosity,
-        T* sample_weight
+        T* sample_weight,
+        int class_weight_mode,
+        const double* class_weight_array
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -223,7 +225,8 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         if isinstance(model.max_samples, int):
             raise UnsupportedOnGPU("`int` values for `max_samples` are not supported")
-        elif model.max_samples is not None:
+        elif model.max_samples is not None and model.bootstrap:
+            # Mirrors _params_to_cpu: sklearn rejects max_samples when bootstrap=False.
             conditional_params["max_samples"] = model.max_samples
 
         return {
@@ -260,7 +263,8 @@ class BaseRandomForestModel(Base, InteropMixin):
             "min_impurity_decrease": self.min_impurity_decrease,
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
-            "max_samples": self.max_samples,
+            # sklearn rejects non-None max_samples when bootstrap=False.
+            "max_samples": self.max_samples if self.bootstrap else None,
             "oob_score": self.oob_score,
         }
 
@@ -460,7 +464,14 @@ class BaseRandomForestModel(Base, InteropMixin):
             handle=get_handle(),
         )
 
-    def _fit_forest(self, X, y, sample_weight=None):
+    def _fit_forest(
+        self,
+        X,
+        y,
+        sample_weight=None,
+        class_weight_mode=0,
+        class_weight_array=None,
+    ):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
@@ -475,6 +486,14 @@ class BaseRandomForestModel(Base, InteropMixin):
             sample_weight.data.ptr if sample_weight is not None else 0
         )
         cdef float* sample_weight_f = <float*> sample_weight_ptr_val
+
+        # class_weight_array is a float64 cupy array or None (C++ ABI is
+        # const double*). C++ ASSERTs (mode==NONE) iff (array==nullptr).
+        cdef int class_weight_mode_c = <int> class_weight_mode
+        cdef uintptr_t class_weight_array_ptr_val = (
+            class_weight_array.data.ptr if class_weight_array is not None else 0
+        )
+        cdef const double* class_weight_array_d = <const double*> class_weight_array_ptr_val
         cdef double* sample_weight_d = <double*> sample_weight_ptr_val
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
@@ -586,7 +605,9 @@ class BaseRandomForestModel(Base, InteropMixin):
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
                         verbose,
-                        sample_weight_f
+                        sample_weight_f,
+                        class_weight_mode_c,
+                        class_weight_array_d
                     )
                 else:
                     fit_treelite(
@@ -601,7 +622,9 @@ class BaseRandomForestModel(Base, InteropMixin):
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
                         verbose,
-                        sample_weight_d
+                        sample_weight_d,
+                        class_weight_mode_c,
+                        class_weight_array_d
                     )
             else:
                 if is_float32:

@@ -127,6 +127,7 @@ XFAILS = {
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
         "check_sample_weight_equivalence_on_dense_data": "Quantile binning means sample_weight is not equivalent to row duplication",
         "check_sample_weight_equivalence_on_sparse_data": "RandomForestClassifier does not handle sparse data",
+        "check_class_weight_classifiers": "Sklearn's check sets min_weight_fraction_leaf=0.01 to force the decision boundary; cuml RandomForestClassifier omits that parameter as UnsupportedOnGPU, so the >0.87 threshold is unreachable. The class_weight machinery itself is correct (verified in test_random_forest.py::test_rfc_class_weight_matches_sklearn). Remove if cuml RFC ever supports min_weight_fraction_leaf.",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",

@@ -25,6 +25,9 @@
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
+#include <randomforest/per_tree_weights.cuh>
+
+#include <type_traits>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -117,11 +120,20 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks  = nullptr,
-           const T* sample_weight = nullptr)
+           bool* bootstrap_masks            = nullptr,
+           const T* sample_weight           = nullptr,
+           int class_weight_mode            = 0,
+           const double* class_weight_array = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
+    ASSERT((class_weight_mode == 0) == (class_weight_array == nullptr),
+           "class_weight_mode and class_weight_array must agree on nullness: "
+           "NONE iff nullptr (mode=%d, array=%p)",
+           class_weight_mode,
+           static_cast<const void*>(class_weight_array));
+    const bool use_per_tree_weights =
+      class_weight_mode == static_cast<int>(ML::ClassWeightMode::BALANCED_SUBSAMPLE);
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;
     if (this->rf_params.bootstrap) {
@@ -168,6 +180,28 @@ class RandomForest {
 
       this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
+      // `if constexpr` gate: regressor (LabelT != int) instantiations
+      // skip the call site so they don't reference the unimplemented
+      // computePerTreeBalancedWeights<T, non-int>.
+      const T* tree_sample_weight = sample_weight;
+      rmm::device_uvector<T> per_tree_weights(0, s);
+      if constexpr (std::is_same_v<L, int>) {
+        if (use_per_tree_weights) {
+          per_tree_weights.resize(n_rows, s);
+          ML::computePerTreeBalancedWeights<T, L>(handle,
+                                                  s,
+                                                  labels,
+                                                  selected_rows[stream_id].data(),
+                                                  n_sampled_rows,
+                                                  n_unique_labels,
+                                                  n_rows,
+                                                  sample_weight,
+                                                  class_weight_array,
+                                                  per_tree_weights.data());
+          tree_sample_weight = per_tree_weights.data();
+        }
+      }
+
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
         - n_sampled_rows: # rows sampled for tree's bootstrap sample.
@@ -189,7 +223,7 @@ class RandomForest {
                                                this->rf_params.seed,
                                                quantiles,
                                                i,
-                                               sample_weight);
+                                               tree_sample_weight);
 
       // Store bootstrap mask if device buffer is provided
       if (bootstrap_masks != nullptr) {

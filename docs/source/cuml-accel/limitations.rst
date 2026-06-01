@@ -204,7 +204,7 @@ RandomForestClassifier
 - If ``max_values`` is an integer.
 - If ``min_weight_fraction_leaf`` is not ``0``.
 - If ``ccp_alpha`` is not ``0``.
-- If ``class_weight`` is not ``None``.
+- If ``class_weight`` is a list of dicts (multi-output) or a string other than ``"balanced"`` / ``"balanced_subsample"``.
 - If ``X`` is sparse.
 - If ``X`` contains missing values (represented as ``NaN``).
 - If ``y`` is a multi-output target.

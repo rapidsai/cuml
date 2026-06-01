@@ -357,7 +357,9 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         float* sample_weight)
+         float* sample_weight,
+         int class_weight_mode,
+         const double* class_weight_array)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -375,7 +377,9 @@ void fit(const raft::handle_t& user_handle,
                      n_unique_labels,
                      forest,
                      bootstrap_masks,
-                     sample_weight);
+                     sample_weight,
+                     class_weight_mode,
+                     class_weight_array);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -388,7 +392,9 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         double* sample_weight)
+         double* sample_weight,
+         int class_weight_mode,
+         const double* class_weight_array)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -406,7 +412,9 @@ void fit(const raft::handle_t& user_handle,
                      n_unique_labels,
                      forest,
                      bootstrap_masks,
-                     sample_weight);
+                     sample_weight,
+                     class_weight_mode,
+                     class_weight_array);
 }
 
 template <typename value_t, typename label_t>
@@ -421,7 +429,9 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  value_t* sample_weight)
+                  value_t* sample_weight,
+                  int class_weight_mode,
+                  const double* class_weight_array)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -434,7 +444,9 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks,
-      sample_weight);
+      sample_weight,
+      class_weight_mode,
+      class_weight_array);
 
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
@@ -871,7 +883,9 @@ template CUML_EXPORT void fit_treelite<float, int>(const raft::handle_t& user_ha
                                                    bool* bootstrap_masks,
                                                    float* feature_importances,
                                                    rapids_logger::level_enum verbosity,
-                                                   float* sample_weight);
+                                                   float* sample_weight,
+                                                   int class_weight_mode,
+                                                   const double* class_weight_array);
 template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                                     TreeliteModelHandle* model,
                                                     double* input,
@@ -883,7 +897,9 @@ template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_h
                                                     bool* bootstrap_masks,
                                                     double* feature_importances,
                                                     rapids_logger::level_enum verbosity,
-                                                    double* sample_weight);
+                                                    double* sample_weight,
+                                                    int class_weight_mode,
+                                                    const double* class_weight_array);
 template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                                      TreeliteModelHandle* model,
                                                      float* input,

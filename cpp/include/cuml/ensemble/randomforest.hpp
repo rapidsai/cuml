@@ -26,6 +26,11 @@ enum RF_type {
 
 enum task_category { REGRESSION_MODEL = 1, CLASSIFICATION_MODEL = 2 };
 
+// Per-tree class-weight mode. NONE passes sample_weight through;
+// BALANCED_SUBSAMPLE recomputes per-tree reciprocals from each bootstrap
+// (see per_tree_weights.cuh for the formula and sklearn parity).
+enum class ClassWeightMode : int { NONE = 0, BALANCED_SUBSAMPLE = 1 };
+
 struct RF_metrics {
   RF_type rf_type;
 
@@ -152,7 +157,9 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         float* sample_weight                = nullptr);
+         float* sample_weight                = nullptr,
+         int class_weight_mode               = 0,
+         const double* class_weight_array    = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -163,7 +170,9 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         double* sample_weight               = nullptr);
+         double* sample_weight               = nullptr,
+         int class_weight_mode               = 0,
+         const double* class_weight_array    = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -177,7 +186,9 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   T* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  T* sample_weight = nullptr);
+                  T* sample_weight                 = nullptr,
+                  int class_weight_mode            = 0,
+                  const double* class_weight_array = nullptr);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,

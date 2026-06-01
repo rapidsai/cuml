@@ -923,12 +923,6 @@
   tests:
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[SVR()-check_sample_weight_equivalence_on_sparse_data]"
-- reason: test_estimators checks fail
-  marker: cuml_accel_test_estimators
-  condition: scikit-learn>=1.6
-  tests:
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
-  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
 - reason: Quantile-binned splits mean sample_weight is not equivalent to row duplication
   marker: cuml_accel_test_estimators
   condition: scikit-learn>=1.6
@@ -937,6 +931,12 @@
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_sample_weight_equivalence_on_sparse_data]"
+- reason: test_estimators checks fail
+  marker: cuml_accel_test_estimators
+  condition: scikit-learn>=1.6
+  tests:
+  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_dense_data]"
+  - "sklearn.tests.test_common::test_estimators[KMeans()-check_sample_weight_equivalence_on_sparse_data]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   tests:

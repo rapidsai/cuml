@@ -795,19 +795,34 @@ def test_kernel_density(random_state, kernel, bandwidth, metric):
     assert_kde_close(cu_model, cu_model2)
 
 
+@pytest.mark.parametrize(
+    "class_weight",
+    [None, "balanced", "balanced_subsample", {0: 1.0, 1: 2.0}],
+)
+@pytest.mark.parametrize("bootstrap", [True, False])
 @pytest.mark.parametrize("oob_score", [False, True])
-def test_random_forest_classifier(random_state, oob_score):
+def test_random_forest_classifier(
+    random_state, oob_score, bootstrap, class_weight
+):
     X, y = make_classification(
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
 
+    # OOB needs bootstrap; with bootstrap=False, balanced_subsample
+    # silently collapses to 'balanced' on both cuml and sklearn.
+    effective_oob = oob_score and bootstrap
+
     cu_model = cuml.RandomForestClassifier(
-        oob_score=oob_score,
+        oob_score=effective_oob,
         max_depth=None,
+        bootstrap=bootstrap,
+        class_weight=class_weight,
     ).fit(X, y)
     sk_model = sklearn.ensemble.RandomForestClassifier(
-        oob_score=oob_score,
+        oob_score=effective_oob,
         max_depth=None,
+        bootstrap=bootstrap,
+        class_weight=class_weight,
     ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
@@ -822,12 +837,17 @@ def test_random_forest_classifier(random_state, oob_score):
     # Exclude classes_ due to dtype differences between implementations
     # Exclude feature_importances_ because sklearn can't compute them from
     # treelite-exported models
+    # Exclude class_weight_ because sklearn's RandomForestClassifier doesn't
+    # expose it; cu_model2 (from sk_model via from_sklearn) won't have it set
+    # until refit.
     assert_roundtrip_consistency(
-        cu_model, cu_model2, exclude=("classes_", "feature_importances_")
+        cu_model,
+        cu_model2,
+        exclude=("classes_", "feature_importances_", "class_weight_"),
     )
 
     # Verify OOB attributes are present when oob_score=True
-    if oob_score:
+    if effective_oob:
         assert hasattr(cu_model, "oob_score_")
         assert hasattr(cu_model2, "oob_score_")
         assert hasattr(sk_model2, "oob_score_")

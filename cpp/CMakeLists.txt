@@ -460,7 +460,9 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR randomforest_algo)
-    target_sources(cuml_objs PRIVATE src/randomforest/randomforest.cu)
+    target_sources(
+      cuml_objs PRIVATE src/randomforest/randomforest.cu src/randomforest/per_tree_weights.cu
+    )
   endif()
 
   # todo: separate solvers better

@@ -933,6 +933,191 @@ TEST(RfTests, RegressorSetLeafVectorAllZeroWeightYieldsZero)
 
 }  // namespace DT
 
+// Default args (mode=NONE, array=nullptr) must produce byte-identical
+// trees vs the pre-class_weight_mode signature.
+TEST(RfTests, ClassWeightModeNoneIsByteIdentical)
+{
+  constexpr int m = 400;
+  constexpr int n = 6;
+  thrust::device_vector<float> X(m * n);
+  raft::random::Rng r(11);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, nullptr);
+  std::vector<int> h_y(m);
+  std::mt19937 host_rng(11);
+  for (int i = 0; i < m; ++i)
+    h_y[i] = host_rng() & 1;
+  thrust::device_vector<int> y = h_y;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(4, 32, 1.0, 32, 1, 2, 0.0, true, 5, 1.0, 17, CRITERION::GINI, 1, 128);
+
+  auto forest_default       = std::make_shared<RandomForestMetaData<float, int>>();
+  auto forest_explicit_none = std::make_shared<RandomForestMetaData<float, int>>();
+  fit(handle,
+      forest_default.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn);
+  fit(handle,
+      forest_explicit_none.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn,
+      /*bootstrap_masks=*/nullptr,
+      /*sample_weight=*/nullptr,
+      /*class_weight_mode=*/static_cast<int>(ClassWeightMode::NONE),
+      /*class_weight_array=*/nullptr);
+
+  ASSERT_EQ(forest_default->trees.size(), forest_explicit_none->trees.size());
+  for (size_t t = 0; t < forest_default->trees.size(); ++t) {
+    auto& td = forest_default->trees[t];
+    auto& te = forest_explicit_none->trees[t];
+    ASSERT_EQ(td->leaf_counter, te->leaf_counter) << "tree " << t;
+    ASSERT_EQ(td->depth_counter, te->depth_counter) << "tree " << t;
+    ASSERT_EQ(td->sparsetree, te->sparsetree) << "tree " << t;
+    ASSERT_EQ(td->vector_leaf.size(), te->vector_leaf.size()) << "tree " << t;
+    for (size_t i = 0; i < td->vector_leaf.size(); ++i) {
+      ASSERT_FLOAT_EQ(td->vector_leaf[i], te->vector_leaf[i])
+        << "tree " << t << " leaf-element " << i;
+    }
+  }
+}
+
+// Contract: (mode == NONE) iff (array == nullptr). Both halves should
+// raise a typed exception when violated.
+TEST(RfTests, ClassWeightModeContractViolationAsserts)
+{
+  constexpr int m = 64;
+  constexpr int n = 4;
+  thrust::device_vector<float> X(m * n);
+  raft::random::Rng r(7);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, nullptr);
+  std::vector<int> h_y(m, 0);
+  for (int i = 0; i < m; ++i)
+    h_y[i] = i & 1;
+  thrust::device_vector<int> y = h_y;
+  thrust::device_vector<double> cw(2, 1.0);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(3, 16, 1.0, 16, 1, 2, 0.0, true, 2, 1.0, 7, CRITERION::GINI, 1, 64);
+
+  auto forest_a = std::make_shared<RandomForestMetaData<float, int>>();
+  EXPECT_THROW(fit(handle,
+                   forest_a.get(),
+                   X.data().get(),
+                   m,
+                   n,
+                   y.data().get(),
+                   2,
+                   rf_params,
+                   rapids_logger::level_enum::warn,
+                   nullptr,
+                   nullptr,
+                   static_cast<int>(ClassWeightMode::BALANCED_SUBSAMPLE),
+                   /*class_weight_array=*/nullptr),
+               raft::exception);
+
+  auto forest_b = std::make_shared<RandomForestMetaData<float, int>>();
+  EXPECT_THROW(fit(handle,
+                   forest_b.get(),
+                   X.data().get(),
+                   m,
+                   n,
+                   y.data().get(),
+                   2,
+                   rf_params,
+                   rapids_logger::level_enum::warn,
+                   nullptr,
+                   nullptr,
+                   static_cast<int>(ClassWeightMode::NONE),
+                   cw.data().get()),
+               raft::exception);
+}
+
+// BALANCED_SUBSAMPLE on a 90/10 fixture must produce a different forest
+// than the unweighted baseline (engagement check, not sklearn parity).
+TEST(RfTests, ClassWeightModeBalancedSubsampleChangesForest)
+{
+  constexpr int m = 600;
+  constexpr int n = 6;
+  thrust::device_vector<float> X(m * n);
+  raft::random::Rng r(23);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, nullptr);
+  std::vector<int> h_y(m);
+  // 90/10 imbalance.
+  for (int i = 0; i < m; ++i)
+    h_y[i] = (i % 10 == 0) ? 1 : 0;
+  thrust::device_vector<int> y = h_y;
+  // Full-y balanced reciprocals: minority class (count=60) gets 5x, majority
+  // (count=540) gets ~0.556. Passed through the ABI as the diagnostic array.
+  thrust::device_vector<double> class_weights(2);
+  class_weights[0] = static_cast<double>(m) / (2.0 * 540.0);
+  class_weights[1] = static_cast<double>(m) / (2.0 * 60.0);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  RF_params rf_params =
+    set_rf_params(5, 64, 1.0, 32, 1, 2, 0.0, true, 8, 1.0, 23, CRITERION::GINI, 1, 128);
+
+  auto forest_baseline     = std::make_shared<RandomForestMetaData<float, int>>();
+  auto forest_balanced_sub = std::make_shared<RandomForestMetaData<float, int>>();
+  fit(handle,
+      forest_baseline.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn);
+  fit(handle,
+      forest_balanced_sub.get(),
+      X.data().get(),
+      m,
+      n,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::warn,
+      /*bootstrap_masks=*/nullptr,
+      /*sample_weight=*/nullptr,
+      /*class_weight_mode=*/static_cast<int>(ClassWeightMode::BALANCED_SUBSAMPLE),
+      /*class_weight_array=*/class_weights.data().get());
+
+  // Either the leaf counts or the tree structure should change; a forest
+  // that ignores the per-tree reweighting would be byte-identical here.
+  bool any_differ = false;
+  for (size_t t = 0; t < forest_baseline->trees.size(); ++t) {
+    auto& tb  = forest_baseline->trees[t];
+    auto& tbs = forest_balanced_sub->trees[t];
+    if (tb->leaf_counter != tbs->leaf_counter || tb->sparsetree.size() != tbs->sparsetree.size()) {
+      any_differ = true;
+      break;
+    }
+    for (size_t i = 0; i < tb->vector_leaf.size(); ++i) {
+      if (tb->vector_leaf[i] != tbs->vector_leaf[i]) {
+        any_differ = true;
+        break;
+      }
+    }
+    if (any_differ) break;
+  }
+  ASSERT_TRUE(any_differ) << "BALANCED_SUBSAMPLE produced identical forest to unweighted; the "
+                             "per-tree compute path is not engaging.";
+}
+
 TEST(RfTests, IntegerOverflow)
 {
   std::size_t m = 1000000;

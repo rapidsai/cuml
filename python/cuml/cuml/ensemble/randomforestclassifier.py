@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
+import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -124,6 +125,19 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
+    class_weight : dict, 'balanced', 'balanced_subsample', or None (default = None)
+        Weights associated with classes in the form
+        ``{class_label: weight}``. If ``None``, all classes are weighted
+        equally. The ``'balanced'`` mode uses the values of ``y`` to
+        automatically adjust weights inversely proportional to class
+        frequencies in the input data as
+        ``n_samples / (n_classes * np.bincount(y))``. The
+        ``'balanced_subsample'`` mode is the same as ``'balanced'`` except
+        that weights are computed based on the bootstrap sample for every
+        tree grown; with ``bootstrap=False`` it silently behaves as
+        ``'balanced'`` since there is no per-tree subsample to weight by.
+        These weights are multiplied with ``sample_weight`` (passed through
+        the ``fit`` method) if both are specified.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -147,6 +161,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         was never left out during the bootstrap. In this case,
         ``oob_decision_function_`` might contain NaN. This attribute exists
         only when ``oob_score`` is True.
+    class_weight_ : np.ndarray of shape (n_classes,)
+        The per-class weights actually applied during fit, after resolving
+        ``class_weight``. For ``class_weight=None`` (the default), all
+        entries are 1.0. For ``class_weight='balanced_subsample'`` with
+        ``bootstrap=True``, this reflects the full-``y`` balanced weights
+        as a reference; the per-tree weights used internally are computed
+        from each tree's bootstrap sample and not exposed. Note that
+        scikit-learn's ``RandomForestClassifier`` does not expose this
+        attribute; cuML adds it mirroring ``SVC.class_weight_``. Round-
+        tripping a sklearn-trained model via ``from_sklearn`` leaves it
+        unset until refit.
     feature_importances_ : ndarray of shape (n_features,)
         The impurity-based feature importances.
 
@@ -154,6 +179,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     -----
     While training the model for multi class classification problems, using
     deep trees or `max_features=1.0` provides better performance.
+
+    Under weighted training (``sample_weight`` or non-None ``class_weight``),
+    ``feature_importances_`` is well-formed (non-negative and sums to one)
+    but is not byte-equivalent to scikit-learn's. cuML weights the impurity
+    term in the gain accumulator; scikit-learn weights the count term via
+    ``weighted_n_node_samples``. Both apply each tree's per-sample weight
+    once, so direction-of-importance agreement is typical; ordering across
+    features can differ in the long tail.
 
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
@@ -168,24 +201,56 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
     @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "class_weight"]
+
+    @classmethod
     def _params_from_cpu(cls, model):
-        if model.class_weight is not None:
-            raise UnsupportedOnGPU("`class_weight` is not supported")
-        return super()._params_from_cpu(model)
+        cw = model.class_weight
+        if isinstance(cw, (list, tuple)):
+            raise UnsupportedOnGPU(
+                "`class_weight` as a list of dicts (multi-output) is not "
+                "supported (cuml RFC has n_outputs_=1)."
+            )
+        if isinstance(cw, str) and cw not in (
+            "balanced",
+            "balanced_subsample",
+        ):
+            raise UnsupportedOnGPU(f"`class_weight={cw!r}` is not supported")
+        params = super()._params_from_cpu(model)
+        params["class_weight"] = cw
+        return params
+
+    def _params_to_cpu(self):
+        params = super()._params_to_cpu()
+        params["class_weight"] = self.class_weight
+        return params
 
     def _attrs_from_cpu(self, model):
-        return {
+        attrs = {
             "classes_": model.classes_,
             "n_classes_": model.n_classes_,
             **super()._attrs_from_cpu(model),
         }
+        if hasattr(model, "class_weight_"):
+            attrs["class_weight_"] = model.class_weight_
+        return attrs
 
     def _attrs_to_cpu(self, model):
-        return {
+        attrs = {
             "classes_": self.classes_,
             "n_classes_": self.n_classes_,
             **super()._attrs_to_cpu(model),
         }
+        if hasattr(self, "class_weight_"):
+            attrs["class_weight_"] = self.class_weight_
+        return attrs
+
+    @property
+    def _effective_class_weight(self):
+        if self.class_weight == "balanced_subsample" and not self.bootstrap:
+            return "balanced"
+        return self.class_weight
 
     def __init__(
         self,
@@ -205,6 +270,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         random_state=None,
         n_streams=4,
         oob_score=False,
+        class_weight=None,
         verbose=False,
         output_type=None,
     ):
@@ -227,6 +293,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             verbose=verbose,
             output_type=output_type,
         )
+        self.class_weight = class_weight
 
     @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
@@ -269,7 +336,52 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        return self._fit_forest(X, y, sample_weight=sample_weight)
+
+        cw = self._effective_class_weight
+        if isinstance(cw, str) and cw not in (
+            "balanced",
+            "balanced_subsample",
+        ):
+            raise ValueError(
+                "`class_weight` must be None, a dict mapping class label "
+                "to weight, 'balanced', or 'balanced_subsample'. Got "
+                f"{self.class_weight!r}."
+            )
+        class_weight_mode = 0  # ClassWeightMode::NONE
+        class_weight_array = None
+        if cw is None:
+            self.class_weight_ = np.ones(self.n_classes_, dtype=np.float64)
+        elif cw == "balanced_subsample":
+            # bootstrap=True: C++ recomputes per-tree weights from each
+            # tree's bootstrap sample. The full-y array set here is a
+            # diagnostic surface, not what the kernel actually applies.
+            self.class_weight_, _ = process_class_weight(
+                classes,
+                y,
+                "balanced",
+                sample_weight=None,
+                balanced_with_sample_weight=False,
+            )
+            class_weight_mode = 1  # ClassWeightMode::BALANCED_SUBSAMPLE
+            class_weight_array = cp.asarray(
+                self.class_weight_, dtype=cp.float64
+            )
+        else:
+            self.class_weight_, sample_weight = process_class_weight(
+                classes,
+                y,
+                cw,
+                sample_weight=sample_weight,
+                balanced_with_sample_weight=False,
+            )
+
+        return self._fit_forest(
+            X,
+            y,
+            sample_weight=sample_weight,
+            class_weight_mode=class_weight_mode,
+            class_weight_array=class_weight_array,
+        )
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
