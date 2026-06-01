@@ -698,7 +698,7 @@
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
 - reason: Feature name preservation and metadata handling in cuml.accel StandardScaler needs comprehensive fixes
   marker: cuml_accel_bugs_sklearn16plus
-  condition: scikit-learn>=1.6
+  condition: scikit-learn>=1.6,<1.7
   tests:
   - "sklearn.tests.test_common::test_estimators[StandardScaler()-check_sample_weight_equivalence_on_sparse_data]"
   - "sklearn.utils.tests.test_estimator_checks::test_estimator_with_set_output"
