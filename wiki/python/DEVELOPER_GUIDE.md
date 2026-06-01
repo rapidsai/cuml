@@ -243,17 +243,9 @@ Running pytest from outside `python/cuml/` can result in import errors or missed
 
 ## Input Validation
 
-New or updated estimator code should use `cuml.internals.validation` for user-facing input validation. These helpers are the standard path for matching scikit-learn validation behavior, simplifying input ingest, and avoiding module-specific validation pipelines.
+New or updated estimator code should use `cuml.internals.validation` for user-facing input validation. These helpers are the standard path for matching scikit-learn validation behavior, simplifying input ingest, and avoiding module-specific validation pipelines. See the [Estimator Guide](ESTIMATOR_GUIDE.md#input-validation) for estimator-specific patterns and examples.
 
-Prefer `check_inputs` for estimator methods that validate `X` and optional `y` / `sample_weight` values. It composes the common validation steps:
-
-- `check_features` for `n_features_in_` and `feature_names_in_`
-- `check_array` for `X`
-- `check_y` for targets and classifier label encoding
-- `check_sample_weight` for sample weights
-- `check_consistent_length` across validated inputs
-
-Use the lower-level helpers directly when a method has a non-standard shape: `check_array` for standalone arrays, `check_y` for targets, `check_cudf` for cuDF/dataframe-oriented paths, and `check_all_finite` or `check_non_negative` only for specialized checks that are not already covered by the higher-level helpers.
+Prefer `check_inputs` for estimator methods that validate `X` and optional `y` / `sample_weight` values. Use lower-level helpers directly only when a method has a non-standard shape that the higher-level helper cannot express.
 
 Validation helpers should be configured to describe what the estimator actually supports. Set `dtype`, `convert_dtype`, `mem_type`, `order`, `accept_sparse`, `ensure_all_finite`, `ensure_non_negative`, and minimum shape requirements explicitly when the defaults are not correct. Do not hand-roll equivalent checks unless the common helpers cannot express the estimator's requirements.
 
@@ -264,47 +256,7 @@ The validation pipeline normalizes inputs to standard array containers:
 
 For new code, prefer these standard containers for internal processing rather than converting user inputs through `input_to_cuml_array` or using `CumlArray` as the ingest representation. `CumlArray` is still useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
 
-Fit-like methods should validate with `reset=True` so feature metadata is set from the training input. Inference methods should usually call `check_is_fitted` and then validate with the default `reset=False` so the input is checked against the fitted feature metadata. When a method needs to preserve an input dataframe index for reflected output, pass `return_index=True` and wrap the returned value with the collected index.
-
-For example:
-
-```python
-from cuml.internals import reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.base import Base
-from cuml.internals.validation import check_inputs, check_is_fitted
-
-
-class MyEstimator(Base):
-
-    @reflect(reset="type")
-    def fit(self, X, y, *, convert_dtype=True):
-        X, y = check_inputs(
-            self,
-            X,
-            y,
-            dtype=("float32", "float64"),
-            convert_dtype=convert_dtype,
-            order="F",
-            reset=True,
-        )
-        # Fit using cupy/numpy arrays returned by validation.
-        return self
-
-    @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
-        check_is_fitted(self)
-        X, index = check_inputs(
-            self,
-            X,
-            dtype=self.coef_.dtype,
-            convert_dtype=convert_dtype,
-            order="F",
-            return_index=True,
-        )
-        out = ...
-        return CumlArray(out, index=index)
-```
+Fit-like methods should validate with `reset=True` so feature metadata is set from the training input. Inference methods should usually call `check_is_fitted` and then validate with the default `reset=False` so the input is checked against the fitted feature metadata.
 
 Tests for validation changes should cover both accepted and rejected inputs, including dtype conversion, sparse support, finite/non-negative requirements, feature-count and feature-name checks, and any classifier class-encoding behavior. When changing validation behavior for an estimator, also check the scikit-learn compatibility tests and the `cuml.accel` upstream xfail list.
 
