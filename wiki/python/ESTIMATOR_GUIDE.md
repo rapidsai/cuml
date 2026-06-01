@@ -576,39 +576,6 @@ def predict(self, X) -> CumlArray:
     return CumlArray(cp_arr).to_output(self._get_output_type(X))
 ```
 
-### **Don't:** Use `CumlArray.to_output()` directly
-
-Avoid `CumlArray.to_output()` in public methods. For internal conversions, use `cuml.using_output_type()`.
-
-**Do this:**
-```python
-@reflect
-def _private_func(self) -> CumlArray:
-    return cp.ones((10,))
-
-@reflect
-def predict(self, X, y) -> CumlArray:
-    self.my_cupy_attribute_ = cp.zeros((10,))
-
-    with cuml.using_output_type("numpy"):
-        np_arr = self._private_func()
-
-    return self.my_cupy_attribute_ + np_arr
-```
-
-**Not this:**
-```python
-def _private_func(self) -> CumlArray:
-    return cp.ones((10,))
-
-def predict(self, X, y) -> CumlArray:
-    self.my_cupy_attribute_ = cp.zeros((10,))
-
-    np_arr = CumlArray(self._private_func()).to_output("numpy")
-
-    return CumlArray(self.my_cupy_attribute_).to_output("numpy") + np_arr
-```
-
 ### **Don't:** Perform parameter modification in `__init__()`
 
 Store constructor arguments exactly as passed. Move normalization, validation, and conversion into `fit()` or a private helper so cloning works.
