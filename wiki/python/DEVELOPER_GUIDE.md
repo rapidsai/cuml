@@ -40,7 +40,7 @@ The cuML Python library provides a scikit-learn style API for GPU-accelerated ma
 
 ## Coding Style
 
-The majority of style guidelines are enforced through pre-commit hooks. Python code must be formatted following the PEP8 style as defined by black and isort.
+The majority of style guidelines are enforced through pre-commit hooks. Run the configured hooks before submitting changes so formatting and lint checks match the repository's current toolchain.
 
 See [Documentation](#documentation) for guidelines on doc-string formatting.
 
