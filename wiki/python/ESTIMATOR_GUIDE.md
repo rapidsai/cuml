@@ -83,8 +83,6 @@ At a high level, all cuML Estimators must:
          super().__init__(verbose=verbose, output_type=output_type)
          ...
    ```
-
-   > **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. If your estimator requires `n_streams` or multi-GPU support via `device_ids`, add those as top-level parameters instead.
 4. Declare each array-like attribute the new Estimator will compute as a class variable for automatic array type conversion. An order can be specified to serve as an indicator of the order the array should be in for the C++ algorithms to work.
    ```python
    from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -265,8 +263,6 @@ All `cuml.Base` estimators follow the [scikit-learn estimator contract](https://
 ### Initialization
 
 All estimators should accept `verbose` and `output_type`, and pass them to `super().__init__()`.
-
-> **Note:** The `handle` argument has been removed from `Base.__init__`. New estimators should not include a `handle` parameter. Estimators that need to configure stream pools should add an `n_streams` parameter. Estimators that support multi-GPU execution should add a `device_ids` parameter.
 
 Constructor parameters should be keyword-only unless the matched source API uses positional parameters. This reduces breaking changes when parameters are added or removed:
 
