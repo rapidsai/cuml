@@ -14,6 +14,7 @@ import pytest
 import scipy.sparse as sp
 import sklearn
 from hypothesis import assume, example, given
+from packaging.version import Version
 from sklearn.exceptions import DataConversionWarning
 
 from cuml.internals.validation import (
@@ -30,6 +31,8 @@ from cuml.internals.validation import (
     check_sample_weight,
     check_y,
 )
+
+CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
 
 DTYPES = ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8")
 
@@ -1092,6 +1095,45 @@ def test_check_array_large_sparse_errors():
         array, accept_sparse=True, accept_large_sparse=True, mem_type="host"
     )
     assert out is array
+
+
+@pytest.mark.skipif(
+    not CUPY_SUPPORTS_LARGE_SPARSE, reason="requires cupy >= 14.1.0"
+)
+def test_check_array_large_sparse_cupy_supported():
+    x_host = sp.coo_matrix(
+        (
+            np.array([1.5]),
+            (np.array([0], dtype="int64"), np.array([0], dtype="int64")),
+        ),
+        shape=(2**32, 10),
+    )
+    x_device = cp_sp.coo_matrix(x_host)
+
+    out = check_array(x_host, accept_sparse=True, accept_large_sparse=True)
+    assert isinstance(out, cp_sp.coo_matrix)
+    assert out.shape == x_host.shape
+
+    out = check_array(x_device, accept_sparse=True, accept_large_sparse=True)
+    assert out is x_device
+
+
+@pytest.mark.skipif(
+    CUPY_SUPPORTS_LARGE_SPARSE, reason="requires cupy < 14.1.0"
+)
+def test_check_array_large_sparse_cupy_not_supported():
+    array = sp.coo_matrix(
+        (
+            np.array([1.5]),
+            (np.array([0], dtype="int64"), np.array([0], dtype="int64")),
+        ),
+        shape=(2**32, 10),
+    )
+    with pytest.raises(
+        ValueError,
+        match="Sparse matrices with int64 indices require cupy >= 14.1.0",
+    ):
+        check_array(array, accept_sparse=True, accept_large_sparse=True)
 
 
 @example(array=np.ones((3, 2)))

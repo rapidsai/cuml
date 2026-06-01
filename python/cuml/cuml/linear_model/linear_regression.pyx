@@ -325,6 +325,7 @@ class LinearRegression(Base,
             convert_dtype=convert_dtype,
             ensure_min_samples=2,
             accept_sparse=True,
+            accept_large_sparse=True,
             accept_multi_output=True,
             reset=True,
         )

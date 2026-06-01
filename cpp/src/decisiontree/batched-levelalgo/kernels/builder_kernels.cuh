@@ -8,6 +8,7 @@
 #include "../bins.cuh"
 #include "../objectives.cuh"
 #include "../quantiles.h"
+#include "../random_utils.cuh"
 
 #include <cuml/common/utils.hpp>
 
@@ -83,24 +84,9 @@ void launchLeafKernel(ObjectiveT objective,
                       int batch_size,
                       size_t smem_size,
                       cudaStream_t builder_stream);
-// 32-bit FNV1a hash
-// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-const uint32_t fnv1a32_prime = uint32_t(16777619);
-const uint32_t fnv1a32_basis = uint32_t(2166136261);
-HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
-{
-  hash ^= (txt >> 0) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 8) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 16) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 24) & 0xFF;
-  hash *= fnv1a32_prime;
-  return hash;
-}
-
-// returns the lowest index in `array` whose value is greater or equal to `element`
+// Returns the lowest index in `array` whose value is greater or equal to `element`.
+// Values outside the quantile range are clamped to the edge bins: values below the
+// first quantile return 0, and values above the last quantile return len - 1.
 template <typename DataT, typename IdxT>
 HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
 {
