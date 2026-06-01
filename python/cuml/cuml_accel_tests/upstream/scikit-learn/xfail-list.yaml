@@ -1173,7 +1173,7 @@
   - "sklearn.compose.tests.test_column_transformer::test_make_column_transformer_pandas"
   - "sklearn.preprocessing.tests.test_function_transformer::test_function_transformer_with_dataframe_and_check_inverse_True"
 - reason: Upstream sklearn test expects pre-pandas-3 Series module names
-  condition: pandas>=3 and scikit-learn<1.7.2
+  condition: pandas>=3 and scikit-learn<1.6
   tests:
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-bool]"
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-dict]"
