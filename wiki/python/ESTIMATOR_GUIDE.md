@@ -95,7 +95,7 @@ At a high level, all cuML Estimators must:
       def __init__(self):
          ...
    ```
-5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset="type")` on fit-like methods that call `cuml.internals.validation` helpers directly, and use plain `@reflect` on inference methods:
+5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset="type")` on fit-like methods in combination with the appropriate `cuml.internals.validation` helpers, and use plain `@reflect` on inference methods:
    ```python
    from cuml.internals import reflect
    from cuml.internals.array import CumlArray
@@ -178,7 +178,7 @@ class MyEstimator(Base):
         return X_m
 ```
 
-Fit-like methods that call validation directly should use `@reflect(reset="type")` and pass `reset=True` to validation. Methods that return scalars usually do not need `@reflect`; use `@run_in_internal_context` only when the method calls reflected methods internally.
+Fit-like methods should use `@reflect(reset="type")` in combination with the appropriate validation helpers. Pass `reset=True` to validation when fitting. Methods that return scalars usually do not need `@reflect`; use `@run_in_internal_context` only when the method calls reflected methods internally.
 
 ## Background
 
@@ -492,7 +492,6 @@ class MyEstimator(Base):
 | Decorator Usage | When to Use |
 | :-------------- | :---------- |
 | `@reflect(reset="type")` | Fit-like methods that store `_input_type` through reflection while validation helpers set or check `n_features_in_`. |
-| `@reflect(reset=True)` | Simple fit-like methods that do not call validation directly and rely on the decorator to store `_input_type` and set `n_features_in_`. |
 | `@reflect` | Transform/predict methods that return arrays. |
 | `@reflect(array=None)` | Methods with no array input (e.g., `forecast(nsteps)`). Uses fit-time input type. |
 
@@ -548,7 +547,7 @@ Use these rules when choosing a decorator:
 
 - If a public method returns array-like data directly to the user, use `@reflect`.
 - If a fit-like method calls validation helpers directly, use `@reflect(reset="type")` and pass `reset=True` to validation.
-- If a fit-like method does not call validation directly and needs the decorator to set feature metadata, use `@reflect(reset=True)`.
+- If a fit-like method needs feature metadata, use `@reflect(reset="type")` in combination with the appropriate validation helper functions.
 - If a method has no array input and should use the fit-time input type for output conversion, use `@reflect(array=None)`.
 - If a method returns a scalar or needs to call reflected methods internally without automatic output conversion, use `@run_in_internal_context`.
 - If code inside an internal context needs user-facing output-type inference or needs to call an external estimator, temporarily use `exit_internal_context()`.
