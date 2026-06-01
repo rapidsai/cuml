@@ -444,10 +444,10 @@ def check_non_negative(array, *, input_name=None) -> None:
         raise ValueError(f"Negative values in data{suffix}")
 
 
-def _is_int64_sparse(array):
+def _requires_int64_sparse(array):
     """Check if a sparse array requires int64 indices"""
     INT32_MAX = (1 << 31) - 1
-    # A sparse array is large if:
+    # A sparse array requires int64 indices if:
     # - It has shape or nnz that doesn't fit in an int32
     # - CSR/CSC/BSR have indices/indptr that don't fit in an int32
     return (
@@ -464,7 +464,7 @@ def _is_int64_sparse(array):
 
 def _ensure_int32_sparse(array):
     """Convert sparse array to int32 indices if possible, and error otherwise"""
-    if _is_int64_sparse(array):
+    if _requires_int64_sparse(array):
         raise ValueError(
             "Only sparse matrices with int32 indices are currently supported."
         )
@@ -709,7 +709,7 @@ def check_array(
             # Try to coerce to int32 indices, erroring otherwise
             array = _ensure_int32_sparse(array)
         elif (
-            _is_int64_sparse(array)
+            _requires_int64_sparse(array)
             and mem_type == "device"
             and not _CUPY_SUPPORTS_LARGE_SPARSE
         ):
