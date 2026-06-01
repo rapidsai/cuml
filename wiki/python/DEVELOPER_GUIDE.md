@@ -264,7 +264,7 @@ Tests for validation changes should cover both accepted and rejected inputs, inc
 
 cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Validated user inputs should generally be processed as standard arrays (`cupy`, `numpy`, `cupyx.scipy.sparse`, or `scipy.sparse`) returned by the input validation helpers.
 
-`CumlArray` remains useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
+`CumlArray` remains useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation. Do not use `CumlArray` allocation or conversion methods for new internal array processing code; use the standard CuPy, NumPy, cuDF, or SciPy containers returned by validation.
 
 Current `CumlArray` memory types are:
 
@@ -273,22 +273,16 @@ Current `CumlArray` memory types are:
 
 Use explicit conversion parameters when a code path needs a specific location; estimators do not have a general memory-type context manager.
 
-The `CumlArray` class provides a unified interface for array data when cuML needs output-type reflection or descriptor-managed attributes:
+Use standard array libraries for allocations and conversions in new internal code:
 ```python
-from cuml.internals.array import CumlArray
+import cupy as cp
+import numpy as np
 
-# Create arrays with specific memory types
-arr = CumlArray.empty(shape=(1000,), dtype="float32", mem_type="device")
-host_arr = CumlArray.zeros(shape=(1000,), dtype="float32", mem_type="host")
+device_arr = cp.empty((1000,), dtype=cp.float32)
+host_arr = np.zeros((1000,), dtype=np.float32)
 
-# Convert between memory types
-device_arr = host_arr.to_mem_type('device')
-host_arr = device_arr.to_mem_type('host')
-
-# Convert to different output containers
-cupy_arr = arr.to_output("cupy")
-numpy_arr = arr.to_output("numpy")
-cudf_series = arr.to_output("series")
+device_arr = cp.asarray(host_arr)
+host_arr = cp.asnumpy(device_arr)
 ```
 
 Additional considerations:
