@@ -18,6 +18,7 @@
 - reason: 'Missing optional dependency: plotly'
   strict: false
   tests:
+  - "ensemble::plot_forest_hist_grad_boosting_comparison"
   - "model_selection::plot_grid_search_text_feature_extraction"
 - reason: 'Missing optional dependency: polars'
   strict: false
