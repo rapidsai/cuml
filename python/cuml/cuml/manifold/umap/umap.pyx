@@ -6,6 +6,8 @@ import ctypes
 import warnings
 from collections import deque
 
+from cuda.bindings.cyruntime cimport cudaStream_t
+
 import cupy as cp
 import cupyx.scipy.sparse
 import joblib
@@ -21,19 +23,21 @@ from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.input_utils import is_array_like
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
     to_cpu,
     to_gpu,
 )
-from cuml.internals.mem_type import MemoryType
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.validation import (
-    check_features,
+    check_array,
+    check_consistent_length,
+    check_inputs,
     check_is_fitted,
     check_random_seed,
+    check_y,
 )
 
 from libc.stdint cimport int64_t, uintptr_t
@@ -360,6 +364,11 @@ _BUILD_ALGOS = {"auto", "brute_force_knn", "nn_descent"}
 
 _INITS = {"random": 0, "spectral": 1}
 
+# Upper bound for n_components when force_serial_epochs is enabled. Matches
+# SERIAL_PER_WARP_MAX_NC in cpp/src/umap/simpl_set_embed/optimize_batch_kernel.cuh
+# Update both together.
+_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS = 512
+
 _TARGET_METRICS = {
     "euclidean": lib.MetricType.EUCLIDEAN,
     "l2": lib.MetricType.EUCLIDEAN,
@@ -543,7 +552,6 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     params.metric = coerce_metric(self.metric, sparse=is_sparse, build_algo=build_algo)
     params.p = (self.metric_kwds or {}).get("p", 2.0)
     params.random_state = check_random_seed(self.random_state)
-    params.force_serial_epochs = self.force_serial_epochs
 
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
@@ -557,6 +565,28 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
             f"Expected `init` to be an array or one of {list(_INITS)}, "
             f"got {self.init!r}"
         )
+
+    if self.force_serial_epochs is None:
+        # Only auto-enable for spectral fit. Also skip when n_components > 512 since
+        # the warp-based serial kernel only supports up to 512 components
+        params.force_serial_epochs = (
+            is_fit
+            and params.init == 1
+            and self.n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        )
+    else:
+        if (
+            self.force_serial_epochs
+            and self.n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        ):
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={self.n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
+        params.force_serial_epochs = self.force_serial_epochs
 
     if self.target_metric in _TARGET_METRICS:
         params.target_metric = _TARGET_METRICS[self.target_metric]
@@ -681,6 +711,12 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         * 'random': assign initial embedding positions at random.
         * An array-like with initial embedding positions.
 
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
+
     min_dist: float (optional, default 0.1)
         The effective minimum distance between embedded points. Smaller values
         will result in a more clustered/clumped embedding where nearby points
@@ -773,14 +809,16 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Note: Explicitly setting ``build_algo='nn_descent'`` will break
         reproducibility, as NN Descent produces non-deterministic KNN graphs.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     callback: An instance of GraphBasedDimRedCallback class
         Used to intercept the internal state of embeddings while they are being
         trained. Example of callback usage:
@@ -970,7 +1008,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             "target_metric": model.target_metric,
             "hash_input": True,
             "random_state": model.random_state,
-            "force_serial_epochs": getattr(model, "force_serial_epochs", False),
+            "force_serial_epochs": getattr(model, "force_serial_epochs", None),
             "precomputed_knn": precomputed_knn,
         }
 
@@ -1008,7 +1046,9 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(model._raw_data, convert_to_dtype=cp.float32)
+            raw_data = SparseCumlArray(
+                check_array(model._raw_data, dtype="float32", accept_sparse="csr")
+            )
         else:
             raw_data = to_gpu(model._raw_data)
 
@@ -1114,7 +1154,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         target_metric="categorical",
         hash_input=False,
         random_state=None,
-        force_serial_epochs=False,
+        force_serial_epochs=None,
         precomputed_knn=None,
         callback=None,
         build_algo="auto",
@@ -1158,7 +1198,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         X="dense_sparse",
         skip_parameters_heading=True,
     )
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -1177,71 +1217,79 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             memory usage, the precomputed knn graph should be CPU-accessible arrays
             such as numpy arrays.
         """
-        if len(X.shape) != 2:
-            raise ValueError("Reshape your data: data should be two dimensional")
+        # Normalize X as cheaply as possible to minimize copies and work
+        X, index = check_inputs(
+            self,
+            X,
+            order=None,
+            mem_type=None,
+            accept_sparse=True,
+            ensure_all_finite=False,
+            return_index=True,
+            reset=True,
+        )
+        if y is not None:
+            y = check_y(
+                y,
+                dtype="float32",
+                convert_dtype=convert_dtype,
+                order="C",
+            )
+            check_consistent_length(X, y)
 
         cdef int n_rows = X.shape[0]
         cdef int n_dims = X.shape[1]
-
-        if n_rows < 2:
-            raise ValueError(
-                f"Found an array with {n_rows} sample(s) (shape={X.shape}) "
-                f"while a minimum of 2 is required."
-            )
-        if n_dims < 1:
-            raise ValueError(
-                f"Found an array with 0 feature(s) (shape={X.shape}) "
-                f"while a minimum of 1 is required."
-            )
-
         cdef bool X_is_sparse = is_sparse(X)
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse)
 
+        # Determine the required mem_type based on params and X
+        if X_is_sparse:
+            mem_type = "device"
+        elif params.build_algo == lib.graph_build_algo.NN_DESCENT:
+            mem_type = "host"
+        elif (
+            params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
+            and params.build_params.n_clusters > 1
+        ):
+            mem_type = "host"
+        elif knn_graph is not None or self.precomputed_knn is not None:
+            # For dense inputs using a precomputed KNN, we leave the input in
+            # its original mem_type so the device memory may be dropped earlier
+            # if passed on host.
+            mem_type = None
+        else:
+            mem_type = "device"
+
+        # Now fully validate and coerce X to the required mem_type
+        X = check_array(
+            X,
+            mem_type=mem_type,
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse="csr",
+            ensure_min_samples=2,
+            input_name="X",
+        )
+
         cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
         cdef size_t X_nnz = 0
 
-        # Don't coerce to device memory when using a precomputed KNN, so
-        # that X may be dropped earlier if passed on host.
-        mem_type = (
-            MemoryType.device
-            if knn_graph is None and self.precomputed_knn is None
-            else False
-        )
-
         if X_is_sparse:
-            X_m = SparseCumlArray(X, convert_to_dtype=cp.float32, convert_to_mem_type=mem_type)
+            X_m = SparseCumlArray(X)
             X_ptr = X_m.data.ptr
             X_indices_ptr = X_m.indices.ptr
             X_indptr_ptr = X_m.indptr.ptr
             X_nnz = X_m.nnz
         else:
-            X_m = input_to_cuml_array(
-                X,
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                convert_to_mem_type=(
-                    MemoryType.host
-                    if params.build_algo == lib.graph_build_algo.NN_DESCENT or
-                    (params.build_algo == lib.graph_build_algo.BRUTE_FORCE_KNN
-                        and params.build_params.n_clusters > 1)
-                    else mem_type
-                )
-            ).array
+            X_m = CumlArray(data=X, index=index)
             X_ptr = X_m.ptr
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
-            y_m = input_to_cuml_array(
-                y,
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_rows=n_rows,
-                check_cols=1,
-            ).array
-            y_ptr = y_m.ptr
+            y_ptr = <uintptr_t>y.data.ptr
 
         cdef uintptr_t knn_dists_ptr = 0, knn_indices_ptr = 0
         if knn_graph is not None or self.precomputed_knn is not None:
@@ -1256,12 +1304,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 self._n_neighbors,
                 mem_type=False,     # mirrors the input graph mem type
             )
+            knn_dists_cp = knn_dists.to_output("cupy")
             if X_is_sparse:
-                knn_indices = input_to_cuml_array(
-                    knn_indices, convert_to_dtype=np.int32
-                ).array
-            knn_indices_ptr = knn_indices.ptr
-            knn_dists_ptr = knn_dists.ptr
+                knn_indices_cp = cp.asarray(
+                    knn_indices.to_output("cupy"), dtype=np.int32
+                )
+                # Drop the int64 original and keep only the int32 copy used by the kernel.
+                knn_indices = CumlArray(data=knn_indices_cp)
+            else:
+                knn_indices_cp = knn_indices.to_output("cupy")
+            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
+            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
         else:
             knn_indices = knn_dists = None
 
@@ -1272,21 +1325,25 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         handle_ = <handle_t*> <size_t> handle.getHandle()
 
         if is_array_like(self.init):
-            init_m = input_to_cuml_array(
+            init = check_array(
                 self.init,
+                dtype="float32",
                 order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=np.float32,
-                convert_to_mem_type=False,
-                check_rows=n_rows,
-                check_cols=self.n_components,
-            ).array
-
+                mem_type=None,
+                input_name="init",
+            )
+            if init.shape != (n_rows, self.n_components):
+                raise ValueError(
+                    f"Expected `init` with shape {(n_rows, self.n_components)}, "
+                    f"got {init.shape}"
+                )
             embeddings_buffer.reset(
                 new device_buffer(
-                    <const void*><uintptr_t>init_m.ptr,
-                    init_m.size,
-                    handle_.get_stream(),
+                    <const void*><uintptr_t>(
+                        init.data.ptr if isinstance(init, cp.ndarray) else init.ctypes.data
+                    ),
+                    <size_t> init.nbytes,
+                    <cudaStream_t> handle_.get_stream(),
                     make_any_device_resource(get_current_device_resource().get_mr())
                 )
             )
@@ -1296,13 +1353,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         cdef uintptr_t sigmas_ptr = 0
         cdef uintptr_t rhos_ptr = 0
         if not X_is_sparse:
-            sigmas_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
-            rhos_arr = CumlArray.zeros(n_rows, dtype=np.float32, order="C")
-            sigmas_ptr = sigmas_arr.ptr
-            rhos_ptr = rhos_arr.ptr
+            sigmas_cp = cp.zeros(n_rows, dtype=np.float32)
+            rhos_cp = cp.zeros(n_rows, dtype=np.float32)
+            sigmas_ptr = <uintptr_t>sigmas_cp.data.ptr
+            rhos_ptr = <uintptr_t>rhos_cp.data.ptr
         else:
-            sigmas_arr = None
-            rhos_arr = None
+            sigmas_cp = None
+            rhos_cp = None
 
         with nogil:
             if X_is_sparse:
@@ -1347,15 +1404,19 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             ),
             order="C"
         )
-        self.embedding_ = CumlArray(data=embedding, index=X_m.index)
+        self.embedding_ = CumlArray(data=embedding, index=index)
         self.graph_ = copy_raft_host_coo_to_scipy_coo(fss_graph)
         self._raw_data = X_m
         self._sparse_data = X_is_sparse
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
-        self._sigmas = sigmas_arr
-        self._rhos = rhos_arr
+        self._sigmas = (
+            CumlArray(data=sigmas_cp) if sigmas_cp is not None else None
+        )
+        self._rhos = (
+            CumlArray(data=rhos_cp) if rhos_cp is not None else None
+        )
 
         if self.hash_input:
             self._input_hash = _joblib_hash(X_m.to_output("numpy"))
@@ -1428,86 +1489,71 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         https://github.com/lmcinnes/umap/issues/158
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        if len(X.shape) != 2:
-            raise ValueError("Reshape your data: X should be two dimensional")
+        X, index = check_inputs(
+            self,
+            X,
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="C",
+            accept_sparse="csr",
+            return_index=True,
+        )
 
-        if is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=cp.float32)
-            index = None
-        else:
-            X = input_to_cuml_array(
-                X,
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            ).array
-            index = X.index
+        X_input_sparse = is_sparse(X)
 
-        if self._sparse_data and not isinstance(X, SparseCumlArray):
+        if self.hash_input:
+            if X_input_sparse:
+                X_for_hash = X.get()
+            else:
+                X_for_hash = cp.asnumpy(X)
+            if _joblib_hash(X_for_hash) == self._input_hash:
+                return self.embedding_
+
+        if self._sparse_data and not X_input_sparse:
             logger.warn(
                 "Model was trained on sparse data but dense data was provided to "
                 "transform(). Converting to sparse."
             )
-            X = SparseCumlArray(
-                cupyx.scipy.sparse.csr_matrix(X.to_output("cupy")),
-                convert_to_dtype=cp.float32
-            )
-        elif not self._sparse_data and isinstance(X, SparseCumlArray):
+            X = cupyx.scipy.sparse.csr_matrix(X)
+        elif not self._sparse_data and X_input_sparse:
             logger.warn(
                 "Model was trained on dense data but sparse data was provided to "
                 "transform(). Converting to dense."
             )
-            X = input_to_cuml_array(
-                X.to_output("cupy").todense(),
-                order="C",
-                check_dtype=np.float32,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-            ).array
+            X = cp.ascontiguousarray(X.toarray())
 
         cdef bool X_is_sparse = self._sparse_data
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef int orig_n_rows = self._raw_data.shape[0]
 
-        if n_cols != self.n_features_in_:
-            raise ValueError(
-                f"X has {n_cols} features, but UMAP is expecting "
-                f"{self.n_features_in_} features as input"
-            )
-
-        if self.hash_input:
-            if _joblib_hash(X.to_output("numpy")) == self._input_hash:
-                return self.embedding_
-
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_rows, is_sparse=X_is_sparse, is_fit=False)
 
-        out = CumlArray.zeros(
+        out = cp.zeros(
             (n_rows, self.n_components),
             order="C",
             dtype=np.float32,
-            index=index
         )
 
         cdef uintptr_t X_ptr, X_indptr_ptr, X_indices_ptr
         cdef uintptr_t orig_ptr, orig_indptr_ptr, orig_indices_ptr
         cdef size_t X_nnz, orig_nnz
         if X_is_sparse:
-            X_indptr_ptr = X.indptr.ptr
-            X_indices_ptr = X.indices.ptr
-            X_ptr = X.data.ptr
+            X_indptr_ptr = <uintptr_t>X.indptr.data.ptr
+            X_indices_ptr = <uintptr_t>X.indices.data.ptr
+            X_ptr = <uintptr_t>X.data.data.ptr
             X_nnz = X.nnz
             orig_indptr_ptr = self._raw_data.indptr.ptr
             orig_indices_ptr = self._raw_data.indices.ptr
             orig_ptr = self._raw_data.data.ptr
             orig_nnz = self._raw_data.nnz
         else:
-            X_ptr = X.ptr
+            X_ptr = <uintptr_t>X.data.ptr
             orig_ptr = self._raw_data.ptr
 
-        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t out_ptr = <uintptr_t>out.data.ptr
         cdef uintptr_t embedding_ptr = self.embedding_.ptr
         handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
@@ -1547,7 +1593,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 )
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=index)
 
     @generate_docstring(
         convert_dtype_cast="np.float32",
@@ -1577,13 +1623,14 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
                 " autoencoder."
             )
 
-        X = input_to_cuml_array(
+        # skip n_features_in_ validation
+        X, index = check_array(
             X,
+            dtype="float32",
+            convert_dtype=convert_dtype,
             order="C",
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
-        index = X.index
+            return_index=True,
+        )
 
         n_samples = X.shape[0]
         if X.shape[1] != self.n_components:
@@ -1594,7 +1641,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         # Get numpy arrays for preprocessing
         embedding_np = self.embedding_.to_output("numpy")
-        X_np = X.to_output("numpy")
+        X_np = cp.asnumpy(X)
         raw_data_np = self._raw_data.to_output("numpy")
 
         # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
@@ -1658,7 +1705,7 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         )
         handle.sync()
 
-        return CumlArray(data=inv_transformed_gpu, order="C", index=index)
+        return CumlArray(data=inv_transformed_gpu, index=index)
 
 
 def fuzzy_simplicial_set(
@@ -1735,15 +1782,10 @@ def fuzzy_simplicial_set(
         of the matrix represents the membership strength of the 1-simplex
         between the ith and jth sample points.
     """
-    X_m = input_to_cuml_array(
-        X,
-        order="C",
-        check_dtype=np.float32,
-        convert_to_dtype=np.float32
-    ).array
+    X = check_array(X, order="C", dtype="float32", input_name="X")
 
-    cdef int n_rows = X_m.shape[0]
-    cdef int n_cols = X_m.shape[1]
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
 
     cdef lib.UMAPParams params
     params.n_neighbors = n_neighbors
@@ -1757,24 +1799,23 @@ def fuzzy_simplicial_set(
 
     cdef uintptr_t X_ptr, knn_indices_ptr, knn_dists_ptr
     if knn_indices is not None and knn_dists is not None:
-        knn_indices_m = input_to_cuml_array(
+        knn_indices = check_array(
             knn_indices,
+            dtype="int64",
             order="C",
-            check_dtype=np.int64,
-            convert_to_dtype=np.int64
-        ).array
-        knn_dists_m = input_to_cuml_array(
+            input_name="knn_indices",
+        )
+        knn_dists = check_array(
             knn_dists,
+            dtype="float32",
             order="C",
-            check_dtype=np.float32,
-            convert_to_dtype=np.float32
-        ).array
-
+            input_name="knn_dists",
+        )
         X_ptr = 0
-        knn_indices_ptr = knn_indices_m.ptr
-        knn_dists_ptr = knn_dists_m.ptr
+        knn_indices_ptr = knn_indices.data.ptr
+        knn_dists_ptr = knn_dists.data.ptr
     else:
-        X_ptr = X_m.ptr
+        X_ptr = X.data.ptr
         knn_indices_ptr = 0
         knn_dists_ptr = 0
 
@@ -1807,7 +1848,7 @@ def simplicial_set_embedding(
     n_epochs=None,
     init="spectral",
     random_state=None,
-    force_serial_epochs=False,
+    force_serial_epochs=None,
     metric="euclidean",
     metric_kwds=None,
     output_metric="euclidean",
@@ -1828,6 +1869,12 @@ def simplicial_set_embedding(
         The 1-skeleton of the high dimensional fuzzy simplicial set as
         represented by a graph for which we require a sparse matrix for the
         (weighted) adjacency matrix.
+
+        Note: When ``force_serial_epochs`` is enabled (either explicitly or
+        via the auto-default for ``init='spectral'`` with
+        ``n_components <= 512``), the COO is required to be sorted by row
+        for internal CSR conversion. If it is not, it will be sorted internally.
+        To avoid the extra sort, pass a row-sorted COO.
     n_components: int
         The dimensionality of the euclidean space into which to embed the data.
     initial_alpha: float
@@ -1853,16 +1900,24 @@ def simplicial_set_embedding(
             * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
             * 'random': assign initial embedding positions at random.
             * An array-like with initial embedding positions.
+
+        Note: When ``init='spectral'`` and ``n_components <= 512``,
+        ``force_serial_epochs`` defaults to ``True`` because spectral
+        initialization is more susceptible to outlier artifacts. Pass
+        ``force_serial_epochs=False`` explicitly to disable and use the
+        faster parallel batch kernel.
     random_state: numpy RandomState or equivalent
         A state capable being used as a numpy random state.
-    force_serial_epochs: bool, optional (default=False)
-        If ``True``, optimization epochs will be executed with reduced GPU
-        parallelism. This is only relevant when ``random_state`` is set.
-        Enable this if you observe outliers in the resulting embeddings
-        with ``random_state`` configured. This may slow the optimization
-        step by more than 2x, but end-to-end runtime is typically similar
-        since optimization step is not the bottleneck. Use this to resolve rare
-        edge cases where the default heuristics do not trigger.
+    force_serial_epochs: bool or None, optional (default=None)
+        Controls whether optimization epochs use the sequential (reduced
+        GPU parallelism) kernel. When ``None`` (the default), serial epochs
+        are enabled automatically for ``init='spectral'`` with
+        ``n_components <= 512`` because spectral initialization is more
+        susceptible to outlier artifacts; for ``n_components > 512`` the
+        auto-default falls back to ``False`` since the serial kernel does
+        not support that range. Pass ``True`` to force serial epochs
+        regardless of init (only supported for ``n_components <= 512``;
+        otherwise a ``ValueError`` is raised), or ``False`` to disable them.
     metric: string (default='euclidean').
         Distance metric to use. Supported distances are ['l1, 'cityblock',
         'taxicab', 'manhattan', 'euclidean', 'l2', 'sqeuclidean', 'canberra',
@@ -1888,12 +1943,14 @@ def simplicial_set_embedding(
         The optimized of ``graph`` into an ``n_components`` dimensional
         euclidean space.
     """
-    X = input_to_cuml_array(
+    X, index = check_array(
         data,
+        dtype="float32",
+        convert_dtype=convert_dtype,
         order="C",
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        check_dtype=np.float32,
-    ).array
+        input_name="X",
+        return_index=True,
+    )
 
     cdef int n_rows = X.shape[0]
     cdef int n_cols = X.shape[1]
@@ -1911,7 +1968,24 @@ def simplicial_set_embedding(
     params.negative_sample_rate = negative_sample_rate
     params.n_epochs = n_epochs or 0
     params.random_state = check_random_seed(random_state)
-    params.force_serial_epochs = force_serial_epochs
+    if force_serial_epochs is None:
+        # Auto-enable only for spectral init within the serial kernel's supported
+        # n_components range (the warp-based serial kernel supports up to 512).
+        params.force_serial_epochs = (
+            isinstance(init, str)
+            and init == "spectral"
+            and n_components <= _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS
+        )
+    else:
+        if force_serial_epochs and n_components > _FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS:
+            raise ValueError(
+                f"force_serial_epochs=True is only supported for "
+                f"n_components <= {_FORCE_SERIAL_EPOCHS_MAX_N_COMPONENTS}, "
+                f"got n_components={n_components}. Pass "
+                f"force_serial_epochs=False or None to use the parallel "
+                f"batch kernel."
+            )
+        params.force_serial_epochs = force_serial_epochs
     params.deterministic = (random_state is not None or n_rows < 300)
     params.metric = coerce_metric(metric)
     params.p = (metric_kwds or {}).get("p", 2.0)
@@ -1928,19 +2002,21 @@ def simplicial_set_embedding(
 
     cdef bool initialized = is_array_like(init)
     if initialized:
-        embedding = input_to_cuml_array(
+        embedding = check_array(
             init,
+            dtype="float32",
+            convert_dtype=convert_dtype,
             order="C",
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=np.float32,
-            check_rows=n_rows,
-            check_cols=n_components,
-        ).array
+            input_name="init",
+        )
+        if embedding.shape != (n_rows, n_components):
+            raise ValueError(
+                f"Expected `init` with shape {(n_rows, n_components)}, "
+                f"got {embedding.shape}"
+            )
     elif isinstance(init, str) and init in _INITS:
         params.init = _INITS[init]
-        embedding = CumlArray.zeros(
-            (n_rows, n_components), order="C", dtype=np.float32, index=X.index,
-        )
+        embedding = cp.zeros((n_rows, n_components), order="C", dtype="float32")
     else:
         raise ValueError(
             "Expected `init` to be an array or one of ['random', 'spectral'], "
@@ -1955,8 +2031,8 @@ def simplicial_set_embedding(
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef RaftCOO fss_graph = RaftCOO.from_cupy_coo(handle, graph)
-    cdef uintptr_t embedding_ptr = embedding.ptr
-    cdef uintptr_t X_ptr = X.ptr
+    cdef uintptr_t embedding_ptr = embedding.data.ptr
+    cdef uintptr_t X_ptr = X.data.ptr
 
     if initialized:
         lib.refine(
@@ -1978,4 +2054,4 @@ def simplicial_set_embedding(
             &params,
             <float*> embedding_ptr
         )
-    return embedding
+    return CumlArray(data=embedding, index=index)

@@ -20,8 +20,8 @@ __all__ = (
 
 
 def _has_probability(model):
-    # sklearn >= 1.9 defaults `probability` to the sentinel string "deprecated",
-    # which is truthy. Treat it the same as False (no calibration requested).
+    # sklearn >= 1.9 defaults `probability` to the "deprecated" sentinel,
+    # which is truthy. Treat it like False (no calibration requested).
     if model.probability == "deprecated" or not model.probability:
         raise AttributeError(
             "predict_proba is not available when probability=False"
@@ -39,26 +39,16 @@ class SVC(ProxyBase):
     )
 
     def _gpu_fit(self, X, y, sample_weight=None):
-        classes, counts = np.unique(np.asanyarray(y), return_counts=True)
+        classes = np.unique(np.asanyarray(y))
         if len(classes) > 2:
             raise UnsupportedOnGPU("Multiclass `y` is not supported")
-
-        # CalibratedClassifierCV doesn't like working with cases where any
-        # classes have less than 5 examples.
-        if self.probability and counts.min() < 5:
-            raise UnsupportedOnGPU(
-                "`probability=True` requires >= 5 samples per class"
-            )
-
         return self._gpu.fit(X, y, sample_weight=sample_weight)
 
     def _gpu_decision_function(self, X):
         # Fixup returned dtype
         return self._gpu.decision_function(X).astype("float64", copy=False)
 
-    # XXX: sklearn wants these methods to only exist if probability=True.
-    # ProxyBase lacks a builtin mechanism to do that, since this is the only
-    # use case so far we manually define them for now.
+    # Manual gate: ProxyBase has no built-in conditional-method support.
     @available_if(_has_probability)
     @functools.wraps(_SVC.predict_proba)
     def predict_proba(self, X):

@@ -241,7 +241,7 @@ class LinearRegression(Base,
         )
 
         # All libcuml solvers require F-ordered X, and mutate the inputs.
-        X = cp.asarray(X, order="F", copy=None if may_mutate_X else True)
+        X = cp.array(X, order="F", copy=None if may_mutate_X else True)
         if not may_mutate_y:
             y = y.copy()
         if sample_weight is not None and not may_mutate_sample_weight:
@@ -325,6 +325,7 @@ class LinearRegression(Base,
             convert_dtype=convert_dtype,
             ensure_min_samples=2,
             accept_sparse=True,
+            accept_large_sparse=True,
             accept_multi_output=True,
             reset=True,
         )

@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
+#include <cuml/common/export.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 // The type of season that represents the time-series
 // ADDITIVE is with stable trend and level over periods
@@ -35,4 +36,4 @@ struct OptimParams {
 
 enum Norm { L0, L1, L2, LINF };
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

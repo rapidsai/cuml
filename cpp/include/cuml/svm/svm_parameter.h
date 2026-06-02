@@ -1,12 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
 #include <cuml/common/logger.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace SVM {
 
 enum SvmType { C_SVC, NU_SVC, EPSILON_SVR, NU_SVR };
@@ -37,4 +37,4 @@ struct SvmParameter {
 };
 
 };  // namespace SVM
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

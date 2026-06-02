@@ -21,10 +21,17 @@ from cuml.explainer.common import (
 )
 from cuml.testing.utils import ClassEnumerator
 
-# TODO(26.08) Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
+pytestmark = [
+    # TODO(26.10) Remove this filter, once cuml.fil is removed
+    pytest.mark.filterwarnings(
+        "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+    ),
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08) Remove this filter
+    pytest.mark.filterwarnings(
+        "ignore:The default value of 'max_depth':FutureWarning"
+    ),
+]
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 

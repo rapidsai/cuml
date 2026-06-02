@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import sklearn
+from packaging.version import Version
+from pandas.api.types import is_extension_array_dtype, is_string_dtype
 from sklearn.exceptions import DataConversionWarning
 from sklearn.utils.validation import check_is_fitted
 
@@ -24,10 +26,33 @@ __all__ = (
     "check_all_finite",
     "check_non_negative",
     "check_array",
+    "check_cudf",
     "check_y",
     "check_sample_weight",
     "check_inputs",
+    "check_classification_targets",
 )
+
+_CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
+
+
+def _as_numpy_dtype(dtype):
+    """Normalize pandas extension dtypes for numpy/cupy conversion."""
+    try:
+        return np.dtype(dtype)
+    except TypeError:
+        if is_string_dtype(dtype) or is_extension_array_dtype(dtype):
+            return np.dtype("object")
+        raise
+
+
+def _dataframe_numpy_dtype(dtypes):
+    """Infer a NumPy dtype for dataframe-like inputs."""
+    if all(isinstance(dt, np.dtype) for dt in dtypes):
+        return np.result_type(*dtypes)
+    if any(dt == "object" or is_string_dtype(dt) for dt in dtypes):
+        return np.dtype("object")
+    return None
 
 
 def check_random_seed(random_state) -> int:
@@ -188,9 +213,16 @@ def _get_feature_names(X):
     if isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         feature_names = np.asarray(X.columns, dtype=object)
     elif hasattr(X, "__dataframe__"):
-        feature_names = np.asarray(
-            list(X.__dataframe__().column_names()), dtype=object
-        )
+        pandas4_warning = getattr(pd.errors, "Pandas4Warning", FutureWarning)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The Dataframe Interchange Protocol is deprecated.*",
+                category=pandas4_warning,
+            )
+            feature_names = np.asarray(
+                list(X.__dataframe__().column_names()), dtype=object
+            )
     else:
         return None
 
@@ -288,8 +320,13 @@ def check_features(estimator, X, reset=False) -> None:
             msg = "\n".join(parts)
             raise ValueError(msg)
 
-    # Then check n_features_in_
-    if n_features != estimator.n_features_in_:
+    # Then check n_features_in_. We skip the check if `n_features_in_` wasn't
+    # stored (through calling `fit` first). This is allowed for some stateless
+    # transformers.
+    if (
+        hasattr(estimator, "n_features_in_")
+        and n_features != estimator.n_features_in_
+    ):
         raise ValueError(
             f"X has {n_features} features, but {estimator.__class__.__name__} "
             f"is expecting {estimator.n_features_in_} features as input."
@@ -344,7 +381,7 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     input_name : str or None, default=None
         The input parameter name to use in error messages.
     """
-    if not np.isdtype(array.dtype, "real floating"):
+    if not array.dtype.kind == "f":
         # No-op for non floating inputs
         return
 
@@ -407,13 +444,13 @@ def check_non_negative(array, *, input_name=None) -> None:
         raise ValueError(f"Negative values in data{suffix}")
 
 
-def _ensure_int32_sparse(array):
-    """Convert sparse array to int32 indices if possible, and error otherwise"""
+def _requires_int64_sparse(array):
+    """Check if a sparse array requires int64 indices"""
     INT32_MAX = (1 << 31) - 1
-
-    # All sparse arrays must have shapes and nnz that fit in an int32. In addition,
-    # CSR, CSC, and BSR must have indices/indptr that fit in an int32.
-    if (
+    # A sparse array requires int64 indices if:
+    # - It has shape or nnz that doesn't fit in an int32
+    # - CSR/CSC/BSR have indices/indptr that don't fit in an int32
+    return (
         any(s > INT32_MAX for s in array.shape)
         or array.nnz > INT32_MAX
         or (
@@ -422,7 +459,12 @@ def _ensure_int32_sparse(array):
                 len(array.indices) > INT32_MAX or len(array.indptr) > INT32_MAX
             )
         )
-    ):
+    )
+
+
+def _ensure_int32_sparse(array):
+    """Convert sparse array to int32 indices if possible, and error otherwise"""
+    if _requires_int64_sparse(array):
         raise ValueError(
             "Only sparse matrices with int32 indices are currently supported."
         )
@@ -464,6 +506,32 @@ def _ensure_int32_sparse(array):
         return array
 
 
+def _index_as_mem_type(index, mem_type=None):
+    """Coerce `index` to a specified `mem_type` (if needed)."""
+    if isinstance(index, cudf.Index) and mem_type == "host":
+        index = (
+            cudf.pandas.as_proxy_object(index)
+            if cudf.pandas.LOADED
+            else index.to_pandas()
+        )
+    elif isinstance(index, pd.Index) and mem_type == "device":
+        index = cudf.Index(index)
+    return index
+
+
+if np.lib.NumpyVersion(np.__version__) >= "2.0.0b1":
+    np_asarray = np.asarray
+else:
+
+    def np_asarray(x, dtype=None, order=None, copy=None):
+        """A compatibility shim for `np.asarray`.
+
+        numpy 2.0 added the `copy` arg to `np.asarray`, as well as changed the
+        meaning of copy=False to "error if a copy required" rather than "only
+        copy if needed" (which is now `copy=None`)."""
+        return np.array(x, dtype=dtype, order=order or "K", copy=bool(copy))
+
+
 def check_array(
     array,
     *,
@@ -473,6 +541,7 @@ def check_array(
     convert_dtype=True,
     mem_type="device",
     order="A",
+    copy=False,
     ensure_all_finite=True,
     ensure_non_negative=False,
     ensure_2d=True,
@@ -516,6 +585,10 @@ def check_array(
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
         C contiguous, or `None` for no contiguity requirements (may be
         non-contiguous!).
+    copy : bool, default=False
+        Set to ``True`` to ensure the input is copied (allowing the output to
+        be mutated without worry). Note that the default of ``False`` doesn't
+        guarantee no copy is made, it only allows for zero-copy when possible.
     ensure_all_finite : bool or 'allow-nan', default=True
         If True, an error will be raised if non-finite values are found in the
         input. If 'allow-nan', an error will be raised if infinite values are
@@ -553,29 +626,46 @@ def check_array(
         raise ValueError(f"Unsupported {mem_type=!r}")
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
+
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
+
+    is_sparse = cp_sp.issparse(array) or sp.issparse(array)
+    if is_sparse and (
+        mem_type == "device" or (mem_type is None and cp_sp.issparse(array))
+    ):
+        # XXX: cupyx.scipy.sparse doesn't support integral dtypes. If a dtype
+        # is specified, we filter to only supported types (erroring if no
+        # supported types specified). If dtype=None, we use the input dtype if
+        # supported, and the closest floating type otherwise.
+        if dtype is not None:
+            if not any(d.kind in "fb" for d in dtype):
+                raise ValueError(
+                    f"No dtype in {dtype} is supported by cupyx.scipy.sparse"
+                )
+            dtype = [d for d in dtype if d.kind in "fb"]
+        elif array.dtype.kind not in "fb":
+            dtype = [
+                np.dtype("f4") if array.dtype.itemsize <= 4 else np.dtype("f8")
+            ]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
     if isinstance(array, (cudf.DataFrame, pd.DataFrame)):
-        if all(isinstance(dt, np.dtype) for dt in array.dtypes):
-            array_dtype = np.result_type(*array.dtypes)
-        elif any(dt == "object" for dt in array.dtypes):
-            array_dtype = np.dtype("object")
-        else:
-            array_dtype = None
+        array_dtype = _dataframe_numpy_dtype(array.dtypes)
     else:
         array_dtype = getattr(array, "dtype", None)
-        if not isinstance(array_dtype, np.dtype):
+        if not isinstance(array_dtype, np.dtype) and array_dtype is not None:
+            array_dtype = _as_numpy_dtype(array_dtype)
+        elif not isinstance(array_dtype, np.dtype):
             array_dtype = None
 
     # Infer proper output dtype
     if array_dtype is not None:
         # Check for complex inputs before conversion when possible
-        if np.isdtype(array_dtype, "complex floating"):
+        if array_dtype.kind == "c":
             raise ValueError("Complex data not supported")
         if dtype is None:
             dtype = array_dtype
@@ -591,13 +681,14 @@ def check_array(
         else:
             dtype = array_dtype
     elif dtype is not None:
-        # No original dtype, use first dtype in list inputs
+        # No original dtype, use first provided dtype
         dtype = dtype[0]
 
     # Coerce `array` to numpy/cupy/scipy.sparse/cupyx.scipy.sparse values as
     # requested. For dataframe-like inputs also extract the index for later use.
     index = None
-    if cp_sp.issparse(array) or sp.issparse(array):
+    if is_sparse:
+        orig_sparse_array = array
         # Handle sparse inputs
         if isinstance(accept_sparse, str):
             accept_sparse = [accept_sparse]
@@ -615,7 +706,16 @@ def check_array(
         if array.format not in accept_sparse:
             array = array.asformat(accept_sparse[0])
         if not accept_large_sparse:
+            # Try to coerce to int32 indices, erroring otherwise
             array = _ensure_int32_sparse(array)
+        elif (
+            _requires_int64_sparse(array)
+            and mem_type == "device"
+            and not _CUPY_SUPPORTS_LARGE_SPARSE
+        ):
+            raise ValueError(
+                "Sparse matrices with int64 indices require cupy >= 14.1.0"
+            )
 
         # Validate dimensions and shape are as expected. We do this here
         # _before_ host/device conversion, since cupyx doesn't have a sparse
@@ -628,44 +728,62 @@ def check_array(
             ensure_min_features=ensure_min_features,
         )
 
-        # Coerce data to accepted dtype if needed
-        if dtype is not None and array.dtype != dtype:
-            array = array.astype(dtype)
-
-        # Coerce to device or host if needed
-        if mem_type == "device" and not cp_sp.issparse(array):
-            if array.ndim != 2:
-                raise ValueError("cupyx.scipy.sparse only supports 2D arrays")
-            array = getattr(cp_sp, f"{array.format}_matrix")(array)
-        elif mem_type == "host" and not sp.issparse(array):
+        # Coerce to proper dtype and mem_type if needed
+        if mem_type == "host" and not sp.issparse(array):
+            # Coerce to host, then coerce dtype. We do this to save device
+            # memory, and since scipy supports more dtypes.
             array = array.get()
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+        else:
+            # Otherwise coerce dtype, then mem_type if needed
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+            if mem_type == "device" and not cp_sp.issparse(array):
+                if array.ndim != 2:
+                    raise ValueError(
+                        "cupyx.scipy.sparse only supports 2D arrays"
+                    )
+                array = getattr(cp_sp, f"{array.format}_matrix")(array)
+
+        # Copy if needed
+        if copy and array is orig_sparse_array:
+            array = array.copy()
     else:
         # Handle dense inputs
         if isinstance(array, (cudf.DataFrame, cudf.Series)):
             # Handle cudf inputs
             index = array.index
             if mem_type == "host":
-                array = np.asarray(
-                    array.to_numpy(dtype=dtype), dtype=dtype, order=order
-                )
+                # XXX: cudf's to_numpy doesn't support conversions for all
+                # dtypes. Roundtrip through object dtype when necessary.
+                try:
+                    array = array.to_numpy(dtype=dtype)
+                except NotImplementedError:
+                    array = array.to_numpy(dtype="object")
+                array = np.asarray(array, dtype=dtype, order=order)
             else:
-                # XXX: the dtype keyword to `to_cupy` is buggy, and also
-                # doesn't support all dtype coercions. For now we do a
-                # manual cast to handle any coercions.
-                # See https://github.com/rapidsai/cudf/issues/22136.
-                if dtype is not None:
-                    array = array.astype(dtype, copy=False)
-                array = cp.asarray(array.to_cupy(), dtype=dtype, order=order)
+                array = cp.asarray(
+                    array.to_cupy(copy=copy, dtype=dtype),
+                    dtype=dtype,
+                    order=order,
+                )
         elif isinstance(array, (pd.DataFrame, pd.Series)):
             # Handle pandas inputs
             index = array.index
-            array = array.to_numpy(dtype=dtype)
+            # If cudf.pandas is enabled, copy=True always leads to a copy since
+            # cudf.pandas may maintain dual host/device buffers. Otherwise
+            # copy=True only leads to a copy here when outputting on host.
+            array = array.to_numpy(
+                dtype=dtype,
+                copy=copy and (cudf.pandas.LOADED or mem_type != "device"),
+            )
             if mem_type == "device":
                 array = cp.asarray(array, dtype=dtype, order=order)
             elif (
                 mem_type is None
                 and cudf.pandas.LOADED
-                and np.isdtype(array.dtype, ("numeric", "bool"))
+                and array.dtype.kind in "iufb"
             ):
                 # We treat pandas objects with supported dtypes as device
                 # memory when running under cudf.pandas. Note that the output
@@ -682,13 +800,21 @@ def check_array(
                 # Possible 2nd copy done on host for dtype enforcement
                 array = np.asarray(array, dtype=dtype, order=order)
             else:
-                array = cp.asarray(array, dtype=dtype, order=order)
+                # XXX: using cp.array for compat with cupy < 14
+                array = cp.array(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
         else:
             # Handle all other inputs
             if mem_type == "device":
-                array = cp.asarray(array, dtype=dtype, order=order)
+                # XXX: using cp.array for compat with cupy < 14
+                array = cp.array(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
             else:
-                array = np.asarray(array, dtype=dtype, order=order)
+                array = np_asarray(
+                    array, dtype=dtype, order=order, copy=(copy or None)
+                )
 
         # XXX: order="A" isn't consistently handled by cupy or numpy. If a copy
         # was made, the output will definitely already be contiguous. If no
@@ -714,7 +840,7 @@ def check_array(
         )
 
     # Check for complex inputs after conversion for cases when `dtype=None`
-    if np.isdtype(array.dtype, "complex floating"):
+    if array.dtype.kind == "c":
         raise ValueError("Complex data not supported")
 
     # Validate data meets expected value requirements
@@ -729,17 +855,132 @@ def check_array(
 
     # Process index if requested, then return
     if return_index:
-        if isinstance(index, cudf.Index) and mem_type == "host":
-            index = (
-                cudf.pandas.as_proxy_object(index)
-                if cudf.pandas.LOADED
-                else index.to_pandas()
-            )
-        elif isinstance(index, pd.Index) and mem_type == "device":
-            index = cudf.Index(index)
-        return array, index
+        return array, _index_as_mem_type(index, mem_type)
     else:
         return array
+
+
+def check_cudf(
+    array,
+    *,
+    ensure_ndim=2,
+    coerce_ndim=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    input_name=None,
+):
+    """Validate and coerce the input to a ``cudf.Series`` or ``cudf.DataFrame``.
+
+    Parameters
+    ----------
+    array : array-like
+        The input to validate.
+    ensure_ndim : {1, 2, None}, default=2
+        The number dimensions to enforce. Set to 1 to return a ``cudf.Series``,
+        2 to return a cudf.DataFrame, or ``None`` to return either.
+    coerce_ndim : bool or "warn", default=False
+        Whether to allow coercing between 1d and 2d inputs. May also set to
+        "warn" to warn the user to reshape their input.
+    ensure_min_samples : int, default=1
+        A minimum number of samples to require. Set to 0 for no minimum.
+    ensure_min_features : int, default=1
+        A minimum number of features to require for 2D inputs. Set to 0 for no
+        minimum.
+    input_name : str or None, default=None
+        The input parameter name to use in error messages.
+
+    Returns
+    -------
+    array : cudf.Series or cudf.DataFrame
+        The converted and validated data.
+    """
+    if ensure_ndim not in (1, 2, None):
+        raise ValueError(f"Unsupported {ensure_ndim=!r}")
+    if coerce_ndim not in (True, False, "warn"):
+        raise ValueError(f"Unsupported {coerce_ndim=!r}")
+    if ensure_min_features > 1 and ensure_ndim != 2:
+        raise ValueError(f"{ensure_min_features=!r} requires ensure_ndim=2")
+
+    array_type = type(array)
+
+    # Coerce input to a cudf type.
+    # XXX: cudf currently doesn't support float16, any float16 input is
+    # automatically upcast here to float32.
+    if isinstance(array, pd.Series):
+        if array.dtype == "float16":
+            array = array.astype("float32")
+        array = cudf.Series(array)
+    elif isinstance(array, pd.DataFrame):
+        f16_cols = array.select_dtypes("float16").columns.tolist()
+        if f16_cols:
+            array = array.astype({c: "float32" for c in f16_cols})
+        array = cudf.DataFrame(array)
+    elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
+        # Remaining array-like inputs go through check_array first (without
+        # device transfer) to normalize on cupy/numpy before coercion to cudf
+        array = check_array(
+            array,
+            mem_type=None,
+            ensure_2d=False,
+            ensure_min_samples=0,
+            ensure_min_features=0,
+            ensure_all_finite=False,
+            input_name=input_name,
+        )
+        if array.dtype == "float16":
+            array = array.astype("float32")
+        elif (
+            array.dtype == "object"
+            and array.size
+            and not isinstance(array.flat[0], str)
+        ):
+            # XXX: cudf doesn't support coercing numeric object arrays, while
+            # sklearn has a common check that object arrays of floats are
+            # supported. To support this uncommon case, we attempt to coerce
+            # numeric object types here.
+            array = array.astype("float64")
+        array = (cudf.DataFrame if array.ndim == 2 else cudf.Series)(
+            array, dtype=(np.dtype("O") if array.dtype.kind in "U" else None)
+        )
+
+    # Validate shape and coerce dimensionality
+    _check_shape(
+        array.shape,
+        ensure_2d=(ensure_ndim == 2 and coerce_ndim is False),
+        ensure_min_samples=ensure_min_samples,
+        ensure_min_features=ensure_min_features,
+        array_type=array_type,
+    )
+    if ensure_ndim == 1:
+        # Warn/error appropriately for 2D inputs
+        if array.ndim == 2:
+            if not coerce_ndim or array.shape[1] != 1:
+                raise ValueError(
+                    f"{input_name or 'Input'} should be a 1d array, got an array "
+                    f"of shape {array.shape} instead."
+                )
+            if coerce_ndim == "warn":
+                name = input_name or "input"
+                warnings.warn(
+                    f"A column-vector {name} was passed when a 1d array was "
+                    f"expected. Please change the shape of {name} to "
+                    f"(n_samples,), for example using ravel().",
+                    DataConversionWarning,
+                )
+            array = array.iloc[:, 0]
+    elif ensure_ndim == 2 and array.ndim == 1:
+        # coerce_ndim == False is handled above in _check_shape
+        if coerce_ndim == "warn":
+            name = input_name or "input"
+            warnings.warn(
+                f"A 1d array {name} was passed when a 2d array was "
+                f"expected. Please change the shape of {name} to "
+                f"(n_samples, 1), for example using reshape(-1, 1).",
+                DataConversionWarning,
+            )
+        array = array.to_frame()
+
+    return array
 
 
 # Returns status in a bitfield:
@@ -761,7 +1002,7 @@ _cupy_any_inf_or_nan_or_real = cp.ReductionKernel(
 )
 
 
-def _check_classification_targets(y):
+def check_classification_targets(y):
     """Check if `y` is composed of valid class labels.
 
     Catches NaN, infinity, and non-integral inputs.
@@ -795,7 +1036,9 @@ def check_y(
     mem_type="device",
     order="A",
     accept_multi_output=False,
+    ensure_discrete_classes=True,
     return_classes=False,
+    return_index=False,
 ):
     """Validate and coerce ``y`` to a supported type.
 
@@ -826,8 +1069,17 @@ def check_y(
         Whether multi-output y is accepted. By default only 1D inputs (or 2D
         inputs with a single column) are accepted. Set to True to accept
         multi-column inputs as well.
-    return_classes : bool, default=False
+    ensure_discrete_classes : bool, default=True
+        Whether to ensure class labels are discrete, non-continuous values.
+    return_classes : bool, np.ndarray, or list[numpy.ndarray], default=False
         Set to True to also label encode ``y`` and return the ``classes``.
+        Alternatively may pass a numpy array (or a list of arrays in the
+        multi-output case) to explicitly specify the ``classes`` to use for
+        label encoding.
+    return_index : bool, default=False
+        Whether to return the index of ``y`` (if a dataframe-like value).
+        This is useful for functions that need to return an output with a
+        dataframe index aligned with the input.
 
     Returns
     -------
@@ -835,7 +1087,11 @@ def check_y(
         The converted and validated array.
     classes : numpy.ndarray or list[numpy.ndarray]
         The collected classes for a classifier input. Only returned if
-        ``return_classes=True``.
+        ``return_classes`` is not ``False``.
+    index : pandas.Index, cudf.Index, or None
+        The index of the input if a dataframe-like, or None if no index. The
+        index will be converted to match ``mem_type``. Only returned if
+        ``return_index=True``.
     """
     if y is None:
         raise ValueError(
@@ -846,10 +1102,16 @@ def check_y(
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
+
+    # Extract the index from `y` (if available)
+    if isinstance(y, (pd.DataFrame, pd.Series, cudf.DataFrame, cudf.Series)):
+        index = y.index
+    else:
+        index = None
 
     # Coerce `y` to a supported array type
-    if return_classes:
+    if return_classes is not False:
         # cudf may coerce the dtype, store the original so we can cast back later
         input_dtype = y.dtype if isinstance(y, np.ndarray) else None
 
@@ -869,7 +1131,7 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if np.isdtype(y.dtype, ("numeric", "bool")):
+            if y.dtype.kind in "iufb" and return_classes is True:
                 y = cp.asarray(y)
             elif (
                 y.dtype == "object"
@@ -898,17 +1160,20 @@ def check_y(
             ensure_min_samples=0,
             input_name="y",
         )
+        mem_type = "device" if isinstance(y, cp.ndarray) else "host"
 
     # Warn/error appropriately for 2D inputs
     if y.ndim == 2:
-        if y.shape[1] == 1 and (return_classes or not accept_multi_output):
+        if y.shape[1] == 1 and (
+            return_classes is not False or not accept_multi_output
+        ):
             warnings.warn(
                 "A column-vector y was passed when a 1d array was expected. "
                 "Please change the shape of y to (n_samples,), for example "
                 "using ravel().",
                 DataConversionWarning,
             )
-            if return_classes:
+            if return_classes is not False:
                 y = (
                     y.iloc[:, 0]
                     if isinstance(y, cudf.DataFrame)
@@ -919,23 +1184,49 @@ def check_y(
                 f"y should be a 1d array, got an array of shape {y.shape} instead."
             )
 
-    if not return_classes:
-        return y
+    if return_index:
+        index = _index_as_mem_type(index, mem_type)
+
+    if return_classes is False:
+        return (y, index) if return_index else y
 
     # For classifiers, we label encode y and return the integral labels as well
     # as the classes.
-    def _encode(y):
+    def _encode(y, classes=None):
         """Encode `y` to codes and classes"""
-        _check_classification_targets(y)
+        if ensure_discrete_classes:
+            check_classification_targets(y)
         if isinstance(y, cudf.Series):
             y = y.astype("category")
+            if classes is None:
+                classes = y.cat.categories
+                # XXX: cudf's to_numpy doesn't support conversions for all
+                # dtypes. Roundtrip through object dtype when necessary.
+                try:
+                    classes = classes.to_numpy(dtype=input_dtype)
+                except NotImplementedError:
+                    classes = classes.to_numpy(dtype="object")
+                # cudf will sometimes translate non-numeric dtypes. Coerce back to
+                # the input dtype if the input was originally a numpy array.
+                if input_dtype is not None:
+                    classes = classes.astype(input_dtype, copy=False)
+            else:
+                # Encode using specified classes, erroring if any unknown
+                # classes found
+                y_orig = y
+                y = y.cat.set_categories(classes)
+                if y.has_nulls or y.hasnans:
+                    new_cats = y_orig.cat.categories
+                    unknown = new_cats[~new_cats.isin(classes)].to_numpy(
+                        dtype="object"
+                    )
+                    raise ValueError(
+                        f"The target label(s) {unknown!s} in y do not exist in the "
+                        f"initial classes {classes!s}"
+                    )
             codes = cp.asarray(y.cat.codes)
-            classes = y.cat.categories.to_numpy()
-            # cudf will sometimes translate non-numeric dtypes. Coerce back to
-            # the input dtype if the input was originally a numpy array.
-            if input_dtype is not None:
-                classes = classes.astype(input_dtype, copy=False)
         else:
+            assert classes is None  # we should always use cudf in this case
             classes, codes = cp.unique(y, return_inverse=True)
             classes = classes.get()
         return codes, classes
@@ -945,13 +1236,37 @@ def check_y(
         order = "F"
 
     if y.ndim == 1:
-        y, classes = _encode(y)
+        if return_classes is True:
+            provided_classes = None
+        elif not isinstance(return_classes, np.ndarray):
+            raise ValueError("Expected `return_classes` to be a numpy array")
+        else:
+            provided_classes = return_classes
+
+        y, classes = _encode(y, provided_classes)
         if dtype is not None and y.dtype not in dtype:
             y = y.astype(dtype[0])
     else:
         getter = y.iloc if isinstance(y, cudf.DataFrame) else y
+
+        if return_classes is True:
+            provided_classes = [None] * y.shape[1]
+        elif not (
+            isinstance(return_classes, list)
+            and len(return_classes) == y.shape[1]
+            and all(isinstance(a, np.ndarray) for a in return_classes)
+        ):
+            raise ValueError(
+                f"Expected `return_classes` to be a list of {y.shape[1]} numpy arrays"
+            )
+        else:
+            provided_classes = return_classes
+
         encoded_cols, classes = zip(
-            *(_encode(getter[:, i]) for i in range(y.shape[1]))
+            *(
+                _encode(getter[:, i], provided_classes[i])
+                for i in range(y.shape[1])
+            )
         )
         classes = list(classes)
         # Infer output dtype
@@ -968,6 +1283,8 @@ def check_y(
         # convert back to host if needed
         y = y.get(order=order)
 
+    if return_index:
+        return y, classes, index
     return y, classes
 
 
@@ -1067,6 +1384,7 @@ def check_inputs(
     convert_dtype=True,
     mem_type="device",
     order="A",
+    copy=False,
     ensure_all_finite=True,
     ensure_non_negative=False,
     ensure_min_samples=1,
@@ -1137,6 +1455,10 @@ def check_inputs(
         F-contiguous outputs, 'C' for C-contiguous outputs, 'A' for either F or
         C contiguous, or `None` for no contiguity requirements (may be
         non-contiguous!).
+    copy : bool, default=False
+        Set to ``True`` to ensure that X is copied (allowing the output to
+        be mutated without worry). Note that the default of ``False`` doesn't
+        guarantee no copy is made, it only allows for zero-copy when possible.
     ensure_all_finite : bool or 'allow-nan', default=True
         If True, an error will be raised if non-finite values are found in X.
         If 'allow-nan', an error will be raised if infinite values are
@@ -1153,8 +1475,11 @@ def check_inputs(
         Whether multi-output y is accepted. By default only 1D inputs (or 2D
         inputs with a single column) are accepted. Set to True to accept
         multi-column inputs as well.
-    return_classes : bool, default=False
+    return_classes : bool, np.ndarray, or list[numpy.ndarray], default=False
         Set to True to also label encode ``y`` and return the ``classes``.
+        Alternatively may pass a numpy array (or a list of arrays in the
+        multi-output case) to explicitly specify the ``classes`` to use for
+        label encoding.
     return_index : bool, default=False
         Whether to return the index of ``X`` (if a dataframe-like value).
         This is useful for functions that need to return an output with a
@@ -1177,8 +1502,8 @@ def check_inputs(
         The converted and validated weights. Omitted if no ``sample_weight``
         provided.
     classes : numpy.ndarray or list[numpy.ndarray]
-        The collected classes from ``y`` for a classifier input. Only returned
-        if ``return_classes=True``.
+        The collected classes for a classifier input. Only returned if
+        ``return_classes`` is not ``False``.
     index : pandas.Index, cudf.Index, or None
         The index of the input if a dataframe-like, or None if no index. The
         index will be converted to match ``mem_type``. Only returned if
@@ -1195,6 +1520,7 @@ def check_inputs(
         convert_dtype=convert_dtype,
         mem_type=mem_type,
         order=order,
+        copy=copy,
         ensure_all_finite=ensure_all_finite,
         ensure_non_negative=ensure_non_negative,
         ensure_min_samples=ensure_min_samples,
@@ -1222,7 +1548,7 @@ def check_inputs(
             accept_multi_output=accept_multi_output,
             return_classes=return_classes,
         )
-        if return_classes:
+        if return_classes is not False:
             y, classes = y
         out.append(y)
 
@@ -1241,7 +1567,7 @@ def check_inputs(
 
     check_consistent_length(*out)
 
-    if return_classes:
+    if return_classes is not False:
         out.append(classes)
     if return_index:
         out.append(index)

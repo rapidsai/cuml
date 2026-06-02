@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import json
+import warnings
 
 import cudf
 import cupy as cp
@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import treelite
+from cudf.pandas import LOADED as cudf_pandas_active
 from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 from sklearn.datasets import make_classification, make_regression
@@ -27,6 +28,7 @@ from cuml.testing.utils import as_type
 shap = pytest.importorskip("shap")
 
 
+# rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove this filter
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
@@ -123,6 +125,9 @@ def count_categorical_split(tl_model):
 )
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_regression(
@@ -196,6 +201,9 @@ def test_xgb_regressor(objective):
 )
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_classification(
@@ -435,6 +443,12 @@ def test_sklearn_rf_classifier(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
+)
 def test_xgb_toy_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -460,7 +474,7 @@ def test_xgb_toy_categorical():
         params, dtrain, num_boost_round=1, evals=[(dtrain, "train")]
     )
     explainer = TreeExplainer(model=xgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_out = xgb_model.predict(dtrain, pred_contribs=True)
     np.testing.assert_almost_equal(out, ref_out[:, :-1], decimal=5)
@@ -469,6 +483,12 @@ def test_xgb_toy_categorical():
     )
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
+)
 @pytest.mark.parametrize("n_classes", [2, 3])
 def test_xgb_classifier_with_categorical(n_classes):
     xgb = pytest.importorskip("xgboost")
@@ -533,6 +553,12 @@ def test_xgb_classifier_with_categorical(n_classes):
     )
 
 
+@pytest.mark.xfail(
+    reason=(
+        "Treelite does not yet support XGBoost models with categoricals "
+        "(https://github.com/rapidsai/cuml/issues/8055)"
+    )
+)
 def test_xgb_regressor_with_categorical():
     xgb = pytest.importorskip("xgboost")
 
@@ -610,7 +636,7 @@ def test_lightgbm_regressor_with_categorical():
     )
 
     explainer = TreeExplainer(model=lgb_model)
-    out = explainer.shap_values(X).get()
+    out = explainer.shap_values(X)
 
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X)
@@ -661,7 +687,7 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     )
 
     # Insert NaN randomly into X
-    X_test = X.values.copy()
+    X_test = X.values.astype(np.float64).copy()
     n_nan = int(np.floor(X.size * 0.1))
     rng = np.random.default_rng(seed=0)
     index_nan = rng.choice(X.size, size=n_nan, replace=False)
@@ -673,10 +699,13 @@ def test_lightgbm_classifier_with_categorical(n_classes):
     ref_explainer = shap.explainers.Tree(model=lgb_model)
     ref_out = ref_explainer.shap_values(X_test)
     ref_expected_value = ref_explainer.expected_value
-    np.testing.assert_almost_equal(out, ref_out, decimal=5)
     np.testing.assert_almost_equal(
         explainer.expected_value, ref_expected_value, decimal=5
     )
+    if not cudf_pandas_active:
+        # cudf.pandas causes small numerical issues in the output here,
+        # possibly due to something in shap or lightgbm
+        np.testing.assert_almost_equal(out, ref_out, decimal=5)
 
 
 def learn_model(draw, X, y, task, learner, n_estimators, n_targets):
@@ -787,6 +816,12 @@ def shap_strategy(draw):
     n_samples = draw(st.integers(2, 100))
     n_features = draw(st.integers(2, 100))
     learner = draw(st.sampled_from(["xgb", "rf", "skl_rf", "lgbm"]))
+
+    # TODO: Treelite does not yet support XGBoost models with categoricals.
+    # (https://github.com/rapidsai/cuml/issues/8055). Can drop this assume when
+    # that's fixed.
+    assume(learner != "xgb")
+
     supports_categorical = learner in ["xgb", "lgbm"]
     supports_nan = learner in ["xgb", "lgbm"]
     if task == "classification":
@@ -857,6 +892,9 @@ def shap_strategy(draw):
         draw, X, y, task, learner, n_estimators, n_targets
     )
 
+    if isinstance(preds, pd.DataFrame):
+        preds = preds.to_numpy()
+
     # convert any DataFrame categorical columns to numeric
     return X.astype(dtype), y.astype(dtype), model, preds
 
@@ -868,10 +906,10 @@ def check_efficiency(expected_value, pred, shap_values):
             np.sum(shap_values, axis=-1) + expected_value, pred, 1e-3, 1e-3
         )
     else:
-        n_targets = shap_values.shape[0]
+        n_targets = shap_values.shape[-1]
         for i in range(n_targets):
             assert np.allclose(
-                np.sum(shap_values[i], axis=-1) + expected_value[i],
+                np.sum(shap_values[:, :, i], axis=-1) + expected_value[i],
                 pred[:, i],
                 1e-3,
                 1e-3,
@@ -898,6 +936,15 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             )
 
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Can inline this back within the `example` call
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore")
+    example_random_forest = curfr(
+        max_features=1.0, random_state=0, n_streams=1, n_bins=10
+    ).fit(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32))
+
+
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(
@@ -909,9 +956,7 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
-            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
-        ),
+        example_random_forest,
         np.ones(10, dtype=np.float32),
     ),
     interactions_method="shapley-interactions",

@@ -2,8 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import pandas as pd
+import pytest
+import scipy.sparse as sp
 from sklearn.datasets import make_blobs
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import (
+    LabelBinarizer,
+    LabelEncoder,
+    MaxAbsScaler,
+    MinMaxScaler,
+    PolynomialFeatures,
+    StandardScaler,
+)
 
 
 def test_standard_scaler():
@@ -28,12 +38,57 @@ def test_standard_scaler():
     np.testing.assert_allclose(X_inverse, X, atol=1e-6)
 
 
-def test_standard_scaler_partial_fit():
+def test_min_max_scaler():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = MinMaxScaler().fit(X)
+
+    assert model.min_.shape == (X.shape[1],)
+    assert model.scale_.shape == (X.shape[1],)
+    assert model.data_min_.shape == (X.shape[1],)
+    assert model.data_max_.shape == (X.shape[1],)
+    assert model.data_range_.shape == (X.shape[1],)
+
+    # Transform and check shape
+    X_transformed = model.transform(X)
+    assert X_transformed.shape == X.shape
+
+    # Check that transformed data is scaled appropriately
+    assert (X_transformed.min(axis=0) >= 0).all()
+    assert (X_transformed.max(axis=0) <= 1).all()
+
+    # Check inverse transform
+    X_inverse = model.inverse_transform(X_transformed)
+    assert X_inverse.shape == X.shape
+    np.testing.assert_allclose(X_inverse, X, atol=1e-6)
+
+
+def test_max_abs_scaler():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    model = MaxAbsScaler().fit(X)
+
+    assert model.scale_.shape == (X.shape[1],)
+    assert model.max_abs_.shape == (X.shape[1],)
+
+    # Transform and check shape
+    X_transformed = model.transform(X)
+    assert X_transformed.shape == X.shape
+
+    # Check that transformed data is scaled appropriately
+    assert (np.abs(X_transformed) <= 1).all()
+
+    # Check inverse transform
+    X_inverse = model.inverse_transform(X_transformed)
+    assert X_inverse.shape == X.shape
+    np.testing.assert_allclose(X_inverse, X, atol=1e-6)
+
+
+@pytest.mark.parametrize("cls", [StandardScaler, MinMaxScaler, MaxAbsScaler])
+def test_scaler_partial_fit(cls):
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
 
-    model = StandardScaler().fit(X)
+    model = cls().fit(X)
 
-    model2 = StandardScaler()
+    model2 = cls()
     model2.partial_fit(X[:25])
     assert model2.n_samples_seen_ == 25
     model2.partial_fit(X[25:])
@@ -42,3 +97,64 @@ def test_standard_scaler_partial_fit():
     sol = model.transform(X)
     res = model2.transform(X)
     np.testing.assert_allclose(sol, res)
+
+
+def test_polynomial_features():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+
+    model = PolynomialFeatures().fit(X)
+    assert isinstance(model.powers_, np.ndarray)
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+
+    model.set_output(transform="pandas")
+    out_df = model.transform(X)
+    assert isinstance(out_df, pd.DataFrame)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "a", "b"])
+    enc = LabelEncoder()
+    y2 = enc.fit_transform(y)
+    np.testing.assert_array_equal(y2, np.array([0, 1, 0, 1]))
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b"]))
+    y3 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y3, y)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "a", "c"])
+    enc = LabelBinarizer()
+
+    y2 = enc.fit_transform(y)
+    sol = np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
+    np.testing.assert_array_equal(y2, sol)
+
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b", "c"]))
+    assert enc.classes_.dtype == y.dtype
+    assert enc.y_type_ == "multiclass"
+
+    y3 = enc.transform(np.array(["a", "d"]))
+    sol = np.array([[1, 0, 0], [0, 0, 0]])
+    np.testing.assert_array_equal(y3, sol)
+
+    y4 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y4, y)
+
+
+@pytest.mark.parametrize("sparse", [True, False])
+def test_label_binarizer_multilabel_indicator(sparse):
+    y = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    if sparse:
+        y = sp.csr_matrix(y)
+    enc = LabelBinarizer().fit(y)
+    np.testing.assert_array_equal(enc.classes_, np.array([0, 1, 2]))
+    assert enc.y_type_ == "multilabel-indicator"
+
+    y2 = enc.inverse_transform(y)
+    if sparse:
+        assert isinstance(y2, sp.csr_matrix)
+        np.testing.assert_array_equal(y.toarray(), y2.toarray())
+    else:
+        assert isinstance(y2, np.ndarray)
+        np.testing.assert_array_equal(y, y2)

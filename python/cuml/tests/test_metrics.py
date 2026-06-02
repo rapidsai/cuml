@@ -11,11 +11,13 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.sparse
 import sklearn.metrics
 from numba import cuda
 from numpy.testing import assert_almost_equal
+from packaging.version import Version
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 from scipy.stats import entropy as sp_entropy
@@ -51,6 +53,7 @@ from cuml.metrics import hinge_loss as cuml_hinge
 from cuml.metrics import kl_divergence as cu_kl_divergence
 from cuml.metrics import (
     log_loss,
+    nan_euclidean_distances,
     pairwise_distances,
     precision_recall_curve,
     roc_auc_score,
@@ -346,6 +349,12 @@ def test_adjusted_rand_score_small(nrows):
 )
 def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
     X, labels = labeled_clusters
+    if metric == "l1":
+        pytest.xfail(
+            "Batched l1 silhouette score is unstable; "
+            "see https://github.com/rapidsai/cuml/issues/8145"
+        )
+
     cuml_score = cu_silhouette_score(
         X, labels, metric=metric, chunksize=int(X.shape[0] / chunk_divider)
     )
@@ -766,6 +775,102 @@ def test_mean_squared_log_error_negative_values(inputs):
         )
 
 
+_REGRESSION_FUNCS = [
+    "r2_score",
+    "mean_squared_error",
+    "mean_absolute_error",
+    "median_absolute_error",
+    "mean_squared_log_error",
+]
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+def test_regression_metrics_scalar_sample_weight(func):
+    y_true = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    unweighted = cu_metric(y_true, y_pred)
+    assert cu_metric(y_true, y_pred, sample_weight=1.0) == unweighted
+    assert cu_metric(y_true, y_pred, sample_weight=2.5) == unweighted
+
+    # Verify cuML matches scikit-learn for unweighted
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred), skl_metric(y_true, y_pred)
+    )
+
+    # cuML accepts scalar sample_weight (equivalent to sample_weight=1.0).
+    # sklearn requires array-like sample_weight, so compare cuML scalar-sw
+    # with sklearn using a 1D array of ones.
+    sw_scalar = 1.0
+    sw_array = np.array([sw_scalar] * len(y_true))
+    np.testing.assert_allclose(
+        cu_metric(y_true, y_pred, sample_weight=sw_scalar),
+        skl_metric(y_true, y_pred, sample_weight=sw_array),
+    )
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.parametrize(
+    "y_true_shape, y_pred_shape",
+    [((4,), (4, 1)), ((4, 1), (4,)), ((4, 1), (4, 1))],
+)
+def test_regression_metrics_1d_2d_equivalence(
+    func, y_true_shape, y_pred_shape
+):
+    # (N,) and (N, 1) should be treated as equivalent (matches sklearn).
+    y_true_1d = np.array([1.0, 2.0, 3.0, 4.0])
+    y_pred_1d = np.array([1.1, 1.9, 3.1, 3.9])
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+    expected = skl_metric(y_true_1d, y_pred_1d)
+
+    got = cu_metric(
+        y_true_1d.reshape(y_true_shape), y_pred_1d.reshape(y_pred_shape)
+    )
+    np.testing.assert_allclose(got, expected)
+
+
+@pytest.mark.parametrize("func", _REGRESSION_FUNCS)
+@pytest.mark.xfail(
+    condition=Version(sklearn.__version__) < Version("1.7"),
+    reason=(
+        "sklearn < 1.7 uses different error messages for invalid "
+        "sample_weight inputs; messages were standardized in sklearn 1.7"
+    ),
+    strict=True,
+)
+def test_regression_metrics_errors(func):
+    arr_3 = np.array([1.0, 2.0, 3.0])
+    arr_4 = np.array([1.0, 2.0, 3.0, 4.0])
+    arr_3x2 = np.ones((3, 2))
+
+    cu_metric = getattr(cuml.metrics, func)
+    skl_metric = getattr(sklearn.metrics, func)
+
+    # cuML and sklearn both raise ValueError for mismatched sample counts.
+    # sklearn: "Found input variables with inconsistent numbers of samples"
+    # cuML: "inconsistent number of samples" — match common substring.
+    sw_mismatch = np.array([1.0, 2.0, 3.0, 4.0])
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_4)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_4)
+
+    with pytest.raises(ValueError, match="inconsistent"):
+        skl_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+    with pytest.raises(ValueError, match="inconsistent"):
+        cu_metric(arr_3, arr_3, sample_weight=sw_mismatch)
+
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        skl_metric(arr_3, arr_3, sample_weight=arr_3x2)
+    with pytest.raises(ValueError, match="Sample weights must be 1D"):
+        cu_metric(arr_3, arr_3, sample_weight=arr_3x2)
+
+
 def test_entropy():
     # The outcome of a fair coin is the most uncertain:
     # in base 2 the result is 1 (One bit of entropy).
@@ -875,6 +980,62 @@ def test_confusion_matrix_random_weights(n_samples, dtype, weights_dtype):
     cm = confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     ref = sk_confusion_matrix(y_true, y_pred, sample_weight=sample_weight)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
+
+
+def test_confusion_matrix_errors():
+    # Mismatched lengths
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # Non-integer dtype without convert_dtype
+    with pytest.raises(ValueError, match="dtype"):
+        confusion_matrix(
+            np.array([0.0, 1.0], dtype=np.float32),
+            np.array([0, 1], dtype=np.int32),
+        )
+
+    # 2D y_true is rejected
+    with pytest.raises(ValueError, match="1D"):
+        confusion_matrix(
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+            np.array([[0, 1], [1, 0]], dtype=np.int32),
+        )
+
+    # 2D labels are rejected
+    with pytest.raises(ValueError, match="labels"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            labels=np.array([[0, 1]], dtype=np.int32),
+        )
+
+    # Inconsistent sample_weight length
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        confusion_matrix(
+            np.array([0, 1, 0], dtype=np.int32),
+            np.array([0, 1, 0], dtype=np.int32),
+            sample_weight=np.array([1.0, 2.0]),
+        )
+
+    # Invalid normalize value
+    with pytest.raises(ValueError, match="normalize"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            normalize="bogus",
+        )
+
+
+def test_confusion_matrix_convert_dtype():
+    # convert_dtype=True should coerce float labels to int32.
+    y_true = np.array([0, 1, 2, 1], dtype=np.float32)
+    y_pred = np.array([0, 1, 1, 1], dtype=np.float32)
+    cm = confusion_matrix(y_true, y_pred, convert_dtype=True)
+    ref = sk_confusion_matrix(y_true.astype(np.int32), y_pred.astype(np.int32))
+    cp.testing.assert_array_equal(cm, ref)
 
 
 def test_roc_auc_score():
@@ -1317,7 +1478,7 @@ def test_pairwise_distances_exceptions():
     pairwise_distances(X_double, X_int, metric="euclidean")
 
     # Test sending different types with convert_dtype=False
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="dtype"):
         pairwise_distances(
             X_double, X_float, metric="euclidean", convert_dtype=False
         )
@@ -1332,6 +1493,56 @@ def test_pairwise_distances_exceptions():
 
     with pytest.raises(ValueError):
         pairwise_distances(X, Y, metric="euclidean")
+
+
+@pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("position", ["X", "Y"])
+def test_pairwise_distances_rejects_non_finite(bad_value, position):
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((5, 4)).astype(np.float64)
+    Y = rng.random_sample((6, 4)).astype(np.float64)
+    if position == "X":
+        X[0, 0] = bad_value
+    else:
+        Y[0, 0] = bad_value
+    with pytest.raises(ValueError):
+        pairwise_distances(X, Y, metric="euclidean")
+
+
+def test_nan_euclidean_distances_allows_nan():
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((5, 4)).astype(np.float64)
+    X[0, 0] = np.nan
+    S = pairwise_distances(X, metric="nan_euclidean")
+    S_ref = sklearn_pairwise_distances(X, metric="nan_euclidean")
+    cp.testing.assert_array_almost_equal(cp.asnumpy(S), S_ref, decimal=4)
+
+
+def test_nan_euclidean_distances_y_none_diagonal_zero():
+    rng = np.random.RandomState(0)
+    X = rng.random_sample((6, 4)).astype(np.float64)
+    X[0, 0] = np.nan
+    S = cp.asnumpy(nan_euclidean_distances(X))
+    np.testing.assert_array_equal(np.diag(S), np.zeros(X.shape[0]))
+    # And the off-diagonal values should still match sklearn.
+    S_ref = sklearn_pairwise_distances(X, metric="nan_euclidean")
+    np.testing.assert_array_almost_equal(S, S_ref, decimal=4)
+
+
+@pytest.mark.parametrize(
+    "x_order,y_order",
+    [("C", "C"), ("C", "F"), ("F", "C"), ("F", "F")],
+)
+def test_pairwise_distances_degenerate_x_layout(x_order, y_order):
+    # When X has a degenerate shape (1 sample), it is both C- and
+    # F-contiguous, so the implementation lets Y choose the layout.
+    # Verify all four input layout combinations match sklearn.
+    rng = np.random.RandomState(0)
+    X = np.asarray(rng.random_sample((1, 4)), order=x_order, dtype=np.float64)
+    Y = np.asarray(rng.random_sample((10, 4)), order=y_order, dtype=np.float64)
+    S = cp.asnumpy(pairwise_distances(X, Y, metric="euclidean"))
+    S_ref = sklearn_pairwise_distances(X, Y, metric="euclidean")
+    np.testing.assert_array_almost_equal(S, S_ref, decimal=12)
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
@@ -1673,6 +1884,92 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
 
 
 @pytest.mark.parametrize(
+    "container",
+    [np.asarray, cp.asarray, cudf.Series, pd.Series],
+)
+def test_hinge_loss_binary(container):
+    y_true = container(np.array([-1, 1, 1, -1]))
+    pred_decision = container(np.array([-2.18, 2.36, 0.09, -1.0]))
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision),
+        sk_hinge(
+            np.array([-1, 1, 1, -1]), np.array([-2.18, 2.36, 0.09, -1.0])
+        ),
+    )
+
+
+def test_hinge_loss_binary_labels_single_observed_positive_class():
+    y_true = np.array([1, 1])
+    pred_decision = np.array([0.5, 0.6])
+    labels = np.array([-1, 1])
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision, labels=labels),
+        sk_hinge(y_true, pred_decision, labels=labels),
+    )
+
+
+def test_hinge_loss_binary_labels_single_observed_negative_class():
+    y_true = np.array([-1, -1])
+    pred_decision = np.array([-0.5, -0.6])
+    labels = np.array([-1, 1])
+    np.testing.assert_allclose(
+        cuml_hinge(y_true, pred_decision, labels=labels),
+        sk_hinge(y_true, pred_decision, labels=labels),
+    )
+
+
+@pytest.mark.parametrize("with_labels", [True, False])
+@pytest.mark.parametrize("with_sample_weight", [True, False])
+def test_hinge_loss_multiclass(with_labels, with_sample_weight):
+    rng = np.random.RandomState(0)
+    y_true = np.array([0, 1, 2, 3, 1, 2])
+    pred_decision = rng.randn(6, 4).astype(np.float64)
+    labels = [0, 1, 2, 3] if with_labels else None
+    sample_weight = (
+        np.array([1.0, 2.0, 3.0, 1.0, 1.0, 1.0])
+        if with_sample_weight
+        else None
+    )
+    np.testing.assert_allclose(
+        cuml_hinge(
+            y_true,
+            pred_decision,
+            labels=labels,
+            sample_weight=sample_weight,
+        ),
+        sk_hinge(
+            y_true,
+            pred_decision,
+            labels=labels,
+            sample_weight=sample_weight,
+        ),
+    )
+
+
+def test_hinge_loss_inconsistent_length():
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cuml_hinge(np.array([0, 1, 1]), np.array([0.5, -0.5]))
+
+
+def test_hinge_loss_multiclass_missing_labels():
+    rng = np.random.RandomState(0)
+    # y_true has 3 classes but pred_decision only has 2 columns and labels
+    # is not provided.
+    with pytest.raises(ValueError, match="include all labels in y_true"):
+        cuml_hinge(np.array([0, 1, 2]), rng.randn(3, 2))
+
+
+def test_hinge_loss_sample_weights_deprecated():
+    y_true = np.array([-1, 1, 1, -1])
+    pred_decision = np.array([-2.18, 2.36, 0.09, -1.0])
+    sw = np.array([1.0, 2.0, 1.0, 1.0])
+    expected = cuml_hinge(y_true, pred_decision, sample_weight=sw)
+    with pytest.warns(FutureWarning, match="sample_weights"):
+        result = cuml_hinge(y_true, pred_decision, sample_weights=sw)
+    np.testing.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize(
     "nfeatures",
     [
         unit_param(10),
@@ -1702,7 +1999,7 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         Q = cp.asarray(Q, dtype=dtypeQ)
 
     if dtypeP != dtypeQ:
-        with pytest.raises(TypeError):
+        with pytest.raises(ValueError, match="dtype"):
             cu_kl_divergence(P, Q, convert_dtype=False)
         cu_res = cu_kl_divergence(P, Q)
     else:

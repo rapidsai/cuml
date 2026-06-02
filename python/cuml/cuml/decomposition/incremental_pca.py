@@ -8,10 +8,12 @@ import numbers
 import cupy as cp
 
 import cuml.internals
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse_utils import is_sparse
 from cuml.decomposition.pca import PCA
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
+from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.validation import (
     check_array,
     check_features,
@@ -177,6 +179,9 @@ class IncrementalPCA(PCA):
         0.0037122774558343763
     """
 
+    _cpu_class_path = "sklearn.decomposition.IncrementalPCA"
+    var_ = CumlArrayDescriptor(order="F")
+
     def __init__(
         self,
         *,
@@ -279,7 +284,10 @@ class IncrementalPCA(PCA):
 
         if first_call := getattr(self, "n_samples_seen_", 0) == 0:
             self._set_output_type(X)
-        check_features(self, X, reset=first_call)
+        # `fit()` pre-validates X once and calls us per batch with
+        # check_input=False; skip re-running check_features in that case.
+        if check_input or not hasattr(self, "n_features_in_"):
+            check_features(self, X, reset=first_call)
 
         if check_input:
             X = check_array(X, dtype=("float32", "float64"))
@@ -309,11 +317,11 @@ class IncrementalPCA(PCA):
                 "more rows than columns for IncrementalPCA "
                 "processing" % (self.n_components, n_features)
             )
-        elif not self.n_components <= n_samples:
+        elif self.n_components > n_samples and first_call:
             raise ValueError(
-                "n_components=%r must be less or equal to "
-                "the batch number of samples "
-                "%d." % (self.n_components, n_samples)
+                f"n_components={self.n_components} must be less or equal to "
+                f"the batch number of samples {n_samples} for the first "
+                "partial_fit call."
             )
         else:
             self.n_components_ = self.n_components
@@ -371,7 +379,7 @@ class IncrementalPCA(PCA):
         )
         self.singular_values_ = CumlArray(data=S[: self.n_components_])
         self.mean_ = CumlArray(data=col_mean)
-        self.var_ = col_var
+        self.var_ = CumlArray(data=col_var)
         self.explained_variance_ = CumlArray(
             data=explained_variance[: self.n_components_]
         )
@@ -453,6 +461,66 @@ class IncrementalPCA(PCA):
             "copy",
             "batch_size",
         ]
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {
+            "n_components": model.n_components,
+            "whiten": model.whiten,
+            "copy": model.copy,
+            "batch_size": model.batch_size,
+        }
+
+    def _params_to_cpu(self):
+        return {
+            "n_components": self.n_components,
+            "whiten": self.whiten,
+            "copy": self.copy,
+            "batch_size": self.batch_size,
+        }
+
+    # Bypass PCA._attrs_*: sklearn IncrementalPCA lacks PCA's `n_samples_`.
+    # Call InteropMixin directly for universal `n_features_in_` /
+    # `feature_names_in_` handling.
+    def _attrs_from_cpu(self, model):
+        out = {
+            "components_": to_gpu(model.components_, order="F"),
+            "explained_variance_": to_gpu(
+                model.explained_variance_, order="F"
+            ),
+            "explained_variance_ratio_": to_gpu(
+                model.explained_variance_ratio_, order="F"
+            ),
+            "singular_values_": to_gpu(model.singular_values_, order="F"),
+            "mean_": to_gpu(model.mean_, order="F"),
+            "var_": to_gpu(model.var_, order="F"),
+            "n_components_": model.n_components_,
+            "n_samples_seen_": model.n_samples_seen_,
+            "noise_variance_": model.noise_variance_,
+            **InteropMixin._attrs_from_cpu(self, model),
+        }
+        if (batch_size_ := getattr(model, "batch_size_", None)) is not None:
+            out["batch_size_"] = batch_size_
+        return out
+
+    def _attrs_to_cpu(self, model):
+        out = {
+            "components_": to_cpu(self.components_),
+            "explained_variance_": to_cpu(self.explained_variance_),
+            "explained_variance_ratio_": to_cpu(
+                self.explained_variance_ratio_
+            ),
+            "singular_values_": to_cpu(self.singular_values_),
+            "mean_": to_cpu(self.mean_),
+            "var_": to_cpu(self.var_),
+            "n_components_": self.n_components_,
+            "n_samples_seen_": self.n_samples_seen_,
+            "noise_variance_": self.noise_variance_,
+            **InteropMixin._attrs_to_cpu(self, model),
+        }
+        if (batch_size_ := getattr(self, "batch_size_", None)) is not None:
+            out["batch_size_"] = batch_size_
+        return out
 
 
 def _gen_batches(n, batch_size, min_batch_size=0):

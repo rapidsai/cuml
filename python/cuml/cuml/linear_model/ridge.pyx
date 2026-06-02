@@ -285,7 +285,7 @@ class Ridge(Base,
         # The `eig` solver requires X be F-contiguous. Additionally, all inputs
         # are mutated when weighted or `fit_intercept=True`.
         mutates = self.fit_intercept or sample_weight is not None
-        X = cp.asarray(X, order="F", copy=True if mutates and not may_mutate_X else None)
+        X = cp.array(X, order="F", copy=True if mutates and not may_mutate_X else None)
         if mutates and not may_mutate_y:
             y = y.copy()
         if sample_weight is not None and mutates and not may_mutate_sample_weight:
@@ -370,6 +370,7 @@ class Ridge(Base,
             convert_dtype=convert_dtype,
             ensure_min_samples=2,
             accept_sparse=True,
+            accept_large_sparse=True,
             accept_multi_output=True,
             reset=True,
         )

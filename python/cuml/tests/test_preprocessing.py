@@ -907,6 +907,9 @@ def test_missing_indicator_sparse(
     assert_allclose(t_X, sk_t_X)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
+)
 def test_function_transformer(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
@@ -951,6 +954,9 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
 
 @pytest.mark.filterwarnings(
     "ignore:'ignore_implicit_zeros' takes effect only with sparse matrix.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
 )
 @pytest.mark.parametrize("n_quantiles", [30, 100])
 @pytest.mark.parametrize("output_distribution", ["uniform", "normal"])
@@ -1124,6 +1130,9 @@ def test_quantile_transform(
 
 @pytest.mark.parametrize("method", ["yeo-johnson", "box-cox"])
 @pytest.mark.parametrize("standardize", [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
+)
 def test_power_transformer(
     failure_logger,
     nan_filled_positive,

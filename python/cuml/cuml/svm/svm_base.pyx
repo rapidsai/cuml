@@ -7,6 +7,7 @@ import scipy.sparse
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse_utils import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
@@ -17,6 +18,7 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 cimport cython
 from libc.stdint cimport uintptr_t
@@ -99,36 +101,26 @@ cdef class _SVMModel:
             indices_ptr = <uintptr_t>self.model_d.support_matrix.indices
             dtype = np.float64
 
-        dual_coef = CumlArray(
-            data=self._ptr_as_cupy(dual_coef_ptr, (1, n_support), dtype)
-        )
+        dual_coef = self._ptr_as_cupy(dual_coef_ptr, (1, n_support), dtype)
 
-        support = CumlArray(
-            data=self._ptr_as_cupy(support_idx_ptr, (n_support,), np.int32)
-        )
+        support = self._ptr_as_cupy(support_idx_ptr, (n_support,), np.int32)
 
-        intercept = CumlArray.full(1, b, dtype=dtype)
+        intercept = cp.full(1, b, dtype=dtype)
 
         if nnz == -1:
             # For precomputed kernels, data_ptr is null (0) and support_vectors
             # should be empty, consistent with sklearn's behavior
             if data_ptr == 0:
-                support_vectors = CumlArray(
-                    data=cp.empty(shape=(0, 0), dtype=dtype, order="F")
-                )
+                support_vectors = cp.empty(shape=(0, 0), dtype=dtype, order="F")
             else:
-                support_vectors = CumlArray(
-                    data=self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
-                )
+                support_vectors = self._ptr_as_cupy(data_ptr, (n_support, n_cols), dtype)
         else:
             indptr = self._ptr_as_cupy(indptr_ptr, (n_support + 1,), np.int32)
             indices = self._ptr_as_cupy(indices_ptr, (nnz,), np.int32)
             data = self._ptr_as_cupy(data_ptr, (nnz,), dtype)
-            support_vectors = SparseCumlArray(
-                data=cupyx.scipy.sparse.csr_matrix(
-                    (data, indices, indptr),
-                    shape=(n_support, n_cols),
-                )
+            support_vectors = cupyx.scipy.sparse.csr_matrix(
+                (data, indices, indptr),
+                shape=(n_support, n_cols),
             )
 
         return support, support_vectors, dual_coef, intercept
@@ -275,12 +267,9 @@ class SVMBase(Base,
             "_probA": self._probA,
             "_probB": self._probB,
             "_sparse": self._sparse,
-            # sklearn >= 1.9 added a private fitted attribute that libsvm-facing
-            # code reads during predict (see sklearn PR #32050). It is set during
-            # fit(), so we have to set it ourselves. Harmless on older sklearn
-            # (no code reads it). cuml.SVR has no `probability` attribute;
-            # default to False to match sklearn.
-            "_effective_probability": getattr(self, "probability", False),
+            # sklearn >= 1.9 reads this private attribute during predict
+            # (sklearn PR #32050); harmless on older sklearn.
+            "_effective_probability": getattr(self, "_effective_probability", False),
             **super()._attrs_to_cpu(model),
         }
 
@@ -331,14 +320,14 @@ class SVMBase(Base,
             if self.gamma == "auto":
                 return 1 / n_cols
             elif self.gamma == "scale":
-                if isinstance(X, SparseCumlArray):
-                    data = X.data.to_output("cupy")
+                if cupyx.scipy.sparse.issparse(X):
+                    data = X.data
                     n = n_cols * n_rows
                     x_mean = data.mean() * X.nnz / n
                     data = (data - x_mean)**2
                     x_var = ((data.sum() + (n - X.nnz) * x_mean**2) / n).item()
                 else:
-                    x_var = X.to_output("cupy").var().item()
+                    x_var = X.var().item()
                 return 1 / (n_cols * x_var)
             else:
                 raise ValueError(
@@ -371,19 +360,8 @@ class SVMBase(Base,
         assert X.dtype == y.dtype
         assert sample_weight is None or X.dtype == sample_weight.dtype
 
-        if X.shape[0] < 2:
-            raise ValueError(
-                f"Found array with {X.shape[0]} sample(s) (shape={X.shape}) while a "
-                f"minimum of 2 is required."
-            )
-        elif len(X.shape) > 1 and X.shape[1] < 1:
-            raise ValueError(
-                f"Found array with {X.shape[1]} feature(s) (shape={X.shape}) while "
-                f"a minimum of 1 is required."
-            )
-
         cdef bool is_classifier = self._estimator_type == "classifier"
-        cdef bool is_sparse = isinstance(X, SparseCumlArray)
+        cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
 
         cdef double gamma = self._get_gamma(X)
@@ -413,21 +391,21 @@ class SVMBase(Base,
         cdef int *X_indptr
         cdef int *X_indices
 
-        if is_sparse:
+        if sparse_X:
             X_nnz = X.nnz
-            X_indptr = <int*><uintptr_t>X.indptr.ptr
-            X_indices = <int*><uintptr_t>X.indices.ptr
-            X_data_ptr = X.data.ptr
+            X_indptr = <int*><uintptr_t>X.indptr.data.ptr
+            X_indices = <int*><uintptr_t>X.indices.data.ptr
+            X_data_ptr = X.data.data.ptr
         else:
-            X_ptr = X.ptr
-        y_ptr = y.ptr
-        sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
+            X_ptr = X.data.ptr
+        y_ptr = y.data.ptr
+        sample_weight_ptr = 0 if sample_weight is None else sample_weight.data.ptr
 
         cdef int n_iter
         cdef _SVMModel internal = _SVMModel.new(handle, is_float32)
 
         with nogil:
-            if is_sparse:
+            if sparse_X:
                 if is_float32:
                     n_iter = lib.svrFitSparse(
                         handle_[0],
@@ -487,38 +465,45 @@ class SVMBase(Base,
 
         support, support_vectors, dual_coef, intercept = internal.unpack()
 
-        self.support_ = support
-        self.support_vectors_ = support_vectors
-        self.dual_coef_ = dual_coef
-        self.intercept_ = intercept
+        self.support_ = CumlArray(data=support)
+        self.support_vectors_ = (
+            SparseCumlArray(support_vectors)
+            if cupyx.scipy.sparse.issparse(support_vectors)
+            else CumlArray(support_vectors)
+        )
+        self.dual_coef_ = CumlArray(data=dual_coef)
+        self.intercept_ = CumlArray(data=intercept)
         self.n_support_ = support.shape[0]
         self.fit_status_ = 0
         self.shape_fit_ = X.shape
         self.n_iter_ = np.array([n_iter], dtype=np.int32) if is_classifier else n_iter
         self._gamma = gamma
-        self._sparse = is_sparse
+        self._sparse = sparse_X
         self._probA = np.empty(0, dtype=np.float64)
         self._probB = np.empty(0, dtype=np.float64)
 
-    def _predict(self, X) -> CumlArray:
-        """Perform `predict`.
+    def _predict(self, X, *, convert_dtype=True) -> CumlArray:
+        """Perform `predict`."""
+        check_is_fitted(self)
 
-        Expects X to already be validated and normalized to match fit dtype.
-        """
-        # Sanity checks, caller is responsible for casting dtype earlier
-        assert self.support_vectors_.dtype == X.dtype
-        assert self.dual_coef_.dtype == X.dtype
-        assert self.intercept_.dtype == X.dtype
-        # For precomputed kernels, X columns = training samples; otherwise X columns = features
-        if self.kernel == "precomputed":
-            assert X.shape[1] == self.shape_fit_[0]
-        else:
-            assert X.shape[1] == self.shape_fit_[1]
+        if self.kernel == "precomputed" and is_sparse(X):
+            raise TypeError(
+                "Sparse precomputed kernels are not supported."
+            )
+
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self.support_vectors_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_sparse="csr",
+            return_index=True,
+        )
 
         support_vectors = self.support_vectors_
-
         cdef bool sparse_model = isinstance(support_vectors, SparseCumlArray)
-        cdef bool is_sparse = isinstance(X, SparseCumlArray)
+        cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
 
         # Extract support_vectors_
@@ -573,17 +558,17 @@ class SVMBase(Base,
         cdef uintptr_t X_data_ptr
         cdef int X_rows, X_cols, X_nnz
         X_rows, X_cols = X.shape
-        if is_sparse:
-            X_indptr = <int*><uintptr_t>X.indptr.ptr
-            X_indices = <int*><uintptr_t>X.indices.ptr
-            X_data_ptr = X.data.ptr
+        if sparse_X:
+            X_indptr = <int*><uintptr_t>X.indptr.data.ptr
+            X_indices = <int*><uintptr_t>X.indices.data.ptr
+            X_data_ptr = X.data.data.ptr
             X_nnz = X.nnz
         else:
-            X_data_ptr = X.ptr
+            X_data_ptr = X.data.ptr
 
         # Allocate output array
-        out = CumlArray.zeros(X_rows, dtype=X.dtype, index=X.index)
-        cdef uintptr_t out_ptr = out.ptr
+        out = cp.zeros(X_rows, dtype=X.dtype)
+        cdef uintptr_t out_ptr = out.data.ptr
 
         cdef double cache_size = self.cache_size
         handle = get_handle()
@@ -591,7 +576,7 @@ class SVMBase(Base,
 
         # Call predict
         with nogil:
-            if is_sparse:
+            if sparse_X:
                 if is_float32:
                     lib.svcPredictSparse(
                         handle_[0],
@@ -649,4 +634,4 @@ class SVMBase(Base,
                     )
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=index)

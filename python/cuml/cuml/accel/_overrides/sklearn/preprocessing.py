@@ -5,74 +5,92 @@
 import numpy as np
 
 import cuml.preprocessing
-from cuml.accel.estimator_proxy import ArrayAPIProxyBase, ProxyBase
+from cuml.accel.estimator_proxy import (
+    ArrayAPIProxyBase,
+    ProxyBase,
+    classproperty,
+)
 from cuml.internals.interop import UnsupportedOnGPU
 
-__all__ = ("StandardScaler", "TargetEncoder")
+__all__ = (
+    "StandardScaler",
+    "MinMaxScaler",
+    "MaxAbsScaler",
+    "PolynomialFeatures",
+    "TargetEncoder",
+    "LabelEncoder",
+    "LabelBinarizer",
+)
 
 
 class StandardScaler(ArrayAPIProxyBase):
     _cpu_class_path = "sklearn.preprocessing.StandardScaler"
 
 
-def _check_unsupported_inputs(X, y, cpu_model):
+class MinMaxScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.MinMaxScaler"
+
+
+class MaxAbsScaler(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.MaxAbsScaler"
+
+
+class PolynomialFeatures(ArrayAPIProxyBase):
+    _cpu_class_path = "sklearn.preprocessing.PolynomialFeatures"
+
+    # These are staticmethods on the class that sklearn uses in the tests,
+    # we can just re-export them here.
+    @classproperty
+    def _combinations(cls):
+        return cls._cpu_class._combinations
+
+    @classproperty
+    def _num_combinations(cls):
+        return cls._cpu_class._num_combinations
+
+    @staticmethod
+    def _params_from_cpu(model):
+        if model.order == "F":
+            raise UnsupportedOnGPU("order='F' is not supported")
+        return model.get_params(deep=False)
+
+
+class LabelEncoder(ProxyBase):
+    _gpu_class = cuml.preprocessing.LabelEncoder
+
+
+class LabelBinarizer(ProxyBase):
+    _gpu_class = cuml.preprocessing.LabelBinarizer
+
+    def _gpu_inverse_transform(self, Y, threshold=None):
+        return self._gpu.inverse_transform(Y, threshold=threshold)
+
+
+def _check_targetencoder_y(y):
     """Check if inputs are supported on GPU.
 
     Raises UnsupportedOnGPU for unsupported cases to trigger CPU fallback.
     """
     from sklearn.utils.multiclass import type_of_target
 
-    # Check for custom categories (cuML doesn't support sklearn's categories param)
-    if hasattr(cpu_model, "categories") and cpu_model.categories != "auto":
-        raise UnsupportedOnGPU(
-            "Custom categories parameter not supported on GPU"
-        )
-
-    # Check for multiclass targets (sklearn uses one-hot encoding internally)
+    # Check for unsupported target types
     target_type = type_of_target(y)
-    if target_type == "multiclass":
+    if target_type not in ("binary", "continuous"):
         raise UnsupportedOnGPU(
-            "Multiclass targets not supported on GPU "
-            "(sklearn uses one-hot encoding internally)"
-        )
-
-    # Check for RandomState objects - cuML uses different CV fold assignment
-    # algorithm, so we can't reproduce exact sklearn behavior with RandomState.
-    # Integer seeds work fine, but RandomState objects require CPU fallback
-    # to ensure statistical tests that depend on exact CV splits pass.
-    if hasattr(cpu_model, "random_state") and isinstance(
-        cpu_model.random_state, np.random.RandomState
-    ):
-        raise UnsupportedOnGPU(
-            "RandomState objects require CPU fallback for exact sklearn "
-            "CV fold assignment behavior (use integer seed for GPU)"
-        )
-
-    # Check for object dtype X with float values - cudf can't handle this
-    if hasattr(X, "dtype") and X.dtype == np.object_:
-        raise UnsupportedOnGPU(
-            "Object dtype arrays with numeric values not supported on GPU"
-        )
-
-    # Check for object dtype y - cudf can't handle float objects
-    if hasattr(y, "dtype") and y.dtype == np.object_:
-        raise UnsupportedOnGPU(
-            "Object dtype target arrays not supported on GPU"
+            f"y with target type {target_type!r} not supported on GPU"
         )
 
 
 class TargetEncoder(ProxyBase):
     _gpu_class = cuml.preprocessing.TargetEncoder
 
-    def _gpu_fit(self, X, y, **kwargs):
-        # Check for unsupported inputs (triggers CPU fallback)
-        _check_unsupported_inputs(X, y, self._cpu)
-        return self._gpu.fit(X, y, **kwargs)
+    def _gpu_fit(self, X, y):
+        _check_targetencoder_y(y)
+        return self._gpu.fit(X, y)
 
-    def _gpu_fit_transform(self, X, y, **kwargs):
-        # Check for unsupported inputs (triggers CPU fallback)
-        _check_unsupported_inputs(X, y, self._cpu)
-        return self._gpu.fit_transform(X, y, **kwargs)
+    def _gpu_fit_transform(self, X, y, **params):
+        _check_targetencoder_y(y)
+        return self._gpu.fit_transform(X, y, **params)
 
     def _gpu_get_feature_names_out(self, input_features=None):
         """Return feature names for output features.

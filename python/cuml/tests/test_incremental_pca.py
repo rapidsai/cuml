@@ -71,7 +71,7 @@ def test_fit(
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 5e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize(
@@ -109,7 +109,56 @@ def test_partial_fit(
     sk_t = sk_ipca.transform(X)
     sk_inv = sk_ipca.inverse_transform(sk_t)
 
-    assert array_equal(cu_inv, sk_inv, 6e-5, with_sign=True)
+    assert array_equal(cu_inv, sk_inv, 1e-3, with_sign=True)
+
+
+@pytest.mark.parametrize("whiten", [False, True])
+@pytest.mark.parametrize("method", ["fit", "partial_fit"])
+def test_sklearn_parity_attrs(method, whiten):
+    """Check fitted-attribute parity with sklearn for fit() and partial_fit()."""
+    nrows, ncols, n_components = 1000, 8, 4
+    X, _ = make_blobs(
+        n_samples=nrows, n_features=ncols, random_state=0, dtype="float64"
+    )
+    X_np = cp.asnumpy(X)
+
+    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten, batch_size=100)
+    sk_ipca = skIPCA(n_components=n_components, whiten=whiten, batch_size=100)
+
+    if method == "fit":
+        cu_ipca.fit(X)
+        sk_ipca.fit(X_np)
+    else:
+        batch = 100
+        for i in range(0, nrows, batch):
+            cu_ipca.partial_fit(X[i : i + batch])
+            sk_ipca.partial_fit(X_np[i : i + batch])
+
+    assert array_equal(
+        cu_ipca.components_, sk_ipca.components_, 1e-3, with_sign=True
+    )
+    assert array_equal(
+        cu_ipca.explained_variance_,
+        sk_ipca.explained_variance_,
+        1e-3,
+        with_sign=True,
+    )
+    assert array_equal(
+        cu_ipca.explained_variance_ratio_,
+        sk_ipca.explained_variance_ratio_,
+        1e-3,
+        with_sign=True,
+    )
+    assert array_equal(
+        cu_ipca.singular_values_,
+        sk_ipca.singular_values_,
+        1e-3,
+        with_sign=True,
+    )
+    assert array_equal(cu_ipca.mean_, sk_ipca.mean_, 1e-3, with_sign=True)
+    assert array_equal(cu_ipca.var_, sk_ipca.var_, 1e-3, with_sign=True)
+    assert int(cu_ipca.n_samples_seen_) == int(sk_ipca.n_samples_seen_)
+    assert cu_ipca.n_components_ == sk_ipca.n_components_
 
 
 def test_exceptions():

@@ -17,7 +17,7 @@ import sklearn
 from packaging.version import Version
 from sklearn.base import check_is_fitted, is_classifier, is_regressor
 from sklearn.datasets import make_blobs, make_classification, make_regression
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, IncrementalPCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (
@@ -28,9 +28,10 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from cuml.accel import is_proxy
+from cuml.accel.estimator_proxy import ProxyBase
 
 SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
@@ -77,12 +78,24 @@ def test_method_metadata():
     assert inspect.signature(LogisticRegression.fit) == cpu_sig
 
 
+def test_init_no_parameters_signature():
+    """On Python < 3.13 `inspect.signature` has a bug that led to `__init__`s
+    of proxies with no parameters mistakenly having `*args, **kwargs` in
+    the signature. This test checks that we successfully work around that."""
+    assert not inspect.signature(LabelEncoder).parameters
+
+
 def test_sklearn_introspect_estimator_type():
     if not SKLEARN_18:
         assert LogisticRegression._estimator_type == "classifier"
         assert LogisticRegression()._estimator_type == "classifier"
     assert is_classifier(LogisticRegression())
     assert is_regressor(LinearRegression())
+
+
+def test_sklearn_introspect_parameter_constraints():
+    assert isinstance(LogisticRegression._parameter_constraints, dict)
+    assert isinstance(LogisticRegression()._parameter_constraints, dict)
 
 
 @pytest.mark.skipif(not SKLEARN_16, reason="sklearn >= 1.6 only")
@@ -128,6 +141,15 @@ def test_init_positional_and_keyword():
     with pytest.raises(TypeError):
         # Can't pass keyword-only parameters in as positional
         PCA(10, False)
+
+    model = IncrementalPCA()
+    assert model.n_components is None
+
+    model = IncrementalPCA(n_components=10)
+    assert model.n_components == 10
+
+    model = IncrementalPCA(10)
+    assert model.n_components == 10
 
 
 def test_repr():
@@ -407,6 +429,23 @@ def test_pickle_cpu_fit():
     assert not model2._synced
 
 
+def test_pickle_cpu_fit_but_params_supported():
+    """Test that a model fit on CPU isn't reloaded to the GPU on unpickle, even
+    if the hyperparameters are supported."""
+    X, y = make_regression(n_samples=10)
+    X[0, 0] = np.nan
+    model = RandomForestRegressor().fit(X, y)
+    # ensure the test case is one that isn't GPU accelerated
+    assert model._gpu is None
+
+    model2 = pickle.loads(pickle.dumps(model))
+    # GPU model doesn't exist
+    assert model2._gpu is None
+    # CPU model has fit attributes
+    assert model2._cpu.n_features_in_
+    assert not model2._synced
+
+
 def test_unpickle_cuml_accel_not_active():
     """Unpickling in an process without cuml.accel enabled uses the CPU model"""
     X, y = make_classification(n_samples=10)
@@ -667,6 +706,48 @@ def test_set_output(methods):
     assert not hasattr(model._cpu, "n_features_in_")
 
 
+def test_incremental_pca_partial_fit():
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    model.partial_fit(X[:20])
+    gpu = model._gpu
+
+    assert gpu is not None
+    assert int(gpu.n_samples_seen_) == 20
+
+    model.partial_fit(X[20:])
+
+    assert model._gpu is gpu
+    assert int(model._gpu.n_samples_seen_) == 40
+    assert not hasattr(model._cpu, "components_")
+
+    out = model.transform(X)
+    assert isinstance(out, np.ndarray)
+    assert out.shape[1] == 3
+
+
+def test_incremental_pca_set_output():
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    assert model.set_output(transform="pandas") is model
+    model.partial_fit(X)
+
+    out = model.transform(X)
+    assert isinstance(out, pd.DataFrame)
+    assert out.columns[0].startswith("incrementalpca")
+
+
+@pytest.mark.parametrize("method", ["fit_transform", "partial_fit"])
+def test_incremental_pca_rejects_unsupported_fit_params(method):
+    X, _ = make_classification(n_samples=40, n_features=8, random_state=42)
+    model = IncrementalPCA(n_components=3, batch_size=10)
+
+    with pytest.raises(TypeError):
+        getattr(model, method)(X, sample_weight=np.ones(X.shape[0]))
+
+
 def test_get_feature_names_out():
     model = PCA(n_components=5)
 
@@ -855,3 +936,46 @@ def test_array_api_proxy_fallback_older_sklearn():
     model = StandardScaler().fit(X)
     # Ran on CPU
     assert model._gpu is None
+
+
+@pytest.mark.parametrize(
+    "Base",
+    [
+        pytest.param(LinearRegression, id="ProxyBase"),
+        pytest.param(RandomForestRegressor, id="ProxyBase-with-ABCMeta"),
+        pytest.param(StandardScaler, id="ArrayAPIProxyBase"),
+    ],
+)
+def test_subclass_of_proxy_isnt_accelerated(Base):
+    class Sub(Base):
+        pass
+
+    X, y = make_regression(n_samples=200, random_state=42)
+
+    base_model = Base().fit(X, y)
+    sub_model = Sub().fit(X, y)
+
+    # A base class and instance are proxies
+    assert is_proxy(Base)
+    assert is_proxy(base_model)
+
+    # issubclass/isinstance work on true proxy classes/instances
+    assert issubclass(Base, ProxyBase)
+    assert isinstance(base_model, Base)
+    assert isinstance(base_model, ProxyBase)
+
+    # A subclass (and instance) are not proxies
+    assert not is_proxy(Sub)
+    assert not is_proxy(sub_model)
+
+    # A subclass doesn't have any concrete proxy bases in its mro:
+    assert Base not in Sub.__mro__
+    # A subclass does have the original CPU model in its mro:
+    assert Base._cpu_class in Sub.__mro__
+
+    # A subclass still identifies as a subclass
+    assert issubclass(Sub, Base)
+    assert issubclass(Sub, ProxyBase)
+    # A subclass instance still identifies as an instance
+    assert isinstance(sub_model, Base)
+    assert isinstance(sub_model, ProxyBase)

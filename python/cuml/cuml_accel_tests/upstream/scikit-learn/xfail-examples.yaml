@@ -3,11 +3,6 @@
   strict: false
   tests:
   - "decomposition::plot_faces_decomposition"
-- reason: 'cuml.accel bug: implicit CuPy-to-NumPy conversion not handled in ColumnTransformer/Pipeline'
-  marker: cuml_accel_bugs
-  tests:
-  - "linear_model::plot_poisson_regression_non_normal_loss"
-  - "release_highlights::plot_release_highlights_1_1_0"
 - reason: 'cuml.accel bug: native crash in cuml PCA'
   marker: cuml_accel_bugs
   tests:
@@ -23,6 +18,7 @@
 - reason: 'Missing optional dependency: plotly'
   strict: false
   tests:
+  - "ensemble::plot_forest_hist_grad_boosting_comparison"
   - "model_selection::plot_grid_search_text_feature_extraction"
 - reason: 'Missing optional dependency: polars'
   strict: false
