@@ -89,14 +89,17 @@ class RfMgQuantileTest : public ::testing::Test {
     rmm::device_uvector<T> data(h_data.size(), handle.get_stream());
     raft::update_device(data.data(), h_data.data(), h_data.size(), handle.get_stream());
 
-    auto [quantiles, quantiles_array, n_bins_array] =
+    auto quantile_result =
       DT::computeQuantiles(handle, data.data(), max_n_bins, n_rows, n_cols, oversample, seed);
 
     std::vector<int> h_n_bins(n_cols);
     std::vector<T> h_quantiles(static_cast<std::size_t>(n_cols) * max_n_bins);
-    raft::update_host(h_n_bins.data(), n_bins_array->data(), n_cols, handle.get_stream());
     raft::update_host(
-      h_quantiles.data(), quantiles_array->data(), h_quantiles.size(), handle.get_stream());
+      h_n_bins.data(), quantile_result.n_bins_array.data(), n_cols, handle.get_stream());
+    raft::update_host(h_quantiles.data(),
+                      quantile_result.quantiles_array.data(),
+                      h_quantiles.size(),
+                      handle.get_stream());
     handle.sync_stream();
 
     std::uint64_t local_hash = 1469598103934665603ULL;
