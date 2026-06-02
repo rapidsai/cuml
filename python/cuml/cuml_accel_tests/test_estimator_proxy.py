@@ -35,6 +35,7 @@ from cuml.accel.estimator_proxy import ProxyBase
 
 SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+SKLEARN_19 = Version(sklearn.__version__) >= Version("1.9.0.dev0")
 
 requires_array_api = pytest.mark.skipif(
     not SKLEARN_18,
@@ -979,3 +980,103 @@ def test_subclass_of_proxy_isnt_accelerated(Base):
     # A subclass instance still identifies as an instance
     assert isinstance(sub_model, Base)
     assert isinstance(sub_model, ProxyBase)
+
+
+@pytest.mark.skipif(not SKLEARN_19, reason="scikit-learn >= 1.9 required")
+def test_set_callbacks(capsys):
+    from sklearn.callback import ProgressBar
+
+    bar = ProgressBar()
+
+    X, y = make_classification()
+
+    # Initial fit on GPU
+    model = LogisticRegression().fit(X, y)
+    assert model._gpu is not None
+
+    # set_callbacks runs on CPU but doesn't trigger a host migration
+    model.set_callbacks(bar)
+    assert model._cpu._skl_callbacks
+    assert model._gpu is not None
+
+    # inference still runs on GPU, callbacks only affect fit
+    y = model.predict(X)
+    assert model._gpu is not None
+    assert not hasattr(model._cpu, "n_features_in_")
+
+    # refitting with a callback configured runs on CPU
+    model.fit(X, y)
+    assert model._gpu is None
+
+    # Check the ProgressBar output something
+    captured = capsys.readouterr()
+    assert "LogisticRegression" in captured.out
+
+    # resetting callbacks allows GPU execution again
+    model.set_callbacks()
+    model.fit(X, y)
+    assert model._gpu is not None
+
+
+@pytest.mark.skipif(not SKLEARN_19, reason="scikit-learn >= 1.9 required")
+def test_set_callbacks_partial_fit(capsys):
+    from sklearn.callback import ProgressBar
+
+    bar = ProgressBar()
+
+    X, _ = make_regression(n_samples=200)
+    X1, X2 = X[:100], X[100:200]
+
+    # Initial fit on GPU
+    model = StandardScaler().partial_fit(X1)
+    assert model._gpu is not None
+    assert model._gpu._internal_model.n_samples_seen_ == 100
+
+    # set_callbacks runs on CPU but doesn't trigger a host migration
+    model.set_callbacks(bar)
+    assert model._cpu._skl_callbacks
+    assert model._gpu is not None
+
+    # partial_fit leads to a host migration and running on CPU
+    model.partial_fit(X2)
+    assert model._gpu is None
+
+    # Check the ProgressBar output something
+    captured = capsys.readouterr()
+    assert "StandardScaler" in captured.out
+
+    # host migration didn't drop fitted state
+    assert model._cpu.n_samples_seen_ == 200
+
+
+@pytest.mark.skipif(not SKLEARN_19, reason="scikit-learn >= 1.9 required")
+def test_set_callbacks_meta_estimator(capsys):
+    from sklearn.callback import ProgressBar
+
+    X, y = make_classification()
+    scaler = StandardScaler()
+    model = LogisticRegression()
+    pipeline = Pipeline([("scaler", scaler), ("model", model)])
+
+    # Non-propagated callbacks on a pipeline don't lead to fallback
+    bar = ProgressBar(0)
+    pipeline.set_callbacks(bar)
+    pipeline.fit(X, y)
+    assert scaler._gpu is not None
+    assert model._gpu is not None
+
+    # Check the ProgressBar output something
+    captured = capsys.readouterr()
+    assert "Pipeline" in captured.out
+
+    # Propagated callbacks on a pipeline work, but can lead to fallback
+    bar = ProgressBar(None)
+    pipeline.set_callbacks(bar)
+    pipeline.fit(X, y)
+    assert scaler._gpu is None
+    assert model._gpu is None
+
+    # Check the ProgressBar output something
+    captured = capsys.readouterr()
+    assert "StandardScaler" in captured.out
+    assert "LogisticRegression" in captured.out
