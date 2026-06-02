@@ -1418,7 +1418,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     for (auto c = 0; c < params.n_classes; ++c) {
       if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
       {
-        count += cdf_hist[params.max_n_bins * c + idx].x;
+        count += static_cast<IdxT>(cdf_hist[params.max_n_bins * c + idx].x);
       } else  // aggregatebin
       {
         count += cdf_hist[params.max_n_bins * c + idx].count;
