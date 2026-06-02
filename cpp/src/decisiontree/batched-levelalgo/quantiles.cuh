@@ -35,6 +35,7 @@ namespace DT {
 
 namespace detail {
 
+// Draw global sample rows and copy the rows owned by this rank into a column-major sample buffer.
 template <typename T>
 static __global__ void sampleOwnedColumnsKernel(T* out,
                                                 const T* data,
@@ -80,6 +81,7 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
 
 }  // namespace detail
 
+// Convert sorted per-column samples into quantile candidates and compact duplicate candidates.
 template <typename T>
 static __global__ void computeQuantilesBatchedKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
@@ -160,6 +162,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   int rank         = distributed ? handle.get_comms().get_rank() : 0;
   int comm_size    = distributed ? handle.get_comms().get_size() : 1;
 
+  // Build exclusive global row offsets so sampled global row ids can be mapped to owning ranks.
   rmm::device_uvector<std::uint64_t> rank_row_offsets(comm_size + 1, stream);
   rmm::device_uvector<std::uint64_t> local_row_count(1, stream);
   auto local_rows = static_cast<std::uint64_t>(n_rows);
@@ -183,6 +186,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   handle.sync_stream(stream);
   RAFT_EXPECTS(global_rows > 0, "global row count must be positive");
 
+  // Allocate one shared row sample for all columns and the buffers used to sort it by column.
   int sample_count = static_cast<int>(std::min<std::uint64_t>(
     global_rows, static_cast<std::uint64_t>(max_n_bins) * oversampling_factor));
 
@@ -200,6 +204,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   rmm::device_uvector<T> quantiles_array(n_cols * max_n_bins, stream);
   rmm::device_uvector<int> n_bins_array(n_cols, stream);
 
+  // Fill this rank's owned positions in the global sample; all other positions remain zero.
   RAFT_CUDA_TRY(
     cudaMemsetAsync(sampled_columns.data(), 0, sizeof(T) * total_sample_values, stream));
   detail::sampleOwnedColumnsKernel<<<sample_count, n_threads, 0, stream>>>(sampled_columns.data(),
@@ -214,6 +219,9 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                                            seed);
   RAFT_CUDA_TRY(cudaGetLastError());
   if (distributed) {
+    // Every global sample position is owned by exactly one rank. A SUM all-reduce turns the sparse
+    // per-rank buffers into the same dense sample buffer on all ranks without per-column gathers or
+    // rank-dependent counts/displacements.
     handle.get_comms().allreduce(sampled_columns.data(),
                                  sampled_columns.data(),
                                  total_sample_values,
@@ -223,6 +231,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
            "An error occurred in the distributed RF quantile sample all-reduce.");
   }
 
+  // Sort each feature column's sampled values as an independent segment in one batched call.
   size_t temp_storage_bytes = 0;
   // Query temporary storage for the batched segmented radix sort.
   RAFT_CUDA_TRY(
@@ -252,6 +261,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                             8 * sizeof(T),
                                             stream));
 
+  // Interpolate quantile positions from the sorted samples and record the non-duplicate bin count.
   computeQuantilesBatchedKernel<<<n_cols, std::min(1024, max_n_bins), 0, stream>>>(
     quantiles_array.data(), n_bins_array.data(), sorted_samples.data(), max_n_bins, sample_count);
   RAFT_CUDA_TRY(cudaGetLastError());
