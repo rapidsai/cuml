@@ -80,10 +80,8 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
-    # rapids-pre-commit-hooks: disable-next-line
-    # TODO(26.08): Remove explicit default
-    RandomForestClassifier(max_depth=None),
-    RandomForestRegressor(max_depth=None),
+    RandomForestClassifier(),
+    RandomForestRegressor(),
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),

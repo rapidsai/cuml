@@ -168,9 +168,6 @@ def compute_max_features(
         )
 
 
-_DEPRECATED_MAX_DEPTH_DEFAULT = "deprecated"
-
-
 class BaseRandomForestModel(Base, InteropMixin):
 
     @classmethod
@@ -248,9 +245,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         return {
             "n_estimators": self.n_estimators,
             "criterion": criterion,
-            "max_depth": (
-                16 if self.max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT else self.max_depth
-            ),
+            "max_depth": self.max_depth,
             "min_samples_split": self.min_samples_split,
             "min_samples_leaf": self.min_samples_leaf,
             "max_features": self.max_features,
@@ -313,7 +308,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         n_estimators=100,
         bootstrap=True,
         max_samples=1.0,
-        max_depth=_DEPRECATED_MAX_DEPTH_DEFAULT,
+        max_depth=None,
         max_leaves=-1,
         max_features='sqrt',
         n_bins=128,
@@ -471,15 +466,6 @@ class BaseRandomForestModel(Base, InteropMixin):
 
         cdef int max_depth_c
         max_depth = self.max_depth
-
-        if max_depth == _DEPRECATED_MAX_DEPTH_DEFAULT:
-            warnings.warn(
-                "The default value of 'max_depth' will change from 16 to "
-                # rapids-pre-commit-hooks: disable-next-line
-                "None (unlimited depth) in release 26.08. To suppress this "
-                "warning, set 'max_depth' explicitly.",
-                FutureWarning, stacklevel=3)
-            max_depth = 16
 
         if max_depth is None:
             max_depth_c = np.iinfo(np.int32).max

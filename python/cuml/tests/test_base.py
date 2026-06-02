@@ -108,11 +108,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
-# ignore ColumnTransformer init warning and max_depth deprecation
+# ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_base_children__get_param_names(child_class: str):
     """
@@ -302,9 +299,6 @@ def test_get_handle_device_ids():
         and hasattr(cls, "predict")
     ],
 )
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_regressor_predict_dtype(cls):
     X, y = make_regression(n_samples=200, random_state=42)
     X32 = X.astype("float32")
@@ -344,9 +338,6 @@ def test_regressor_predict_dtype(cls):
         (cuml.naive_bayes.MultinomialNB, None),
     ],
 )
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 # rapids-pre-commit-hooks: disable-next-line
 # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
 @pytest.mark.filterwarnings(
