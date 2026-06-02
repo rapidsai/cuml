@@ -127,6 +127,7 @@ _MODULE_TO_IGNORE = {
     "fil",
     "experimental",
     "benchmark",
+    "tests",
 }
 
 
