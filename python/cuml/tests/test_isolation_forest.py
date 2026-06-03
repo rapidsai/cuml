@@ -12,8 +12,10 @@ These tests are designed to be:
 4. Validating sklearn compatibility
 """
 
+import cupy as cp
 import numpy as np
 import pytest
+import treelite
 from sklearn.datasets import make_blobs
 from sklearn.ensemble import IsolationForest as skIsolationForest
 
@@ -361,6 +363,77 @@ def test_similar_results_to_sklearn(blobs_data):
     assert correlation > 0.5, (
         f"Score correlation with sklearn should be > 0.5, got {correlation:.3f}"
     )
+
+
+# =============================================================================
+# Treelite / nvForest export tests
+# =============================================================================
+
+
+def test_as_treelite_metadata(blobs_data):
+    """as_treelite() should return a valid Treelite IF model."""
+    n_estimators = 10
+    clf = cuIsolationForest(n_estimators=n_estimators, random_state=42)
+    clf.fit(blobs_data)
+
+    tl_model = clf.as_treelite()
+    assert isinstance(tl_model, treelite.Model)
+    assert tl_model.num_tree == n_estimators
+    assert tl_model.num_feature == blobs_data.shape[1]
+
+
+def test_as_treelite_serialize_roundtrip(blobs_data):
+    """Treelite-exported IF models should serialize and deserialize."""
+    clf = cuIsolationForest(n_estimators=10, random_state=42)
+    clf.fit(blobs_data)
+
+    tl_model = clf.as_treelite()
+    roundtrip_model = treelite.Model.deserialize_bytes(
+        tl_model.serialize_bytes()
+    )
+
+    assert roundtrip_model.num_tree == tl_model.num_tree
+    assert roundtrip_model.num_feature == tl_model.num_feature
+
+
+def test_as_nvforest_loads(blobs_data):
+    """as_nvforest() should load the Treelite IF model for GPU inference."""
+    X = cp.asarray(blobs_data)
+    clf = cuIsolationForest(n_estimators=10, random_state=42)
+    clf.fit(X)
+
+    nvforest_model = clf.as_nvforest()
+    avg_path_lengths = cp.asarray(nvforest_model.predict(X))
+
+    assert "ForestInferenceRegressor" in type(nvforest_model).__name__
+    assert avg_path_lengths.shape[0] == X.shape[0]
+    assert bool(cp.all(cp.isfinite(avg_path_lengths)))
+
+
+def test_nvforest_score_parity(blobs_data):
+    """nvForest-backed scores should match the current C++ scoring path."""
+    X = cp.asarray(blobs_data)
+    clf = cuIsolationForest(n_estimators=25, random_state=42)
+    clf.fit(X)
+
+    cpp_scores = cp.asarray(clf.score_samples(X))
+    nvforest_scores = cp.asarray(clf._score_samples_nvforest(X))
+
+    cp.testing.assert_allclose(cpp_scores, nvforest_scores, rtol=1e-5, atol=1e-6)
+
+
+def test_treelite_export_before_fit_raises(blobs_data):
+    """Treelite and nvForest export should require a fitted model."""
+    clf = cuIsolationForest()
+
+    with pytest.raises(RuntimeError, match="not been fitted"):
+        clf.as_treelite()
+
+    with pytest.raises(RuntimeError, match="not been fitted"):
+        clf.as_nvforest()
+
+    with pytest.raises(RuntimeError, match="not been fitted"):
+        clf._score_samples_nvforest(blobs_data)
 
 
 # =============================================================================
