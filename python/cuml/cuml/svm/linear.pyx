@@ -53,7 +53,6 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
         const T* y,
         const T* sampleWeight,
         T* w,
-        T* probScale,
     ) except +
 
 
@@ -212,7 +211,6 @@ def fit(
     cdef uintptr_t classes_ptr = 0 if class_codes is None else class_codes.data.ptr
     cdef uintptr_t w_ptr = w.data.ptr
     # TODO
-    cdef uintptr_t prob_scale_ptr = 0
     cdef int n_iter
 
     # Perform fit
@@ -229,7 +227,6 @@ def fit(
                 <const float*>y_ptr,
                 <const float*>sample_weight_ptr,
                 <float*>w_ptr,
-                <float*>prob_scale_ptr,
             )
         else:
             n_iter = cpp_fit[double](
@@ -243,7 +240,6 @@ def fit(
                 <const double*>y_ptr,
                 <const double*>sample_weight_ptr,
                 <double*>w_ptr,
-                <double*>prob_scale_ptr,
             )
     handle.sync()
 
