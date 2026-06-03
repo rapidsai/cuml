@@ -376,84 +376,39 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
-)
-@pytest.mark.filterwarnings(
-    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
-)
 @pytest.mark.parametrize("sparse", [False, True])
-@pytest.mark.parametrize("probability", [False, True])
-@pytest.mark.parametrize("kernel", ["rbf", "precomputed"])
-def test_svc(random_state, sparse, probability, kernel):
+def test_svc(random_state, sparse):
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=random_state
     )
-    if kernel == "precomputed":
-        if sparse or probability:
-            pytest.skip(
-                "precomputed kernel not supported with sparse or probability"
-            )
-        K = X @ X.T  # Linear kernel matrix
-        original = cuml.SVC(kernel="precomputed")
-        assert_estimator_roundtrip(
-            original,
-            sklearn.svm.SVC,
-            K,
-            y,
-            exclude_params=["probability"],
-        )
-    else:
-        if sparse:
-            X = scipy.sparse.coo_matrix(X)
-        original = cuml.SVC()
-        assert_estimator_roundtrip(
-            original,
-            sklearn.svm.SVC,
-            X,
-            y,
-            exclude_params=["probability"],
-        )
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVC()
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
-        # Check inference works after conversion. sklearn 1.9 deprecated the
-        # `probability` parameter; avoid passing it on the sklearn side when
-        # False (the default) to avoid the FutureWarning.
-        cu_model = cuml.SVC(probability=probability).fit(X, y)
-        sk_model2 = cu_model.as_sklearn()
-        sk_score = sk_model2.score(X, y)
-        assert sk_score > 0.7
+    # Check inference works after conversion.
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model2 = cu_model.as_sklearn()
+    sk_score = sk_model2.score(X, y)
+    assert sk_score > 0.7
 
-        if probability:
-            # `cuml.SVC.from_sklearn` rejects probability=True so cuml.accel
-            # falls back to native sklearn for calibrated SVC.
-            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
-            with pytest.raises(
-                UnsupportedOnGPU,
-                match=r"`probability=True` is not supported",
-            ):
-                cuml.SVC.from_sklearn(sk_model)
+    sk_model = sklearn.svm.SVC().fit(X, y)
+    cu_model2 = cuml.SVC.from_sklearn(sk_model)
 
-            # The cuml-direct path (used here via cu_model.as_sklearn()) still
-            # wires up probA_ / probB_ for predict_proba on the sklearn side.
-            sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(sk_pred_prob, y) > 0.7
+    cu_score = cu_model2.score(X, y)
+    assert cu_score > 0.7
 
-            for attr in ["probA_", "probB_"]:
-                val = getattr(sk_model2, attr)
-                assert isinstance(val, np.ndarray)
-                assert val.dtype == "float64"
-                assert val.shape == (1,)
-        else:
-            sk_model = sklearn.svm.SVC().fit(X, y)
-            cu_model2 = cuml.SVC.from_sklearn(sk_model)
+    # Check n_support_ is correctly set
+    assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
-            cu_score = cu_model2.score(X, y)
-            assert cu_score > 0.7
 
-            # Check n_support_ is correctly set
-            assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+def test_svc_precomputed(random_state):
+    X, y = make_classification(
+        n_samples=100, n_features=5, n_informative=3, random_state=random_state
+    )
+    K = X @ X.T  # Linear kernel matrix
+    original = cuml.SVC(kernel="precomputed")
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
 
 
 @pytest.mark.parametrize("kind", ["SVC", "SVR"])
