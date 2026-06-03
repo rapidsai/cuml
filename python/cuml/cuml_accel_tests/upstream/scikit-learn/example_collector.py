@@ -42,6 +42,7 @@ _NETWORK_ERROR_PATTERNS = (
     "TimeoutError",
     "requests.exceptions.ConnectionError",
     "requests.exceptions.Timeout",
+    "sklearn.datasets._openml.OpenMLError",
     "socket.gaierror",
     "socket.timeout",
     "ssl.SSLError",
