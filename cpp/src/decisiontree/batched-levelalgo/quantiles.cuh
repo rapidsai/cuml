@@ -35,7 +35,7 @@ namespace DT {
 
 namespace detail {
 
-// Draw global sample rows and copy the rows owned by this rank into a column-major sample buffer.
+// Draw global sample rows and copy values owned by this rank into a column-major sample buffer.
 template <typename T>
 static __global__ void sampleOwnedColumnsKernel(T* out,
                                                 const T* data,
@@ -45,37 +45,31 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
                                                 int sample_count,
                                                 int rank,
                                                 int n_rows,
-                                                int n_cols,
                                                 std::uint64_t seed)
 {
-  int sample_idx = blockIdx.x;
+  int col        = blockIdx.x;
+  int sample_idx = blockIdx.y * blockDim.x + threadIdx.x;
   if (sample_idx >= sample_count) { return; }
 
-  __shared__ int local_row;
-  if (threadIdx.x == 0) {
-    std::uint64_t global_row = sample_idx;
-    if (static_cast<std::uint64_t>(sample_count) != global_rows) {
-      raft::random::UniformIntDistParams<std::uint64_t, std::uint64_t> uniform_int_dist_params;
-      uniform_int_dist_params.start = 0;
-      uniform_int_dist_params.end   = global_rows;
-      uniform_int_dist_params.diff  = global_rows;
-      raft::random::PCGenerator gen(seed, static_cast<uint64_t>(sample_idx), uint64_t(0));
-      raft::random::custom_next(
-        gen, &global_row, uniform_int_dist_params, std::uint64_t(0), std::uint64_t(0));
-    }
-    auto sample_end = ::cuda::std::lower_bound(
-      rank_row_offsets + 1, rank_row_offsets + comm_size + 1, global_row + 1);
-    int sample_rank           = static_cast<int>(sample_end - (rank_row_offsets + 1));
-    std::uint64_t local_begin = rank_row_offsets[rank];
-    local_row = sample_rank == rank ? static_cast<int>(global_row - local_begin) : -1;
+  std::uint64_t global_row = sample_idx;
+  if (static_cast<std::uint64_t>(sample_count) != global_rows) {
+    raft::random::UniformIntDistParams<std::uint64_t, std::uint64_t> uniform_int_dist_params;
+    uniform_int_dist_params.start = 0;
+    uniform_int_dist_params.end   = global_rows;
+    uniform_int_dist_params.diff  = global_rows;
+    raft::random::PCGenerator gen(seed, static_cast<uint64_t>(sample_idx), uint64_t(0));
+    raft::random::custom_next(
+      gen, &global_row, uniform_int_dist_params, std::uint64_t(0), std::uint64_t(0));
   }
-  __syncthreads();
 
-  if (local_row >= 0) {
-    for (int col = threadIdx.x; col < n_cols; col += blockDim.x) {
-      out[static_cast<std::size_t>(col) * sample_count + sample_idx] =
-        data[static_cast<int64_t>(col) * n_rows + local_row];
-    }
+  auto sample_end = ::cuda::std::lower_bound(
+    rank_row_offsets + 1, rank_row_offsets + comm_size + 1, global_row + 1);
+  int sample_rank           = static_cast<int>(sample_end - (rank_row_offsets + 1));
+  std::uint64_t local_begin = rank_row_offsets[rank];
+  if (sample_rank == rank) {
+    int local_row = static_cast<int>(global_row - local_begin);
+    out[static_cast<std::size_t>(col) * sample_count + sample_idx] =
+      data[static_cast<int64_t>(col) * n_rows + local_row];
   }
 }
 
@@ -117,7 +111,8 @@ struct QuantileResult {
   rmm::device_uvector<T> quantiles_array;
   rmm::device_uvector<int> n_bins_array;
 
-  Quantiles<T, int> view() { return {quantiles_array.data(), n_bins_array.data()}; }
+  Quantiles<T, int> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
+  Quantiles<T, int> view() && = delete;
 };
 
 /**
@@ -207,16 +202,16 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   // Fill this rank's owned positions in the global sample; all other positions remain zero.
   RAFT_CUDA_TRY(
     cudaMemsetAsync(sampled_columns.data(), 0, sizeof(T) * total_sample_values, stream));
-  detail::sampleOwnedColumnsKernel<<<sample_count, n_threads, 0, stream>>>(sampled_columns.data(),
-                                                                           data,
-                                                                           rank_row_offsets.data(),
-                                                                           comm_size,
-                                                                           global_rows,
-                                                                           sample_count,
-                                                                           rank,
-                                                                           n_rows,
-                                                                           n_cols,
-                                                                           seed);
+  dim3 sample_grid(n_cols, (sample_count + n_threads - 1) / n_threads);
+  detail::sampleOwnedColumnsKernel<<<sample_grid, n_threads, 0, stream>>>(sampled_columns.data(),
+                                                                          data,
+                                                                          rank_row_offsets.data(),
+                                                                          comm_size,
+                                                                          global_rows,
+                                                                          sample_count,
+                                                                          rank,
+                                                                          n_rows,
+                                                                          seed);
   RAFT_CUDA_TRY(cudaGetLastError());
   if (distributed) {
     // Every global sample position is owned by exactly one rank. A SUM all-reduce turns the sparse

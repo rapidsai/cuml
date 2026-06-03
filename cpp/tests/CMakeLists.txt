@@ -207,7 +207,9 @@ if(BUILD_CUML_MG_TESTS)
     ConfigureTest(PREFIX MG NAME KNN_REGRESS_TEST mg/knn_regress.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
     ConfigureTest(PREFIX MG NAME MAIN_TEST mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
     ConfigureTest(PREFIX MG NAME PCA_TEST mg/pca.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
-    ConfigureTest(PREFIX MG NAME RF_QUANTILE_TEST mg/rf_quantile_test.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(
+      PREFIX MG NAME RF_QUANTILE_TEST mg/rf_quantile_test.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
+    )
   else(MPI_CXX_FOUND)
     message("OpenMPI not found. Skipping MultiGPU tests '${CUML_MG_TEST_TARGET}'")
   endif()
