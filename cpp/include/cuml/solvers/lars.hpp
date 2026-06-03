@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Solver {
 namespace Lars {
 
@@ -41,7 +42,7 @@ namespace Lars {
  *    Size [max_iter * max_iter].
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns, ld_X >= n_rows).
- * @param ld_G leading dimesion of G (ld_G >= n_cols)
+ * @param ld_G leading dimension of G (ld_G >= n_cols)
  * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
@@ -54,13 +55,13 @@ void larsFit(const raft::handle_t& handle,
              idx_t* active_idx,
              math_t* alphas,
              idx_t* n_active,
-             math_t* Gram,
-             int max_iter,
-             math_t* coef_path,
-             rapids_logger::level_enum verbosity,
-             idx_t ld_X,
-             idx_t ld_G,
-             math_t eps);
+             math_t* Gram                        = nullptr,
+             int max_iter                        = 500,
+             math_t* coef_path                   = nullptr,
+             rapids_logger::level_enum verbosity = rapids_logger::level_enum::off,
+             idx_t ld_X                          = 0,
+             idx_t ld_G                          = 0,
+             math_t eps                          = -1);
 
 /**
  * @brief Predict with LARS regressor.
@@ -92,4 +93,4 @@ void larsPredict(const raft::handle_t& handle,
                  math_t* preds);
 };  // namespace Lars
 };  // namespace Solver
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

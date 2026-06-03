@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import scipy.sparse
 
-from cuml.common import CumlArray, input_to_cuml_array
+from cuml.common import CumlArray
 from cuml.common.sparse_utils import is_sparse
 from cuml.internals import get_handle, reflect
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.input_utils import sparse_scipy_to_cp
+from cuml.internals.validation import check_array
 from cuml.thirdparty_adapters import _get_mask
 
 from libc.stdint cimport uintptr_t
@@ -147,13 +148,15 @@ def nan_euclidean_distances(
 
     Parameters
     ----------
-    X : Dense matrix of shape (n_samples_X, n_features)
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    X : array-like (device or host) of shape (n_samples_X, n_features)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-    Y : Dense matrix of shape (n_samples_Y, n_features), default=None
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    Y : array-like (device or host) of shape (n_samples_Y, n_features), \
+        default=None
+        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
         Return squared Euclidean distances.
@@ -161,11 +164,16 @@ def nan_euclidean_distances(
     missing_values : np.nan or int, default=np.nan
         Representation of missing value.
 
+    convert_dtype : bool, optional (default = True)
+        When set to True, the method will, when necessary, convert ``X``
+        to a supported floating-point dtype and convert ``Y`` to match
+        ``X``'s dtype. This will increase memory used for the method.
+
     Returns
     -------
-    distances : ndarray of shape (n_samples_X, n_samples_Y)
-        Returns the distances between the row vectors of `X`
-        and the row vectors of `Y`.
+    distances : array of shape (n_samples_X, n_samples_Y)
+        Returns the distances between the row vectors of ``X``
+        and the row vectors of ``Y``.
     """
 
     if isinstance(X, cudf.DataFrame) or isinstance(X, pd.DataFrame):
@@ -176,23 +184,27 @@ def nan_euclidean_distances(
         if (Y.isnull().any()).any():
             Y.fillna(0, inplace=True)
 
-    X_m, _n_samples_x, _n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
+    X_m = check_array(
+        X,
+        order="A",
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        ensure_all_finite=False,
+        input_name="X",
+    )
+    dtype_x = X_m.dtype
 
     if Y is None:
-        Y = X_m
-
-    Y_m, _n_samples_y, _n_features_y, _dtype_y = \
-        input_to_cuml_array(
-            Y, order=X_m.order, convert_to_dtype=dtype_x,
-            check_dtype=[dtype_x])
-
-    X_m = cp.asarray(X_m)
-    Y_m = cp.asarray(Y_m)
+        Y_m = X_m
+    else:
+        Y_m = check_array(
+            Y,
+            order="F" if X_m.flags.f_contiguous else "C",
+            dtype=[dtype_x],
+            convert_dtype=convert_dtype,
+            ensure_all_finite=False,
+            input_name="Y",
+        )
 
     # Get missing mask for X
     missing_X = _get_mask(X_m, missing_values)
@@ -269,16 +281,17 @@ def pairwise_distances(
 
     Parameters
     ----------
-    X : Dense or sparse matrix (device or host) of shape
+    X : {array-like, sparse matrix} (device or host) of shape \
         (n_samples_x, n_features)
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy, or
-        cupyx.scipy.sparse for sparse input
+        cupyx.scipy.sparse for sparse input.
 
-    Y : array-like (device or host) of shape (n_samples_y, n_features),\
-        optional
+    Y : array-like (device or host) of shape (n_samples_y, n_features), \
+        default=None
+        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+        ndarray, cuda array interface compliant array like CuPy.
 
     metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
         "sqeuclidean"}
@@ -347,49 +360,54 @@ def pairwise_distances(
         X = np.where(X != 0., 1.0, 0.0)
 
     # Get the input arrays, preserve order and type where possible
-    X_m, n_samples_x, n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
-
-    # Get the order from the CumlArray
-    input_order = X_m.order
+    X_m = check_array(
+        X,
+        order="A",
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        input_name="X",
+    )
+    cdef int n_samples_x = X_m.shape[0]
+    cdef int n_features_x = X_m.shape[1]
+    dtype_x = X_m.dtype
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_Y_ptr
     cdef uintptr_t d_dest_ptr
+    cdef bint is_row_major = X_m.flags.c_contiguous
+    cdef int n_samples_y = n_samples_x
+    cdef int n_features_y = n_features_x
 
-    if (Y is not None):
-
-        # Check for the odd case where one dimension of X is 1. In this case,
-        # CumlArray always returns order=="C" so instead get the order from Y
-        if (n_samples_x == 1 or n_features_x == 1):
-            input_order = "K"
-
+    if Y is not None:
         if metric in ['russellrao'] and not np.all(Y.data == 1.):
             warnings.warn("Y was converted to boolean for metric {}"
                           .format(metric))
             Y = np.where(Y != 0., 1.0, 0.0)
 
-        Y_m, n_samples_y, n_features_y, dtype_y = \
-            input_to_cuml_array(Y, order=input_order,
-                                convert_to_dtype=(dtype_x if convert_dtype
-                                                  else None),
-                                check_dtype=[dtype_x])
-        # Get the order from Y if necessary (It's possible to set order="F" in
-        # input_to_cuml_array and have Y_m.order=="C")
-        if (input_order == "K"):
-            input_order = Y_m.order
+        if n_samples_x == 1 or n_features_x == 1:
+            # X is degenerate (both C- and F-contiguous); let Y choose the
+            # layout and propagate it.
+            Y_m = check_array(
+                Y,
+                order="A",
+                dtype=[dtype_x],
+                convert_dtype=convert_dtype,
+                input_name="Y",
+            )
+            is_row_major = Y_m.flags.c_contiguous
+        else:
+            # X is the authority; force Y's layout to match X's.
+            Y_m = check_array(
+                Y,
+                order="C" if is_row_major else "F",
+                dtype=[dtype_x],
+                convert_dtype=convert_dtype,
+                input_name="Y",
+            )
+        n_samples_y = Y_m.shape[0]
+        n_features_y = Y_m.shape[1]
     else:
-        # Shallow copy X variables
         Y_m = X_m
-        n_samples_y = n_samples_x
-        n_features_y = n_features_x
-        dtype_y = dtype_x
-
-    is_row_major = input_order == "C"
 
     # Check feature sizes are equal
     if (n_features_x != n_features_y):
@@ -402,10 +420,10 @@ def pairwise_distances(
 
     # Create the output array
     dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x,
-                             order=input_order)
+                             order="C" if is_row_major else "F")
 
-    d_X_ptr = X_m.ptr
-    d_Y_ptr = Y_m.ptr
+    d_X_ptr = X_m.data.ptr
+    d_Y_ptr = Y_m.data.ptr
     d_dest_ptr = dest_m.ptr
 
     # Now execute the functions
@@ -414,9 +432,9 @@ def pairwise_distances(
                           <float*> d_X_ptr,
                           <float*> d_Y_ptr,
                           <float*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
+                          n_samples_x,
+                          n_samples_y,
+                          n_features_x,
                           <DistanceType> metric_val,
                           <bool> is_row_major,
                           <float> metric_arg)
@@ -425,9 +443,9 @@ def pairwise_distances(
                           <double*> d_X_ptr,
                           <double*> d_Y_ptr,
                           <double*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
+                          n_samples_x,
+                          n_samples_y,
+                          n_features_x,
                           <DistanceType> metric_val,
                           <bool> is_row_major,
                           <double> metric_arg)
@@ -503,30 +521,27 @@ def sparse_pairwise_distances(
 
     .. code-block:: python
 
+        >>> import cupy as cp
         >>> import cupyx
         >>> from cuml.metrics import sparse_pairwise_distances
 
-        >>> X = cupyx.scipy.sparse.random(2, 3, density=0.5, random_state=9)
-        >>> Y = cupyx.scipy.sparse.random(1, 3, density=0.5, random_state=9)
-        >>> X.todense()
-        array([[0.8098..., 0.537..., 0. ],
-            [0.        , 0.856..., 0. ]])
-        >>> Y.todense()
-        array([[0.        , 0.        , 0.993...]])
+        >>> X = cupyx.scipy.sparse.csr_matrix(cp.array([[1.0, 2.0, 0.0],
+        ...                                             [0.0, 3.0, 1.0]]))
+        >>> Y = cupyx.scipy.sparse.csr_matrix(cp.array([[1.0, 0.0, 2.0]]))
         >>> # Cosine Pairwise Distance, Single Input:
         >>> sparse_pairwise_distances(X, metric='cosine')
-        array([[0.      , 0.447...],
-            [0.447..., 0.        ]])
+        array([[0.   , 0.151...],
+            [0.151..., 0.   ]])
 
         >>> # Squared euclidean Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='sqeuclidean')
-        array([[1.931...],
-            [1.720...]])
+        array([[ 8.],
+            [11.]])
 
         >>> # Canberra Pairwise Distance, Multi-Input:
         >>> sparse_pairwise_distances(X, Y, metric='canberra')
-        array([[3.],
-            [2.]])
+        array([[2.   ],
+            [2.333...]])
     """
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()

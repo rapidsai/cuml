@@ -1,11 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
-
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <raft/random/rng_state.hpp>
 
@@ -17,7 +17,8 @@ struct params;
 
 }  // end namespace cuvs::cluster::kmeans
 
-namespace ML::kmeans {
+namespace CUML_EXPORT ML {
+namespace kmeans {
 
 struct KMeansParams {
   enum class InitMethod { KMeansPlusPlus, Random, Array };
@@ -27,14 +28,14 @@ struct KMeansParams {
   int max_iter                        = 300;
   double tol                          = 1e-4;
   rapids_logger::level_enum verbosity = rapids_logger::level_enum::info;
-  raft::random::RngState rng_state{0};
+  raft::random::RngState rng_state{0, raft::random::GeneratorType::GenPhilox};
   int n_init                 = 1;
   double oversampling_factor = 2.0;
   int batch_samples          = 1 << 15;
   int batch_centroids        = 0;
-  bool inertia_check         = false;
 
   cuvs::cluster::kmeans::params to_cuvs() const;
 };
 
-}  // end namespace ML::kmeans
+}  // end namespace kmeans
+}  // end namespace CUML_EXPORT ML

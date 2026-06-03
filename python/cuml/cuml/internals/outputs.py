@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import contextlib
@@ -7,11 +7,13 @@ import functools
 import inspect
 
 import numpy as np
+from cupy.cuda import Stream
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.validation import check_features
 
 __all__ = (
     "check_output_type",
@@ -20,6 +22,8 @@ __all__ = (
     "reflect",
     "run_in_internal_context",
     "exit_internal_context",
+    "enter_internal_context",
+    "in_internal_context",
 )
 
 
@@ -209,13 +213,19 @@ def enter_internal_context():
         gs._external_output_type = gs.output_type
         gs.output_type = "mirror"
         try:
-            yield True
+            with Stream.ptds:
+                yield True
         finally:
             gs.output_type = gs._external_output_type
             gs._external_output_type = False
     else:
         # Already internal, just yield
         yield False
+
+
+def in_internal_context() -> bool:
+    """Returns True if running in an internal context."""
+    return GlobalSettings()._external_output_type is not False
 
 
 @contextlib.contextmanager
@@ -356,9 +366,11 @@ def reflect(
         provide ``None`` to disable this inference entirely; in this case the
         output type is expected to be specified manually either internal or
         external to the method.
-    reset : bool, default=False
-        Set to True for methods like ``fit`` that reset the reflected type on
-        an estimator.
+    reset : bool or "type", default=False
+        If True, both the features and reflected type are reset on the estimator.
+        If ``"type"``, only the reflected type is reset on the estimator.
+        Defaults to False, to not reset anything. Most estimators should set
+        ``reset=True`` on any fit-like methods.
     """
     # Local to avoid circular imports
     import cuml.accel
@@ -390,9 +402,12 @@ def reflect(
     if array is not None:
         array = _get_param(sig, array)
 
-    if reset and (model is None or array is None):
+    if reset not in (True, False, "type"):
+        raise ValueError(f"reset={reset!r} is not supported")
+
+    if (reset is not False) and (model is None or array is None):
         raise ValueError(
-            "`reset=True` is not valid with `array=None` or `model=None`"
+            f"`reset={reset}` is not valid with `array=None` or `model=None`"
         )
 
     @functools.wraps(func)
@@ -410,9 +425,10 @@ def reflect(
             array_arg = np.asarray(array_arg)
 
         with enter_internal_context() as was_external:
-            if reset:
+            if reset is not False:
                 model_arg._set_output_type(array_arg)
-                model_arg._set_n_features_in(array_arg)
+            if reset is True:
+                check_features(model_arg, array_arg, reset=True)
 
             res = func(*args, **kwargs)
 
@@ -437,6 +453,7 @@ def reflect(
             # We're internal, return as cuml
             output_type = "cuml"
 
-        return coerce_arrays(res, output_type)
+        with enter_internal_context():
+            return coerce_arrays(res, output_type)
 
     return inner

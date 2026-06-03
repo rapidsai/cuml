@@ -16,10 +16,10 @@ Note that while a GPU is not required to build or develop cuML itself, it is nec
 **Software Dependencies:**
 1. CUDA Toolkit (>= 12.2) - must include development libraries (cudart, cublas, cusparse, cusolver, curand, cufft)
 2. gcc (>= 13.0)
-3. cmake (>= 3.30.4)
+3. cmake (>= 4.0)
 4. ninja - build system used by default
-5. Python (>= 3.11 and <= 3.13)
-6. Cython (>= 3.0.0)
+5. Python (>= 3.11 and <= 3.14)
+6. Cython (>= 3.2.2)
 
 **RAPIDS Ecosystem Libraries:**
 
@@ -55,15 +55,15 @@ cuML has limited support for multi-GPU and multi-node operations. The following 
 - **UCX** (>= 1.7) - optional; only required for multi-node operations (not needed for multi-GPU on a single node); must be explicitly enabled during build with `WITH_UCX=ON` (see [Using Infiniband for MNMG](wiki/mnmg/Using_Infiniband_for_MNMG.md))
 
 **For development only:**
-- clang-format (= 20.1.4) - enforces uniform C++ coding style; required for pre-commit hooks and CI checks. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
+- clang-format (= 20.1.8) - enforces uniform C++ coding style; required for pre-commit hooks and CI checks. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
 
 ### Recommended Conda Setup
 
 It is recommended to use conda for environment/package management. If doing so, development environment .yaml files are located in `conda/environments/all_*.yaml`. These files contain most of the dependencies mentioned above. To create a development environment named `cuml_dev`, you can use the following commands (adjust the YAML filename to match your CUDA version and architecture):
 
 ```bash
-conda create -n cuml_dev python=3.13
-conda env update -n cuml_dev --file=conda/environments/all_cuda-131_arch-$(uname -m).yaml
+conda create -n cuml_dev python=3.14
+conda env update -n cuml_dev --file=conda/environments/all_cuda-132_arch-$(uname -m).yaml
 conda activate cuml_dev
 ```
 
@@ -80,7 +80,7 @@ For workflows that involve frequent switching among branches or between debug an
 
 To build individual components, specify them as arguments to `build.sh`:
 ```bash
-$ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
+$ ./build.sh libcuml                   # build and install the cuML C++ libraries
 $ ./build.sh cuml                      # build and install the cuML Python package
 $ ./build.sh prims                     # build the ml-prims tests
 $ ./build.sh bench                     # build the cuML C++ benchmark
@@ -148,7 +148,7 @@ Once dependencies are present, follow the steps below:
 $ git clone https://github.com/rapidsai/cuml.git
 ```
 
-2. Build and install `libcuml++` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
+2. Build and install `libcuml` (C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 ```bash
 $ cd cpp
 $ mkdir build && cd build
@@ -160,7 +160,7 @@ $ cmake ..
 $ export CUDA_BIN_PATH=$CUDA_HOME  # Default: /usr/local/cuda
 ```
 
-If using a conda environment (recommended), configure cmake for `libcuml++`:
+If using a conda environment (recommended), configure cmake for `libcuml`:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
@@ -193,7 +193,7 @@ $ cmake .. -DUSE_CCACHE=ON
 
 There are many options to configure the build process, see the [customizing build section](#custom-build-options).
 
-3. Build `libcuml++` and `libcuml`:
+3. Build and install `libcuml`:
 
 ```bash
 $ make -j
@@ -258,14 +258,13 @@ $ pytest cuml/tests --collect-only
 
 ### Custom Build Options
 
-#### libcuml & libcuml++
+#### `libcuml` (C++ library)
 
 cuML's cmake has the following configurable flags available:
 
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
-| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
-| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
+| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building the `libcuml` shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support for the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This has no effect on the MPI communicator. |
 | BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive, and can both be installed simultaneously. |
@@ -280,4 +279,4 @@ cuML's cmake has the following configurable flags available:
 | CMAKE_CUDA_ARCHITECTURES |  List of GPU architectures, semicolon-separated | Empty  | List the GPU architectures to compile the GPU targets for. Set to "NATIVE" to auto detect GPU architecture of the system, set to "ALL" to compile for all RAPIDS supported archs.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
-| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
+| NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml.  |

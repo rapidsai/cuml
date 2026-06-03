@@ -19,25 +19,9 @@ from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
 from cuml.internals import get_handle
-from cuml.testing.datasets import small_classification_dataset
 from cuml.testing.utils import get_all_base_subclasses
 
 all_base_children = get_all_base_subclasses()
-
-
-@pytest.mark.parametrize("datatype", ["float32", "float64"])
-@pytest.mark.parametrize("use_integer_n_features", [True, False])
-def test_base_n_features_in(datatype, use_integer_n_features):
-    X_train, _, _, _ = small_classification_dataset(datatype)
-    integer_n_features = 8
-    clf = cuml.Base()
-
-    if use_integer_n_features:
-        clf._set_n_features_in(integer_n_features)
-        assert clf.n_features_in_ == integer_n_features
-    else:
-        clf._set_n_features_in(X_train)
-        assert clf.n_features_in_ == X_train.shape[1]
 
 
 @pytest.mark.parametrize(
@@ -190,6 +174,7 @@ EXCEPTIONS = {
     "LabelBinarizer.fit": ["self", "y"],
     "LabelBinarizer.fit_transform": ["self", "y"],
     "LabelBinarizer.transform": ["self", "y"],
+    "EmpiricalCovariance.score": ["self", "X_test", "y"],
     "LedoitWolf.score": ["self", "X_test", "y"],
 }
 
@@ -244,7 +229,12 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            assert sig.parameters["sample_weight"].default is None
+            # rapids-pre-commit-hooks: disable-next-line
+            # TODO(26.08): remove "deprecated"
+            assert sig.parameters["sample_weight"].default in (
+                None,
+                "deprecated",
+            )
         if "copy" in sig.parameters:
             first.append("copy")
             assert (
@@ -341,13 +331,26 @@ def test_regressor_predict_dtype(cls):
         (cuml.LinearSVC, None),
         (cuml.KNeighborsClassifier, None),
         (cuml.MBSGDClassifier, None),
+        (cuml.naive_bayes.GaussianNB, None),
+        (cuml.naive_bayes.BernoulliNB, None),
+        (cuml.naive_bayes.ComplementNB, None),
+        (cuml.naive_bayes.CategoricalNB, None),
+        (cuml.naive_bayes.MultinomialNB, None),
     ],
+)
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
 )
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )
 @pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
 def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
+    model = cls(**(kwargs or {}))
+    tags = model.__sklearn_tags__()
+
     supports_multitarget = [cuml.KNeighborsClassifier]
     binary_only = [cuml.MBSGDClassifier]
     if target_kind == "multitarget" and cls not in supports_multitarget:
@@ -374,8 +377,10 @@ def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
             n_samples=200, random_state=42, n_classes=4
         )
         y = np.array(labels).take(y)
+    if tags.input_tags.positive_only:
+        X -= X.min(axis=0)
 
-    model = cls(**(kwargs or {})).fit(X, y)
+    model.fit(X, y)
 
     # Classes are of correct dtype
     if target_kind == "multitarget":
@@ -388,14 +393,20 @@ def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
     assert isinstance(preds, np.ndarray)
     assert preds.dtype == y.dtype
     assert preds.shape == y.shape
-    # Just a smoketest that the classifier is better than `np.zeros`
     score = (preds == y).sum() / y.size
-    assert score > 0.5
+    if not tags.classifier_tags.poor_score:
+        # Just a smoketest that the classifier is better than `np.zeros`
+        assert score > 0.5
 
     # `predict` still supports type reflection
     with cuml.using_output_type("pandas"):
         preds2 = model.predict(X)
     assert isinstance(preds2, (pd.Series, pd.DataFrame))
+
+    # `predict` attaches the index of `X`
+    df_X = pd.DataFrame(X, index=[10 * i for i in range(X.shape[0])])
+    preds3 = model.predict(df_X)
+    assert (preds3.index == df_X.index).all()
 
     # Unsupported dtype & output type pairs raise nicely
     if dtype_kind == "string" and target_kind == "binary":

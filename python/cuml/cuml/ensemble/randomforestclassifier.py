@@ -1,19 +1,17 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-
 import cupy as cp
-import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, preprocess_labels
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
 
 
@@ -69,12 +67,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = 16)
-        Maximum tree depth. Must be greater than 0.
-        Unlimited depth (i.e, until leaves are pure)
-        is not supported.\n
-        .. note:: This default differs from scikit-learn's
-          random forest, which defaults to unlimited depth.
+    max_depth : int or None (default = None)
+        Maximum tree depth. Use ``None`` for unlimited depth (trees grow
+        until all leaves are pure). Must be a positive integer or ``None``.
+
+        .. rapids-pre-commit-hooks: disable-next-line
+        .. versionchanged:: 26.08
+          The default of `max_depth` changed from `16` to `None`.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
@@ -188,16 +187,42 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     def __init__(
         self,
         *,
+        n_estimators=100,
         split_criterion="gini",
+        bootstrap=True,
+        max_samples=1.0,
+        max_depth=None,
+        max_leaves=-1,
+        max_features="sqrt",
+        n_bins=128,
+        min_samples_leaf=1,
+        min_samples_split=2,
+        min_impurity_decrease=0.0,
+        max_batch_size=4096,
+        random_state=None,
+        n_streams=4,
+        oob_score=False,
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
         super().__init__(
             split_criterion=split_criterion,
+            n_estimators=n_estimators,
+            bootstrap=bootstrap,
+            max_samples=max_samples,
+            max_depth=max_depth,
+            max_leaves=max_leaves,
+            max_features=max_features,
+            n_bins=n_bins,
+            min_samples_leaf=min_samples_leaf,
+            min_samples_split=min_samples_split,
+            min_impurity_decrease=min_impurity_decrease,
+            max_batch_size=max_batch_size,
+            random_state=random_state,
+            n_streams=n_streams,
+            oob_score=oob_score,
             verbose=verbose,
             output_type=output_type,
-            **kwargs,
         )
 
     @nvtx.annotate(
@@ -221,20 +246,20 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        X_m = input_to_cuml_array(
+        X, y, classes = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
+            y,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
             order="F",
-        ).array
-        y, classes = preprocess_labels(
-            y, n_samples=X_m.shape[0], dtype=cp.int32
+            y_dtype="int32",
+            return_classes=True,
+            reset=True,
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        y_m = CumlArray(data=y)
-
-        return self._fit_forest(X_m, y_m)
+        return self._fit_forest(X, y)
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
@@ -280,15 +305,26 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        inds = fil.predict(X, threshold=threshold).to_output("cupy")
+        X_converted, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        inds = nvforest_model.predict(X_converted, threshold=threshold)
         with cuml.internals.exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
+        )
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
@@ -305,8 +341,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         align_bytes=None,
     ) -> CumlArray:
         """
-        Predicts class probabilities for X. This function uses the GPU
-        implementation of predict.
+        Predicts class probabilities for X.
 
         Parameters
         ----------
@@ -331,12 +366,72 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return fil.predict_proba(X)
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        return CumlArray(nvforest_model.predict_proba(X), index=index)
+
+    @insert_into_docstring(
+        parameters=[("dense", "(n_samples, n_features)")],
+        return_values=[("dense", "(n_samples, 1)")],
+    )
+    @cuml.internals.reflect
+    def predict_log_proba(
+        self,
+        X,
+        *,
+        convert_dtype=True,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+    ) -> CumlArray:
+        """
+        Predicts log class probabilities for X.
+
+        Parameters
+        ----------
+        X : {}
+        convert_dtype : bool (default = True)
+            When True, automatically convert the input to the data type used
+            to train the model. This may increase memory usage.
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in FIL forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+
+        Returns
+        -------
+        y : {}
+        """
+        preds = self.predict_proba(
+            X,
+            convert_dtype=convert_dtype,
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
+        out = preds.to_output("cupy")
+        cp.log(out, out=out)
+        return CumlArray(data=out, index=preds.index)
 
     @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",

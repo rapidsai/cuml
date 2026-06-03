@@ -8,11 +8,13 @@ import pytest
 import scipy.sparse
 import sklearn
 import sklearn.kernel_ridge
+import sklearn.preprocessing
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
 from packaging.version import Version
 from sklearn.cluster import KMeans as SkKMeans
+from sklearn.cluster import SpectralClustering as SkSpectralClustering
 from sklearn.datasets import (
     make_blobs,
     make_classification,
@@ -32,7 +34,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils.validation import check_is_fitted
 
 import cuml
-from cuml.cluster import DBSCAN, KMeans
+from cuml.cluster import DBSCAN, KMeans, SpectralClustering
 from cuml.decomposition import PCA, TruncatedSVD
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.linear_model import (
@@ -192,6 +194,20 @@ def test_dbscan(random_state):
     sklearn_model = original.as_sklearn()
     roundtrip_model = DBSCAN.from_sklearn(sklearn_model)
     assert array_equal(original.labels_, roundtrip_model.labels_)
+
+
+def test_spectral_clustering(random_state):
+    X, _ = make_blobs(
+        n_samples=100, n_features=10, centers=3, random_state=random_state
+    )
+    X = X.astype(np.float32)
+    original = SpectralClustering(
+        n_clusters=3,
+        affinity="nearest_neighbors",
+        n_neighbors=10,
+        random_state=random_state,
+    )
+    assert_estimator_roundtrip(original, SkSpectralClustering, X)
 
 
 def test_pca(random_state):
@@ -360,6 +376,14 @@ def test_svr(random_state, sparse, kernel):
         )
 
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
+)
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("probability", [False, True])
 @pytest.mark.parametrize("kernel", ["rbf", "precomputed"])
@@ -374,42 +398,62 @@ def test_svc(random_state, sparse, probability, kernel):
             )
         K = X @ X.T  # Linear kernel matrix
         original = cuml.SVC(kernel="precomputed")
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            K,
+            y,
+            exclude_params=["probability"],
+        )
     else:
         if sparse:
             X = scipy.sparse.coo_matrix(X)
         original = cuml.SVC()
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+        assert_estimator_roundtrip(
+            original,
+            sklearn.svm.SVC,
+            X,
+            y,
+            exclude_params=["probability"],
+        )
 
-        # Check inference works after conversion
+        # Check inference works after conversion. sklearn 1.9 deprecated the
+        # `probability` parameter; avoid passing it on the sklearn side when
+        # False (the default) to avoid the FutureWarning.
         cu_model = cuml.SVC(probability=probability).fit(X, y)
-        sk_model = sklearn.svm.SVC(probability=probability).fit(X, y)
-
-        cu_model2 = cuml.SVC.from_sklearn(sk_model)
         sk_model2 = cu_model.as_sklearn()
-
-        cu_score = cu_model2.score(X, y)
-        assert cu_score > 0.7
-
         sk_score = sk_model2.score(X, y)
         assert sk_score > 0.7
 
         if probability:
-            # Check that predict_proba works
-            cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(cu_pred_prob, y) > 0.7
+            # `cuml.SVC.from_sklearn` rejects probability=True so cuml.accel
+            # falls back to native sklearn for calibrated SVC.
+            sk_model = sklearn.svm.SVC(probability=True).fit(X, y)
+            with pytest.raises(
+                UnsupportedOnGPU,
+                match=r"`probability=True` is not supported",
+            ):
+                cuml.SVC.from_sklearn(sk_model)
+
+            # The cuml-direct path (used here via cu_model.as_sklearn()) still
+            # wires up probA_ / probB_ for predict_proba on the sklearn side.
             sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
             assert accuracy_score(sk_pred_prob, y) > 0.7
 
-            # Check that probA_, probB_ are wired up properly
             for attr in ["probA_", "probB_"]:
                 val = getattr(sk_model2, attr)
                 assert isinstance(val, np.ndarray)
                 assert val.dtype == "float64"
                 assert val.shape == (1,)
+        else:
+            sk_model = sklearn.svm.SVC().fit(X, y)
+            cu_model2 = cuml.SVC.from_sklearn(sk_model)
 
-        # Check n_support_ is correctly set
-        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+            cu_score = cu_model2.score(X, y)
+            assert cu_score > 0.7
+
+            # Check n_support_ is correctly set
+            assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
 
 @pytest.mark.parametrize("kind", ["SVC", "SVR"])
@@ -477,17 +521,6 @@ def test_svc_multiclass_unsupported(random_state):
 
 @pytest.mark.parametrize("sparse", [False, True])
 @pytest.mark.parametrize("supervised", [False, True])
-@pytest.mark.skipif(SKLEARN_18, reason="umap requires sklearn < 1.8.0")
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. This is not in cuml's control. Note: this will break when
-# sklearn 1.8 removes the deprecated parameter entirely - umap-learn will
-# need to be updated at that point.
-# See also https://github.com/lmcinnes/umap/issues/1174
-@pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
-)
 def test_umap(random_state, sparse, supervised):
     n_neighbors = 10
     X, y = make_blobs(n_samples=200, random_state=random_state)
@@ -563,7 +596,7 @@ def test_nearest_neighbors(random_state, sparse):
             (50, 20), dtype="float32"
         )
 
-    cu_model = cuml.NearestNeighbors(n_neighbors=10).fit(X)
+    cu_model = cuml.NearestNeighbors(metric="minkowski", n_neighbors=10).fit(X)
     sk_model = sklearn.neighbors.NearestNeighbors(n_neighbors=10).fit(X)
 
     sk_model2 = cu_model.as_sklearn()
@@ -603,9 +636,9 @@ def test_kneighbors_regressor(random_state, sparse, n_targets, weights):
         X[X < -0.5] = 0
         X = scipy.sparse.csr_matrix(X)
 
-    cu_model = cuml.KNeighborsRegressor(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsRegressor(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsRegressor(
         n_neighbors=10, weights=weights
     ).fit(X, y)
@@ -653,9 +686,9 @@ def test_kneighbors_classifier(random_state, sparse, n_labels, weights):
 
     X = X.astype("float32")
 
-    cu_model = cuml.KNeighborsClassifier(n_neighbors=10, weights=weights).fit(
-        X, y
-    )
+    cu_model = cuml.KNeighborsClassifier(
+        metric="minkowski", n_neighbors=10, weights=weights
+    ).fit(X, y)
     sk_model = sklearn.neighbors.KNeighborsClassifier(
         n_neighbors=10, weights=weights
     ).fit(X, y)
@@ -768,9 +801,13 @@ def test_random_forest_classifier(random_state, oob_score):
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
 
-    cu_model = cuml.RandomForestClassifier(oob_score=oob_score).fit(X, y)
+    cu_model = cuml.RandomForestClassifier(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
     sk_model = sklearn.ensemble.RandomForestClassifier(
-        oob_score=oob_score
+        oob_score=oob_score,
+        max_depth=None,
     ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
@@ -815,10 +852,14 @@ def test_random_forest_regressor(random_state, oob_score):
     X, y = make_regression(n_samples=200, random_state=random_state)
     X = X.astype("float32")
 
-    cu_model = cuml.RandomForestRegressor(oob_score=oob_score).fit(X, y)
-    sk_model = sklearn.ensemble.RandomForestRegressor(oob_score=oob_score).fit(
-        X, y
-    )
+    cu_model = cuml.RandomForestRegressor(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestRegressor(
+        oob_score=oob_score,
+        max_depth=None,
+    ).fit(X, y)
 
     sk_model2 = cu_model.as_sklearn()
     cu_model2 = cuml.RandomForestRegressor.from_sklearn(sk_model)
@@ -960,9 +1001,6 @@ def test_linear_svc(random_state):
     assert sk_score > 0.7
 
 
-@pytest.mark.filterwarnings(
-    "ignore:TargetEncoder currently returns 1D output:FutureWarning"
-)
 def test_target_encoder(random_state):
     # Create simple categorical data
     X = np.array(
@@ -979,7 +1017,12 @@ def test_target_encoder(random_state):
     )
     y = np.array([1.0, 2.0, 1.5, 2.5, 3.0, 1.2, 2.2, 3.2])
 
-    original = TargetEncoder(n_folds=2, smooth=1.0, split_method="continuous")
+    original = TargetEncoder(
+        multi_feature_mode="independent",
+        n_folds=2,
+        smooth=1.0,
+        split_method="continuous",
+    )
     original.fit(X, y)
 
     sklearn_model = original.as_sklearn()
@@ -994,7 +1037,51 @@ def test_target_encoder(random_state):
     sklearn_output = sklearn_model.transform(X_test)
     roundtrip_output = roundtrip_model.transform(X_test)
 
-    # sklearn returns 2D (n_samples, n_features), cuML returns 1D for single feature
-    sklearn_output_flat = sklearn_output.ravel()
-    assert array_equal(original_output, sklearn_output_flat)
+    assert array_equal(original_output, sklearn_output)
     assert array_equal(original_output, roundtrip_output)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "b", "a"])
+    cu_model = cuml.preprocessing.LabelEncoder().fit(y)
+    sk_model = sklearn.preprocessing.LabelEncoder().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+
+    sol = np.array([0, 1, 1, 0])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "c", "a"])
+    cu_model = cuml.preprocessing.LabelBinarizer().fit(y)
+    sk_model = sklearn.preprocessing.LabelBinarizer().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+    assert roundtrip.y_type_ == cu_model.y_type_
+    assert roundtrip.sparse_input_ == cu_model.sparse_input_
+
+    sol = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)

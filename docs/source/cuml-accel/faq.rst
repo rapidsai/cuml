@@ -51,8 +51,11 @@ the following estimators are mostly or entirely accelerated when run with
 * Scikit-Learn
     * ``sklearn.cluster.KMeans``
     * ``sklearn.cluster.DBSCAN``
+    * ``sklearn.cluster.SpectralClustering``
+    * ``sklearn.covariance.EmpiricalCovariance``
     * ``sklearn.covariance.LedoitWolf``
     * ``sklearn.decomposition.PCA``
+    * ``sklearn.decomposition.IncrementalPCA``
     * ``sklearn.decomposition.TruncatedSVD``
     * ``sklearn.ensemble.RandomForestClassifier``
     * ``sklearn.ensemble.RandomForestRegressor``
@@ -69,6 +72,11 @@ the following estimators are mostly or entirely accelerated when run with
     * ``sklearn.neighbors.KNeighborsRegressor``
     * ``sklearn.neighbors.KernelDensity``
     * ``sklearn.preprocessing.StandardScaler``
+    * ``sklearn.preprocessing.MinMaxScaler``
+    * ``sklearn.preprocessing.MaxAbsScaler``
+    * ``sklearn.preprocessing.PolynomialFeatures``
+    * ``sklearn.preprocessing.LabelEncoder``
+    * ``sklearn.preprocessing.LabelBinarizer``
     * ``sklearn.preprocessing.TargetEncoder``
     * ``sklearn.svm.SVC``
     * ``sklearn.svm.SVR``
@@ -87,7 +95,7 @@ the cuML Githb repository.
 4. Will I get the same results as I do without ``cuml.accel``?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``cuml.accel`` is designed to provide *equivalent* results to the estimators
-it acelerates, but the output may have small numerical differences. To be more
+it accelerates, but the output may have small numerical differences. To be more
 specific, measures of the quality of the results (accuracy,
 trustworthiness, etc.) should be approximately as good or better than those
 obtained without ``cuml.accel``, even if the exact output varies.

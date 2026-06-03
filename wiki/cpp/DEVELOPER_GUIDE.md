@@ -56,21 +56,18 @@ The use of threads in third-party libraries is allowed, though they should still
 ## Public cuML interface
 ### Terminology
 We have the following supported APIs:
-1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml++.so`
+1. Core cuML interface aka stateless C++ API aka C++ API aka `libcuml.so`
 2. Stateful convenience C++ API - wrapper around core API (WIP)
-3. C API - wrapper around core API aka `libcuml.so`
 
 ### Motivation
-Our C++ API is stateless for two main reasons:
-1. To ease the serialization of ML algorithm's state information (model, hyper-params, etc), enabling features such as easy pickling in the python layer.
-2. To easily provide a proper C API for interfacing with languages that can't consume C++ APIs  directly.
+The cuML C++ API is stateless so that algorithm state (models, hyper-parameters, and similar data) can be serialized in a straightforward way, which supports features such as pickling in the Python layer, and so that a small, explicit surface is presented to the bindings above this library.
 
-Thus, this section lays out guidelines for managing state along the API of cuML.
+This section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
 As mentioned before, functions exposed via the C++ API must be stateless. Things that are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
-2. `raft::handle_t` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](../../cpp/src/cuML_api.h)), instead.
+2. `raft::handle_t` - since it stores GPU-related state which has nothing to do with the model/algo state.
 3. Pointers to POD types (explicitly putting it out, even though it can be considered as a POD).
 Internal to the C++ API, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
@@ -124,28 +121,12 @@ void loadTree(TreeNodeD *&root, std::istream &is);
 ```
 It is also worth noting that for algorithms such as the members of GLM, where models consist of an array of weights and are therefore easy to manipulate directly by the users, such custom load/store methods might not be explicitly needed.
 
-### C API
-Following the guidelines outlined above will ease the process of "C-wrapping" the C++ API. Refer to [DBSCAN](../../cpp/src/dbscan/dbscan_api.h) as an example on how to properly wrap the C++ API with a C-binding. In short:
-1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
-2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
-3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
-
-#### C API Header Files
-
-With the exception of `cumlHandle.h|cpp`, all C-API headers and source files end with the suffix `*_api`. Any file ending in `*_api` should not be included from the C++ API. Incorrectly including `cuml_api.h` in the C++ API will generate the error:
-```
-This header is only for the C-API and should not be included from the C++ API.
-```
-
-If this error is shown during compilation, there is an issue with how the `#include` statements have been set up. To debug the issue, run `./build.sh cppdocs` and open the page `cpp/build/html/cuml__api_8h.html` in a browser. This will show which files directly and indirectly include this file. Only files ending in `*_api` or `cumlHandle` should include this header.
-
 ### Stateful C++ API
-This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
+This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
 
 ### File naming convention
 1. An ML algorithm `<algo>` is to be contained inside the folder named `src/<algo>`.
 2. `<algo>.hpp` and `<algo>.[cpp|cu]` contain C++ API declarations and definitions respectively.
-3. `<algo>_api.h` and `<algo>_api.cpp` contain declarations and definitions respectively for C binding.
 
 ## Coding style
 
@@ -272,7 +253,7 @@ All external interfaces need to have a complete [doxygen](http://www.doxygen.nl)
 TODO: Add this
 
 ## Device and Host memory allocations
-To enable `libcuml.so` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
+To enable `libcuml` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
 ```cpp
 template<typename T>
 void foo(const raft::handle_t& h, cudaStream_t stream, ... )

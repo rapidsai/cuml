@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,14 +29,20 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
+pytestmark = [
+    # rapids-pre-commit-hooks: disable-next-line
+    # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+    pytest.mark.filterwarnings(
+        "ignore:The `probability` parameter is deprecated:FutureWarning"
+    ),
+]
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
 solver_config = ClassEnumerator(
     module=cuml.solvers,
-    # QN uses softmax here because some of the tests uses multiclass
-    # logistic regression which requires a softmax loss
-    custom_constructors={"QN": lambda: cuml.QN(loss="softmax")},
+    # Customize the loss so QN is a regressor like the other solvers
+    custom_constructors={"QN": lambda: cuml.QN(loss="l2")},
 )
 solver_models = solver_config.get_models()
 
@@ -467,9 +473,11 @@ def test_nearest_neighbors_pickle(algorithm):
         # Currently ivf indices aren't serialized, which may result in small
         # differences upon reload. For now we check for comparable performance
         # just to ensure things are wired together properly.
+        # See https://github.com/rapidsai/cuml/issues/8144.
         accuracy = (i1 == i2).sum() / i1.size
         assert accuracy >= 0.9
-        np.testing.assert_allclose(d1, d2, atol=1e-5)
+        atol = 5e-3 if algorithm == "ivfpq" else 1e-3
+        np.testing.assert_allclose(d1, d2, atol=atol)
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)

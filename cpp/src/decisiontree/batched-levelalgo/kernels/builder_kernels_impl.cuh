@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -78,8 +78,7 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   }
 }
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void nodeSplitKernel(const IdxT max_depth,
-                                       const IdxT min_samples_leaf,
+static __global__ void nodeSplitKernel(const IdxT min_samples_leaf,
                                        const IdxT min_samples_split,
                                        const IdxT max_leaves,
                                        const DataT min_impurity_decrease,
@@ -98,8 +97,7 @@ static __global__ void nodeSplitKernel(const IdxT max_depth,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT max_depth,
-                           const IdxT min_samples_leaf,
+void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const IdxT min_samples_split,
                            const IdxT max_leaves,
                            const DataT min_impurity_decrease,
@@ -111,8 +109,7 @@ void launchNodeSplitKernel(const IdxT max_depth,
 {
   auto constexpr smem_size = 2 * sizeof(IdxT) * TPB;
   nodeSplitKernel<DataT, LabelT, IdxT, TPB>
-    <<<work_items_size, TPB, smem_size, builder_stream>>>(max_depth,
-                                                          min_samples_leaf,
+    <<<work_items_size, TPB, smem_size, builder_stream>>>(min_samples_leaf,
                                                           min_samples_split,
                                                           max_leaves,
                                                           min_impurity_decrease,
@@ -204,7 +201,6 @@ template <typename DataT,
           typename BinT>
 static __global__ void computeSplitKernel(BinT* histograms,
                                           IdxT max_n_bins,
-                                          IdxT max_depth,
                                           IdxT min_samples_split,
                                           IdxT max_leaves,
                                           const Dataset<DataT, LabelT, IdxT> dataset,
@@ -337,7 +333,6 @@ template <typename DataT,
           typename BinT>
 void launchComputeSplitKernel(BinT* histograms,
                               IdxT max_n_bins,
-                              IdxT max_depth,
                               IdxT min_samples_split,
                               IdxT max_leaves,
                               const Dataset<DataT, LabelT, IdxT>& dataset,
@@ -359,7 +354,6 @@ void launchComputeSplitKernel(BinT* histograms,
   computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
                                                        max_n_bins,
-                                                       max_depth,
                                                        min_samples_split,
                                                        max_leaves,
                                                        dataset,
@@ -377,7 +371,6 @@ void launchComputeSplitKernel(BinT* histograms,
 }
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
-  const _IdxT max_depth,
   const _IdxT min_samples_leaf,
   const _IdxT min_samples_split,
   const _IdxT max_leaves,
@@ -401,7 +394,6 @@ template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
 template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
   _BinT* histograms,
   _IdxT n_bins,
-  _IdxT max_depth,
   _IdxT min_samples_split,
   _IdxT max_leaves,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
+import warnings
 
 import cudf
 import cupy as cp
@@ -11,6 +12,7 @@ import scipy.sparse as scipy_sparse
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from sklearn import svm
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.datasets import (
     load_iris,
     make_blobs,
@@ -19,6 +21,7 @@ from sklearn.datasets import (
     make_gaussian_quantiles,
     make_regression,
 )
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -26,7 +29,6 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.svm as cu_svm
 from cuml.common import input_to_cuml_array
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import (
     compare_probabilistic_svm,
     compare_svm,
@@ -34,6 +36,14 @@ from cuml.testing.utils import (
     stress_param,
     svm_array_equal,
     unit_param,
+)
+
+# Many tests below pass `probability=` to cuml SVC/LinearSVC on purpose;
+# silence the FutureWarning module-wide.
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
 )
 
 IS_ARM = platform.processor() == "aarch64"
@@ -215,7 +225,13 @@ def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
     df1 = cuSVC.decision_function(X_test)
     assert df1.dtype == X_train.dtype
 
-    sklSVC = svm.SVC(**params)
+    # sklearn here is just a reference value for decision_function, which does
+    # not depend on calibration (the value of `probability`). The `probability`
+    # parametrization of the test exists to verify that cuml's probability=True
+    # path doesn't break decision_function on our side, so we drop probability
+    # from the sklearn kwargs (sklearn 1.9 warns on any explicit value, and
+    # 1.11 will remove the parameter entirely).
+    sklSVC = svm.SVC(**{k: v for k, v in params.items() if k != "probability"})
     sklSVC.fit(X_train, y_train)
     df2 = sklSVC.decision_function(X_test)
 
@@ -257,11 +273,16 @@ def test_svc_predict_proba_not_available():
     X, y = make_classification()
     model = cuml.SVC().fit(X, y)
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_proba(X)
+    assert not hasattr(model, "predict_proba")
+    assert not hasattr(model, "predict_log_proba")
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_log_proba(X)
+    # Setting `probability=True` makes the attribute available, but
+    # calling it raises a NotFittedError until refit
+    model.probability = True
+    assert hasattr(model, "predict_proba")
+
+    with pytest.raises(NotFittedError, match="fitted with probability=False"):
+        model.predict_proba(X)
 
 
 # Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
@@ -295,7 +316,8 @@ def test_svc_predict_proba(in_type, n_classes):
 
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_m.to_output(in_type), y_m.to_output(in_type))
-    sklSVC = svm.SVC(**params)
+    sk_params = {k: v for k, v in params.items() if k != "probability"}
+    sklSVC = CalibratedClassifierCV(svm.SVC(**sk_params), ensemble=False)
     sklSVC.fit(X_train, y_train)
 
     tol = 1e-2 if n_classes == 2 else 1e-1
@@ -339,7 +361,11 @@ def test_svc_weights(class_weight, sample_weight, probability):
         cu_score = cuSVC.score(X_1, y_1)
         assert cu_score > 0.9
 
-    sklSVC = svm.SVC(**params)
+    sk_params = {k: v for k, v in params.items() if k != "probability"}
+    if probability:
+        sklSVC = CalibratedClassifierCV(svm.SVC(**sk_params), ensemble=False)
+    else:
+        sklSVC = svm.SVC(**sk_params)
     sklSVC.fit(X, y, sample_weight)
     if not probability:
         # TODO: SVC estimators with probability=True don't expose all the fitted
@@ -626,6 +652,134 @@ def test_svc_probability_n_iter():
     model = cuml.SVC(probability=True).fit(X, y)
     assert model.n_iter_.dtype == np.int32
     assert model.n_iter_.shape == (1,)
+
+
+@pytest.mark.parametrize("explicit_value", [True, False])
+def test_svc_probability_emits_future_warning(explicit_value):
+    # cuml-side half of #7982.
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
+    ):
+        cu_svm.SVC(probability=explicit_value).fit(X, y)
+
+
+def test_svc_default_does_not_emit_probability_warning():
+    # If the user does not pass `probability=`, no FutureWarning should fire.
+    # The default sentinel string `"deprecated"` is treated as `probability=False`.
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
+            category=FutureWarning,
+        )
+        cu_svm.SVC().fit(X, y)
+
+
+@pytest.mark.parametrize("explicit_value", [True, False])
+def test_linear_svc_probability_emits_future_warning(explicit_value):
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
+    ):
+        cu_svm.LinearSVC(probability=explicit_value).fit(X, y)
+
+
+def test_linear_svc_default_does_not_emit_probability_warning():
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
+            category=FutureWarning,
+        )
+        cu_svm.LinearSVC().fit(X, y)
+
+
+def test_svc_probability_warning_fires_once():
+    # Inner clones (CalibratedClassifierCV folds, multiclass binaries) pin
+    # the sentinel so the FutureWarning fires only on the outer fit, not
+    # per inner fit.
+    X_bin, y_bin = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cu_svm.SVC(probability=True).fit(X_bin, y_bin)
+    matched = [
+        w
+        for w in caught
+        if issubclass(w.category, FutureWarning)
+        and "is deprecated and will be removed in cuML" in str(w.message)
+    ]
+    assert len(matched) == 1
+
+    X_mc, y_mc = make_classification(
+        n_samples=60,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=3,
+        random_state=0,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        cu_svm.SVC(probability=False).fit(X_mc, y_mc)
+    matched = [
+        w
+        for w in caught
+        if issubclass(w.category, FutureWarning)
+        and "is deprecated and will be removed in cuML" in str(w.message)
+    ]
+    assert len(matched) == 1
 
 
 # Tests for kernel='precomputed'
@@ -997,3 +1151,13 @@ def test_svc_precomputed_multiclass_ovo_fails():
     )
     with pytest.raises(ValueError, match="square"):
         cuml_clf.fit(K_cp, y_cp)
+
+
+def test_svr_fit_homogeneous_y():
+    """SVR fit with homogeneous y has empty coefs and just an intercept"""
+    X = np.eye(3)
+    y = np.full(3, 1.23)
+    model = cuml.SVR().fit(X, y)
+    assert (model.intercept_ == 1.23).all()
+    assert model.dual_coef_.shape == (1, 0)
+    assert (model.predict(X) == y).all()

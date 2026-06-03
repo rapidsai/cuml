@@ -1,14 +1,15 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/linear_model/qn.h>
 
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace GLM {
 
 /**
@@ -305,4 +306,4 @@ void qnPredictSparse(const raft::handle_t& cuml_handle,
                      T* preds);
 
 }  // namespace GLM
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

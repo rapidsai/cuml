@@ -1,12 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
+#include <cuml/solvers/lars.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/add.cuh>
@@ -859,7 +861,7 @@ void updateCoef(const raft::handle_t& handle,
  *    Size [max_iter * (max_iter+1)].
  * @param verbosity verbosity level
  * @param ld_X leading dimension of X (stride of columns)
- * @param ld_G leading dimesion of G
+ * @param ld_G leading dimension of G
  * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
@@ -872,13 +874,13 @@ void larsFit(const raft::handle_t& handle,
              idx_t* active_idx,
              math_t* alphas,
              idx_t* n_active,
-             math_t* Gram                        = nullptr,
-             int max_iter                        = 500,
-             math_t* coef_path                   = nullptr,
-             rapids_logger::level_enum verbosity = rapids_logger::level_enum::off,
-             idx_t ld_X                          = 0,
-             idx_t ld_G                          = 0,
-             math_t eps                          = -1)
+             math_t* Gram,
+             int max_iter,
+             math_t* coef_path,
+             rapids_logger::level_enum verbosity,
+             idx_t ld_X,
+             idx_t ld_G,
+             math_t eps)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");

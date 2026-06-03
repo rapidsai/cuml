@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numbers
@@ -9,9 +9,9 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from cudf import Series
+from sklearn.exceptions import NotFittedError
 
 import cuml.internals.logger as logger
-from cuml.common.exceptions import NotFittedError
 from cuml.common.sparsefuncs import (
     create_csr_matrix_from_count_df,
     csr_row_normalize_l1,
@@ -901,7 +901,9 @@ class HashingVectorizer(_VectorizerMixin):
         tokenized_df["token"] = tokenized_df["token"].hash_values()
         if self.alternate_sign:
             # below logic is equivalent to: value *= ((h >= 0) * 2) - 1
-            tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
+            tokenized_df["value"] = (tokenized_df["token"] >= 0).astype(
+                cp.int8
+            ) * 2 - 1
             tokenized_df["token"] = (
                 tokenized_df["token"].abs() % self.n_features
             )

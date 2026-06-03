@@ -47,14 +47,14 @@ A few additional general notes:
   On very small datasets you might see only a small speedup (or even
   potentially a slowdown).
 
-- For most algorithms, ``y`` must already be converted to numeric values;
-  arrays of strings are not supported. Pre-encode string labels into numerical
-  or categorical formats (e.g., using scikit-learn's LabelEncoder) prior to
-  processing.
-
-- The accelerator is tested to be compatible with scikit-learn versions 1.4
-  through 1.7. This ensures that cuML's implementation of scikit-learn
+- The accelerator is tested to be compatible with scikit-learn versions 1.5
+  through 1.8. This ensures that cuML's implementation of scikit-learn
   compatible APIs works as expected.
+
+- Some estimators are accelerated using scikit-learn's experimental
+  `array-api`_ support. These estimators are only accelerated by ``cuml.accel``
+  when running with scikit-learn versions >= 1.8. Running with an older
+  version of scikit-learn will use an unaccelerated estimator.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
   errors might present as C++ stacktraces instead of python errors.
@@ -83,6 +83,7 @@ Additional notes:
 - The ``HDBSCAN`` in ``cuml`` uses a parallel MST implementation, which means
   the results are not deterministic when there are duplicates in the mutual
   reachability graph.
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 
 sklearn.cluster
@@ -105,6 +106,21 @@ KMeans
 - If a callable ``init`` is provided.
 - If ``X`` is sparse.
 
+SpectralClustering
+^^^^^^^^^^^^^^^^^^
+
+``SpectralClustering`` will fall back to CPU in the following cases:
+
+- If ``assign_labels`` is not ``"kmeans"``.
+- If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
+  Note that the default value of ``affinity`` in scikit-learn is ``"rbf"``,
+  which is not GPU-accelerated.
+- If ``X`` is sparse.
+
+The following fitted attributes are currently not computed:
+
+- ``affinity_matrix_``
+
 DBSCAN
 ^^^^^^
 
@@ -114,6 +130,9 @@ DBSCAN
 - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``, ``"cosine"``, ``"precomputed"``).
 - If ``X`` is sparse.
 
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 sklearn.decomposition
 ---------------------
@@ -136,6 +155,16 @@ Additional notes:
 
 - Parameters for the ``"randomized"`` solver like ``random_state``,
   ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+
+IncrementalPCA
+^^^^^^^^^^^^^^
+
+``IncrementalPCA`` has no known estimator-specific ``cuml.accel`` limitations.
+
+Additional notes:
+
+- ``partial_fit`` does not support sparse input. This matches scikit-learn;
+  use ``fit`` for sparse input or provide dense batches to ``partial_fit``.
 
 TruncatedSVD
 ^^^^^^^^^^^^
@@ -178,6 +207,7 @@ RandomForestClassifier
 - If ``class_weight`` is not ``None``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``X`` contains missing values (represented as ``NaN``).
 - If ``y`` is a multi-output target.
 
 RandomForestRegressor
@@ -194,6 +224,7 @@ RandomForestRegressor
 - If ``ccp_alpha`` is not ``0``.
 - If ``sample_weight`` is passed to ``fit`` or ``score``.
 - If ``X`` is sparse.
+- If ``X`` contains missing values (represented as ``NaN``).
 - If ``y`` is a multi-output target.
 
 
@@ -232,7 +263,6 @@ LinearRegression
 ``LinearRegression`` will fall back to CPU in the following cases:
 
 - If ``positive=True``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -247,6 +277,7 @@ LogisticRegression
 - If ``warm_start=True``.
 - If ``intercept_scaling`` is not ``1``.
 - If the deprecated ``multi_class`` parameter is used.
+- If a callback is configured with ``set_callbacks``.
 
 ElasticNet
 ^^^^^^^^^^
@@ -256,7 +287,6 @@ ElasticNet
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -268,7 +298,6 @@ Ridge
 ``Ridge`` will fall back to CPU in the following cases:
 
 - If ``positive=True`` or ``solver="lbfgs"``.
-- If ``X`` is sparse.
 
 Lasso
 ^^^^^
@@ -278,7 +307,6 @@ Lasso
 - If ``positive=True``.
 - If ``warm_start=True``.
 - If ``precompute`` is not ``False``.
-- If ``X`` is sparse.
 
 Additionally, the following fitted attributes are currently not computed:
 
@@ -304,6 +332,7 @@ Additional notes:
 
 - Even with a ``random_state``, the TSNE implementation used by ``cuml.accel``
   isn't completely deterministic.
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 While the exact numerical output for TSNE may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as
@@ -325,6 +354,10 @@ SpectralEmbedding
 The following fitted attributes are currently not computed:
 
 - ``affinity_matrix_``
+
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 
 sklearn.neighbors
@@ -348,6 +381,8 @@ Additional notes:
 
 - The ``radius_neighbors`` method isn't implemented in cuml and will always
   fall back to CPU.
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
 
 KNeighborsClassifier
 ^^^^^^^^^^^^^^^^^^^^
@@ -407,10 +442,43 @@ StandardScaler
 
 ``StandardScaler`` will fall back to CPU in the following cases:
 
-- If ``partial_fit`` is called (incremental learning not supported on GPU).
-- If ``sample_weight`` is provided (weighted statistics not supported on GPU).
-- If ``X`` has object dtype, half precision (``float16``) dtype, or complex dtype (``complex64``, ``complex128``).
-- If ``X`` is a sparse matrix with integer dtype or in a format other than CSR or CSC.
+- If ``X`` is sparse.
+- When run on scikit-learn < 1.8.
+- If a callback is configured with ``set_callbacks``.
+
+MinMaxScaler
+^^^^^^^^^^^^
+
+``MinMaxScaler`` will fall back to CPU in the following cases:
+
+- When run on scikit-learn < 1.8.
+
+MaxAbsScaler
+^^^^^^^^^^^^
+
+``MaxAbsScaler`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- When run on scikit-learn < 1.8.
+
+PolynomialFeatures
+^^^^^^^^^^^^^^^^^^
+
+``PolynomialFeatures`` will fall back to CPU in the following cases:
+
+- If ``X`` is sparse.
+- If ``order`` is ``"F"``.
+- When run on scikit-learn < 1.8.
+
+LabelEncoder
+^^^^^^^^^^^^
+
+``LabelEncoder`` supports all cases and will never fall back to CPU.
+
+LabelBinarizer
+^^^^^^^^^^^^^^
+
+``LabelBinarizer`` supports all cases and will never fall back to CPU.
 
 TargetEncoder
 ^^^^^^^^^^^^^
@@ -418,10 +486,9 @@ TargetEncoder
 ``TargetEncoder`` will fall back to CPU in the following cases:
 
 - If ``categories`` is not ``"auto"``.
-- If ``y`` is a multiclass target (sklearn uses one-hot encoding internally).
-- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds work fine).
-- If ``X`` has object dtype with numeric values.
-- If ``y`` has object dtype.
+- If ``y`` is a multiclass target.
+- If ``random_state`` is a ``numpy.random.RandomState`` object (integer seeds
+  work fine).
 
 Additional notes:
 
@@ -452,7 +519,17 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
-- If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
+- If ``probability=True``. The ``probability`` parameter is deprecated in
+  ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend using
+  wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV`` like
+  ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
+  supported across ``scikit-learn`` versions, and won't require CPU fallback.
+
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
+- Using ``SVC`` in the same process as ``LinearSVC`` under ``cuml.accel`` can
+  cause a segfault.
 
 SVR
 ^^^
@@ -460,6 +537,12 @@ SVR
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
+
+Additional notes:
+
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
+- Using ``SVR`` in the same process as ``LinearSVR`` under ``cuml.accel`` can
+  cause a segfault.
 
 LinearSVC
 ^^^^^^^^^
@@ -502,6 +585,7 @@ umap
   ``"l2"``, ``"euclidean"``).
 - If ``unique=True``.
 - If ``densmap=True``.
+- If ``ensure_all_finite`` is not ``True``.
 
 Additional notes:
 
@@ -511,6 +595,12 @@ Additional notes:
 - Parallelism during the optimization stage implies numerical imprecisions,
   which can lead to difference in the results between CPU and GPU in general.
 
+- ONNX export via ``skl2onnx`` is not supported for this estimator.
+
+- We have observed compatibility isuess with UMAP for numba versions 0.62.0 and
+  above. For best stability, we recommend using numba versions earlier than
+  0.62.0 when accelerating UMAP with cuml.accel.
+
 While the exact numerical output for UMAP may differ from that obtained without
 ``cuml.accel``, we expect the *quality* of results will be approximately as
 good in most cases. Beyond comparing the visual representation, you may find
@@ -519,3 +609,4 @@ comparing the trustworthiness score (computed via
 
 
 .. _open an issue: https://github.com/rapidsai/cuml/issues
+.. _array-api: https://scikit-learn.org/stable/modules/array_api.html

@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../cmake/rapids_config.cmake)
 
@@ -43,7 +43,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(CUML_ENABLE_GPU "Enable building GPU-accelerated algorithms" ON)
 option(BUILD_SHARED_LIBS "Build cuML shared libraries" ON)
-option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
@@ -59,7 +58,6 @@ option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
-option(CUDA_STATIC_RUNTIME "Statically link the CUDA runtime" OFF)
 option(CUDA_STATIC_MATH_LIBRARIES "Statically link the CUDA math libraries" OFF)
 option(CUML_USE_CUVS_STATIC "Build and statically link the CUVS library" OFF)
 option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" OFF)
@@ -72,13 +70,13 @@ option(CUML_COMPILE_DYNAMIC_ONLY "Only build the shared library and skip the sta
 # dependent library.
 option(CUML_EXCLUDE_RAFT_FROM_ALL "Exclude RAFT targets from cuML's 'all' target" OFF)
 option(CUML_EXCLUDE_TREELITE_FROM_ALL "Exclude Treelite targets from cuML's 'all' target" OFF)
+option(CUML_EXCLUDE_NVFOREST_FROM_ALL "Exclude nvForest targets from cuML's 'all' target" OFF)
 option(CUML_RAFT_CLONE_ON_PIN "Explicitly clone RAFT branch when pinned to non-feature branch" ON)
 option(CUML_CUVS_CLONE_ON_PIN "Explicitly clone CUVS branch when pinned to non-feature branch" ON)
-
-message(
-  VERBOSE
-  "CUML_CPP: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}"
+option(CUML_NVFOREST_CLONE_ON_PIN
+       "Explicitly clone nvForest branch when pinned to non-feature branch" ON
 )
+
 message(VERBOSE "CUML_CPP: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
 message(VERBOSE "CUML_CPP: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
 message(VERBOSE "CUML_CPP: Building cuML multigpu algorithm tests: ${BUILD_CUML_MG_TESTS}")
@@ -98,7 +96,6 @@ message(VERBOSE "CUML_CPP: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML_CPP: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML_CPP: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML_CPP: Cache build artifacts with ccache: ${USE_CCACHE}")
-message(VERBOSE "CUML_CPP: Statically link the CUDA runtime: ${CUDA_STATIC_RUNTIME}")
 message(VERBOSE "CUML_CPP: Statically link the CUDA math libraries: ${CUDA_STATIC_MATH_LIBRARIES}")
 message(VERBOSE "CUML_CPP: Build and statically link CUVS libraries: ${CUML_USE_CUVS_STATIC}")
 message(VERBOSE "CUML_CPP: Build and statically link Treelite library: ${CUML_USE_TREELITE_STATIC}")
@@ -107,9 +104,9 @@ set(CUML_ALGORITHMS
     "ALL"
     CACHE
       STRING
-      "Experimental: Choose which algorithms are built into libcuml++.so. Can specify individual algorithms or groups in a semicolon-separated list."
+      "Choose which algorithms are built into libcuml.so. Can specify individual algorithms or groups in a semicolon-separated list."
 )
-message(VERBOSE "CUML_CPP: Building libcuml++ with algorithms: '${CUML_ALGORITHMS}'.")
+message(VERBOSE "CUML_CPP: Building libcuml with algorithms: '${CUML_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL
@@ -142,12 +139,8 @@ endif()
 # ##################################################################################################
 # * Target names -------------------------------------------------------------
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_BENCH_TARGET "sg_benchmark")
-if(${BUILD_CUML_C_LIBRARY})
-  set(CUML_C_TARGET "cuml")
-endif()
-set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
 set(CUML_MG_TEST_TARGET "ml_mg")
 set(PRIMS_BENCH_TARGET "prims_benchmark")
 
@@ -183,7 +176,7 @@ if(NOT DISABLE_OPENMP)
 endif()
 
 # CUDA runtime
-rapids_cuda_init_runtime(USE_STATIC ${CUDA_STATIC_RUNTIME})
+rapids_cuda_init_runtime(USE_STATIC ON)
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -203,17 +196,13 @@ set(LINK_TREELITE OFF)
 set(LINK_CUFFT OFF)
 include(cmake/modules/ConfigureAlgorithms.cmake)
 
-# Enabling libcuml enables building libcuml++
-if(BUILD_CUML_C_LIBRARY)
-  set(BUILD_CUML_CPP_LIBRARY ON)
-endif()
-
-# Disabling libcuml++ disables building algorithm tests and examples
+# Disabling the libcuml C++ library: nothing can link to the `cuml` target, so turn off consumers.
 if(NOT BUILD_CUML_CPP_LIBRARY)
-  set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
+  set(BUILD_PRIMS_TESTS OFF)
+  set(BUILD_CUML_BENCH OFF)
 endif()
 
 # SingleGPU build disables comms components
@@ -243,14 +232,19 @@ if(NOT BUILD_SHARED_LIBS AND CUML_COMPILE_DYNAMIC_ONLY)
   )
 endif()
 
-set(cuml_compile_mode "both")
-set(_cuml_lib_targets cuml++ cuml++_static)
-if(CUML_COMPILE_DYNAMIC_ONLY)
-  set(cuml_compile_mode "shared_only")
-  set(_cuml_lib_targets cuml++)
-elseif(NOT BUILD_SHARED_LIBS)
-  set(cuml_compile_mode "static_only")
-  set(_cuml_lib_targets cuml++_static)
+if(BUILD_CUML_CPP_LIBRARY)
+  set(cuml_compile_mode "both")
+  set(_cuml_lib_targets ${CUML_CPP_TARGET} ${CUML_CPP_TARGET}_static)
+  if(CUML_COMPILE_DYNAMIC_ONLY)
+    set(cuml_compile_mode "shared_only")
+    set(_cuml_lib_targets ${CUML_CPP_TARGET})
+  elseif(NOT BUILD_SHARED_LIBS)
+    set(cuml_compile_mode "static_only")
+    set(_cuml_lib_targets ${CUML_CPP_TARGET}_static)
+  endif()
+else()
+  set(cuml_compile_mode "none")
+  set(_cuml_lib_targets "")
 endif()
 
 # ##################################################################################################
@@ -280,6 +274,11 @@ if(LINK_TREELITE)
   include(cmake/thirdparty/get_treelite.cmake)
 endif()
 
+if(LINK_NVFOREST)
+  include(cmake/thirdparty/get_nvforest.cmake)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+endif()
+
 if(all_algo OR treeshap_algo)
   include(cmake/thirdparty/get_gputreeshap.cmake)
 endif()
@@ -297,9 +296,9 @@ if(BUILD_CUML_BENCH)
 endif()
 
 # ##################################################################################################
-# * build libcuml++ shared library -------------------------------------------
+# * build libcuml shared library ---------------------------------------------
 
-if(BUILD_CUML_C_LIBRARY OR BUILD_CUML_CPP_LIBRARY)
+if(BUILD_CUML_CPP_LIBRARY)
   file(
     WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
     [=[
@@ -377,42 +376,6 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/explainer/tree_shap.cu)
   endif()
 
-  # FIL components
-  if(all_algo OR fil_algo)
-    if(CUML_ENABLE_GPU)
-      target_sources(
-        cuml_objs
-        PRIVATE src/fil/infer0.cu
-                src/fil/infer1.cu
-                src/fil/infer2.cu
-                src/fil/infer3.cu
-                src/fil/infer4.cu
-                src/fil/infer5.cu
-                src/fil/infer6.cu
-                src/fil/infer7.cu
-                src/fil/infer8.cu
-                src/fil/infer9.cu
-                src/fil/infer10.cu
-                src/fil/infer11.cu
-      )
-    endif()
-    target_sources(
-      cuml_objs
-      PRIVATE src/fil/infer0.cpp
-              src/fil/infer1.cpp
-              src/fil/infer2.cpp
-              src/fil/infer3.cpp
-              src/fil/infer4.cpp
-              src/fil/infer5.cpp
-              src/fil/infer6.cpp
-              src/fil/infer7.cpp
-              src/fil/infer8.cpp
-              src/fil/infer9.cpp
-              src/fil/infer10.cpp
-              src/fil/infer11.cpp
-    )
-  endif()
-
   # todo: organize linear models better
   if(all_algo
      OR linearregression_algo
@@ -464,7 +427,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR knn_algo)
-    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu)
+    target_sources(cuml_objs PRIVATE src/knn/knn.cu src/knn/knn_sparse.cu src/kde/kde.cu)
   endif()
 
   if(all_algo OR hierarchicalclustering_algo)
@@ -582,11 +545,14 @@ if(BUILD_CUML_CPP_LIBRARY)
                INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
-  target_compile_definitions(
+  set_target_properties(
     cuml_objs
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED
-    PRIVATE CUML_CPP_API
+    PROPERTIES CXX_VISIBILITY_PRESET hidden
+               CUDA_VISIBILITY_PRESET hidden
+               VISIBILITY_INLINES_HIDDEN ON
   )
+
+  target_compile_definitions(cuml_objs PUBLIC DISABLE_CUSPARSE_DEPRECATED)
 
   target_compile_options(
     cuml_objs PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
@@ -614,6 +580,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     copy_interface_excludes(INCLUDED_TARGET treelite::treelite_static TARGET cuml_objs)
   endif()
 
+  if(LINK_NVFOREST)
+    list(APPEND _cuml_cpp_public_libs ${CUML_NVFOREST_TARGET})
+  endif()
+
   # These are always private:
   list(
     APPEND
@@ -625,10 +595,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
   )
 
-  if(CUDA_STATIC_RUNTIME)
-    # Add CTK include paths because we're going to make our CTK library links private below
-    target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
-  endif()
+  # Add CTK include paths because we're going to make our CTK library links private below
+  target_include_directories(cuml_objs SYSTEM PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 
   # The visibility of these depend on whether we're linking the CTK statically
 
@@ -669,9 +637,8 @@ if(NOT cuml_compile_mode STREQUAL "static_only")
             "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
   target_compile_definitions(
-    ${CUML_CPP_TARGET}
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
-    PRIVATE CUML_CPP_API
+    ${CUML_CPP_TARGET} PUBLIC DISABLE_CUSPARSE_DEPRECATED
+                              $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
   )
 
   target_compile_options(
@@ -744,9 +711,8 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
     PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
   )
   target_compile_definitions(
-    ${CUML_CPP_TARGET}_static
-    PUBLIC DISABLE_CUSPARSE_DEPRECATED $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
-    PRIVATE CUML_CPP_API
+    ${CUML_CPP_TARGET}_static PUBLIC DISABLE_CUSPARSE_DEPRECATED
+                                     $<$<BOOL:${CUML_ENABLE_GPU}>:CUML_ENABLE_GPU>
   )
 
   target_compile_options(
@@ -790,31 +756,6 @@ if(NOT cuml_compile_mode STREQUAL "shared_only")
 endif()
 
 # ##################################################################################################
-# * build libcuml C shared library -------------------------------------------
-
-if(BUILD_CUML_C_LIBRARY)
-  add_library(
-    ${CUML_C_TARGET}
-    src/common/cumlHandle.cpp src/common/cuml_api.cpp src/dbscan/dbscan_api.cpp src/glm/glm_api.cpp
-    src/holtwinters/holtwinters_api.cpp src/knn/knn_api.cpp src/svm/svm_api.cpp
-  )
-
-  add_library(cuml::${CUML_C_TARGET} ALIAS ${CUML_C_TARGET})
-
-  target_compile_definitions(${CUML_C_TARGET} PRIVATE CUML_C_API)
-
-  target_include_directories(
-    ${CUML_C_TARGET} PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-  )
-
-  target_link_libraries(${CUML_C_TARGET} PUBLIC ${CUML_CPP_TARGET})
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-
-endif()
-
-# ##################################################################################################
 # * build test executables ---------------------------------------------------
 
 if(BUILD_CUML_TESTS)
@@ -834,16 +775,14 @@ endif()
 # -------------------------------------------------------------------------------
 include(CPack)
 
-if(BUILD_CUML_C_LIBRARY)
-  list(APPEND _cuml_lib_targets ${CUML_C_TARGET})
+if(_cuml_lib_targets)
+  install(
+    TARGETS ${_cuml_lib_targets}
+    DESTINATION ${lib_dir}
+    EXPORT cuml-exports
+    COMPONENT cuml
+  )
 endif()
-
-install(
-  TARGETS ${_cuml_lib_targets}
-  DESTINATION ${lib_dir}
-  EXPORT cuml-exports
-  COMPONENT cuml
-)
 
 install(
   DIRECTORY include/cuml/
@@ -900,26 +839,28 @@ endif()
 
 endif()
 
-rapids_export(
-  INSTALL cuml
-  EXPORT_SET cuml-exports
-  GLOBAL_TARGETS ${_cuml_lib_targets}
-  NAMESPACE cuml::
-  DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string
-)
+if(_cuml_lib_targets)
+  rapids_export(
+    INSTALL cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS ${_cuml_lib_targets}
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+  )
 
-# ##################################################################################################
-# * build export -------------------------------------------------------------------------------
+  # ################################################################################################
+  # * build export -------------------------------------------------------------------------------
 
-rapids_export(
-  BUILD cuml
-  EXPORT_SET cuml-exports
-  GLOBAL_TARGETS ${_cuml_lib_targets}
-  NAMESPACE cuml::
-  DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string
-)
+  rapids_export(
+    BUILD cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS ${_cuml_lib_targets}
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
+  )
+endif()
 
 # ##################################################################################################
 # * build benchmark executable -----------------------------------------------

@@ -24,7 +24,6 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
-#include <thrust/functional.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/memory.h>
 #include <thrust/scan.h>

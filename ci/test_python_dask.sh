@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test_python_dask.sh outside the script directory
@@ -15,17 +15,14 @@ set +e
 
 test_args=(
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-dask.xml"
-  --cov-config=../../.coveragerc
-  --cov=cuml_dask
-  --cov-report=xml:"${RAPIDS_COVERAGE_DIR}/cuml-dask-coverage.xml"
 )
 
 # Run tests
 rapids-logger "pytest cuml-dask (No UCXX)"
-timeout 1h ./ci/run_cuml_dask_pytests.sh "${test_args[@]}"
+timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_dask_pytests.sh "${test_args[@]}"
 
 rapids-logger "pytest cuml-dask (UCXX only)"
-timeout 10m ./ci/run_cuml_dask_pytests.sh "${test_args[@]}" --run_ucx
+timeout -v --signal=SIGINT --kill-after=60s 10m ./ci/run_cuml_dask_pytests.sh "${test_args[@]}" --run_ucx
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}

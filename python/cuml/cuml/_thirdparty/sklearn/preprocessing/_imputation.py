@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 # SPDX-FileCopyrightText: Sergey Feldman <sergeyfeldman@gmail.com>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -28,6 +28,7 @@ from cuml.internals.mixins import (
     SparseInputTagMixin,
     StringInputTagMixin,
 )
+from cuml.internals.validation import check_is_fitted, check_inputs
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
@@ -39,7 +40,7 @@ from ....thirdparty_adapters import (
     _masked_column_mode,
 )
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
-from ..utils.validation import FLOAT_DTYPES, check_is_fitted
+from ..utils.validation import FLOAT_DTYPES
 
 
 def is_scalar_nan(x):
@@ -272,15 +273,20 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
             dtype = FLOAT_DTYPES
 
         if not is_scalar_nan(self.missing_values):
-            force_all_finite = True
+            ensure_all_finite = True
         else:
-            force_all_finite = "allow-nan"
+            ensure_all_finite = "allow-nan"
 
         try:
-            X = self._validate_data(X, reset=in_fit,
-                                    accept_sparse='csc', dtype=dtype,
-                                    force_all_finite=force_all_finite,
-                                    copy=self.copy)
+            X = check_inputs(
+                self,
+                X,
+                accept_sparse="csc",
+                dtype=dtype,
+                ensure_all_finite=ensure_all_finite,
+                copy=self.copy,
+                reset=in_fit,
+            )
         except ValueError as ve:
             if "could not convert" in str(ve):
                 new_ve = ValueError("Cannot use {} strategy with non-numeric "
@@ -300,7 +306,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
         return X
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
@@ -620,12 +626,16 @@ class MissingIndicator(TransformerMixin,
 
     def _validate_input(self, X, in_fit):
         if not is_scalar_nan(self.missing_values):
-            force_all_finite = True
+            ensure_all_finite = True
         else:
-            force_all_finite = "allow-nan"
-        X = self._validate_data(X, reset=in_fit,
-                                accept_sparse=('csc', 'csr'), dtype=None,
-                                force_all_finite=force_all_finite)
+            ensure_all_finite = "allow-nan"
+        X = check_inputs(
+            self,
+            X,
+            accept_sparse=('csc', 'csr'),
+            ensure_all_finite=ensure_all_finite,
+            reset=in_fit,
+        )
         _check_inputs_dtype(X, self.missing_values)
         if X.dtype.kind not in ("i", "u", "f", "O"):
             raise ValueError("MissingIndicator does not support data with "
@@ -677,7 +687,7 @@ class MissingIndicator(TransformerMixin,
 
         return missing_features_info[0]
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
@@ -736,7 +746,7 @@ class MissingIndicator(TransformerMixin,
 
         return imputer_mask
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Generate missing values indicator for X.
 

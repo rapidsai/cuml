@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from cudf import DataFrame
+from pandas.api.types import is_numeric_dtype
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
 from cuml.preprocessing import OneHotEncoder
@@ -21,12 +22,12 @@ from cuml.testing.utils import (
 def _from_df_to_cupy(df):
     """Transform char columns to integer columns, and then create an array"""
     for col in df.columns:
-        if not np.issubdtype(df[col].dtype, np.number):
+        if not is_numeric_dtype(df[col].dtype):
             if isinstance(df, pd.DataFrame):
-                df[col] = [ord(c) for c in df[col]]
+                df[col] = [c if pd.isna(c) else ord(c) for c in df[col]]
             else:
                 df[col] = [
-                    ord(c) if c is not None else c for c in df[col].to_numpy()
+                    c if pd.isna(c) else ord(c) for c in df[col].to_numpy()
                 ]
     return cp.array(from_df_to_numpy(df))
 
@@ -114,7 +115,9 @@ def test_onehot_transform_handle_unknown(as_array):
 
     enc = OneHotEncoder(handle_unknown="error", sparse_output=False)
     enc = enc.fit(X)
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        ValueError, match="y contains previously unseen labels"
+    ):
         enc.transform(Y)
 
     enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
@@ -165,7 +168,11 @@ def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
     assert_inverse_equal(inv_ohe, X)
 
 
-@pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
+@pytest.mark.parametrize(
+    "as_array",
+    [True, False],
+    ids=["cupy", "cudf"],
+)
 def test_onehot_drop_idx_first(as_array):
     X_ary = [["c", 2, "a"], ["b", 2, "b"]]
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
@@ -184,7 +191,11 @@ def test_onehot_drop_idx_first(as_array):
     assert_inverse_equal(inv, X)
 
 
-@pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])
+@pytest.mark.parametrize(
+    "as_array",
+    [True, False],
+    ids=["cupy", "cudf"],
+)
 def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({"chars": ["c", "b"], "int": [2, 2], "letters": ["a", "b"]})
     drop = dict({"chars": "b", "int": 2, "letters": "b"})
@@ -247,7 +258,7 @@ def test_onehot_get_categories(as_array):
     cats = enc.categories_
 
     for i in range(len(ref)):
-        np.testing.assert_array_equal(ref[i], cats[i].to_numpy())
+        np.testing.assert_array_equal(ref[i], cats[i])
 
 
 @pytest.mark.parametrize("as_array", [True, False], ids=["cupy", "cudf"])

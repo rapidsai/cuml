@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -25,26 +25,25 @@ from itertools import chain, compress
 import cudf
 import cupy as np
 import numba
-import numpy as cpu_np
 import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
 from joblib import Parallel
+from pandas.api.types import is_bool_dtype
 from sklearn.base import clone
 from sklearn.utils import Bunch
 
 import cuml
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
+from cuml.internals.validation import check_is_fitted, check_features, check_array
 
-from ....thirdparty_adapters import check_array
 from ..preprocessing._function_transformer import FunctionTransformer
 from ..utils.skl_dependencies import (
     BaseComposition,
     BaseEstimator,
     TransformerMixin,
 )
-from ..utils.validation import check_is_fitted
 
 _ERR_MSG_1DCOLUMN = ("1D data passed to a transformer that expects 2D data. "
                      "Try to specify the column selection as a list of one "
@@ -857,7 +856,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset=True)
+    @cuml.internals.reflect(reset="type")
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Fit all transformers, transform the data and concatenate results.
 
@@ -880,13 +879,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             sparse matrices.
 
         """
-        # TODO: this should be `feature_names_in_` when we start having it
-        if hasattr(X, "columns"):
-            self._feature_names_in = cpu_np.asarray(X.columns)
-        else:
-            self._feature_names_in = None
-        # set n_features_in_ attribute
-        self._check_n_features(X, reset=True)
+        check_features(self, X, reset=True)
         self._validate_transformers()
         self._validate_column_callables(X)
         self._validate_remainder(X)
@@ -935,19 +928,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         """
         check_is_fitted(self)
-        if hasattr(X, "columns"):
-            X_feature_names = cpu_np.asarray(X.columns)
-        else:
-            X_feature_names = None
-
-        self._check_n_features(X, reset=False)
-        if (self._feature_names_in is not None and
-            X_feature_names is not None and
-                cpu_np.any(self._feature_names_in != X_feature_names)):
-            raise RuntimeError(
-                "Given feature/column names do not match the ones for the "
-                "data given during fit."
-            )
+        check_features(self, X)
         Xs = self._fit_transform(X, None, _transform_one, fitted=True)
         self._validate_output(Xs)
 
@@ -974,7 +955,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
                 # dtype conversion if necessary.
                 converted_Xs = [check_array(X,
                                             accept_sparse=True,
-                                            force_all_finite=False)
+                                            ensure_all_finite=False)
                                 for X in Xs]
             except ValueError as e:
                 raise ValueError(
@@ -994,7 +975,7 @@ def _is_empty_column_selection(column):
     boolean array).
 
     """
-    if hasattr(column, 'dtype') and np.issubdtype(column.dtype, np.bool_):
+    if hasattr(column, 'dtype') and is_bool_dtype(column.dtype):
         return not column.any()
     elif hasattr(column, '__len__'):
         return (len(column) == 0 or

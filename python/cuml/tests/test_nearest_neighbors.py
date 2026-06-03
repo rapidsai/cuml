@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.datasets
 from numpy.testing import assert_allclose, assert_array_equal
 from scipy.sparse import isspmatrix_csr
 from sklearn.metrics import pairwise_distances
@@ -427,9 +428,9 @@ def test_knn_fit_twice():
 @pytest.mark.parametrize("nrows", [unit_param(500), stress_param(70000)])
 @pytest.mark.parametrize("n_feats", [unit_param(20), stress_param(1000)])
 def test_nn_downcast_fails(input_type, nrows, n_feats):
-    from sklearn.datasets import make_blobs as skmb
-
-    X, y = skmb(n_samples=nrows, n_features=n_feats, random_state=0)
+    X, y = sklearn.datasets.make_blobs(
+        n_samples=nrows, n_features=n_feats, random_state=0
+    )
 
     knn_cu = cuKNN()
     if input_type == "dataframe":
@@ -555,6 +556,56 @@ def test_knn_graph_algorithm(algorithm):
         # neighbors is a subset of the graph found for nearest 20.
         sk_graph = sk_knn.kneighbors_graph(X.get(), 20)
         assert ((sk_graph - cu_graph.get()) < 0).sum() == 0
+
+
+@pytest.mark.parametrize("n_features", [2, 3, 5])
+@pytest.mark.parametrize("radius", [2.5, None])
+@pytest.mark.parametrize("self_query", [True, False])
+def test_radius_neighbors_graph(n_features, radius, self_query):
+    X, _ = make_blobs(n_samples=500, n_features=n_features, random_state=42)
+    X_train, X_query = X[:400], X[400:]
+
+    sk_model = skKNN(radius=1.5).fit(X_train.get())
+    cu_model = cuKNN(radius=1.5).fit(X_train)
+
+    sk_graph = sk_model.radius_neighbors_graph(
+        None if self_query else X_query.get(), radius=radius
+    )
+    cu_graph = cu_model.radius_neighbors_graph(
+        None if self_query else X_query, radius=radius
+    )
+
+    assert cupyx.scipy.sparse.isspmatrix_csr(cu_graph)
+    np.testing.assert_array_equal(
+        sk_graph.toarray(),
+        cu_graph.toarray().get(),
+    )
+
+
+def test_radius_neighbors_graph_errors():
+    X, _ = make_blobs(n_samples=100, random_state=42)
+    X_sparse = cupyx.scipy.sparse.random(
+        100, 5, format="csr", density=0.5, random_state=42
+    )
+
+    # Unsupported sparse inputs
+    model = cuKNN().fit(X)
+    model_sparse = cuKNN().fit(X_sparse)
+
+    with pytest.raises(TypeError, match="doesn't support sparse inputs"):
+        model.radius_neighbors_graph(X_sparse)
+
+    with pytest.raises(TypeError, match="doesn't support sparse inputs"):
+        model_sparse.radius_neighbors_graph(X)
+
+    # Invalid radius
+    with pytest.raises(ValueError, match="Expected `radius > 0`, got -2"):
+        model.radius_neighbors_graph(radius=-2)
+
+    # Unsupported metric
+    model = cuKNN(metric="linf").fit(X)
+    with pytest.raises(ValueError, match="doesn't support metric='linf'"):
+        model.radius_neighbors_graph()
 
 
 @pytest.mark.parametrize(
@@ -740,3 +791,30 @@ def test_n_jobs_parameter_passthrough():
     assert cunn.n_jobs == 1
     cunn.set_params(n_jobs=12)
     assert cunn.n_jobs == 12
+
+
+@pytest.mark.parametrize(
+    "metric, p, effective_metric",
+    [
+        ("minkowski", 1, "manhattan"),
+        ("minkowski", 2, "euclidean"),
+        ("minkowski", 3, "minkowski"),
+        ("minkowski", np.inf, "chebyshev"),
+        ("sqeuclidean", 2, "sqeuclidean"),
+    ],
+)
+@pytest.mark.parametrize("use_params", [False, True])
+def test_effective_metric_and_params(metric, p, effective_metric, use_params):
+    kws = {"p": 1000, "metric_params": {"p": p}} if use_params else {"p": p}
+    X, _ = sklearn.datasets.make_blobs(random_state=42)
+    cunn = cuKNN(metric=metric, **kws).fit(X)
+    sknn = skKNN(metric=metric, p=p).fit(X)
+    assert cunn.effective_metric_ == effective_metric
+    assert cunn.effective_metric_ == sknn.effective_metric_
+    assert cunn.effective_metric_params_.get(
+        "p"
+    ) == sknn.effective_metric_params_.get("p")
+
+    sol, _ = sknn.kneighbors(n_neighbors=5)
+    res, _ = cunn.kneighbors(n_neighbors=5)
+    np.testing.assert_allclose(sol, res, atol=1e-4)

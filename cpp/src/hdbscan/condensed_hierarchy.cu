@@ -21,7 +21,6 @@
 #include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
 #include <thrust/extrema.h>
-#include <thrust/functional.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/sort.h>

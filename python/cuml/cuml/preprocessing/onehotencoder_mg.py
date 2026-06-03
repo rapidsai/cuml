@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -27,8 +27,6 @@ class OneHotEncoderMG(OneHotEncoder):
 
         from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
-        self._check_n_features(X, reset=True)
-
         if isinstance(X, (dask.array.core.Array, cp.ndarray)):
             self._set_input_type("array")
             if is_categories:
@@ -45,4 +43,6 @@ class OneHotEncoderMG(OneHotEncoder):
         return inp.unique().compute()
 
     def _has_unknown(self, X_cat, encoder_cat):
+        if X_cat.dtype != encoder_cat.dtype:
+            encoder_cat = encoder_cat.astype(X_cat.dtype)
         return not X_cat.isin(encoder_cat).all().compute()

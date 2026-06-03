@@ -10,39 +10,16 @@ import cupyx
 import numpy as np
 from cudf import Index
 
-import cuml.internals.logger as logger
+import cuml
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.exceptions import NotFittedError
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.validation import check_features, check_is_fitted
+from cuml.preprocessing._label import LabelEncoder
 
 
-class CheckFeaturesMixIn:
-    def _check_n_features(self, X, reset: bool = False):
-        n_features = X.shape[1]
-        if reset:
-            self.n_features_in_ = n_features
-            if hasattr(X, "columns"):
-                self.feature_names_in_ = [str(c) for c in X.columns]
-        else:
-            if not hasattr(self, "n_features_in_"):
-                raise RuntimeError(
-                    "The reset parameter is False but there is no "
-                    "n_features_in_ attribute. Is this estimator fitted?"
-                )
-            if n_features != self.n_features_in_:
-                raise ValueError(
-                    "X has {} features, but this {} is expecting {} features "
-                    "as input.".format(
-                        n_features,
-                        self.__class__.__name__,
-                        self.n_features_in_,
-                    )
-                )
-
-
-class BaseEncoder(Base, CheckFeaturesMixIn):
+class BaseEncoder(Base):
     """Base implementation for encoding categorical values, uses
     :py:class:`~cuml.preprocessing.LabelEncoder` for obtaining unique values.
 
@@ -76,7 +53,6 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
 
     def _check_input_fit(self, X, is_categories=False):
         """Helper function used in fit, can be overridden in subclasses."""
-        self._check_n_features(X, reset=True)
         return self._check_input(X, is_categories=is_categories)
 
     def _unique(self, inp):
@@ -87,19 +63,20 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
         return inp
 
     def _fit(self, X, need_drop: bool):
+        check_features(self, X, reset=True)
         X = self._check_input_fit(X)
         if type(self.categories) is str and self.categories == "auto":
             self._features = X.columns
             self._encoders = {
                 feature: LabelEncoder(
                     verbose=self.verbose,
-                    output_type=self.output_type,
+                    output_type="cudf",
                     handle_unknown=self.handle_unknown,
                 ).fit(self._unique(X[feature]))
                 for feature in self._features
             }
         else:
-            self.categories = self._check_input_fit(self.categories, True)
+            self.categories = self._check_input(self.categories, True)
             self._features = self.categories.columns
             if len(self._features) != X.shape[1]:
                 raise ValueError(
@@ -110,7 +87,7 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
             for feature in self._features:
                 le = LabelEncoder(
                     verbose=self.verbose,
-                    output_type=self.output_type,
+                    output_type="cudf",
                     handle_unknown=self.handle_unknown,
                 )
 
@@ -118,7 +95,8 @@ class BaseEncoder(Base, CheckFeaturesMixIn):
 
                 if self.handle_unknown == "error":
                     if self._has_unknown(
-                        X[feature], self._encoders[feature].classes_
+                        X[feature],
+                        cudf.Series(self._encoders[feature].classes_),
                     ):
                         msg = (
                             "Found unknown categories in column {0}"
@@ -228,7 +206,6 @@ class OneHotEncoder(BaseEncoder):
         self.dtype = dtype
         self.handle_unknown = handle_unknown
         self.drop = drop
-        self._fitted = False
         self.drop_idx_ = None
         self._features = None
         self._encoders = None
@@ -258,13 +235,10 @@ class OneHotEncoder(BaseEncoder):
                 "zero."
             )
 
-    def _check_is_fitted(self):
-        if not self._fitted:
-            msg = (
-                "This OneHotEncoder instance is not fitted yet. Call 'fit' "
-                "with appropriate arguments before using this estimator."
-            )
-            raise NotFittedError(msg)
+    def __sklearn_is_fitted__(self):
+        # TODO: fix state management of this class so `check_is_fitted` works
+        # without special casing
+        return getattr(self, "_fitted", False)
 
     def _compute_drop_idx(self):
         """Helper to compute indices to drop from category to drop."""
@@ -293,15 +267,21 @@ class OneHotEncoder(BaseEncoder):
                     ).format(feature)
                     raise ValueError(msg)
                 cats = self._encoders[feature].classes_
-                if not self.drop[feature].isin(cats).all():
+                drop_vals = self.drop[feature]
+                cats = cudf.Series(cats)
+                # Match the dtype of the drop values to the dtype of the categories
+                # seen during `fit`. In particular if arrow strings and object dtypes
+                # are used, then having a mix means `isin` won't work correctly.
+                if drop_vals.dtype != cats.dtype:
+                    drop_vals = drop_vals.astype(cats.dtype)
+                if not drop_vals.isin(cats).all():
                     msg = (
                         "Some categories for feature {} were supposed "
                         "to be dropped, but were not found in the encoder "
                         "categories.".format(feature)
                     )
                     raise ValueError(msg)
-                cats = cudf.Series(cats)
-                idx = cats.isin(self.drop[feature])
+                idx = cats.isin(drop_vals)
                 drop_idx[feature] = cp.asarray(cats[idx].index)
             return drop_idx
         else:
@@ -311,12 +291,10 @@ class OneHotEncoder(BaseEncoder):
             )
             raise ValueError(msg.format(type(self.drop)))
 
-    def _check_input_fit(self, X, is_categories=False):
-        """Helper function used in fit. Can be overridden in subclasses."""
-        return self._check_input(X, is_categories=is_categories)
-
     def _has_unknown(self, X_cat, encoder_cat):
         """Check if X_cat has categories that are not present in encoder_cat."""
+        if X_cat.dtype != encoder_cat.dtype:
+            encoder_cat = encoder_cat.astype(X_cat.dtype)
         return not X_cat.isin(encoder_cat).all()
 
     @generate_docstring(y=None)
@@ -349,9 +327,12 @@ class OneHotEncoder(BaseEncoder):
             "type": "sparse matrix if sparse_output=True else a 2-d array",
         }
     )
+    @run_in_internal_context
     def transform(self, X):
         """Transform X using one-hot encoding."""
-        self._check_is_fitted()
+        check_is_fitted(self)
+        check_features(self, X)
+
         X = self._check_input(X)
 
         cols, rows = list(), list()
@@ -361,7 +342,8 @@ class OneHotEncoder(BaseEncoder):
         try:
             for feature in X.columns:
                 encoder = self._encoders[feature]
-                col_idx = encoder.transform(X[feature])
+                with cuml.using_output_type("cudf"):
+                    col_idx = encoder.transform(X[feature])
                 idx_to_keep = col_idx.notnull().to_cupy()
                 col_idx = col_idx.dropna().to_cupy()
 
@@ -370,16 +352,8 @@ class OneHotEncoder(BaseEncoder):
                 # monotonically increasing up to len(encoder.classes_)
                 # Ensure we dont go negative by clamping to 0
                 max_value = int(max(len(encoder.classes_) - 1, 0) + j)
-
-                # If we exceed the max value, upconvert
-                if max_value > np.iinfo(col_idx.dtype).max:
-                    col_idx = col_idx.astype(np.min_scalar_type(max_value))
-                    logger.debug(
-                        "Upconverting column: '{}', to dtype: '{}', "
-                        "to support up to {} classes".format(
-                            feature, np.min_scalar_type(max_value), max_value
-                        )
-                    )
+                min_dtype = np.min_scalar_type(max_value)
+                col_idx = col_idx.astype(min_dtype, copy=False)
 
                 # increase indices to take previous features into account
                 col_idx += j
@@ -431,6 +405,7 @@ class OneHotEncoder(BaseEncoder):
                 "Internal Error: {}".format(input_types_str, repr(e))
             )
 
+    @run_in_internal_context
     def inverse_transform(self, X):
         """Convert the data back to the original representation. In case unknown
         categories are encountered (all zeros in the one-hot encoding), ``None`` is used
@@ -449,7 +424,8 @@ class OneHotEncoder(BaseEncoder):
         X_tr : cudf.DataFrame or cupy.ndarray
             Inverse transformed array.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         if cupyx.scipy.sparse.issparse(X):
             # cupyx.scipy.sparse 7.x does not support argmax,
             # when we upgrade cupy to 8.x, we should add a condition in the
@@ -460,14 +436,12 @@ class OneHotEncoder(BaseEncoder):
         j = 0
         for feature in self._encoders.keys():
             feature_enc = self._encoders[feature]
-            cats = feature_enc.classes_
+            cats = cudf.Series(feature_enc.classes_)
 
             if self.drop is not None:
                 # Remove dropped categories
                 dropped_class_idx = cudf.Series(self.drop_idx_[feature])
-                dropped_class_mask = cudf.Series(cats).isin(
-                    cats[dropped_class_idx]
-                )
+                dropped_class_mask = cats.isin(cats[dropped_class_idx])
                 if len(cats) == 1:
                     inv = cudf.Series(Index([cats[0]]).repeat(X.shape[0]))
                     result[feature] = inv
@@ -488,9 +462,10 @@ class OneHotEncoder(BaseEncoder):
                 # the nulls in each column are the dropped value
                 dropped_mask = cp.asarray(x_feature.sum(axis=1) == 0).flatten()
                 if dropped_mask.any():
-                    inv[dropped_mask] = feature_enc.inverse_transform(
-                        cudf.Series(self.drop_idx_[feature])
-                    )[0]
+                    with cuml.using_output_type("cudf"):
+                        inv[dropped_mask] = feature_enc.inverse_transform(
+                            cudf.Series(self.drop_idx_[feature])
+                        )[0]
 
             result[feature] = inv
             j += enc_size
@@ -521,7 +496,8 @@ class OneHotEncoder(BaseEncoder):
         output_feature_names : ndarray of shape (n_output_features,)
             Array of feature names.
         """
-        self._check_is_fitted()
+        check_is_fitted(self)
+
         cats = self.categories_
         if input_features is None:
             input_features = ["x%d" % i for i in range(len(cats))]
@@ -535,9 +511,7 @@ class OneHotEncoder(BaseEncoder):
 
         feature_names = []
         for i in range(len(cats)):
-            names = [
-                input_features[i] + "_" + str(t) for t in cats[i].to_numpy()
-            ]
+            names = [input_features[i] + "_" + str(t) for t in cats[i]]
             if self.drop_idx_ is not None and self.drop_idx_[i] is not None:
                 names.pop(self.drop_idx_[i])
             feature_names.extend(names)
@@ -649,14 +623,17 @@ class OrdinalEncoder(BaseEncoder):
             "type": "Type is specified by the `output_type` parameter.",
         }
     )
+    @run_in_internal_context
     def transform(self, X):
         """Transform X using ordinal encoding."""
-        self._check_n_features(X, reset=False)
+        check_is_fitted(self)
+        check_features(self, X)
 
         result = {}
         for feature in self._features:
             Xi = _slice_feat(X, feature)
-            col_idx = self._encoders[feature].transform(Xi)
+            with cuml.using_output_type("cudf"):
+                col_idx = self._encoders[feature].transform(Xi)
             result[feature] = col_idx
 
         r = cudf.DataFrame(result)
@@ -675,6 +652,7 @@ class OrdinalEncoder(BaseEncoder):
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
+    @run_in_internal_context
     def inverse_transform(self, X):
         """Convert the data back to the original representation.
 
@@ -688,12 +666,13 @@ class OrdinalEncoder(BaseEncoder):
         X_tr : Type is specified by the `output_type` parameter.
             Inverse transformed array.
         """
-        self._check_n_features(X, reset=False)
+        check_is_fitted(self)
 
         result = {}
         for feature in self._features:
             Xi = _slice_feat(X, feature)
-            inv = self._encoders[feature].inverse_transform(Xi)
+            with cuml.using_output_type("cudf"):
+                inv = self._encoders[feature].inverse_transform(Xi)
             result[feature] = inv
 
         r = cudf.DataFrame(result)

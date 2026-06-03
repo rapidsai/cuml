@@ -4,8 +4,6 @@
 import cudf
 import numpy as np
 import pytest
-import sklearn
-from packaging.version import Version
 from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from umap import UMAP
@@ -20,17 +18,6 @@ from cuml.metrics import trustworthiness as cuml_trustworthiness
 @pytest.mark.parametrize("batch_size", [128, 1024])
 @pytest.mark.filterwarnings(
     "ignore:n_jobs value.*overridden.*by setting random_state.*:UserWarning"
-)
-# Ignore FutureWarning from third-party umap-learn package calling
-# sklearn.utils.validation.check_array with deprecated 'force_all_finite'
-# parameter. Old versions of umap-learn use a deprecated parameter.
-@pytest.mark.filterwarnings(
-    "ignore:'force_all_finite' was renamed to "
-    "'ensure_all_finite':FutureWarning:sklearn"
-)
-@pytest.mark.xfail(
-    condition=Version(sklearn.__version__) >= Version("1.8.0.dev0"),
-    reason="umap-learn is incompatible with sklearn >= 1.8.0",
 )
 def test_trustworthiness(
     input_type, n_samples, n_features, n_components, batch_size
@@ -60,8 +47,38 @@ def test_trustworthiness(
     assert abs(cu_score - sk_score) <= 1e-3
 
 
-def test_trustworthiness_invalid_input():
+@pytest.mark.parametrize("n_neighbors", [0, 5, 50])
+def test_trustworthiness_invalid_n_neighbors(n_neighbors):
     X, y = make_blobs(n_samples=10, centers=1, n_features=2, random_state=32)
 
+    with pytest.raises(ValueError, match="n_neighbors.*n_samples"):
+        cuml_trustworthiness(X, X, n_neighbors=n_neighbors)
+
+
+def test_trustworthiness_mismatched_rows():
+    X, _ = make_blobs(n_samples=10, n_features=4, random_state=0)
+    X_embedded, _ = make_blobs(n_samples=12, n_features=2, random_state=0)
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cuml_trustworthiness(
+            X.astype(np.float32), X_embedded.astype(np.float32)
+        )
+
+
+def test_trustworthiness_convert_dtype_false_rejects_float64():
+    X, _ = make_blobs(n_samples=20, n_features=4, random_state=0)  # float64
+    X_embedded, _ = make_blobs(n_samples=20, n_features=2, random_state=0)
+    with pytest.raises(ValueError, match="dtype"):
+        cuml_trustworthiness(X, X_embedded, convert_dtype=False)
+
+
+def test_trustworthiness_rejects_1d_input():
+    X = np.arange(20, dtype=np.float32)
+    X_embedded = np.arange(20, dtype=np.float32)
     with pytest.raises(ValueError):
-        cuml_trustworthiness(X, X, n_neighbors=50)
+        cuml_trustworthiness(X, X_embedded)
+
+
+def test_trustworthiness_unknown_metric():
+    X = np.arange(20, dtype=np.float32)
+    with pytest.raises(ValueError, match="Unsupported metric 'manhattan'"):
+        cuml_trustworthiness(X, X, metric="manhattan")

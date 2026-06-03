@@ -2,15 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
+import cupy as cp
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -138,31 +138,23 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.c = c
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
         """
         # Validate and process inputs
-        X = input_to_cuml_array(
+        X = check_inputs(
+            self,
             X,
             order="C",
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            ensure_min_samples=2,
+            reset=True,
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
-
-        if n_rows < 2:
-            raise ValueError(
-                f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
-                f"minimum of 2 is required."
-            )
-        if n_cols < 1:
-            raise ValueError(
-                f"Found array with {n_cols} feature(s) (shape={X.shape}) while "
-                f"a minimum of 1 is required."
-            )
 
         # Validate and process hyperparameters
         if self.linkage != "single":
@@ -183,15 +175,15 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
             )
 
         # Allocate outputs
-        labels = CumlArray.empty(n_rows, dtype="int32", order="C")
-        children = CumlArray.empty((n_rows - 1, 2), dtype="int32", order="C")
+        labels = cp.empty(n_rows, dtype="int32", order="C")
+        children = cp.empty((n_rows - 1, 2), dtype="int32", order="C")
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int c = self.c
-        cdef float* X_ptr = <float*><uintptr_t>X.ptr
-        cdef int* children_ptr = <int*><uintptr_t>children.ptr
-        cdef int* labels_ptr = <int*><uintptr_t>labels.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
+        cdef int* children_ptr = <int*><uintptr_t>children.data.ptr
+        cdef int* labels_ptr = <int*><uintptr_t>labels.data.ptr
 
         # Perform fit
         with nogil:
@@ -214,8 +206,8 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
         self.n_clusters_ = n_clusters
-        self.labels_ = labels
-        self.children_ = children
+        self.labels_ = CumlArray(data=labels)
+        self.children_ = CumlArray(data=children)
 
         return self
 

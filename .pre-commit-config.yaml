@@ -31,13 +31,13 @@ repos:
       hooks:
           - id: cython-lint
     - repo: https://github.com/pre-commit/mirrors-clang-format
-      rev: v20.1.4
+      rev: v20.1.8
       hooks:
           - id: clang-format
             types_or: [c, c++, cuda]
             args: ["-fallback-style=none", "-style=file", "-i"]
     - repo: https://github.com/codespell-project/codespell
-      rev: v2.2.2
+      rev: v2.4.1
       hooks:
           - id: codespell
             additional_dependencies: [tomli]
@@ -171,6 +171,17 @@ repos:
             (?x)
               ^pyproject[.]toml$
         - id: verify-hardcoded-version
+          exclude: |
+            (?x)
+              (^|/)devcontainer[.]json$|
+              (^|/)dependencies[.]yaml$|
+              ^[.]github/(workflows|ISSUE_TEMPLATE)/|
+              (^|/)pom[.]xml$|
+              ^[.]pre-commit-config[.]yaml$|
+              ^conda/environments/|
+              (^|/)VERSION$|
+              (^|/)RAPIDS_BRANCH$|
+              [.](csv|json|md|rst|avro|parquet|png|orc|gz|pkl|sas7bdat)$
     - repo: https://github.com/rapidsai/dependency-file-generator
       rev: v1.20.0
       hooks:
@@ -181,6 +192,10 @@ repos:
       hooks:
         - id: shellcheck
           args: ["--severity=warning"]
+    - repo: https://github.com/zizmorcore/zizmor-pre-commit
+      rev: v1.24.1
+      hooks:
+        - id: zizmor
 
 default_language_version:
     python: python3

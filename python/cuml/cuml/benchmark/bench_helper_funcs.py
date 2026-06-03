@@ -1,24 +1,38 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import os
 import pickle as pickle
-from time import perf_counter
+import sys
 
-import cudf
-import cupy as cp
 import numpy as np
 import pandas as pd
-import sklearn.ensemble as skl_ensemble
-from numba import cuda
 
-import cuml
-from cuml.benchmark import datagen
-from cuml.fil import get_fil_device_type, set_fil_device_type
-from cuml.internals import input_utils
-from cuml.internals.device_type import DeviceType
-from cuml.manifold import UMAP
+# Supports both package and standalone execution
+try:
+    from cuml.benchmark import datagen
+    from cuml.benchmark.gpu_check import is_cuml_available
+except ImportError:
+    if not any("cuml/benchmark" in p for p in sys.path):
+        raise
+    import datagen  # noqa: E402
+    from gpu_check import is_cuml_available  # noqa: E402
+
+# Conditional GPU imports
+cudf = None
+cp = None
+cuda = None
+cuml = None
+input_utils = None
+DeviceType = None
+UMAP = None
+
+if is_cuml_available():
+    import cudf
+    import cupy as cp
+    from numba import cuda
+
+    from cuml.manifold import UMAP
 
 
 def call(m, func_name, X, y=None):
@@ -87,277 +101,33 @@ def _training_data_to_numpy(X, y):
     if isinstance(X, np.ndarray):
         X_np = X
         y_np = y
-    elif isinstance(X, cp.ndarray):
+    elif is_cuml_available() and isinstance(X, cp.ndarray):
         X_np = cp.asnumpy(X)
-        y_np = cp.asnumpy(y)
-    elif isinstance(X, cudf.DataFrame):
+        y_np = cp.asnumpy(y) if y is not None else None
+    elif is_cuml_available() and isinstance(X, cudf.DataFrame):
         X_np = X.to_numpy()
-        y_np = y.to_numpy()
-    elif cuda.devicearray.is_cuda_ndarray(X):
+        y_np = y.to_numpy() if y is not None else None
+    elif is_cuml_available() and cuda.devicearray.is_cuda_ndarray(X):
         X_np = X.copy_to_host()
-        y_np = y.copy_to_host()
+        y_np = y.copy_to_host() if y is not None else None
     elif isinstance(X, (pd.DataFrame, pd.Series)):
         X_np = datagen._convert_to_numpy(X)
-        y_np = datagen._convert_to_numpy(y)
+        y_np = datagen._convert_to_numpy(y) if y is not None else None
     else:
-        raise TypeError("Received unsupported input type")
+        raise TypeError("Received unsupported input type: %s" % type(X))
     return X_np, y_np
 
 
-def _build_fil_classifier(m, data, args, tmpdir):
-    """Setup function for FIL classification benchmarking"""
-    import xgboost as xgb
-
-    train_data, train_label = _training_data_to_numpy(data[0], data[1])
-
-    dtrain = xgb.DMatrix(train_data, label=train_label)
-
-    params = {
-        "silent": 1,
-        "eval_metric": "error",
-        "objective": "binary:logistic",
-        "tree_method": "gpu_hist",
-    }
-    params.update(args)
-    max_depth = args["max_depth"]
-    num_rounds = args["num_rounds"]
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
-    model_path = os.path.join(tmpdir, model_name)
-    bst = xgb.train(params, dtrain, num_rounds)
-    bst.save_model(model_path)
-
-    fil_kwargs = {
-        param: args[input_name]
-        for param, input_name in (
-            ("is_classifier", "is_classifier"),
-            ("threshold", "threshold"),
-            ("precision", "precision"),
-            ("layout", "layout"),
-        )
-        if input_name in args
-    }
-
-    return m.load(model_path, **fil_kwargs)
-
-
-class OptimizedFilWrapper:
-    """Helper class to make use of optimized parameters in FIL"""
-
-    def __init__(self, fil_model, optimal_chunk_size, infer_type="default"):
-        self.fil_model = fil_model
-        self.predict_kwargs = {"chunk_size": optimal_chunk_size}
-        self.infer_type = infer_type
-
-    def predict(self, X):
-        if self.infer_type == "per_tree":
-            return self.fil_model.predict_per_tree(X, **self.predict_kwargs)
-        return self.fil_model.predict(X, **self.predict_kwargs)
-
-
-def _build_optimized_fil_classifier(m, data, args, tmpdir):
-    """Setup function for FIL classification benchmarking with optimal
-    parameters"""
-    import xgboost as xgb
-
-    with set_fil_device_type("gpu"):
-        train_data, train_label = _training_data_to_numpy(data[0], data[1])
-
-        dtrain = xgb.DMatrix(train_data, label=train_label)
-
-        params = {
-            "silent": 1,
-            "eval_metric": "error",
-            "objective": "binary:logistic",
-            "tree_method": "gpu_hist",
-        }
-        params.update(args)
-        max_depth = args["max_depth"]
-        num_rounds = args["num_rounds"]
-        n_feature = data[0].shape[1]
-        train_size = data[0].shape[0]
-        model_name = (
-            f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
-        )
-        model_path = os.path.join(tmpdir, model_name)
-        bst = xgb.train(params, dtrain, num_rounds)
-        bst.save_model(model_path)
-
-    allowed_chunk_sizes = [1, 2, 4, 8, 16, 32]
-    if get_fil_device_type() is DeviceType.host:
-        allowed_chunk_sizes.extend((64, 128, 256))
-
-    fil_kwargs = {
-        param: args[input_name]
-        for param, input_name in (
-            ("is_classifier", "is_classifier"),
-            ("threshold", "threshold"),
-            ("precision", "precision"),
-            ("layout", "layout"),
-        )
-        if input_name in args
-    }
-    infer_type = args.get("infer_type", "default")
-
-    optimal_layout = "breadth_first"
-    optimal_chunk_size = 1
-    best_time = None
-    optimization_cycles = 5
-
-    allowed_layout_types = ["breadth_first", "depth_first", "layered"]
-    for layout in allowed_layout_types:
-        fil_kwargs["layout"] = layout
-        for chunk_size in allowed_chunk_sizes:
-            call_args = {"chunk_size": chunk_size}
-            fil_model = m.load(model_path, **fil_kwargs)
-            if infer_type == "per_tree":
-                fil_model.predict_per_tree(train_data, **call_args)
-            else:
-                fil_model.predict(train_data, **call_args)
-            begin = perf_counter()
-            if infer_type == "per_tree":
-                fil_model.predict_per_tree(train_data, **call_args)
-            else:
-                for _ in range(optimization_cycles):
-                    fil_model.predict(train_data, **call_args)
-            end = perf_counter()
-            elapsed = end - begin
-            if best_time is None or elapsed < best_time:
-                best_time = elapsed
-                optimal_chunk_size = chunk_size
-                optimal_layout = layout
-
-        fil_kwargs["layout"] = optimal_layout
-
-        return OptimizedFilWrapper(
-            m.load(model_path, **fil_kwargs),
-            optimal_chunk_size,
-            infer_type=infer_type,
-        )
-
-
-def _build_fil_skl_classifier(m, data, args, tmpdir):
-    """Trains an SKLearn classifier and returns a FIL version of it"""
-
-    train_data, train_label = _training_data_to_numpy(data[0], data[1])
-
-    params = {
-        "n_estimators": 100,
-        "max_leaf_nodes": 2**10,
-        "max_features": "sqrt",
-        "n_jobs": -1,
-        "random_state": 42,
-    }
-    params.update(args)
-
-    # remove keyword arguments not understood by SKLearn
-    for param_name in [
-        "is_classifier",
-        "threshold",
-        "precision",
-        "layout",
-    ]:
-        params.pop(param_name, None)
-
-    max_leaf_nodes = args["max_leaf_nodes"]
-    n_estimators = args["n_estimators"]
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = (
-        f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_"
-        + f"{train_size}.model.pkl"
-    )
-    model_path = os.path.join(tmpdir, model_name)
-    skl_model = skl_ensemble.RandomForestClassifier(**params)
-    skl_model.fit(train_data, train_label)
-    pickle.dump(skl_model, open(model_path, "wb"))
-
-    fil_kwargs = {
-        param: args[input_name]
-        for param, input_name in (
-            ("is_classifier", "is_classifier"),
-            ("threshold", "threshold"),
-            ("precision", "precision"),
-            ("layout", "layout"),
-        )
-        if input_name in args
-    }
-
-    return m.load_from_sklearn(skl_model, **fil_kwargs)
-
-
-def _build_cpu_skl_classifier(m, data, args, tmpdir):
-    """Loads the SKLearn classifier and returns it"""
-
-    max_leaf_nodes = args["max_leaf_nodes"]
-    n_estimators = args["n_estimators"]
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = (
-        f"skl_{max_leaf_nodes}_{n_estimators}_{n_feature}_"
-        + f"{train_size}.model.pkl"
-    )
-    model_path = os.path.join(tmpdir, model_name)
-
-    skl_model = pickle.load(open(model_path, "rb"))
-    return skl_model
-
-
-class GtilWrapper:
-    """Helper class to provide interface to GTIL compatible with
-    benchmarking functions"""
-
-    def __init__(self, tl_model, infer_type="default"):
-        self.tl_model = tl_model
-        self.infer_type = infer_type
-
-    def predict(self, X):
-        import treelite
-
-        if self.infer_type == "per_tree":
-            return treelite.gtil.predict_per_tree(self.tl_model, X)
-        return treelite.gtil.predict(self.tl_model, X)
-
-
-def _build_gtil_classifier(m, data, args, tmpdir):
-    """Setup function for treelite classification benchmarking"""
-    import treelite
-    import xgboost as xgb
-
-    max_depth = args["max_depth"]
-    num_rounds = args["num_rounds"]
-    infer_type = args.get("infer_type", "default")
-    n_feature = data[0].shape[1]
-    train_size = data[0].shape[0]
-    model_name = f"xgb_{max_depth}_{num_rounds}_{n_feature}_{train_size}.ubj"
-    model_path = os.path.join(tmpdir, model_name)
-
-    bst = xgb.Booster()
-    bst.load_model(model_path)
-    tl_model = treelite.Model.from_xgboost(bst)
-    return GtilWrapper(tl_model, infer_type=infer_type)
-
-
-def _treelite_fil_accuracy_score(y_true, y_pred):
-    """Function to get correct accuracy for FIL (returns class index)"""
-    # convert the input if necessary
-    y_pred1 = (
-        y_pred.copy_to_host()
-        if cuda.devicearray.is_cuda_ndarray(y_pred)
-        else y_pred
-    )
-    y_true1 = (
-        y_true.copy_to_host()
-        if cuda.devicearray.is_cuda_ndarray(y_true)
-        else y_true
-    )
-
-    y_pred_binary = input_utils.convert_dtype(y_pred1 > 0.5, np.int32)
-    return cuml.metrics.accuracy_score(y_true1, y_pred_binary)
-
-
 def _build_mnmg_umap(m, data, args, tmpdir):
+    """Build multi-node multi-GPU UMAP model.
+
+    Note: This function requires GPU libraries (cuML) to be available.
+    """
+    if not is_cuml_available():
+        raise RuntimeError(
+            "MNMG UMAP requires GPU libraries (cuML). "
+            "Not available in CPU-only mode."
+        )
     client = args["client"]
     del args["client"]
     local_model = UMAP(**args)

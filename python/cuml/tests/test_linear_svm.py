@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 import sklearn.svm
 from sklearn.datasets import make_classification, make_regression
+from sklearn.exceptions import NotFittedError
 from sklearn.model_selection import train_test_split
 
 import cuml
 import cuml.svm as cu
-from cuml.common.exceptions import NotFittedError
 from cuml.testing.utils import as_type
 
 
@@ -214,6 +214,11 @@ def test_linear_svc_decision_function(
 
 @pytest.mark.parametrize("fit_intercept", [True, False])
 @pytest.mark.parametrize("n_classes", [2, 3, 5])
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove once `probability` is removed from cuml.svm.LinearSVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 def test_linear_svc_predict_proba(fit_intercept, n_classes):
     n_rows, n_cols = 500, 20
     X_train, X_test, y_train, y_test = make_classification_dataset(
@@ -248,14 +253,19 @@ def test_linear_svc_predict_proba(fit_intercept, n_classes):
 
 
 def test_linear_svc_predict_proba_not_available():
-    X_train, X_test, y_train, y_test = make_classification_dataset(100, 20, 2)
-    model = cuml.LinearSVC().fit(X_train, y_train)
+    X, y = make_classification()
+    model = cuml.LinearSVC().fit(X, y)
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_proba(X_test)
+    assert not hasattr(model, "predict_proba")
+    assert not hasattr(model, "predict_log_proba")
 
-    with pytest.raises(NotFittedError, match="probability=True"):
-        model.predict_log_proba(X_test)
+    # Setting `probability=True` makes the attribute available, but
+    # calling it raises a NotFittedError until refit
+    model.probability = True
+    assert hasattr(model, "predict_proba")
+
+    with pytest.raises(NotFittedError, match="fitted with probability=False"):
+        model.predict_proba(X)
 
 
 @pytest.mark.parametrize("kind", ["numpy", "pandas", "cupy", "cudf"])

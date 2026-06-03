@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-cmake_minimum_required(VERSION 3.30.4 FATAL_ERROR)
+cmake_minimum_required(VERSION 4.0 FATAL_ERROR)
 
 include(../../cmake/rapids_config.cmake)
 
@@ -38,7 +38,7 @@ set(CUML_ALGORITHMS
       "Choose which algorithms are built cuML. Can specify individual algorithms or groups in a semicolon-separated list."
 )
 
-set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_SRC "../../cpp")
 
 # ##################################################################################################
@@ -74,7 +74,7 @@ find_package(cuml "${RAPIDS_VERSION}" REQUIRED COMPONENTS cuml)
 set(cuml_sg_libraries cuml::${CUML_CPP_TARGET})
 set(cuml_mg_libraries cuml::${CUML_CPP_TARGET})
 
-# MNMG code is now built directly into libcuml++
+# MNMG code is now built directly into libcuml
 
 # ##################################################################################################
 # * Build Cython artifacts -----------------------------------------------------
@@ -95,7 +95,6 @@ add_subdirectory(cuml/datasets)
 add_subdirectory(cuml/decomposition)
 add_subdirectory(cuml/ensemble)
 add_subdirectory(cuml/explainer)
-add_subdirectory(cuml/fil)
 add_subdirectory(cuml/linear_model)
 add_subdirectory(cuml/manifold)
 add_subdirectory(cuml/metrics)
@@ -108,4 +107,4 @@ add_subdirectory(cuml/tsa)
 add_subdirectory(cuml/experimental/linear_model)
 
 # Include the pth file in the built wheel
-install(FILES "_cuml_accel.pth" DESTINATION ".")
+install(FILES "_zz_cuml_accel.pth" DESTINATION ".")

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,16 +8,19 @@
 #include "algo_helper.h"
 #include "flatnode.h"
 
+#include <cuml/common/export.hpp>
+
 #include <string>
 #include <vector>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace DT {
 
 struct DecisionTreeParams {
   /**
-   * Maximum tree depth. Unlimited (e.g., until leaves are pure), If `-1`.
+   * Maximum tree depth. Set to INT32_MAX for unlimited depth
+   * (i.e., until leaves are pure or other stopping criteria are met).
    */
   int max_depth;
   /**
@@ -133,4 +136,4 @@ typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
 }  // End namespace DT
-}  // End namespace ML
+}  // End namespace CUML_EXPORT ML

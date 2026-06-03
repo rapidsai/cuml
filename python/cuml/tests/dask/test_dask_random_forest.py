@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -234,7 +234,11 @@ def test_rf_classification_dask_fil_predict_proba(
     y_proba[:, 1] = y_test
     y_proba[:, 0] = 1.0 - y_test
     fil_mse = mean_squared_error(y_proba, fil_preds_proba)
-    sk_model = skrfc(n_estimators=40, max_depth=16, random_state=10)
+    sk_model = skrfc(
+        n_estimators=cu_rf_params["n_estimators"],
+        max_depth=cu_rf_params["max_depth"],
+        random_state=10,
+    )
     sk_model.fit(X_train, y_train)
     sk_preds_proba = sk_model.predict_proba(X_test)
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
@@ -258,7 +262,7 @@ def test_rf_concatenation_dask(client, model_type):
     else:
         y = y.astype(np.float32)
     n_estimators = 40
-    cu_rf_params = {"n_estimators": n_estimators}
+    cu_rf_params = {"n_estimators": n_estimators, "max_depth": 16}
 
     X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=2)
 
@@ -284,7 +288,8 @@ def test_single_input_regression(client, ignore_empty_partitions):
 
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
     cu_rf_mg = cuRFR_mg(
-        n_bins=1, ignore_empty_partitions=ignore_empty_partitions
+        n_bins=1,
+        ignore_empty_partitions=ignore_empty_partitions,
     )
 
     if (
@@ -355,6 +360,36 @@ def test_rf_data_count(client, max_depth, n_estimators):
         # Check that the data_count accumulates properly as you move up the tree
         for node in nodes:
             check_count(node, nodes)
+
+
+def test_unlimited_max_depth_classifier(client):
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
+    X, y = make_classification(
+        n_samples=n_workers * 200, n_features=10, random_state=42
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.int32)
+
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=1)
+    clf = cuRFC_mg(n_estimators=n_workers * 5, max_depth=None)
+    clf.fit(X_dask, y_dask)
+    preds = cp.asnumpy(cp.array(clf.predict(X_dask).compute()))
+    assert len(preds) == len(y)
+
+
+def test_unlimited_max_depth_regressor(client):
+    n_workers = len(client.scheduler_info(n_workers=-1)["workers"])
+    X, y = make_regression(
+        n_samples=n_workers * 200, n_features=10, random_state=42
+    )
+    X = X.astype(np.float32)
+    y = y.astype(np.float32)
+
+    X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=1)
+    reg = cuRFR_mg(n_estimators=n_workers * 5, max_depth=None)
+    reg.fit(X_dask, y_dask)
+    preds = cp.asnumpy(cp.array(reg.predict(X_dask).compute()))
+    assert len(preds) == len(y)
 
 
 @pytest.mark.parametrize("estimator_type", ["regression", "classification"])

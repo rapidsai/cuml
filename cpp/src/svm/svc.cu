@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -22,101 +22,101 @@ namespace SVM {
 using namespace MLCommon;
 
 // Explicit instantiation for the library
-template int svcFit<float>(const raft::handle_t& handle,
-                           float* input,
-                           int n_rows,
-                           int n_cols,
-                           float* labels,
-                           const SvmParameter& param,
-                           matrix::KernelParams& kernel_params,
-                           SvmModel<float>& model,
-                           const float* sample_weight);
-
-template int svcFit<double>(const raft::handle_t& handle,
-                            double* input,
-                            int n_rows,
-                            int n_cols,
-                            double* labels,
-                            const SvmParameter& param,
-                            matrix::KernelParams& kernel_params,
-                            SvmModel<double>& model,
-                            const double* sample_weight);
-
-template int svcFitSparse<float>(const raft::handle_t& handle,
-                                 int* indptr,
-                                 int* indices,
-                                 float* data,
-                                 int n_rows,
-                                 int n_cols,
-                                 int nnz,
-                                 float* labels,
-                                 const SvmParameter& param,
-                                 matrix::KernelParams& kernel_params,
-                                 SvmModel<float>& model,
-                                 const float* sample_weight);
-
-template int svcFitSparse<double>(const raft::handle_t& handle,
-                                  int* indptr,
-                                  int* indices,
-                                  double* data,
-                                  int n_rows,
-                                  int n_cols,
-                                  int nnz,
-                                  double* labels,
-                                  const SvmParameter& param,
-                                  matrix::KernelParams& kernel_params,
-                                  SvmModel<double>& model,
-                                  const double* sample_weight);
-
-template void svcPredict<float>(const raft::handle_t& handle,
-                                float* input,
-                                int n_rows,
-                                int n_cols,
-                                matrix::KernelParams& kernel_params,
-                                const SvmModel<float>& model,
-                                float* preds,
-                                float buffer_size,
-                                bool predict_class);
-
-template void svcPredict<double>(const raft::handle_t& handle,
-                                 double* input,
-                                 int n_rows,
-                                 int n_cols,
-                                 matrix::KernelParams& kernel_params,
-                                 const SvmModel<double>& model,
-                                 double* preds,
-                                 double buffer_size,
-                                 bool predict_class);
-
-template void svcPredictSparse<float>(const raft::handle_t& handle,
-                                      int* indptr,
-                                      int* indices,
-                                      float* data,
-                                      int n_rows,
-                                      int n_cols,
-                                      int nnz,
-                                      matrix::KernelParams& kernel_params,
-                                      const SvmModel<float>& model,
-                                      float* preds,
-                                      float buffer_size,
-                                      bool predict_class);
-
-template void svcPredictSparse<double>(const raft::handle_t& handle,
-                                       int* indptr,
-                                       int* indices,
-                                       double* data,
+template CUML_EXPORT int svcFit<float>(const raft::handle_t& handle,
+                                       float* input,
                                        int n_rows,
                                        int n_cols,
-                                       int nnz,
+                                       float* labels,
+                                       const SvmParameter& param,
                                        matrix::KernelParams& kernel_params,
-                                       const SvmModel<double>& model,
-                                       double* preds,
-                                       double buffer_size,
-                                       bool predict_class);
+                                       SvmModel<float>& model,
+                                       const float* sample_weight);
 
-template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<float>& m);
+template CUML_EXPORT int svcFit<double>(const raft::handle_t& handle,
+                                        double* input,
+                                        int n_rows,
+                                        int n_cols,
+                                        double* labels,
+                                        const SvmParameter& param,
+                                        matrix::KernelParams& kernel_params,
+                                        SvmModel<double>& model,
+                                        const double* sample_weight);
 
-template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<double>& m);
+template CUML_EXPORT int svcFitSparse<float>(const raft::handle_t& handle,
+                                             int* indptr,
+                                             int* indices,
+                                             float* data,
+                                             int n_rows,
+                                             int n_cols,
+                                             int nnz,
+                                             float* labels,
+                                             const SvmParameter& param,
+                                             matrix::KernelParams& kernel_params,
+                                             SvmModel<float>& model,
+                                             const float* sample_weight);
+
+template CUML_EXPORT int svcFitSparse<double>(const raft::handle_t& handle,
+                                              int* indptr,
+                                              int* indices,
+                                              double* data,
+                                              int n_rows,
+                                              int n_cols,
+                                              int nnz,
+                                              double* labels,
+                                              const SvmParameter& param,
+                                              matrix::KernelParams& kernel_params,
+                                              SvmModel<double>& model,
+                                              const double* sample_weight);
+
+template CUML_EXPORT void svcPredict<float>(const raft::handle_t& handle,
+                                            float* input,
+                                            int n_rows,
+                                            int n_cols,
+                                            matrix::KernelParams& kernel_params,
+                                            const SvmModel<float>& model,
+                                            float* preds,
+                                            float buffer_size,
+                                            bool predict_class);
+
+template CUML_EXPORT void svcPredict<double>(const raft::handle_t& handle,
+                                             double* input,
+                                             int n_rows,
+                                             int n_cols,
+                                             matrix::KernelParams& kernel_params,
+                                             const SvmModel<double>& model,
+                                             double* preds,
+                                             double buffer_size,
+                                             bool predict_class);
+
+template CUML_EXPORT void svcPredictSparse<float>(const raft::handle_t& handle,
+                                                  int* indptr,
+                                                  int* indices,
+                                                  float* data,
+                                                  int n_rows,
+                                                  int n_cols,
+                                                  int nnz,
+                                                  matrix::KernelParams& kernel_params,
+                                                  const SvmModel<float>& model,
+                                                  float* preds,
+                                                  float buffer_size,
+                                                  bool predict_class);
+
+template CUML_EXPORT void svcPredictSparse<double>(const raft::handle_t& handle,
+                                                   int* indptr,
+                                                   int* indices,
+                                                   double* data,
+                                                   int n_rows,
+                                                   int n_cols,
+                                                   int nnz,
+                                                   matrix::KernelParams& kernel_params,
+                                                   const SvmModel<double>& model,
+                                                   double* preds,
+                                                   double buffer_size,
+                                                   bool predict_class);
+
+template CUML_EXPORT void svmFreeBuffers(const raft::handle_t& handle, SvmModel<float>& m);
+
+template CUML_EXPORT void svmFreeBuffers(const raft::handle_t& handle, SvmModel<double>& m);
 
 template <typename math_t>
 SVC<math_t>::SVC(raft::handle_t& handle,
@@ -169,8 +169,8 @@ void SVC<math_t>::decisionFunction(math_t* input, int n_rows, int n_cols, math_t
 }
 
 // Instantiate templates for the shared library
-template class SVC<float>;
-template class SVC<double>;
+template CUML_EXPORT class SVC<float>;
+template CUML_EXPORT class SVC<double>;
 
 };  // namespace SVM
 };  // end namespace ML

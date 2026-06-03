@@ -10,6 +10,8 @@ import numpy as np
 import pytest
 import scipy.special
 import sklearn.neighbors
+import sklearn.svm
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
 
@@ -78,12 +80,21 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             )
 
 
+# rapids-pre-commit-hooks: disable-next-line
+# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 def test_exact_classification_datasets(exact_shap_classification_dataset):
     X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
     models = []
     models.append(cuml.SVC(probability=True).fit(X_train, y_train))
-    models.append(sklearn.svm.SVC(probability=True).fit(X_train, y_train))
+    models.append(
+        CalibratedClassifierCV(sklearn.svm.SVC(), ensemble=False).fit(
+            X_train, y_train
+        )
+    )
 
     for mod in models:
         explainer, shap_values = get_shap_values(

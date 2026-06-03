@@ -1,15 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-import numpy as np
-
 import cuml.internals.nvtx as nvtx
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.validation import check_inputs
 from cuml.metrics import r2_score
 
 
@@ -64,12 +62,13 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
             * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int (default = 16)
-        Maximum tree depth. Must be greater than 0.
-        Unlimited depth (i.e, until leaves are pure)
-        is not supported.\n
-        .. note:: This default differs from scikit-learn's
-          random forest, which defaults to unlimited depth.
+    max_depth : int or None (default = None)
+        Maximum tree depth. Use ``None`` for unlimited depth (trees grow
+        until all leaves are pure). Must be a positive integer or ``None``.
+
+        .. rapids-pre-commit-hooks: disable-next-line
+        .. versionchanged:: 26.08
+          The default of `max_depth` changed from `16` to `None`.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
@@ -158,18 +157,42 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
     def __init__(
         self,
         *,
+        n_estimators=100,
         split_criterion="mse",
+        bootstrap=True,
+        max_samples=1.0,
+        max_depth=None,
+        max_leaves=-1,
         max_features=1.0,
+        n_bins=128,
+        min_samples_leaf=1,
+        min_samples_split=2,
+        min_impurity_decrease=0.0,
+        max_batch_size=4096,
+        random_state=None,
+        n_streams=4,
+        oob_score=False,
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
         super().__init__(
+            n_estimators=n_estimators,
             split_criterion=split_criterion,
+            bootstrap=bootstrap,
+            max_samples=max_samples,
+            max_depth=max_depth,
+            max_leaves=max_leaves,
             max_features=max_features,
+            n_bins=n_bins,
+            min_samples_leaf=min_samples_leaf,
+            min_samples_split=min_samples_split,
+            min_impurity_decrease=min_impurity_decrease,
+            max_batch_size=max_batch_size,
+            random_state=random_state,
+            n_streams=n_streams,
+            oob_score=oob_score,
             verbose=verbose,
             output_type=output_type,
-            **kwargs,
         )
 
     @nvtx.annotate(
@@ -183,22 +206,16 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         Perform Random Forest Regression on the input data
 
         """
-        X_m = input_to_cuml_array(
+        X, y = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
-
-        y_m = input_to_cuml_array(
             y,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_dtype=X_m.dtype,
-            check_rows=X_m.shape[0],
-            check_cols=1,
-        ).array
-
-        return self._fit_forest(X_m, y_m)
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            reset=True,
+        )
+        return self._fit_forest(X, y)
 
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
@@ -245,18 +262,27 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         -------
         y : {}
         """
-        fil = self._get_inference_fil_model(
+        nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        preds = fil.predict(X)
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=nvforest_model.forest.get_dtype(),
+            convert_dtype=convert_dtype,
+            order="C",
+            mem_type="device",
+            return_index=True,
+        )
+        preds = nvforest_model.predict(X)
 
         # Reshape to 1D array if the output would be (n, 1) to match
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
-            preds = CumlArray(preds.to_output("cupy").reshape(-1))
-        return preds
+            preds = preds.reshape(-1)
+        return CumlArray(preds, index=index)
 
     @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",

@@ -9,10 +9,9 @@ import numpy as np
 from cupy import linalg
 from cupyx import geterr, lapack, seterr
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import reflect
+from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -22,6 +21,12 @@ from cuml.internals.interop import (
     to_gpu,
 )
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.validation import (
+    check_consistent_length,
+    check_inputs,
+    check_is_fitted,
+    check_sample_weight,
+)
 from cuml.metrics import pairwise_kernels
 
 
@@ -52,15 +57,13 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
     n_samples = K.shape[0]
     n_targets = y.shape[1]
 
-    K = cp.array(K, dtype=np.float64)
+    K = cp.asarray(K, dtype=np.float64)
 
     alpha = cp.atleast_1d(alpha)
     one_alpha = alpha.size == 1
     has_sw = sample_weight is not None
 
     if has_sw:
-        # Unlike other solvers, we need to support sample_weight directly
-        # because K might be a pre-computed kernel.
         sw = cp.sqrt(cp.atleast_1d(sample_weight))
         y = y * sw[:, cp.newaxis]
         K *= cp.outer(sw, sw)
@@ -265,6 +268,11 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
+    @staticmethod
+    def _more_static_tags():
+        return {"multioutput": True}
+
+    @run_in_internal_context
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
             params = {
@@ -276,42 +284,42 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
             params = self.kernel_params or {}
         return pairwise_kernels(
             X, Y, metric=self.kernel, filter_params=True, **params
-        )
+        ).to_output("cupy")
 
     @generate_docstring()
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":
-        ravel = False
-        if len(y.shape) == 1:
-            y = y.reshape(-1, 1)
-            ravel = True
-
-        X_m = input_to_cuml_array(
+        X, y, index = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-        ).array
-
-        y_m = input_to_cuml_array(
             y,
-            check_dtype=X_m.dtype,
-            convert_to_dtype=(X_m.dtype if convert_dtype else None),
-            check_rows=X_m.shape[0],
-        ).array
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            accept_multi_output=True,
+            return_index=True,
+            reset=True,
+        )
+        if ravel := (y.ndim == 1):
+            y = y.reshape(-1, 1)
 
-        if X.shape[1] < 1:
-            raise ValueError("X matrix must have at least a column")
+        # Unlike other solvers, we need to special-case scalar sample weights,
+        # because K might be a pre-computed kernel.
+        if not (np.isscalar(sample_weight) and np.isfinite(sample_weight)):
+            sample_weight = check_sample_weight(
+                sample_weight, dtype=X.dtype, convert_dtype=convert_dtype
+            )
+            check_consistent_length(X, y, sample_weight)
 
-        K = self._get_kernel(X_m)
+        K = self._get_kernel(X)
         dual_coef = _solve_cholesky_kernel(
-            K, cp.asarray(y_m), cp.asarray(self.alpha), sample_weight
-        ).astype(X_m.dtype, copy=False)
+            K, y, cp.asarray(self.alpha), sample_weight
+        ).astype(X.dtype, copy=False)
         if ravel:
             dual_coef = dual_coef.ravel()
 
-        self.X_fit_ = X_m
+        self.X_fit_ = CumlArray(data=X, index=index)
         self.dual_coef_ = CumlArray(data=dual_coef)
         return self
 
@@ -333,15 +341,15 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         C : array of shape (n_samples,) or (n_samples, n_targets)
             Returns predicted values.
         """
-        dtype = self.X_fit_.dtype
-
-        X_m = input_to_cuml_array(
+        check_is_fitted(self)
+        X = check_inputs(
+            self,
             X,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
-        ).array
-
-        K = cp.asarray(self._get_kernel(X_m, self.X_fit_), dtype=dtype)
+            dtype=self.X_fit_.dtype,
+            convert_dtype=convert_dtype,
+        )
+        K = self._get_kernel(X, self.X_fit_.to_output("cupy")).astype(
+            X.dtype, copy=False
+        )
         dual_coef = self.dual_coef_.to_output("cupy")
-        return CumlArray(cp.dot(K, dual_coef))
+        return CumlArray(data=cp.dot(K, dual_coef))

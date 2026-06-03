@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -284,12 +284,11 @@ def test_dbscan_default(name):
     )
 
 
-@pytest.mark.xfail(strict=True, raises=ValueError)
 def test_dbscan_out_dtype_fails_invalid_input():
     X, _ = make_blobs(n_samples=500)
-
-    cuml_dbscan = cuDBSCAN(output_type="numpy")
-    cuml_dbscan.fit_predict(X, out_dtype="bad_input")
+    model = cuDBSCAN(output_type="numpy")
+    with pytest.raises(ValueError, match="Expected out_dtype to be one of"):
+        model.fit_predict(X, out_dtype="bad_input")
 
 
 def test_core_point_prop1():
@@ -497,7 +496,7 @@ def test_dbscan_no_calc_core_point_indices():
 
 
 def test_dbscan_on_empty_array():
-    X = np.array([])
+    X = np.array([[]])
     cuml_dbscan = cuDBSCAN()
 
     with pytest.raises(ValueError):

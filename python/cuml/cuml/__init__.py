@@ -22,7 +22,7 @@ from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
-from cuml.common.pointer_utils import device_of_gpu_matrix
+from cuml.covariance.empirical_covariance import EmpiricalCovariance
 from cuml.covariance.ledoit_wolf import LedoitWolf
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
@@ -37,7 +37,7 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.fil import ForestInference, fil
+from cuml.fil import ForestInference
 from cuml.internals.base import Base
 from cuml.internals.global_settings import (
     GlobalSettings,
@@ -61,7 +61,7 @@ from cuml.neighbors.kernel_density import KernelDensity
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
-from cuml.preprocessing.LabelEncoder import LabelEncoder
+from cuml.preprocessing._label import LabelEncoder
 from cuml.random_projection.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
@@ -96,7 +96,6 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
-    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",
@@ -110,6 +109,7 @@ __all__ = [
     "CD",
     "DBSCAN",
     "ElasticNet",
+    "EmpiricalCovariance",
     "ExponentialSmoothing",
     "ForestInference",
     "GaussianRandomProjection",
