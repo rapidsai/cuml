@@ -11,29 +11,30 @@ jobs:
   # Please keep pr-builder as the top job here
   pr-builder:
     needs:
-      - check-nightly-ci
       - changed-files
       - checks
-      - clang-tidy
       - conda-cpp-build
-      - conda-cpp-tests
-      - conda-cpp-checks
       - conda-python-build
-      - conda-python-tests-singlegpu
-      - conda-python-tests-dask
-      - conda-python-tests-cudf-pandas-integration
-      - conda-python-scikit-learn-accel-tests
-      - conda-python-cuml-accel-upstream-tests
       # DEBUG ONLY: temporarily run sklearn examples in PR CI for this fix.
       - conda-python-sklearn-examples-tests
-      - conda-notebook-tests
-      - docs-build
       - telemetry-setup
-      - wheel-build-libcuml
-      - wheel-build-cuml
-      - wheel-tests-cuml
-      - wheel-tests-cuml-dask
-      - devcontainer
+      # DEBUG ONLY: disabled while testing sklearn examples in PR CI.
+      # - check-nightly-ci
+      # - clang-tidy
+      # - conda-cpp-tests
+      # - conda-cpp-checks
+      # - conda-python-tests-singlegpu
+      # - conda-python-tests-dask
+      # - conda-python-tests-cudf-pandas-integration
+      # - conda-python-scikit-learn-accel-tests
+      # - conda-python-cuml-accel-upstream-tests
+      # - conda-notebook-tests
+      # - docs-build
+      # - wheel-build-libcuml
+      # - wheel-build-cuml
+      # - wheel-tests-cuml
+      # - wheel-tests-cuml-dask
+      # - devcontainer
     permissions:
       actions: read
       contents: read
@@ -57,6 +58,8 @@ jobs:
         if: ${{ vars.TELEMETRY_ENABLED == 'true' }}
         uses: rapidsai/shared-actions/telemetry-dispatch-stash-base-env-vars@main
   check-nightly-ci:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -276,6 +279,8 @@ jobs:
       ignored_pr_jobs: >-
         telemetry-summarize
   clang-tidy:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     needs: checks
     permissions:
       actions: read
@@ -315,11 +320,14 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: ci/test_cpp.sh
   conda-cpp-checks:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     needs: conda-cpp-build
     permissions:
       actions: read
@@ -356,7 +364,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
@@ -370,7 +379,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       # Select the amd64 entry with the highest CUDA and Python version
       matrix_filter: map(select(.ARCH=="amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
@@ -386,7 +396,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: "ci/test_python_dask.sh"
@@ -400,7 +411,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: "ci/test_python_scikit_learn_tests.sh"
@@ -427,7 +439,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: "ci/test_python_cuml_accel_upstream.sh"
@@ -449,9 +462,9 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_sklearn_examples.sh"
-      # DEBUG ONLY: match the test workflow's sklearn examples matrix while
-      # this branch is verifying the follow-up to PR #8205.
-      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
+      # DEBUG ONLY: run a single amd64 sklearn examples job for PR #8205
+      # follow-up validation, not the full nightly/test workflow matrix.
+      matrix_filter: map(select(.ARCH == "amd64")) | [max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber)))]
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     permissions:
@@ -462,7 +475,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_notebooks
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
@@ -479,7 +493,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       node_type: "gpu-l4-latest-1"
@@ -487,6 +502,8 @@ jobs:
       container_image: "rapidsai/ci-conda:26.06-cuda13.0.2-ubuntu22.04-py3.13"
       script: "ci/build_docs.sh"
   wheel-build-libcuml:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     needs: checks
     permissions:
       actions: read
@@ -508,6 +525,8 @@ jobs:
       package-name: libcuml
       package-type: cpp
   wheel-build-cuml:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     needs: [checks, wheel-build-libcuml]
     permissions:
       actions: read
@@ -535,7 +554,8 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
@@ -549,11 +569,14 @@ jobs:
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@release/26.06
-    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     with:
       build_type: pull-request
       script: ci/test_wheel_dask.sh
   devcontainer:
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     needs: telemetry-setup
     permissions:
       actions: read
@@ -579,7 +602,8 @@ jobs:
     # This job must use a self-hosted runner to record telemetry traces.
     runs-on: linux-amd64-cpu4
     needs: pr-builder
-    if: ${{ vars.TELEMETRY_ENABLED == 'true' && !cancelled() }}
+    # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
+    if: false
     continue-on-error: true
     permissions:
       actions: write
