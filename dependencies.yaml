@@ -657,7 +657,7 @@ dependencies:
               - scikit-learn==1.7.2
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.5.0
+              - scikit-learn==1.6.0
   test_python_dask:
     common:
       - output_types: [conda, requirements, pyproject]
