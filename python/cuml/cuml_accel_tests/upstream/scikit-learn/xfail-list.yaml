@@ -368,9 +368,6 @@
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestRegressor]"
-  - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
-  - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
-  - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
   - "sklearn.feature_selection.tests.test_from_model::test_feature_importances"
   - "sklearn.feature_selection.tests.test_from_model::test_prefit_get_feature_names_out"
   - "sklearn.feature_selection.tests.test_from_model::test_threshold_string"
@@ -584,6 +581,13 @@
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_matrix]"
+- reason: Test should fail with cuml.accel (scikit-learn <1.9)
+  marker: cuml_accel_bugs
+  condition: scikit-learn<1.9
+  tests:
+  - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
+  - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
+  - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.7
@@ -668,8 +672,6 @@
   - "sklearn.ensemble.tests.test_forest::test_max_samples_boundary_regressors[RandomForestRegressor]"
   - "sklearn.ensemble.tests.test_forest::test_warm_start_oob[RandomForestClassifier]"
   - "sklearn.ensemble.tests.test_stacking::test_stacking_cv_influence[StackingClassifier]"
-  - "sklearn.ensemble.tests.test_voting::test_parallel_fit[42]"
-  - "sklearn.ensemble.tests.test_voting::test_tie_situation"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[2]"
   - "sklearn.feature_selection.tests.test_sequential::test_unsupervised_model_fit[3]"
   - "sklearn.manifold.tests.test_spectral_embedding::test_pipeline_spectral_clustering"
@@ -694,6 +696,13 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
+- reason: Test is flaky with cuml.accel (scikit-learn <1.9)
+  marker: cuml_accel_flaky
+  condition: scikit-learn<1.9
+  strict: false
+  tests:
+  - "sklearn.ensemble.tests.test_voting::test_parallel_fit[42]"
+  - "sklearn.ensemble.tests.test_voting::test_tie_situation"
 - reason: Tests that fail due to poking at sklearn internals, failures don't indicate bugs in cuml.accel
   marker: cuml_accel_invalid_sklearn_tests
   tests:
