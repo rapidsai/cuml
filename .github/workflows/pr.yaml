@@ -24,6 +24,8 @@ jobs:
       - conda-python-tests-cudf-pandas-integration
       - conda-python-scikit-learn-accel-tests
       - conda-python-cuml-accel-upstream-tests
+      # DEBUG ONLY: temporarily run sklearn examples in PR CI for this fix.
+      - conda-python-sklearn-examples-tests
       - conda-notebook-tests
       - docs-build
       - telemetry-setup
@@ -431,6 +433,25 @@ jobs:
       script: "ci/test_python_cuml_accel_upstream.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+  # DEBUG ONLY: this job is temporarily enabled in PR CI to validate the
+  # sklearn examples OpenML failure handling added on this branch.
+  conda-python-sklearn-examples-tests:
+    needs: [conda-python-build, changed-files]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: read
+    secrets: inherit # zizmor: ignore[secrets-inherit]
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@release/26.06
+    if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
+    with:
+      build_type: pull-request
+      script: "ci/test_python_sklearn_examples.sh"
+      # DEBUG ONLY: match the test workflow's sklearn examples matrix while
+      # this branch is verifying the follow-up to PR #8205.
+      matrix_filter: map(select(.ARCH == "amd64")) | group_by(.CUDA_VER|split(".")|map(tonumber)|.[0]) | map(max_by([.CUDA_VER,.PY_VER]|map(split(".")|map(tonumber))))
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     permissions:
