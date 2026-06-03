@@ -5,16 +5,20 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/ensemble/treelite_defs.hpp>
 #include <rmm/device_buffer.hpp>
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 /**
  * @brief Isolation Forest hyperparameters
@@ -76,6 +80,23 @@ CompactIFForest get_compact_trees(const raft::handle_t& handle,
 /** @brief Compute c(n) = 2H(n-1) - 2(n-1)/n normalization constant. */
 template <typename T>
 T compute_c_normalization(int n);
+
+/**
+ * @brief Build a Treelite regression forest from a trained Isolation Forest model.
+ *
+ * The exported Treelite model predicts average path length across trees. The
+ * Isolation Forest anomaly score transform, s(x) = 2^(-E[h(x)] / c(n)), is
+ * intentionally applied by callers so exported tree structure stays faithful
+ * to the trained isolation trees.
+ *
+ * @param[out] model_handle Treelite model handle owned by the caller
+ * @param[in]  handle       RAFT handle for GPU resources
+ * @param[in]  forest       Trained Isolation Forest model
+ */
+template <typename T>
+void build_treelite_isolation_forest(TreeliteModelHandle* model_handle,
+                                     const raft::handle_t& handle,
+                                     const IsolationForestModel<T>* forest);
 
 /**
  * @brief Fit an Isolation Forest model.

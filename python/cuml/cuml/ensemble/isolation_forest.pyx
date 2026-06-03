@@ -14,7 +14,9 @@ import math
 import warnings
 
 import cupy as cp
+import nvforest
 import numpy as np
+import treelite
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
@@ -22,7 +24,8 @@ from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.utils import check_random_seed
+from cuml.internals.treelite import safe_treelite_call
+from cuml.internals.validation import check_random_seed
 
 from libc.stddef cimport size_t
 from libc.stdint cimport uint64_t, uintptr_t
@@ -32,6 +35,11 @@ from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
+from cuml.internals.treelite cimport (
+    TreeliteFreeModel,
+    TreeliteModelHandle,
+    TreeliteSerializeModelToBytes,
+)
 
 
 # C++ declarations from isolation_forest.hpp
@@ -52,6 +60,12 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
 
     ctypedef IsolationForestModel[float] IsolationForestF
     ctypedef IsolationForestModel[double] IsolationForestD
+
+    cdef void build_treelite_isolation_forest[T](
+        TreeliteModelHandle* model_handle,
+        const handle_t& handle,
+        const IsolationForestModel[T]* forest
+    ) except +
 
     cdef void fit(
         const handle_t& handle,
@@ -268,6 +282,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self._forest_float = None
         self._forest_double = None
         self._dtype = None
+        self._treelite_model_bytes = None
+        self._nvforest_model = None
+        self._c_normalization = None
 
         super().__init__(verbose=verbose, output_type=output_type)
 
@@ -345,6 +362,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         # Cannot pickle C++ pointers directly - would need serialization
         state["_forest_float"] = None
         state["_forest_double"] = None
+        state.pop("_nvforest_model", None)
         warnings.warn(
             "IsolationForest model serialization is not fully supported. "
             "The model will need to be re-fitted after unpickling."
@@ -429,6 +447,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
+        cdef TreeliteModelHandle tl_handle
+        cdef const char* tl_bytes = NULL
+        cdef size_t tl_bytes_len
 
         if X_m.dtype == np.float32:
             forest_f = new IsolationForestF()
@@ -437,6 +458,10 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
                     params, verbose)
             self._forest_float = <uintptr_t>forest_f
             self._n_samples_per_tree = forest_f.n_samples_per_tree
+            self._c_normalization = forest_f.c_normalization
+            with nogil:
+                build_treelite_isolation_forest[float](
+                    &tl_handle, handle_[0], forest_f)
         else:
             forest_d = new IsolationForestD()
             with nogil:
@@ -444,6 +469,22 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
                     params, verbose)
             self._forest_double = <uintptr_t>forest_d
             self._n_samples_per_tree = forest_d.n_samples_per_tree
+            self._c_normalization = forest_d.c_normalization
+            with nogil:
+                build_treelite_isolation_forest[double](
+                    &tl_handle, handle_[0], forest_d)
+
+        # Serialize the Treelite handle immediately, following the RandomForest
+        # ABI-safe pattern for Python wheels/conda environments.
+        safe_treelite_call(
+            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
+            "Failed to serialize Treelite model to bytes:"
+        )
+        safe_treelite_call(
+            TreeliteFreeModel(tl_handle), "Failed to free Treelite model:"
+        )
+        self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
+        self._nvforest_model = None
 
         # Set offset based on contamination
         if self.contamination == "auto":
@@ -454,6 +495,111 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             self.offset_ = -0.5
 
         return self
+
+    def as_treelite(self):
+        """
+        Converts this estimator to a Treelite model.
+
+        The exported Treelite model predicts average path length across the
+        isolation trees. cuML applies the Isolation Forest score transform
+        separately to produce sklearn-compatible anomaly scores.
+
+        Returns
+        -------
+        treelite.Model
+        """
+        if self._treelite_model_bytes is None:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+
+        return treelite.Model.deserialize_bytes(self._treelite_model_bytes)
+
+    def as_nvforest(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None,
+    ):
+        """
+        Create a nvForest model from the Treelite-exported Isolation Forest.
+
+        Returns
+        -------
+        nvforest_model : nvforest.ForestInference
+            A forest inference model that predicts average path length.
+        """
+        if self._treelite_model_bytes is None:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+
+        return nvforest.load_from_treelite_model(
+            tl_model=treelite.Model.deserialize_bytes(self._treelite_model_bytes),
+            device="gpu",
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            handle=get_handle(),
+        )
+
+    def _get_inference_nvforest_model(
+        self,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+    ):
+        if (
+            layout == "depth_first" and default_chunk_size is None
+            and align_bytes is None
+        ):
+            if self._nvforest_model is None:
+                self._nvforest_model = self.as_nvforest()
+            return self._nvforest_model
+
+        return self.as_nvforest(
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
+
+    def _score_samples_nvforest(
+        self,
+        X,
+        layout="depth_first",
+        default_chunk_size=None,
+        align_bytes=None,
+    ):
+        """
+        Compute sklearn-compatible anomaly scores through nvForest inference.
+
+        This helper is intentionally private while parity and benchmark coverage
+        are added. Public ``score_samples`` continues to use the existing C++
+        scoring path.
+        """
+        if self._treelite_model_bytes is None:
+            raise RuntimeError("Model has not been fitted. Call fit() first.")
+
+        X_m = input_to_cuml_array(
+            X,
+            check_dtype=[np.float32, np.float64],
+            convert_to_dtype=self._dtype,
+            order="C",
+        ).array
+
+        if X_m.shape[1] != self.n_features_in_:
+            raise ValueError(
+                f"X has {X_m.shape[1]} features, but IsolationForest was fitted "
+                f"with {self.n_features_in_} features."
+            )
+
+        nvforest_model = self._get_inference_nvforest_model(
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+        )
+        avg_path_lengths = nvforest_model.predict(X_m.to_output("cupy"))
+        avg_path_lengths = cp.asarray(avg_path_lengths, dtype=self._dtype)
+        if avg_path_lengths.ndim == 2 and avg_path_lengths.shape[1] == 1:
+            avg_path_lengths = avg_path_lengths.reshape(-1)
+
+        paper_scores = cp.power(2.0, -avg_path_lengths / self._c_normalization)
+        scores_sklearn = -(paper_scores - 0.5)
+
+        return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
 
     def score_samples(self, X):
         """

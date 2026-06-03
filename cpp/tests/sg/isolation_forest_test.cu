@@ -35,6 +35,8 @@
 
 #include <gtest/gtest.h>
 #include <test_utils.h>
+#include <treelite/enum/task_type.h>
+#include <treelite/tree.h>
 
 #include <cmath>
 #include <memory>
@@ -43,6 +45,7 @@
 #include <vector>
 
 namespace ML {
+namespace tl = treelite;
 
 /**
  * @brief Base test fixture for Isolation Forest tests.
@@ -705,6 +708,57 @@ TEST_F(IsolationForestTest, PredictThreshold)
   // Lower threshold should produce more anomaly predictions
   EXPECT_GE(anomalies_low, anomalies_high)
     << "Lower threshold should produce at least as many anomalies";
+}
+
+/**
+ * @brief Test: Export trained Isolation Forest model to Treelite.
+ *
+ * The exported Treelite model is a regressor whose prediction is the average
+ * path length across isolation trees. The anomaly-score transform is applied
+ * outside Treelite by higher-level callers.
+ */
+TEST_F(IsolationForestTest, TreeliteExportMetadata)
+{
+  const int n_samples    = 128;
+  const int n_features   = 6;
+  const int n_estimators = 7;
+
+  thrust::device_vector<float> X_rowmajor(n_samples * n_features);
+  thrust::device_vector<float> X_colmajor(n_samples * n_features);
+  raft::random::Rng rng(42);
+  rng.normal(X_rowmajor.data().get(), X_rowmajor.size(), 0.0f, 1.0f, stream);
+  handle->sync_stream(stream);
+  transpose_data(X_rowmajor, X_colmajor, n_samples, n_features);
+
+  IF_params params;
+  params.n_estimators = n_estimators;
+  params.max_samples  = 64;
+  params.seed         = 42;
+
+  IsolationForestF model;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+
+  TreeliteModelHandle tl_handle = nullptr;
+  build_treelite_isolation_forest(&tl_handle, *handle, &model);
+  ASSERT_NE(tl_handle, nullptr);
+
+  std::unique_ptr<tl::Model> tl_model(static_cast<tl::Model*>(tl_handle));
+  auto& model_preset = std::get<tl::ModelPreset<float, float>>(tl_model->variant_);
+
+  EXPECT_EQ(tl_model->task_type, tl::TaskType::kRegressor);
+  EXPECT_EQ(tl_model->postprocessor, "identity");
+  EXPECT_EQ(tl_model->num_target, 1);
+  ASSERT_EQ(tl_model->num_class.Size(), 1);
+  EXPECT_EQ(tl_model->num_class[0], 1);
+  ASSERT_EQ(tl_model->leaf_vector_shape.Size(), 2);
+  EXPECT_EQ(tl_model->leaf_vector_shape[0], 1);
+  EXPECT_EQ(tl_model->leaf_vector_shape[1], 1);
+  EXPECT_EQ(tl_model->num_feature, n_features);
+  EXPECT_TRUE(tl_model->average_tree_output);
+  ASSERT_EQ(model_preset.trees.size(), static_cast<std::size_t>(n_estimators));
+  for (const auto& tree : model_preset.trees) {
+    EXPECT_GT(tree.num_nodes, 0);
+  }
 }
 
 }  // namespace ML
