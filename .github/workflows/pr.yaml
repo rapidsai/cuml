@@ -277,6 +277,22 @@ jobs:
     with:
       enable_check_generated_files: false
       ignored_pr_jobs: >-
+        check-nightly-ci
+        clang-tidy
+        conda-cpp-tests
+        conda-cpp-checks
+        conda-python-tests-singlegpu
+        conda-python-tests-cudf-pandas-integration
+        conda-python-tests-dask
+        conda-python-scikit-learn-accel-tests
+        conda-python-cuml-accel-upstream-tests
+        conda-notebook-tests
+        docs-build
+        wheel-build-libcuml
+        wheel-build-cuml
+        wheel-tests-cuml
+        wheel-tests-cuml-dask
+        devcontainer
         telemetry-summarize
   clang-tidy:
     # DEBUG ONLY: disabled while this branch validates sklearn examples in PR CI.
