@@ -164,10 +164,10 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         >>> clf.fit(X)
         IsolationForest()
 
-        >>> # Predict anomalies (1 for anomaly, -1 for normal)
+        >>> # Predict anomalies (-1 for anomaly, 1 for normal)
         >>> predictions = clf.predict(X)
 
-        >>> # Get anomaly scores (higher = more anomalous)
+        >>> # Get sklearn-compatible anomaly scores (lower = more anomalous)
         >>> scores = clf.score_samples(X)
 
     Parameters
@@ -184,22 +184,21 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         `ceil(log2(max_samples))`, which is the theoretical maximum depth
         needed to isolate any sample.
     max_features : float, default=1.0
-        The fraction of features to draw from X to train each isolation tree.
-        Must be in the range (0.0, 1.0].
+        Accepted for sklearn API compatibility. The current fast GPU builder
+        uses all features when selecting random split features.
     bootstrap : bool, default=False
-        If True, individual trees are fit on random subsets of the training
-        data sampled with replacement. Otherwise, sampling is without replacement.
+        Accepted for sklearn API compatibility. The current fast GPU builder
+        samples rows with replacement.
     random_state : int, RandomState instance or None, default=None
-        Controls the randomness of the bootstrapping of the samples and
-        the sampling of the features. Pass an int for reproducible results
-        across runs.
+        Controls random row sampling and split selection. Pass an int for
+        reproducible results across runs.
     max_batch_size : int, default=4096
-        Maximum number of nodes processed per batch during tree building.
+        Accepted for sklearn API compatibility. The current fast GPU builder
+        builds each tree in a single CUDA block and does not batch nodes.
     contamination : float or "auto", default="auto"
-        The proportion of outliers in the data set. Used to define the threshold
-        for the `decision_function` and `predict` methods. If "auto", the
-        threshold is set to 0.5 (the theoretical threshold for scoring).
-        - If float, the contamination should be in the range (0, 0.5].
+        The proportion of outliers in the data set. The current implementation
+        uses the sklearn ``"auto"`` offset (-0.5); float contamination values
+        are accepted but do not yet compute a data-dependent offset.
     verbose : int or boolean, default=False
         Sets logging level.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \\
@@ -243,19 +242,18 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
     The transformation is: sklearn_score = -(paper_score - 0.5)
 
-    **Implementation Differences from sklearn:**
+    **Implementation Details:**
 
-    This GPU implementation uses quantile-based discrete split thresholds for
-    efficiency, whereas sklearn uses continuous random thresholds. To mitigate
-    potential issues with tied values in features, small random jitter is
-    automatically added to the training data. This approach works well for most
-    datasets but may show reduced performance on datasets where:
+    The fast GPU builder constructs all trees in one CUDA launch with one block
+    per tree. For each internal node it selects a random feature, computes the
+    minimum and maximum value for that feature in the current node partition,
+    and draws a random threshold uniformly between those values. Leaf nodes
+    store pre-computed path lengths (`depth + c(n_leaf)`), which keeps inference
+    to a simple tree traversal followed by the Isolation Forest score transform.
 
-    - Anomalies are tightly clustered rather than scattered
-    - Many features have few unique values or many tied values
-
-    For best results, ensure your data has continuous features and anomalies
-    that are scattered outliers rather than dense clusters.
+    Fitted models can be exported to Treelite with ``as_treelite()`` and loaded
+    into nvForest with ``as_nvforest()``. The exported Treelite model predicts
+    average path length; cuML applies the anomaly score transform separately.
 
     For additional docs, see `scikit-learn's IsolationForest
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html>`_.
@@ -406,11 +404,6 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self.n_features_in_ = n_cols
         self._dtype = X_m.dtype
 
-        # NOTE: Jitter is NOT needed for the fast builder because it picks true
-        # random thresholds between min/max values (not quantile bins). The fast
-        # builder naturally handles duplicate values. Jitter was only needed for
-        # the generic RF-based builder which uses quantile-based binning.
-
         # Compute max_samples
         cdef int actual_max_samples
         if isinstance(self.max_samples, str) and self.max_samples == "auto":
@@ -486,12 +479,12 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         self._nvforest_model = None
 
-        # Set offset based on contamination
+        # Only the sklearn "auto" offset is implemented for now. Supporting a
+        # float contamination requires scoring the training data and computing
+        # the corresponding score quantile.
         if self.contamination == "auto":
             self.offset_ = -0.5
         else:
-            # For contamination-based threshold, we would need to compute
-            # scores on training data and find the quantile
             self.offset_ = -0.5
 
         return self
