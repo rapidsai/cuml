@@ -754,19 +754,13 @@ def test_svc_pickle(tmpdir, datatype, multiclass, sparse):
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
-)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize(
-    "params", [{"probability": True}, {"probability": False}]
-)
 @pytest.mark.parametrize("multiclass", [True, False])
-def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
+def test_linear_svc_pickle(tmpdir, datatype, multiclass):
     result = {}
 
     def create_mod():
-        model = cuml.svm.LinearSVC(**params)
+        model = cuml.svm.LinearSVC()
         iris = load_iris()
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25]
@@ -780,12 +774,8 @@ def test_linear_svc_pickle(tmpdir, datatype, params, multiclass):
         return model, data
 
     def assert_model(pickled_model, data):
-        if result["model"].probability:
-            pred_before = result["model"].predict_proba(data[0])
-            pred_after = pickled_model.predict_proba(data[0])
-        else:
-            pred_before = result["model"].predict(data[0])
-            pred_after = pickled_model.predict(data[0])
+        pred_before = result["model"].predict(data[0])
+        pred_after = pickled_model.predict(data[0])
         assert array_equal(pred_before, pred_after)
 
     pickle_save_load(tmpdir, create_mod, assert_model)

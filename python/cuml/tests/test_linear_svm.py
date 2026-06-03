@@ -2,13 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
-import warnings
 
 import numpy as np
 import pytest
 import sklearn.svm
 from sklearn.datasets import make_classification, make_regression
-from sklearn.exceptions import NotFittedError
 from sklearn.model_selection import train_test_split
 
 import cuml
@@ -213,62 +211,6 @@ def test_linear_svc_decision_function(
     np.testing.assert_allclose(res, sol, atol=1e-4)
 
 
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("n_classes", [2, 3, 5])
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove once `probability` is removed from cuml.svm.LinearSVC.
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
-)
-def test_linear_svc_predict_proba(fit_intercept, n_classes):
-    n_rows, n_cols = 500, 20
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        n_rows, n_cols, n_classes
-    )
-
-    cu_model = cuml.LinearSVC(fit_intercept=fit_intercept, probability=True)
-    cu_model.fit(X_train, y_train)
-    cu_score = cu_model.score(X_test, y_test)
-
-    sk_model = sklearn.svm.LinearSVC(fit_intercept=fit_intercept)
-    sk_model.fit(X_train, y_train)
-    sk_score = sk_model.score(X_test, y_test)
-
-    assert cu_score >= sk_score - 0.05
-
-    proba = cu_model.predict_proba(X_test)
-    log_proba = cu_model.predict_log_proba(X_test)
-
-    # log_proba is log(proba)
-    np.testing.assert_allclose(np.log(proba), log_proba, rtol=1e-4)
-
-    # Probabilities sum to 1
-    np.testing.assert_allclose(
-        proba.sum(axis=1), np.ones(len(proba)), rtol=1e-4
-    )
-
-    # Predictions are argmax(proba)
-    y_pred = cu_model.predict(X_test)
-    y_pred_proba = cu_model.classes_.take(proba.argmax(axis=1).astype("int32"))
-    np.testing.assert_array_equal(y_pred, y_pred_proba)
-
-
-def test_linear_svc_predict_proba_not_available():
-    X, y = make_classification()
-    model = cuml.LinearSVC().fit(X, y)
-
-    assert not hasattr(model, "predict_proba")
-    assert not hasattr(model, "predict_log_proba")
-
-    # Setting `probability=True` makes the attribute available, but
-    # calling it raises a NotFittedError until refit
-    model.probability = True
-    assert hasattr(model, "predict_proba")
-
-    with pytest.raises(NotFittedError, match="fitted with probability=False"):
-        model.predict_proba(X)
-
-
 @pytest.mark.parametrize("kind", ["numpy", "pandas", "cupy", "cudf"])
 @pytest.mark.parametrize("weighted", [False, True])
 def test_linear_svc_input_types(kind, weighted):
@@ -309,44 +251,3 @@ def test_linear_svc_n_iter_max_iter(penalty, n_streams):
         penalty=penalty, n_streams=n_streams, max_iter=10
     ).fit(X, y)
     assert model.n_iter_ == 10
-
-
-@pytest.mark.parametrize("explicit_value", [True, False])
-def test_linear_svc_probability_emits_future_warning(explicit_value):
-    X, y = make_classification(
-        n_samples=40,
-        n_features=4,
-        n_informative=3,
-        n_redundant=0,
-        n_classes=2,
-        random_state=0,
-    )
-    with pytest.warns(
-        FutureWarning,
-        match=(
-            r"The `probability` parameter is deprecated and will be "
-            r"removed in cuML"
-        ),
-    ):
-        cuml.LinearSVC(probability=explicit_value).fit(X, y)
-
-
-def test_linear_svc_default_does_not_emit_probability_warning():
-    X, y = make_classification(
-        n_samples=40,
-        n_features=4,
-        n_informative=3,
-        n_redundant=0,
-        n_classes=2,
-        random_state=0,
-    )
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "error",
-            message=(
-                r"The `probability` parameter is deprecated and will "
-                r"be removed in cuML"
-            ),
-            category=FutureWarning,
-        )
-        cuml.LinearSVC().fit(X, y)
