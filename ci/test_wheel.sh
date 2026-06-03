@@ -59,6 +59,12 @@ timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_singlegpu_pytests.s
   -k 'not test_sparse_pca_inputs' \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"
 
+rapids-logger "pytest cuml accelerator"
+timeout -v --signal=SIGINT --kill-after=60s 15m ./ci/run_cuml_singlegpu_accel_pytests.sh \
+  --numprocesses=8 \
+  --dist=worksteal \
+  --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml-accel.xml"
+
 # Run test_sparse_pca_inputs separately
 timeout -v --signal=SIGINT --kill-after=60s 10m ./ci/run_cuml_singlegpu_pytests.sh \
   -k 'test_sparse_pca_inputs' \
