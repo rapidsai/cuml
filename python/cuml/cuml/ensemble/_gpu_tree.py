@@ -13,8 +13,14 @@ import numpy as np
 import treelite
 from scipy.sparse import csr_matrix
 
+from cuml.common.classification import decode_labels
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, RegressorMixin
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
 
 
 def _compute_max_depth(children_left, children_right):
@@ -130,9 +136,10 @@ class GPUTree:
     Exposes tree structure arrays and routes ``predict``/``apply`` through FIL.
     """
 
-    def __init__(self, tree_data, fil_model, tree_idx):
+    def __init__(self, tree_data, fil_model, tree_idx, parent_estimator):
         self._fil_model = fil_model
         self._tree_idx = tree_idx
+        self._parent_estimator = parent_estimator
 
         self.children_left = tree_data["children_left"]
         self.children_right = tree_data["children_right"]
@@ -154,20 +161,28 @@ class GPUTree:
     def n_leaves(self):
         return int(np.sum(self.children_left == -1))
 
+    def _coerce_output(self, gpu_array, X):
+        """Convert a cupy array to the appropriate output type based on the parent estimator."""
+        output_type = self._parent_estimator._get_output_type(X)
+        if output_type in (None, "cupy"):
+            return gpu_array
+        return cp.asnumpy(gpu_array)
+
     def predict(self, X):
         """Return per-class probabilities via FIL predict_per_tree."""
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
-        result = cp.asnumpy(per_tree[:, self._tree_idx])
+        result = per_tree[:, self._tree_idx]
         if result.ndim == 1:
             result = result[:, np.newaxis]
-        return result
+        return self._coerce_output(result, X)
 
     def apply(self, X):
         """Return leaf node IDs via FIL apply."""
         X_gpu = cp.asarray(X, dtype=cp.float32)
         leaf_ids = self._fil_model.apply(X_gpu)
-        return cp.asnumpy(leaf_ids[:, self._tree_idx]).astype(np.intp)
+        result = leaf_ids[:, self._tree_idx].astype(cp.intp)
+        return self._coerce_output(result, X)
 
     def decision_path(self, X):
         """CPU fallback: traverse the stored tree structure."""
@@ -244,8 +259,6 @@ def _build_gpu_estimators(rf_model):
             n_classes,
             is_classifier,
         )
-        gpu_tree = GPUTree(tree_data, fil_model, tree_idx)
-
         if is_classifier:
             est = GPUDecisionTreeClassifier(**common_params)
             est.classes_ = rf_model.classes_
@@ -253,7 +266,9 @@ def _build_gpu_estimators(rf_model):
         else:
             est = GPUDecisionTreeRegressor(**common_params)
 
-        est.tree_ = gpu_tree
+        est.tree_ = GPUTree(
+            tree_data, fil_model, tree_idx, parent_estimator=est
+        )
         est.n_features_in_ = n_features
         est.n_outputs_ = 1
         est.max_features_ = n_features
@@ -304,21 +319,27 @@ class GPUDecisionTreeClassifier(Base, ClassifierMixin):
             "random_state",
         ]
 
+    @run_in_internal_context
     def predict(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
-        proba = cp.asnumpy(per_tree[:, self._tree_idx])
-        return self.classes_.take(np.argmax(proba, axis=1), axis=0)
+        proba = per_tree[:, self._tree_idx]
+        inds = cp.argmax(proba, axis=1)
+        with exit_internal_context():
+            output_type = self._get_output_type(X)
+        return decode_labels(inds, self.classes_, output_type=output_type)
 
+    @reflect
     def predict_proba(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
-        return cp.asnumpy(per_tree[:, self._tree_idx])
+        return per_tree[:, self._tree_idx]
 
+    @reflect
     def apply(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         leaf_ids = self._fil_model.apply(X_gpu)
-        return cp.asnumpy(leaf_ids[:, self._tree_idx]).astype(np.intp)
+        return leaf_ids[:, self._tree_idx]
 
     @property
     def feature_importances_(self):
@@ -365,18 +386,20 @@ class GPUDecisionTreeRegressor(Base, RegressorMixin):
             "random_state",
         ]
 
+    @reflect
     def predict(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         per_tree = self._fil_model.predict_per_tree(X_gpu)
-        result = cp.asnumpy(per_tree[:, self._tree_idx])
+        result = per_tree[:, self._tree_idx]
         if result.ndim > 1:
             result = result.squeeze(axis=-1)
         return result
 
+    @reflect
     def apply(self, X):
         X_gpu = cp.asarray(X, dtype=cp.float32)
         leaf_ids = self._fil_model.apply(X_gpu)
-        return cp.asnumpy(leaf_ids[:, self._tree_idx]).astype(np.intp)
+        return leaf_ids[:, self._tree_idx]
 
     @property
     def feature_importances_(self):
