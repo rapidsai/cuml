@@ -8,10 +8,10 @@ and route inference through FIL while exposing the full tree structure
 (topology, node values, impurity) extracted from the treelite model.
 """
 
-from __future__ import annotations
-
 import cupy as cp
 import numpy as np
+import treelite
+from scipy.sparse import csr_matrix
 
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, RegressorMixin
@@ -171,8 +171,6 @@ class GPUTree:
 
     def decision_path(self, X):
         """CPU fallback: traverse the stored tree structure."""
-        from scipy.sparse import csr_matrix
-
         X = np.asarray(X, dtype=np.float32)
         n_samples = X.shape[0]
         indptr = [0]
@@ -218,11 +216,9 @@ class GPUTree:
 
 def _build_gpu_estimators(rf_model):
     """Build list of GPU-backed DecisionTree proxy objects from a fitted RF."""
-    import treelite
-
     is_classifier = rf_model._estimator_type == "classifier"
     tl_model = treelite.Model.deserialize_bytes(rf_model._treelite_model_bytes)
-    fil_model = rf_model._get_inference_fil_model()
+    fil_model = rf_model._get_inference_nvforest_model()
 
     header = tl_model.get_header_accessor()
     n_classes = int(header.get_field("num_class")[0])

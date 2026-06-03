@@ -26,6 +26,7 @@ from cuml.metrics import accuracy_score, r2_score
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+
 import nvforest
 
 from cuml.internals.logger cimport level_enum
@@ -34,6 +35,8 @@ from cuml.internals.treelite cimport (
     TreeliteModelHandle,
     TreeliteSerializeModelToBytes,
 )
+
+from cuml.ensemble._gpu_tree import _build_gpu_estimators
 
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
@@ -361,7 +364,6 @@ class BaseRandomForestModel(Base, InteropMixin):
             )
         if (cached := getattr(self, "_estimators_cache", None)) is not None:
             return cached
-        from cuml.ensemble._gpu_tree import _build_gpu_estimators
         self._estimators_cache = _build_gpu_estimators(self)
         return self._estimators_cache
 
