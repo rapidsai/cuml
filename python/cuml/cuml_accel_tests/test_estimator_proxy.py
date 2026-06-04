@@ -192,6 +192,19 @@ def test_repr_mimebundle():
         assert "<span>Fitted</span>" in html_repr
 
 
+def test_repr_mimebundle_display_text():
+    """If `display="text"` is configured, no host sync is needed"""
+    X, y = make_classification()
+    model = LogisticRegression(C=1.5).fit(X, y)
+    with sklearn.config_context(display="text"):
+        # The conditional definition of `_repr_html_` is proxied through
+        assert not hasattr(model, "_repr_html_")
+        mimebundle = model._repr_mimebundle_()
+    # No host sync needed to repr
+    assert not hasattr(model._cpu, "n_features_in_")
+    assert "text/html" not in mimebundle
+
+
 def test_pipeline_repr():
     """sklearn's pretty printer requires you not override __repr__
     for pipelines to repr properly"""
