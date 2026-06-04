@@ -1959,16 +1959,6 @@ def test_hinge_loss_multiclass_missing_labels():
         cuml_hinge(np.array([0, 1, 2]), rng.randn(3, 2))
 
 
-def test_hinge_loss_sample_weights_deprecated():
-    y_true = np.array([-1, 1, 1, -1])
-    pred_decision = np.array([-2.18, 2.36, 0.09, -1.0])
-    sw = np.array([1.0, 2.0, 1.0, 1.0])
-    expected = cuml_hinge(y_true, pred_decision, sample_weight=sw)
-    with pytest.warns(FutureWarning, match="sample_weights"):
-        result = cuml_hinge(y_true, pred_decision, sample_weights=sw)
-    np.testing.assert_allclose(result, expected)
-
-
 @pytest.mark.parametrize(
     "nfeatures",
     [
