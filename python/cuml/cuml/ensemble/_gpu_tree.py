@@ -280,7 +280,13 @@ def _build_gpu_estimators(rf_model):
 
 
 class GPUDecisionTreeClassifier(Base, ClassifierMixin):
-    """GPU-backed proxy for a single decision tree classifier in a forest."""
+    """GPU-backed proxy for a single decision tree classifier in a forest.
+
+    This class is used to represent a fitted decision tree in the estimators_
+    attribute of a RandomForestClassifier. The goal is to make the internal
+    structure of the forest accessible. It is not a fully functional estimator.
+    For example, it does not have a `fit` method.
+    """
 
     def __init__(
         self,
@@ -347,7 +353,13 @@ class GPUDecisionTreeClassifier(Base, ClassifierMixin):
 
 
 class GPUDecisionTreeRegressor(Base, RegressorMixin):
-    """GPU-backed proxy for a single decision tree regressor in a forest."""
+    """GPU-backed proxy for a single decision tree regressor in a forest.
+
+    This class is used to represent a fitted decision tree in the estimators_
+    attribute of a RandomForestRegressor. The goal is to make the internal
+    structure of the forest accessible. It is not a fully functional estimator.
+    For example, it does not have a `fit` method.
+    """
 
     def __init__(
         self,

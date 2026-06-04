@@ -12,6 +12,7 @@ from sklearn.ensemble import RandomForestRegressor as skRFR
 
 from cuml.ensemble import RandomForestClassifier as cuRFC
 from cuml.ensemble import RandomForestRegressor as cuRFR
+from cuml.internals.base import Base
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:The default value of 'max_depth':FutureWarning"
@@ -264,7 +265,6 @@ def test_isinstance_classifier(clf_data):
     rf.fit(cp.asarray(X), cp.asarray(y))
 
     est = rf.estimators_[0]
-    from cuml.internals.base import Base
 
     assert isinstance(est, Base)
     assert hasattr(est, "tree_")
@@ -349,7 +349,6 @@ def test_isinstance_regressor(reg_data):
     rf.fit(cp.asarray(X), cp.asarray(y))
 
     est = rf.estimators_[0]
-    from cuml.internals.base import Base
 
     assert isinstance(est, Base)
     assert hasattr(est, "tree_")
