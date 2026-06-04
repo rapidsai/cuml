@@ -229,12 +229,7 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            # rapids-pre-commit-hooks: disable-next-line
-            # TODO(26.08): remove "deprecated"
-            assert sig.parameters["sample_weight"].default in (
-                None,
-                "deprecated",
-            )
+            assert sig.parameters["sample_weight"].default is None
         if "copy" in sig.parameters:
             first.append("copy")
             assert (
