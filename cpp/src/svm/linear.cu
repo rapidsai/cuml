@@ -180,7 +180,6 @@ int fit(const raft::handle_t& handle,
   T* w1 = w;
   rmm::device_uvector<T> y1Buf(0, stream);
   rmm::device_uvector<T> w1Buf(0, stream);
-  rmm::device_uvector<T> psBuf(0, stream);
   if (nClasses > 1) {
     y1Buf.resize(nRows * coefCols, stream);
     y1 = y1Buf.data();

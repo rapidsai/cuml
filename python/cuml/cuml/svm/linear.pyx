@@ -210,7 +210,6 @@ def fit(
     cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.data.ptr
     cdef uintptr_t classes_ptr = 0 if class_codes is None else class_codes.data.ptr
     cdef uintptr_t w_ptr = w.data.ptr
-    # TODO
     cdef int n_iter
 
     # Perform fit
