@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import math
+import warnings
 
 import numpy as np
 import pytest
@@ -308,3 +309,44 @@ def test_linear_svc_n_iter_max_iter(penalty, n_streams):
         penalty=penalty, n_streams=n_streams, max_iter=10
     ).fit(X, y)
     assert model.n_iter_ == 10
+
+
+@pytest.mark.parametrize("explicit_value", [True, False])
+def test_linear_svc_probability_emits_future_warning(explicit_value):
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with pytest.warns(
+        FutureWarning,
+        match=(
+            r"The `probability` parameter is deprecated and will be "
+            r"removed in cuML"
+        ),
+    ):
+        cuml.LinearSVC(probability=explicit_value).fit(X, y)
+
+
+def test_linear_svc_default_does_not_emit_probability_warning():
+    X, y = make_classification(
+        n_samples=40,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        n_classes=2,
+        random_state=0,
+    )
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "error",
+            message=(
+                r"The `probability` parameter is deprecated and will "
+                r"be removed in cuML"
+            ),
+            category=FutureWarning,
+        )
+        cuml.LinearSVC().fit(X, y)

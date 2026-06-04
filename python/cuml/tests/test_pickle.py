@@ -21,7 +21,6 @@ import cuml
 from cuml.testing.utils import (
     ClassEnumerator,
     array_equal,
-    compare_probabilistic_svm,
     compare_svm,
     get_all_base_subclasses,
     stress_param,
@@ -29,13 +28,6 @@ from cuml.testing.utils import (
 )
 from cuml.tsa.arima import ARIMA
 
-pytestmark = [
-    # rapids-pre-commit-hooks: disable-next-line
-    # TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC/LinearSVC.
-    pytest.mark.filterwarnings(
-        "ignore:The `probability` parameter is deprecated:FutureWarning"
-    ),
-]
 regression_config = ClassEnumerator(module=cuml.linear_model)
 regression_models = regression_config.get_models()
 
@@ -735,19 +727,13 @@ def test_tsne_pickle(tmpdir):
 # Probabilistic SVM is tested separately because it is a meta estimator that
 # owns a set of base SV classifiers.
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-@pytest.mark.parametrize(
-    "params", [{"probability": True}, {"probability": False}]
-)
 @pytest.mark.parametrize("multiclass", [True, False])
 @pytest.mark.parametrize("sparse", [False, True])
-def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
+def test_svc_pickle(tmpdir, datatype, multiclass, sparse):
     result = {}
 
-    if sparse and params["probability"]:
-        pytest.skip("Probabilistic SVC does not support sparse input")
-
     def create_mod():
-        model = cuml.svm.SVC(**params)
+        model = cuml.svm.SVC()
         iris = load_iris()
         iris_selection = np.random.RandomState(42).choice(
             [True, False], 150, replace=True, p=[0.75, 0.25]
@@ -763,18 +749,14 @@ def test_svc_pickle(tmpdir, datatype, params, multiclass, sparse):
         return model, data
 
     def assert_model(pickled_model, data):
-        if result["model"].probability:
-            print("Comparing probabilistic svc")
-            compare_probabilistic_svm(
-                result["model"], pickled_model, data[0], data[1], 0, 0
-            )
-        else:
-            print("comparing base svc")
-            compare_svm(result["model"], pickled_model, data[0], data[1])
+        compare_svm(result["model"], pickled_model, data[0], data[1])
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter is deprecated:FutureWarning"
+)
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "params", [{"probability": True}, {"probability": False}]
@@ -897,15 +879,12 @@ def test_sparse_svr_pickle(tmpdir, datatype, nrows, ncols, n_info):
 @pytest.mark.parametrize("nrows", [unit_param(500)])
 @pytest.mark.parametrize("ncols", [unit_param(16)])
 @pytest.mark.parametrize("n_info", [unit_param(7)])
-@pytest.mark.parametrize(
-    "params", [{"probability": True}, {"probability": False}]
-)
-def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
+def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info):
     def create_mod():
         X_train, y_train, X_test = make_classification_dataset(
             datatype, nrows, ncols, n_info, n_classes=2
         )
-        model = cuml.svm.SVC(**params)
+        model = cuml.svm.SVC()
         return model, [X_train, y_train, X_test]
 
     def assert_model(pickled_model, X):
