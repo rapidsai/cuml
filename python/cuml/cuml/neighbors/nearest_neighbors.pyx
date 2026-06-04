@@ -559,13 +559,13 @@ class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin
         self,
         *,
         n_neighbors=5,
-        verbose=False,
         algorithm="auto",
         metric="euclidean",
         p=2,
         algo_params=None,
         metric_params=None,
         n_jobs=None,  # Ignored, here for sklearn API compatibility
+        verbose=False,
         output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)

@@ -103,18 +103,18 @@ benchmarks:
       narrow:
         features: [16]
         tiers:
-          default: {rows: [84000000]}
-          nightly: {rows: [168000000]}
+          default: {rows: [168000000]}
+          nightly: {rows: [336000000]}
       medium:
         features: [128]
         tiers:
-          default: {rows: [10500000]}
-          nightly: {rows: [42000000]}
+          default: {rows: [21000000]}
+          nightly: {rows: [84000000]}
       wide:
         features: [512]
         tiers:
-          default: {rows: [2600000]}
-          nightly: {rows: [10400000]}
+          default: {rows: [5200000]}
+          nightly: {rows: [20800000]}
 
   - id: lasso_fit
     algorithm: Lasso
@@ -125,18 +125,18 @@ benchmarks:
       narrow:
         features: [16]
         tiers:
-          default: {rows: [84000000]}
-          nightly: {rows: [168000000]}
+          default: {rows: [168000000]}
+          nightly: {rows: [336000000]}
       medium:
         features: [128]
         tiers:
-          default: {rows: [10500000]}
-          nightly: {rows: [42000000]}
+          default: {rows: [21000000]}
+          nightly: {rows: [84000000]}
       wide:
         features: [512]
         tiers:
-          default: {rows: [2600000]}
-          nightly: {rows: [10400000]}
+          default: {rows: [5200000]}
+          nightly: {rows: [20800000]}
 
   - id: kmeans_fitpredict
     algorithm: KMeans

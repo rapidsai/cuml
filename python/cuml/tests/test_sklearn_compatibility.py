@@ -13,18 +13,23 @@ from cuml.cluster import (
     KMeans,
     SpectralClustering,
 )
+from cuml.compose import ColumnTransformer
 from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
 from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.feature_extraction.text import TfidfTransformer
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
     Lasso,
     LinearRegression,
     LogisticRegression,
+    MBSGDClassifier,
+    MBSGDRegressor,
     Ridge,
 )
-from cuml.manifold import TSNE, UMAP
+from cuml.manifold import TSNE, UMAP, SpectralEmbedding
+from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.naive_bayes import (
     BernoulliNB,
     CategoricalNB,
@@ -38,11 +43,33 @@ from cuml.neighbors import (
     KNeighborsRegressor,
     NearestNeighbors,
 )
+from cuml.preprocessing import (
+    Binarizer,
+    FunctionTransformer,
+    KBinsDiscretizer,
+    KernelCenterer,
+    LabelBinarizer,
+    LabelEncoder,
+    MaxAbsScaler,
+    MinMaxScaler,
+    MissingIndicator,
+    Normalizer,
+    OneHotEncoder,
+    OrdinalEncoder,
+    PolynomialFeatures,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    SimpleImputer,
+    StandardScaler,
+    TargetEncoder,
+)
 from cuml.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
 )
 from cuml.svm import SVC, SVR, LinearSVC, LinearSVR
+from cuml.testing.utils import get_all_base_subclasses
 
 # Skip these tests as parameterize_with_checks does not support
 # strict_xfail in older versions of scikit-learn.
@@ -80,14 +107,75 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
-    # rapids-pre-commit-hooks: disable-next-line
-    # TODO(26.08): Remove explicit default
-    RandomForestClassifier(max_depth=None),
-    RandomForestRegressor(max_depth=None),
+    RandomForestClassifier(),
+    RandomForestRegressor(),
     KMeans(),
     SpectralClustering(),
     LogisticRegression(),
+    StandardScaler(),
 ]
+
+
+_MODULE_TO_IGNORE = {
+    "dask",
+    "accel",
+    "solvers",
+    "tsa",
+    "explainer",
+    "fil",
+    "experimental",
+    "benchmark",
+    "tests",
+}
+
+
+def _all_cuml_estimators():
+    """Discover all public cuml estimator classes (subclasses of Base)."""
+    return {
+        cls
+        for cls in get_all_base_subclasses().values()
+        if not (cls.__name__.endswith("MG") or "Base" in cls.__name__)
+        and not getattr(cls, "__abstractmethods__", None)
+        and not any(
+            part in _MODULE_TO_IGNORE for part in cls.__module__.split(".")
+        )
+    }
+
+
+EXCLUDED = {
+    # Linear model
+    MBSGDClassifier: "Not yet tested for sklearn compat",
+    MBSGDRegressor: "Not yet tested for sklearn compat",
+    # Meta-estimators
+    OneVsRestClassifier: "Meta-estimator, requires an inner estimator",
+    OneVsOneClassifier: "Meta-estimator, requires an inner estimator",
+    # Manifold
+    SpectralEmbedding: "Not yet tested for sklearn compat",
+    # Feature extraction
+    TfidfTransformer: "Not yet tested for sklearn compat",
+    # Preprocessing (cuml-native)
+    LabelEncoder: "Not yet tested for sklearn compat",
+    TargetEncoder: "Not yet tested for sklearn compat",
+    LabelBinarizer: "Not yet tested for sklearn compat",
+    OneHotEncoder: "Not yet tested for sklearn compat",
+    OrdinalEncoder: "Not yet tested for sklearn compat",
+    # Preprocessing (vendored sklearn)
+    MinMaxScaler: "Vendored sklearn preprocessing, not yet tested",
+    MaxAbsScaler: "Vendored sklearn preprocessing, not yet tested",
+    RobustScaler: "Vendored sklearn preprocessing, not yet tested",
+    Normalizer: "Vendored sklearn preprocessing, not yet tested",
+    Binarizer: "Vendored sklearn preprocessing, not yet tested",
+    KernelCenterer: "Vendored sklearn preprocessing, not yet tested",
+    PolynomialFeatures: "Vendored sklearn preprocessing, not yet tested",
+    PowerTransformer: "Vendored sklearn preprocessing, not yet tested",
+    QuantileTransformer: "Vendored sklearn preprocessing, not yet tested",
+    KBinsDiscretizer: "Vendored sklearn preprocessing, not yet tested",
+    SimpleImputer: "Vendored sklearn preprocessing, not yet tested",
+    MissingIndicator: "Vendored sklearn preprocessing, not yet tested",
+    FunctionTransformer: "Vendored sklearn preprocessing, not yet tested",
+    # Compose
+    ColumnTransformer: "Vendored __init__ defaults transformers=None, breaking set_params/get_params",
+}
 
 
 XFAILS = {
@@ -118,24 +206,18 @@ XFAILS = {
     },
     RandomForestRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
-        "check_dict_unchanged": "RandomForestRegressor modifies input dictionaries",
     },
     RandomForestClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "RandomForestClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "RandomForestClassifier does not handle non-array data",
-        "check_dict_unchanged": "RandomForestClassifier modifies input dictionaries",
     },
     KNeighborsClassifier: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsClassifier raises errors in init or set_params",
         "check_classifier_data_not_an_array": "KNeighborsClassifier does not handle non-array data",
     },
     KNeighborsRegressor: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_do_not_raise_errors_in_init_or_set_params": "KNeighborsRegressor raises errors in init or set_params",
         "check_regressor_data_not_an_array": "KNeighborsRegressor does not handle non-array data",
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
     },
@@ -182,7 +264,7 @@ XFAILS = {
     },
     TSNE: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
-        "check_dont_overwrite_parameters": "TSNE overwrites parameters during fit",
+        "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
@@ -228,6 +310,14 @@ XFAILS = {
     SpectralClustering: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
     },
+    StandardScaler: {
+        "check_estimator_tags_renamed": "No support for modern tags infrastructure",
+        "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
+        "check_fit_score_takes_y": "AttributeError: 'int' object has no attribute 'repeat'",
+        "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
+        "check_estimator_sparse_tag": "Sparse tag inconsistent with with_mean=True default",
+        "check_transformer_data_not_an_array": "Non-array data leads to an exception",
+    },
     GaussianRandomProjection: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_transformer_data_not_an_array": "GaussianRandomProjection does not handle non-array data",
@@ -243,50 +333,18 @@ XFAILS = {
     BernoulliNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "bug in reflection prevents this",
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-        "check_classifiers_one_label_sample_weights": "sample_weight not implemented",
     },
     ComplementNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "bug in reflection prevents this",
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-        "check_classifiers_one_label_sample_weights": "sample_weight not implemented",
     },
     CategoricalNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "bug in reflection prevents this",
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-        "check_classifiers_one_label_sample_weights": "sample_weight not implemented",
     },
     MultinomialNB: {
         "check_estimator_tags_renamed": "No support for modern tags infrastructure",
         "check_classifier_data_not_an_array": "bug in reflection prevents this",
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-        "check_classifiers_one_label_sample_weights": "sample_weight not implemented",
     },
 }
 
@@ -320,3 +378,31 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
+
+
+def test_all_estimators_covered():
+    all_estimators = _all_cuml_estimators()
+    tested = {type(est) for est in ESTIMATORS}
+    excluded = set(EXCLUDED)
+
+    overlap = tested & excluded
+    assert not overlap, "Estimators both tested and excluded: " + ", ".join(
+        c.__name__ for c in sorted(overlap, key=lambda c: c.__name__)
+    )
+
+    uncovered = all_estimators - tested - excluded
+    assert not uncovered, (
+        "Estimators not in ESTIMATORS or EXCLUDED: "
+        + ", ".join(
+            c.__name__ for c in sorted(uncovered, key=lambda c: c.__name__)
+        )
+        + ". Add them to ESTIMATORS or EXCLUDED with a reason."
+    )
+
+    stale = excluded - all_estimators
+    assert not stale, (
+        "EXCLUDED contains classes not found by discovery: "
+        + ", ".join(
+            c.__name__ for c in sorted(stale, key=lambda c: c.__name__)
+        )
+    )

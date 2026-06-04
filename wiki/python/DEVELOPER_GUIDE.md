@@ -5,17 +5,19 @@ This document provides comprehensive guidelines and best practices for contribut
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Getting Started](#getting-started)
-3. [Coding Style](#coding-style)
-4. [Documentation](#documentation)
-5. [Testing and Unit Testing](#testing-and-unit-testing)
-6. [Memory Management](#memory-management)
-7. [Thread Safety](#thread-safety)
-8. [Creating New Estimators](#creating-new-estimators)
-9. [Deprecation Policy](#deprecation-policy)
-10. [Logging](#logging)
-11. [Multi-GPU Support](#multi-gpu-support)
-12. [Benchmarking](#benchmarking)
+2. [Guide Map](#guide-map)
+3. [Getting Started](#getting-started)
+4. [Coding Style](#coding-style)
+5. [Documentation](#documentation)
+6. [Testing and Unit Testing](#testing-and-unit-testing)
+7. [Input Validation](#input-validation)
+8. [Memory Management](#memory-management)
+9. [Thread Safety](#thread-safety)
+10. [Creating New Estimators](#creating-new-estimators)
+11. [Deprecation Policy](#deprecation-policy)
+12. [Logging](#logging)
+13. [Multi-GPU Support](#multi-gpu-support)
+14. [Benchmarking](#benchmarking)
 
 ## Prerequisites
 
@@ -26,13 +28,19 @@ Before diving into Python development for cuML, please ensure you have:
 
 If you are working on C++/CUDA code or need to understand the underlying implementation details, you should also familiarize yourself with the [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md).
 
+## Guide Map
+
+Use this document for repository-wide Python development policy: style, docstrings, testing, memory management, deprecations, logging, multi-GPU structure, and benchmarking.
+
+Use [Estimator Guide](ESTIMATOR_GUIDE.md) when creating or modifying a `cuml.Base` estimator. It contains the estimator contract, copyable estimator skeleton, input validation, array descriptor guidance, reflection guidance, and estimator-specific do's and don'ts.
+
 ## Getting Started
 
 The cuML Python library provides a scikit-learn style API for GPU-accelerated machine learning algorithms. This guide focuses on Python-specific development practices, while maintaining consistency with the underlying C++/CUDA implementations.
 
 ## Coding Style
 
-The majority of style guidelines are enforced through pre-commit hooks. Python code must be formatted following the PEP8 style as defined by black and isort.
+The majority of style guidelines are enforced through pre-commit hooks. Run the configured hooks before submitting changes so formatting and lint checks match the repository's current toolchain.
 
 See [Documentation](#documentation) for guidelines on doc-string formatting.
 
@@ -214,92 +222,75 @@ Control via these pytest options:
    - Document test assumptions and requirements
 
 ### Running Tests
-Tests must be run from the `python/cuml/` directory or one of its subdirectories. First build the package, then execute tests.
+Build from the repository root. Run Python tests from `python/cuml/` or one of its subdirectories so pytest picks up the package configuration.
 
 ```bash
+# From the repository root
 ./build.sh
-cd python/cuml/
-pytest  # Run all tests
+
+# Then run Python tests
+cd python/cuml
+python -m pytest  # Run all configured Python tests
 ```
 
 Common options:
-- `pytest cuml/tests/test_kmeans.py` - Run specific file
-- `pytest -k "test_kmeans"` - Run tests matching pattern
-- `pytest --run_unit` - Run only unit tests
-- `pytest -v` - Verbose output
+- `python -m pytest cuml/tests/test_kmeans.py` - Run a specific file
+- `python -m pytest -k "test_kmeans"` - Run tests matching a pattern
+- `python -m pytest --run_unit` - Run only unit tests
+- `python -m pytest -v` - Verbose output
 
-Running pytest from outside the `python/cuml/` directory will result in import errors.
+Running pytest from outside `python/cuml/` can result in import errors or missed pytest configuration.
+
+## Input Validation
+
+New or updated estimator code should use `cuml.internals.validation` for user-facing input validation. These helpers are the standard path for matching scikit-learn validation behavior, simplifying input ingest, and avoiding module-specific validation pipelines. See the [Estimator Guide](ESTIMATOR_GUIDE.md#input-validation) for estimator-specific patterns and examples.
+
+Prefer `check_inputs` for estimator methods that validate `X` and optional `y` / `sample_weight` values. Use lower-level helpers directly only when a method has a non-standard shape that the higher-level helper cannot express.
+
+Validation helpers should be configured to describe what the estimator actually supports. Set `dtype`, `convert_dtype`, `mem_type`, `order`, `accept_sparse`, `ensure_all_finite`, `ensure_non_negative`, and minimum shape requirements explicitly when the defaults are not correct. Do not hand-roll equivalent checks unless the common helpers cannot express the estimator's requirements.
+
+The validation pipeline normalizes inputs to standard array containers:
+
+- `cupy.ndarray` or `cupyx.scipy.sparse.spmatrix` for device outputs
+- `numpy.ndarray` or `scipy.sparse.spmatrix` for host outputs
+
+For new code, prefer these standard containers for internal processing rather than converting user inputs through `input_to_cuml_array` or using `CumlArray` as the ingest representation. `CumlArray` is still useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
+
+Fit-like methods should validate with `reset=True` so feature metadata is set from the training input. Inference methods should usually call `check_is_fitted` and then validate with the default `reset=False` so the input is checked against the fitted feature metadata.
+
+Tests for validation changes should cover both accepted and rejected inputs, including dtype conversion, sparse support, finite/non-negative requirements, feature-count and feature-name checks, and any classifier class-encoding behavior. When changing validation behavior for an estimator, also check the scikit-learn compatibility tests and the `cuml.accel` upstream xfail list.
 
 ## Memory Management
 
-cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and provides a flexible memory management system through the `CumlArray` class. Here are the key points:
+cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Validated user inputs should generally be processed as standard arrays (`cupy`, `numpy`, `cupyx.scipy.sparse`, or `scipy.sparse`) returned by the input validation helpers.
 
-1. **Memory Allocation Best Practices**
-- Do not use RMM directly to allocate memory
-- Use the `CumlArray` class for array-like data allocation
-- Use utility functions from `internals.memory_utils` for CuPy array instantiation
-- Let cuML handle memory management through its internal mechanisms
+`CumlArray` remains useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation. Do not use `CumlArray` allocation or conversion methods for new internal array processing code; use the standard CuPy, NumPy, cuDF, or SciPy containers returned by validation.
 
-2. **Memory Types**
-cuML supports several memory types through the `MemoryType` enum:
-- `device`: GPU memory for CUDA operations
-- `host`: CPU memory for host operations
-- `managed`: Unified memory accessible from both CPU and GPU
-- `mirror`: Memory type that mirrors the input data's memory type
+Current `CumlArray` memory types are:
 
-3. **CumlArray Usage**
-The `CumlArray` class provides a unified interface for array data:
+- `device`: GPU-accessible memory for CUDA operations.
+- `host`: CPU-accessible memory for host operations.
+
+Use explicit conversion parameters when a code path needs a specific location; estimators do not have a general memory-type context manager.
+
+Use standard array libraries for allocations and conversions in new internal code:
 ```python
-from cuml.internals.array import CumlArray
+import cupy as cp
+import numpy as np
 
-# Create arrays with specific memory types
-arr = CumlArray.empty(shape=(1000,), dtype='float32', mem_type='device')
-arr = CumlArray.zeros(shape=(1000,), dtype='float32', mem_type='host')
+device_arr = cp.empty((1000,), dtype=cp.float32)
+host_arr = np.zeros((1000,), dtype=np.float32)
 
-# Convert between memory types
-device_arr = host_arr.to_mem_type('device')
-host_arr = device_arr.to_mem_type('host')
+device_arr = cp.asarray(host_arr)
+host_arr = cp.asnumpy(device_arr)
 ```
 
-4. **Memory Type Conversion**
-- Use `to_output()` for format conversion:
-  ```python
-  # Convert to different formats
-  cupy_arr = arr.to_output('cupy')
-  numpy_arr = arr.to_output('numpy')
-  cudf_series = arr.to_output('series')
-  ```
-- Use `to_mem_type()` for explicit memory type conversion
-- Consider memory overhead when converting between types
-- Supported output types:
-  - 'array': CuPy/NumPy arrays
-  - 'numba': Numba device arrays
-  - 'dataframe': cuDF/Pandas DataFrames
-  - 'series': cuDF/Pandas Series
+Additional considerations:
 
-5. **Context Management**
-Use context managers for temporary memory type changes:
-```python
-from cuml.internals.memory_utils import using_memory_type
-
-with using_memory_type('device'):
-    # Operations using device memory
-    pass
-```
-
-6. **Memory Type Detection**
-Detect memory type of input data:
-```python
-from cuml.internals.memory_utils import determine_array_memtype
-
-mem_type = determine_array_memtype(array)
-```
-
-7. **Additional Considerations**
 - Minimize memory transfers between host and device
-- Use appropriate memory types for your operations
+- Prefer device memory for GPU kernels and host memory only when a CPU API needs it
 - Consider memory layout (C/F order) for optimal performance
-- Handle memory allocation failures gracefully
+- Let `@reflect` and `CumlArrayDescriptor` handle user-facing output type conversion for estimator methods and fitted array attributes
 
 ## Thread Safety
 
@@ -310,13 +301,14 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOP
 
 When implementing a new estimator in cuML, follow these key steps:
 
-1. Ensure the algorithm is implemented in C++/CUDA first (see [C++ Developer Guide](../cpp/DEVELOPER_GUIDE.md))
+1. Choose an implementation strategy appropriate for the algorithm. C++/CUDA implementations are still preferred for shared, performance-critical primitives, but CuPy-only implementations are permitted when they provide a significant speedup and do not need a reusable C++ algorithm first.
 2. Create a Python wrapper class that:
    - Follows scikit-learn's API design patterns
    - Inherits from `cuml.Base`
    - Is placed in the appropriate subdirectory matching scikit-learn's structure
+   - Uses `cuml.internals.validation` for public input validation
 
-For detailed implementation guidelines, including file organization, API design, and best practices, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
+For detailed implementation guidelines, including file organization, API design, output type handling, and a copyable estimator skeleton, refer to the [Estimator Guide](ESTIMATOR_GUIDE.md).
 
 ## Deprecation Policy
 
@@ -528,7 +520,7 @@ X, y = make_blobs(n_samples=1000, n_features=30)
 
 model = UMAP()
 model.fit(X)
-embeddngs = model.transform(X)
+embeddings = model.transform(X)
 ```
 
 that once benchmarked can have its profiling summarized:

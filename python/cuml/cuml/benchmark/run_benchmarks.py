@@ -67,7 +67,7 @@ PrecisionMap = {
     "fp32": np.float32,
     "fp64": np.float64,
 }
-SUPPORTED_BACKENDS = {"accel", "cpu", "gpu"}
+SUPPORTED_BACKENDS = {"cpu", "gpu"}
 
 
 def extract_param_overrides(params_to_sweep):
@@ -622,12 +622,10 @@ def _backend_result(row, backend):
     time_column = {
         "gpu": "cuml_time",
         "cpu": "cpu_time",
-        "accel": "accel_time",
     }[backend]
     acc_column = {
         "gpu": "cuml_acc",
         "cpu": "cpu_acc",
-        "accel": "accel_acc",
     }[backend]
 
     time_sec = _positive_value(row, time_column)
@@ -637,7 +635,10 @@ def _backend_result(row, backend):
             requested_backends = [
                 item for item in requested_backends.split(",") if item
             ]
-        if isinstance(requested_backends, (list, tuple)) and backend in requested_backends:
+        if (
+            isinstance(requested_backends, (list, tuple))
+            and backend in requested_backends
+        ):
             reason = "no successful timing recorded"
             if backend == "gpu" and not row.get("gpu_available", True):
                 reason = "GPU unavailable"
@@ -656,13 +657,10 @@ def _declared_params(row):
         "input",
         "cuml_time",
         "cpu_time",
-        "accel_time",
         "cuml_acc",
         "cpu_acc",
-        "accel_acc",
         "cuml_params",
         "cpu_params",
-        "accel_params",
         "speedup",
         "n_samples",
         "n_features",
@@ -692,7 +690,7 @@ def _result_record(row, dtype):
     features = _json_safe(row.get("n_features"))
     size_gb = _estimated_input_size_gb(rows, features, dtype)
     backends = {}
-    for backend in ("gpu", "cpu", "accel"):
+    for backend in ("gpu", "cpu"):
         backend_result = _backend_result(row, backend)
         if backend_result is not None:
             backends[backend] = backend_result
@@ -720,7 +718,6 @@ def _result_record(row, dtype):
             "effective": {
                 "gpu": _json_safe(row.get("cuml_params")),
                 "cpu": _json_safe(row.get("cpu_params")),
-                "accel": _json_safe(row.get("accel_params")),
             },
         },
         "backends": backends,
@@ -861,13 +858,10 @@ def _progress_group_key(row):
         "input",
         "cuml_time",
         "cpu_time",
-        "accel_time",
         "cuml_acc",
         "cpu_acc",
-        "accel_acc",
         "cuml_params",
         "cpu_params",
-        "accel_params",
         "speedup",
         "backend",
     }
@@ -890,10 +884,8 @@ def _coalesce_progress_rows(results_df):
         for column in (
             "cuml_time",
             "cpu_time",
-            "accel_time",
             "cuml_acc",
             "cpu_acc",
-            "accel_acc",
         ):
             if column not in group:
                 continue
@@ -919,20 +911,17 @@ def _progress_line(row, index, total, dtype):
 
     cpu_time = _positive_value(row, "cpu_time")
     gpu_time = _positive_value(row, "cuml_time")
-    accel_time = _positive_value(row, "accel_time")
 
     ratio_parts = []
     for label, numerator, denominator in (
         ("gpu_speedup", gpu_time, cpu_time),
-        ("accel_speedup", accel_time, cpu_time),
-        ("accel_overhead", gpu_time, accel_time),
     ):
         value = _ratio(numerator, denominator)
         if value is not None:
             ratio_parts.append(f"{label}={value:.2f}x")
 
     metric = ""
-    for metric in ("cuml_acc", "accel_acc", "cpu_acc"):
+    for metric in ("cuml_acc", "cpu_acc"):
         value = _positive_value(row, metric)
         if value is not None:
             metric = f"acc={value:.4f}"
@@ -948,7 +937,6 @@ def _progress_line(row, index, total, dtype):
         f"{('~' + format(size_gb, '.2f') + ' GB') if not math.isnan(size_gb) else '':>10}  "
         f"{_format_seconds_cell(gpu_time):>9}  "
         f"{_format_seconds_cell(cpu_time):>9}  "
-        f"{_format_seconds_cell(accel_time):>10}  "
         f"{details}"
     ).rstrip()
 
@@ -961,7 +949,6 @@ def _progress_header():
         f"{'data':>10}  "
         f"{'gpu_time':>9}  "
         f"{'cpu_time':>9}  "
-        f"{'accel_time':>10}  "
         f"{'details'}"
     )
 
@@ -1013,11 +1000,6 @@ def _print_summary(results_df, csv_path=None, verbose=True):
         _median_ratio_by_algorithm(results_df, "cuml_time", "cpu_time"),
         key=lambda item: item[1],
     )[:5]
-    accel_overhead = sorted(
-        _median_ratio_by_algorithm(results_df, "cuml_time", "accel_time"),
-        key=lambda item: item[1],
-        reverse=True,
-    )[:5]
 
     if largest_gpu:
         print("  largest gpu acceleration vs cpu:")
@@ -1026,10 +1008,6 @@ def _print_summary(results_df, csv_path=None, verbose=True):
     if smallest_gpu:
         print("  smallest gpu acceleration vs cpu:")
         for algo, value in smallest_gpu:
-            print(f"    {algo}: {value:.2f}x")
-    if accel_overhead:
-        print("  largest accel overhead vs gpu:")
-        for algo, value in accel_overhead:
             print(f"    {algo}: {value:.2f}x")
 
 
@@ -1146,94 +1124,6 @@ def _dtype_to_config_value(dtype):
     if dtype is np.float64:
         return "fp64"
     return dtype
-
-
-def _run_accel_variations(
-    *,
-    algorithm_name,
-    dataset_name,
-    bench_rows,
-    bench_dims,
-    input_type,
-    test_fraction,
-    dtype,
-    raise_on_error,
-    n_reps,
-    param_lists,
-):
-    """Run a benchmark variation in a subprocess with cuml.accel enabled."""
-    with tempfile.NamedTemporaryFile(suffix=".csv") as csv_file:
-        payload = {
-            "algorithm": algorithm_name,
-            "dataset_name": dataset_name,
-            "bench_rows": bench_rows,
-            "bench_dims": bench_dims,
-            "input_type": input_type,
-            "test_fraction": test_fraction,
-            "dtype": _dtype_to_config_value(dtype),
-            "raise_on_error": raise_on_error,
-            "n_reps": n_reps,
-            "param_lists": param_lists,
-            "csv_path": csv_file.name,
-        }
-        script = f"""
-import json
-import numpy as np
-
-from cuml.benchmark import algorithms, runners
-
-payload = json.loads({json.dumps(json.dumps(payload))})
-dtype = {{"fp32": np.float32, "fp64": np.float64}}.get(
-    payload["dtype"], payload["dtype"]
-)
-algo = algorithms.algorithm_by_name(payload["algorithm"])
-if algo is None:
-    raise ValueError(f"Unknown algorithm: {{payload['algorithm']}}")
-
-results_df = runners.run_variations(
-    [algo],
-    dataset_name=payload["dataset_name"],
-    bench_rows=payload["bench_rows"],
-    bench_dims=payload["bench_dims"],
-    input_type=payload["input_type"],
-    test_fraction=payload["test_fraction"],
-    dtype=dtype,
-    run_cpu=True,
-    run_cuml=False,
-    raise_on_error=payload["raise_on_error"],
-    n_reps=payload["n_reps"],
-    **payload["param_lists"],
-)
-if "cpu_time" in results_df:
-    results_df["accel_time"] = results_df["cpu_time"]
-    results_df["cpu_time"] = 0.0
-if "cpu_acc" in results_df:
-    results_df["accel_acc"] = results_df["cpu_acc"]
-    results_df["cpu_acc"] = 0.0
-if "cpu_params" in results_df:
-    results_df["accel_params"] = results_df["cpu_params"]
-    results_df["cpu_params"] = None
-results_df["backend"] = "accel"
-results_df.to_csv(payload["csv_path"], index=False)
-"""
-        completed = subprocess.run(
-            [sys.executable, "-m", "cuml.accel", "-"],
-            input=script,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if completed.returncode != 0:
-            message = (
-                "cuml.accel benchmark subprocess failed with exit code "
-                f"{completed.returncode}\nSTDOUT:\n{completed.stdout}\n"
-                f"STDERR:\n{completed.stderr}"
-            )
-            if raise_on_error:
-                raise RuntimeError(message)
-            warnings.warn(message, stacklevel=2)
-            return pd.DataFrame()
-        return pd.read_csv(csv_file.name)
 
 
 def _resolved_entry_dimensions(entry, args, explicit_options):
@@ -1371,10 +1261,10 @@ def _run_config_benchmarks(args, explicit_options):
             n_reps = args.n_reps
 
         run_cpu = "cpu" in selected_backends
-        run_accel = "accel" in selected_backends
+
         run_cuml = "gpu" in selected_backends and allow_gpu_runs
 
-        if not run_cpu and not run_cuml and not run_accel:
+        if not run_cpu and not run_cuml:
             raise ValueError(
                 f"Benchmark '{entry['benchmark_id']}' has no runnable backends "
                 "after applying CLI overrides and GPU availability."
@@ -1391,11 +1281,6 @@ def _run_config_benchmarks(args, explicit_options):
         input_type = _validate_benchmark_inputs(
             test_split, input_type, run_cuml
         )
-        accel_input_type = None
-        if run_accel:
-            accel_input_type = _validate_benchmark_inputs(
-                test_split, input_type, False
-            )
         cpu_input_type = _cpu_compatible_input_type(input_type)
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
@@ -1446,36 +1331,6 @@ def _run_config_benchmarks(args, explicit_options):
                 all_results.append(results_df)
                 shape_results.append(results_df)
 
-            if run_accel:
-                accel_results_df = _run_accel_variations(
-                    algorithm_name=entry["algorithm"],
-                    dataset_name=dataset_name,
-                    bench_rows=[shape["rows"]],
-                    bench_dims=[shape["features"]],
-                    input_type=accel_input_type,
-                    test_fraction=test_split,
-                    dtype=dtype,
-                    raise_on_error=raise_on_error,
-                    n_reps=n_reps,
-                    param_lists=param_lists,
-                )
-                if not accel_results_df.empty:
-                    accel_results_df["benchmark_id"] = entry["benchmark_id"]
-                    accel_results_df["config_path"] = resolved["config_path"]
-                    accel_results_df["suite_name"] = resolved["suite_name"]
-                    accel_results_df["suite_tier"] = resolved["suite_tier"]
-                    accel_results_df["profile"] = resolved["profile"]
-                    accel_results_df["dataset"] = dataset_name
-                    accel_results_df["operation"] = entry["operation"]
-                    accel_results_df["dtype"] = _dtype_to_config_value(dtype)
-                    accel_results_df["n_reps"] = n_reps
-                    accel_results_df["requested_backends"] = ",".join(
-                        selected_backends
-                    )
-                    accel_results_df["gpu_available"] = allow_gpu_runs
-                    all_results.append(accel_results_df)
-                    shape_results.append(accel_results_df)
-
             if shape_results:
                 progress_index = _print_progress_rows(
                     pd.concat(shape_results, ignore_index=True),
@@ -1517,9 +1372,6 @@ def run_benchmark(args, explicit_options=None):
     algos_to_run = _resolve_algorithms(args)
     progress_total = _planned_legacy_result_count(
         algos_to_run, bench_rows, bench_dims, param_lists
-    ) * (
-        int("cpu" in selected_backends or run_gpu)
-        + int("accel" in selected_backends)
     )
     progress_index = 1
 
@@ -1570,40 +1422,6 @@ def run_benchmark(args, explicit_options=None):
         results_df["requested_backends"] = ",".join(selected_backends)
         results_df["gpu_available"] = run_gpu
         all_results.append(results_df)
-    if "accel" in selected_backends:
-        accel_input_type = _validate_benchmark_inputs(
-            args.test_split, args.input_type, False
-        )
-        for algo in algos_to_run:
-            accel_results_df = _run_accel_variations(
-                algorithm_name=algo.name,
-                dataset_name=args.dataset,
-                bench_rows=list(bench_rows),
-                bench_dims=list(bench_dims),
-                input_type=accel_input_type,
-                test_fraction=args.test_split,
-                dtype=args.dtype,
-                raise_on_error=args.raise_on_error,
-                n_reps=args.n_reps,
-                param_lists=param_lists,
-            )
-            if not accel_results_df.empty:
-                accel_results_df["dataset"] = args.dataset
-                accel_results_df["operation"] = None
-                accel_results_df["dtype"] = _dtype_to_config_value(args.dtype)
-                accel_results_df["n_reps"] = args.n_reps
-                accel_results_df["requested_backends"] = ",".join(
-                    selected_backends
-                )
-                accel_results_df["gpu_available"] = run_gpu
-                all_results.append(accel_results_df)
-                progress_index = _print_progress_rows(
-                    accel_results_df,
-                    progress_index,
-                    progress_total,
-                    args.dtype,
-                    verbose=args.verbose,
-                )
 
     if not all_results:
         raise ValueError("No benchmark results were produced.")

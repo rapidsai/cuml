@@ -24,12 +24,6 @@ from cuml.dask.ensemble import RandomForestRegressor as cuRFR_mg
 from cuml.ensemble import RandomForestClassifier as cuRFC_sg
 from cuml.ensemble import RandomForestRegressor as cuRFR_sg
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
-
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
     workers = c.has_what().keys()

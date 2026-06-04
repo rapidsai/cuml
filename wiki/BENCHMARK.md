@@ -61,6 +61,25 @@ python -m cuml.benchmark \
   --backends cpu
 ```
 
+To run a YAML-defined suite:
+
+```bash
+python -m cuml.benchmark \
+  --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
+  --profile default \
+  --backends gpu \
+  --csv results.csv
+```
+
+To run the tiny harness-validation manifest:
+
+```bash
+python -m cuml.benchmark \
+  --config python/cuml/cuml/benchmark/configs/test.yaml \
+  --profile default \
+  --backends cpu
+```
+
 ### Standalone mode (from the repository)
 
 From the `python/cuml/cuml/benchmark/` directory, you can run without installing cuML:
@@ -123,7 +142,7 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--dataset` | Dataset name: e.g. `blobs`, `classification`, `regression`, `higgs`. Use `--print-datasets` to list all. |
 | `--config` | Path to a YAML benchmark manifest. |
 | `--profile` | Named profile to select from a YAML benchmark manifest. |
-| `--backends` | Comma-separated backends to run (`cpu`, `gpu`, `accel`). |
+| `--backends` | Comma-separated backends to run (`cpu`, `gpu`). |
 | `--skip-gpu` | Skip GPU/cuML benchmarks (CPU only); compatibility shortcut. |
 | `--skip-cpu` | Skip CPU benchmarks (GPU/cuML only); compatibility shortcut. |
 | `--output FILE` | Save the canonical JSON artifact with metadata and grouped benchmark results. |
@@ -233,8 +252,7 @@ Example shape:
         "declared": {},
         "effective": {
           "gpu": {},
-          "cpu": null,
-          "accel": null
+          "cpu": null
         }
       },
       "backends": {
@@ -278,7 +296,7 @@ Each entry in `results` represents one logical benchmark variation:
 - `data`: input type, dtype, and repetition count
 - `params.declared`: parameters explicitly supplied through YAML or CLI sweeps
 - `params.effective`: estimator parameters reported by `get_params()` for each backend when available
-- `backends`: backend-specific result records keyed by `cpu`, `gpu`, and/or `accel`
+- `backends`: backend-specific result records keyed by `cpu` and/or `gpu`
 
 Backend result records use these fields:
 
@@ -302,15 +320,15 @@ The environment package snapshot is intentionally compact. Conda entries include
 Terminal output is a concise progress table, for example:
 
 ```text
- progress  algorithm                            shape        data   gpu_time   cpu_time  accel_time  details
-------------------------------------------------------------------------------------------------------------
-   [1/96]  LogisticRegression              84.0M x 16    ~5.38 GB     0.91s          -           -  acc=0.9950
+ progress  algorithm                            shape        data   gpu_time   cpu_time  details
+--------------------------------------------------------------------------------------------
+   [1/96]  LogisticRegression              84.0M x 16    ~5.38 GB     0.91s          -  acc=0.9950
 ```
 
 When multiple backends are present, timings are grouped on one row:
 
 ```text
-   [1/96]  LogisticRegression              50.0K x 16    ~0.00 GB    12.3ms    18.5ms           -  gpu_speedup=1.50x acc=0.9944
+   [1/96]  LogisticRegression              50.0K x 16    ~0.00 GB    12.3ms    18.5ms  gpu_speedup=1.50x acc=0.9944
 ```
 
 CSV output remains available through `--csv`, but it is a flat compatibility export. Prefer JSON for regression tracking and reproducibility.
@@ -481,7 +499,7 @@ Flat benchmark entries using explicit `rows`, `features`, or `shapes` are still 
 - `n_reps`
 - `random_state`
 - `test_split`
-- `backends`: execution backends to run, selected from `cpu`, `gpu`, and `accel`
+- `backends`: execution backends to run, selected from `cpu` and `gpu`
 - `raise_on_error`
 - `enabled`
 - `tags`
@@ -647,17 +665,6 @@ python -m cuml.benchmark \
 ```
 
 This keeps the manifest-selected benchmark entry but overrides the row count and execution mode for that run.
-
-Use the `accel` backend to run the sklearn/CPU benchmark path in an isolated subprocess with `cuml.accel` enabled:
-
-```bash
-python -m cuml.benchmark \
-  --config python/cuml/cuml/benchmark/configs/test.yaml \
-  --profile default \
-  --backends accel
-```
-
-The subprocess activation keeps `cuml.accel` import-time behavior isolated from regular CPU/GPU benchmark runs.
 
 ## Input types
 

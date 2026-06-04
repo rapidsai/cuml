@@ -277,6 +277,7 @@ LogisticRegression
 - If ``warm_start=True``.
 - If ``intercept_scaling`` is not ``1``.
 - If the deprecated ``multi_class`` parameter is used.
+- If a callback is configured with ``set_callbacks``.
 
 ElasticNet
 ^^^^^^^^^^
@@ -443,6 +444,7 @@ StandardScaler
 
 - If ``X`` is sparse.
 - When run on scikit-learn < 1.8.
+- If a callback is configured with ``set_callbacks``.
 
 MinMaxScaler
 ^^^^^^^^^^^^

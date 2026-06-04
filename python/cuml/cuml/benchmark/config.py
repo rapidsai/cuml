@@ -111,7 +111,7 @@ ALLOWED_OPERATIONS = {
     "fit_kneighbors",
     "kneighbors",
 }
-ALLOWED_BACKENDS = {"accel", "cpu", "gpu"}
+ALLOWED_BACKENDS = {"cpu", "gpu"}
 SIZE_FIELDS = {"default_size", "shapes", "rows", "features"}
 COMPACT_VARIANT_KEYS = (BENCHMARK_KEYS - {"id", "algorithm", "variants"}) | {
     "id_suffix",
