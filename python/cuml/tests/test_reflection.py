@@ -61,6 +61,23 @@ def rand_array(output_type, *, shape=(8, 4), seed=42):
         return cudf.DataFrame(X)
 
 
+class ImplementsArray:
+    def __init__(self, x):
+        self.x = x
+
+    def __array__(self, dtype=None, copy=None):
+        return self.x
+
+
+class ImplementsArrayInterface:
+    def __init__(self, x):
+        self.x = x
+
+    @property
+    def __array_interface__(self):
+        return self.x.__array_interface__
+
+
 class DummyEstimator(Base):
     X_ = CumlArrayDescriptor()
 
@@ -149,23 +166,6 @@ def test_infer_output_type_cuml():
     b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
     assert infer_output_type(a) == "cuml"
     assert infer_output_type(b) == "cuml"
-
-
-class ImplementsArray:
-    def __init__(self, x):
-        self.x = x
-
-    def __array__(self, dtype=None, copy=None):
-        return self.x
-
-
-class ImplementsArrayInterface:
-    def __init__(self, x):
-        self.x = x
-
-    @property
-    def __array_interface__(self):
-        return self.x.__array_interface__
 
 
 @pytest.mark.parametrize(
@@ -334,6 +334,24 @@ def test_convert_sparse_outputs(sparse_type, output_type):
         assert cupyx.scipy.sparse.issparse(res)
     else:
         assert scipy.sparse.issparse(res)
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param([1, 2, 3], id="list"),
+        pytest.param((1, 2, 3), id="tuple"),
+        pytest.param(ImplementsArray(np.array([1, 2, 3])), id="__array__"),
+    ],
+)
+def test_dont_convert_array_like(obj):
+    @reflect
+    def make_array_like():
+        return obj
+
+    cuml.set_global_output_type("numpy")
+    res = make_array_like()
+    assert type(res) is type(obj)
 
 
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])

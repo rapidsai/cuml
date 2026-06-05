@@ -14,8 +14,6 @@ import pandas as pd
 import scipy.sparse as sp
 from cupy.cuda import Stream
 
-# TODO: Try to resolve circular import that makes this necessary:
-from cuml.internals import input_utils as iu
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
@@ -336,18 +334,24 @@ def coerce_arrays(res, output_type):
         return {k: coerce_arrays(v, output_type) for k, v in res.items()}
 
     # Get the output type
-    arr_type, is_sparse = iu.determine_array_type_full(res)
+    arr_type = infer_output_type(res, array_like=None)
 
     if arr_type is None:
         # Not an array, just return
         return res
+
+    is_sparse = (
+        cp_sp.issparse(res)
+        or sp.issparse(res)
+        or isinstance(res, SparseCumlArray)
+    )
 
     # If we are a supported array and not already cuml, convert to cuml
     if arr_type != "cuml":
         if is_sparse:
             res = SparseCumlArray(res, convert_index=False)
         else:
-            res = iu.input_to_cuml_array(res, order="K").array
+            res = CumlArray.from_input(res, order="K")
 
     if output_type == "cuml":
         # Return CumlArray/SparseCumlArray directly
@@ -501,7 +505,7 @@ def reflect(
                 output_type = gs.output_type
                 if output_type in ("input", None):
                     if array is not None:
-                        output_type = iu.determine_array_type(array_arg)
+                        output_type = infer_output_type(array_arg)
                     if output_type in ("input", None):
                         # Nothing to infer from and no explicit type set,
                         # default to cupy
