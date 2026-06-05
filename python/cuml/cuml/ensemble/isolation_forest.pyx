@@ -49,6 +49,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         int n_estimators
         int max_samples
         int max_depth
+        bool bootstrap
         uint64_t seed
 
     # C++ struct declaration with default constructor
@@ -184,16 +185,17 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         `ceil(log2(max_samples))`, which is the theoretical maximum depth
         needed to isolate any sample.
     max_features : float, default=1.0
-        Accepted for sklearn API compatibility. The current fast GPU builder
+        Accepted for sklearn API compatibility. The current GPU builder
         uses all features when selecting random split features.
     bootstrap : bool, default=False
-        Accepted for sklearn API compatibility. The current fast GPU builder
-        samples rows with replacement.
+        If True, individual trees are fit on random subsets of the training
+        data sampled with replacement. Otherwise, sampling is without
+        replacement.
     random_state : int, RandomState instance or None, default=None
         Controls random row sampling and split selection. Pass an int for
         reproducible results across runs.
     max_batch_size : int, default=4096
-        Accepted for sklearn API compatibility. The current fast GPU builder
+        Accepted for sklearn API compatibility. The current GPU builder
         builds each tree in a single CUDA block and does not batch nodes.
     contamination : float or "auto", default="auto"
         The proportion of outliers in the data set. The current implementation
@@ -235,12 +237,12 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
     **sklearn Convention (used by Python API):**
 
-    For compatibility with sklearn, the Python methods ``score_samples()`` and
-    ``decision_function()`` transform the scores so that:
-    - More negative scores indicate anomalies
-    - Scores around 0 indicate normal points
-
-    The transformation is: sklearn_score = -(paper_score - 0.5)
+    For compatibility with sklearn, the Python method ``score_samples()``
+    returns the opposite of the original paper score:
+    ``sklearn_score = -paper_score``. ``decision_function()`` then subtracts
+    ``offset_``. With the sklearn ``contamination="auto"`` offset of ``-0.5``,
+    negative decision function values correspond to paper scores greater than
+    0.5 and are predicted as anomalies.
 
     **Implementation Details:**
 
@@ -434,6 +436,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         params.n_estimators = self.n_estimators
         params.max_samples = actual_max_samples
         params.max_depth = actual_max_depth
+        params.bootstrap = self.bootstrap
         params.seed = seed
 
         # Get handle and verbosity
@@ -593,7 +596,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             avg_path_lengths = avg_path_lengths.reshape(-1)
 
         paper_scores = cp.power(2.0, -avg_path_lengths / self._c_normalization)
-        scores_sklearn = -(paper_scores - 0.5)
+        scores_sklearn = -paper_scores
 
         return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
 
@@ -612,11 +615,11 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
             **sklearn** inverts this convention so that:
                 - More negative scores → anomalies
-                - Scores around 0 → normal points
+                - Scores closer to 0 → more normal points
 
             This method follows sklearn's convention for drop-in compatibility.
             The C++ backend returns the original paper's scores, which are then
-            transformed here as: sklearn_score = -(paper_score - 0.5)
+            transformed here as: sklearn_score = -paper_score
 
         Parameters
         ----------
@@ -627,10 +630,8 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         -------
         scores : ndarray of shape (n_samples,)
             The anomaly scores (sklearn convention: lower/more negative = more anomalous).
-            Typical range is approximately [-0.5, 0.5] where:
-            - Scores << 0: likely anomalies
-            - Scores ≈ 0: normal points
-            - Scores >> 0: very normal points
+            Typical range is approximately [-1.0, 0.0], where values below
+            ``offset_`` are predicted as anomalies.
         """
         if self._forest_float is None and self._forest_double is None:
             raise RuntimeError("Model has not been fitted. Call fit() first.")
@@ -685,16 +686,16 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         #   - Very normal: s ≈ 0 (long paths, hard to isolate)
         #
         # sklearn convention:
-        #   - Anomalies: negative scores
-        #   - Normal: scores around 0
+        #   - score_samples returns the opposite of the paper score
+        #   - decision_function = score_samples - offset_
         #
-        # Transformation: sklearn_score = -(paper_score - 0.5)
-        #   - paper_score=1.0 (anomaly) → sklearn_score=-0.5
-        #   - paper_score=0.5 (normal)  → sklearn_score=0.0
-        #   - paper_score=0.0 (v.normal)→ sklearn_score=+0.5
+        # Transformation: sklearn_score = -paper_score
+        #   - paper_score=1.0 (anomaly) → sklearn_score=-1.0
+        #   - paper_score=0.5 (normal threshold) → sklearn_score=-0.5
+        #   - paper_score=0.0 (v.normal) → sklearn_score=0.0
         #
         scores_cp = scores.to_output("cupy")
-        scores_sklearn = -(scores_cp - 0.5)
+        scores_sklearn = -scores_cp
 
         return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
 
@@ -702,7 +703,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         """
         Compute the decision function of X.
 
-        The decision function is the anomaly score plus the offset.
+        The decision function is ``score_samples(X) - offset_``.
         Negative values indicate anomalies.
 
         Parameters

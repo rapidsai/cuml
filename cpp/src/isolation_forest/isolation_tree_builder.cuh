@@ -25,6 +25,7 @@
 #include <thrust/transform.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <vector>
 
@@ -73,6 +74,32 @@ inline bool is_dev_ptr(const void* ptr)
     return false;
   }
   return attr.type == cudaMemoryTypeDevice || attr.type == cudaMemoryTypeManaged;
+}
+
+__device__ __forceinline__ uint64_t curand_u64(curandState* rng_state)
+{
+  return (static_cast<uint64_t>(curand(rng_state)) << 32) | curand(rng_state);
+}
+
+__device__ __forceinline__ size_t sample_bounded(curandState* rng_state, size_t bound)
+{
+  if (bound <= 1) return 0;
+
+  constexpr uint64_t max_uint64 = 0xffffffffffffffffULL;
+  uint64_t limit = max_uint64 - (max_uint64 % static_cast<uint64_t>(bound));
+  uint64_t value = curand_u64(rng_state);
+  while (value >= limit) {
+    value = curand_u64(rng_state);
+  }
+  return static_cast<size_t>(value % static_cast<uint64_t>(bound));
+}
+
+__device__ bool contains_sample(const size_t* samples, int n_samples, size_t candidate)
+{
+  for (int i = 0; i < n_samples; ++i) {
+    if (samples[i] == candidate) return true;
+  }
+  return false;
 }
 
 /**
@@ -179,6 +206,7 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
                                                     int max_samples,
                                                     int max_depth,
                                                     int max_nodes_per_tree,
+                                                    bool bootstrap,
                                                     uint64_t seed,
                                                     IFNode* __restrict__ nodes,
                                                     int* __restrict__ tree_offsets,
@@ -204,12 +232,21 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
   StackEntry* tree_stack = stack + static_cast<size_t>(tree_id) * max_nodes_per_tree;
   IFNode* tree_nodes     = nodes + tree_offset;
 
-  // Thread 0 samples source rows with replacement. The broader sampling PR will
-  // replace this with sklearn's bootstrap-aware without/with-replacement modes.
+  // Thread 0 samples source rows using sklearn IsolationForest semantics:
+  // bootstrap=True samples with replacement; bootstrap=False samples without
+  // replacement. Bounded rejection sampling avoids modulo bias.
   if (threadIdx.x == 0) {
-    for (int i = 0; i < max_samples; i++) {
-      uint64_t rand64 = (static_cast<uint64_t>(curand(&rng_state)) << 32) | curand(&rng_state);
-      tree_sample_indices[i] = rand64 % n_rows;
+    if (bootstrap) {
+      for (int i = 0; i < max_samples; i++) {
+        tree_sample_indices[i] = sample_bounded(&rng_state, n_rows);
+      }
+    } else {
+      size_t start = n_rows - static_cast<size_t>(max_samples);
+      for (int i = 0; i < max_samples; i++) {
+        size_t j = start + static_cast<size_t>(i);
+        size_t t = sample_bounded(&rng_state, j + 1);
+        tree_sample_indices[i] = contains_sample(tree_sample_indices, i, t) ? j : t;
+      }
     }
   }
   __syncthreads();
@@ -282,6 +319,7 @@ void build_isolation_forest_global(const raft::handle_t& handle,
                                    int max_samples,
                                    int max_depth,
                                    int max_nodes_per_tree,
+                                   bool bootstrap,
                                    uint64_t seed,
                                    IFNode* nodes,
                                    int* tree_offsets,
@@ -303,6 +341,7 @@ void build_isolation_forest_global(const raft::handle_t& handle,
                                                                       max_samples,
                                                                       max_depth,
                                                                       max_nodes_per_tree,
+                                                                      bootstrap,
                                                                       seed,
                                                                       nodes,
                                                                       tree_offsets,
