@@ -4,7 +4,6 @@ import cupy as cp
 import numpy as np
 
 from cuml.internals import get_handle, reflect
-from cuml.internals.array import CumlArray
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -40,7 +39,7 @@ def kpss_test(
     int s=0,
     double pval_threshold=0.05,
     convert_dtype=True,
-) -> CumlArray:
+):
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -110,4 +109,4 @@ def kpss_test(
             pval_threshold
         )
 
-    return CumlArray(data=results)
+    return results
