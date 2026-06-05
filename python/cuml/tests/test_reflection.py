@@ -20,6 +20,7 @@ from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import infer_output_type
+from cuml.internals.validation import check_inputs
 
 OUTPUT_TYPES = ["numpy", "numba", "cupy", "cudf", "pandas"]
 
@@ -78,12 +79,22 @@ class ImplementsArrayInterface:
         return self.x.__array_interface__
 
 
+class ImplementsCudaArrayInterface:
+    def __init__(self, x):
+        self.x = x
+
+    @property
+    def __cuda_array_interface__(self):
+        return self.x.__cuda_array_interface__
+
+
 class DummyEstimator(Base):
     X_ = CumlArrayDescriptor()
 
-    @reflect(reset=True)
+    @reflect(reset="type")
     def fit(self, X, y=None):
-        self.X_ = CumlArray.from_input(X)
+        X = check_inputs(self, X, reset=True)
+        self.X_ = CumlArray(data=X)
         return self
 
     @reflect
@@ -166,6 +177,11 @@ def test_infer_output_type_cuml():
     b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
     assert infer_output_type(a) == "cuml"
     assert infer_output_type(b) == "cuml"
+
+
+def test_infer_output_type_cuda_array_interface():
+    x = ImplementsCudaArrayInterface(cp.array([1, 2, 3]))
+    assert infer_output_type(x) == "cupy"
 
 
 @pytest.mark.parametrize(
@@ -433,6 +449,25 @@ def test_estimator_method_with_array_input():
     # Global output type overrides
     with cuml.using_output_type("cupy"):
         assert_output_type(model.example(X2), "cupy")
+
+
+def test_array_like_inputs_treated_as_numpy_by_reflection():
+    X_cupy = rand_array("cupy", shape=(10, 5))
+    X_list = rand_array("numpy", shape=(10, 5)).tolist()
+
+    model_fit_list = DummyEstimator().fit(X_list)
+    model_fit_cupy = DummyEstimator().fit(X_cupy)
+
+    # Fitting on array-likes stores `numpy` as input-type
+    assert model_fit_list._input_type == "numpy"
+
+    # Inferring on array-likes uses `numpy` as output type
+    assert_output_type(model_fit_list.example(X_list), "numpy")
+    assert_output_type(model_fit_cupy.example(X_list), "numpy")
+
+    # Methods with no args use input type
+    assert_output_type(model_fit_list.example_no_args(), "numpy")
+    assert_output_type(model_fit_cupy.example_no_args(), "cupy")
 
 
 def test_estimator_method_with_no_array_input():
