@@ -190,6 +190,21 @@ def test_max_depth_parameter(blobs_data, max_depth):
     assert predictions.shape[0] == blobs_data.shape[0]
 
 
+def test_deep_max_depth_global_memory(blobs_data):
+    """Deep global-memory trees should fit and score."""
+    clf = cuIsolationForest(
+        n_estimators=10, max_samples=64, max_depth=17, random_state=42
+    )
+    clf.fit(blobs_data)
+
+    scores = clf.score_samples(blobs_data)
+    predictions = clf.predict(blobs_data)
+
+    assert scores.shape == (blobs_data.shape[0],)
+    assert predictions.shape == (blobs_data.shape[0],)
+    assert set(np.unique(predictions)).issubset({-1, 1})
+
+
 @pytest.mark.parametrize("max_features", [0.5, 0.8, 1.0])
 def test_max_features_parameter(blobs_data, max_features):
     """max_features parameter should be respected."""
