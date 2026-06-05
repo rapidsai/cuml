@@ -7,10 +7,7 @@ from dataclasses import dataclass, field
 
 import cuml
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import (
-    determine_array_type,
-    input_to_cuml_array,
-)
+from cuml.internals.outputs import infer_output_type
 
 
 @dataclass
@@ -80,9 +77,9 @@ class CumlArrayDescriptor:
 
         # If the input type was anything but CumlArray, need to create one now
         if "cuml" not in existing.values:
-            existing.values["cuml"] = input_to_cuml_array(
+            existing.values["cuml"] = CumlArray.from_input(
                 existing.get_input_value(), order="K"
-            ).array
+            )
 
         cuml_arr: CumlArray = existing.values["cuml"]
 
@@ -128,7 +125,7 @@ class CumlArrayDescriptor:
         existing = self._get_meta(instance)
 
         # Determine the type
-        existing.input_type = determine_array_type(value)
+        existing.input_type = infer_output_type(value, array_like=None)
 
         # Clear any existing values
         existing.values.clear()
