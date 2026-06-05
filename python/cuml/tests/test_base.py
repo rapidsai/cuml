@@ -447,7 +447,6 @@ def _default_instance(klass):
 
 
 @pytest.mark.parametrize("child_class", _REPR_TESTABLE_CLASSES)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_repr_default_shows_no_params(child_class):
     """A default-constructed estimator reprs as ``ClassName()``."""
     klass = all_base_children[child_class]
@@ -456,7 +455,6 @@ def test_repr_default_shows_no_params(child_class):
 
 
 @pytest.mark.parametrize("child_class", _REPR_TESTABLE_CLASSES)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_repr_shows_changed_params(child_class):
     """Every parameter set different from its default value appears in the repr.
 
