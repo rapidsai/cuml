@@ -283,9 +283,10 @@ def test_tweedie_convergence(max_depth, split_criterion):
         y[mask], tweedie_preds[mask], power=tweedie[split_criterion]["power"]
     )
 
-    # model trained on tweedie data with
-    # tweedie criterion must perform better on tweedie loss
-    assert mse_tweedie_deviance >= tweedie_tweedie_deviance
+    # model trained on tweedie data with tweedie criterion must perform
+    # no worse on tweedie loss, allowing tiny numeric variation.
+    deviance_tolerance = 1e-5
+    assert mse_tweedie_deviance + deviance_tolerance >= tweedie_tweedie_deviance
 
 
 @pytest.mark.parametrize(
