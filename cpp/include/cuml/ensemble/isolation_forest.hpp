@@ -37,7 +37,11 @@ struct IsolationForestModel {
   int n_features = 0;          ///< Number of features in training data
   int n_samples_per_tree = 0;  ///< Samples used per tree (for c(n) calculation)
   T c_normalization = 0;       ///< Precomputed c(n) normalization constant
-  rmm::device_buffer fast_trees;  ///< Device memory for trees (IFTree<T>*)
+  int max_nodes_per_tree = 0;  ///< Allocated node capacity per tree
+  rmm::device_buffer global_nodes;  ///< Device memory for global-memory IFNode array
+  rmm::device_buffer global_tree_offsets;  ///< Per-tree base offset in global_nodes
+  rmm::device_buffer global_tree_n_nodes;  ///< Per-tree used node counts
+  rmm::device_buffer global_tree_max_depth;  ///< Per-tree max depth metadata
 };
 
 typedef IsolationForestModel<float> IsolationForestF;

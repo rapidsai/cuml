@@ -18,9 +18,11 @@
 
 #include "isolation_tree_builder.cuh"
 
+#include <algorithm>
 #include <climits>
 #include <cmath>
 #include <cstring>
+#include <limits>
 
 namespace ML {
 
@@ -34,6 +36,23 @@ T compute_c_normalization(int n)
   constexpr T euler_mascheroni = T(0.5772156649015329);
   T harmonic_n_minus_1         = std::log(T(n - 1)) + euler_mascheroni;
   return T(2) * harmonic_n_minus_1 - T(2) * T(n - 1) / T(n);
+}
+
+inline int compute_global_max_nodes_per_tree(int max_depth, int max_samples)
+{
+  ASSERT(max_depth >= 0, "max_depth must be non-negative, got %d", max_depth);
+  ASSERT(max_samples > 0, "max_samples must be positive, got %d", max_samples);
+
+  int64_t sample_bound = 2LL * static_cast<int64_t>(max_samples) - 1LL;
+  int64_t depth_bound = sample_bound;
+  if (max_depth < 30) {
+    depth_bound = (1LL << (max_depth + 1)) - 1LL;
+  }
+
+  int64_t bounded = std::min(sample_bound, depth_bound);
+  ASSERT(bounded <= static_cast<int64_t>(std::numeric_limits<int>::max()),
+         "Global-memory Isolation Forest node capacity exceeds int range.");
+  return static_cast<int>(bounded);
 }
 
 template <class T>
@@ -83,14 +102,27 @@ class IsolationForest {
     model->c_normalization    = compute_c_normalization<T>(n_sampled_rows);
     
     auto stream = handle.get_stream();
-    size_t trees_size = params.n_estimators * sizeof(IsolationTree::IFTree<T>);
-    model->fast_trees = rmm::device_buffer(trees_size, stream);
-    
-    IsolationTree::build_isolation_forest(
+    model->max_nodes_per_tree = compute_global_max_nodes_per_tree(max_depth, n_sampled_rows);
+    size_t total_nodes =
+      static_cast<size_t>(params.n_estimators) * model->max_nodes_per_tree;
+    model->global_nodes =
+      rmm::device_buffer(total_nodes * sizeof(IsolationTree::IFNode), stream);
+    model->global_tree_offsets =
+      rmm::device_buffer(params.n_estimators * sizeof(int), stream);
+    model->global_tree_n_nodes =
+      rmm::device_buffer(params.n_estimators * sizeof(int), stream);
+    model->global_tree_max_depth =
+      rmm::device_buffer(params.n_estimators * sizeof(int), stream);
+
+    IsolationTree::build_isolation_forest_global(
         handle, input, n_rows, n_cols,
         params.n_estimators, n_sampled_rows, max_depth,
+        model->max_nodes_per_tree,
         params.seed,
-        static_cast<IsolationTree::IFTree<T>*>(model->fast_trees.data()));
+        static_cast<IsolationTree::IFNode*>(model->global_nodes.data()),
+        static_cast<int*>(model->global_tree_offsets.data()),
+        static_cast<int*>(model->global_tree_n_nodes.data()),
+        static_cast<int*>(model->global_tree_max_depth.data()));
     
     handle.sync_stream();
   }
@@ -106,12 +138,13 @@ class IsolationForest {
     raft::common::nvtx::range fun_scope("IF::compute_path_lengths @isolation_forest.cuh");
     cudaStream_t stream = handle.get_stream();
 
-    auto* fast_trees = static_cast<const IsolationTree::IFTree<T>*>(model->fast_trees.data());
     int threads = 256;
     size_t blocks = (n_rows + threads - 1) / threads;
-    
-    IsolationTree::compute_path_lengths_kernel<T><<<blocks, threads, 0, stream>>>(
-        input, n_rows, n_cols, fast_trees, params.n_estimators, avg_path_lengths);
+
+    auto* nodes = static_cast<const IsolationTree::IFNode*>(model->global_nodes.data());
+    auto* tree_offsets = static_cast<const int*>(model->global_tree_offsets.data());
+    IsolationTree::compute_path_lengths_global_kernel<T><<<blocks, threads, 0, stream>>>(
+        input, n_rows, n_cols, nodes, tree_offsets, params.n_estimators, avg_path_lengths);
     
     RAFT_CUDA_TRY(cudaGetLastError());
     handle.sync_stream(stream);
@@ -148,14 +181,16 @@ template <typename T>
 CompactIFForest get_compact_trees(const raft::handle_t& handle,
                                   const IsolationForestModel<T>* model)
 {
-  auto* d_trees = static_cast<const IsolationTree::IFTree<T>*>(model->fast_trees.data());
-  int n_trees   = model->params.n_estimators;
+  int n_trees = model->params.n_estimators;
 
   CompactIFForest result;
   std::vector<IsolationTree::IFNode> raw_nodes;
 
-  IsolationTree::compact_isolation_forest<T>(
-      handle, d_trees, n_trees,
+  auto* d_nodes = static_cast<const IsolationTree::IFNode*>(model->global_nodes.data());
+  auto* d_tree_n_nodes = static_cast<const int*>(model->global_tree_n_nodes.data());
+  auto* d_tree_max_depth = static_cast<const int*>(model->global_tree_max_depth.data());
+  IsolationTree::compact_global_isolation_forest<T>(
+      handle, d_nodes, d_tree_n_nodes, d_tree_max_depth, n_trees, model->max_nodes_per_tree,
       raw_nodes, result.tree_offsets, result.tree_n_nodes, result.tree_max_depth);
 
   result.nodes.resize(raw_nodes.size());

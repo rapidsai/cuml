@@ -244,12 +244,15 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
     **Implementation Details:**
 
-    The fast GPU builder constructs all trees in one CUDA launch with one block
-    per tree. For each internal node it selects a random feature, computes the
+    The GPU builder constructs all trees in one CUDA launch with one block per
+    tree. For each internal node it selects a random feature, computes the
     minimum and maximum value for that feature in the current node partition,
-    and draws a random threshold uniformly between those values. Leaf nodes
-    store pre-computed path lengths (`depth + c(n_leaf)`), which keeps inference
-    to a simple tree traversal followed by the Isolation Forest score transform.
+    and draws a random threshold uniformly between those values. Tree nodes,
+    per-tree offsets, and per-tree metadata are stored in RMM-backed global
+    memory, which supports both default and deeper non-default tree settings.
+    Leaf nodes store pre-computed path lengths (`depth + c(n_leaf)`), which
+    keeps inference to a simple tree traversal followed by the Isolation Forest
+    score transform.
 
     Fitted models can be exported to Treelite with ``as_treelite()`` and loaded
     into nvForest with ``as_nvforest()``. The exported Treelite model predicts

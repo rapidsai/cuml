@@ -168,7 +168,7 @@ TEST_F(IsolationForestTest, FitProducesExpectedTreeCount)
   // Verify model was created correctly
   EXPECT_EQ(model.params.n_estimators, n_estimators);
   EXPECT_EQ(model.n_features, n_features);
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
 }
 
 /**
@@ -201,8 +201,46 @@ TEST_F(IsolationForestTest, TreeDepthRespected)
   fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
 
   // Verify model was created (we can't inspect individual trees with new API)
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
   EXPECT_EQ(model.params.max_depth, max_depth);
+}
+
+/**
+ * @brief Test: max_depth above the previous fixed-storage cap fits successfully.
+ */
+TEST_F(IsolationForestTest, DeepTreesFitWithGlobalMemoryStorage)
+{
+  const int n_samples    = 128;
+  const int n_features   = 4;
+  const int n_estimators = 5;
+
+  thrust::device_vector<float> X_rowmajor(n_samples * n_features);
+  thrust::device_vector<float> X_colmajor(n_samples * n_features);
+  raft::random::Rng rng(42);
+  rng.normal(X_rowmajor.data().get(), X_rowmajor.size(), 0.0f, 1.0f, stream);
+  handle->sync_stream(stream);
+  transpose_data(X_rowmajor, X_colmajor, n_samples, n_features);
+
+  IF_params params;
+  params.n_estimators = n_estimators;
+  params.max_samples  = 64;
+  params.max_depth    = 17;
+  params.seed         = 42;
+
+  IsolationForestF model;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+
+  EXPECT_EQ(model.max_nodes_per_tree, 2 * params.max_samples - 1);
+  EXPECT_GT(model.global_nodes.size(), 0);
+
+  thrust::device_vector<float> scores(n_samples);
+  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+
+  thrust::host_vector<float> h_scores = scores;
+  for (int i = 0; i < n_samples; i++) {
+    EXPECT_GE(h_scores[i], 0.0f);
+    EXPECT_LE(h_scores[i], 1.0f);
+  }
 }
 
 /**
@@ -235,7 +273,7 @@ TEST_F(IsolationForestTest, AutoMaxDepthCalculation)
   fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
 
   // Verify model was created with auto max_depth
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
   // Auto depth should be calculated from max_samples
   EXPECT_EQ(model.params.max_samples, max_samples);
 }
@@ -270,7 +308,7 @@ TEST_F(IsolationForestTest, SubsamplingWorks)
 
   // Verify stored max_samples
   EXPECT_EQ(model.n_samples_per_tree, max_samples);
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
 }
 
 /**
@@ -517,7 +555,7 @@ TEST_F(IsolationForestTest, DoublePrecisionSupport)
 
   // Verify model was created
   EXPECT_EQ(model.params.n_estimators, n_estimators);
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
 
   // Compute scores (row-major)
   thrust::device_vector<double> scores(n_samples);
@@ -598,7 +636,7 @@ TEST_F(IsolationForestTest, UniformData)
 
   // Model should fit without error
   EXPECT_EQ(model.params.n_estimators, n_estimators);
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
 
   // Compute scores - all should be similar for uniform data (row-major)
   thrust::device_vector<float> scores(n_samples);
@@ -652,7 +690,7 @@ TEST_F(IsolationForestTest, ManyEstimators)
 
   // Model should be created with all trees
   EXPECT_EQ(model.params.n_estimators, n_estimators);
-  EXPECT_GT(model.fast_trees.size(), 0);
+  EXPECT_GT(model.global_nodes.size(), 0);
 
   // Verify scoring works with many trees (row-major)
   thrust::device_vector<float> scores(n_samples);
@@ -753,6 +791,48 @@ TEST_F(IsolationForestTest, TreeliteExportMetadata)
   ASSERT_EQ(tl_model->leaf_vector_shape.Size(), 2);
   EXPECT_EQ(tl_model->leaf_vector_shape[0], 1);
   EXPECT_EQ(tl_model->leaf_vector_shape[1], 1);
+  EXPECT_EQ(tl_model->num_feature, n_features);
+  EXPECT_TRUE(tl_model->average_tree_output);
+  ASSERT_EQ(model_preset.trees.size(), static_cast<std::size_t>(n_estimators));
+  for (const auto& tree : model_preset.trees) {
+    EXPECT_GT(tree.num_nodes, 0);
+  }
+}
+
+/**
+ * @brief Test: Treelite export works for deep global-memory tree storage.
+ */
+TEST_F(IsolationForestTest, TreeliteExportGlobalMemoryStorage)
+{
+  const int n_samples    = 128;
+  const int n_features   = 6;
+  const int n_estimators = 7;
+
+  thrust::device_vector<float> X_rowmajor(n_samples * n_features);
+  thrust::device_vector<float> X_colmajor(n_samples * n_features);
+  raft::random::Rng rng(42);
+  rng.normal(X_rowmajor.data().get(), X_rowmajor.size(), 0.0f, 1.0f, stream);
+  handle->sync_stream(stream);
+  transpose_data(X_rowmajor, X_colmajor, n_samples, n_features);
+
+  IF_params params;
+  params.n_estimators = n_estimators;
+  params.max_samples  = 64;
+  params.max_depth    = 17;
+  params.seed         = 42;
+
+  IsolationForestF model;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+  ASSERT_GT(model.global_nodes.size(), 0);
+
+  TreeliteModelHandle tl_handle = nullptr;
+  build_treelite_isolation_forest(&tl_handle, *handle, &model);
+  ASSERT_NE(tl_handle, nullptr);
+
+  std::unique_ptr<tl::Model> tl_model(static_cast<tl::Model*>(tl_handle));
+  auto& model_preset = std::get<tl::ModelPreset<float, float>>(tl_model->variant_);
+
+  EXPECT_EQ(tl_model->task_type, tl::TaskType::kRegressor);
   EXPECT_EQ(tl_model->num_feature, n_features);
   EXPECT_TRUE(tl_model->average_tree_output);
   ASSERT_EQ(model_preset.trees.size(), static_cast<std::size_t>(n_estimators));
