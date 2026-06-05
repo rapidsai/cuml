@@ -231,12 +231,7 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            # rapids-pre-commit-hooks: disable-next-line
-            # TODO(26.08): remove "deprecated"
-            assert sig.parameters["sample_weight"].default in (
-                None,
-                "deprecated",
-            )
+            assert sig.parameters["sample_weight"].default is None
         if "copy" in sig.parameters:
             first.append("copy")
             assert (
@@ -324,33 +319,27 @@ def test_regressor_predict_dtype(cls):
 
 
 @pytest.mark.parametrize(
-    "cls, kwargs",
+    "cls",
     [
-        (cuml.LogisticRegression, None),
-        (cuml.RandomForestClassifier, None),
-        (cuml.SVC, None),
-        (cuml.SVC, {"probability": True}),
-        (cuml.LinearSVC, None),
-        (cuml.KNeighborsClassifier, None),
-        (cuml.MBSGDClassifier, None),
-        (cuml.naive_bayes.GaussianNB, None),
-        (cuml.naive_bayes.BernoulliNB, None),
-        (cuml.naive_bayes.ComplementNB, None),
-        (cuml.naive_bayes.CategoricalNB, None),
-        (cuml.naive_bayes.MultinomialNB, None),
+        cuml.LogisticRegression,
+        cuml.RandomForestClassifier,
+        cuml.SVC,
+        cuml.LinearSVC,
+        cuml.KNeighborsClassifier,
+        cuml.MBSGDClassifier,
+        cuml.naive_bayes.GaussianNB,
+        cuml.naive_bayes.BernoulliNB,
+        cuml.naive_bayes.ComplementNB,
+        cuml.naive_bayes.CategoricalNB,
+        cuml.naive_bayes.MultinomialNB,
     ],
-)
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove once `probability` is removed from cuml.svm.SVC.
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
 )
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )
 @pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
-def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
-    model = cls(**(kwargs or {}))
+def test_classifier_label_types(cls, target_kind, dtype_kind):
+    model = cls()
     tags = model.__sklearn_tags__()
 
     supports_multitarget = [cuml.KNeighborsClassifier]

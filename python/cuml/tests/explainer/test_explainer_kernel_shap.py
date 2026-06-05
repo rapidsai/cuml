@@ -80,42 +80,32 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             )
 
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
-)
-def test_exact_classification_datasets(exact_shap_classification_dataset):
+@pytest.mark.parametrize("cls", [cuml.SVC, sklearn.svm.SVC])
+def test_exact_classification_datasets(exact_shap_classification_dataset, cls):
     X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
-    models = []
-    models.append(cuml.SVC(probability=True).fit(X_train, y_train))
-    models.append(
-        CalibratedClassifierCV(sklearn.svm.SVC(), ensemble=False).fit(
-            X_train, y_train
-        )
+    model = CalibratedClassifierCV(cls(), ensemble=False)
+    model.fit(X_train, y_train)
+
+    explainer, shap_values = get_shap_values(
+        model=model.predict_proba,
+        background_dataset=X_train,
+        explained_dataset=X_test,
+        explainer=KernelExplainer,
     )
 
-    for mod in models:
-        explainer, shap_values = get_shap_values(
-            model=mod.predict_proba,
-            background_dataset=X_train,
-            explained_dataset=X_test,
-            explainer=KernelExplainer,
+    # Some values are very small, which mean our tolerance here needs to be
+    # a little looser to avoid false positives from comparisons like
+    # 0.00348627 - 0.00247397. The loose tolerance still tests that the
+    # distribution of the values matches.
+    for idx, svs in enumerate(shap_values):
+        assert_and_log(
+            svs[0],
+            golden_classification_result[idx],
+            float(model.predict_proba(X_test)[0][idx]),
+            explainer.expected_value[idx],
+            tolerance=1e-01,
         )
-
-        # Some values are very small, which mean our tolerance here needs to be
-        # a little looser to avoid false positives from comparisons like
-        # 0.00348627 - 0.00247397. The loose tolerance still tests that the
-        # distribution of the values matches.
-        for idx, svs in enumerate(shap_values):
-            assert_and_log(
-                svs[0],
-                golden_classification_result[idx],
-                float(mod.predict_proba(X_test)[0][idx]),
-                explainer.expected_value[idx],
-                tolerance=1e-01,
-            )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
