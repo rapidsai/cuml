@@ -4,12 +4,11 @@ import cupy as cp
 import numpy as np
 
 from cuml.internals import reflect
-from cuml.internals.array import CumlArray
 from cuml.internals.validation import check_array
 
 
 @reflect
-def seas_test(y, s, convert_dtype=True) -> CumlArray:
+def seas_test(y, s, convert_dtype=True):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
