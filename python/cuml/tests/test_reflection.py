@@ -19,6 +19,7 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.outputs import infer_output_type
 
 OUTPUT_TYPES = ["numpy", "numba", "cupy", "cudf", "pandas"]
 
@@ -134,6 +135,71 @@ def test_using_output_type():
     with pytest.raises(ValueError, match="`output_type` must be one of"):
         with cuml.using_output_type("bad"):
             pass
+
+
+@pytest.mark.parametrize("input_type", OUTPUT_TYPES)
+def test_infer_output_type(input_type):
+    X = rand_array(input_type)
+    output_type = infer_output_type(X)
+    assert output_type == input_type
+
+
+def test_infer_output_type_cuml():
+    a = CumlArray(cp.array([[1, 2], [3, 4]]))
+    b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
+    assert infer_output_type(a) == "cuml"
+    assert infer_output_type(b) == "cuml"
+
+
+class ImplementsArray:
+    def __init__(self, x):
+        self.x = x
+
+    def __array__(self, dtype=None, copy=None):
+        return self.x
+
+
+class ImplementsArrayInterface:
+    def __init__(self, x):
+        self.x = x
+
+    @property
+    def __array_interface__(self):
+        return self.x.__array_interface__
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param([1, 2], id="list"),
+        pytest.param((1, 2), id="tuple"),
+        pytest.param([[1, 2], [3, 4]], id="nested-list"),
+        pytest.param(ImplementsArray(np.array([1, 2])), id="__array__"),
+        pytest.param(
+            ImplementsArrayInterface(np.array([1, 2])),
+            id="__array_interface__",
+        ),
+    ],
+)
+def test_infer_output_type_array_like(obj):
+    assert infer_output_type(obj) == "numpy"
+    assert infer_output_type(obj, array_like="fizz") == "fizz"
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param(None, id="none"),
+        pytest.param(1, id="scalar"),
+        pytest.param(np.int32(1), id="numpy-scalar"),
+        pytest.param("abc", id="string"),
+        pytest.param(b"abc", id="bytes"),
+        pytest.param({"a": 1, "b": 2}, id="dict"),
+        pytest.param(object(), id="arbitrary-object"),
+    ],
+)
+def test_infer_output_type_non_arrays(obj):
+    assert infer_output_type(obj) is None
 
 
 @pytest.mark.parametrize("input_type", OUTPUT_TYPES)

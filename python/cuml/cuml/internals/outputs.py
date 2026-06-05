@@ -6,11 +6,17 @@ import contextlib
 import functools
 import inspect
 
+import cudf
+import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
+import pandas as pd
+import scipy.sparse as sp
 from cupy.cuda import Stream
 
 # TODO: Try to resolve circular import that makes this necessary:
 from cuml.internals import input_utils as iu
+from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.validation import check_features
@@ -267,6 +273,57 @@ def _get_param(sig, name_or_index):
         raise ValueError("Cannot reflect variadic args/kwargs")
 
     return param.name
+
+
+def infer_output_type(array, array_like="numpy"):
+    """Infer the corresponding ``output_type`` given an input array-like.
+
+    Parameters
+    ----------
+    array : array-like
+        The array-like value to infer from.
+    array_like : Any, default="numpy"
+        The value to return if `array` is not an array but is array-like.
+
+    Returns
+    -------
+    output_type : {"cupy", "numpy", "pandas", "cudf", "numba", "cuml", None}
+        The inferred ``output_type``, or ``None`` if not an array-like input.
+    """
+    if isinstance(array, np.ndarray) or sp.issparse(array):
+        return "numpy"
+    elif isinstance(array, cp.ndarray) or cp_sp.issparse(array):
+        return "cupy"
+    elif isinstance(array, (CumlArray, SparseCumlArray)):
+        return "cuml"
+    elif isinstance(array, (cudf.Series, cudf.DataFrame)):
+        return "cudf"
+    elif isinstance(array, (pd.Series, pd.DataFrame)):
+        return "pandas"
+    elif hasattr(array, "__cuda_ndarray__"):
+        return "numba"
+    elif hasattr(array, "__cuda_array_interface__"):
+        return "cupy"
+
+    # Explicitly exclude a few common collections that aren't array-likes. This
+    # matches those also explicitly excluded in our validation routines.
+    if isinstance(array, (str, bytes, dict)):
+        return None
+
+    # Exclude numpy scalars, which also implement `__array__`
+    if np.isscalar(array):
+        return None
+
+    # Types with any of these attributes _may_ be coerced to an array by our
+    # validation methods (e.g. `check_array`). The actual instance may error at
+    # that point, but that's fine, this is just a best effort inference to
+    # exclude non-array-like things like `None`/`1`/...
+    for name in ["__array__", "__array_interface__", "__len__"]:
+        if hasattr(array, name):
+            return array_like
+
+    # Not an array-like input, just return None
+    return None
 
 
 def coerce_arrays(res, output_type):
