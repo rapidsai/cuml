@@ -218,7 +218,7 @@ def test_max_features_parameter(blobs_data, max_features):
 
 @pytest.mark.parametrize("bootstrap", [True, False])
 def test_bootstrap_parameter(blobs_data, bootstrap):
-    """bootstrap parameter should be respected."""
+    """Both sklearn bootstrap sampling modes should fit and predict."""
     clf = cuIsolationForest(
         n_estimators=10, bootstrap=bootstrap, random_state=42
     )
@@ -353,6 +353,22 @@ def test_score_convention_matches_sklearn(synthetic_data_small):
     mean_outlier_df = np.mean(df[outlier_mask])
     mean_inlier_df = np.mean(df[inlier_mask])
     assert mean_outlier_df < mean_inlier_df
+
+
+def test_score_decision_predict_consistency(synthetic_data_small):
+    """decision_function and predict should be derived from score_samples."""
+    X, _ = synthetic_data_small
+    clf = cuIsolationForest(n_estimators=50, random_state=42)
+    clf.fit(X)
+
+    scores = np.asarray(clf.score_samples(X))
+    decision = np.asarray(clf.decision_function(X))
+    predictions = np.asarray(clf.predict(X))
+
+    np.testing.assert_allclose(decision, scores - clf.offset_)
+    np.testing.assert_array_equal(
+        predictions, np.where(decision < 0, -1, 1)
+    )
 
 
 def test_similar_results_to_sklearn(blobs_data):

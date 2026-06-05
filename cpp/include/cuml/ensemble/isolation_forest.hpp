@@ -27,6 +27,7 @@ struct IF_params {
   int n_estimators = 100;   ///< Number of isolation trees
   int max_samples = 256;    ///< Samples per tree (default 256)
   int max_depth = -1;       ///< Max depth (-1 = auto: ceil(log2(max_samples)))
+  bool bootstrap = false;   ///< If true, sample rows with replacement
   uint64_t seed = 0;        ///< Random seed
 };
 

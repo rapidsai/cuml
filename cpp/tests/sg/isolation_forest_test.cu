@@ -16,6 +16,8 @@
 
 #include <cuml/ensemble/isolation_forest.hpp>
 
+#include "../../src/isolation_forest/isolation_tree_builder.cuh"
+
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
 #include <raft/random/rng.cuh>
@@ -38,7 +40,9 @@
 #include <treelite/enum/task_type.h>
 #include <treelite/tree.h>
 
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <memory>
 #include <numeric>
 #include <random>
@@ -46,6 +50,32 @@
 
 namespace ML {
 namespace tl = treelite;
+
+__global__ void sample_rows_for_test(size_t n_rows,
+                                     int max_samples,
+                                     bool bootstrap,
+                                     uint64_t seed,
+                                     size_t* sample_indices)
+{
+  if (threadIdx.x != 0 || blockIdx.x != 0) return;
+
+  curandState rng_state;
+  curand_init(seed, 0, 0, &rng_state);
+
+  if (bootstrap) {
+    for (int i = 0; i < max_samples; ++i) {
+      sample_indices[i] = IsolationTree::sample_bounded(&rng_state, n_rows);
+    }
+  } else {
+    size_t start = n_rows - static_cast<size_t>(max_samples);
+    for (int i = 0; i < max_samples; ++i) {
+      size_t j = start + static_cast<size_t>(i);
+      size_t t = IsolationTree::sample_bounded(&rng_state, j + 1);
+      sample_indices[i] =
+        IsolationTree::contains_sample(sample_indices, i, t) ? j : t;
+    }
+  }
+}
 
 /**
  * @brief Base test fixture for Isolation Forest tests.
@@ -309,6 +339,45 @@ TEST_F(IsolationForestTest, SubsamplingWorks)
   // Verify stored max_samples
   EXPECT_EQ(model.n_samples_per_tree, max_samples);
   EXPECT_GT(model.global_nodes.size(), 0);
+}
+
+TEST_F(IsolationForestTest, BootstrapFalseSamplesWithoutReplacement)
+{
+  const size_t n_rows  = 64;
+  const int max_samples = 64;
+  thrust::device_vector<size_t> sampled(max_samples);
+
+  sample_rows_for_test<<<1, 1, 0, stream>>>(n_rows, max_samples, false, 42, sampled.data().get());
+  RAFT_CUDA_TRY(cudaGetLastError());
+  handle->sync_stream(stream);
+
+  thrust::host_vector<size_t> h_sampled = sampled;
+  std::sort(h_sampled.begin(), h_sampled.end());
+  auto last = std::unique(h_sampled.begin(), h_sampled.end());
+
+  EXPECT_EQ(std::distance(h_sampled.begin(), last), max_samples);
+  EXPECT_EQ(h_sampled.front(), 0);
+  EXPECT_EQ(h_sampled.back(), n_rows - 1);
+}
+
+TEST_F(IsolationForestTest, BootstrapTrueSamplesWithReplacement)
+{
+  const size_t n_rows  = 4;
+  const int max_samples = 64;
+  thrust::device_vector<size_t> sampled(max_samples);
+
+  sample_rows_for_test<<<1, 1, 0, stream>>>(n_rows, max_samples, true, 42, sampled.data().get());
+  RAFT_CUDA_TRY(cudaGetLastError());
+  handle->sync_stream(stream);
+
+  thrust::host_vector<size_t> h_sampled = sampled;
+  for (size_t row : h_sampled) {
+    EXPECT_LT(row, n_rows);
+  }
+
+  std::sort(h_sampled.begin(), h_sampled.end());
+  auto last = std::unique(h_sampled.begin(), h_sampled.end());
+  EXPECT_LT(std::distance(h_sampled.begin(), last), max_samples);
 }
 
 /**

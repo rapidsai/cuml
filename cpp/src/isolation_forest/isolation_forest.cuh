@@ -118,6 +118,7 @@ class IsolationForest {
         handle, input, n_rows, n_cols,
         params.n_estimators, n_sampled_rows, max_depth,
         model->max_nodes_per_tree,
+        params.bootstrap,
         params.seed,
         static_cast<IsolationTree::IFNode*>(model->global_nodes.data()),
         static_cast<int*>(model->global_tree_offsets.data()),
