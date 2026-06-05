@@ -294,9 +294,9 @@ def infer_output_type(array, array_like="numpy"):
         return "cupy"
     elif isinstance(array, (CumlArray, SparseCumlArray)):
         return "cuml"
-    elif isinstance(array, (cudf.Series, cudf.DataFrame)):
+    elif isinstance(array, (cudf.DataFrame, cudf.Series, cudf.Index)):
         return "cudf"
-    elif isinstance(array, (pd.Series, pd.DataFrame)):
+    elif isinstance(array, (pd.DataFrame, pd.Series, pd.Index)):
         return "pandas"
     elif hasattr(array, "__cuda_ndarray__"):
         return "numba"

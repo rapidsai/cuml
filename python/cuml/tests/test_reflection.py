@@ -179,6 +179,15 @@ def test_infer_output_type_cuml():
     assert infer_output_type(b) == "cuml"
 
 
+@pytest.mark.parametrize("kind", ["cudf", "pandas"])
+def test_infer_output_type_dataframes(kind):
+    ns = cudf if kind == "cudf" else pd
+    df = ns.DataFrame({"x": [1, 2, 3]}, index=[10, 20, 30])
+    assert infer_output_type(df) == kind
+    assert infer_output_type(df.x) == kind
+    assert infer_output_type(df.index) == kind
+
+
 def test_infer_output_type_cuda_array_interface():
     x = ImplementsCudaArrayInterface(cp.array([1, 2, 3]))
     assert infer_output_type(x) == "cupy"
