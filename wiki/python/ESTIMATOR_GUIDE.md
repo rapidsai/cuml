@@ -122,21 +122,7 @@ At a high level, all cuML Estimators must:
          ]
    ```
 
-7. Override estimator tags only when the defaults are wrong. Prefer existing [Mixins](../../python/cuml/cuml/internals/mixins.py) for common capabilities such as preferred input order or sparse support. For one-off static tags, implement `_more_static_tags`:
-   ```python
-    @staticmethod
-    def _more_static_tags():
-       return {
-            "requires_y": True
-       }
-   ```
-   If a tag depends on constructor or runtime state, implement `_more_tags`:
-   ```python
-      def _more_tags(self):
-           return {
-               "allow_nan": is_scalar_nan(self.missing_values)
-            }
-   ```
+7. Override estimator tags only when the defaults are wrong. Prefer existing [Mixins](../../python/cuml/cuml/internals/mixins.py) for common capabilities such as preferred input order, sparse support, string input, or NaN support. See [Estimator Tags and cuML-Specific Tags](#estimator-tags-and-cuml-specific-tags) for custom tag overrides.
 
 For most estimators, the checklist and skeleton below are enough. The later sections explain the contract and uncommon cases.
 
@@ -322,25 +308,24 @@ Estimator tags describe capabilities such as sparse support, positive-input requ
    Device-accessible input types accepted by the estimator. `2darray` includes CuPy, Numba device arrays, and cuDF objects. `sparse` includes CuPy sparse arrays.
 - `preferred_input_order` (default=None)
    One of ['F', 'C', None]. Use `F` or `C` only when the estimator consistently benefits from that dense memory layout; otherwise leave it as `None`.
-- `dynamic_tags` (default=False)
-   Whether tags depend on runtime state. `Base` sets this automatically when an estimator defines `_more_tags`.
 
-Tag resolution follows Python MRO. If multiple base classes define the same tag, the class closer to the final estimator wins:
+Use `__sklearn_tags__()` for estimator-specific tag overrides. The method should call `super().__sklearn_tags__()`, mutate the returned structured `Tags` object, and return it:
 
-Class:
 ```python
-class DBSCAN(Base,
-             ClusterMixin,
-             CMajorInputTagMixin):
+def __sklearn_tags__(self):
+   tags = super().__sklearn_tags__()
+   tags.input_tags.positive_only = True
+   return tags
 ```
 
-MRO:
+Prefer the existing tag mixins for common capabilities. Tag-providing mixins are cooperative: each mixin calls `super().__sklearn_tags__()` and mutates the returned object. Put tag mixins to the left of `Base` so the `super()` chain reaches the mixins before `Base` and `TagsMixin`:
+
 ```python
->>> cuml.DBSCAN.__mro__
-(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.internals.base.Base'>, <class 'cuml.internals.mixins.TagsMixin'>, <class 'cuml.internals.mixins.ClusterMixin'>, <class 'cuml.internals.mixins.CMajorInputTagMixin'>, <class 'object'>)
+class MyEstimator(CMajorInputTagMixin, AllowNaNTagMixin, Base):
+   ...
 ```
 
-In this example, `ClusterMixin` tags would override `CMajorInputTagMixin` tags if both defined the same key.
+Do not add `_more_tags`, `_more_static_tags`, or `_get_tags` to new estimators. Those are legacy scikit-learn tag APIs and can cause compatibility warnings or fallback behavior in newer scikit-learn versions.
 
 ### Estimator Array-Like Attributes
 
