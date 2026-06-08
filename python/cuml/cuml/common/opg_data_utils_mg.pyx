@@ -1,12 +1,8 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
-
-from cuml.common import input_to_cuml_array
-from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
@@ -15,15 +11,15 @@ from libc.stdlib cimport free, malloc
 from cuml.common.opg_data_utils_mg cimport *
 
 
-def build_data_t(arys):
+def build_data_t(parts):
     """
     Function to create a floatData_t** or doubleData_t** from a list of
-    cumlArrays
+    cupy arrays
 
     Parameters
     ----------
-
-    arys: list of cumlArrays of the same dtype, np.float32 or np.float64
+    parts: list[cp.ndarray]
+        A list of cupy arrays, all with the same dtype (float32 or float64).
 
     Returns
     -------
@@ -31,37 +27,31 @@ def build_data_t(arys):
          depending on dtype of input
 
     """
-    cdef vector[floatData_t *] *data_f32 = new vector[floatData_t *]()
-    cdef vector[doubleData_t *] *data_f64 = new vector[doubleData_t *]()
+    cdef vector[floatData_t *] *data_f32
+    cdef vector[doubleData_t *] *data_f64
 
-    cdef uintptr_t ary_ptr
     cdef floatData_t *data_f
     cdef doubleData_t *data_d
-    cdef uintptr_t data_ptr
 
-    if arys[0].dtype == np.float32:
-
-        for idx in range(len(arys)):
+    if parts[0].dtype == np.float32:
+        data_f32 = new vector[floatData_t *]()
+        for part in parts:
             data_f = <floatData_t*> malloc(sizeof(floatData_t))
-            ary_ptr = arys[idx].ptr
-            data_f.ptr = <float*> ary_ptr
-            data_f.totalSize = len(arys[idx])
+            data_f.ptr = <float*><uintptr_t>(part.data.ptr)
+            data_f.totalSize = len(part)
             data_f32.push_back(data_f)
 
-        data_ptr = <uintptr_t> data_f32
-        return data_ptr
+        return <uintptr_t> data_f32
 
-    elif arys[0].dtype == np.float64:
-
-        for idx in range(len(arys)):
+    elif parts[0].dtype == np.float64:
+        data_f64 = new vector[doubleData_t *]()
+        for part in parts:
             data_d = <doubleData_t*> malloc(sizeof(doubleData_t))
-            ary_ptr = arys[idx].ptr
-            data_d.ptr = <double*> ary_ptr
-            data_d.totalSize = len(arys[idx])
+            data_d.ptr = <double*><uintptr_t>(part.data.ptr)
+            data_d.totalSize = len(part)
             data_f64.push_back(data_d)
 
-        data_ptr = <uintptr_t> data_f64
-        return data_ptr
+        return <uintptr_t> data_f64
 
     else:
         raise TypeError('build_data_t: Arrays passed must be np.float32 or \
@@ -87,12 +77,12 @@ def free_data_t(data_t, dtype):
         d32 = <vector[floatData_t*]*> data_ptr
         for x_i in range(d32.size()):
             free(d32.at(x_i))
-        free(d32)
+        del d32
     else:
         d64 = <vector[doubleData_t*]*> data_ptr
         for x_i in range(d64.size()):
             free(d64.at(x_i))
-        free(d64)
+        del d64
 
 
 def build_rank_size_pair(parts_to_sizes, rank):
@@ -138,7 +128,7 @@ def free_rank_size_pair(rank_size_t):
 
     for x_i in range(rsp_vec.size()):
         free(rsp_vec.at(x_i))
-    free(rsp_vec)
+    del rsp_vec
 
 
 def build_part_descriptor(m, n, rank_size_t, rank):
@@ -168,8 +158,7 @@ def build_part_descriptor(m, n, rank_size_t, rank):
                              <vector[RankSizePair*]>deref(rsp_vec),
                              <int>rank)
 
-    cdef uintptr_t desc_ptr = <uintptr_t>descriptor
-    return desc_ptr
+    return <uintptr_t>descriptor
 
 
 def free_part_descriptor(descriptor_ptr):
@@ -179,57 +168,5 @@ def free_part_descriptor(descriptor_ptr):
     ----------
     descriptor_ptr: PartDescriptor* to be freed
     """
-    cdef PartDescriptor *desc_c \
-        = <PartDescriptor*><size_t>descriptor_ptr
-    free(desc_c)
-
-
-def build_pred_or_trans_arys(arys, order, dtype):
-    output_arys = []
-    for i in range(len(arys)):
-        out = CumlArray.zeros(arys[i].shape,
-                              order=order,
-                              dtype=dtype)
-
-        output_arys.append(out)
-
-    return output_arys
-
-
-def _build_part_inputs(cuda_arr_ifaces,
-                       parts_to_ranks,
-                       m, n, local_rank,
-                       convert_dtype):
-
-    cuml_arr_ifaces = []
-    for arr in cuda_arr_ifaces:
-        X_m, _, _, _ = \
-            input_to_cuml_array(arr, order="F",
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32])
-        cuml_arr_ifaces.append(X_m)
-
-    cdef vector[floatData_t*] *local_parts = new vector[floatData_t*]()
-    for arr in cuml_arr_ifaces:
-        data = <floatData_t*>malloc(sizeof(floatData_t))
-        data.ptr = <float*><uintptr_t>arr.ptr
-        data.totalSize = <size_t>arr.shape[0]*arr.shape[1]*sizeof(float)
-        local_parts.push_back(data)
-
-    cdef vector[RankSizePair*] partsToRanks
-    for idx, rankToSize in enumerate(parts_to_ranks):
-        rank, size = rankToSize
-        rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
-        partsToRanks.push_back(rsp)
-
-    cdef PartDescriptor *descriptor = \
-        new PartDescriptor(<size_t>m,
-                           <size_t>n,
-                           <vector[RankSizePair*]>partsToRanks,
-                           <int>local_rank)
-
-    return cuml_arr_ifaces, <uintptr_t>local_parts, <uintptr_t>descriptor
+    cdef PartDescriptor *desc_c = <PartDescriptor*><size_t>descriptor_ptr
+    del desc_c
