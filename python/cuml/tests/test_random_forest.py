@@ -1032,6 +1032,28 @@ def test_max_features(max_features, sol):
     assert res == sol
 
 
+def test_rf_feature_sampling_retries_until_valid_split():
+    n_samples = 128
+    n_features = 32
+    X = np.zeros((n_samples, n_features), dtype=np.float32)
+    y = np.zeros(n_samples, dtype=np.int32)
+    y[n_samples // 2 :] = 1
+    X[:, 0] = y
+
+    for random_state in range(8):
+        clf = curfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            n_bins=4,
+            n_streams=1,
+            random_state=random_state,
+        )
+        clf.fit(X, y)
+        assert accuracy_score(y, clf.predict(X)) == 1.0
+
+
 def test_rf_predict_returns_int():
     X, y = make_classification()
 

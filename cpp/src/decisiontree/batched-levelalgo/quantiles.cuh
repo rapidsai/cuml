@@ -37,10 +37,7 @@ static __global__ void gatherUniformSampledColumnKernel(
   T* out, const T* data, int sample_count, int n_rows, int col, uint64_t seed)
 {
   int tid       = blockIdx.x * blockDim.x + threadIdx.x;
-  auto col_seed = fnv1a32_basis;
-  col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed));
-  col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(seed >> 32));
-  col_seed      = fnv1a32(col_seed, static_cast<uint32_t>(col));
+  auto col_seed = fnv1a32_hash(seed, col);
   // Sampling is with replacement. Duplicate values from sample collisions are
   // removed later when quantile candidates are compacted with thrust::unique.
   for (int sample_idx = tid; sample_idx < sample_count; sample_idx += blockDim.x * gridDim.x) {
