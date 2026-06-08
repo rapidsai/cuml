@@ -16,7 +16,7 @@ from cuml.solvers.sgd import fit_sgd
 
 
 class MBSGDClassifier(
-    Base, LinearClassifierMixin, ClassifierMixin, FMajorInputTagMixin
+    LinearClassifierMixin, ClassifierMixin, FMajorInputTagMixin, Base
 ):
     """
     Linear models (linear SVM, logistic regression, or linear regression)

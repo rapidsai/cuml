@@ -38,7 +38,6 @@ from scipy.special import boxcox
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
-    StatelessTagMixin,
 )
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.validation import check_is_fitted, check_array, check_inputs
@@ -1860,9 +1859,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
 
 class Normalizer(TransformerMixin,
-                 BaseEstimator,
-                 StatelessTagMixin,
-                 SparseInputTagMixin):
+                 SparseInputTagMixin,
+                 BaseEstimator):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1991,9 +1989,8 @@ def binarize(X, *, threshold=0.0, copy=True):
 
 
 class Binarizer(TransformerMixin,
-                BaseEstimator,
-                StatelessTagMixin,
-                SparseInputTagMixin):
+                SparseInputTagMixin,
+                BaseEstimator):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than

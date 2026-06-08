@@ -223,7 +223,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         # Store whether sparse inputs are supported, unless overridden
         if not hasattr(cls, "_gpu_supports_sparse"):
             cls._gpu_supports_sparse = (
-                "sparse" in cls._gpu_class._get_tags()["X_types_gpu"]
+                "sparse" in cls._gpu_class().__sklearn_tags__().X_types_gpu
             )
 
         # Wrap __init__ to ensure signature compatibility.
@@ -723,18 +723,12 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         ):
             self._cpu._validate_params()
 
-    def _get_tags(self):
-        return self._cpu._get_tags()
-
-    def _more_tags(self):
-        return self._cpu._more_tags()
-
     def _html_repr(self):
         self._sync_attrs_to_cpu()
         return self._cpu._html_repr()
 
 
-class _ArrayAPIWrapper(Base, InteropMixin):
+class _ArrayAPIWrapper(InteropMixin, Base):
     """Wraps an array-api enabled sklearn estimator as a cuml estimator.
 
     This is a **bare-bones implementation**, implementing just enough features

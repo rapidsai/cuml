@@ -86,7 +86,7 @@ def get_fil_device_type() -> DeviceType:
     return GlobalSettings().fil_device_type
 
 
-class ForestInference(Base, CMajorInputTagMixin):
+class ForestInference(CMajorInputTagMixin, Base):
     def __init__(
         self,
         *,
