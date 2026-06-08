@@ -341,6 +341,20 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                 f"`{self._cpu_class.__name__}` fitted attributes synced to CPU"
             )
 
+    def _reset_cpu(self) -> None:
+        """Reset `_cpu`, dropping all fitted attributes"""
+        # XXX: sklearn.clone doesn't copy `_parent_callback_ctx` (but does copy
+        # other private state like `_skl_callbacks`, `_sklearn_output_config`,
+        # ...). Since we store the context on the CPU estimator, we want this
+        # to persist even when resetting the CPU implementation.
+        cpu = sklearn.clone(self._cpu)
+        if (
+            ctx := getattr(self._cpu, "_parent_callback_ctx", None)
+        ) is not None:
+            cpu._parent_callback_ctx = ctx
+        self._cpu = cpu
+        self._synced = False
+
     @classmethod
     def _reconstruct_from_cpu(cls, cpu, load_on_gpu=True):
         """Reconstruct a proxy estimator from its CPU counterpart.
@@ -359,7 +373,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                 self._gpu = None
             else:
                 # Supported on GPU, clear fit attributes from CPU to release host memory
-                self._cpu = sklearn.clone(self._cpu)
+                self._reset_cpu()
         else:
             # Estimator is unfit or should remain on CPU
             self._gpu = None
@@ -371,6 +385,16 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
 
         if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
             raise UnsupportedOnGPU("Sparse inputs are not supported")
+
+        if getattr(self._cpu, "_skl_callbacks", ()) and method in (
+            "fit",
+            "fit_transform",
+            "fit_predict",
+            "partial_fit",
+        ):
+            raise UnsupportedOnGPU(
+                "Estimators with callbacks are not supported"
+            )
 
         # Determine the function to call. Check for an override on the proxy class,
         # falling back to the GPU class method if one exists.
@@ -426,8 +450,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                 # Partial fit on already fit models should reuse existing state.
                 if self._gpu is not None:
                     # GPU partial_fit will invalidate CPU state, reset on CPU
-                    self._cpu = sklearn.clone(self._cpu)
-                    self._synced = False
+                    self._reset_cpu()
             else:
                 # Reinitialize GPU model for the current hyperparameters
                 try:
@@ -440,8 +463,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                     self._gpu = None
                 else:
                     # New estimator successfully initialized on GPU, reset on CPU
-                    self._cpu = sklearn.clone(self._cpu)
-                    self._synced = False
+                    self._reset_cpu()
 
         if self._gpu is not None:
             # The hyperparameters are supported, try calling the method
@@ -455,6 +477,10 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                 # Unsupported. If it's a `fit` we need to clear
                 # the GPU state before falling back to CPU.
                 if is_fit:
+                    if method == "partial_fit":
+                        # For `partial_fit` we want to sync any existing state
+                        # before dropping the GPU model
+                        self._sync_attrs_to_cpu()
                     self._gpu = None
 
         if reason is not None:
@@ -516,6 +542,14 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
+    # set_callbacks handling                                   #
+    ############################################################
+
+    def _gpu_set_callbacks(self, *callbacks):
+        self._cpu.set_callbacks(*callbacks)
+        return self._gpu
+
+    ############################################################
     # Standard magic methods                                   #
     ############################################################
 
@@ -560,6 +594,9 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                         "an issue: https://github.com/rapidsai/cuml/issues."
                     ) from None
                 raise
+        elif name in ("_parent_callback_ctx", "_skl_callbacks"):
+            # sklearn.callback state always goes through CPU estimator
+            return getattr(self._cpu, name)
         elif is_private:
             # Don't proxy magic methods or private attributes by default
             raise AttributeError(
@@ -572,6 +609,9 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         if name in ("_cpu", "_gpu", "_synced"):
             # Internal state
             object.__setattr__(self, name, value)
+        elif name == "_parent_callback_ctx":
+            # sklearn.callback state always goes through CPU estimator
+            self._cpu._parent_callback_ctx = value
         elif name in self._cpu._get_param_names():
             # Hyperparameter, set on CPU
             setattr(self._cpu, name, value)
@@ -590,6 +630,9 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         if name in ("_cpu", "_gpu", "_synced"):
             # Internal state. We never call this, just here for parity.
             object.__delattr__(self, name)
+        elif name == "_parent_callback_ctx":
+            # sklearn.callback state always goes through CPU estimator
+            del self._cpu._parent_callback_ctx
         else:
             # No normal workflow deletes attributes (hyperparameters or otherwise)
             # from a sklearn estimator. The sklearn tests do sometimes though.
@@ -686,14 +729,9 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     def _more_tags(self):
         return self._cpu._more_tags()
 
-    def _repr_mimebundle_(self, **kwargs):
+    def _html_repr(self):
         self._sync_attrs_to_cpu()
-        return self._cpu._repr_mimebundle_(**kwargs)
-
-    @property
-    def _repr_html_(self):
-        self._sync_attrs_to_cpu()
-        return self._cpu._repr_html_
+        return self._cpu._html_repr()
 
 
 class _ArrayAPIWrapper(Base, InteropMixin):

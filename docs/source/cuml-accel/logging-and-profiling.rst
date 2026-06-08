@@ -52,17 +52,19 @@ When using the programmatic installation method, you can set the log level direc
    # Install with warning logging (default)
    cuml.accel.install(log_level="warn")
 
-Jupyter Notebooks
------------------
+Jupyter/IPython
+---------------
 
-Since the magic command doesn't accept arguments, use the programmatic installation:
+The log level may be set in Jupyter notebooks or IPython through the
+``cuml.accel.log_level`` line magic after loading the ``cuml.accel`` extension:
 
 .. code-block:: python
 
-   import cuml
+   # Load the cuml.accel extension, enabling cuml.accel
+   %load_ext cuml.accel
 
-   # Install with desired log level before other imports
-   cuml.accel.install(log_level="debug")
+   # Set the log level to info
+   %cuml.accel.log_level info
 
 Environment Variable
 ~~~~~~~~~~~~~~~~~~~~

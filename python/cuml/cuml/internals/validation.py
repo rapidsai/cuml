@@ -4,6 +4,7 @@
 #
 import numbers
 import warnings
+from contextlib import contextmanager
 
 import cudf
 import cudf.pandas
@@ -16,7 +17,9 @@ import sklearn
 from packaging.version import Version
 from pandas.api.types import is_extension_array_dtype, is_string_dtype
 from sklearn.exceptions import DataConversionWarning
-from sklearn.utils.validation import check_is_fitted
+from sklearn.utils.validation import (
+    check_is_fitted as _sklearn_check_is_fitted,
+)
 
 __all__ = (
     "check_is_fitted",
@@ -53,6 +56,29 @@ def _dataframe_numpy_dtype(dtypes):
     if any(dt == "object" or is_string_dtype(dt) for dt in dtypes):
         return np.dtype("object")
     return None
+
+
+_SKLEARN_LEGACY_TAG_WARNING_MESSAGES = (
+    r"The `_get_tags` method is deprecated in 1\.6 and will be removed in 1\.7.*",
+    r"The .* use `_get_tags` and `_more_tags`.*",
+)
+
+
+@contextmanager
+def _suppress_sklearn_legacy_tag_warnings():
+    with warnings.catch_warnings():
+        for message in _SKLEARN_LEGACY_TAG_WARNING_MESSAGES:
+            warnings.filterwarnings(
+                "ignore",
+                message=message,
+                category=FutureWarning,
+            )
+        yield
+
+
+def check_is_fitted(*args, **kwargs):
+    with _suppress_sklearn_legacy_tag_warnings():
+        return _sklearn_check_is_fitted(*args, **kwargs)
 
 
 def check_random_seed(random_state) -> int:

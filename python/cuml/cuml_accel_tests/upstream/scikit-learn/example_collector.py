@@ -31,12 +31,29 @@ class ExampleNetworkError(UserWarning):
 _NETWORK_ERROR_PATTERNS = (
     "urllib.error.HTTPError",
     "urllib.error.URLError",
+    "http.client.RemoteDisconnected",
     "http.client.IncompleteRead",
+    "http.client.BadStatusLine",
     "ConnectionError",
+    "ConnectionAbortedError",
+    "ConnectionRefusedError",
     "ConnectionResetError",
+    "RemoteDisconnected",
     "TimeoutError",
+    "requests.exceptions.ConnectionError",
+    "requests.exceptions.Timeout",
+    "sklearn.datasets._openml.OpenMLError",
+    "socket.gaierror",
     "socket.timeout",
+    "ssl.SSLError",
 )
+
+
+def _network_error_pattern(output):
+    for pattern in _NETWORK_ERROR_PATTERNS:
+        if pattern in output:
+            return pattern
+    return None
 
 
 class _FakeModule:
@@ -97,14 +114,14 @@ class ExampleItem(pytest.Item):
             pytest.xfail(reason=f"Timeout: example exceeded {timeout}s")
         if result.returncode != 0:
             stderr = result.stderr
-            for pattern in _NETWORK_ERROR_PATTERNS:
-                if pattern in stderr:
-                    warnings.warn(
-                        f"Example {self.path.name} failed due to network error"
-                        f" ({pattern})",
-                        ExampleNetworkError,
-                    )
-                    pytest.xfail(reason=f"Network error: {pattern}")
+            pattern = _network_error_pattern(result.stderr + result.stdout)
+            if pattern:
+                warnings.warn(
+                    f"Example {self.path.name} failed due to network error"
+                    f" ({pattern})",
+                    ExampleNetworkError,
+                )
+                pytest.xfail(reason=f"Network error: {pattern}")
             if len(stderr) > 4000:
                 stderr = "...\n" + stderr[-4000:]
             raise ExampleFailed(stderr)
