@@ -11,11 +11,10 @@ import pylibraft.common.handle
 import cuml
 import cuml.common
 import cuml.internals
-import cuml.internals.input_utils
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
-from cuml.internals.input_utils import determine_array_type
 from cuml.internals.mixins import TagsMixin
+from cuml.internals.outputs import infer_output_type
 
 _THREAD_STATE = threading.local()
 
@@ -192,7 +191,7 @@ class Base(TagsMixin):
         return self
 
     def _set_output_type(self, inp):
-        self._input_type = determine_array_type(inp)
+        self._input_type = infer_output_type(inp)
 
     def _get_output_type(self, inp=None):
         """
@@ -214,7 +213,7 @@ class Base(TagsMixin):
                 output_type = self._input_type
             else:
                 # Determine the output from the input
-                output_type = determine_array_type(inp)
+                output_type = infer_output_type(inp)
 
         return output_type
 
