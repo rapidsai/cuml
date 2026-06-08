@@ -156,14 +156,8 @@ class _BaseImputer(TransformerMixin):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-def _imputer_sklearn_tags(estimator):
-    tags = BaseEstimator.__sklearn_tags__(estimator)
-    _ensure_transformer_tags(tags)
-    return tags
-
-
-class SimpleImputer(_BaseImputer, BaseEstimator,
-                    SparseInputTagMixin, AllowNaNTagMixin):
+class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
+                    _BaseImputer, BaseEstimator):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -249,10 +243,8 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
     statistics_ = CumlArrayDescriptor()
 
     def __sklearn_tags__(self):
-        tags = _imputer_sklearn_tags(self)
-        tags.input_tags.sparse = True
-        tags.input_tags.allow_nan = True
-        tags.X_types_gpu = ["2darray", "sparse"]
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
         return tags
 
     def __init__(self, *, missing_values=np.nan, strategy="mean",
@@ -497,11 +489,11 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         return X
 
 
-class MissingIndicator(TransformerMixin,
-                       BaseEstimator,
-                       AllowNaNTagMixin,
+class MissingIndicator(AllowNaNTagMixin,
                        SparseInputTagMixin,
-                       StringInputTagMixin):
+                       StringInputTagMixin,
+                       TransformerMixin,
+                       BaseEstimator):
     """Binary indicators for missing values.
 
     Note that this component typically should not be used in a vanilla
@@ -567,10 +559,8 @@ class MissingIndicator(TransformerMixin,
     features_ = CumlArrayDescriptor()
 
     def __sklearn_tags__(self):
-        tags = _imputer_sklearn_tags(self)
-        tags.input_tags.allow_nan = True
-        tags.input_tags.sparse = True
-        tags.input_tags.string = True
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
         tags.X_types_gpu = ["2darray", "sparse", "string"]
         return tags
 
