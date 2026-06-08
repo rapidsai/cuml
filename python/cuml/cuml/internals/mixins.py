@@ -28,14 +28,6 @@ class CumlTags(Tags):
     X_types_gpu: list[str] = field(default_factory=lambda: ["2darray"])
 
 
-def _default_sklearn_tags():
-    return CumlTags(
-        estimator_type=None,
-        target_tags=TargetTags(required=False),
-        input_tags=InputTags(two_d_array=True),
-    )
-
-
 def _ensure_transformer_tags(tags):
     if tags.transformer_tags is None:
         tags.transformer_tags = TransformerTags()
@@ -52,7 +44,11 @@ class TagsMixin:
     """
 
     def __sklearn_tags__(self):
-        return _default_sklearn_tags()
+        return CumlTags(
+            estimator_type=None,
+            target_tags=TargetTags(required=False),
+            input_tags=InputTags(two_d_array=True),
+        )
 
 
 ###############################################################################
