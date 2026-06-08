@@ -45,7 +45,7 @@ from ..utils.validation import FLOAT_DTYPES
 
 
 def is_scalar_nan(x):
-    return bool(isinstance(x, numbers.Real) and np.isnan(x))
+    return bool(isinstance(x, numbers.Real) and cpu_np.isnan(x))
 
 
 def _check_inputs_dtype(X, missing_values):
@@ -152,8 +152,10 @@ class _BaseImputer(TransformerMixin):
 
         return hstack((X_imputed, X_indicator))
 
-    def _more_tags(self):
-        return {'allow_nan': is_scalar_nan(self.missing_values)}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = is_scalar_nan(self.missing_values)
+        return tags
 
 
 class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
