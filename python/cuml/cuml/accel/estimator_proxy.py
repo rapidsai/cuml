@@ -542,6 +542,14 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
+    # set_callbacks handling                                   #
+    ############################################################
+
+    def _gpu_set_callbacks(self, *callbacks):
+        self._cpu.set_callbacks(*callbacks)
+        return self._gpu
+
+    ############################################################
     # Standard magic methods                                   #
     ############################################################
 
@@ -596,10 +604,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
             )
 
         return getattr(self._cpu, name)
-
-    def _gpu_set_callbacks(self, *callbacks):
-        self._cpu.set_callbacks(*callbacks)
-        return self._gpu
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name in ("_cpu", "_gpu", "_synced"):
@@ -725,14 +729,9 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
     def _more_tags(self):
         return self._cpu._more_tags()
 
-    def _repr_mimebundle_(self, **kwargs):
+    def _html_repr(self):
         self._sync_attrs_to_cpu()
-        return self._cpu._repr_mimebundle_(**kwargs)
-
-    @property
-    def _repr_html_(self):
-        self._sync_attrs_to_cpu()
-        return self._cpu._repr_html_
+        return self._cpu._html_repr()
 
 
 class _ArrayAPIWrapper(Base, InteropMixin):

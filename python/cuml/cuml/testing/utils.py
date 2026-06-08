@@ -14,7 +14,6 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from sklearn.metrics import brier_score_loss, mean_squared_error
 
 from cuml.internals.base import Base
 from cuml.internals.input_utils import input_to_cuml_array, is_array_like
@@ -612,22 +611,6 @@ def compare_svm(
     intersection_len = len(support1.intersection(support2))
     average_len = (len(support1) + len(support2)) / 2
     assert intersection_len > average_len / 8
-
-
-def compare_probabilistic_svm(
-    svc1, svc2, X_test, y_test, tol=1e-3, brier_tol=1e-3
-):
-    """Compare the probability output from two support vector classifiers."""
-
-    prob1 = svc1.predict_proba(X_test)
-    prob2 = svc2.predict_proba(X_test)
-    assert mean_squared_error(prob1, prob2) <= tol
-
-    if svc1.n_classes_ == 2:
-        brier1 = brier_score_loss(y_test, prob1[:, 1])
-        brier2 = brier_score_loss(y_test, prob2[:, 1])
-        # Brier score - smaller is better
-        assert brier1 - brier2 <= brier_tol
 
 
 def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):
