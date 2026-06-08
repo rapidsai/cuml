@@ -11,11 +11,11 @@ import cuml.internals.logger as logger
 from cuml.explainer.common import (
     get_cai_ptr,
     get_link_fn_from_str_or_fn,
-    get_tag_from_model_func,
     model_func_call,
     output_list_shap_values,
 )
 from cuml.internals.base import get_handle
+from cuml.internals.mixins import TagsMixin
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -99,10 +99,19 @@ class SHAPBase():
         else:
             self.time_performance = False
 
+        tag_model = getattr(model, "__self__", model)
+        if isinstance(tag_model, TagsMixin):
+            model_tags = tag_model.__sklearn_tags__()
+        else:
+            model_tags = None
+
         if order is None:
-            self.order = get_tag_from_model_func(func=model,
-                                                 tag='preferred_input_order',
-                                                 default=order_default)
+            self.order = (
+                model_tags.preferred_input_order
+                if model_tags is not None
+                and model_tags.preferred_input_order is not None
+                else order_default
+            )
         else:
             self.order = order
 
@@ -112,10 +121,9 @@ class SHAPBase():
         if is_gpu_model is None:
             # todo (dgd): when sparse support is added, use this tag to see if
             # model can accept sparse data
-            self.is_gpu_model = \
-                get_tag_from_model_func(func=model,
-                                        tag='X_types_gpu',
-                                        default=None) is not None
+            self.is_gpu_model = (
+                model_tags is not None and model_tags.X_types_gpu is not None
+            )
         else:
             self.is_gpu_model = is_gpu_model
 
