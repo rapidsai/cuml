@@ -5,6 +5,7 @@
 # Support invoking test script outside the script directory
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 
+export DEPENDENCY_FILE_KEY=test_python_accel_sklearn
 source ./ci/test_python_common.sh
 
 rapids-logger "Running scikit-learn tests with cuML acceleration"

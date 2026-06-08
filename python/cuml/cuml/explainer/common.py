@@ -4,7 +4,10 @@
 #
 import cupy as cp
 
-from cuml.internals.validation import check_array
+from cuml.internals.validation import (
+    _suppress_sklearn_legacy_tag_warnings,
+    check_array,
+)
 
 
 def get_tag_from_model_func(func, tag, default=None):
@@ -24,7 +27,8 @@ def get_tag_from_model_func(func, tag, default=None):
     tags_fn = getattr(getattr(func, "__self__", None), "_get_tags", None)
 
     if tags_fn is not None:
-        tag_value = tags_fn().get(tag)
+        with _suppress_sklearn_legacy_tag_warnings():
+            tag_value = tags_fn().get(tag)
         result = tag_value if tag_value is not None else default
 
         return result

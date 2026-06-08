@@ -15,7 +15,7 @@ dependencies:
 - cuda-python>=13.0.1,<14.0
 - cuda-version=13.2
 - cudf==26.8.*,>=0.0.0a0
-- cupy>=13.6.0
+- cupy>=13.6.0,!=14.0.0,!=14.1.0
 - cuvs==26.8.*,>=0.0.0a0
 - cxx-compiler
 - cython>=3.2.2
@@ -76,7 +76,7 @@ dependencies:
 - rich
 - rmm==26.8.*,>=0.0.0a0
 - scikit-build-core>=0.11.0
-- scikit-learn>=1.5
+- scikit-learn>=1.6
 - scipy>=1.14.0
 - seaborn
 - shap

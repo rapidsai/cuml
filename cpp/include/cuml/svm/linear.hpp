@@ -86,8 +86,6 @@ struct Params {
  * @param [out] w: the fitted weights, shape=(nCoefs, nCols) or (nCoefs + 1, nCols + 1)
  * if `fit_intercept=true`, where nCoefs = 1 for regression or if nClasses = 2, and
  * nClasses otherwise. F-contiguous.
- * @param [out] probScale: the fitted probability scales, shape=(nClasses, 2),
- * F-contiguous. Pass nullptr to not fit probability scales.
  * @return n_iter: the maximum number of iterations run across all classes.
  */
 template <typename T>
@@ -100,28 +98,7 @@ int fit(const raft::handle_t& handle,
         const T* X,
         const T* y,
         const T* sampleWeight,
-        T* w,
-        T* probScale);
-
-/**
- * @brief Compute probabilities from decision function scores.
- *
- * @param [in] handle: the cuML handle.
- * @param [in] nRows: the number of input samples.
- * @param [in] nClasses: the number of input classes.
- * @param [in] probScale: the probability scales, shape=(nClasses, 2), F-contiguous.
- * @param [inout] scores: the decision function scores, shape=(nRows, nClasses),
- * C-contiguous. Note that this array will be mutated in-place during the calculation.
- * @param [out] out: the computed probabilities, shape=(nRows, nClasses), C-contiguous.
- */
-template <typename T>
-void computeProbabilities(const raft::handle_t& handle,
-                          const std::size_t nRows,
-                          const int nClasses,
-                          const T* probScale,
-                          T* scores,
-                          T* out);
-
+        T* w);
 }  // namespace linear
 }  // namespace SVM
 }  // namespace CUML_EXPORT ML
