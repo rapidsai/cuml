@@ -23,8 +23,9 @@ cuvs::cluster::kmeans::params KMeansParams::to_cuvs() const
   params.rng_state           = this->rng_state;
   params.n_init              = this->n_init;
   params.oversampling_factor = this->oversampling_factor;
-  params.batch_samples       = this->batch_samples;
-  params.batch_centroids     = this->batch_centroids;
+  params.batch_samples         = this->batch_samples;
+  params.batch_centroids       = this->batch_centroids;
+  params.streaming_batch_size  = this->streaming_batch_size;
 
   return params;
 }
