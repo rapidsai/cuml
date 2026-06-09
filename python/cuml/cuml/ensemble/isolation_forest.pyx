@@ -174,7 +174,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
     ----------
     n_estimators : int, default=100
         The number of isolation trees in the ensemble.
-    max_samples : int or float, default=256
+    max_samples : int, float or "auto", default="auto"
         The number of samples to draw from X to train each isolation tree.
         - If int, then draw `max_samples` samples.
         - If float, then draw `max_samples * n_samples` samples.
@@ -271,7 +271,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self,
         *,
         n_estimators=100,
-        max_samples=256,
+        max_samples="auto",
         max_depth=None,
         max_features=1.0,
         bootstrap=False,
