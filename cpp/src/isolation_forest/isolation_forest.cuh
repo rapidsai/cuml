@@ -96,10 +96,16 @@ class IsolationForest {
       max_depth = std::max(max_depth, 1);
     }
     
-    model->params             = params;
-    model->n_features         = n_cols;
-    model->n_samples_per_tree = n_sampled_rows;
-    model->c_normalization    = compute_c_normalization<T>(n_sampled_rows);
+    int n_sampled_features = params.max_features;
+    if (n_sampled_features <= 0 || n_sampled_features > n_cols) {
+      n_sampled_features = n_cols;
+    }
+
+    model->params              = params;
+    model->n_features          = n_cols;
+    model->n_features_per_tree = n_sampled_features;
+    model->n_samples_per_tree  = n_sampled_rows;
+    model->c_normalization     = compute_c_normalization<T>(n_sampled_rows);
     
     auto stream = handle.get_stream();
     model->max_nodes_per_tree = compute_global_max_nodes_per_tree(max_depth, n_sampled_rows);
@@ -113,13 +119,20 @@ class IsolationForest {
       rmm::device_buffer(params.n_estimators * sizeof(int), stream);
     model->global_tree_max_depth =
       rmm::device_buffer(params.n_estimators * sizeof(int), stream);
+    if (n_sampled_features < n_cols) {
+      model->global_feature_indices =
+        rmm::device_buffer(static_cast<size_t>(params.n_estimators) *
+                           n_sampled_features * sizeof(int),
+                           stream);
+    }
 
     IsolationTree::build_isolation_forest_global(
         handle, input, n_rows, n_cols,
-        params.n_estimators, n_sampled_rows, max_depth,
+        params.n_estimators, n_sampled_rows, n_sampled_features, max_depth,
         model->max_nodes_per_tree,
         params.bootstrap,
         params.seed,
+        static_cast<int*>(model->global_feature_indices.data()),
         static_cast<IsolationTree::IFNode*>(model->global_nodes.data()),
         static_cast<int*>(model->global_tree_offsets.data()),
         static_cast<int*>(model->global_tree_n_nodes.data()),

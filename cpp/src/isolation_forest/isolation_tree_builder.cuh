@@ -102,6 +102,14 @@ __device__ bool contains_sample(const size_t* samples, int n_samples, size_t can
   return false;
 }
 
+__device__ bool contains_int_sample(const int* samples, int n_samples, int candidate)
+{
+  for (int i = 0; i < n_samples; ++i) {
+    if (samples[i] == candidate) return true;
+  }
+  return false;
+}
+
 /**
  * @brief Build one isolation tree into global-memory node storage.
  *
@@ -112,6 +120,7 @@ template <typename T>
 __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
                                             int n_samples,
                                             int n_cols,
+                                            const int* feature_indices,
                                             int max_depth,
                                             int max_nodes_per_tree,
                                             curandState* rng_state,
@@ -151,12 +160,15 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
         continue;
       }
 
-      int feature = curand(rng_state) % n_cols;
+      int local_feature =
+        static_cast<int>(sample_bounded(rng_state, static_cast<size_t>(n_cols)));
+      int original_feature =
+        feature_indices == nullptr ? local_feature : feature_indices[local_feature];
 
-      T min_val = local_data[work_indices[start] * n_cols + feature];
+      T min_val = local_data[work_indices[start] * n_cols + local_feature];
       T max_val = min_val;
       for (int i = start + 1; i < end; i++) {
-        T val = local_data[work_indices[i] * n_cols + feature];
+        T val = local_data[work_indices[i] * n_cols + local_feature];
         if (val < min_val) min_val = val;
         if (val > max_val) max_val = val;
       }
@@ -172,7 +184,7 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
 
       int left_end = start;
       for (int i = start; i < end; i++) {
-        T val = local_data[work_indices[i] * n_cols + feature];
+        T val = local_data[work_indices[i] * n_cols + local_feature];
         if (val < threshold) {
           int tmp                = work_indices[left_end];
           work_indices[left_end] = work_indices[i];
@@ -187,7 +199,7 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
       int right_child = n_nodes + 1;
       n_nodes += 2;
 
-      nodes[node_idx] = {feature, static_cast<float>(threshold), left_child, right_child};
+      nodes[node_idx] = {original_feature, static_cast<float>(threshold), left_child, right_child};
 
       stack[stack_top++] = {right_child, left_end, end, depth + 1};
       stack[stack_top++] = {left_child, start, left_end, depth + 1};
@@ -204,10 +216,12 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
                                                     int n_cols,
                                                     int n_trees,
                                                     int max_samples,
+                                                    int max_features,
                                                     int max_depth,
                                                     int max_nodes_per_tree,
                                                     bool bootstrap,
                                                     uint64_t seed,
+                                                    int* __restrict__ feature_indices,
                                                     IFNode* __restrict__ nodes,
                                                     int* __restrict__ tree_offsets,
                                                     int* __restrict__ tree_n_nodes,
@@ -226,8 +240,11 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
   int tree_offset = tree_id * max_nodes_per_tree;
   if (threadIdx.x == 0) { tree_offsets[tree_id] = tree_offset; }
 
-  T* local_data = subsample_buffer + static_cast<size_t>(tree_id) * max_samples * n_cols;
+  T* local_data = subsample_buffer + static_cast<size_t>(tree_id) * max_samples * max_features;
   size_t* tree_sample_indices = sample_indices + static_cast<size_t>(tree_id) * max_samples;
+  int* tree_feature_indices = feature_indices == nullptr ?
+                                nullptr :
+                                feature_indices + static_cast<size_t>(tree_id) * max_features;
   int* tree_work_indices = work_indices + static_cast<size_t>(tree_id) * max_samples;
   StackEntry* tree_stack = stack + static_cast<size_t>(tree_id) * max_nodes_per_tree;
   IFNode* tree_nodes     = nodes + tree_offset;
@@ -248,21 +265,33 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
         tree_sample_indices[i] = contains_sample(tree_sample_indices, i, t) ? j : t;
       }
     }
+
+    if (tree_feature_indices != nullptr) {
+      size_t start = static_cast<size_t>(n_cols - max_features);
+      for (int i = 0; i < max_features; i++) {
+        size_t j = start + static_cast<size_t>(i);
+        int t = static_cast<int>(sample_bounded(&rng_state, j + 1));
+        tree_feature_indices[i] =
+          contains_int_sample(tree_feature_indices, i, t) ? static_cast<int>(j) : t;
+      }
+    }
   }
   __syncthreads();
 
   int tid = threadIdx.x;
   for (int s = 0; s < max_samples; s++) {
     size_t src_row = tree_sample_indices[s];
-    for (int f = tid; f < n_cols; f += blockDim.x) {
-      local_data[s * n_cols + f] = data[src_row + static_cast<size_t>(f) * n_rows];
+    for (int f = tid; f < max_features; f += blockDim.x) {
+      int src_col = tree_feature_indices == nullptr ? f : tree_feature_indices[f];
+      local_data[s * max_features + f] = data[src_row + static_cast<size_t>(src_col) * n_rows];
     }
   }
   __syncthreads();
 
   build_tree_iterative_global(local_data,
                               max_samples,
-                              n_cols,
+                              max_features,
+                              tree_feature_indices,
                               max_depth,
                               max_nodes_per_tree,
                               &rng_state,
@@ -317,10 +346,12 @@ void build_isolation_forest_global(const raft::handle_t& handle,
                                    int n_cols,
                                    int n_trees,
                                    int max_samples,
+                                   int max_features,
                                    int max_depth,
                                    int max_nodes_per_tree,
                                    bool bootstrap,
                                    uint64_t seed,
+                                   int* feature_indices,
                                    IFNode* nodes,
                                    int* tree_offsets,
                                    int* tree_n_nodes,
@@ -328,7 +359,7 @@ void build_isolation_forest_global(const raft::handle_t& handle,
 {
   auto stream = handle.get_stream();
 
-  size_t subsample_buffer_size = static_cast<size_t>(n_trees) * max_samples * n_cols;
+  size_t subsample_buffer_size = static_cast<size_t>(n_trees) * max_samples * max_features;
   rmm::device_uvector<T> subsample_buffer(subsample_buffer_size, stream);
   rmm::device_uvector<size_t> sample_indices(static_cast<size_t>(n_trees) * max_samples, stream);
   rmm::device_uvector<int> work_indices(static_cast<size_t>(n_trees) * max_samples, stream);
@@ -339,10 +370,12 @@ void build_isolation_forest_global(const raft::handle_t& handle,
                                                                       n_cols,
                                                                       n_trees,
                                                                       max_samples,
+                                                                      max_features,
                                                                       max_depth,
                                                                       max_nodes_per_tree,
                                                                       bootstrap,
                                                                       seed,
+                                                                      feature_indices,
                                                                       nodes,
                                                                       tree_offsets,
                                                                       tree_n_nodes,

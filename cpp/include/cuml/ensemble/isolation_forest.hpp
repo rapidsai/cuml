@@ -27,6 +27,7 @@ struct IF_params {
   int n_estimators = 100;   ///< Number of isolation trees
   int max_samples = 256;    ///< Samples per tree (default 256)
   int max_depth = -1;       ///< Max depth (-1 = auto: ceil(log2(max_samples)))
+  int max_features = -1;    ///< Features sampled per tree (-1 = all features)
   bool bootstrap = false;   ///< If true, sample rows with replacement
   uint64_t seed = 0;        ///< Random seed
 };
@@ -36,9 +37,11 @@ template <class T>
 struct IsolationForestModel {
   IF_params params;            ///< Hyperparameters used for training
   int n_features = 0;          ///< Number of features in training data
+  int n_features_per_tree = 0; ///< Features sampled per tree
   int n_samples_per_tree = 0;  ///< Samples used per tree (for c(n) calculation)
   T c_normalization = 0;       ///< Precomputed c(n) normalization constant
   int max_nodes_per_tree = 0;  ///< Allocated node capacity per tree
+  rmm::device_buffer global_feature_indices;  ///< Optional per-tree sampled feature ids
   rmm::device_buffer global_nodes;  ///< Device memory for global-memory IFNode array
   rmm::device_buffer global_tree_offsets;  ///< Per-tree base offset in global_nodes
   rmm::device_buffer global_tree_n_nodes;  ///< Per-tree used node counts

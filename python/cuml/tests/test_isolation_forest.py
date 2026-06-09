@@ -205,15 +205,36 @@ def test_deep_max_depth_global_memory(blobs_data):
     assert set(np.unique(predictions)).issubset({-1, 1})
 
 
-@pytest.mark.parametrize("max_features", [0.5, 0.8, 1.0])
-def test_max_features_parameter(blobs_data, max_features):
+@pytest.mark.parametrize(
+    "max_features, expected_features",
+    [
+        (1, 1),
+        (2, 2),
+        (0.5, 2),
+        (0.8, 3),
+        (1.0, 4),
+    ],
+)
+def test_max_features_parameter(blobs_data, max_features, expected_features):
     """max_features parameter should be respected."""
     clf = cuIsolationForest(
         n_estimators=10, max_features=max_features, random_state=42
     )
     clf.fit(blobs_data)
+    assert clf._n_features_per_tree == expected_features
     predictions = clf.predict(blobs_data)
     assert predictions.shape[0] == blobs_data.shape[0]
+
+
+@pytest.mark.parametrize("max_features", [0, -1, 1.1, "invalid", True])
+def test_invalid_max_features_raises(blobs_data, max_features):
+    """Invalid max_features values should raise during fit."""
+    clf = cuIsolationForest(
+        n_estimators=10, max_features=max_features, random_state=42
+    )
+
+    with pytest.raises(ValueError, match="max_features"):
+        clf.fit(blobs_data)
 
 
 @pytest.mark.parametrize("bootstrap", [True, False])
