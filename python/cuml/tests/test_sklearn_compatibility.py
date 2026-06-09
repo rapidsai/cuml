@@ -245,42 +245,6 @@ XFAILS = {
         "check_fit_score_takes_y": "AttributeError: 'int' object has no attribute 'repeat'",
         "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
     },
-    BernoulliNB: {
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-    },
-    ComplementNB: {
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-    },
-    CategoricalNB: {
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-    },
-    MultinomialNB: {
-        "check_sample_weights_pandas_series": "sample_weight not implemented",
-        "check_sample_weights_not_an_array": "sample_weight not implemented",
-        "check_sample_weights_shape": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_dense_data": "sample_weight not implemented",
-        "check_sample_weights_list": "sample_weight not implemented",
-        "check_sample_weights_not_overwritten": "sample_weight not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "sample_weight not implemented",
-    },
 }
 
 
