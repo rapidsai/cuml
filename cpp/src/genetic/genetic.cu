@@ -22,6 +22,9 @@
 #include <rmm/mr/per_device_resource.hpp>
 #include <rmm/resource_ref.hpp>
 
+#include <cuda/std/array>
+#include <cuda/std/random>
+
 #include <device_launch_parameters.h>
 
 #include <algorithm>
@@ -58,19 +61,19 @@ CUML_KERNEL void batched_tournament_kernel(const program_t progs,
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= n_tours) return;
 
-  raft::random::detail::PhiloxGenerator rng(seeds[idx], idx, 0);
-
-  int r;
-  rng.next(r);
+  cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seeds[idx]));
+  rng.set_counter(
+    cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+      0, 0, static_cast<cuda::std::philox4x64::result_type>(idx), 0});
+  cuda::std::uniform_int_distribution<int> program_dist(0, n_progs - 1);
 
   // Define optima values
-  int opt           = r % n_progs;
+  int opt           = program_dist(rng);
   float opt_penalty = parsimony * progs[opt].len * (2 * criterion - 1);
   float opt_score   = progs[opt].raw_fitness_ - opt_penalty;
 
   for (int s = 1; s < tour_size; ++s) {
-    rng.next(r);
-    int curr           = r % n_progs;
+    int curr           = program_dist(rng);
     float curr_penalty = parsimony * progs[curr].len * (2 * criterion - 1);
     float curr_score   = progs[curr].raw_fitness_ - curr_penalty;
 

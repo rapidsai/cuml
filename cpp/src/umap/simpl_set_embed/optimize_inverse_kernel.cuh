@@ -10,11 +10,13 @@
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
 #include <rmm/device_uvector.hpp>
+
+#include <cuda/std/array>
+#include <cuda/std/random>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -128,11 +130,13 @@ CUML_KERNEL void optimize_inverse_kernel(T* head_embedding,
     T next_neg = epoch_of_next_negative_sample[row];
     int n_neg  = int((epoch - next_neg) / epochs_per_negative_sample);
 
-    raft::random::detail::PhiloxGenerator gen(seed, row, 0);
+    cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+    rng.set_counter(
+      cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+        0, 0, static_cast<cuda::std::philox4x64::result_type>(row), 0});
+    cuda::std::uniform_int_distribution<nnz_t> vertex_dist(0, n_vertices - 1);
     for (int p = 0; p < n_neg; ++p) {
-      int r;
-      gen.next(r);
-      nnz_t t           = abs(r) % n_vertices;
+      nnz_t t           = vertex_dist(rng);
       const T* negative = tail_embedding + t * n_components;
 
       // Compute distance to negative sample

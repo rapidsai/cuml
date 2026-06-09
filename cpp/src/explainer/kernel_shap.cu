@@ -9,8 +9,8 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
 
-#include <curand.h>
-#include <curand_kernel.h>
+#include <cuda/std/array>
+#include <cuda/std/random>
 
 namespace ML {
 namespace Explainer {
@@ -110,14 +110,17 @@ CUML_KERNEL void sampled_rows_kernel(IdxT* nsamples,
 
   // First k threads of block generate samples
   if (threadIdx.x < k_blk) {
-    curandStatePhilox4_32_10_t state;
-    curand_init((unsigned long long)seed, (unsigned long long)tid, 0, &state);
-    int rand_idx = (int)(curand_uniform(&state) * ncols);
+    cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+    rng.set_counter(
+      cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+        0, 0, static_cast<cuda::std::philox4x64::result_type>(tid), 0});
+    cuda::std::uniform_int_distribution<int> col_dist(0, static_cast<int>(ncols) - 1);
+    int rand_idx = col_dist(rng);
 
     // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the
     // likelihood of collisions is low)
     while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1) {
-      rand_idx = (int)(curand_uniform(&state) * ncols);
+      rand_idx = col_dist(rng);
     }
   }
   __syncthreads();

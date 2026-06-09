@@ -9,10 +9,11 @@
 
 #include <cuml/manifold/umapparams.h>
 
-#include <raft/random/rng.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
+#include <cuda/std/array>
+#include <cuda/std/random>
 #include <cuda_runtime_api.h>
 
 #include <stdint.h>
@@ -263,11 +264,13 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     /**
      * Negative sampling stage
      */
-    raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
+    cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+    rng.set_counter(
+      cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+        0, 0, static_cast<cuda::std::philox4x64::result_type>(row), 0});
+    cuda::std::uniform_int_distribution<int> tail_dist(0, tail_n.d - 1);
     for (int p = 0; p < n_neg_samples; p++) {
-      int r;
-      gen.next(r);
-      nnz_t t                  = r % tail_n;
+      nnz_t t                  = tail_dist(rng);
       T const* negative_sample = tail_embedding + (t * n_components);
       T negative_sample_reg[n_components];
       for (int i = 0; i < n_components; ++i) {
@@ -428,11 +431,13 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     /**
      * Negative sampling stage
      */
-    raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (nnz_t)row, 0);
+    cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+    rng.set_counter(
+      cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+        0, 0, static_cast<cuda::std::philox4x64::result_type>(row), 0});
+    cuda::std::uniform_int_distribution<int> tail_dist(0, tail_n.d - 1);
     for (int p = 0; p < n_neg_samples; p++) {
-      int r;
-      gen.next(r);
-      nnz_t t                  = r % tail_n;
+      nnz_t t                  = tail_dist(rng);
       T const* negative_sample = tail_embedding + (t * n_components);
       if constexpr (use_shared_mem) {
         dist_squared = rdist<T>(current_buffer, negative_sample, n_components);
@@ -582,11 +587,13 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
       int n_neg_samples =
         static_cast<int>(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
 
-      raft::random::detail::PhiloxGenerator gen(seed, static_cast<nnz_t>(e), 0);
+      cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+      rng.set_counter(
+        cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+          0, 0, static_cast<cuda::std::philox4x64::result_type>(e), 0});
+      cuda::std::uniform_int_distribution<int> tail_dist(0, tail_n.d - 1);
       for (int p = 0; p < n_neg_samples; p++) {
-        int r;
-        gen.next(r);
-        nnz_t t                  = r % tail_n;
+        nnz_t t                  = tail_dist(rng);
         T const* negative_sample = tail_embedding + (t * N_COMPONENTS);
 
 #pragma unroll
@@ -746,11 +753,13 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
       int n_neg_samples =
         static_cast<int>(T(epoch - _epoch_of_next_negative_sample) / epochs_per_negative_sample);
 
-      raft::random::detail::PhiloxGenerator gen(seed, static_cast<nnz_t>(e), 0);
+      cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+      rng.set_counter(
+        cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+          0, 0, static_cast<cuda::std::philox4x64::result_type>(e), 0});
+      cuda::std::uniform_int_distribution<int> tail_dist(0, tail_n.d - 1);
       for (int p = 0; p < n_neg_samples; p++) {
-        int r;
-        gen.next(r);
-        nnz_t t = r % tail_n;
+        nnz_t t = tail_dist(rng);
 
         partial_dist = T(0);
 #pragma unroll

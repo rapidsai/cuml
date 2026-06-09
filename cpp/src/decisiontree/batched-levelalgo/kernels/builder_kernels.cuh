@@ -13,9 +13,11 @@
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/random/rng.cuh>
+#include <raft/core/math.hpp>
 
 #include <cub/cub.cuh>
+#include <cuda/std/array>
+#include <cuda/std/random>
 
 namespace ML {
 namespace DT {
@@ -170,13 +172,11 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
   subsequence = fnv1a32(subsequence, uint32_t(treeid));
   subsequence = fnv1a32(subsequence, uint32_t(nodeid));
 
-  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
-  raft::random::UniformIntDistParams<IdxT, uint64_t> uniform_int_dist_params;
-
-  uniform_int_dist_params.start = 0;
-  uniform_int_dist_params.end   = n;
-  uniform_int_dist_params.diff =
-    uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
+  cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+  rng.set_counter(
+    cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+      0, 0, static_cast<cuda::std::philox4x64::result_type>(subsequence), 0});
+  cuda::std::uniform_int_distribution<IdxT> col_dist(IdxT{0}, static_cast<IdxT>(n - 1));
 
   IdxT n_uniques = 0;
   IdxT items[MAX_SAMPLES_PER_THREAD];
@@ -199,8 +199,7 @@ CUML_KERNEL void excess_sample_with_replacement_kernel(
       // but this ensures some forward progress in order to generate at least 'k' unique random
       // samples.
       if (mask[thread_local_sample_idx] == 0 and cta_sample_idx < n_parallel_samples)
-        raft::random::custom_next(
-          gen, &items[thread_local_sample_idx], uniform_int_dist_params, IdxT(0), IdxT(0));
+        items[thread_local_sample_idx] = col_dist(rng);
       else if (mask[thread_local_sample_idx] ==
                0)  // indices that exceed `n_parallel_samples` will not generate
         items[thread_local_sample_idx] = n;  // n is outside valid range [0, n-1]
@@ -297,17 +296,17 @@ CUML_KERNEL void algo_L_sample_kernel(int* colids,
   if (tid >= work_items_size) return;
   const uint32_t nodeid = work_items[tid].idx;
   uint64_t subsequence  = (uint64_t(treeid) << 32) | uint64_t(nodeid);
-  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
-  raft::random::UniformIntDistParams<IdxT, uint64_t> uniform_int_dist_params;
-  uniform_int_dist_params.start = 0;
-  uniform_int_dist_params.end   = k;
-  uniform_int_dist_params.diff =
-    uint64_t(uniform_int_dist_params.end - uniform_int_dist_params.start);
+  cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+  rng.set_counter(
+    cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+      0, 0, static_cast<cuda::std::philox4x64::result_type>(subsequence), 0});
+  cuda::std::uniform_real_distribution<float> uniform01(0.0f, 1.0f);
+  cuda::std::uniform_int_distribution<IdxT> sample_dist(IdxT{0}, static_cast<IdxT>(k - 1));
   float fp_uniform_val;
   IdxT int_uniform_val;
   // fp_uniform_val will have a random value between 0 and 1
-  gen.next(fp_uniform_val);
-  double W = raft::exp(raft::log(fp_uniform_val) / k);
+  fp_uniform_val = uniform01(rng);
+  double W       = raft::exp(raft::log(fp_uniform_val) / k);
 
   size_t col(0);
   // initially fill the reservoir array in increasing order of cols till k
@@ -321,14 +320,14 @@ CUML_KERNEL void algo_L_sample_kernel(int* colids,
   // randomly sample from a geometric distribution
   while (col < n) {
     // fp_uniform_val will have a random value between 0 and 1
-    gen.next(fp_uniform_val);
+    fp_uniform_val = uniform01(rng);
     col += static_cast<int>(raft::log(fp_uniform_val) / raft::log(1 - W)) + 1;
     if (col < n) {
       // int_uniform_val will now have a random value between 0...k
-      raft::random::custom_next(gen, &int_uniform_val, uniform_int_dist_params, IdxT(0), IdxT(0));
+      int_uniform_val                   = sample_dist(rng);
       colids[tid * k + int_uniform_val] = col;  // the bad memory coalescing here is hidden
       // fp_uniform_val will have a random value between 0 and 1
-      gen.next(fp_uniform_val);
+      fp_uniform_val = uniform01(rng);
       W *= raft::exp(raft::log(fp_uniform_val) / k);
     }
   }
@@ -348,13 +347,16 @@ CUML_KERNEL void adaptive_sample_kernel(int* colids,
   const uint32_t nodeid = work_items[tid].idx;
 
   uint64_t subsequence = (uint64_t(treeid) << 32) | uint64_t(nodeid);
-  raft::random::PCGenerator gen(seed, subsequence, uint64_t(0));
+  cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+  rng.set_counter(
+    cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+      0, 0, static_cast<cuda::std::philox4x64::result_type>(subsequence), 0});
+  cuda::std::uniform_int_distribution<uint32_t> toss_dist;
 
   int selected_count = 0;
   for (int i = 0; i < N; i++) {
-    uint32_t toss = 0;
-    gen.next(toss);
-    uint64_t lhs = uint64_t(M - selected_count);
+    uint32_t toss = toss_dist(rng);
+    uint64_t lhs  = uint64_t(M - selected_count);
     lhs <<= 32;
     uint64_t rhs = uint64_t(toss) * (N - i);
     if (lhs > rhs) {

@@ -33,7 +33,6 @@
 #include <thrust/sort.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <curand.h>
 #include <math.h>
 #include <stdint.h>
 

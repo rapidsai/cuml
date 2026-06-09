@@ -13,7 +13,6 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/comms.hpp>
-#include <raft/random/rng_device.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -21,6 +20,8 @@
 
 #include <cub/cub.cuh>
 #include <cuda/std/algorithm>
+#include <cuda/std/array>
+#include <cuda/std/random>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
@@ -53,13 +54,12 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
 
   std::uint64_t global_row = sample_idx;
   if (static_cast<std::uint64_t>(sample_count) != global_rows) {
-    raft::random::UniformIntDistParams<std::uint64_t, std::uint64_t> uniform_int_dist_params;
-    uniform_int_dist_params.start = 0;
-    uniform_int_dist_params.end   = global_rows;
-    uniform_int_dist_params.diff  = global_rows;
-    raft::random::PCGenerator gen(seed, static_cast<uint64_t>(sample_idx), uint64_t(0));
-    raft::random::custom_next(
-      gen, &global_row, uniform_int_dist_params, std::uint64_t(0), std::uint64_t(0));
+    cuda::std::philox4x64 rng(static_cast<cuda::std::philox4x64::result_type>(seed));
+    rng.set_counter(
+      cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
+        0, 0, static_cast<cuda::std::philox4x64::result_type>(sample_idx), 0});
+    cuda::std::uniform_int_distribution<std::uint64_t> row_dist(std::uint64_t{0}, global_rows - 1);
+    global_row = row_dist(rng);
   }
 
   auto sample_end = ::cuda::std::lower_bound(
