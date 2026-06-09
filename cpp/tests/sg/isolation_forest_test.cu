@@ -77,6 +77,25 @@ __global__ void sample_rows_for_test(size_t n_rows,
   }
 }
 
+__global__ void sample_features_for_test(int n_cols,
+                                         int max_features,
+                                         uint64_t seed,
+                                         int* feature_indices)
+{
+  if (threadIdx.x != 0 || blockIdx.x != 0) return;
+
+  curandState rng_state;
+  curand_init(seed, 0, 0, &rng_state);
+
+  size_t start = static_cast<size_t>(n_cols - max_features);
+  for (int i = 0; i < max_features; ++i) {
+    size_t j = start + static_cast<size_t>(i);
+    int t = static_cast<int>(IsolationTree::sample_bounded(&rng_state, j + 1));
+    feature_indices[i] =
+      IsolationTree::contains_int_sample(feature_indices, i, t) ? static_cast<int>(j) : t;
+  }
+}
+
 /**
  * @brief Base test fixture for Isolation Forest tests.
  *
@@ -378,6 +397,82 @@ TEST_F(IsolationForestTest, BootstrapTrueSamplesWithReplacement)
   std::sort(h_sampled.begin(), h_sampled.end());
   auto last = std::unique(h_sampled.begin(), h_sampled.end());
   EXPECT_LT(std::distance(h_sampled.begin(), last), max_samples);
+}
+
+TEST_F(IsolationForestTest, MaxFeaturesSamplesUniqueFeatureIds)
+{
+  const int n_cols       = 16;
+  const int max_features = 5;
+  thrust::device_vector<int> sampled(max_features);
+
+  sample_features_for_test<<<1, 1, 0, stream>>>(n_cols, max_features, 42, sampled.data().get());
+  RAFT_CUDA_TRY(cudaGetLastError());
+  handle->sync_stream(stream);
+
+  thrust::host_vector<int> h_sampled = sampled;
+  for (int feature : h_sampled) {
+    EXPECT_GE(feature, 0);
+    EXPECT_LT(feature, n_cols);
+  }
+
+  std::sort(h_sampled.begin(), h_sampled.end());
+  auto last = std::unique(h_sampled.begin(), h_sampled.end());
+  EXPECT_EQ(std::distance(h_sampled.begin(), last), max_features);
+}
+
+TEST_F(IsolationForestTest, MaxFeaturesFitStoresOriginalFeatureIds)
+{
+  const int n_samples    = 128;
+  const int n_features   = 8;
+  const int n_estimators = 5;
+  const int max_features = 3;
+
+  thrust::device_vector<float> X_rowmajor(n_samples * n_features);
+  thrust::device_vector<float> X_colmajor(n_samples * n_features);
+  raft::random::Rng rng(42);
+  rng.normal(X_rowmajor.data().get(), X_rowmajor.size(), 0.0f, 1.0f, stream);
+  handle->sync_stream(stream);
+  transpose_data(X_rowmajor, X_colmajor, n_samples, n_features);
+
+  IF_params params;
+  params.n_estimators = n_estimators;
+  params.max_samples  = 64;
+  params.max_features = max_features;
+  params.seed         = 42;
+
+  IsolationForestF model;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+
+  EXPECT_EQ(model.n_features_per_tree, max_features);
+  EXPECT_GT(model.global_feature_indices.size(), 0);
+
+  std::vector<int> h_tree_n_nodes(n_estimators);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(h_tree_n_nodes.data(),
+                                model.global_tree_n_nodes.data(),
+                                n_estimators * sizeof(int),
+                                cudaMemcpyDeviceToHost,
+                                stream));
+  std::vector<IsolationTree::IFNode> h_nodes(
+    static_cast<size_t>(n_estimators) * model.max_nodes_per_tree);
+  RAFT_CUDA_TRY(cudaMemcpyAsync(h_nodes.data(),
+                                model.global_nodes.data(),
+                                h_nodes.size() * sizeof(IsolationTree::IFNode),
+                                cudaMemcpyDeviceToHost,
+                                stream));
+  handle->sync_stream(stream);
+
+  bool saw_split = false;
+  for (int tree = 0; tree < n_estimators; ++tree) {
+    auto tree_offset = static_cast<size_t>(tree) * model.max_nodes_per_tree;
+    for (int node_idx = 0; node_idx < h_tree_n_nodes[tree]; ++node_idx) {
+      const auto& node = h_nodes[tree_offset + node_idx];
+      if (node.feature_idx >= 0) {
+        saw_split = true;
+        EXPECT_LT(node.feature_idx, n_features);
+      }
+    }
+  }
+  EXPECT_TRUE(saw_split);
 }
 
 /**

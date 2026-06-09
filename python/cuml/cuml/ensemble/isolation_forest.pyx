@@ -10,8 +10,9 @@ This module provides a GPU-accelerated implementation of the Isolation Forest
 algorithm, which is an unsupervised learning method for detecting anomalies.
 """
 
+import builtins
 import math
-from numbers import Real
+from numbers import Integral, Real
 import warnings
 
 import cupy as cp
@@ -50,6 +51,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         int n_estimators
         int max_samples
         int max_depth
+        int max_features
         bool bootstrap
         uint64_t seed
 
@@ -291,6 +293,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self._treelite_model_bytes = None
         self._nvforest_model = None
         self._c_normalization = None
+        self._n_features_per_tree = None
 
         super().__init__(verbose=verbose, output_type=output_type)
 
@@ -414,6 +417,33 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self.n_features_in_ = n_cols
         self._dtype = X_m.dtype
 
+        cdef int actual_max_features
+        if isinstance(self.max_features, builtins.bool):
+            raise ValueError(
+                "max_features must be an int in [1, n_features] or a float "
+                "in (0.0, 1.0]."
+            )
+        elif isinstance(self.max_features, Integral):
+            if self.max_features < 1 or self.max_features > n_cols:
+                raise ValueError(
+                    "max_features must be an int in [1, n_features] or a "
+                    "float in (0.0, 1.0]."
+                )
+            actual_max_features = int(self.max_features)
+        elif isinstance(self.max_features, Real):
+            if self.max_features <= 0.0 or self.max_features > 1.0:
+                raise ValueError(
+                    "max_features must be an int in [1, n_features] or a "
+                    "float in (0.0, 1.0]."
+                )
+            actual_max_features = max(1, int(self.max_features * n_cols))
+        else:
+            raise ValueError(
+                "max_features must be an int in [1, n_features] or a float "
+                "in (0.0, 1.0]."
+            )
+        self._n_features_per_tree = actual_max_features
+
         if isinstance(self.contamination, str):
             if self.contamination != "auto":
                 raise ValueError(
@@ -461,6 +491,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         params.n_estimators = self.n_estimators
         params.max_samples = actual_max_samples
         params.max_depth = actual_max_depth
+        params.max_features = actual_max_features
         params.bootstrap = self.bootstrap
         params.seed = seed
 
