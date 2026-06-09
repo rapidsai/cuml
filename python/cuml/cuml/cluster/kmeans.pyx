@@ -265,10 +265,10 @@ cdef _kmeans_predict(
     return labels, inertia
 
 
-class KMeans(Base,
-             InteropMixin,
+class KMeans(InteropMixin,
              ClusterMixin,
-             CMajorInputTagMixin):
+             CMajorInputTagMixin,
+             Base):
     """
     KMeans is a basic but powerful clustering method which is optimized via
     Expectation Maximization. It randomly selects K data points in X, and

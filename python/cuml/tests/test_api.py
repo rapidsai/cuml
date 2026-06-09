@@ -9,10 +9,12 @@ import cupy as cp
 import numpy as np
 import pytest
 from sklearn.datasets import make_classification
+from sklearn.utils import get_tags
 
 import cuml
 import cuml.internals.mixins as cumix
 from cuml.internals.base import Base
+from cuml.internals.mixins import CumlTags
 from cuml.testing.utils import ClassEnumerator
 
 # TODO(26.10) Remove this filter, once cuml.fil is removed
@@ -49,70 +51,44 @@ def dataset():
 
 models = ClassEnumerator(module=cuml).get_models()
 
-# tag system based on experimental tag system from Scikit-learn >=0.21
-# https://scikit-learn.org/stable/developers/develop.html#estimator-tags
-tags = {
-    # cuML specific tags
-    "preferred_input_order": None,
-    "X_types_gpu": list,
-    # Scikit-learn API standard tags
-    "allow_nan": bool,
-    "binary_only": bool,
-    "multilabel": bool,
-    "multioutput": bool,
-    "multioutput_only": bool,
-    "no_validation": bool,
-    "non_deterministic": bool,
-    "pairwise": bool,
-    "poor_score": bool,
-    "preserves_dtype": list,
-    "requires_fit": bool,
-    "requires_y": bool,
-    "requires_positive_X": bool,
-    "requires_positive_y": bool,
-    "stateless": bool,
-    "X_types": list,
-    "_skip_test": bool,
-    "_xfail_checks": bool,
-}
-
-tags_mixins = {
+cuml_tags_mixins = {
     cumix.FMajorInputTagMixin: {"preferred_input_order": "F"},
     cumix.CMajorInputTagMixin: {"preferred_input_order": "C"},
     cumix.SparseInputTagMixin: {
         "X_types_gpu": ["2darray", "sparse"],
-        "X_types": ["2darray", "sparse"],
     },
     cumix.StringInputTagMixin: {
         "X_types_gpu": ["2darray", "string"],
-        "X_types": ["2darray", "string"],
     },
-    cumix.AllowNaNTagMixin: {"allow_nan": True},
-    cumix.StatelessTagMixin: {"stateless": True},
 }
 
 
-class dummy_regressor_estimator(Base, cumix.RegressorMixin):
+class dummy_regressor_estimator(cumix.RegressorMixin, Base):
     pass
 
 
-class dummy_classifier_estimator(Base, cumix.ClassifierMixin):
+class dummy_classifier_estimator(cumix.ClassifierMixin, Base):
     pass
 
 
-class dummy_cluster_estimator(Base, cumix.ClusterMixin):
+class dummy_cluster_estimator(cumix.ClusterMixin, Base):
     pass
 
 
 class dummy_class_with_tags(
-    cumix.TagsMixin, cumix.FMajorInputTagMixin, cumix.CMajorInputTagMixin
+    cumix.FMajorInputTagMixin, cumix.CMajorInputTagMixin, cumix.TagsMixin
 ):
-    @staticmethod
-    def _more_static_tags():
-        return {"X_types": ["categorical"]}
+    pass
 
-    def _more_tags(self):
-        return {"X_types": ["string"]}
+
+class dummy_sparse_nan_estimator(
+    cumix.SparseInputTagMixin, cumix.AllowNaNTagMixin, Base
+):
+    pass
+
+
+def uninitialized_model(model):
+    return model.__new__(model)
 
 
 ###############################################################################
@@ -121,50 +97,48 @@ class dummy_class_with_tags(
 
 
 @pytest.mark.parametrize("model", list(models.values()))
-def test_get_tags(model):
-    # This test ensures that our estimators return the tags defined by
-    # Scikit-learn and our cuML specific tags
+def test_tags_api(model):
+    assert not hasattr(model, "_get_tags")
+    assert not hasattr(model, "_get_" + "cuml_tags")
+    assert hasattr(model, "__sklearn_tags__")
 
-    assert hasattr(model, "_get_tags")
+    model_tags = uninitialized_model(model).__sklearn_tags__()
+    sklearn_tags = get_tags(uninitialized_model(model))
 
-    model_tags = model._get_tags()
-
-    if hasattr(model, "_more_static_tags"):
-        import inspect
-
-        assert isinstance(
-            inspect.getattr_static(model, "_more_static_tags"), staticmethod
-        )
-    for tag, tag_type in tags.items():
-        # preferred input order can be None or a string
-        if tag == "preferred_input_order":
-            if model_tags[tag] is not None:
-                assert isinstance(model_tags[tag], str)
-        else:
-            assert isinstance(model_tags[tag], tag_type)
+    for tags in [model_tags, sklearn_tags]:
+        assert isinstance(tags, CumlTags)
+        if tags.preferred_input_order is not None:
+            assert isinstance(tags.preferred_input_order, str)
+        assert isinstance(tags.X_types_gpu, list)
 
 
-def test_dynamic_tags_and_composition():
-    static_tags = dummy_class_with_tags._get_tags()
-    dynamic_tags = dummy_class_with_tags()._get_tags()
+def test_cuml_tags_and_composition():
+    tags = dummy_class_with_tags().__sklearn_tags__()
     print(dummy_class_with_tags.__mro__)
 
-    # In python, the MRO is so that the uppermost inherited class
-    # being closest to the final class, so in our dummy_class_with_tags
-    # the F Major input mixin should the C mixin
-    assert static_tags["preferred_input_order"] == "F"
-    assert dynamic_tags["preferred_input_order"] == "F"
-
-    # Testing dynamic tags actually take precedence over static ones on the
-    # instantiated object
-    assert static_tags["X_types"] == ["categorical"]
-    assert dynamic_tags["X_types"] == ["string"]
+    # Under cooperative super, the leftmost mixin in MRO applies its mutation
+    # last (on the way back up the super-chain), so FMajorInputTagMixin
+    # overrides CMajorInputTagMixin.
+    assert tags.preferred_input_order == "F"
 
 
-@pytest.mark.parametrize("mixin", tags_mixins.keys())
-def test_tag_mixins(mixin):
-    for tag, value in tags_mixins[mixin].items():
-        assert mixin._more_static_tags()[tag] == value
+@pytest.mark.parametrize("mixin", cuml_tags_mixins.keys())
+def test_cuml_tag_mixins(mixin):
+    class TaggedEstimator(mixin, Base):
+        pass
+
+    tags = get_tags(TaggedEstimator())
+    assert isinstance(tags, CumlTags)
+    for tag, value in cuml_tags_mixins[mixin].items():
+        assert getattr(tags, tag) == value
+
+
+def test_sklearn_tag_mixins():
+    tags = get_tags(dummy_sparse_nan_estimator())
+    assert isinstance(tags, CumlTags)
+    assert tags.input_tags.sparse
+    assert tags.input_tags.allow_nan
+    assert tags.X_types_gpu == ["2darray", "sparse"]
 
 
 @pytest.mark.parametrize(
@@ -177,10 +151,11 @@ def test_tag_mixins(mixin):
 )
 def test_estimator_type_mixins(model):
     assert hasattr(model, "_estimator_type")
+    tags = model().__sklearn_tags__()
     if model._estimator_type in ["regressor", "classifier"]:
-        assert model._get_tags()["requires_y"]
+        assert tags.target_tags.required
     else:
-        assert not model._get_tags()["requires_y"]
+        assert not tags.target_tags.required
 
 
 @pytest.mark.parametrize("model", list(models.values()))

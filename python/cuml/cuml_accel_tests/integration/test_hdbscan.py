@@ -190,7 +190,6 @@ def test_hdbscan_invalid_metric(synthetic_data):
         clusterer.fit(X)
 
 
-@pytest.mark.xfail(reason="Dispatching with sparse input not supported yet")
 def test_hdbscan_sparse_input():
     from scipy.sparse import csr_matrix
 
@@ -257,7 +256,6 @@ def test_hdbscan_condensed_tree(synthetic_data):
     )
 
 
-@pytest.mark.xfail(reason="Dispatching with examplars_ not supported yet")
 def test_hdbscan_exemplars(synthetic_data):
     X, _ = synthetic_data
     clusterer = hdbscan.HDBSCAN()

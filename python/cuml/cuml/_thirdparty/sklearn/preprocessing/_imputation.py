@@ -27,6 +27,7 @@ from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
     StringInputTagMixin,
+    _ensure_transformer_tags,
 )
 from cuml.internals.validation import check_is_fitted, check_inputs
 
@@ -44,7 +45,7 @@ from ..utils.validation import FLOAT_DTYPES
 
 
 def is_scalar_nan(x):
-    return bool(isinstance(x, numbers.Real) and np.isnan(x))
+    return bool(isinstance(x, numbers.Real) and cpu_np.isnan(x))
 
 
 def _check_inputs_dtype(X, missing_values):
@@ -151,12 +152,14 @@ class _BaseImputer(TransformerMixin):
 
         return hstack((X_imputed, X_indicator))
 
-    def _more_tags(self):
-        return {'allow_nan': is_scalar_nan(self.missing_values)}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.allow_nan = is_scalar_nan(self.missing_values)
+        return tags
 
 
-class SimpleImputer(_BaseImputer, BaseEstimator,
-                    SparseInputTagMixin, AllowNaNTagMixin):
+class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
+                    _BaseImputer, BaseEstimator):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -240,6 +243,11 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
     """
 
     statistics_ = CumlArrayDescriptor()
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
+        return tags
 
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, copy=True, add_indicator=False):
@@ -483,11 +491,11 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
         return X
 
 
-class MissingIndicator(TransformerMixin,
-                       BaseEstimator,
-                       AllowNaNTagMixin,
+class MissingIndicator(AllowNaNTagMixin,
                        SparseInputTagMixin,
-                       StringInputTagMixin):
+                       StringInputTagMixin,
+                       TransformerMixin,
+                       BaseEstimator):
     """Binary indicators for missing values.
 
     Note that this component typically should not be used in a vanilla
@@ -551,6 +559,12 @@ class MissingIndicator(TransformerMixin,
 
     """
     features_ = CumlArrayDescriptor()
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
+        tags.X_types_gpu = ["2darray", "sparse", "string"]
+        return tags
 
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
