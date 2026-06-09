@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 namespace ML {
 
@@ -77,38 +78,13 @@ namespace detail {
 
 /**
  * @brief Widen @p value to @c T, trapping if the source value cannot be
- * represented in @c T (negative source with unsigned @c T, or magnitude
- * exceeding @c T's range).
+ * represented in @c T.
  */
 template <checked_target T, checked_source U>
 constexpr T widen_or_fail(U value, char const* op)
 {
-  if constexpr (std::signed_integral<U> && std::unsigned_integral<T>) {
-    if (value < 0) {
-      RAFT_FAIL("checked_arithmetic: negative operand %lld passed to %s with unsigned target",
-                static_cast<long long>(value),
-                op);
-    }
-  }
-  if constexpr (sizeof(U) > sizeof(T) ||
-                (sizeof(U) == sizeof(T) && std::signed_integral<U> != std::signed_integral<T>)) {
-    using common = std::common_type_t<std::make_unsigned_t<U>, std::make_unsigned_t<T>>;
-    // Compute |value| entirely in `common` (unsigned). For negative values use
-    // `0 - value` rather than `-value`, because negating a signed integer at
-    // its minimum is UB, while unsigned subtraction is well-defined modular
-    // arithmetic and yields the correct magnitude.
-    common abs_val{};
-    if constexpr (std::signed_integral<U>) {
-      abs_val = value < 0 ? static_cast<common>(0) - static_cast<common>(value)
-                          : static_cast<common>(value);
-    } else {
-      abs_val = static_cast<common>(value);
-    }
-    if (abs_val > static_cast<common>(std::numeric_limits<T>::max())) {
-      RAFT_FAIL("checked_arithmetic: operand magnitude %llu does not fit target type in %s",
-                static_cast<unsigned long long>(abs_val),
-                op);
-    }
+  if (!std::in_range<T>(value)) {
+    RAFT_FAIL("checked_arithmetic: operand does not fit target type in %s", op);
   }
   return static_cast<T>(value);
 }
