@@ -227,6 +227,37 @@ def test_bootstrap_parameter(blobs_data, bootstrap):
     assert predictions.shape[0] == blobs_data.shape[0]
 
 
+def test_contamination_float_sets_score_quantile_offset(blobs_data):
+    """Float contamination should set offset_ from training score quantile."""
+    contamination = 0.1
+    clf = cuIsolationForest(
+        n_estimators=25, contamination=contamination, random_state=42
+    )
+    clf.fit(blobs_data)
+
+    scores = np.asarray(clf.score_samples(blobs_data))
+    decision = np.asarray(clf.decision_function(blobs_data))
+    predictions = np.asarray(clf.predict(blobs_data))
+    expected_offset = np.percentile(scores, 100.0 * contamination)
+
+    assert clf.offset_ == pytest.approx(expected_offset, rel=1e-6, abs=1e-6)
+    np.testing.assert_allclose(decision, scores - clf.offset_)
+    np.testing.assert_array_equal(
+        predictions, np.where(decision < 0, -1, 1)
+    )
+
+
+@pytest.mark.parametrize("contamination", [0.0, -0.1, 0.51, 1.0, "invalid"])
+def test_invalid_contamination_raises(blobs_data, contamination):
+    """contamination should match sklearn's accepted range."""
+    clf = cuIsolationForest(
+        n_estimators=10, contamination=contamination, random_state=42
+    )
+
+    with pytest.raises(ValueError, match="contamination"):
+        clf.fit(blobs_data)
+
+
 # =============================================================================
 # Data type tests
 # =============================================================================

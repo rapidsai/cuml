@@ -11,6 +11,7 @@ algorithm, which is an unsupervised learning method for detecting anomalies.
 """
 
 import math
+from numbers import Real
 import warnings
 
 import cupy as cp
@@ -198,9 +199,11 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         Accepted for sklearn API compatibility. The current GPU builder
         builds each tree in a single CUDA block and does not batch nodes.
     contamination : float or "auto", default="auto"
-        The proportion of outliers in the data set. The current implementation
-        uses the sklearn ``"auto"`` offset (-0.5); float contamination values
-        are accepted but do not yet compute a data-dependent offset.
+        The proportion of outliers in the data set, used to define the offset
+        for ``decision_function`` and ``predict``.
+        - If ``"auto"``, the offset is set to -0.5 as in sklearn.
+        - If float, must be in the range (0, 0.5] and the offset is set to
+          the corresponding training-score quantile.
     verbose : int or boolean, default=False
         Sets logging level.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \\
@@ -406,8 +409,30 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
         cdef uintptr_t X_ptr = X_m.ptr
+        cdef double contamination_fraction = 0.0
+        cdef bint use_contamination_quantile = False
         self.n_features_in_ = n_cols
         self._dtype = X_m.dtype
+
+        if isinstance(self.contamination, str):
+            if self.contamination != "auto":
+                raise ValueError(
+                    "contamination must be 'auto' or a float in the range "
+                    "(0, 0.5]."
+                )
+        elif isinstance(self.contamination, Real):
+            contamination_fraction = float(self.contamination)
+            if contamination_fraction <= 0.0 or contamination_fraction > 0.5:
+                raise ValueError(
+                    "contamination must be 'auto' or a float in the range "
+                    "(0, 0.5]."
+                )
+            use_contamination_quantile = True
+        else:
+            raise ValueError(
+                "contamination must be 'auto' or a float in the range "
+                "(0, 0.5]."
+            )
 
         # Compute max_samples
         cdef int actual_max_samples
@@ -485,11 +510,13 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         self._nvforest_model = None
 
-        # Only the sklearn "auto" offset is implemented for now. Supporting a
-        # float contamination requires scoring the training data and computing
-        # the corresponding score quantile.
-        if self.contamination == "auto":
-            self.offset_ = -0.5
+        if use_contamination_quantile:
+            training_scores = cp.asarray(self.score_samples(X_m.to_output("cupy")))
+            self.offset_ = float(
+                cp.percentile(
+                    training_scores, 100.0 * contamination_fraction
+                ).get()
+            )
         else:
             self.offset_ = -0.5
 
@@ -767,9 +794,11 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
 
-        # Use threshold of 0.5 (scores > 0.5 are anomalies in our C++ impl)
-        cdef float threshold_f = 0.5
-        cdef double threshold_d = 0.5
+        # C++ predict thresholds original paper scores, while Python
+        # score_samples returns -paper_score and decision_function subtracts
+        # offset_. Therefore decision_function < 0 maps to paper_score > -offset_.
+        cdef float threshold_f = <float>(-self.offset_)
+        cdef double threshold_d = <double>(-self.offset_)
 
         if self._dtype == np.float32:
             forest_f = <IsolationForestF*><uintptr_t>self._forest_float
