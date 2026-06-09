@@ -6,14 +6,19 @@ import numpy as np
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
+from libcpp.vector cimport vector
 
-from cuml.common.opg_data_utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    RankSizePair,
+    doubleData_t,
+    floatData_t,
+)
 
 
 def build_data_t(parts):
     """
-    Function to create a floatData_t** or doubleData_t** from a list of
-    cupy arrays
+    Build a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``
 
     Parameters
     ----------
@@ -22,9 +27,8 @@ def build_data_t(parts):
 
     Returns
     -------
-    ptr: vector pointer of either a floatData_t* or doubleData_t*,
-         depending on dtype of input
-
+    ptr: int
+        Pointer to a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``.
     """
     cdef vector[floatData_t *] *data_f32
     cdef vector[doubleData_t *] *data_f64
@@ -51,19 +55,17 @@ def build_data_t(parts):
             )
         return <uintptr_t> data_f64
 
-    else:
-        raise TypeError('build_data_t: Arrays passed must be np.float32 or \
-                        np.float64')
+    raise TypeError("Arrays passed must be np.float32 or np.float64")
 
 
 def free_data_t(uintptr_t data_ptr, dtype):
     """
-    Function to free a vector of floatData_t* or doubleData_t*
+    Free a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``
 
     Parameters
     ----------
     data_ptr: int
-        A pointer to a vector of floatData_t* or doubleData_t*.
+        A pointer to a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``.
     dtype: dtype
         The dtype (float32 or float64).
     """
@@ -86,18 +88,19 @@ def free_data_t(uintptr_t data_ptr, dtype):
         del d64
 
 
-def build_rank_size_pair(parts_to_sizes, rank):
+def build_rank_size_pair(parts_to_sizes):
     """
-    Function to build a vector<rankSizePair*> mapping the rank to the
-    sizes of partitions
+    Build a ``vector<rankSizePair*>`` mapping ranks to partition sizes
 
     Parameters
     ----------
-    parts_to_sizes: array of tuples in the format: [(rank,size)]
+    parts_to_sizes: list[tuple[int, int]]
+        List of tuples in the format: [(rank,size)]
 
     Returns
     --------
-    ptr: vector pointer of the RankSizePair*
+    ptr: int
+        Pointer to a ``vector<RankSizePair*>``
     """
     cdef vector[RankSizePair*] *rsp_vec = new vector[RankSizePair*]()
 
@@ -109,11 +112,12 @@ def build_rank_size_pair(parts_to_sizes, rank):
 
 def free_rank_size_pair(uintptr_t rank_size_ptr):
     """
-    Function to free a vector of rankSizePair*
+    Free a ``vector<RankSizePair*>``
 
     Parameters
     ----------
-    rank_size_ptr: pointer to a vector of rankSizePair*.
+    rank_size_ptr: int
+        Pointer to a ``vector<RankSizePair*>``
     """
     cdef vector[RankSizePair*] *rsp_vec = <vector[RankSizePair*]*>rank_size_ptr
     cdef RankSizePair *rsp_ptr
@@ -126,7 +130,7 @@ def free_rank_size_pair(uintptr_t rank_size_ptr):
 
 def build_part_descriptor(m, n, uintptr_t rank_size_ptr, rank):
     """
-    Function to build a shared PartDescriptor object.
+    Build a ``PartDescriptor``
 
     Parameters
     ----------
@@ -135,14 +139,14 @@ def build_part_descriptor(m, n, uintptr_t rank_size_ptr, rank):
     n: int
         Number of cols
     rank_size_ptr: int
-        Pointer to a vector of RankSizePair*
+        Pointer to a ``vector<RankSizePair*>``.
     rank: int
         Rank to be mapped
 
     Returns
     --------
     ptr: int
-        A pointer to a PartDescriptor
+        Pointer to a ``PartDescriptor``.
     """
     cdef vector[RankSizePair *] *rsp_vec = <vector[RankSizePair *]*>rank_size_ptr
 
@@ -157,11 +161,12 @@ def build_part_descriptor(m, n, uintptr_t rank_size_ptr, rank):
 
 def free_part_descriptor(uintptr_t descriptor_ptr):
     """
-    Function to free a PartDescriptor*
+    Free a ``PartDescriptor``
 
     Parameters
     ----------
-    descriptor_ptr: PartDescriptor* to be freed
+    descriptor_ptr: int
+        Pointer to a ``PartDescriptor``.
     """
     cdef PartDescriptor *desc_c = <PartDescriptor*>descriptor_ptr
     del desc_c

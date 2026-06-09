@@ -161,8 +161,7 @@ class LogisticRegressionMG(LogisticRegression):
         )
         self.dtype = X.dtype
 
-        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(parts_rank_size, rank)
-
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(parts_rank_size)
         cdef uintptr_t input_desc = opg.build_part_descriptor(
             n_rows, n_cols, rank_to_sizes, rank
         )

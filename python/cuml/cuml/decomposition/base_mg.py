@@ -64,8 +64,7 @@ class BaseDecompositionMG:
 
         X_ptr = opg.build_data_t(Xs)
 
-        rank_to_sizes = opg.build_rank_size_pair(parts_rank_size, rank)
-
+        rank_to_sizes = opg.build_rank_size_pair(parts_rank_size)
         input_desc_ptr = opg.build_part_descriptor(
             total_rows, n_cols, rank_to_sizes, rank
         )
