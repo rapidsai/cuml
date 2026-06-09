@@ -72,9 +72,11 @@ class BaseDecompositionMG:
 
         if _transform:
             trans_arys = [
-                cp.zeros(X.shape, dtype=dtype, order="F") for X in Xs
+                cp.zeros(
+                    (X.shape[0], self.n_components), dtype=dtype, order="F"
+                )
+                for X in Xs
             ]
-
             trans_ptr = opg.build_data_t(trans_arys)
             trans_desc_ptr = opg.build_part_descriptor(
                 total_rows, self.n_components_, rank_to_sizes, rank

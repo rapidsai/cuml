@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -106,7 +106,8 @@ def test_tsvd_fit_transform_fp32(data_info, client):
     )
 
     cutsvd = daskTPCA(n_components=15)
-    cutsvd.fit_transform(X_cudf)
+    out = cutsvd.fit_transform(X_cudf)
+    assert out.shape[1] == cutsvd.n_components_
 
 
 @pytest.mark.mg
@@ -131,7 +132,8 @@ def test_tsvd_fit_transform_fp64(data_info, client):
     )
 
     cutsvd = daskTPCA(n_components=15)
-    cutsvd.fit_transform(X_cudf)
+    out = cutsvd.fit_transform(X_cudf)
+    assert out.shape[1] == cutsvd.n_components_
 
 
 @pytest.mark.mg
