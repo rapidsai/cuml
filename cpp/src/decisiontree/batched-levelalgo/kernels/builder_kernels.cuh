@@ -17,6 +17,7 @@
 
 #include <cub/cub.cuh>
 #include <cuda/std/array>
+#include <cuda/std/limits>
 #include <cuda/std/random>
 
 namespace ML {
@@ -300,13 +301,16 @@ CUML_KERNEL void algo_L_sample_kernel(int* colids,
   rng.set_counter(
     cuda::std::array<cuda::std::philox4x64::result_type, cuda::std::philox4x64::word_count>{
       0, 0, static_cast<cuda::std::philox4x64::result_type>(subsequence), 0});
-  cuda::std::uniform_real_distribution<float> uniform01(0.0f, 1.0f);
+  cuda::std::uniform_real_distribution<float> uniform01(cuda::std::numeric_limits<float>::min(),
+                                                        1.0f);
   cuda::std::uniform_int_distribution<IdxT> sample_dist(IdxT{0}, static_cast<IdxT>(k - 1));
+  constexpr double max_W = 1.0 - static_cast<double>(cuda::std::numeric_limits<float>::epsilon());
   float fp_uniform_val;
   IdxT int_uniform_val;
   // fp_uniform_val will have a random value between 0 and 1
   fp_uniform_val = uniform01(rng);
   double W       = raft::exp(raft::log(fp_uniform_val) / k);
+  W              = W < max_W ? W : max_W;
 
   size_t col(0);
   // initially fill the reservoir array in increasing order of cols till k
@@ -329,6 +333,7 @@ CUML_KERNEL void algo_L_sample_kernel(int* colids,
       // fp_uniform_val will have a random value between 0 and 1
       fp_uniform_val = uniform01(rng);
       W *= raft::exp(raft::log(fp_uniform_val) / k);
+      W = W < max_W ? W : max_W;
     }
   }
 }
