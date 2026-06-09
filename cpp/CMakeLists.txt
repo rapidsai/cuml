@@ -463,7 +463,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     target_sources(cuml_objs PRIVATE src/randomforest/randomforest.cu)
   endif()
 
-  if(all_algo OR isolationforest_algo OR randomforest_algo)
+  if(all_algo
+     OR isolationforest_algo
+     OR randomforest_algo
+  )
     target_sources(cuml_objs PRIVATE src/isolation_forest/isolation_forest.cu)
   endif()
 

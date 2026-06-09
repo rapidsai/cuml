@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Shared device types and helpers for the batched Isolation Forest tree builder.
- * 
+ *
  * Key design decisions:
  * - All trees built in a single kernel launch (1 block per tree)
  * - Subsamples gathered into contiguous buffer to avoid scattered reads
@@ -15,18 +15,20 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
-
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
+
+#include <cuda_runtime.h>
 #include <thrust/transform.h>
 
+#include <curand_kernel.h>
+
 #include <algorithm>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace ML {
@@ -86,8 +88,8 @@ __device__ __forceinline__ size_t sample_bounded(curandState* rng_state, size_t 
   if (bound <= 1) return 0;
 
   constexpr uint64_t max_uint64 = 0xffffffffffffffffULL;
-  uint64_t limit = max_uint64 - (max_uint64 % static_cast<uint64_t>(bound));
-  uint64_t value = curand_u64(rng_state);
+  uint64_t limit                = max_uint64 - (max_uint64 % static_cast<uint64_t>(bound));
+  uint64_t value                = curand_u64(rng_state);
   while (value >= limit) {
     value = curand_u64(rng_state);
   }
@@ -137,17 +139,17 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
   __syncthreads();
 
   if (tid == 0) {
-    int n_nodes           = 1;
+    int n_nodes            = 1;
     int observed_max_depth = 0;
-    int stack_top         = 0;
-    stack[stack_top++]    = {0, 0, n_samples, 0};
+    int stack_top          = 0;
+    stack[stack_top++]     = {0, 0, n_samples, 0};
 
     while (stack_top > 0) {
-      StackEntry entry = stack[--stack_top];
-      int node_idx     = entry.node_idx;
-      int start        = entry.start_idx;
-      int end          = entry.end_idx;
-      int depth        = entry.depth;
+      StackEntry entry   = stack[--stack_top];
+      int node_idx       = entry.node_idx;
+      int start          = entry.start_idx;
+      int end            = entry.end_idx;
+      int depth          = entry.depth;
       int n_node_samples = end - start;
       observed_max_depth = observed_max_depth > depth ? observed_max_depth : depth;
 
@@ -160,8 +162,7 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
         continue;
       }
 
-      int local_feature =
-        static_cast<int>(sample_bounded(rng_state, static_cast<size_t>(n_cols)));
+      int local_feature = static_cast<int>(sample_bounded(rng_state, static_cast<size_t>(n_cols)));
       int original_feature =
         feature_indices == nullptr ? local_feature : feature_indices[local_feature];
 
@@ -242,12 +243,12 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
 
   T* local_data = subsample_buffer + static_cast<size_t>(tree_id) * max_samples * max_features;
   size_t* tree_sample_indices = sample_indices + static_cast<size_t>(tree_id) * max_samples;
-  int* tree_feature_indices = feature_indices == nullptr ?
-                                nullptr :
-                                feature_indices + static_cast<size_t>(tree_id) * max_features;
-  int* tree_work_indices = work_indices + static_cast<size_t>(tree_id) * max_samples;
-  StackEntry* tree_stack = stack + static_cast<size_t>(tree_id) * max_nodes_per_tree;
-  IFNode* tree_nodes     = nodes + tree_offset;
+  int* tree_feature_indices   = feature_indices == nullptr
+                                  ? nullptr
+                                  : feature_indices + static_cast<size_t>(tree_id) * max_features;
+  int* tree_work_indices      = work_indices + static_cast<size_t>(tree_id) * max_samples;
+  StackEntry* tree_stack      = stack + static_cast<size_t>(tree_id) * max_nodes_per_tree;
+  IFNode* tree_nodes          = nodes + tree_offset;
 
   // Thread 0 samples source rows using sklearn IsolationForest semantics:
   // bootstrap=True samples with replacement; bootstrap=False samples without
@@ -260,8 +261,8 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
     } else {
       size_t start = n_rows - static_cast<size_t>(max_samples);
       for (int i = 0; i < max_samples; i++) {
-        size_t j = start + static_cast<size_t>(i);
-        size_t t = sample_bounded(&rng_state, j + 1);
+        size_t j               = start + static_cast<size_t>(i);
+        size_t t               = sample_bounded(&rng_state, j + 1);
         tree_sample_indices[i] = contains_sample(tree_sample_indices, i, t) ? j : t;
       }
     }
@@ -270,7 +271,7 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
       size_t start = static_cast<size_t>(n_cols - max_features);
       for (int i = 0; i < max_features; i++) {
         size_t j = start + static_cast<size_t>(i);
-        int t = static_cast<int>(sample_bounded(&rng_state, j + 1));
+        int t    = static_cast<int>(sample_bounded(&rng_state, j + 1));
         tree_feature_indices[i] =
           contains_int_sample(tree_feature_indices, i, t) ? static_cast<int>(j) : t;
       }
@@ -422,11 +423,8 @@ void compact_global_isolation_forest(const raft::handle_t& handle,
 
   h_tree_n_nodes.resize(n_trees);
   h_tree_max_depth.resize(n_trees);
-  RAFT_CUDA_TRY(cudaMemcpyAsync(h_tree_n_nodes.data(),
-                                d_tree_n_nodes,
-                                n_trees * sizeof(int),
-                                cudaMemcpyDeviceToHost,
-                                stream));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    h_tree_n_nodes.data(), d_tree_n_nodes, n_trees * sizeof(int), cudaMemcpyDeviceToHost, stream));
   RAFT_CUDA_TRY(cudaMemcpyAsync(h_tree_max_depth.data(),
                                 d_tree_max_depth,
                                 n_trees * sizeof(int),
@@ -449,8 +447,12 @@ void compact_global_isolation_forest(const raft::handle_t& handle,
                                 stream));
 
   rmm::device_uvector<IFNode> d_compact(total_nodes, stream);
-  compact_global_trees_kernel<T><<<n_trees, 128, 0, stream>>>(
-    d_nodes, n_trees, max_nodes_per_tree, d_tree_n_nodes, d_compact_offsets.data(), d_compact.data());
+  compact_global_trees_kernel<T><<<n_trees, 128, 0, stream>>>(d_nodes,
+                                                              n_trees,
+                                                              max_nodes_per_tree,
+                                                              d_tree_n_nodes,
+                                                              d_compact_offsets.data(),
+                                                              d_compact.data());
   RAFT_CUDA_TRY(cudaGetLastError());
 
   h_nodes.resize(total_nodes);

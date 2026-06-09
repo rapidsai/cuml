@@ -8,6 +8,7 @@
 #include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
+
 #include <rmm/device_buffer.hpp>
 
 #include <cstddef>
@@ -24,28 +25,28 @@ namespace CUML_EXPORT ML {
  * @brief Isolation Forest hyperparameters
  */
 struct IF_params {
-  int n_estimators = 100;   ///< Number of isolation trees
-  int max_samples = 256;    ///< Samples per tree (default 256)
-  int max_depth = -1;       ///< Max depth (-1 = auto: ceil(log2(max_samples)))
-  int max_features = -1;    ///< Features sampled per tree (-1 = all features)
-  bool bootstrap = false;   ///< If true, sample rows with replacement
-  uint64_t seed = 0;        ///< Random seed
+  int n_estimators = 100;    ///< Number of isolation trees
+  int max_samples  = 256;    ///< Samples per tree (default 256)
+  int max_depth    = -1;     ///< Max depth (-1 = auto: ceil(log2(max_samples)))
+  int max_features = -1;     ///< Features sampled per tree (-1 = all features)
+  bool bootstrap   = false;  ///< If true, sample rows with replacement
+  uint64_t seed    = 0;      ///< Random seed
 };
 
 /** @brief Trained Isolation Forest model */
 template <class T>
 struct IsolationForestModel {
-  IF_params params;            ///< Hyperparameters used for training
-  int n_features = 0;          ///< Number of features in training data
-  int n_features_per_tree = 0; ///< Features sampled per tree
-  int n_samples_per_tree = 0;  ///< Samples used per tree (for c(n) calculation)
-  T c_normalization = 0;       ///< Precomputed c(n) normalization constant
-  int max_nodes_per_tree = 0;  ///< Allocated node capacity per tree
+  IF_params params;                           ///< Hyperparameters used for training
+  int n_features          = 0;                ///< Number of features in training data
+  int n_features_per_tree = 0;                ///< Features sampled per tree
+  int n_samples_per_tree  = 0;                ///< Samples used per tree (for c(n) calculation)
+  T c_normalization       = 0;                ///< Precomputed c(n) normalization constant
+  int max_nodes_per_tree  = 0;                ///< Allocated node capacity per tree
   rmm::device_buffer global_feature_indices;  ///< Optional per-tree sampled feature ids
-  rmm::device_buffer global_nodes;  ///< Device memory for global-memory IFNode array
-  rmm::device_buffer global_tree_offsets;  ///< Per-tree base offset in global_nodes
-  rmm::device_buffer global_tree_n_nodes;  ///< Per-tree used node counts
-  rmm::device_buffer global_tree_max_depth;  ///< Per-tree max depth metadata
+  rmm::device_buffer global_nodes;            ///< Device memory for global-memory IFNode array
+  rmm::device_buffer global_tree_offsets;     ///< Per-tree base offset in global_nodes
+  rmm::device_buffer global_tree_n_nodes;     ///< Per-tree used node counts
+  rmm::device_buffer global_tree_max_depth;   ///< Per-tree max depth metadata
 };
 
 typedef IsolationForestModel<float> IsolationForestF;
@@ -69,10 +70,10 @@ struct IFNodeCompact {
  * Contains all used nodes concatenated, with per-tree metadata.
  */
 struct CompactIFForest {
-  std::vector<IFNodeCompact> nodes;   ///< All used nodes, trees concatenated
-  std::vector<int> tree_offsets;      ///< Start index in nodes[] for each tree
-  std::vector<int> tree_n_nodes;      ///< Number of nodes per tree
-  std::vector<int> tree_max_depth;    ///< Max depth per tree
+  std::vector<IFNodeCompact> nodes;  ///< All used nodes, trees concatenated
+  std::vector<int> tree_offsets;     ///< Start index in nodes[] for each tree
+  std::vector<int> tree_n_nodes;     ///< Number of nodes per tree
+  std::vector<int> tree_max_depth;   ///< Max depth per tree
 };
 
 /**
@@ -112,7 +113,7 @@ void build_treelite_isolation_forest(TreeliteModelHandle* model_handle,
  * @param[in]  handle    RAFT handle for GPU resources
  * @param[out] forest    Model to populate with trained trees
  * @param[in]  input     Training data, column-major [n_rows × n_cols], device pointer
- * @param[in]  n_rows    Number of training samples 
+ * @param[in]  n_rows    Number of training samples
  * @param[in]  n_cols    Number of features
  * @param[in]  params    Hyperparameters (n_estimators, max_samples, max_depth, seed)
  * @param[in]  verbosity Logging level
@@ -144,7 +145,7 @@ void fit(const raft::handle_t& handle,
  * @param[in]  handle    RAFT handle for GPU resources
  * @param[in]  forest    Trained Isolation Forest model
  * @param[in]  input     Test data, row-major [n_rows × n_cols], device pointer
- * @param[in]  n_rows    Number of test samples 
+ * @param[in]  n_rows    Number of test samples
  * @param[in]  n_cols    Number of features (must match training)
  * @param[out] scores    Anomaly scores [n_rows], device pointer
  * @param[in]  verbosity Logging level
@@ -183,7 +184,7 @@ void predict(const raft::handle_t& handle,
              size_t n_rows,
              int n_cols,
              int* predictions,
-             float threshold = 0.5f,
+             float threshold                     = 0.5f,
              rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
 void predict(const raft::handle_t& handle,
@@ -192,7 +193,7 @@ void predict(const raft::handle_t& handle,
              size_t n_rows,
              int n_cols,
              int* predictions,
-             double threshold = 0.5,
+             double threshold                    = 0.5,
              rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML
