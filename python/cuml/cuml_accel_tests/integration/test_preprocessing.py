@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import scipy.sparse as sp
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import (
     LabelBinarizer,
@@ -14,6 +16,8 @@ from sklearn.preprocessing import (
     PolynomialFeatures,
     StandardScaler,
 )
+
+SKLEARN_161 = Version(sklearn.__version__) >= Version("1.6.1")
 
 
 def test_standard_scaler():
@@ -50,7 +54,14 @@ def test_standard_scaler_sparse_with_mean():
         StandardScaler(with_mean=True).fit(X)
 
     tags = StandardScaler(with_mean=False).__sklearn_tags__()
-    assert tags.input_tags.sparse
+    # scikit-learn/scikit-learn#30187 fixed stale sparse input tags after
+    # 1.6.0. Drop this version guard once cuML requires scikit-learn >= 1.6.1.
+    assert tags.input_tags.sparse is SKLEARN_161
+
+    model = StandardScaler(with_mean=False).fit(X)
+    out = model.transform(X)
+    assert sp.issparse(out)
+    assert out.shape == X.shape
 
 
 def test_min_max_scaler():
