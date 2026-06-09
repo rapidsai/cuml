@@ -335,16 +335,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
                 f"`{self._cpu_class.__name__}` fitted attributes synced to CPU"
             )
 
-    def _gpu_supports_sparse(self) -> bool:
-        model = self._gpu
-        if model is None:
-            try:
-                params = self._gpu_class._params_from_cpu(self._cpu)
-            except UnsupportedOnGPU:
-                return False
-            model = self._gpu_class(**params)
-        return "sparse" in model.__sklearn_tags__().X_types_gpu
-
     def _reset_cpu(self) -> None:
         """Reset `_cpu`, dropping all fitted attributes"""
         # XXX: sklearn.clone doesn't copy `_parent_callback_ctx` (but does copy
@@ -387,7 +377,11 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         """Call a method on the wrapped GPU estimator."""
         from cuml.common.sparse_utils import is_sparse
 
-        if args and is_sparse(args[0]) and not self._gpu_supports_sparse():
+        if (
+            args
+            and is_sparse(args[0])
+            and "sparse" not in self._gpu.__sklearn_tags__().X_types_gpu
+        ):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         if getattr(self._cpu, "_skl_callbacks", ()) and method in (

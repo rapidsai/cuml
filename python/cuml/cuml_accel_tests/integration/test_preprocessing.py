@@ -38,6 +38,21 @@ def test_standard_scaler():
     np.testing.assert_allclose(X_inverse, X, atol=1e-6)
 
 
+def test_standard_scaler_sparse_with_mean():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    X[X < 0] = 0
+    X = sp.csr_matrix(X)
+
+    tags = StandardScaler(with_mean=True).__sklearn_tags__()
+    assert not tags.input_tags.sparse
+
+    with pytest.raises(ValueError, match="Cannot center sparse matrices"):
+        StandardScaler(with_mean=True).fit(X)
+
+    tags = StandardScaler(with_mean=False).__sklearn_tags__()
+    assert tags.input_tags.sparse
+
+
 def test_min_max_scaler():
     X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
     model = MinMaxScaler().fit(X)

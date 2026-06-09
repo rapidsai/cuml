@@ -911,17 +911,6 @@ def test_array_api_proxy_partial_fit():
     assert not hasattr(model._cpu, "n_features_in_")
 
 
-@requires_array_api
-def test_array_api_proxy_sparse_support_tracks_params():
-    assert not StandardScaler(with_mean=True)._gpu_supports_sparse()
-    assert StandardScaler(with_mean=False)._gpu_supports_sparse()
-
-    model = StandardScaler()
-    assert not model._gpu_supports_sparse()
-    model.set_params(with_mean=False)
-    assert model._gpu_supports_sparse()
-
-
 @pytest.mark.parametrize(
     "transform",
     [
