@@ -78,17 +78,17 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
 // Convert sorted per-column samples into quantile candidates and compact duplicate candidates.
 template <typename T>
 static __global__ void computeQuantilesBatchedKernel(
-  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int n_rows)
+  T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int sample_count)
 {
   int col           = blockIdx.x;
   T* col_quantiles  = quantiles + static_cast<int64_t>(col) * max_n_bins;
-  const T* col_data = sorted_data + static_cast<int64_t>(col) * n_rows;
-  double bin_width  = static_cast<double>(n_rows) / max_n_bins;
+  const T* col_data = sorted_data + static_cast<int64_t>(col) * sample_count;
+  double bin_width  = static_cast<double>(sample_count) / max_n_bins;
 
   for (int bin = threadIdx.x; bin < max_n_bins; bin += blockDim.x) {
     // get index by interpolation
     int idx            = int(round((bin + 1) * bin_width)) - 1;
-    idx                = min(max(0, idx), n_rows - 1);
+    idx                = min(max(0, idx), sample_count - 1);
     col_quantiles[bin] = col_data[idx];
   }
 
