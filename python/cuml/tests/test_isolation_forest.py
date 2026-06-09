@@ -130,7 +130,7 @@ def test_default_parameters():
     """Default parameters should match expected values."""
     clf = cuIsolationForest()
     assert clf.n_estimators == 100
-    assert clf.max_samples == 256
+    assert clf.max_samples == "auto"
     assert clf.max_depth is None
     assert clf.max_features == 1.0
     assert clf.bootstrap is False
