@@ -48,14 +48,21 @@ struct WorkloadInfo {
   IdxT num_blocks;      // Total number of blocks that are working on the node
 };
 
+template <typename SplitT, typename IdxT>
+HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
+{
+  return split.colid == IdxT(-1) || split.nLeft < min_samples_leaf ||
+         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
+}
+
 template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
                        IdxT min_samples_leaf,
                        std::size_t num_rows)
 {
-  return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
+  return split.best_metric_val <= min_impurity_decrease ||
+         SplitPartitionNotValid(split, min_samples_leaf, num_rows);
 }
 
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
@@ -79,26 +86,20 @@ void sample_features(IdxT* column_samples,
   auto n_column_samples = work_items_size * size_t(k);
   auto counting         = thrust::make_counting_iterator<size_t>(0);
 
-  thrust::for_each(
-    thrust::cuda::par.on(stream),
-    counting,
-    counting + n_column_samples,
-    [=] __device__(size_t sample_idx) {
-      auto node_idx     = sample_idx / size_t(k);
-      IdxT column_index = static_cast<IdxT>(sample_idx % size_t(k));
+  thrust::for_each(thrust::cuda::par.on(stream),
+                   counting,
+                   counting + n_column_samples,
+                   [=] __device__(size_t sample_idx) {
+                     auto node_idx     = sample_idx / size_t(k);
+                     IdxT column_index = static_cast<IdxT>(sample_idx % size_t(k));
 
-      if (k == n) {
-        column_samples[sample_idx] = column_index;
-        return;
-      }
+                     const uint32_t nodeid = work_items[node_idx].idx;
+                     uint32_t rng_seed     = fnv1a32_hash(seed, treeid, nodeid);
 
-      const uint32_t nodeid = work_items[node_idx].idx;
-      uint32_t rng_seed     = fnv1a32_hash(seed, treeid, nodeid);
-
-      cuda::shuffle_iterator<IdxT> shuffled_features(
-        n, cuda::std::minstd_rand(rng_seed), sample_offset);
-      column_samples[sample_idx] = shuffled_features[column_index];
-    });
+                     cuda::shuffle_iterator<IdxT> shuffled_features(
+                       n, cuda::std::minstd_rand(rng_seed), sample_offset);
+                     column_samples[sample_idx] = shuffled_features[column_index];
+                   });
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>

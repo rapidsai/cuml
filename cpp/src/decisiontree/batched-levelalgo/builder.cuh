@@ -384,8 +384,8 @@ struct Builder {
     const IdxT original_n_sampled_cols = dataset.n_sampled_cols;
     ASSERT(original_n_sampled_cols > 0 && original_n_sampled_cols <= dataset.N,
            "n_sampled_cols must be in [1, n_cols]");
-    const std::size_t max_sampling_rounds = std::size_t(
-      (dataset.N + original_n_sampled_cols - 1) / original_n_sampled_cols);
+    const std::size_t max_sampling_rounds =
+      std::size_t((dataset.N + original_n_sampled_cols - 1) / original_n_sampled_cols);
     struct HostSplit {
       DataT quesval;
       IdxT colid;
@@ -419,15 +419,11 @@ struct Builder {
       std::vector<NodeWorkItem> retry_items;
       std::vector<std::size_t> retry_to_original;
       for (std::size_t i = 0; i < active_items.size(); ++i) {
-        const auto original_idx = active_to_original[i];
-        final_splits[original_idx] = HostSplit{h_splits[i].quesval,
-                                               h_splits[i].colid,
-                                               h_splits[i].best_metric_val,
-                                               h_splits[i].nLeft};
-        if (SplitNotValid(h_splits[i],
-                          params.min_impurity_decrease,
-                          params.min_samples_leaf,
-                          active_items[i].instances.count)) {
+        const auto original_idx    = active_to_original[i];
+        final_splits[original_idx] = HostSplit{
+          h_splits[i].quesval, h_splits[i].colid, h_splits[i].best_metric_val, h_splits[i].nLeft};
+        if (SplitPartitionNotValid(
+              h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);
           retry_to_original.push_back(original_idx);
         }
@@ -490,16 +486,15 @@ struct Builder {
                       IdxT sample_offset)
   {
     raft::common::nvtx::range fun_scope("feature-sampling");
-    sample_features<IdxT>(
-      column_samples,
-      d_work_items,
-      work_items.size(),
-      treeid,
-      sampling_seed,
-      sample_offset,
-      dataset.N,
-      dataset.n_sampled_cols,
-      builder_stream);
+    sample_features<IdxT>(column_samples,
+                          d_work_items,
+                          work_items.size(),
+                          treeid,
+                          sampling_seed,
+                          sample_offset,
+                          dataset.N,
+                          dataset.n_sampled_cols,
+                          builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
