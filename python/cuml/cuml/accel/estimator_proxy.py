@@ -849,6 +849,11 @@ class _ArrayAPIWrapper(InteropMixin, Base):
     def _params_to_cpu(self):
         return self.get_params(deep=False)
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.X_types_gpu = ["2darray"]
+        return tags
+
     def _sync_attrs_from_cpu(self, model) -> None:
         if not is_fitted(model):
             # Not fitted, nothing to do
