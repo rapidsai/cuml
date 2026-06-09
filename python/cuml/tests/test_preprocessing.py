@@ -956,6 +956,13 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.parametrize("Estimator", [cuNormalizer, cuBinarizer])
+def test_stateless_transformer_tags(Estimator):
+    tags = Estimator().__sklearn_tags__()
+    assert not tags.requires_fit
+    assert tags.input_tags.sparse
+
+
 @pytest.mark.filterwarnings(
     "ignore:'ignore_implicit_zeros' takes effect only with sparse matrix.*:UserWarning"
 )

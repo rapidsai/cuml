@@ -1925,6 +1925,11 @@ class Normalizer(TransformerMixin,
         self.norm = norm
         self.copy = copy
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
+
     @reflect(reset="type")
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
@@ -2054,6 +2059,11 @@ class Binarizer(TransformerMixin,
     def __init__(self, *, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
 
     @reflect(reset="type")
     def fit(self, X, y=None) -> "Binarizer":
