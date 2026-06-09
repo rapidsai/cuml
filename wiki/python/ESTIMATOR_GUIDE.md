@@ -318,7 +318,7 @@ def __sklearn_tags__(self):
    return tags
 ```
 
-Prefer the existing tag mixins for common capabilities. Tag-providing mixins are cooperative: each mixin calls `super().__sklearn_tags__()` and mutates the returned object. Put tag mixins to the left of `Base` so the `super()` chain reaches the mixins before `Base` and `TagsMixin`:
+Prefer the existing tag mixins for common capabilities. Tag-providing mixins are cooperative: each mixin calls `super().__sklearn_tags__()` and mutates the returned object. Put tag mixins to the left of `Base`, following scikit-learn's [estimator MRO guidance](https://scikit-learn.org/stable/developers/develop.html), so the `super()` chain reaches the mixins before `Base` and `TagsMixin`:
 
 ```python
 class MyEstimator(CMajorInputTagMixin, AllowNaNTagMixin, Base):
