@@ -241,7 +241,6 @@ XFAILS = {
         "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
     },
     StandardScaler: {
-        "check_estimators_nan_inf": "StandardScaler accepts NaN and inf in fit",
         "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
         "check_fit_score_takes_y": "AttributeError: 'int' object has no attribute 'repeat'",
         "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",

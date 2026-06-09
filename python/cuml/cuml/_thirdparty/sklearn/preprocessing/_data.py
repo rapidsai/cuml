@@ -526,10 +526,10 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 
 class StandardScaler(TransformerMixin,
-                     BaseEstimator,
-                     InteropMixin,
                      AllowNaNTagMixin,
-                     SparseInputTagMixin):
+                     SparseInputTagMixin,
+                     BaseEstimator,
+                     InteropMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -644,6 +644,13 @@ class StandardScaler(TransformerMixin,
         self.with_mean = with_mean
         self.with_std = with_std
         self.copy = copy
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        if self.with_mean:
+            tags.input_tags.sparse = False
+            tags.X_types_gpu = ["2darray"]
+        return tags
 
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
