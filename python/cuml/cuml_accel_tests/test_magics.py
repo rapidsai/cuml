@@ -316,3 +316,23 @@ def test_line_profiler_magic_applies_to_the_correct_source():
         gpu_used.append(parts[3].strip() != "-")
     assert counts == [1, 1, 1, 1, 1]
     assert gpu_used == [False, False, False, True, True]
+
+
+def test_log_level_magic():
+    run_script(
+        """
+        ip.run_line_magic("load_ext", "cuml.accel")
+
+        out = ip.run_line_magic("cuml.accel.log_level", "")
+        assert out == "warn"
+
+        out = ip.run_line_magic("cuml.accel.log_level", "debug")
+        assert out is None
+
+        from cuml.accel.core import logger
+        assert logger.level.name.lower() == "debug"
+
+        out = ip.run_line_magic("cuml.accel.log_level", "")
+        assert out == "debug"
+        """
+    )
