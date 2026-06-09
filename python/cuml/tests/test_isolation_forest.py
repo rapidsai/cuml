@@ -22,7 +22,6 @@ from sklearn.ensemble import IsolationForest as skIsolationForest
 from cuml import IsolationForest as cuIsolationForest
 from cuml.testing.utils import stress_param, unit_param
 
-
 # =============================================================================
 # Fixtures for test data
 # =============================================================================
@@ -263,9 +262,7 @@ def test_contamination_float_sets_score_quantile_offset(blobs_data):
 
     assert clf.offset_ == pytest.approx(expected_offset, rel=1e-6, abs=1e-6)
     np.testing.assert_allclose(decision, scores - clf.offset_)
-    np.testing.assert_array_equal(
-        predictions, np.where(decision < 0, -1, 1)
-    )
+    np.testing.assert_array_equal(predictions, np.where(decision < 0, -1, 1))
 
 
 @pytest.mark.parametrize("contamination", [0.0, -0.1, 0.51, 1.0, "invalid"])
@@ -356,9 +353,9 @@ def test_extreme_outliers_detected():
 
     outlier_score = scores[-1]
     normal_scores = scores[:-1]
-    assert outlier_score < np.percentile(
-        normal_scores, 5
-    ), "Extreme outlier should have very low score"
+    assert outlier_score < np.percentile(normal_scores, 5), (
+        "Extreme outlier should have very low score"
+    )
 
 
 # =============================================================================
@@ -418,9 +415,7 @@ def test_score_decision_predict_consistency(synthetic_data_small):
     predictions = np.asarray(clf.predict(X))
 
     np.testing.assert_allclose(decision, scores - clf.offset_)
-    np.testing.assert_array_equal(
-        predictions, np.where(decision < 0, -1, 1)
-    )
+    np.testing.assert_array_equal(predictions, np.where(decision < 0, -1, 1))
 
 
 def test_similar_results_to_sklearn(blobs_data):
@@ -502,7 +497,9 @@ def test_nvforest_score_parity(blobs_data):
     cpp_scores = cp.asarray(clf.score_samples(X))
     nvforest_scores = cp.asarray(clf._score_samples_nvforest(X))
 
-    cp.testing.assert_allclose(cpp_scores, nvforest_scores, rtol=1e-5, atol=1e-6)
+    cp.testing.assert_allclose(
+        cpp_scores, nvforest_scores, rtol=1e-5, atol=1e-6
+    )
 
 
 def test_treelite_export_before_fit_raises(blobs_data):
@@ -536,8 +533,10 @@ def test_same_random_state_same_results(blobs_data):
     scores2 = np.asarray(clf2.score_samples(blobs_data))
 
     np.testing.assert_array_almost_equal(
-        scores1, scores2, decimal=5,
-        err_msg="Same random_state should produce identical scores"
+        scores1,
+        scores2,
+        decimal=5,
+        err_msg="Same random_state should produce identical scores",
     )
 
 
@@ -629,12 +628,8 @@ def test_feature_mismatch_raises(blobs_data):
 # =============================================================================
 
 
-@pytest.mark.parametrize(
-    "nrows", [unit_param(200), stress_param(50000)]
-)
-@pytest.mark.parametrize(
-    "ncols", [unit_param(10), stress_param(200)]
-)
+@pytest.mark.parametrize("nrows", [unit_param(200), stress_param(50000)])
+@pytest.mark.parametrize("ncols", [unit_param(10), stress_param(200)])
 @pytest.mark.parametrize("dtype", [np.float32])
 def test_isolation_forest_scaling(nrows, ncols, dtype):
     """Test IF scales with data size."""
@@ -707,11 +702,14 @@ def test_train_on_pure_data_detect_outliers():
 
     # Test data with injected outliers
     X_test_normal = rng.randn(100, 4).astype(np.float32)
-    X_test_outliers = np.array([
-        [10, 10, 10, 10],
-        [-10, -10, -10, -10],
-        [5, -5, 5, -5],
-    ], dtype=np.float32)
+    X_test_outliers = np.array(
+        [
+            [10, 10, 10, 10],
+            [-10, -10, -10, -10],
+            [5, -5, 5, -5],
+        ],
+        dtype=np.float32,
+    )
     X_test = np.vstack([X_test_normal, X_test_outliers])
 
     # Train and predict

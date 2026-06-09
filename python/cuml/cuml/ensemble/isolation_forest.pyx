@@ -11,16 +11,14 @@ algorithm, which is an unsupervised learning method for detecting anomalies.
 """
 
 import builtins
-import math
-from numbers import Integral, Real
 import warnings
+from numbers import Integral, Real
 
 import cupy as cp
-import nvforest
 import numpy as np
+import nvforest
 import treelite
 
-from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.input_utils import input_to_cuml_array
@@ -32,8 +30,6 @@ from cuml.internals.validation import check_random_seed
 from libc.stddef cimport size_t
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
-from libcpp.memory cimport shared_ptr
-from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
@@ -727,13 +723,17 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if self._dtype == np.float32:
             forest_f = <IsolationForestF*><uintptr_t>self._forest_float
             with nogil:
-                score_samples(handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
-                             <float*>scores_ptr, verbose)
+                score_samples(
+                    handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
+                    <float*>scores_ptr, verbose
+                )
         else:
             forest_d = <IsolationForestD*><uintptr_t>self._forest_double
             with nogil:
-                score_samples(handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
-                             <double*>scores_ptr, verbose)
+                score_samples(
+                    handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
+                    <double*>scores_ptr, verbose
+                )
 
         # Transform from original paper convention to sklearn convention:
         #
@@ -834,13 +834,17 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if self._dtype == np.float32:
             forest_f = <IsolationForestF*><uintptr_t>self._forest_float
             with nogil:
-                predict(handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
-                       <int*>pred_ptr, threshold_f, verbose)
+                predict(
+                    handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
+                    <int*>pred_ptr, threshold_f, verbose
+                )
         else:
             forest_d = <IsolationForestD*><uintptr_t>self._forest_double
             with nogil:
-                predict(handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
-                       <int*>pred_ptr, threshold_d, verbose)
+                predict(
+                    handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
+                    <int*>pred_ptr, threshold_d, verbose
+                )
 
         # Our C++ returns: 1 for anomaly, -1 for normal
         # sklearn returns: -1 for anomaly, 1 for normal

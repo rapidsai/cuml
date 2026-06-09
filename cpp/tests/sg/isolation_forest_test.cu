@@ -14,9 +14,9 @@
  * - Edge cases and parameter validation
  */
 
-#include <cuml/ensemble/isolation_forest.hpp>
-
 #include "../../src/isolation_forest/isolation_tree_builder.cuh"
+
+#include <cuml/ensemble/isolation_forest.hpp>
 
 #include <raft/core/handle.hpp>
 #include <raft/linalg/transpose.cuh>
@@ -51,11 +51,8 @@
 namespace ML {
 namespace tl = treelite;
 
-__global__ void sample_rows_for_test(size_t n_rows,
-                                     int max_samples,
-                                     bool bootstrap,
-                                     uint64_t seed,
-                                     size_t* sample_indices)
+__global__ void sample_rows_for_test(
+  size_t n_rows, int max_samples, bool bootstrap, uint64_t seed, size_t* sample_indices)
 {
   if (threadIdx.x != 0 || blockIdx.x != 0) return;
 
@@ -69,10 +66,9 @@ __global__ void sample_rows_for_test(size_t n_rows,
   } else {
     size_t start = n_rows - static_cast<size_t>(max_samples);
     for (int i = 0; i < max_samples; ++i) {
-      size_t j = start + static_cast<size_t>(i);
-      size_t t = IsolationTree::sample_bounded(&rng_state, j + 1);
-      sample_indices[i] =
-        IsolationTree::contains_sample(sample_indices, i, t) ? j : t;
+      size_t j          = start + static_cast<size_t>(i);
+      size_t t          = IsolationTree::sample_bounded(&rng_state, j + 1);
+      sample_indices[i] = IsolationTree::contains_sample(sample_indices, i, t) ? j : t;
     }
   }
 }
@@ -90,7 +86,7 @@ __global__ void sample_features_for_test(int n_cols,
   size_t start = static_cast<size_t>(n_cols - max_features);
   for (int i = 0; i < max_features; ++i) {
     size_t j = start + static_cast<size_t>(i);
-    int t = static_cast<int>(IsolationTree::sample_bounded(&rng_state, j + 1));
+    int t    = static_cast<int>(IsolationTree::sample_bounded(&rng_state, j + 1));
     feature_indices[i] =
       IsolationTree::contains_int_sample(feature_indices, i, t) ? static_cast<int>(j) : t;
   }
@@ -166,7 +162,11 @@ class IsolationForestTest : public ::testing::Test {
     // Generate outliers: far from origin (row-major)
     if (n_outliers > 0) {
       thrust::device_vector<float> outliers(n_outliers * n_features);
-      rng.normal(outliers.data().get(), n_outliers * n_features, outlier_distance, inlier_std * 0.5f, stream);
+      rng.normal(outliers.data().get(),
+                 n_outliers * n_features,
+                 outlier_distance,
+                 inlier_std * 0.5f,
+                 stream);
       thrust::copy(outliers.begin(), outliers.end(), X_rowmajor.begin() + n_inliers * n_features);
     }
 
@@ -283,7 +283,8 @@ TEST_F(IsolationForestTest, DeepTreesFitWithGlobalMemoryStorage)
   EXPECT_GT(model.global_nodes.size(), 0);
 
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   thrust::host_vector<float> h_scores = scores;
   for (int i = 0; i < n_samples; i++) {
@@ -362,7 +363,7 @@ TEST_F(IsolationForestTest, SubsamplingWorks)
 
 TEST_F(IsolationForestTest, BootstrapFalseSamplesWithoutReplacement)
 {
-  const size_t n_rows  = 64;
+  const size_t n_rows   = 64;
   const int max_samples = 64;
   thrust::device_vector<size_t> sampled(max_samples);
 
@@ -381,7 +382,7 @@ TEST_F(IsolationForestTest, BootstrapFalseSamplesWithoutReplacement)
 
 TEST_F(IsolationForestTest, BootstrapTrueSamplesWithReplacement)
 {
-  const size_t n_rows  = 4;
+  const size_t n_rows   = 4;
   const int max_samples = 64;
   thrust::device_vector<size_t> sampled(max_samples);
 
@@ -452,8 +453,8 @@ TEST_F(IsolationForestTest, MaxFeaturesFitStoresOriginalFeatureIds)
                                 n_estimators * sizeof(int),
                                 cudaMemcpyDeviceToHost,
                                 stream));
-  std::vector<IsolationTree::IFNode> h_nodes(
-    static_cast<size_t>(n_estimators) * model.max_nodes_per_tree);
+  std::vector<IsolationTree::IFNode> h_nodes(static_cast<size_t>(n_estimators) *
+                                             model.max_nodes_per_tree);
   RAFT_CUDA_TRY(cudaMemcpyAsync(h_nodes.data(),
                                 model.global_nodes.data(),
                                 h_nodes.size() * sizeof(IsolationTree::IFNode),
@@ -505,7 +506,8 @@ TEST_F(IsolationForestTest, AnomalyScoresInRange)
 
   // Compute anomaly scores (row-major input)
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   // Copy to host and verify range
   thrust::host_vector<float> h_scores = scores;
@@ -532,8 +534,8 @@ TEST_F(IsolationForestTest, OutliersScoreHigher)
   thrust::device_vector<float> X_colmajor;
   thrust::device_vector<float> X_rowmajor;
   thrust::device_vector<int> labels;
-  generate_data_with_outliers(n_inliers, n_outliers, n_features, 1.0f, 10.0f,
-                              X_colmajor, X_rowmajor, labels);
+  generate_data_with_outliers(
+    n_inliers, n_outliers, n_features, 1.0f, 10.0f, X_colmajor, X_rowmajor, labels);
 
   IF_params params;
   params.n_estimators = n_estimators;
@@ -546,7 +548,8 @@ TEST_F(IsolationForestTest, OutliersScoreHigher)
 
   // Compute anomaly scores (row-major input)
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   // Copy to host
   thrust::host_vector<float> h_scores = scores;
@@ -606,7 +609,8 @@ TEST_F(IsolationForestTest, PredictReturnsValidLabels)
 
   // Get predictions (row-major input)
   thrust::device_vector<int> predictions(n_samples);
-  predict(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, predictions.data().get());
+  predict(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, predictions.data().get());
 
   // Verify all predictions are either 1 or -1
   thrust::host_vector<int> h_predictions = predictions;
@@ -652,8 +656,10 @@ TEST_F(IsolationForestTest, DeterministicWithRandomState)
   thrust::device_vector<float> scores1(n_samples);
   thrust::device_vector<float> scores2(n_samples);
 
-  score_samples(*handle, &model1, X_rowmajor.data().get(), n_samples, n_features, scores1.data().get());
-  score_samples(*handle, &model2, X_rowmajor.data().get(), n_samples, n_features, scores2.data().get());
+  score_samples(
+    *handle, &model1, X_rowmajor.data().get(), n_samples, n_features, scores1.data().get());
+  score_samples(
+    *handle, &model2, X_rowmajor.data().get(), n_samples, n_features, scores2.data().get());
 
   // Scores should be identical
   thrust::host_vector<float> h_scores1 = scores1;
@@ -723,7 +729,8 @@ TEST_F(IsolationForestTest, DoublePrecisionSupport)
 
   // Compute scores (row-major)
   thrust::device_vector<double> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   // Verify scores are in range
   thrust::host_vector<double> h_scores = scores;
@@ -765,7 +772,8 @@ TEST_F(IsolationForestTest, SmallDataset)
 
   // Should still produce valid scores (row-major)
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   thrust::host_vector<float> h_scores = scores;
   for (int i = 0; i < n_samples; i++) {
@@ -804,7 +812,8 @@ TEST_F(IsolationForestTest, UniformData)
 
   // Compute scores - all should be similar for uniform data (row-major)
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   thrust::host_vector<float> h_scores = scores;
 
@@ -858,7 +867,8 @@ TEST_F(IsolationForestTest, ManyEstimators)
 
   // Verify scoring works with many trees (row-major)
   thrust::device_vector<float> scores(n_samples);
-  score_samples(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
 
   thrust::host_vector<float> h_scores = scores;
   for (int i = 0; i < n_samples; i++) {
@@ -895,17 +905,17 @@ TEST_F(IsolationForestTest, PredictThreshold)
 
   // Predictions with low threshold (more anomalies) - row-major input
   thrust::device_vector<int> pred_low(n_samples);
-  predict(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, pred_low.data().get(), 0.3f);
+  predict(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, pred_low.data().get(), 0.3f);
 
   // Predictions with high threshold (fewer anomalies) - row-major input
   thrust::device_vector<int> pred_high(n_samples);
-  predict(*handle, &model, X_rowmajor.data().get(), n_samples, n_features, pred_high.data().get(), 0.7f);
+  predict(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, pred_high.data().get(), 0.7f);
 
   // Count anomalies in each
-  int anomalies_low =
-    thrust::count(thrust::device, pred_low.begin(), pred_low.end(), 1);
-  int anomalies_high =
-    thrust::count(thrust::device, pred_high.begin(), pred_high.end(), 1);
+  int anomalies_low  = thrust::count(thrust::device, pred_low.begin(), pred_low.end(), 1);
+  int anomalies_high = thrust::count(thrust::device, pred_high.begin(), pred_high.end(), 1);
 
   // Lower threshold should produce more anomaly predictions
   EXPECT_GE(anomalies_low, anomalies_high)

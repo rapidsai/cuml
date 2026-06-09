@@ -7,8 +7,8 @@
 
 #include <cuml/ensemble/isolation_forest.hpp>
 
-#include <raft/core/handle.hpp>
 #include <raft/core/error.hpp>
+#include <raft/core/handle.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -60,8 +60,8 @@ tl::Tree<T, T> build_treelite_if_tree(const CompactIFForest& compact, int tree_i
       ASSERT(if_node.right_child >= 0 && if_node.right_child < n_nodes,
              "Invalid right child in isolation tree.");
 
-      int tl_left_child  = tl_tree.AllocNode();
-      int tl_right_child = tl_tree.AllocNode();
+      int tl_left_child                = tl_tree.AllocNode();
+      int tl_right_child               = tl_tree.AllocNode();
       tl_node_ids[if_node.left_child]  = tl_left_child;
       tl_node_ids[if_node.right_child] = tl_right_child;
 
