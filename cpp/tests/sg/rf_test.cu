@@ -44,11 +44,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 namespace ML {
 
@@ -712,8 +714,9 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_bins_array] =
+    auto quantile_result =
       DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    auto quantiles = quantile_result.view();
 
     raft::update_host(
       h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
@@ -761,8 +764,9 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_bins_array] =
+    auto quantile_result =
       DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    auto quantiles = quantile_result.view();
 
     int n_unique_bins;
     raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
@@ -807,10 +811,11 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     thrust::shuffle(data.begin(), data.end(), thrust::default_random_engine(n_uniques));
 
     // Use full-sample mode to verify duplicate compaction exactly.
-    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+    auto quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto quantiles = quantile_result.view();
     int n_uniques_obtained;
-    raft::copy(&n_uniques_obtained, n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(&n_uniques_obtained, quantile_result.n_bins_array.data(), 1, handle.get_stream());
 
     ASSERT_EQ(n_uniques_obtained, n_uniques) << "No. of unique bins is supposed to be " << n_uniques
                                              << ", but got " << n_uniques_obtained << std::endl;
@@ -862,11 +867,13 @@ class RFSampledQuantileExactFallbackTest : public ::testing::TestWithParam<Quant
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
-    auto [sampled_quantiles, sampled_quantiles_array, sampled_n_bins_array] = DT::computeQuantiles(
+    auto sampled_quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto sampled_quantiles = sampled_quantile_result.view();
 
     int sampled_n_bins;
-    raft::copy(&sampled_n_bins, sampled_n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(
+      &sampled_n_bins, sampled_quantile_result.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(sampled_n_bins, params.max_n_bins);
@@ -898,15 +905,17 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
     raft::random::Rng r(params.seed);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
 
-    auto [quantiles_a, quantiles_array_a, n_bins_array_a] = DT::computeQuantiles(
+    auto quantile_result_a = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
-    auto [quantiles_b, quantiles_array_b, n_bins_array_b] = DT::computeQuantiles(
+    auto quantile_result_b = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+    auto quantiles_a = quantile_result_a.view();
+    auto quantiles_b = quantile_result_b.view();
 
     int n_bins_a;
     int n_bins_b;
-    raft::copy(&n_bins_a, n_bins_array_a->data(), 1, handle.get_stream());
-    raft::copy(&n_bins_b, n_bins_array_b->data(), 1, handle.get_stream());
+    raft::copy(&n_bins_a, quantile_result_a.n_bins_array.data(), 1, handle.get_stream());
+    raft::copy(&n_bins_b, quantile_result_b.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(n_bins_a, n_bins_b);
@@ -940,11 +949,12 @@ class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileT
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
-    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+    auto quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+    auto quantiles = quantile_result.view();
 
     int n_bins;
-    raft::copy(&n_bins, n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(&n_bins, quantile_result.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(n_bins, params.max_n_bins);
@@ -980,6 +990,35 @@ const std::vector<QuantileTestParameters> inputs = {{1000, 16, 60785875197640796
 
 const std::vector<QuantileTestParameters> rank_error_inputs = {
   {10000, 128, 9507819643927052255LLU}};
+
+// Check that all possible global samples can be selected, including the
+// one-row partition when drawing a single sample from {1, 9} rows.
+TEST(RFSampledQuantileGlobalSamplingTest, SmallPartitionCanReceiveSingleSample)
+{
+  std::vector<std::uint64_t> rank_row_offsets{0, 1, 10};
+  constexpr std::uint64_t global_rows = 10;
+
+  bool sampled_small_rank = false;
+  for (std::uint64_t seed = 0; seed < 4096 && !sampled_small_rank; ++seed) {
+    raft::random::UniformIntDistParams<std::uint64_t, std::uint64_t> uniform_int_dist_params;
+    uniform_int_dist_params.start = 0;
+    uniform_int_dist_params.end   = global_rows;
+    uniform_int_dist_params.diff  = global_rows;
+    raft::random::PCGenerator gen(seed, uint64_t{0}, uint64_t{0});
+    std::uint64_t global_row;
+    raft::random::custom_next(
+      gen, &global_row, uniform_int_dist_params, std::uint64_t{0}, std::uint64_t{0});
+
+    auto sample_rank =
+      std::lower_bound(rank_row_offsets.begin() + 1, rank_row_offsets.end(), global_row + 1) -
+      (rank_row_offsets.begin() + 1);
+    ASSERT_LT(sample_rank + 1, rank_row_offsets.size());
+    sampled_small_rank = sample_rank == 0;
+  }
+
+  ASSERT_TRUE(sampled_small_rank)
+    << "A one-row partition should be reachable when drawing one global sample.";
+}
 
 // float type quantile test
 typedef RFQuantileTest<float> RFQuantileTestF;

@@ -30,7 +30,6 @@ from scipy.optimize import approx_fprime
 from sklearn.model_selection import train_test_split
 
 import cuml.tsa.arima as arima
-from cuml.internals.input_utils import input_to_host_array
 from cuml.testing.utils import stress_param
 
 sm = pytest.importorskip("statsmodels.api")
@@ -347,9 +346,9 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
 
 
 def mase(y_train, y_test, y_fc, s):
-    y_train_np = input_to_host_array(y_train).array
-    y_test_np = input_to_host_array(y_test).array
-    y_fc_np = input_to_host_array(y_fc).array
+    y_train_np = y_train.to_numpy()
+    y_test_np = y_test.to_numpy()
+    y_fc_np = y_fc
 
     diff = np.abs(y_train_np[s:] - y_train_np[:-s])
     scale = np.nanmean(diff, axis=0)

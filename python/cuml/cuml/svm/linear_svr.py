@@ -205,7 +205,7 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":
         """Fit the model according to the given training data."""
-        coef, intercept, n_iter, _, _ = cuml.svm.linear.fit(
+        coef, intercept, n_iter, _ = cuml.svm.linear.fit(
             self,
             X,
             y,
