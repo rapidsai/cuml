@@ -13,7 +13,7 @@ from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
 
-__all__ = ("fit", "compute_probabilities")
+__all__ = ("fit",)
 
 
 cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
@@ -53,16 +53,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
         const T* y,
         const T* sampleWeight,
         T* w,
-        T* probScale,
     ) except +
-
-    cdef void computeProbabilities[T](
-        const handle_t& handle,
-        const size_t nRows,
-        const int nClasses,
-        const T* probScale,
-        T* scores,
-        T* out) except +
 
 
 def fit(
@@ -73,7 +64,6 @@ def fit(
     *,
     convert_dtype=True,
     is_classifier=False,
-    probability=False,
     class_weight=None,
     n_streams=0,
     penalty,
@@ -102,9 +92,6 @@ def fit(
         The sample weights
     is_classifier : bool, default=False
         Whether this is a classifier model. Defaults to False.
-    probability : bool, default=False
-        When fitting a classifier, whether to also fit probability scales to enable
-        `predict_proba`.
     class_weight : dict or 'balanced', default=None
         When fitting a classifier, weights associated per-classes, or None for
         uniform weights. If 'balanced', weights inversely proportional to the
@@ -128,8 +115,6 @@ def fit(
         classification.
     n_iter_ : int
         The maximum number of iterations run across all classes.
-    prob_scale_ : None or cp.ndarray, shape = (n_classes, 2)
-        The probability scales (if `probability=True`), `None` otherwise.
     classes_ : numpy.ndarray, shape=(n_classes,)
         The classes (if ``is_classifier=True``), `None` otherwise.
     """
@@ -216,10 +201,6 @@ def fit(
 
     # Allocate output arrays
     w = cp.empty(shape=w_shape, dtype=X.dtype, order="F")
-    if probability and is_classifier:
-        prob_scale = cp.empty((n_classes, 2), dtype=X.dtype, order="F")
-    else:
-        prob_scale = None
 
     handle = get_handle(n_streams=n_streams)
     cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
@@ -229,7 +210,6 @@ def fit(
     cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.data.ptr
     cdef uintptr_t classes_ptr = 0 if class_codes is None else class_codes.data.ptr
     cdef uintptr_t w_ptr = w.data.ptr
-    cdef uintptr_t prob_scale_ptr = 0 if prob_scale is None else prob_scale.data.ptr
     cdef int n_iter
 
     # Perform fit
@@ -246,7 +226,6 @@ def fit(
                 <const float*>y_ptr,
                 <const float*>sample_weight_ptr,
                 <float*>w_ptr,
-                <float*>prob_scale_ptr,
             )
         else:
             n_iter = cpp_fit[double](
@@ -260,7 +239,6 @@ def fit(
                 <const double*>y_ptr,
                 <const double*>sample_weight_ptr,
                 <double*>w_ptr,
-                <double*>prob_scale_ptr,
             )
     handle.sync()
 
@@ -276,63 +254,4 @@ def fit(
         coef = w
         intercept = 0.0
 
-    return coef, intercept, n_iter, prob_scale, classes
-
-
-def compute_probabilities(scores, prob_scale, n_streams):
-    """Compute probabilities from decision function scores.
-
-    Parameters
-    ----------
-    scores : cp.ndarray, shape = (n_samples, n_classes)
-        The decision function scores.
-    prob_scale : cp.ndarray, shape = (n_classes, 2)
-        The probability scaling factors.
-    n_streams : int
-        The number of streams to use.
-
-    Returns
-    -------
-    probabilities : cp.ndarray, shape = (n_samples, n_classes)
-        The computed probabilities.
-    """
-    # Ensure proper ordering
-    prob_scale = cp.asarray(prob_scale, order="F")
-    scores = cp.asarray(scores, order="C", dtype=prob_scale.dtype)
-
-    # Extract dimensions
-    cdef size_t n_rows = scores.shape[0]
-    cdef int n_classes = prob_scale.shape[0]
-
-    # Allocate outputs
-    out = cp.empty((n_rows, n_classes), dtype=scores.dtype, order="C")
-
-    handle = get_handle(n_streams=n_streams)
-    cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef bool is_float32 = scores.dtype == cp.float32
-    cdef uintptr_t scores_ptr = scores.data.ptr
-    cdef uintptr_t prob_scale_ptr = prob_scale.data.ptr
-    cdef uintptr_t out_ptr = out.data.ptr
-
-    # Compute probabilities
-    with nogil:
-        if is_float32:
-            computeProbabilities[float](
-                handle_[0],
-                n_rows,
-                n_classes,
-                <const float*>prob_scale_ptr,
-                <float*>scores_ptr,
-                <float*>out_ptr
-            )
-        else:
-            computeProbabilities[double](
-                handle_[0],
-                n_rows,
-                n_classes,
-                <const double*>prob_scale_ptr,
-                <double*>scores_ptr,
-                <double*>out_ptr
-            )
-    handle.sync()
-    return out
+    return coef, intercept, n_iter, classes

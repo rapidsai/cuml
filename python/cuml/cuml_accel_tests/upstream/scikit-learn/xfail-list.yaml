@@ -701,6 +701,11 @@
   condition: scikit-learn>=1.6
   tests:
   - "sklearn.utils.tests.test_estimator_checks::test_estimator_with_set_output"
+- reason: Feature name preservation and metadata handling in cuml.accel StandardScaler needs comprehensive fixes
+  marker: cuml_accel_bugs_sklearn16plus
+  condition: scikit-learn>=1.6,<1.7
+  tests:
+  - "sklearn.tests.test_common::test_estimators[StandardScaler()-check_sample_weight_equivalence_on_sparse_data]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   condition: scikit-learn<1.7
@@ -1026,7 +1031,7 @@
   - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-hinge]"
   - "sklearn.svm.tests.test_svm::test_linearsvc_parameters[True-l1-squared_hinge]"
 - reason: LinearSVM
-  condition: scikit-learn>=1.7
+  condition: scikit-learn>=1.6
   tests:
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_dense_data]"
   - "sklearn.tests.test_common::test_estimators[LinearSVC()-check_sample_weight_equivalence_on_sparse_data]"
@@ -1172,7 +1177,7 @@
   - "sklearn.compose.tests.test_column_transformer::test_make_column_transformer_pandas"
   - "sklearn.preprocessing.tests.test_function_transformer::test_function_transformer_with_dataframe_and_check_inverse_True"
 - reason: Upstream sklearn test expects pre-pandas-3 Series module names
-  condition: pandas>=3 and scikit-learn<1.7.2
+  condition: pandas>=3 and scikit-learn<1.6
   tests:
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-bool]"
   - "sklearn.utils.tests.test_validation::test_num_features_errors_1d_containers[series-dict]"
