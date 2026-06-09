@@ -5,12 +5,10 @@ import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.common import using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -224,14 +222,19 @@ class ExponentialSmoothing(Base):
         self.fit_executed_flag = False
         self.h = 0
 
-    def _check_dims(self, ts_input, is_cudf=False) -> CumlArray:
+    def _check_dims(self, ts_input, is_cudf=False):
         err_mess = ("ExponentialSmoothing initialized with "
                     + str(self.ts_num) +
                     " time series, but data has dimension ")
 
         is_cudf = isinstance(ts_input, cudf.DataFrame)
 
-        mod_ts_input = input_to_cupy_array(ts_input, order="C").array
+        mod_ts_input = check_array(
+            ts_input,
+            order="C",
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
 
         if len(mod_ts_input.shape) == 1:
             self.n = mod_ts_input.shape[0]
@@ -251,7 +254,7 @@ class ExponentialSmoothing(Base):
                 raise ValueError(err_mess + str(d2))
         else:
             raise ValueError("Data input must have 1 or 2 dimensions.")
-        return CumlArray(data=mod_ts_input)
+        return mod_ts_input
 
     @run_in_internal_context
     def fit(self) -> "ExponentialSmoothing":
@@ -260,9 +263,9 @@ class ExponentialSmoothing(Base):
         Calculates the level, trend, season, and SSE components.
         """
 
-        X_m = self._check_dims(self.endog)
+        X = self._check_dims(self.endog)
 
-        self.dtype = X_m.dtype
+        self.dtype = X.dtype
 
         if self.n < self.start_periods*self.seasonal_periods:
             raise ValueError("Length of time series (" + str(self.n) +
@@ -278,7 +281,7 @@ class ExponentialSmoothing(Base):
         cdef int leveltrend_coef_offset, season_coef_offset
         cdef int error_len
 
-        input_ptr = X_m.ptr
+        input_ptr = X.data.ptr
 
         buffer_size(<int> self.n, <int> self.ts_num,
                     <int> self.seasonal_periods,
@@ -293,14 +296,15 @@ class ExponentialSmoothing(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
-        self.level = CumlArray.zeros(components_len, dtype=self.dtype)
-        self.trend = CumlArray.zeros(components_len, dtype=self.dtype)
-        self.season = CumlArray.zeros(components_len, dtype=self.dtype)
-        self.SSE = CumlArray.zeros(self.ts_num, dtype=self.dtype)
-        level_ptr = self.level.ptr
-        trend_ptr = self.trend.ptr
-        season_ptr = self.season.ptr
-        SSE_ptr = self.SSE.ptr
+        level = cp.zeros(components_len, dtype=self.dtype)
+        trend = cp.zeros(components_len, dtype=self.dtype)
+        season = cp.zeros(components_len, dtype=self.dtype)
+        SSE = cp.zeros(self.ts_num, dtype=self.dtype)
+
+        level_ptr = level.data.ptr
+        trend_ptr = trend.data.ptr
+        season_ptr = season.data.ptr
+        SSE_ptr = SSE.data.ptr
 
         cdef float eps_f = np.float32(self.eps)
         cdef double eps_d = np.float64(self.eps)
@@ -327,16 +331,15 @@ class ExponentialSmoothing(Base):
             raise TypeError("ExponentialSmoothing supports only float32"
                             " and float64 input, but input type "
                             + str(self.dtype) + " passed.")
-        num_rows = int(components_len/self.ts_num)
-
-        with using_output_type("cupy"):
-            self.level = self.level.reshape((self.ts_num, num_rows), order='F')
-            self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
-            self.season = self.season.reshape((self.ts_num, num_rows),
-                                              order='F')
-
         handle.sync()
+
+        num_rows = int(components_len/self.ts_num)
+        self.level = level.reshape((self.ts_num, num_rows), order='F')
+        self.trend = trend.reshape((self.ts_num, num_rows), order='F')
+        self.season = season.reshape((self.ts_num, num_rows), order='F')
+        self.SSE = SSE
         self.fit_executed_flag = True
+
         return self
 
     @run_in_internal_context
@@ -375,13 +378,13 @@ class ExponentialSmoothing(Base):
 
             if h > self.h:
                 self.h = h
-                self.forecasted_points = CumlArray.zeros(self.ts_num*h,
-                                                         dtype=self.dtype)
-                with using_output_type("cuml"):
-                    forecast_ptr = self.forecasted_points.ptr
-                    level_ptr = self.level.ptr
-                    trend_ptr = self.trend.ptr
-                    season_ptr = self.season.ptr
+                self.forecasted_points = cp.zeros(
+                    (self.ts_num, h), dtype=self.dtype, order="F"
+                )
+                forecast_ptr = self.forecasted_points.data.ptr
+                level_ptr = self.level.data.ptr
+                trend_ptr = self.trend.data.ptr
+                season_ptr = self.season.data.ptr
 
                 if self.dtype == np.float32:
                     forecast(handle_[0], <int> self.n,
@@ -403,26 +406,19 @@ class ExponentialSmoothing(Base):
                              <double*> season_ptr,
                              <double*> forecast_ptr)
 
-                with using_output_type("cupy"):
-                    self.forecasted_points =\
-                        self.forecasted_points.reshape((self.ts_num, h),
-                                                       order='F')
                 handle.sync()
 
             if index is None:
                 if self.ts_num == 1:
-                    return cudf.Series(
-                        self.forecasted_points.ravel(order='F')[:h])
+                    return cudf.Series(self.forecasted_points.ravel(order='F')[:h])
                 else:
-                    return cudf.DataFrame(
-                        self.forecasted_points[:, :h].T)
+                    return cudf.DataFrame(self.forecasted_points[:, :h].T)
             else:
                 if index < 0 or index >= self.ts_num:
                     raise IndexError("Index input: " + str(index) +
                                      " outside of range [0, " +
                                      str(self.ts_num) + "]")
-                return cudf.Series(cp.asarray(
-                    self.forecasted_points[index, :h]))
+                return cudf.Series(self.forecasted_points[index, :h])
         else:
             raise ValueError("Fit() the model before forecast()")
 
