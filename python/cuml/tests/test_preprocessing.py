@@ -934,9 +934,13 @@ def test_function_transformer(clf_dataset):  # noqa: F811
 def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
+    assert not cuFunctionTransformer().__sklearn_tags__().input_tags.sparse
+
     transformer = cuFunctionTransformer(
         func=lambda x: x * 2, inverse_func=lambda x: x / 2, accept_sparse=True
     )
+    assert transformer.__sklearn_tags__().input_tags.sparse
+
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
     assert cpx.scipy.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
