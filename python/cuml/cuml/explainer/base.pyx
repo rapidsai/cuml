@@ -15,7 +15,6 @@ from cuml.explainer.common import (
     output_list_shap_values,
 )
 from cuml.internals.base import get_handle
-from cuml.internals.mixins import TagsMixin
 from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
@@ -99,17 +98,17 @@ class SHAPBase():
         else:
             self.time_performance = False
 
+        # Bound methods expose their estimator through __self__; tags live on
+        # that estimator rather than on the method object.
         tag_model = getattr(model, "__self__", model)
-        if isinstance(tag_model, TagsMixin):
-            model_tags = tag_model.__sklearn_tags__()
-        else:
-            model_tags = None
+        tag_getter = getattr(tag_model, "__sklearn_tags__", None)
+        model_tags = tag_getter() if callable(tag_getter) else None
 
         if order is None:
             self.order = (
                 model_tags.preferred_input_order
-                if model_tags is not None
-                and model_tags.preferred_input_order is not None
+                if getattr(model_tags, "preferred_input_order", None)
+                is not None
                 else order_default
             )
         else:
@@ -122,7 +121,7 @@ class SHAPBase():
             # todo (dgd): when sparse support is added, use this tag to see if
             # model can accept sparse data
             self.is_gpu_model = (
-                model_tags is not None and model_tags.X_types_gpu is not None
+                getattr(model_tags, "X_types_gpu", None) is not None
             )
         else:
             self.is_gpu_model = is_gpu_model
