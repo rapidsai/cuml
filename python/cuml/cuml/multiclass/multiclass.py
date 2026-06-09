@@ -9,7 +9,7 @@ from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.validation import check_inputs
 
 
-class _BaseMulticlassClassifier(Base, ClassifierMixin):
+class _BaseMulticlassClassifier(ClassifierMixin, Base):
     """Shared base class for multiclass classifiers"""
 
     def __init__(

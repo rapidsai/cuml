@@ -21,7 +21,7 @@ from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
 
-class SVC(SVMBase, ClassifierMixin):
+class SVC(ClassifierMixin, SVMBase):
     """
     SVC (C-Support Vector Classification)
 

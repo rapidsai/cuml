@@ -106,10 +106,10 @@ _SUPPORTED_ALGOS = {
 }
 
 
-class DBSCAN(Base,
-             InteropMixin,
+class DBSCAN(InteropMixin,
              ClusterMixin,
-             CMajorInputTagMixin):
+             CMajorInputTagMixin,
+             Base):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters
     where data is concentrated. This allows DBSCAN to generalize to many

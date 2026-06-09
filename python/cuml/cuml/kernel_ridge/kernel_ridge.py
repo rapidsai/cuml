@@ -95,7 +95,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-class KernelRidge(Base, InteropMixin, RegressorMixin):
+class KernelRidge(InteropMixin, RegressorMixin, Base):
     """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
@@ -268,9 +268,10 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
 
     @run_in_internal_context
     def _get_kernel(self, X, Y=None):
