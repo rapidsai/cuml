@@ -10,7 +10,6 @@ from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
@@ -110,20 +109,20 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             uniq_labels, dtype="int32", order="C", ensure_2d=False
         )
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.data.ptr
-        cdef vector[int*] *uniq_labels_vec = new vector[int*]()
+        cdef vector[int*] uniq_labels_vec
         for i in range(uniq_labels_d.shape[0]):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
         # Build n_unique_vec vector for native code interfacing
-        cdef vector[int] *n_unique_vec = new vector[int]()
+        cdef vector[int] n_unique_vec
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
         n_outputs = len(n_unique)
 
         # Build labels output array for native code interfacing
-        cdef vector[intData_t*] *out_result_local_parts = new vector[intData_t*]()
+        cdef vector[intData_t*] out_result_local_parts
         outputs = []
         for n_rows in local_query_rows:
             output = cp.zeros(shape=(n_rows, n_outputs), order="C", dtype='int32')
@@ -140,7 +139,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         is_verbose = logger.should_log_for(logger.level_enum.debug)
         knn_classify(
             handle_[0],
-            out_result_local_parts,
+            &out_result_local_parts,
             <vector[vector[float*]]*>0,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
@@ -149,26 +148,24 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                   input['query']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
             deref(<vector[vector[int*]]*><uintptr_t>labels['labels']),
-            deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
-            deref(<vector[int]*><uintptr_t>n_unique_vec),
-            <bool>False,  # column-major index
-            <bool>False,  # column-major query
-            <bool>False,
+            uniq_labels_vec,
+            n_unique_vec,
+            False,  # column-major index
+            False,  # column-major query
+            False,
             <int>self.n_neighbors,
             <size_t>self.batch_size,
-            <bool>is_verbose
+            is_verbose
         )
 
         self.handle.sync()
 
         # Release memory
-        type(self).free_mem(input)
-        free(<void*><uintptr_t>labels['labels'])
-        type(self)._free_unique(
-            <uintptr_t>uniq_labels_vec, <uintptr_t>n_unique_vec)
+        self.free_mem(input, labels=labels)
+        cdef intData_t *i_ptr
         for i in range(out_result_local_parts.size()):
-            free(<void*>out_result_local_parts.at(i))
-        free(<void*><uintptr_t>out_result_local_parts)
+            i_ptr = out_result_local_parts.at(i)
+            del i_ptr
 
         return outputs
 
@@ -217,26 +214,23 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
             uniq_labels, dtype="int32", order="C", ensure_2d=False,
         )
         cdef int* ptr = <int*><uintptr_t>uniq_labels_d.data.ptr
-        cdef vector[int*] *uniq_labels_vec = new vector[int*]()
+        cdef vector[int*] uniq_labels_vec
         for i in range(uniq_labels_d.shape[0]):
             uniq_labels_vec.push_back(<int*>ptr)
             ptr += <int>uniq_labels_d.shape[1]
 
         # Build n_unique_vec vector for native code interfacing
-        cdef vector[int] *n_unique_vec = new vector[int]()
+        cdef vector[int] n_unique_vec
         for uniq_label in n_unique:
             n_unique_vec.push_back(uniq_label)
 
         local_query_rows = [x.shape[0] for x in input['arrays']['query']]
-        n_local_queries = len(local_query_rows)
-
-        cdef vector[vector[float*]] *probas_local_parts \
-            = new vector[vector[float*]](n_local_queries)
-
         n_outputs = len(n_unique)
 
         # Build probas output array for native code interfacing
         outputs = [[] for i in range(n_outputs)]
+        cdef vector[vector[float*]] probas_local_parts
+        probas_local_parts.resize(len(local_query_rows))
         for query_idx, n_rows in enumerate(local_query_rows):
             for target_idx, n_classes in enumerate(n_unique):
                 output = cp.zeros(
@@ -254,7 +248,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         knn_classify(
             handle_[0],
             <vector[intData_t*]*>0,
-            probas_local_parts,
+            &probas_local_parts,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
@@ -262,27 +256,17 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
                   input['query']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
             deref(<vector[vector[int*]]*><uintptr_t>labels['labels']),
-            deref(<vector[int*]*><uintptr_t>uniq_labels_vec),
-            deref(<vector[int]*><uintptr_t>n_unique_vec),
-            <bool>False,  # column-major index
-            <bool>False,  # column-major query
-            <bool>True,
+            uniq_labels_vec,
+            n_unique_vec,
+            False,  # column-major index
+            False,  # column-major query
+            True,
             <int>self.n_neighbors,
             <size_t>self.batch_size,
-            <bool>is_verbose
+            is_verbose
         )
         self.handle.sync()
 
         # Release memory
-        type(self).free_mem(input)
-        free(<void*><uintptr_t>labels['labels'])
-        type(self)._free_unique(
-            <uintptr_t>uniq_labels_vec, <uintptr_t>n_unique_vec)
-        free(<void*><uintptr_t>probas_local_parts)
-
+        self.free_mem(input, labels=labels)
         return tuple(outputs)
-
-    @staticmethod
-    def _free_unique(uniq_labels, n_unique):
-        free(<void*><uintptr_t>uniq_labels)
-        free(<void*><uintptr_t>n_unique)

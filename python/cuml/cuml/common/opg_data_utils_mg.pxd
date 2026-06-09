@@ -32,6 +32,7 @@ cdef extern from "cuml/prims/opg/matrix/part_descriptor.hpp" \
                  namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
+        RankSizePair(int rank, size_t size)
         int rank
         size_t size
 

@@ -10,7 +10,6 @@ from cuml.neighbors import NearestNeighbors
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
-from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
@@ -49,23 +48,19 @@ def _build_part_inputs(arrays, parts_to_ranks, m, n, local_rank, convert_dtype):
 
     cdef vector[floatData_t*] *local_parts = new vector[floatData_t*]()
     for arr in cupy_arrays:
-        data = <floatData_t*>malloc(sizeof(floatData_t))
-        data.ptr = <float*><uintptr_t>arr.data.ptr
-        data.totalSize = <size_t>arr.shape[0]*arr.shape[1]*sizeof(float)
-        local_parts.push_back(data)
+        local_parts.push_back(
+            new floatData_t(
+                <float*><uintptr_t>arr.data.ptr,
+                arr.shape[0] * arr.shape[1] * sizeof(float),
+            )
+        )
 
     cdef vector[RankSizePair*] parts_to_ranks_vec
     for idx, (rank, size) in enumerate(parts_to_ranks):
-        rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
-        parts_to_ranks_vec.push_back(rsp)
+        parts_to_ranks_vec.push_back(new RankSizePair(rank, size))
 
     cdef PartDescriptor *descriptor = new PartDescriptor(
-        <size_t>m,
-        <size_t>n,
-        <vector[RankSizePair*]>parts_to_ranks_vec,
-        <int>local_rank
+        m, n, parts_to_ranks_vec, local_rank
     )
 
     return cupy_arrays, <uintptr_t>local_parts, <uintptr_t>descriptor
@@ -129,7 +124,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(
+        input = self.gen_local_input(
             index, index_parts_to_ranks, index_nrows, query,
             query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
@@ -162,7 +157,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.handle.sync()
 
         # Release memory
-        type(self).free_mem(input, result)
+        self.free_mem(input, result)
 
         return result['arrays']['distances'], result['arrays']['indices']
 
@@ -243,7 +238,8 @@ class NearestNeighborsMG(NearestNeighbors):
             'labels':
                 <uintptr_t>out_local_parts_i32 if dtype == 'int32'
                 else <uintptr_t>out_local_parts_f32,
-            'arrays': output_arrays
+            'arrays': output_arrays,
+            'dtype': dtype
         }
 
     @staticmethod
@@ -287,33 +283,44 @@ class NearestNeighborsMG(NearestNeighbors):
         }
 
     @staticmethod
-    def free_mem(input, result=None):
+    def free_mem(input, result=None, labels=None):
         cdef floatData_t *f_ptr
         cdef vector[floatData_t*] *f_lp
+        cdef PartDescriptor *desc_ptr
+        cdef vector[vector[int*]] *labels_i32
+        cdef vector[vector[float*]] *labels_f32
 
         for input_type in ['index', 'query']:
             ilp = input[input_type]['local_parts']
             f_lp = <vector[floatData_t *]*><uintptr_t>ilp
             for i in range(f_lp.size()):
                 f_ptr = f_lp.at(i)
-                free(<void*>f_ptr)
-            free(<void*><uintptr_t>f_lp)
+                del f_ptr
+            del f_lp
 
-            free(<void*><uintptr_t>input[input_type]['desc'])
+            desc_ptr = <PartDescriptor *><uintptr_t>input[input_type]['desc']
+            del desc_ptr
 
         cdef int64Data_t *i64_ptr
         cdef vector[int64Data_t*] *i64_lp
 
-        if result:
-
+        if result is not None:
             f_lp = <vector[floatData_t *]*><uintptr_t>result['distances']
             for i in range(f_lp.size()):
                 f_ptr = f_lp.at(i)
-                free(<void*>f_ptr)
-            free(<void*><uintptr_t>f_lp)
+                del f_ptr
+            del f_lp
 
             i64_lp = <vector[int64Data_t *]*><uintptr_t>result['indices']
             for i in range(i64_lp.size()):
                 i64_ptr = i64_lp.at(i)
-                free(<void*>i64_ptr)
-            free(<void*><uintptr_t>i64_lp)
+                del i64_ptr
+            del i64_lp
+
+        if labels is not None:
+            if labels['dtype'] == "int32":
+                labels_i32 = <vector[vector[int*]]*><uintptr_t>labels['labels']
+                del labels_i32
+            else:
+                labels_f32 = <vector[vector[float*]]*><uintptr_t>labels['labels']
+                del labels_f32

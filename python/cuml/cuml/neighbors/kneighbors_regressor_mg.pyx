@@ -9,7 +9,6 @@ from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
@@ -85,7 +84,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(
+        input = self.gen_local_input(
             index, index_parts_to_ranks, index_nrows, query,
             query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
@@ -95,7 +94,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         local_query_rows = [x.shape[0] for x in input['arrays']['query']]
 
         # Build labels output array for native code interfacing
-        cdef vector[floatData_t*] *out_result_local_parts = new vector[floatData_t*]()
+        cdef vector[floatData_t*] out_result_local_parts
         outputs = []
         for n_rows in local_query_rows:
             output = cp.zeros(shape=(n_rows, n_outputs), order="C", dtype='float32')
@@ -113,7 +112,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         # Launch distributed operations
         knn_regress(
             handle_[0],
-            out_result_local_parts,
+            &out_result_local_parts,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
@@ -131,10 +130,10 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        type(self).free_mem(input)
-        free(<void*><uintptr_t>labels['labels'])
+        self.free_mem(input, labels=labels)
+        cdef floatData_t *f_ptr
         for i in range(out_result_local_parts.size()):
-            free(<void*>out_result_local_parts.at(i))
-        free(<void*><uintptr_t>out_result_local_parts)
+            f_ptr = out_result_local_parts.at(i)
+            del f_ptr
 
         return outputs
