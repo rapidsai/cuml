@@ -1153,7 +1153,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   {
     std::default_random_engine rng;
     std::vector<DataT> data(params.n_rows);
-    if constexpr (std::is_same<BinT, CountBin>::value)  // classification case
+    if constexpr (std::is_same<BinT, ClassificationBin>::value)  // classification case
     {
       for (auto& d : data) {
         d = RandUnder(params.n_classes);
@@ -1181,7 +1181,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         IdxT bin_width  = raft::ceildiv(params.n_rows, params.max_n_bins);
         auto data_begin = data.begin() + b * bin_width;
         auto data_end   = data_begin + bin_width;
-        if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
+        if constexpr (std::is_same<BinT, ClassificationBin>::value) {  // classification case
           auto count{IdxT(0)};
           std::for_each(data_begin, data_end, [&](auto d) {
             if (d == c) ++count;
@@ -1448,13 +1448,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   {
     auto count{IdxT(0)};
     for (auto c = 0; c < params.n_classes; ++c) {
-      if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
-      {
-        count += static_cast<IdxT>(cdf_hist[params.max_n_bins * c + idx].x);
-      } else  // aggregatebin
-      {
-        count += cdf_hist[params.max_n_bins * c + idx].count;
-      }
+      count += static_cast<IdxT>(cdf_hist[params.max_n_bins * c + idx].Count());
     }
     return count;
   }
