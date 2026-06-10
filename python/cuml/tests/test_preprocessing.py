@@ -829,7 +829,7 @@ def test_kbinsdiscretizer(
         n_bins=n_bins,
         encode=encode,
         strategy=strategy,
-        # defaults for subsample were changed in sklearn version 1.5+
+        # Set subsample explicitly for parity with cuML's configured default.
         subsample=200_000
         if strategy in ("uniform", "quantile", "kmeans")
         else None,
