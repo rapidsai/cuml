@@ -12,17 +12,19 @@
 #include <cuml/tree/algo_helper.h>
 
 #include <limits>
+#include <type_traits>
 
 namespace ML {
 namespace DT {
 
-template <typename DataT_, typename LabelT_, typename IdxT_>
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class ClassificationObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
-  using BinT   = ClassificationBin;
+  using BinT   = std::conditional_t<weighted_, WeightedClassificationBin, ClassificationBin>;
+  static constexpr bool weighted = weighted_;
 
  private:
   IdxT nclasses;
@@ -162,13 +164,14 @@ class ClassificationObjectiveFunction {
   }
 };
 
-template <typename DataT_, typename LabelT_, typename IdxT_>
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class RegressionObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
-  using BinT   = RegressionBin;
+  using BinT   = std::conditional_t<weighted_, WeightedRegressionBin, RegressionBin>;
+  static constexpr bool weighted = weighted_;
 
  private:
   IdxT min_samples_leaf;
