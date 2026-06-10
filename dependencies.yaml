@@ -193,7 +193,6 @@ files:
       - common_build
       - depends_on_cuda_python
       - depends_on_libcuml
-      - depends_on_libcuvs
       - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm

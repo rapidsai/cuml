@@ -190,7 +190,6 @@ requires = [
     "cuda-python>=13.0.1,<14.0",
     "cython>=3.2.2",
     "libcuml==26.8.*,>=0.0.0a0",
-    "libcuvs==26.8.*,>=0.0.0a0",
     "libnvforest==26.8.*,>=0.0.0a0",
     "libraft==26.8.*,>=0.0.0a0",
     "librmm==26.8.*,>=0.0.0a0",
