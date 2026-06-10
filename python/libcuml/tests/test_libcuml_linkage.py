@@ -147,10 +147,6 @@ def test_libcuml_linkage():
         actual_path = linked_libs[lib_name]
 
         if actual_path == "not found":
-            # librmm.so and librapids_logger.so may not be found
-            # but are loaded dynamically at runtime, skip these
-            if lib_name in ["librmm.so", "librapids_logger.so"]:
-                continue
             failures.append(f"Library {lib_name} => not found")
             continue
 
