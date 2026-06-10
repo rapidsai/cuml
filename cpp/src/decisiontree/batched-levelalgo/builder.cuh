@@ -519,7 +519,7 @@ struct Builder {
     int len_histograms = n_bins * n_classes * n_blocks_dimy * n_large_nodes;
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
     // create the objective function object
-    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf);
+    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     // call the computeSplitKernel
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
     launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
@@ -556,7 +556,7 @@ struct Builder {
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, builder_stream);
     rmm::device_uvector<DataT> d_leaves(max_batch_size * dataset.num_outputs, builder_stream);
 
-    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf);
+    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     for (std::size_t batch_begin = 0; batch_begin < tree->sparsetree.size();
          batch_begin += max_batch_size) {
       std::size_t batch_end  = min(batch_begin + max_batch_size, tree->sparsetree.size());

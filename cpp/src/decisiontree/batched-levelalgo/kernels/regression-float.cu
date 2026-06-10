@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,7 +13,7 @@ namespace DT {
 using _DataT      = float;
 using _LabelT     = float;
 using _IdxT       = int;
-using _ObjectiveT = PoissonObjectiveFunction<_DataT, _LabelT, _IdxT>;
+using _ObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT>;
 using _BinT       = AggregateBin;
 using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
