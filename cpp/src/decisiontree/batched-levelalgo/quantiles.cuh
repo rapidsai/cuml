@@ -183,7 +183,7 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   RAFT_EXPECTS(global_rows > 0, "global row count must be positive");
 
   // Allocate one shared row sample for all columns and the buffers used to sort it by column.
-  int sample_count = static_cast<int>(std::min<std::uint64_t>(
+  int sample_count = ML::narrow_cast<int>(std::min<std::uint64_t>(
     global_rows, ML::checked_mul<std::uint64_t>(max_n_bins, oversampling_factor)));
 
   std::size_t total_sample_values = ML::checked_mul<std::size_t>(sample_count, n_cols);
