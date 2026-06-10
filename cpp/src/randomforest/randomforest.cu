@@ -17,6 +17,7 @@
 #include <treelite/tree.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -736,10 +737,12 @@ void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* im
   if (forest->n_features == 0) { return; }
 
   int n_cols = forest->n_features;
-  std::vector<T> accumulated_importances(n_cols, T(0));
+  std::vector<double> accumulated_importances(n_cols, 0.0);
 
   for (const auto& tree : forest->trees) {
-    std::vector<T> tree_importances(n_cols, T(0));
+    std::vector<double> finite_importances(n_cols, 0.0);
+    std::vector<double> infinite_importances(n_cols, 0.0);
+    bool has_infinite_importance = false;
 
     if (tree->sparsetree.empty()) continue;
     int root_sample_count = tree->sparsetree[0].InstanceCount();
@@ -749,29 +752,36 @@ void compute_feature_importances(const RandomForestMetaData<T, L>* forest, T* im
     for (const auto& node : tree->sparsetree) {
       if (!node.IsLeaf()) {
         int feature_id = node.ColumnId();
-        tree_importances[feature_id] += node.BestMetric() * node.InstanceCount();
+        double contribution =
+          static_cast<double>(node.BestMetric()) * static_cast<double>(node.InstanceCount());
+        if (std::isfinite(contribution)) {
+          if (contribution > 0.0) { finite_importances[feature_id] += contribution; }
+        } else if (std::isinf(contribution) && contribution > 0.0) {
+          infinite_importances[feature_id] += 1.0;
+          has_infinite_importance = true;
+        }
       }
     }
-    T sum = T(0);
+    auto& tree_importances = has_infinite_importance ? infinite_importances : finite_importances;
+    double sum             = 0.0;
     for (int i = 0; i < n_cols; i++) {
       sum += tree_importances[i];
     }
 
     if (sum > 0) {
       for (int i = 0; i < n_cols; i++) {
-        tree_importances[i] /= sum;
-        accumulated_importances[i] += tree_importances[i];
+        accumulated_importances[i] += tree_importances[i] / sum;
       }
     }
   }
 
-  T sum = T(0);
+  double sum = 0.0;
   for (auto i = 0; i < n_cols; i++) {
     sum += accumulated_importances[i];
   }
   if (sum > 0) {
     for (auto i = 0; i < n_cols; i++) {
-      importances[i] = accumulated_importances[i] / sum;
+      importances[i] = T(accumulated_importances[i] / sum);
     }
   } else {
     for (auto i = 0; i < n_cols; i++) {
