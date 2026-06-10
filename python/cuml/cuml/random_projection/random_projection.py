@@ -48,7 +48,7 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
     )
 
 
-class _BaseRandomProjection(Base, SparseInputTagMixin):
+class _BaseRandomProjection(SparseInputTagMixin, Base):
     """Base class for RandomProjection estimators."""
 
     components_ = CumlArrayDescriptor()
@@ -94,6 +94,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
             mem_type=None,
             order=None,
             accept_sparse=True,
+            accept_large_sparse=True,
             reset=True,
         )
         n_samples, n_features = X.shape
@@ -133,6 +134,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_sparse=("csr", "csc"),
+            accept_large_sparse=True,
             return_index=True,
         )
         components = self.components_.to_output("cupy")

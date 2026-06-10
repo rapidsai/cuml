@@ -4,14 +4,20 @@
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse as sp
+import sklearn
+from packaging.version import Version
 from sklearn.datasets import make_blobs
 from sklearn.preprocessing import (
+    LabelBinarizer,
     LabelEncoder,
     MaxAbsScaler,
     MinMaxScaler,
     PolynomialFeatures,
     StandardScaler,
 )
+
+SKLEARN_161 = Version(sklearn.__version__) >= Version("1.6.1")
 
 
 def test_standard_scaler():
@@ -34,6 +40,28 @@ def test_standard_scaler():
     X_inverse = model.inverse_transform(X_transformed)
     assert X_inverse.shape == X.shape
     np.testing.assert_allclose(X_inverse, X, atol=1e-6)
+
+
+def test_standard_scaler_sparse_with_mean():
+    X, _ = make_blobs(n_samples=100, centers=3, random_state=42)
+    X[X < 0] = 0
+    X = sp.csr_matrix(X)
+
+    tags = StandardScaler(with_mean=True).__sklearn_tags__()
+    assert not tags.input_tags.sparse
+
+    with pytest.raises(ValueError, match="Cannot center sparse matrices"):
+        StandardScaler(with_mean=True).fit(X)
+
+    tags = StandardScaler(with_mean=False).__sklearn_tags__()
+    # scikit-learn/scikit-learn#30187 fixed stale sparse input tags after
+    # 1.6.0. Drop this version guard once cuML requires scikit-learn >= 1.6.1.
+    assert tags.input_tags.sparse is SKLEARN_161
+
+    model = StandardScaler(with_mean=False).fit(X)
+    out = model.transform(X)
+    assert sp.issparse(out)
+    assert out.shape == X.shape
 
 
 def test_min_max_scaler():
@@ -118,3 +146,41 @@ def test_label_encoder():
     np.testing.assert_array_equal(enc.classes_, np.array(["a", "b"]))
     y3 = enc.inverse_transform(y2)
     np.testing.assert_array_equal(y3, y)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "a", "c"])
+    enc = LabelBinarizer()
+
+    y2 = enc.fit_transform(y)
+    sol = np.array([[1, 0, 0], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
+    np.testing.assert_array_equal(y2, sol)
+
+    np.testing.assert_array_equal(enc.classes_, np.array(["a", "b", "c"]))
+    assert enc.classes_.dtype == y.dtype
+    assert enc.y_type_ == "multiclass"
+
+    y3 = enc.transform(np.array(["a", "d"]))
+    sol = np.array([[1, 0, 0], [0, 0, 0]])
+    np.testing.assert_array_equal(y3, sol)
+
+    y4 = enc.inverse_transform(y2)
+    np.testing.assert_array_equal(y4, y)
+
+
+@pytest.mark.parametrize("sparse", [True, False])
+def test_label_binarizer_multilabel_indicator(sparse):
+    y = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    if sparse:
+        y = sp.csr_matrix(y)
+    enc = LabelBinarizer().fit(y)
+    np.testing.assert_array_equal(enc.classes_, np.array([0, 1, 2]))
+    assert enc.y_type_ == "multilabel-indicator"
+
+    y2 = enc.inverse_transform(y)
+    if sparse:
+        assert isinstance(y2, sp.csr_matrix)
+        np.testing.assert_array_equal(y.toarray(), y2.toarray())
+    else:
+        assert isinstance(y2, np.ndarray)
+        np.testing.assert_array_equal(y, y2)

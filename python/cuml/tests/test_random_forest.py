@@ -9,6 +9,7 @@ import random
 import warnings
 
 import cudf
+import cupy as cp
 import numpy as np
 import pytest
 import treelite
@@ -35,12 +36,6 @@ from cuml.ensemble import RandomForestRegressor as curfr
 from cuml.ensemble.randomforest_common import compute_max_features
 from cuml.metrics import r2_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
-
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
 
 
 @pytest.fixture(
@@ -189,9 +184,6 @@ def special_reg(request):
     return X, y
 
 
-@pytest.mark.filterwarnings(
-    "default:The default value of 'max_depth':FutureWarning"
-)
 def test_default_parameters():
     X = np.array([[1.0, 2.0]], dtype=np.float32)
     y_reg = np.array([1.0], dtype=np.float32)
@@ -199,13 +191,11 @@ def test_default_parameters():
 
     reg = curfr()
     reg_params = reg.get_params()
-    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        reg.fit(X, y_reg)
+    reg.fit(X, y_reg)
 
     clf = curfc()
     clf_params = clf.get_params()
-    with pytest.warns(FutureWarning, match="The default value of 'max_depth'"):
-        clf.fit(X, y_clf)
+    clf.fit(X, y_clf)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
@@ -221,6 +211,9 @@ def test_default_parameters():
     # Different default split_criterion
     assert reg_params["split_criterion"] == "mse"
     assert clf_params["split_criterion"] == "gini"
+
+    assert reg_params["max_depth"] is None
+    assert clf_params["max_depth"] is None
 
     # Drop differing params
     for name in ["max_features", "split_criterion"]:
@@ -290,9 +283,12 @@ def test_tweedie_convergence(max_depth, split_criterion):
         y[mask], tweedie_preds[mask], power=tweedie[split_criterion]["power"]
     )
 
-    # model trained on tweedie data with
-    # tweedie criterion must perform better on tweedie loss
-    assert mse_tweedie_deviance >= tweedie_tweedie_deviance
+    # model trained on tweedie data with tweedie criterion must perform
+    # no worse on tweedie loss, allowing tiny numeric variation.
+    deviance_tolerance = 1e-5
+    assert (
+        mse_tweedie_deviance + deviance_tolerance >= tweedie_tweedie_deviance
+    )
 
 
 @pytest.mark.parametrize(
@@ -508,6 +504,14 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
 
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
+
+    if not convert_dtype:
+        with pytest.raises(
+            ValueError, match=r".*Expected array with dtype in.*"
+        ):
+            preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
+        return
+
     preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
@@ -648,14 +652,14 @@ def test_rf_classification_proba(
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_layout", ["depth_first", "breadth_first", "layered"]
+    "nvforest_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_classification_sparse(small_clf, datatype, fil_layout):
+def test_rf_classification_sparse(small_clf, datatype, nvforest_layout):
     num_trees = 50
 
     X, y = small_clf
@@ -678,16 +682,16 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
         max_depth=40,
     )
     cuml_model.fit(X_train, y_train)
-    preds = cuml_model.predict(X_test, layout=fil_layout)
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     acc = accuracy_score(y_test, preds)
     np.testing.assert_almost_equal(acc, cuml_model.score(X_test, y_test))
 
-    fil_model = cuml_model.as_fil()
+    nvforest_model = cuml_model.as_nvforest(layout=nvforest_layout)
 
     with cuml.using_output_type("numpy"):
-        fil_model_preds = fil_model.predict(X_test)
-        fil_model_acc = accuracy_score(y_test, fil_model_preds)
-        assert acc == fil_model_acc
+        nvforest_model_preds = cp.asnumpy(nvforest_model.predict(X_test))
+        nvforest_model_acc = accuracy_score(y_test, nvforest_model_preds)
+        assert acc == nvforest_model_acc
 
     tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree
@@ -710,14 +714,14 @@ def test_rf_classification_sparse(small_clf, datatype, fil_layout):
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize(
-    "fil_layout", ["depth_first", "breadth_first", "layered"]
+    "nvforest_layout", ["depth_first", "breadth_first", "layered"]
 )
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_regression_sparse(special_reg, datatype, fil_layout):
+def test_rf_regression_sparse(special_reg, datatype, nvforest_layout):
     num_trees = 50
 
     X, y = special_reg
@@ -740,16 +744,16 @@ def test_rf_regression_sparse(special_reg, datatype, fil_layout):
     )
     cuml_model.fit(X_train, y_train)
 
-    preds = cuml_model.predict(X_test, layout=fil_layout)
+    preds = cuml_model.predict(X_test, layout=nvforest_layout)
     r2 = r2_score(y_test, preds)
 
-    fil_model = cuml_model.as_fil()
+    nvforest_model = cuml_model.as_nvforest(layout=nvforest_layout)
 
-    with cuml.using_output_type("numpy"):
-        fil_model_preds = fil_model.predict(X_test)
-        fil_model_preds = np.reshape(fil_model_preds, np.shape(y_test))
-        fil_model_r2 = r2_score(y_test, fil_model_preds)
-        assert r2 == fil_model_r2
+    nvforest_model_preds = cp.reshape(
+        nvforest_model.predict(X_test), np.shape(y_test)
+    )
+    nvforest_model_r2 = r2_score(cp.asarray(y_test), nvforest_model_preds)
+    assert r2 == nvforest_model_r2
 
     tl_model = cuml_model.as_treelite()
     assert num_trees == tl_model.num_tree

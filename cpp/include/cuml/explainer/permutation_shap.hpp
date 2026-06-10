@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Explainer {
 
 /**
@@ -131,4 +133,4 @@ void update_perm_shap_values(const raft::handle_t& handle,
                              const int* idx);
 
 }  // namespace Explainer
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

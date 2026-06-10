@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import sklearn
+from packaging.version import Version
+from pandas.api.types import is_extension_array_dtype, is_string_dtype
 from sklearn.exceptions import DataConversionWarning
 from sklearn.utils.validation import check_is_fitted
 
@@ -30,6 +32,27 @@ __all__ = (
     "check_inputs",
     "check_classification_targets",
 )
+
+_CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
+
+
+def _as_numpy_dtype(dtype):
+    """Normalize pandas extension dtypes for numpy/cupy conversion."""
+    try:
+        return np.dtype(dtype)
+    except TypeError:
+        if is_string_dtype(dtype) or is_extension_array_dtype(dtype):
+            return np.dtype("object")
+        raise
+
+
+def _dataframe_numpy_dtype(dtypes):
+    """Infer a NumPy dtype for dataframe-like inputs."""
+    if all(isinstance(dt, np.dtype) for dt in dtypes):
+        return np.result_type(*dtypes)
+    if any(dt == "object" or is_string_dtype(dt) for dt in dtypes):
+        return np.dtype("object")
+    return None
 
 
 def check_random_seed(random_state) -> int:
@@ -190,9 +213,16 @@ def _get_feature_names(X):
     if isinstance(X, (pd.DataFrame, cudf.DataFrame)):
         feature_names = np.asarray(X.columns, dtype=object)
     elif hasattr(X, "__dataframe__"):
-        feature_names = np.asarray(
-            list(X.__dataframe__().column_names()), dtype=object
-        )
+        pandas4_warning = getattr(pd.errors, "Pandas4Warning", FutureWarning)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The Dataframe Interchange Protocol is deprecated.*",
+                category=pandas4_warning,
+            )
+            feature_names = np.asarray(
+                list(X.__dataframe__().column_names()), dtype=object
+            )
     else:
         return None
 
@@ -351,7 +381,7 @@ def check_all_finite(array, *, allow_nan=False, input_name=None) -> None:
     input_name : str or None, default=None
         The input parameter name to use in error messages.
     """
-    if not np.isdtype(array.dtype, "real floating"):
+    if not array.dtype.kind == "f":
         # No-op for non floating inputs
         return
 
@@ -414,13 +444,13 @@ def check_non_negative(array, *, input_name=None) -> None:
         raise ValueError(f"Negative values in data{suffix}")
 
 
-def _ensure_int32_sparse(array):
-    """Convert sparse array to int32 indices if possible, and error otherwise"""
+def _requires_int64_sparse(array):
+    """Check if a sparse array requires int64 indices"""
     INT32_MAX = (1 << 31) - 1
-
-    # All sparse arrays must have shapes and nnz that fit in an int32. In addition,
-    # CSR, CSC, and BSR must have indices/indptr that fit in an int32.
-    if (
+    # A sparse array requires int64 indices if:
+    # - It has shape or nnz that doesn't fit in an int32
+    # - CSR/CSC/BSR have indices/indptr that don't fit in an int32
+    return (
         any(s > INT32_MAX for s in array.shape)
         or array.nnz > INT32_MAX
         or (
@@ -429,7 +459,12 @@ def _ensure_int32_sparse(array):
                 len(array.indices) > INT32_MAX or len(array.indptr) > INT32_MAX
             )
         )
-    ):
+    )
+
+
+def _ensure_int32_sparse(array):
+    """Convert sparse array to int32 indices if possible, and error otherwise"""
+    if _requires_int64_sparse(array):
         raise ValueError(
             "Only sparse matrices with int32 indices are currently supported."
         )
@@ -482,6 +517,19 @@ def _index_as_mem_type(index, mem_type=None):
     elif isinstance(index, pd.Index) and mem_type == "device":
         index = cudf.Index(index)
     return index
+
+
+if np.lib.NumpyVersion(np.__version__) >= "2.0.0b1":
+    np_asarray = np.asarray
+else:
+
+    def np_asarray(x, dtype=None, order=None, copy=None):
+        """A compatibility shim for `np.asarray`.
+
+        numpy 2.0 added the `copy` arg to `np.asarray`, as well as changed the
+        meaning of copy=False to "error if a copy required" rather than "only
+        copy if needed" (which is now `copy=None`)."""
+        return np.array(x, dtype=dtype, order=order or "K", copy=bool(copy))
 
 
 def check_array(
@@ -578,29 +626,46 @@ def check_array(
         raise ValueError(f"Unsupported {mem_type=!r}")
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
+
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
+
+    is_sparse = cp_sp.issparse(array) or sp.issparse(array)
+    if is_sparse and (
+        mem_type == "device" or (mem_type is None and cp_sp.issparse(array))
+    ):
+        # XXX: cupyx.scipy.sparse doesn't support integral dtypes. If a dtype
+        # is specified, we filter to only supported types (erroring if no
+        # supported types specified). If dtype=None, we use the input dtype if
+        # supported, and the closest floating type otherwise.
+        if dtype is not None:
+            if not any(d.kind in "fb" for d in dtype):
+                raise ValueError(
+                    f"No dtype in {dtype} is supported by cupyx.scipy.sparse"
+                )
+            dtype = [d for d in dtype if d.kind in "fb"]
+        elif array.dtype.kind not in "fb":
+            dtype = [
+                np.dtype("f4") if array.dtype.itemsize <= 4 else np.dtype("f8")
+            ]
 
     # Extract original array type and dtype (when possible)
     array_type = type(array)
     if isinstance(array, (cudf.DataFrame, pd.DataFrame)):
-        if all(isinstance(dt, np.dtype) for dt in array.dtypes):
-            array_dtype = np.result_type(*array.dtypes)
-        elif any(dt == "object" for dt in array.dtypes):
-            array_dtype = np.dtype("object")
-        else:
-            array_dtype = None
+        array_dtype = _dataframe_numpy_dtype(array.dtypes)
     else:
         array_dtype = getattr(array, "dtype", None)
-        if not isinstance(array_dtype, np.dtype):
+        if not isinstance(array_dtype, np.dtype) and array_dtype is not None:
+            array_dtype = _as_numpy_dtype(array_dtype)
+        elif not isinstance(array_dtype, np.dtype):
             array_dtype = None
 
     # Infer proper output dtype
     if array_dtype is not None:
         # Check for complex inputs before conversion when possible
-        if np.isdtype(array_dtype, "complex floating"):
+        if array_dtype.kind == "c":
             raise ValueError("Complex data not supported")
         if dtype is None:
             dtype = array_dtype
@@ -616,13 +681,13 @@ def check_array(
         else:
             dtype = array_dtype
     elif dtype is not None:
-        # No original dtype, use first dtype in list inputs
+        # No original dtype, use first provided dtype
         dtype = dtype[0]
 
     # Coerce `array` to numpy/cupy/scipy.sparse/cupyx.scipy.sparse values as
     # requested. For dataframe-like inputs also extract the index for later use.
     index = None
-    if cp_sp.issparse(array) or sp.issparse(array):
+    if is_sparse:
         orig_sparse_array = array
         # Handle sparse inputs
         if isinstance(accept_sparse, str):
@@ -641,7 +706,16 @@ def check_array(
         if array.format not in accept_sparse:
             array = array.asformat(accept_sparse[0])
         if not accept_large_sparse:
+            # Try to coerce to int32 indices, erroring otherwise
             array = _ensure_int32_sparse(array)
+        elif (
+            _requires_int64_sparse(array)
+            and mem_type == "device"
+            and not _CUPY_SUPPORTS_LARGE_SPARSE
+        ):
+            raise ValueError(
+                "Sparse matrices with int64 indices require cupy >= 14.1.0"
+            )
 
         # Validate dimensions and shape are as expected. We do this here
         # _before_ host/device conversion, since cupyx doesn't have a sparse
@@ -654,17 +728,23 @@ def check_array(
             ensure_min_features=ensure_min_features,
         )
 
-        # Coerce data to accepted dtype if needed
-        if dtype is not None and array.dtype != dtype:
-            array = array.astype(dtype)
-
-        # Coerce to device or host if needed
-        if mem_type == "device" and not cp_sp.issparse(array):
-            if array.ndim != 2:
-                raise ValueError("cupyx.scipy.sparse only supports 2D arrays")
-            array = getattr(cp_sp, f"{array.format}_matrix")(array)
-        elif mem_type == "host" and not sp.issparse(array):
+        # Coerce to proper dtype and mem_type if needed
+        if mem_type == "host" and not sp.issparse(array):
+            # Coerce to host, then coerce dtype. We do this to save device
+            # memory, and since scipy supports more dtypes.
             array = array.get()
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+        else:
+            # Otherwise coerce dtype, then mem_type if needed
+            if dtype is not None and array.dtype != dtype:
+                array = array.astype(dtype)
+            if mem_type == "device" and not cp_sp.issparse(array):
+                if array.ndim != 2:
+                    raise ValueError(
+                        "cupyx.scipy.sparse only supports 2D arrays"
+                    )
+                array = getattr(cp_sp, f"{array.format}_matrix")(array)
 
         # Copy if needed
         if copy and array is orig_sparse_array:
@@ -703,7 +783,7 @@ def check_array(
             elif (
                 mem_type is None
                 and cudf.pandas.LOADED
-                and np.isdtype(array.dtype, ("numeric", "bool"))
+                and array.dtype.kind in "iufb"
             ):
                 # We treat pandas objects with supported dtypes as device
                 # memory when running under cudf.pandas. Note that the output
@@ -732,8 +812,7 @@ def check_array(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
             else:
-                # XXX: using np.array for compat with numpy < 2
-                array = np.array(
+                array = np_asarray(
                     array, dtype=dtype, order=order, copy=(copy or None)
                 )
 
@@ -761,7 +840,7 @@ def check_array(
         )
 
     # Check for complex inputs after conversion for cases when `dtype=None`
-    if np.isdtype(array.dtype, "complex floating"):
+    if array.dtype.kind == "c":
         raise ValueError("Complex data not supported")
 
     # Validate data meets expected value requirements
@@ -834,7 +913,7 @@ def check_cudf(
     elif isinstance(array, pd.DataFrame):
         f16_cols = array.select_dtypes("float16").columns.tolist()
         if f16_cols:
-            array = array.astype({c: "float32" for c in f16_cols}, copy=False)
+            array = array.astype({c: "float32" for c in f16_cols})
         array = cudf.DataFrame(array)
     elif not isinstance(array, (cudf.DataFrame, cudf.Series)):
         # Remaining array-like inputs go through check_array first (without
@@ -1023,7 +1102,7 @@ def check_y(
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
-        dtype = [np.dtype(i) for i in dtype]
+        dtype = [_as_numpy_dtype(i) for i in dtype]
 
     # Extract the index from `y` (if available)
     if isinstance(y, (pd.DataFrame, pd.Series, cudf.DataFrame, cudf.Series)):
@@ -1052,10 +1131,7 @@ def check_y(
                 input_dtype = y.dtype
             if mem_type is None:
                 mem_type = "host" if isinstance(y, np.ndarray) else "device"
-            if (
-                np.isdtype(y.dtype, ("numeric", "bool"))
-                and return_classes is True
-            ):
+            if y.dtype.kind in "iufb" and return_classes is True:
                 y = cp.asarray(y)
             elif (
                 y.dtype == "object"

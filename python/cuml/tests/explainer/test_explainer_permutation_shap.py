@@ -54,38 +54,31 @@ def test_regression_datasets(exact_shap_regression_dataset, model):
             ) <= 1e-5
 
 
-def test_exact_classification_datasets(exact_shap_classification_dataset):
+@pytest.mark.parametrize("cls", [cuml.SVC, sklearn.svm.SVC])
+def test_exact_classification_datasets(exact_shap_classification_dataset, cls):
     X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
-    models = []
-    models.append(cuml.SVC(probability=True).fit(X_train, y_train))
-    models.append(
-        CalibratedClassifierCV(sklearn.svm.SVC(), ensemble=False).fit(
-            X_train, y_train
-        )
+    model = CalibratedClassifierCV(cls(), ensemble=False)
+    model.fit(X_train, y_train)
+
+    explainer, shap_values = get_shap_values(
+        model=model.predict_proba,
+        background_dataset=X_train,
+        explained_dataset=X_test,
+        explainer=PermutationExplainer,
     )
 
-    for mod in models:
-        explainer, shap_values = get_shap_values(
-            model=mod.predict_proba,
-            background_dataset=X_train,
-            explained_dataset=X_test,
-            explainer=PermutationExplainer,
-        )
+    fx = model.predict_proba(X_test)
+    exp_v = explainer.expected_value
 
-        fx = mod.predict_proba(X_test)
-        exp_v = explainer.expected_value
-
-        for i in range(3):
-            print(i, fx[i][1], shap_values[1][i])
-            assert (
-                np.sum(cp.asnumpy(shap_values[0][i]))
-                - abs(fx[i][0] - exp_v[0])
-            ) <= 1e-5
-            assert (
-                np.sum(cp.asnumpy(shap_values[1][i]))
-                - abs(fx[i][1] - exp_v[1])
-            ) <= 1e-5
+    for i in range(3):
+        print(i, fx[i][1], shap_values[1][i])
+        assert (
+            np.sum(cp.asnumpy(shap_values[0][i])) - abs(fx[i][0] - exp_v[0])
+        ) <= 1e-5
+        assert (
+            np.sum(cp.asnumpy(shap_values[1][i])) - abs(fx[i][1] - exp_v[1])
+        ) <= 1e-5
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

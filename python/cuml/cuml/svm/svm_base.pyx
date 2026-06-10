@@ -126,10 +126,10 @@ cdef class _SVMModel:
         return support, support_vectors, dual_coef, intercept
 
 
-class SVMBase(Base,
-              InteropMixin,
+class SVMBase(InteropMixin,
               FMajorInputTagMixin,
-              SparseInputTagMixin):
+              SparseInputTagMixin,
+              Base):
     """Base class for Support Vector Machines"""
 
     support_ = CumlArrayDescriptor(order="F")
@@ -227,8 +227,6 @@ class SVMBase(Base,
             "fit_status_": model.fit_status_,
             "shape_fit_": model.shape_fit_,
             "n_iter_": model.n_iter_,
-            "_probA": model._probA,
-            "_probB": model._probB,
             **super()._attrs_from_cpu(model),
         }
 
@@ -264,15 +262,12 @@ class SVMBase(Base,
             "support_": to_cpu(self.support_, order="C", dtype=np.int32),
             "support_vectors_": support_vectors_,
             "_gamma": self._gamma,
-            "_probA": self._probA,
-            "_probB": self._probB,
+            "_probA": np.empty(0, dtype=np.float64),
+            "_probB": np.empty(0, dtype=np.float64),
             "_sparse": self._sparse,
-            # sklearn >= 1.9 added a private fitted attribute that libsvm-facing
-            # code reads during predict (see sklearn PR #32050). It is set during
-            # fit(), so we have to set it ourselves. Harmless on older sklearn
-            # (no code reads it). cuml.SVR has no `probability` attribute;
-            # default to False to match sklearn.
-            "_effective_probability": getattr(self, "probability", False),
+            # sklearn >= 1.9 reads this private attribute during predict
+            # (sklearn PR #32050); harmless on older sklearn.
+            "_effective_probability": False,
             **super()._attrs_to_cpu(model),
         }
 
@@ -482,8 +477,6 @@ class SVMBase(Base,
         self.n_iter_ = np.array([n_iter], dtype=np.int32) if is_classifier else n_iter
         self._gamma = gamma
         self._sparse = sparse_X
-        self._probA = np.empty(0, dtype=np.float64)
-        self._probB = np.empty(0, dtype=np.float64)
 
     def _predict(self, X, *, convert_dtype=True) -> CumlArray:
         """Perform `predict`."""

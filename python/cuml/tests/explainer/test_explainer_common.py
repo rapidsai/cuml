@@ -6,102 +6,23 @@
 import cupy as cp
 import numpy as np
 import pytest
-from sklearn.linear_model import LinearRegression as skreg
 
-import cuml
 from cuml import PCA
 from cuml import LinearRegression as reg
 from cuml.datasets import make_regression
 from cuml.explainer.common import (
     get_cai_ptr,
     get_link_fn_from_str_or_fn,
-    get_tag_from_model_func,
     link_dict,
     model_func_call,
 )
-from cuml.testing.utils import ClassEnumerator
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
-models_config = ClassEnumerator(module=cuml)
-models = models_config.get_models()
-
-_default_tags = [
-    "preferred_input_order",
-    "X_types_gpu",
-    "non_deterministic",
-    "requires_positive_X",
-    "requires_positive_y",
-    "X_types",
-    "poor_score",
-    "no_validation",
-    "multioutput",
-    "allow_nan",
-    "stateless",
-    "multilabel",
-    "_skip_test",
-    "_xfail_checks",
-    "multioutput_only",
-    "binary_only",
-    "requires_fit",
-    "requires_y",
-    "pairwise",
+pytestmark = [
+    # TODO(26.10) Remove this filter, once cuml.fil is removed
+    pytest.mark.filterwarnings(
+        "ignore:cuml.fil.ForestInference.* is deprecated:FutureWarning"
+    ),
 ]
-
-
-def test_get_gpu_tag_from_model_func():
-    # test getting the gpu tags from the model that we use in explainers
-    model = reg()
-
-    order = get_tag_from_model_func(
-        func=model.predict, tag="preferred_input_order", default="C"
-    )
-
-    assert order == "F"
-
-    out_types = get_tag_from_model_func(
-        func=model.predict, tag="X_types_gpu", default=False
-    )
-
-    assert isinstance(out_types, list)
-    assert "2darray" in out_types
-
-    # checking arbitrary function
-    order = get_tag_from_model_func(
-        func=dummy_func, tag="preferred_input_order", default="C"
-    )
-
-    assert order == "C"
-
-    out_types = get_tag_from_model_func(
-        func=dummy_func, tag="X_types_gpu", default=False
-    )
-
-    assert out_types is False
-
-    model2 = skreg()
-
-    out_types = get_tag_from_model_func(
-        func=model2.predict, tag="X_types_gpu", default=False
-    )
-
-    assert out_types is False
-
-
-@pytest.mark.parametrize("model", list(models.values()))
-def test_get_tag_from_model_func(model):
-    mod = create_dummy_model(model)
-
-    for tag in _default_tags:
-        res = get_tag_from_model_func(
-            func=mod._get_param_names, tag=tag, default="FFF"
-        )
-
-        if tag != "preferred_input_order":
-            assert res != "FFF"
 
 
 def test_model_func_call_gpu():
@@ -177,14 +98,6 @@ def test_get_link_fn_from_fn():
 
     assert fn(2) == 4
     assert fn.inverse(2) == 1
-
-
-def create_dummy_model(model):
-    try:
-        mod = model()
-    except TypeError:
-        mod = model(np.zeros(10))
-    return mod
 
 
 def dummy_func(x):

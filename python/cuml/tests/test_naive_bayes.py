@@ -34,24 +34,17 @@ from cuml.naive_bayes import (
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_sparse_integral_dtype_fails(x_dtype, y_dtype, sparse_text_dataset):
+def test_sparse_integral_dtypes_work(x_dtype, y_dtype, sparse_text_dataset):
+    """These require a bit of special casing since cupyx doesn't support
+    integral spasre matrices"""
     X, y = sparse_text_dataset
 
     X = X.astype(x_dtype)
     y = y.astype(y_dtype)
 
-    model = MultinomialNB()
-
-    with pytest.raises(ValueError):
-        model.fit(X, y)
-
-    X = X.astype(cp.float32)
-    model.fit(X, y)
-
-    X = X.astype(x_dtype)
-
-    with pytest.raises(ValueError):
-        model.predict(X)
+    model = MultinomialNB().fit(X, y)
+    out = model.predict(X)
+    assert out.dtype == y.dtype
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64, cp.int32])
@@ -617,29 +610,3 @@ def test_categorical_parameters(
 
     assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4, atol=1e-10)
     assert_array_equal(y_hat, y_hat_sk)
-
-
-@pytest.mark.parametrize(
-    "cls", [BernoulliNB, CategoricalNB, ComplementNB, MultinomialNB]
-)
-def test_sample_weight_deprecated(cls):
-    X = np.array([[1, 2], [3, 4], [5, 6]])
-    y = np.array([0, 1, 1])
-    classes = np.array([0, 1])
-    sample_weight = np.full(3, 0.5, dtype="float32")
-
-    # Passing _anything_ leads to a warning, even if it's supported
-    with pytest.warns(FutureWarning, match="sample_weight"):
-        cls().fit(X, y, sample_weight=None)
-    with pytest.warns(FutureWarning, match="sample_weight"):
-        cls().partial_fit(X, y, classes=classes, sample_weight=None)
-
-    # Passing an actual array also errors
-    with pytest.raises(NotImplementedError, match="sample_weight"):
-        with pytest.warns(FutureWarning, match="sample_weight"):
-            cls().fit(X, y, sample_weight=sample_weight)
-    with pytest.raises(NotImplementedError, match="sample_weight"):
-        with pytest.warns(FutureWarning, match="sample_weight"):
-            cls().partial_fit(
-                X, y, classes=classes, sample_weight=sample_weight
-            )

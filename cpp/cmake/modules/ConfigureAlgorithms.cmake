@@ -10,6 +10,7 @@ if(CUML_ALGORITHMS STREQUAL "ALL")
   set(LINK_TREELITE ON)
   set(LINK_CUFFT ON)
   set(LINK_CUVS ON)
+  set(LINK_NVFOREST ON)
   set(all_algo ON)
   # setting treeshap to ON to get the gputreeshap include in the cuml target
   set(treeshap_algo ON)
@@ -76,7 +77,7 @@ else()
 
   # Set linking options and algorithms that require other algorithms #######
 
-  if(fil_algo OR treeshap_algo)
+  if(treeshap_algo)
     set(LINK_TREELITE ON)
   endif()
 
@@ -102,6 +103,7 @@ else()
   if(randomforest_algo)
     set(decisiontree_algo ON)
     set(LINK_TREELITE ON)
+    set(LINK_NVFOREST ON)
   endif()
 
   if(hierarchicalclustering_algo OR kmeans_algo)

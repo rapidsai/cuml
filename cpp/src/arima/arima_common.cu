@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/export.hpp>
 #include <cuml/tsa/arima_common.h>
 
 #include <thrust/execution_policy.h>
@@ -95,6 +96,6 @@ void ARIMAParams<DataT>::unpack(const ARIMAOrder& order,
 }
 
 // Explicit template instantiation
-template struct ARIMAParams<double>;
+template struct CUML_EXPORT ARIMAParams<double>;
 
 }  // namespace ML

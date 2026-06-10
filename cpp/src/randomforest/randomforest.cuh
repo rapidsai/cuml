@@ -140,10 +140,9 @@ class RandomForest {
            n_streams,
            handle.get_stream_pool_size());
 
-    // computing the quantiles: last two return values are shared pointers to device memory
-    // encapsulated by quantiles struct
-    auto [quantiles, quantiles_array, n_bins_array] =
-      DT::computeQuantiles(handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols);
+    auto quantile_result = DT::computeQuantiles(
+      handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols, 4, rf_params.seed);
+    auto quantiles = quantile_result.view();
 
     // n_streams should not be less than n_trees
     if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;

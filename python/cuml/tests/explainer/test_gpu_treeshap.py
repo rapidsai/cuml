@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import json
-import warnings
 
 import cudf
 import cupy as cp
@@ -26,13 +25,6 @@ from cuml.explainer.tree_shap import TreeExplainer
 from cuml.testing.utils import as_type
 
 shap = pytest.importorskip("shap")
-
-
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:The default value of 'max_depth':FutureWarning"
-)
 
 
 def make_classification_with_categorical(
@@ -125,6 +117,9 @@ def count_categorical_split(tl_model):
 )
 def test_xgb_regressor(objective):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_regression(
@@ -198,6 +193,9 @@ def test_xgb_regressor(objective):
 )
 def test_xgb_classifier(objective, n_classes):
     xgb = pytest.importorskip("xgboost")
+    pytest.importorskip(
+        "numpy", minversion="2.0", reason="Test fails on numpy < 2"
+    )
 
     n_samples = 100
     X, y = make_classification(
@@ -930,15 +928,6 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             )
 
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Can inline this back within the `example` call
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore")
-    example_random_forest = curfr(
-        max_features=1.0, random_state=0, n_streams=1, n_bins=10
-    ).fit(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32))
-
-
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(
@@ -950,7 +939,9 @@ with warnings.catch_warnings():
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        example_random_forest,
+        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
+            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
+        ),
         np.ones(10, dtype=np.float32),
     ),
     interactions_method="shapley-interactions",

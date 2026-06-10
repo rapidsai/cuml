@@ -14,6 +14,7 @@ import pytest
 import scipy.sparse as sp
 import sklearn
 from hypothesis import assume, example, given
+from packaging.version import Version
 from sklearn.exceptions import DataConversionWarning
 
 from cuml.internals.validation import (
@@ -30,6 +31,8 @@ from cuml.internals.validation import (
     check_sample_weight,
     check_y,
 )
+
+CUPY_SUPPORTS_LARGE_SPARSE = Version(cp.__version__) >= Version("14.1.0")
 
 DTYPES = ("i1", "i2", "i4", "i8", "u1", "u2", "u4", "u8", "f2", "f4", "f8")
 
@@ -841,8 +844,9 @@ def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
     )
     # Non-numeric columns -> object dtype by default
     if is_cuda_output(mem_type, df):
-        # cupy doesn't support object dtypes
-        with pytest.raises((ValueError, TypeError), match="object"):
+        # cupy doesn't support object dtypes. We don't care what the exception
+        # is here, just that one is raised.
+        with pytest.raises(Exception, match="object"):
             check_array(df, mem_type=mem_type)
     else:
         # dtype=None does no conversion by default
@@ -905,7 +909,7 @@ def test_check_array_object_dtype(kind, mem_type):
 
     if is_cuda_output(mem_type, array):
         # cupy doesn't support object dtypes
-        with pytest.raises((ValueError, TypeError), match="object"):
+        with pytest.raises((ValueError, TypeError), match="object|str"):
             check_array(array, mem_type=mem_type, ensure_2d=False)
     else:
         out = check_array(array, mem_type=mem_type, ensure_2d=False)
@@ -949,15 +953,14 @@ def test_check_array_sparse_not_supported(array):
 def test_check_array_sparse_input(array, mem_type):
     ns = cp_sp if is_cuda_output(mem_type, array) else sp
     # dtype=None case
-    if (
-        mem_type == "device"
-        and array.dtype.kind != "f"
-        and array.format != "dia"
-    ):
-        # cupy only supports floating dtypes for these inputs. We let cupy
-        # itself raise an exception, we don't really care what it is.
-        with pytest.raises(ValueError, match="float32"):
-            check_array(array, accept_sparse=True, mem_type=mem_type)
+    if mem_type == "device" and array.dtype.kind != "f":
+        # coercing to device causes a dtype conversion even if dtype=None if
+        # the input is an unsupported type. In that case we chose the float
+        # type with the nearest itemsize.
+        out = check_array(array, accept_sparse=True, mem_type=mem_type)
+        coerced_dtype = "float32" if array.dtype.itemsize <= 4 else "float64"
+        assert ns.issparse(out)
+        assert out.dtype == coerced_dtype
     else:
         out = check_array(array, accept_sparse=True, mem_type=mem_type)
         assert ns.issparse(out)
@@ -969,6 +972,47 @@ def test_check_array_sparse_input(array, mem_type):
     )
     assert ns.issparse(out)
     assert out.dtype == "float32"
+
+
+def test_check_array_sparse_input_unsupported_dtype():
+    """Cupy doesn't support integral types while scipy does, this checks a few
+    edge cases for how we handle that"""
+    host_i2 = sp.rand(100, 100, density=0.5).astype("i2")
+    host_i4 = sp.rand(100, 100, density=0.5).astype("i4")
+    host_i8 = sp.rand(100, 100, density=0.5).astype("i8")
+    device_f4 = cp_sp.rand(100, 100, density=0.5).astype("f4")
+
+    # Unsupported dtypes are coerced to floats by default
+    for array in [host_i2, host_i4, host_i8]:
+        out = check_array(array, accept_sparse=True)
+        dtype = "f4" if array.dtype.itemsize <= 4 else "f8"
+        assert out.dtype == dtype
+
+    # Unsupported dtypes skipped when selecting conversion
+    out = check_array(host_i4, dtype=["i4", "f8", "f4"], accept_sparse=True)
+    assert out.dtype == "f8"
+
+    # When coercing host->host, ints are supported
+    out = check_array(host_i4, accept_sparse=True, mem_type=None)
+    assert out.dtype == "i4"
+    out = check_array(host_i2, dtype=["i4"], accept_sparse=True, mem_type=None)
+    assert out.dtype == "i4"
+
+    # When coercing device->host, ints are supported
+    out = check_array(
+        device_f4, dtype=["i4", "i8"], mem_type="host", accept_sparse=True
+    )
+    assert out.dtype == "i4"
+
+    # When coercing to device, error if only unsupported dtypes specified
+    with pytest.raises(ValueError, match="is supported by cupyx.scipy.sparse"):
+        check_array(host_i4, dtype=["i4", "i8"], accept_sparse=True)
+    with pytest.raises(ValueError, match="is supported by cupyx.scipy.sparse"):
+        check_array(device_f4, dtype=["i4", "i8"], accept_sparse=True)
+    with pytest.raises(ValueError, match="is supported by cupyx.scipy.sparse"):
+        check_array(
+            device_f4, mem_type=None, dtype=["i4", "i8"], accept_sparse=True
+        )
 
 
 @example(
@@ -1051,6 +1095,45 @@ def test_check_array_large_sparse_errors():
         array, accept_sparse=True, accept_large_sparse=True, mem_type="host"
     )
     assert out is array
+
+
+@pytest.mark.skipif(
+    not CUPY_SUPPORTS_LARGE_SPARSE, reason="requires cupy >= 14.1.0"
+)
+def test_check_array_large_sparse_cupy_supported():
+    x_host = sp.coo_matrix(
+        (
+            np.array([1.5]),
+            (np.array([0], dtype="int64"), np.array([0], dtype="int64")),
+        ),
+        shape=(2**32, 10),
+    )
+    x_device = cp_sp.coo_matrix(x_host)
+
+    out = check_array(x_host, accept_sparse=True, accept_large_sparse=True)
+    assert isinstance(out, cp_sp.coo_matrix)
+    assert out.shape == x_host.shape
+
+    out = check_array(x_device, accept_sparse=True, accept_large_sparse=True)
+    assert out is x_device
+
+
+@pytest.mark.skipif(
+    CUPY_SUPPORTS_LARGE_SPARSE, reason="requires cupy < 14.1.0"
+)
+def test_check_array_large_sparse_cupy_not_supported():
+    array = sp.coo_matrix(
+        (
+            np.array([1.5]),
+            (np.array([0], dtype="int64"), np.array([0], dtype="int64")),
+        ),
+        shape=(2**32, 10),
+    )
+    with pytest.raises(
+        ValueError,
+        match="Sparse matrices with int64 indices require cupy >= 14.1.0",
+    ):
+        check_array(array, accept_sparse=True, accept_large_sparse=True)
 
 
 @example(array=np.ones((3, 2)))
@@ -1402,10 +1485,16 @@ def test_check_y_return_classes_classes_specified(
         assert res_classes is classes
 
     # Missing a class raises
-    msg = re.escape(
-        f"The target label(s) {labels[3:]!s} in y do not exist in the initial "
-        f"classes {labels[:3]!s}"
-    )
+    if label_dtype == "U":
+        # cudf normalizes numpy unicode labels through string categories.
+        msg = (
+            r"The target label\(s\) \[.*b.*\] in y do not exist in the initial"
+        )
+    else:
+        msg = re.escape(
+            f"The target label(s) {labels[3:]!s} in y do not exist in the initial "
+            f"classes {labels[:3]!s}"
+        )
     with pytest.raises(ValueError, match=msg):
         check_y(y, return_classes=missing, accept_multi_output=multi_output)
 
