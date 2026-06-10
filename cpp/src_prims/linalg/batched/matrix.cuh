@@ -1308,8 +1308,9 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
 
   // Create a temporary buffer to store the Householder vectors
   // hh_size = (n * (n - 1)) / 2 - 1, computed in size_t to avoid overflow.
-  std::size_t const hh_size =
-    ML::checked_sub<std::size_t>(ML::checked_mul<std::size_t>(n_sz, n_sz - 1) / 2, 1);
+  // checked_sub for (n - 1) too, so n == 0 traps instead of wrapping to SIZE_MAX.
+  std::size_t const hh_size = ML::checked_sub<std::size_t>(
+    ML::checked_mul<std::size_t>(n_sz, ML::checked_sub<std::size_t>(n_sz, 1)) / 2, 1);
   rmm::device_uvector<T> hh_buffer(ML::checked_mul<std::size_t>(hh_size, batch_size), stream);
 
   // Transform H to Hessenberg form in-place and update U
