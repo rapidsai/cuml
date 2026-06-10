@@ -9,9 +9,9 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
 
-#include <cuvs/cluster/kmeans.hpp>
-
 #include <cuda_runtime.h>
+
+#include <cuvs/cluster/kmeans.hpp>
 
 #include <optional>
 
@@ -68,18 +68,18 @@ void fit_impl(const raft::handle_t& handle,
     // int64 indexing, so we upcast the shape and the n_iter scratch slot here.
     auto n_samples_64  = static_cast<int64_t>(n_samples);
     auto n_features_64 = static_cast<int64_t>(n_features);
-    auto X_view = raft::make_host_matrix_view<const value_t, int64_t>(
-      X, n_samples_64, n_features_64);
+    auto X_view =
+      raft::make_host_matrix_view<const value_t, int64_t>(X, n_samples_64, n_features_64);
     std::optional<raft::host_vector_view<const value_t, int64_t>> sw = std::nullopt;
     if (sample_weight != nullptr)
       sw = std::make_optional(
         raft::make_host_vector_view<const value_t, int64_t>(sample_weight, n_samples_64));
     // The cuVS host overload still wants a `device_matrix_view<..., int64_t>`
     // for centroids. Rebuild it with the matching index type.
-    auto centroids_view_64 = raft::make_device_matrix_view<value_t, int64_t>(
-      centroids, params.n_clusters, n_features_64);
-    int64_t n_iter_64    = 0;
-    auto n_iter_view_64  = raft::make_host_scalar_view<int64_t>(&n_iter_64);
+    auto centroids_view_64 =
+      raft::make_device_matrix_view<value_t, int64_t>(centroids, params.n_clusters, n_features_64);
+    int64_t n_iter_64   = 0;
+    auto n_iter_view_64 = raft::make_host_scalar_view<int64_t>(&n_iter_64);
 
     cuvs::cluster::kmeans::fit(
       handle, params.to_cuvs(), X_view, sw, centroids_view_64, inertia_view, n_iter_view_64);
