@@ -15,7 +15,7 @@ from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
 
 
-class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
+class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
@@ -67,16 +67,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
-    max_depth : int or None (default = 16)
+    max_depth : int or None (default = None)
         Maximum tree depth. Use ``None`` for unlimited depth (trees grow
         until all leaves are pure). Must be a positive integer or ``None``.
 
-        .. note:: This default differs from scikit-learn's random forest,
-          which defaults to unlimited depth.
-
         .. rapids-pre-commit-hooks: disable-next-line
         .. versionchanged:: 26.08
-          The default of `max_depth` will change from `16` to `None`.
+          The default of `max_depth` changed from `16` to `None`.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
         If ``-1``.
@@ -194,7 +191,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         split_criterion="gini",
         bootstrap=True,
         max_samples=1.0,
-        max_depth="deprecated",
+        max_depth=None,
         max_leaves=-1,
         max_features="sqrt",
         n_bins=128,

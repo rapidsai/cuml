@@ -2,8 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import warnings
-
 import cupy as cp
 import cupyx
 import numpy as np
@@ -55,7 +53,7 @@ def _count_classes(y, n_classes, dtype):
     return cp.bincount(y, minlength=n_classes).astype(dtype, copy=False)
 
 
-class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
+class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
     """A base class for all naive-bayes estimators"""
 
     class_count_ = CumlArrayDescriptor()
@@ -77,7 +75,7 @@ class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
             convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
             return_index=True,
-            ensure_non_negative=self._get_tags()["requires_positive_X"],
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
         )
         X = self._transform_X(X)
         return X, index
@@ -105,7 +103,7 @@ class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
             sample_weight_dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
-            ensure_non_negative=self._get_tags()["requires_positive_X"],
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
             return_classes=(True if classes is None else classes),
             reset=reset,
         )
@@ -595,9 +593,10 @@ class _BaseDiscreteNB(_BaseNB):
         self.alpha = alpha
         self.fit_prior = fit_prior
 
-    @staticmethod
-    def _more_static_tags():
-        return {"poor_score": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.classifier_tags.poor_score = True
+        return tags
 
     def _update_class_log_prior(self, class_prior=None):
         if class_prior is not None:
@@ -624,7 +623,6 @@ class _BaseDiscreteNB(_BaseNB):
         X,
         y,
         classes=None,
-        sample_weight="deprecated",
     ) -> "_BaseDiscreteNB":
         """
         Incremental fit on a batch of samples.
@@ -651,23 +649,12 @@ class _BaseDiscreteNB(_BaseNB):
             List of all the classes that can possibly appear in the y vector.
             Must be provided at the first call to partial_fit, can be omitted
             in subsequent calls.
-        sample_weight : array-like of shape (n_samples)
-
-            .. deprecated:: 26.06
-
-                The `sample_weight` argument was deprecated in version 26.06
-                and will be removed in version 26.08. `sample_weight` was
-                previously silently ignored; we're opting to remove the
-                parameter for now rather than having a parameter that's not
-                supported.
 
         Returns
         -------
         self : object
         """
-        return self._partial_fit(
-            X, y, sample_weight=sample_weight, classes=classes
-        )
+        return self._partial_fit(X, y, classes=classes)
 
     @nvtx.annotate(
         message="naive_bayes._BaseDiscreteNB._partial_fit",
@@ -677,39 +664,21 @@ class _BaseDiscreteNB(_BaseNB):
         self,
         X,
         y,
-        sample_weight="deprecated",
         classes=None,
         reset=False,
         convert_dtype=True,
     ) -> "_BaseDiscreteNB":
-        if isinstance(sample_weight, str) and sample_weight == "deprecated":
-            sample_weight = None
-        else:
-            warnings.warn(
-                "`sample_weight` was deprecated in version 26.06 and will be removed "
-                "in version 26.08. Passing sample weights was previously silently "
-                "ignored; we're opting to remove the parameter for now rather "
-                "than continue having a parameter that's not supported.",
-                FutureWarning,
-            )
-
         if self.alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
 
         classes, reset = self._check_classes(classes, reset)
-        X, y, classes, sample_weight = self._check_fit(
+        X, y, classes, _ = self._check_fit(
             X,
             y,
             classes=classes,
-            sample_weight=sample_weight,
             reset=reset,
             convert_dtype=convert_dtype,
         )
-
-        if sample_weight is not None:
-            raise NotImplementedError(
-                "sample_weight support is not implemented"
-            )
 
         if reset:
             self.classes_ = classes
@@ -728,7 +697,7 @@ class _BaseDiscreteNB(_BaseNB):
         return self
 
     @run_in_internal_context
-    def fit(self, X, y, sample_weight="deprecated") -> "_BaseDiscreteNB":
+    def fit(self, X, y) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
 
@@ -739,17 +708,8 @@ class _BaseDiscreteNB(_BaseNB):
             n_features is the number of features.
         y : array-like shape (n_samples)
             Target values.
-        sample_weight : array-like of shape (n_samples)
-
-            .. deprecated:: 26.06
-
-                The `sample_weight` argument was deprecated in version 26.06
-                and will be removed in version 26.08. `sample_weight` was
-                previously silently ignored; we're opting to remove the
-                parameter for now rather than having a parameter that's not
-                supported.
         """
-        return self._partial_fit(X, y, reset=True, sample_weight=sample_weight)
+        return self._partial_fit(X, y, reset=True)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
@@ -910,9 +870,10 @@ class MultinomialNB(_BaseDiscreteNB):
     0.9245...
     """
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1167,9 +1128,10 @@ class ComplementNB(_BaseDiscreteNB):
         )
         self.norm = norm
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _count(self, X, y):
         super()._count(X, y)
@@ -1290,9 +1252,10 @@ class CategoricalNB(_BaseDiscreteNB):
             verbose=verbose,
         )
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, y):
         """

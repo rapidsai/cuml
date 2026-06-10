@@ -131,6 +131,17 @@ files:
       - py_version
       - test_python
       - test_python_xgboost
+  test_python_accel_sklearn:
+    output: none
+    includes:
+      - cuda_version
+      - depends_on_cuml
+      - depends_on_cupy
+      - depends_on_libcuml
+      - depends_on_nvforest
+      - py_version
+      - test_python
+      - test_python_accel_sklearn
   test_python_dask:
     output: none
     includes:
@@ -344,7 +355,7 @@ dependencies:
           - scipy>=1.14.0
           - packaging
           - rich
-          - &scikit_learn scikit-learn>=1.5
+          - &scikit_learn scikit-learn>=1.6
           - *treelite
   # 'cuda_version' intentionally does not contain fallback entries... we want
   # a loud error if an unsupported 'cuda' value is passed
@@ -543,20 +554,14 @@ dependencies:
           # Package versions to use for the "oldest-dep" CI run
           - matrix: {dependencies: "oldest"}
             packages:
-              - scikit-learn==1.5.0
+              - scikit-learn==1.6.0
               - umap-learn==0.5.7
               - hdbscan==0.8.39
               - numpy==1.26
-          - matrix: {dependencies: "intermediate"}
-            packages:
-              - scikit-learn==1.7.2
-              - umap-learn==0.5.8
-              - ipython==8.10.0
-              - hdbscan==0.8.41
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
-              - scikit-learn>=1.5.0a0
+              - scikit-learn>=1.6.0a0
           - matrix:
             packages:
               - *scikit_learn
@@ -636,6 +641,23 @@ dependencies:
       - output_types: conda
         packages:
           - cuvs==26.8.*,>=0.0.0a0
+  test_python_accel_sklearn:
+    # Exact pin the sklearn versions used for running upstream sklearn tests
+    # in cuml.accel. We exact pin here since our xfail list is tightly coupled
+    # to the version of sklearn we're running. The code should run with a much
+    # more flexible set of sklearn dependencies, this pinning is just for CI.
+    specific:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix: {dependencies: "latest"}
+            packages:
+              - scikit-learn==1.8.0
+          - matrix: {dependencies: "intermediate"}
+            packages:
+              - scikit-learn==1.7.2
+          - matrix: {dependencies: "oldest"}
+            packages:
+              - scikit-learn==1.6.0
   test_python_dask:
     common:
       - output_types: [conda, requirements, pyproject]
@@ -948,7 +970,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - &numba_cuda numba-cuda>=0.22.2,<0.29.0
+        - &numba_cuda numba-cuda>=0.22.2
     specific:
       - output_types: [requirements, pyproject]
         matrices:
@@ -956,12 +978,12 @@ dependencies:
               cuda: "12.*"
               cuda_suffixed: "true"
             packages:
-              - numba-cuda[cu12]>=0.22.2,<0.29.0
+              - numba-cuda[cu12]>=0.22.2
           - matrix:
               cuda: "13.*"
               cuda_suffixed: "true"
             packages:
-              - numba-cuda[cu13]>=0.22.2,<0.29.0
+              - numba-cuda[cu13]>=0.22.2
           # fallback to numba-cuda with no extra CUDA packages if 'cuda_suffixed' isn't true
           - matrix:
             packages:

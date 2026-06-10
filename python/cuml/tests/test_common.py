@@ -20,9 +20,6 @@ from cuml.datasets import make_blobs
     ],
 )
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_random_state_argument(Estimator):
     X, y = make_blobs(random_state=0)
     # Check that both integer and np.random.RandomState are accepted

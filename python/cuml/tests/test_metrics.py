@@ -1829,9 +1829,6 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
             assert isinstance(S, cp.ndarray)
 
 
-@pytest.mark.xfail(
-    reason="Temporarily disabling this test. See rapidsai/cuml#3569"
-)
 @pytest.mark.parametrize(
     "nrows, ncols, n_info",
     [
@@ -1866,7 +1863,7 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
     cuml_model = cu_log()
     cuml_model.fit(X_train, y_train)
     cu_predict_decision = cuml_model.decision_function(X_test)
-    cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
+    cu_loss = cuml_hinge(y_test, cu_predict_decision, labels=cp.unique(y))
     if input_type == "cudf":
         y_test = y_test.to_numpy()
         y = y.to_numpy()
@@ -1877,7 +1874,7 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
         cu_predict_decision = cp.asnumpy(cu_predict_decision)
 
     cu_loss_using_sk = sk_hinge(
-        y_test, cu_predict_decision.T, labels=np.unique(y)
+        y_test, cu_predict_decision, labels=np.unique(y)
     )
     # compare the accuracy of the two models
     cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)
@@ -1957,16 +1954,6 @@ def test_hinge_loss_multiclass_missing_labels():
     # is not provided.
     with pytest.raises(ValueError, match="include all labels in y_true"):
         cuml_hinge(np.array([0, 1, 2]), rng.randn(3, 2))
-
-
-def test_hinge_loss_sample_weights_deprecated():
-    y_true = np.array([-1, 1, 1, -1])
-    pred_decision = np.array([-2.18, 2.36, 0.09, -1.0])
-    sw = np.array([1.0, 2.0, 1.0, 1.0])
-    expected = cuml_hinge(y_true, pred_decision, sample_weight=sw)
-    with pytest.warns(FutureWarning, match="sample_weights"):
-        result = cuml_hinge(y_true, pred_decision, sample_weights=sw)
-    np.testing.assert_allclose(result, expected)
 
 
 @pytest.mark.parametrize(

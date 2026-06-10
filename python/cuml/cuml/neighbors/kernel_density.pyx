@@ -100,7 +100,7 @@ def _coerce_russellrao_binary(arr, *, input_name):
     return arr
 
 
-class KernelDensity(Base, InteropMixin):
+class KernelDensity(InteropMixin, Base):
     """
     Kernel Density Estimation. Computes a non-parametric density estimate
     from a finite data sample, smoothing the estimate according to a

@@ -90,10 +90,10 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                            const paramsPCA &prms) except +
 
 
-class PCA(Base,
-          InteropMixin,
+class PCA(InteropMixin,
           FMajorInputTagMixin,
-          SparseInputTagMixin):
+          SparseInputTagMixin,
+          Base):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
