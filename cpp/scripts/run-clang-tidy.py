@@ -19,6 +19,7 @@ VERSION_REGEX = re.compile(r"  LLVM version ([0-9.]+)")
 GPU_ARCH_REGEX = re.compile(r"sm_(\d+)")
 SPACES = re.compile(r"\s+")
 SEPARATOR = "-" * 16
+UNSUPPORTED_CLANG_FLAGS = ("-fno-merge-constants",)
 
 
 def _read_config_file(config_file):
@@ -180,6 +181,9 @@ def get_tidy_args(cmd, exe):
     # remove compilation and output targets from the original command
     remove_item_plus_one(command, "-c")
     remove_item_plus_one(command, "-o")
+    for flag in UNSUPPORTED_CLANG_FLAGS:
+        while remove_item(command, flag) >= 0:
+            pass
     if is_cuda:
         # replace nvcc's "-gencode ..." with clang's "--cuda-gpu-arch ..."
         archs = get_gpu_archs(command)
