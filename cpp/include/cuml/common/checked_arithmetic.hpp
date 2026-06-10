@@ -84,7 +84,15 @@ template <checked_target T, checked_source U>
 constexpr T widen_or_fail(U value, char const* op)
 {
   if (!std::in_range<T>(value)) {
-    RAFT_FAIL("checked_arithmetic: operand does not fit target type in %s", op);
+    if constexpr (std::unsigned_integral<U>) {
+      RAFT_FAIL("checked_arithmetic: operand %llu does not fit target type in %s",
+                static_cast<unsigned long long>(value),
+                op);
+    } else {
+      RAFT_FAIL("checked_arithmetic: operand %lld does not fit target type in %s",
+                static_cast<long long>(value),
+                op);
+    }
   }
   return static_cast<T>(value);
 }
