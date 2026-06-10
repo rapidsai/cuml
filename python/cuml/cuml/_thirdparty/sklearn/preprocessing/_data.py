@@ -38,7 +38,6 @@ from scipy.special import boxcox
 from cuml.internals.mixins import (
     AllowNaNTagMixin,
     SparseInputTagMixin,
-    StatelessTagMixin,
 )
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.validation import check_is_fitted, check_array, check_inputs
@@ -527,10 +526,10 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 
 class StandardScaler(TransformerMixin,
-                     BaseEstimator,
-                     InteropMixin,
                      AllowNaNTagMixin,
-                     SparseInputTagMixin):
+                     SparseInputTagMixin,
+                     BaseEstimator,
+                     InteropMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -645,6 +644,13 @@ class StandardScaler(TransformerMixin,
         self.with_mean = with_mean
         self.with_std = with_std
         self.copy = copy
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        if self.with_mean:
+            tags.input_tags.sparse = False
+            tags.X_types_gpu = ["2darray"]
+        return tags
 
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
@@ -1860,9 +1866,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
 
 class Normalizer(TransformerMixin,
-                 BaseEstimator,
-                 StatelessTagMixin,
-                 SparseInputTagMixin):
+                 SparseInputTagMixin,
+                 BaseEstimator):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1919,6 +1924,11 @@ class Normalizer(TransformerMixin,
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm
         self.copy = copy
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
 
     @reflect(reset="type")
     def fit(self, X, y=None) -> "Normalizer":
@@ -1991,9 +2001,8 @@ def binarize(X, *, threshold=0.0, copy=True):
 
 
 class Binarizer(TransformerMixin,
-                BaseEstimator,
-                StatelessTagMixin,
-                SparseInputTagMixin):
+                SparseInputTagMixin,
+                BaseEstimator):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than
@@ -2050,6 +2059,11 @@ class Binarizer(TransformerMixin,
     def __init__(self, *, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
 
     @reflect(reset="type")
     def fit(self, X, y=None) -> "Binarizer":

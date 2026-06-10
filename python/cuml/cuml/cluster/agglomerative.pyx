@@ -45,7 +45,7 @@ _metrics_mapping = {
 }
 
 
-class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
+class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
     """
     Agglomerative Clustering
 

@@ -15,7 +15,7 @@ from cuml.internals.validation import check_inputs
 from cuml.metrics import accuracy_score
 
 
-class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
+class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.

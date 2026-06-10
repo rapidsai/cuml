@@ -22,9 +22,13 @@ namespace kmeans {
  * @param[in]     handle        The handle to the cuML library context that
  manages the CUDA resources.
  * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- that the data must be in row-major format and stored in device accessible
- * location.
+ * @param[in]     X             Training instances to cluster, in row-major
+ * format. May live on the device or on the host: the implementation queries
+ * the pointer type and dispatches to the device-data or host-data cuVS
+ * overload accordingly. When `X` is host-resident, cuVS streams it to the
+ * device in chunks of `params.streaming_batch_size` samples (or all at once
+ * when `streaming_batch_size == 0`). `sample_weight` (when not null) must
+ * live in the same memory space as `X`.
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
@@ -32,7 +36,8 @@ namespace kmeans {
  * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
- kmeans algorithm is stored at the address pointed by 'centroids'.
+ kmeans algorithm is stored at the address pointed by 'centroids'. `centroids`
+ * must always live on the device, regardless of where `X` resides.
  * @param[out]    inertia       Sum of squared distances of samples to their
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.

@@ -33,7 +33,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from cuml.accel import is_proxy
 from cuml.accel.estimator_proxy import ProxyBase
 
-SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 SKLEARN_19 = Version(sklearn.__version__) >= Version("1.9.0.dev0")
 
@@ -99,19 +98,11 @@ def test_sklearn_introspect_parameter_constraints():
     assert isinstance(LogisticRegression()._parameter_constraints, dict)
 
 
-@pytest.mark.skipif(not SKLEARN_16, reason="sklearn >= 1.6 only")
 def test_sklearn_utils_get_tags():
-    """sklearn.utils.get_tags was added in sklearn 1.6"""
     from sklearn.utils import get_tags
 
     model = LogisticRegression()
     assert get_tags(model) == get_tags(model._cpu)
-
-
-@pytest.mark.skipif(SKLEARN_16, reason="sklearn < 1.6 only")
-def test_BaseEstimator__get_tags():
-    model = LogisticRegression()
-    assert model._get_tags() == model._cpu._get_tags()
 
 
 def test_BaseEstimator__validate_params():
