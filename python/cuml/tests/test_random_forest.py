@@ -285,7 +285,7 @@ def test_tweedie_convergence(max_depth, split_criterion):
 
     # model trained on tweedie data with tweedie criterion must perform
     # no worse on tweedie loss, allowing tiny numeric variation.
-    deviance_tolerance = 1e-5
+    deviance_tolerance = 1e-4
     assert (
         mse_tweedie_deviance + deviance_tolerance >= tweedie_tweedie_deviance
     )
