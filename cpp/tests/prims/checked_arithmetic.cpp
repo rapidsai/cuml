@@ -50,4 +50,25 @@ TEST(CheckedArithmetic, CheckedAddSubAndDivTrapInvalidOperations)
   EXPECT_EQ(checked_div<int>(8, 2), 4);
 }
 
+TEST(CheckedArithmetic, VariadicTrapsOnIntermediateOverflow)
+{
+  // The overflow happens while folding the third operand, not the first pair.
+  auto const half_max = std::numeric_limits<int>::max() / 2 + 1;
+  EXPECT_THROW(checked_mul<int>(half_max, 1, 2), raft::exception);
+  EXPECT_THROW(checked_add<int>(std::numeric_limits<int>::max() - 1, 1, 1), raft::exception);
+
+  EXPECT_EQ(checked_add<std::size_t>(1, 2, 3, 4), std::size_t{10});
+}
+
+TEST(CheckedArithmetic, WidenAcrossSignednessIsChecked)
+{
+  // Non-negative signed source widening into a larger unsigned target is free.
+  EXPECT_EQ(checked_mul<std::size_t>(3, 4), std::size_t{12});
+
+  // Negative signed source into unsigned target always traps, even when the
+  // target is strictly wider than the source.
+  EXPECT_THROW(narrow_cast<std::size_t>(static_cast<int>(-1)), raft::exception);
+  EXPECT_THROW(checked_add<std::size_t>(static_cast<int>(-1), 0), raft::exception);
+}
+
 }  // namespace ML
