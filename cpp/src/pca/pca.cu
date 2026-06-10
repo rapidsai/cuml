@@ -20,8 +20,7 @@ void pca_fit_impl(const raft::handle_t& handle,
                   math_t* singular_vals,
                   math_t* mu,
                   math_t* noise_vars,
-                  const paramsPCA& prms,
-                  bool flip_signs_based_on_U)
+                  const paramsPCA& prms)
 {
   auto raft_prms = to_raft_params(prms);
   raft::linalg::pca_fit(
@@ -36,7 +35,7 @@ void pca_fit_impl(const raft::handle_t& handle,
     raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
     raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
     raft::make_device_scalar_view<math_t, std::size_t>(noise_vars),
-    flip_signs_based_on_U);
+    false);
 }
 
 template <typename math_t>
@@ -49,8 +48,7 @@ void pca_fit_transform_impl(const raft::handle_t& handle,
                             math_t* singular_vals,
                             math_t* mu,
                             math_t* noise_vars,
-                            const paramsPCA& prms,
-                            bool flip_signs_based_on_U)
+                            const paramsPCA& prms)
 {
   auto raft_prms = to_raft_params(prms);
   raft::linalg::pca_fit_transform(
@@ -67,7 +65,7 @@ void pca_fit_transform_impl(const raft::handle_t& handle,
     raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
     raft::make_device_vector_view<math_t, std::size_t>(mu, prms.n_cols),
     raft::make_device_scalar_view<math_t, std::size_t>(noise_vars),
-    flip_signs_based_on_U);
+    false);
 }
 
 template <typename math_t>
@@ -124,8 +122,7 @@ void pcaFit(const raft::handle_t& handle,
             float* singular_vals,
             float* mu,
             float* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U)
+            const paramsPCA& prms)
 {
   pca_fit_impl(handle,
                input,
@@ -135,8 +132,7 @@ void pcaFit(const raft::handle_t& handle,
                singular_vals,
                mu,
                noise_vars,
-               prms,
-               flip_signs_based_on_U);
+               prms);
 }
 
 void pcaFit(const raft::handle_t& handle,
@@ -147,8 +143,7 @@ void pcaFit(const raft::handle_t& handle,
             double* singular_vals,
             double* mu,
             double* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U)
+            const paramsPCA& prms)
 {
   pca_fit_impl(handle,
                input,
@@ -158,8 +153,7 @@ void pcaFit(const raft::handle_t& handle,
                singular_vals,
                mu,
                noise_vars,
-               prms,
-               flip_signs_based_on_U);
+               prms);
 }
 
 void pcaFitTransform(const raft::handle_t& handle,
@@ -171,8 +165,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      float* singular_vals,
                      float* mu,
                      float* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U)
+                     const paramsPCA& prms)
 {
   pca_fit_transform_impl(handle,
                          input,
@@ -183,8 +176,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                          singular_vals,
                          mu,
                          noise_vars,
-                         prms,
-                         flip_signs_based_on_U);
+                         prms);
 }
 
 void pcaFitTransform(const raft::handle_t& handle,
@@ -196,8 +188,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      double* singular_vals,
                      double* mu,
                      double* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U)
+                     const paramsPCA& prms)
 {
   pca_fit_transform_impl(handle,
                          input,
@@ -208,8 +199,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                          singular_vals,
                          mu,
                          noise_vars,
-                         prms,
-                         flip_signs_based_on_U);
+                         prms);
 }
 
 void pcaInverseTransform(const raft::handle_t& handle,
