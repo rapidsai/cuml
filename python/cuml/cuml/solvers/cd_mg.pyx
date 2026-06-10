@@ -2,9 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
+import cupy as cp
 
-from cuml.internals import run_in_internal_context
+from cuml.internals.array import CumlArray
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.solvers import CD
 
@@ -59,14 +59,23 @@ class CDMG(MGFitMixin, CD):
     """
     Cython class for MNMG code usage. Not meant for end user consumption.
     """
-    @run_in_internal_context
-    def _fit(self, uintptr_t X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
+    def _fit(
+        self,
+        uintptr_t X_ptr,
+        uintptr_t y_ptr,
+        n_cols,
+        dtype,
+        uintptr_t input_desc_ptr,
+    ):
+        coef = cp.zeros(n_cols, dtype=dtype)
+        cdef uintptr_t coef_ptr = coef.data.ptr
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool use_f32 = self.dtype == np.float32
+        cdef bool use_f32 = dtype == cp.float32
         cdef bool fit_intercept = self.fit_intercept
         cdef int max_iter = self.max_iter
         cdef double alpha = (
-            self.alpha if np.isscalar(self.alpha) else self.alpha.item()
+            self.alpha if cp.isscalar(self.alpha) else self.alpha.item()
         )
         cdef double l1_ratio = self.l1_ratio
         cdef bool shuffle = self.shuffle
@@ -79,9 +88,9 @@ class CDMG(MGFitMixin, CD):
             if use_f32:
                 n_iter = fit(
                     handle_[0],
-                    deref(<vector[floatData_t*]*>X),
-                    deref(<PartDescriptor*>input_desc),
-                    deref(<vector[floatData_t*]*>y),
+                    deref(<vector[floatData_t*]*>X_ptr),
+                    deref(<PartDescriptor*>input_desc_ptr),
+                    deref(<vector[floatData_t*]*>y_ptr),
                     <float*>coef_ptr,
                     &intercept_f32,
                     fit_intercept,
@@ -95,9 +104,9 @@ class CDMG(MGFitMixin, CD):
             else:
                 n_iter = fit(
                     handle_[0],
-                    deref(<vector[doubleData_t*]*>X),
-                    deref(<PartDescriptor*>input_desc),
-                    deref(<vector[doubleData_t*]*>y),
+                    deref(<vector[doubleData_t*]*>X_ptr),
+                    deref(<PartDescriptor*>input_desc_ptr),
+                    deref(<vector[doubleData_t*]*>y_ptr),
                     <double*>coef_ptr,
                     &intercept_f64,
                     fit_intercept,
@@ -110,5 +119,6 @@ class CDMG(MGFitMixin, CD):
                 )
         self.handle.sync()
 
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept_f32 if use_f32 else intercept_f64
         self.n_iter_ = n_iter

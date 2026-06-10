@@ -53,7 +53,7 @@ def _count_classes(y, n_classes, dtype):
     return cp.bincount(y, minlength=n_classes).astype(dtype, copy=False)
 
 
-class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
+class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
     """A base class for all naive-bayes estimators"""
 
     class_count_ = CumlArrayDescriptor()
@@ -75,7 +75,7 @@ class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
             convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
             return_index=True,
-            ensure_non_negative=self._get_tags()["requires_positive_X"],
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
         )
         X = self._transform_X(X)
         return X, index
@@ -103,7 +103,7 @@ class _BaseNB(Base, ClassifierMixin, SparseInputTagMixin):
             sample_weight_dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
-            ensure_non_negative=self._get_tags()["requires_positive_X"],
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
             return_classes=(True if classes is None else classes),
             reset=reset,
         )
@@ -593,9 +593,10 @@ class _BaseDiscreteNB(_BaseNB):
         self.alpha = alpha
         self.fit_prior = fit_prior
 
-    @staticmethod
-    def _more_static_tags():
-        return {"poor_score": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.classifier_tags.poor_score = True
+        return tags
 
     def _update_class_log_prior(self, class_prior=None):
         if class_prior is not None:
@@ -869,9 +870,10 @@ class MultinomialNB(_BaseDiscreteNB):
     0.9245...
     """
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1126,9 +1128,10 @@ class ComplementNB(_BaseDiscreteNB):
         )
         self.norm = norm
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _count(self, X, y):
         super()._count(X, y)
@@ -1249,9 +1252,10 @@ class CategoricalNB(_BaseDiscreteNB):
             verbose=verbose,
         )
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, y):
         """
