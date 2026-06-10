@@ -21,7 +21,7 @@ from cuml.linear_model.base import LinearPredictMixin
 __all__ = ["LinearSVR"]
 
 
-class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
+class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
     """
     Linear Support Vector Regression.
 

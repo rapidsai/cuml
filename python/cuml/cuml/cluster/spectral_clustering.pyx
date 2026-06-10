@@ -59,10 +59,10 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
 _AFFINITIES = ["nearest_neighbors", "precomputed"]
 
 
-class SpectralClustering(Base,
-                         InteropMixin,
+class SpectralClustering(InteropMixin,
                          ClusterMixin,
-                         CMajorInputTagMixin):
+                         CMajorInputTagMixin,
+                         Base):
     """Apply spectral clustering from the normalized Laplacian.
 
     In practice spectral clustering is very useful when the structure of

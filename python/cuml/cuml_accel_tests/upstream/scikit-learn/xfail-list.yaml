@@ -692,6 +692,11 @@
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-1.0-True]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-False]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[continuous-auto-True]"
+- reason: cuml.accel StandardScaler array-api path does not handle array-like sample weights
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.tests.test_common::test_estimators[StandardScaler()-check_sample_weights_not_an_array]"
 - reason: Feature name preservation and metadata handling in cuml.accel StandardScaler needs comprehensive fixes
   marker: cuml_accel_bugs_sklearn16plus
   condition: scikit-learn>=1.6

@@ -1128,12 +1128,21 @@ struct ObjectiveTestParameters {
   double tolerance;
 };
 
-template <typename ObjectiveT>
+template <typename ObjectiveT_, CRITERION Criterion_>
+struct ObjectiveTestConfig {
+  using ObjectiveT                         = ObjectiveT_;
+  static constexpr CRITERION splitCriteria = Criterion_;
+};
+
+template <typename ObjectiveConfig>
 class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
+  using ObjectiveT = typename ObjectiveConfig::ObjectiveT;
   typedef typename ObjectiveT::DataT DataT;
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
+
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   ObjectiveTestParameters params;
 
@@ -1259,9 +1268,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                  (n_right / n) * right_ighd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1299,9 +1307,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                     (n_right / n) * right_ghd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1337,9 +1344,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                               (n_right / n) * right_phd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1422,30 +1428,17 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    if constexpr (std::is_same<ObjectiveT, MSEObjectiveFunction<DataT, LabelT, IdxT>>::
-                    value)  // mean squared error
-    {
+    if constexpr (ObjectiveConfig::splitCriteria == CRITERION::MSE) {
       return MSEGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT, PoissonObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // poisson
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::POISSON) {
       return PoissonGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gamma
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::GAMMA) {
       return GammaGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // inverse gaussian
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::INVERSE_GAUSSIAN) {
       return InverseGaussianGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT, EntropyObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // entropy
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::ENTROPY) {
       return EntropyGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::GINI) {
       return GiniGroundTruthGain(data, split_bin_index);
     }
     return DataT(0.0);
@@ -1468,20 +1461,19 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   void SetUp() override
   {
-    srand(params.seed);
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
-    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
+    srand(params.seed);
+    ObjectiveT objective(params.n_classes, params.min_samples_leaf, ObjectiveConfig::splitCriteria);
 
     auto data                 = GenRandomData();
     auto [cdf_hist, pdf_hist] = GenHist(data);
     auto split_bin_index      = RandUnder(params.max_n_bins);
     auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
+    auto len                  = NumLeftOfBin(cdf_hist, params.max_n_bins - 1);
+    auto nLeft                = NumLeftOfBin(cdf_hist, split_bin_index);
 
-    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
-                                                  split_bin_index,
-                                                  params.max_n_bins,
-                                                  NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
-                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+    auto hypothesis_gain = objective.GainPerSplit(
+      &cdf_hist[0], split_bin_index, params.max_n_bins, len, nLeft, len - nLeft);
 
     // The gain may actually be NaN. If so, a comparison between the result and
     // ground truth would yield false, even if they are both (correctly) NaNs.
@@ -1534,49 +1526,63 @@ const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
 };
 
 // mse objective test
-typedef ObjectiveTest<MSEObjectiveFunction<double, double, int>> MSEObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::MSE>>
+  MSEObjectiveTestD;
 TEST_P(MSEObjectiveTestD, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestD,
                         ::testing::ValuesIn(mse_objective_test_parameters));
-typedef ObjectiveTest<MSEObjectiveFunction<float, float, int>> MSEObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::MSE>>
+  MSEObjectiveTestF;
 TEST_P(MSEObjectiveTestF, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestF,
                         ::testing::ValuesIn(mse_objective_test_parameters));
 
 // poisson objective test
-typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::POISSON>>
+  PoissonObjectiveTestD;
 TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
-typedef ObjectiveTest<PoissonObjectiveFunction<float, float, int>> PoissonObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::POISSON>>
+  PoissonObjectiveTestF;
 TEST_P(PoissonObjectiveTestF, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestF,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 
 // gamma objective test
-typedef ObjectiveTest<GammaObjectiveFunction<double, double, int>> GammaObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::GAMMA>>
+  GammaObjectiveTestD;
 TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
-typedef ObjectiveTest<GammaObjectiveFunction<float, float, int>> GammaObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::GAMMA>>
+  GammaObjectiveTestF;
 TEST_P(GammaObjectiveTestF, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestF,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 
 // InvGauss objective test
-typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>>
+typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>,
+                                          CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestD;
 TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
-typedef ObjectiveTest<InverseGaussianObjectiveFunction<float, float, int>>
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestF;
 TEST_P(InverseGaussianObjectiveTestF, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -1584,24 +1590,32 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
 
 // entropy objective test
-typedef ObjectiveTest<EntropyObjectiveFunction<double, int, int>> EntropyObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::ENTROPY>>
+  EntropyObjectiveTestD;
 TEST_P(EntropyObjectiveTestD, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestD,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
-typedef ObjectiveTest<EntropyObjectiveFunction<float, int, int>> EntropyObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::ENTROPY>>
+  EntropyObjectiveTestF;
 TEST_P(EntropyObjectiveTestF, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestF,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
 
 // gini objective test
-typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::GINI>>
+  GiniObjectiveTestD;
 TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestD,
                         ::testing::ValuesIn(gini_objective_test_parameters));
-typedef ObjectiveTest<GiniObjectiveFunction<float, int, int>> GiniObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::GINI>>
+  GiniObjectiveTestF;
 TEST_P(GiniObjectiveTestF, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestF,
