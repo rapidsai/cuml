@@ -1194,12 +1194,14 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   auto GenHist(std::vector<DataT> const& data, std::vector<DataT> const& sample_weights)
   {
     std::vector<BinT> cdf_hist, pdf_hist;
-    IdxT bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
+    auto bin_width = static_cast<std::size_t>(raft::ceildiv(params.n_rows, params.max_n_bins));
 
     for (auto c = 0; c < params.n_classes; ++c) {
       for (auto b = 0; b < params.max_n_bins; ++b) {
-        auto bin_begin = b * bin_width;
-        auto bin_end   = bin_begin + bin_width;
+        auto bin_begin =
+          std::min<std::size_t>(static_cast<std::size_t>(b) * bin_width, data.size());
+        auto bin_end   = std::min<std::size_t>(bin_begin + bin_width, data.size());
+        auto bin_count = static_cast<BinCountT>(bin_end - bin_begin);
         if constexpr (is_classification) {
           auto count{BinCountT(0)};
           auto weight{DataT(0)};
@@ -1222,9 +1224,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
             weight += sample_weights[i];
           }
           if constexpr (is_weighted) {
-            pdf_hist.emplace_back(label_sum, bin_width, weight);
+            pdf_hist.emplace_back(label_sum, bin_count, weight);
           } else {
-            pdf_hist.emplace_back(label_sum, bin_width);
+            pdf_hist.emplace_back(label_sum, bin_count);
           }
         }
 
@@ -1239,8 +1241,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto SplitOffset(std::size_t const split_bin_index)
   {
-    auto bin_width = raft::ceildiv(params.n_rows, params.max_n_bins);
-    return (split_bin_index + 1) * bin_width;
+    auto bin_width = static_cast<std::size_t>(raft::ceildiv(params.n_rows, params.max_n_bins));
+    return std::min<std::size_t>((split_bin_index + 1) * bin_width,
+                                 static_cast<std::size_t>(params.n_rows));
+  }
+
+  auto SplitBinIndexUpperBound()
+  {
+    auto bin_width        = raft::ceildiv(params.n_rows, params.max_n_bins);
+    auto non_empty_n_bins = raft::ceildiv(params.n_rows, bin_width);
+    return std::max(1, non_empty_n_bins - 1);
   }
 
   auto MSE(std::vector<DataT> const& data,
@@ -1585,7 +1595,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto data                 = GenRandomData();
     auto sample_weights       = GenSampleWeights();
     auto [cdf_hist, pdf_hist] = GenHist(data, sample_weights);
-    auto split_bin_index      = RandUnder(params.max_n_bins - 1);
+    auto split_bin_index      = RandUnder(SplitBinIndexUpperBound());
     auto ground_truth_gain    = GroundTruthGain(data, sample_weights, split_bin_index);
     auto len                  = NumLeftOfBin(cdf_hist, params.max_n_bins - 1);
     auto nLeft                = NumLeftOfBin(cdf_hist, split_bin_index);
@@ -1601,11 +1611,39 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 };
 
+TEST(WeightedObjectiveEdgeCases, ClassificationRejectsZeroWeightChild)
+{
+  using ObjectiveT = ClassificationObjectiveFunction<double, int, int, true>;
+  WeightedClassificationBin hist[]{{1, 0.0}, {1, 0.0}, {0, 0.0}, {1, 1.0}};
+  CRITERION criteria[] = {CRITERION::GINI, CRITERION::ENTROPY};
+
+  for (auto criterion : criteria) {
+    ObjectiveT objective(2, 1, criterion);
+    auto gain = objective.GainPerSplit(hist, 0, 2, 2, 1, 1);
+    EXPECT_EQ(gain, -std::numeric_limits<double>::max());
+  }
+}
+
+TEST(WeightedObjectiveEdgeCases, RegressionRejectsZeroWeightChild)
+{
+  using ObjectiveT = RegressionObjectiveFunction<double, double, int, true>;
+  WeightedRegressionBin hist[]{{0.0, 1, 0.0}, {2.0, 2, 1.0}};
+  CRITERION criteria[] = {
+    CRITERION::MSE, CRITERION::POISSON, CRITERION::GAMMA, CRITERION::INVERSE_GAUSSIAN};
+
+  for (auto criterion : criteria) {
+    ObjectiveT objective(1, 1, criterion);
+    auto gain = objective.GainPerSplit(hist, 0, 2, 2, 1, 1);
+    EXPECT_EQ(gain, -std::numeric_limits<double>::max());
+  }
+}
+
 const std::vector<ObjectiveTestParameters> mse_objective_test_parameters = {
   {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
   {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
   {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 1, 1, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
@@ -1613,6 +1651,7 @@ const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
   {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
   {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 1, 1, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> gamma_objective_test_parameters = {
@@ -1620,6 +1659,7 @@ const std::vector<ObjectiveTestParameters> gamma_objective_test_parameters = {
   {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
   {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 1, 1, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> invgauss_objective_test_parameters = {
@@ -1627,6 +1667,7 @@ const std::vector<ObjectiveTestParameters> invgauss_objective_test_parameters = 
   {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
   {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 1, 1, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> entropy_objective_test_parameters = {
@@ -1634,6 +1675,7 @@ const std::vector<ObjectiveTestParameters> entropy_objective_test_parameters = {
   {9507819643927052256LLU, 2048, 128, 10, 1, 0.00001},
   {9507819643927052257LLU, 2048, 256, 100, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 100, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 10, 1, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
@@ -1641,6 +1683,7 @@ const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
   {9507819643927052256LLU, 2048, 128, 10, 1, 0.00001},
   {9507819643927052257LLU, 2048, 256, 100, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 100, 5, 0.00001},
+  {9507819643927052260LLU, 2050, 128, 10, 1, 0.00001},
 };
 
 // mse objective test

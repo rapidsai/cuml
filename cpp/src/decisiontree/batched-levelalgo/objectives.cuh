@@ -56,6 +56,9 @@ class ClassificationObjectiveFunction {
     auto left_weight    = WeightAt(hist, i, n_bins);
     auto right_weight   = total_weight - left_weight;
 
+    if (total_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
     auto invLen   = One / DataT(total_weight);
     auto invLeft  = One / DataT(left_weight);
     auto invRight = One / DataT(right_weight);
@@ -86,6 +89,9 @@ class ClassificationObjectiveFunction {
     auto total_weight = WeightAt(hist, n_bins - 1, n_bins);
     auto left_weight  = WeightAt(hist, i, n_bins);
     auto right_weight = total_weight - left_weight;
+
+    if (total_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
 
     auto gain{DataT(0.0)};
     auto invLeft{DataT(1.0) / DataT(left_weight)};
@@ -121,6 +127,9 @@ class ClassificationObjectiveFunction {
   HDI DataT
   GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
   {
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
     switch (criterion) {
       case CRITERION::GINI: return GiniGain(hist, i, n_bins, len, nLeft, nRight);
       case CRITERION::ENTROPY: return EntropyGain(hist, i, n_bins, len, nLeft, nRight);
@@ -158,6 +167,12 @@ class ClassificationObjectiveFunction {
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].Weight();
     }
+    if (total <= 0.0) {
+      for (int i = 0; i < nclasses; i++) {
+        out[i] = DataT(0);
+      }
+      return;
+    }
     for (int i = 0; i < nclasses; i++) {
       out[i] = DataT(shist[i].Weight()) / total;
     }
@@ -184,6 +199,9 @@ class RegressionObjectiveFunction {
     auto left_weight   = hist[i].Weight();
     auto right_weight  = parent_weight - left_weight;
 
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
     auto invLen           = DataT(1.0) / DataT(parent_weight);
     auto label_sum        = DataT(hist[n_bins - 1].LabelSum());
     auto left_label_sum   = DataT(hist[i].LabelSum());
@@ -203,13 +221,16 @@ class RegressionObjectiveFunction {
     auto left_weight   = hist[i].Weight();
     auto right_weight  = parent_weight - left_weight;
 
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
     auto invLen          = DataT(1) / DataT(parent_weight);
     auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
     auto left_label_sum  = DataT(hist[i].LabelSum());
     auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
     DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
@@ -227,13 +248,16 @@ class RegressionObjectiveFunction {
     auto left_weight   = hist[i].Weight();
     auto right_weight  = parent_weight - left_weight;
 
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
     auto invLen          = DataT(1) / DataT(parent_weight);
     auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
     auto left_label_sum  = DataT(hist[i].LabelSum());
     auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
     DataT parent_obj = DataT(parent_weight) * raft::log(label_sum * invLen);
@@ -251,12 +275,15 @@ class RegressionObjectiveFunction {
     auto left_weight   = hist[i].Weight();
     auto right_weight  = parent_weight - left_weight;
 
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
     auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
     auto left_label_sum  = DataT(hist[i].LabelSum());
     auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
     DataT parent_obj = -DataT(parent_weight) * DataT(parent_weight) / label_sum;
@@ -272,6 +299,9 @@ class RegressionObjectiveFunction {
   HDI DataT
   GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
   {
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
     switch (criterion) {
       case CRITERION::MSE: return MSEGain(hist, i, n_bins, len, nLeft, nRight);
       case CRITERION::POISSON: return PoissonGain(hist, i, n_bins, len, nLeft, nRight);
@@ -308,7 +338,8 @@ class RegressionObjectiveFunction {
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].LabelSum() / shist[i].Weight();
+      auto weight = shist[i].Weight();
+      out[i]      = weight > 0.0 ? shist[i].LabelSum() / weight : DataT(0);
     }
   }
 };
