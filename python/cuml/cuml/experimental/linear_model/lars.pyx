@@ -37,7 +37,7 @@ cdef extern from "cuml/solvers/lars.hpp" namespace "ML::Solver::Lars" nogil:
         math_t intercept, math_t* preds) except +
 
 
-class Lars(Base, RegressorMixin):
+class Lars(RegressorMixin, Base):
     """
     Least Angle Regression
 

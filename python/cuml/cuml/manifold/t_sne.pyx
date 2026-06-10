@@ -248,10 +248,10 @@ cdef _init_params(self, int n_samples, TSNEParams &params):
     params.p = (self.metric_params or {}).get("p", 2.0)
 
 
-class TSNE(Base,
-           InteropMixin,
+class TSNE(InteropMixin,
            CMajorInputTagMixin,
-           SparseInputTagMixin):
+           SparseInputTagMixin,
+           Base):
     """
     t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain

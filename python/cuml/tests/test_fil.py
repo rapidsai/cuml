@@ -52,9 +52,6 @@ pytestmark = [
     pytest.mark.filterwarnings(
         r"ignore:.*as_fil\(\) method is deprecated.*:FutureWarning"
     ),
-    pytest.mark.filterwarnings(
-        "ignore:The default value of 'max_depth':FutureWarning"
-    ),
 ]
 
 

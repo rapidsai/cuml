@@ -202,7 +202,7 @@ def fit_cd(
     return coef, intercept, n_iter
 
 
-class CD(Base, FMajorInputTagMixin):
+class CD(FMajorInputTagMixin, Base):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
