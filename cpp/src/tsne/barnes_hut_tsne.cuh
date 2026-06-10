@@ -94,6 +94,7 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   // Actual allocations. Allocation sizes are computed in size_t so the
   // backing buffer always matches the tree size the kernels will write to.
   std::size_t const nnodes_p1      = checked_add<std::size_t>(nnodes_sz, 1);
+  std::size_t const two_nnodes_p1  = checked_mul<std::size_t>(nnodes_p1, 2);
   std::size_t const four_nnodes_p1 = checked_mul<std::size_t>(nnodes_p1, 4);
   rmm::device_uvector<value_idx> startl(nnodes_p1, stream);
   rmm::device_uvector<value_idx> childl(four_nnodes_p1, stream);
@@ -109,13 +110,13 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   rmm::device_uvector<value_t> minyl(blocks_factor1, stream);
 
   // SummarizationKernel
-  rmm::device_uvector<value_idx> countl(nnodes + 1, stream);
+  rmm::device_uvector<value_idx> countl(nnodes_p1, stream);
 
   // SortKernel
-  rmm::device_uvector<value_idx> sortl(nnodes + 1, stream);
+  rmm::device_uvector<value_idx> sortl(nnodes_p1, stream);
 
   // RepulsionKernel
-  rmm::device_uvector<value_t> rep_forces((nnodes + 1) * 2, stream);
+  rmm::device_uvector<value_t> rep_forces(two_nnodes_p1, stream);
   rmm::device_uvector<value_t> attr_forces(n * 2, stream);  // n*2 double for reduction sum
 
   rmm::device_scalar<value_t> Z_norm(stream);
@@ -131,10 +132,11 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   rmm::device_uvector<value_t> old_forces(n * 2, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
-  rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
+  rmm::device_uvector<value_t> YY(two_nnodes_p1, stream);
 
   if (params.init == TSNE_INIT::RANDOM) {
-    random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, params.random_state);
+    random_vector(
+      YY.data(), -0.0001f, 0.0001f, narrow_cast<int>(two_nnodes_p1), stream, params.random_state);
   } else {
     raft::copy(YY.data(), Y, n, stream);
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
