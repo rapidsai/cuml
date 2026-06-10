@@ -192,20 +192,19 @@ class TSNE_runner {
     rmm::device_uvector<value_idx> indices(0, stream);
     rmm::device_uvector<value_t> distances(0, stream);
 
+    auto const knn_size = checked_mul<std::size_t>(n, params.n_neighbors);
+
     if (!k_graph.knn_indices || !k_graph.knn_dists) {
       ASSERT(!k_graph.knn_indices && !k_graph.knn_dists,
              "Either both or none of the KNN parameters should be provided");
 
-      auto const knn_size = checked_mul<std::size_t>(n, params.n_neighbors);
-      indices             = rmm::device_uvector<value_idx>(knn_size, stream);
-      distances           = rmm::device_uvector<value_t>(knn_size, stream);
+      indices   = rmm::device_uvector<value_idx>(knn_size, stream);
+      distances = rmm::device_uvector<value_t>(knn_size, stream);
 
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
       TSNE::get_distances(handle, input, k_graph, stream, params.metric, params.p);
     }
-
-    auto const knn_size = checked_mul<std::size_t>(n, params.n_neighbors);
 
     if (params.square_distances) {
       auto policy = handle.get_thrust_policy();
