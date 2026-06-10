@@ -50,7 +50,6 @@ set(CUML_CPP_TARGET "cuml")
 set(CUML_CPP_SRC "../../cpp")
 
 # --- cuVS --- #
-set(CUML_USE_CUVS_STATIC ON)
 set(CUML_EXCLUDE_CUVS_FROM_ALL ON)
 
 # --- raft --- #
