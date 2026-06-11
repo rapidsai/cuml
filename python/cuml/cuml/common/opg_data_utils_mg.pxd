@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -27,13 +27,12 @@ cdef extern from "cuml/prims/opg/matrix/data.hpp" namespace "MLCommon::Matrix":
 
 ctypedef Data[int64_t] int64Data_t
 ctypedef Data[int] intData_t
-ctypedef vector[int*] int_ptr_vector
-ctypedef vector[float*] float_ptr_vector
 
 cdef extern from "cuml/prims/opg/matrix/part_descriptor.hpp" \
                  namespace "MLCommon::Matrix":
 
     cdef cppclass RankSizePair:
+        RankSizePair(int rank, size_t size)
         int rank
         size_t size
 

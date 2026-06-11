@@ -1,17 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
 import numpy as np
 import pytest
-import sklearn
-from packaging.version import Version
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.testing.utils import array_equal, stress_param, unit_param
-
-SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
 
 
 @pytest.mark.mg
@@ -78,9 +74,7 @@ def test_tsvd_fit(data_info, input_type, client):
         if attr == "singular_values_":
             assert array_equal(cuml_res, skl_res, 1, with_sign=True)
         elif attr == "components_":
-            assert array_equal(
-                cuml_res, skl_res, 1e-1, with_sign=SKLEARN_GE_1_5_0
-            )
+            assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
         else:
             assert array_equal(cuml_res, skl_res, 1e-1, with_sign=True)
 
@@ -106,7 +100,8 @@ def test_tsvd_fit_transform_fp32(data_info, client):
     )
 
     cutsvd = daskTPCA(n_components=15)
-    cutsvd.fit_transform(X_cudf)
+    out = cutsvd.fit_transform(X_cudf)
+    assert out.shape[1] == cutsvd.n_components_
 
 
 @pytest.mark.mg
@@ -131,7 +126,8 @@ def test_tsvd_fit_transform_fp64(data_info, client):
     )
 
     cutsvd = daskTPCA(n_components=15)
-    cutsvd.fit_transform(X_cudf)
+    out = cutsvd.fit_transform(X_cudf)
+    assert out.shape[1] == cutsvd.n_components_
 
 
 @pytest.mark.mg

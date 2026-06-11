@@ -7,8 +7,6 @@ import cupyx
 import numpy as np
 import pytest
 import scipy.sparse
-import sklearn
-from packaging.version import Version
 from sklearn import datasets
 from sklearn.datasets import make_blobs, make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
@@ -21,8 +19,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -39,10 +35,6 @@ def test_pca_fit(datatype, input_type, sparse):
             random_state=10,
         )
         tol = 1e-1
-        # In old versions of scikit-learn you have to explicitly set the solver
-        # to arpack if using sparse inputs.
-        if Version(sklearn.__version__) < Version("1.5.0"):
-            solver = "arpack"
     else:
         tol = 1e-3
         X, _ = make_multilabel_classification(
@@ -70,7 +62,7 @@ def test_pca_fit(datatype, input_type, sparse):
         print(getattr(skpca, attr))
         cuml_res = getattr(cupca, attr)
         skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, tol, with_sign=SKLEARN_GE_1_5_0)
+        assert array_equal(cuml_res, skl_res, tol, with_sign=True)
 
     np.testing.assert_allclose(
         cupca.noise_variance_, skpca.noise_variance_, tol
@@ -115,7 +107,7 @@ def test_pca_defaults(n_samples, n_features, sparse):
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
     assert curesult.shape == skresult.shape
-    assert array_equal(curesult, skresult, 1e-3, with_sign=SKLEARN_GE_1_5_0)
+    assert array_equal(curesult, skresult, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
