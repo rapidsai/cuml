@@ -255,7 +255,7 @@ def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     return out
 
 
-class LabelBinarizer(Base, InteropMixin):
+class LabelBinarizer(InteropMixin, Base):
     """
     Binarize labels in a one-vs-all fashion.
 
@@ -341,9 +341,12 @@ class LabelBinarizer(Base, InteropMixin):
     def __sklearn_is_fitted__(self) -> bool:
         return hasattr(self, "classes_")
 
-    @staticmethod
-    def _more_static_tags():
-        return {"X_types": ["1dlabels"]}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.one_d_array = False
+        tags.input_tags.two_d_array = False
+        tags.target_tags.one_d_labels = True
+        return tags
 
     @classmethod
     def _params_from_cpu(cls, model):

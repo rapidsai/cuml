@@ -44,11 +44,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <random>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 namespace ML {
 
@@ -712,8 +714,9 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_bins_array] =
+    auto quantile_result =
       DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    auto quantiles = quantile_result.view();
 
     raft::update_host(
       h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
@@ -761,8 +764,9 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
     // computing the quantiles
-    auto [quantiles, quantiles_array, n_bins_array] =
+    auto quantile_result =
       DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
+    auto quantiles = quantile_result.view();
 
     int n_unique_bins;
     raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
@@ -807,10 +811,11 @@ class RFQuantileVariableBinsTest : public ::testing::TestWithParam<QuantileTestP
     thrust::shuffle(data.begin(), data.end(), thrust::default_random_engine(n_uniques));
 
     // Use full-sample mode to verify duplicate compaction exactly.
-    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+    auto quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto quantiles = quantile_result.view();
     int n_uniques_obtained;
-    raft::copy(&n_uniques_obtained, n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(&n_uniques_obtained, quantile_result.n_bins_array.data(), 1, handle.get_stream());
 
     ASSERT_EQ(n_uniques_obtained, n_uniques) << "No. of unique bins is supposed to be " << n_uniques
                                              << ", but got " << n_uniques_obtained << std::endl;
@@ -862,11 +867,13 @@ class RFSampledQuantileExactFallbackTest : public ::testing::TestWithParam<Quant
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
-    auto [sampled_quantiles, sampled_quantiles_array, sampled_n_bins_array] = DT::computeQuantiles(
+    auto sampled_quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, params.n_rows, params.seed);
+    auto sampled_quantiles = sampled_quantile_result.view();
 
     int sampled_n_bins;
-    raft::copy(&sampled_n_bins, sampled_n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(
+      &sampled_n_bins, sampled_quantile_result.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(sampled_n_bins, params.max_n_bins);
@@ -898,15 +905,17 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
     raft::random::Rng r(params.seed);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
 
-    auto [quantiles_a, quantiles_array_a, n_bins_array_a] = DT::computeQuantiles(
+    auto quantile_result_a = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
-    auto [quantiles_b, quantiles_array_b, n_bins_array_b] = DT::computeQuantiles(
+    auto quantile_result_b = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+    auto quantiles_a = quantile_result_a.view();
+    auto quantiles_b = quantile_result_b.view();
 
     int n_bins_a;
     int n_bins_b;
-    raft::copy(&n_bins_a, n_bins_array_a->data(), 1, handle.get_stream());
-    raft::copy(&n_bins_b, n_bins_array_b->data(), 1, handle.get_stream());
+    raft::copy(&n_bins_a, quantile_result_a.n_bins_array.data(), 1, handle.get_stream());
+    raft::copy(&n_bins_b, quantile_result_b.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(n_bins_a, n_bins_b);
@@ -940,11 +949,12 @@ class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileT
     thrust::device_vector<T> data(params.n_rows);
     thrust::sequence(data.begin(), data.end(), T(0));
 
-    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+    auto quantile_result = DT::computeQuantiles(
       handle, data.data().get(), params.max_n_bins, params.n_rows, 1, 4, params.seed);
+    auto quantiles = quantile_result.view();
 
     int n_bins;
-    raft::copy(&n_bins, n_bins_array->data(), 1, handle.get_stream());
+    raft::copy(&n_bins, quantile_result.n_bins_array.data(), 1, handle.get_stream());
     handle.sync_stream();
 
     ASSERT_EQ(n_bins, params.max_n_bins);
@@ -980,6 +990,35 @@ const std::vector<QuantileTestParameters> inputs = {{1000, 16, 60785875197640796
 
 const std::vector<QuantileTestParameters> rank_error_inputs = {
   {10000, 128, 9507819643927052255LLU}};
+
+// Check that all possible global samples can be selected, including the
+// one-row partition when drawing a single sample from {1, 9} rows.
+TEST(RFSampledQuantileGlobalSamplingTest, SmallPartitionCanReceiveSingleSample)
+{
+  std::vector<std::uint64_t> rank_row_offsets{0, 1, 10};
+  constexpr std::uint64_t global_rows = 10;
+
+  bool sampled_small_rank = false;
+  for (std::uint64_t seed = 0; seed < 4096 && !sampled_small_rank; ++seed) {
+    raft::random::UniformIntDistParams<std::uint64_t, std::uint64_t> uniform_int_dist_params;
+    uniform_int_dist_params.start = 0;
+    uniform_int_dist_params.end   = global_rows;
+    uniform_int_dist_params.diff  = global_rows;
+    raft::random::PCGenerator gen(seed, uint64_t{0}, uint64_t{0});
+    std::uint64_t global_row;
+    raft::random::custom_next(
+      gen, &global_row, uniform_int_dist_params, std::uint64_t{0}, std::uint64_t{0});
+
+    auto sample_rank =
+      std::lower_bound(rank_row_offsets.begin() + 1, rank_row_offsets.end(), global_row + 1) -
+      (rank_row_offsets.begin() + 1);
+    ASSERT_LT(sample_rank + 1, rank_row_offsets.size());
+    sampled_small_rank = sample_rank == 0;
+  }
+
+  ASSERT_TRUE(sampled_small_rank)
+    << "A one-row partition should be reachable when drawing one global sample.";
+}
 
 // float type quantile test
 typedef RFQuantileTest<float> RFQuantileTestF;
@@ -1089,12 +1128,21 @@ struct ObjectiveTestParameters {
   double tolerance;
 };
 
-template <typename ObjectiveT>
+template <typename ObjectiveT_, CRITERION Criterion_>
+struct ObjectiveTestConfig {
+  using ObjectiveT                         = ObjectiveT_;
+  static constexpr CRITERION splitCriteria = Criterion_;
+};
+
+template <typename ObjectiveConfig>
 class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
+  using ObjectiveT = typename ObjectiveConfig::ObjectiveT;
   typedef typename ObjectiveT::DataT DataT;
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
+
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   ObjectiveTestParameters params;
 
@@ -1220,9 +1268,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                  (n_right / n) * right_ighd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1260,9 +1307,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                     (n_right / n) * right_ghd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1298,9 +1344,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                               (n_right / n) * right_phd);  // gain in long form without proxy
 
     // edge cases
-    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
-        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
-        label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or label_sum < eps_ or
+        label_sum_right < eps_ or label_sum_left < eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -1383,30 +1428,17 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    if constexpr (std::is_same<ObjectiveT, MSEObjectiveFunction<DataT, LabelT, IdxT>>::
-                    value)  // mean squared error
-    {
+    if constexpr (ObjectiveConfig::splitCriteria == CRITERION::MSE) {
       return MSEGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT, PoissonObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // poisson
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::POISSON) {
       return PoissonGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gamma
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::GAMMA) {
       return GammaGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // inverse gaussian
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::INVERSE_GAUSSIAN) {
       return InverseGaussianGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT, EntropyObjectiveFunction<DataT, LabelT, IdxT>>::
-                           value)  // entropy
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::ENTROPY) {
       return EntropyGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
-    {
+    } else if constexpr (ObjectiveConfig::splitCriteria == CRITERION::GINI) {
       return GiniGroundTruthGain(data, split_bin_index);
     }
     return DataT(0.0);
@@ -1429,20 +1461,19 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   void SetUp() override
   {
-    srand(params.seed);
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
-    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
+    srand(params.seed);
+    ObjectiveT objective(params.n_classes, params.min_samples_leaf, ObjectiveConfig::splitCriteria);
 
     auto data                 = GenRandomData();
     auto [cdf_hist, pdf_hist] = GenHist(data);
     auto split_bin_index      = RandUnder(params.max_n_bins);
     auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
+    auto len                  = NumLeftOfBin(cdf_hist, params.max_n_bins - 1);
+    auto nLeft                = NumLeftOfBin(cdf_hist, split_bin_index);
 
-    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
-                                                  split_bin_index,
-                                                  params.max_n_bins,
-                                                  NumLeftOfBin(cdf_hist, params.max_n_bins - 1),
-                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+    auto hypothesis_gain = objective.GainPerSplit(
+      &cdf_hist[0], split_bin_index, params.max_n_bins, len, nLeft, len - nLeft);
 
     // The gain may actually be NaN. If so, a comparison between the result and
     // ground truth would yield false, even if they are both (correctly) NaNs.
@@ -1495,49 +1526,63 @@ const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
 };
 
 // mse objective test
-typedef ObjectiveTest<MSEObjectiveFunction<double, double, int>> MSEObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::MSE>>
+  MSEObjectiveTestD;
 TEST_P(MSEObjectiveTestD, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestD,
                         ::testing::ValuesIn(mse_objective_test_parameters));
-typedef ObjectiveTest<MSEObjectiveFunction<float, float, int>> MSEObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::MSE>>
+  MSEObjectiveTestF;
 TEST_P(MSEObjectiveTestF, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestF,
                         ::testing::ValuesIn(mse_objective_test_parameters));
 
 // poisson objective test
-typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::POISSON>>
+  PoissonObjectiveTestD;
 TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
-typedef ObjectiveTest<PoissonObjectiveFunction<float, float, int>> PoissonObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::POISSON>>
+  PoissonObjectiveTestF;
 TEST_P(PoissonObjectiveTestF, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestF,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 
 // gamma objective test
-typedef ObjectiveTest<GammaObjectiveFunction<double, double, int>> GammaObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>, CRITERION::GAMMA>>
+  GammaObjectiveTestD;
 TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
-typedef ObjectiveTest<GammaObjectiveFunction<float, float, int>> GammaObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::GAMMA>>
+  GammaObjectiveTestF;
 TEST_P(GammaObjectiveTestF, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestF,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 
 // InvGauss objective test
-typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>>
+typedef ObjectiveTest<ObjectiveTestConfig<RegressionObjectiveFunction<double, double, int>,
+                                          CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestD;
 TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
-typedef ObjectiveTest<InverseGaussianObjectiveFunction<float, float, int>>
+typedef ObjectiveTest<
+  ObjectiveTestConfig<RegressionObjectiveFunction<float, float, int>, CRITERION::INVERSE_GAUSSIAN>>
   InverseGaussianObjectiveTestF;
 TEST_P(InverseGaussianObjectiveTestF, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
@@ -1545,24 +1590,32 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
 
 // entropy objective test
-typedef ObjectiveTest<EntropyObjectiveFunction<double, int, int>> EntropyObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::ENTROPY>>
+  EntropyObjectiveTestD;
 TEST_P(EntropyObjectiveTestD, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestD,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
-typedef ObjectiveTest<EntropyObjectiveFunction<float, int, int>> EntropyObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::ENTROPY>>
+  EntropyObjectiveTestF;
 TEST_P(EntropyObjectiveTestF, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestF,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
 
 // gini objective test
-typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<double, int, int>, CRITERION::GINI>>
+  GiniObjectiveTestD;
 TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestD,
                         ::testing::ValuesIn(gini_objective_test_parameters));
-typedef ObjectiveTest<GiniObjectiveFunction<float, int, int>> GiniObjectiveTestF;
+typedef ObjectiveTest<
+  ObjectiveTestConfig<ClassificationObjectiveFunction<float, int, int>, CRITERION::GINI>>
+  GiniObjectiveTestF;
 TEST_P(GiniObjectiveTestF, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestF,

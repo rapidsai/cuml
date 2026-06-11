@@ -67,12 +67,12 @@ _SOLVER_CUML_TO_SKLEARN = {
 }
 
 
-class Ridge(Base,
-            InteropMixin,
+class Ridge(InteropMixin,
             RegressorMixin,
             LinearPredictMixin,
             FMajorInputTagMixin,
-            SparseInputTagMixin):
+            SparseInputTagMixin,
+            Base):
     """Linear least squares with L2 regularization.
 
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -263,9 +263,10 @@ class Ridge(Base,
         self.max_iter = max_iter
         self.copy_X = copy_X
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
 
     def _fit_eig(
         self,

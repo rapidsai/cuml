@@ -10,7 +10,7 @@ from cuml.internals.validation import check_inputs
 from cuml.svm.svm_base import SVMBase
 
 
-class SVR(SVMBase, RegressorMixin):
+class SVR(RegressorMixin, SVMBase):
     """
     SVR (Epsilon Support Vector Regression)
 

@@ -22,7 +22,7 @@ from cuml.linear_model.base import LinearClassifierMixin
 __all__ = ("LinearSVC",)
 
 
-class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
+class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
     """
     Linear Support Vector Classification.
 

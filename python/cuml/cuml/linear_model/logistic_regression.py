@@ -27,11 +27,11 @@ SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 class LogisticRegression(
-    Base,
     InteropMixin,
     LinearClassifierMixin,
     ClassifierMixin,
     SparseInputTagMixin,
+    Base,
 ):
     """Logistic Regression classifier.
 

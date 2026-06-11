@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -108,9 +108,6 @@ def test_knn_classifier_weights_callable(classification_data):
     assert acc > 0.7, "Accuracy should be reasonable with custom weights"
 
 
-@pytest.mark.xfail(
-    reason="cuML and sklearn don't have matching exceptions yet"
-)
 def test_knn_classifier_invalid_algorithm(classification_data):
     X, y = classification_data
     with pytest.raises((ValueError, KeyError)):
@@ -118,9 +115,6 @@ def test_knn_classifier_invalid_algorithm(classification_data):
         model.fit(X, y)
 
 
-@pytest.mark.xfail(
-    reason="cuML and sklearn don't have matching exceptions yet"
-)
 def test_knn_classifier_invalid_metric(classification_data):
     X, y = classification_data
     with pytest.raises(ValueError):

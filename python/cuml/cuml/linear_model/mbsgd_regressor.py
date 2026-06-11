@@ -11,7 +11,7 @@ from cuml.solvers.sgd import fit_sgd
 
 
 class MBSGDRegressor(
-    Base, LinearPredictMixin, RegressorMixin, FMajorInputTagMixin
+    LinearPredictMixin, RegressorMixin, FMajorInputTagMixin, Base
 ):
     """
     Linear model fitted by minimizing a regularized empirical loss with SGD.
