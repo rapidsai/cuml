@@ -57,7 +57,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
+class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and

@@ -48,7 +48,7 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
     )
 
 
-class _BaseRandomProjection(Base, SparseInputTagMixin):
+class _BaseRandomProjection(SparseInputTagMixin, Base):
     """Base class for RandomProjection estimators."""
 
     components_ = CumlArrayDescriptor()

@@ -662,7 +662,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         params.build_params.nnd.intermediate_graph_degree = intermediate_graph_degree
 
 
-class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
+class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     """Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates

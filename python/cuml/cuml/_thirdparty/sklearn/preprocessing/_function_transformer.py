@@ -10,6 +10,7 @@
 import warnings
 
 import cuml
+from cuml.internals.mixins import _ensure_transformer_tags
 from cuml.internals.validation import check_inputs
 
 from ....internals.array_sparse import SparseCumlArray
@@ -157,6 +158,9 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
 
         return func(X, **(kw_args if kw_args else {}))
 
-    def _more_tags(self):
-        return {'stateless': True,
-                'requires_y': False}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
+        tags.input_tags.sparse = bool(self.accept_sparse)
+        tags.requires_fit = False
+        return tags
