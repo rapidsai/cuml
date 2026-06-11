@@ -26,11 +26,160 @@
   - "sklearn.metrics._plot.tests.test_roc_curve_display::test_roc_curve_from_cv_results_legend_label[None-curve_kwargs1]"
   - "sklearn.metrics._plot.tests.test_roc_curve_display::test_roc_curve_from_cv_results_legend_label[single-None]"
   - "sklearn.metrics._plot.tests.test_roc_curve_display::test_roc_curve_from_cv_results_legend_label[single-curve_kwargs1]"
+- reason: Coordinate descent sample-weight behavior differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max[sample_weight0-False-False-csc_array-ElasticNetCV-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max[sample_weight0-False-False-csc_matrix-ElasticNetCV-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_array-False-0.01-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_array-False-0.01-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_array]"
+  - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_matrix]"
+- reason: HTML representation differs with cuml.accel under sklearn 1.9 ASCII-locale CI
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.model_selection.tests.test_search::test_search_html_repr"
+  - "sklearn.tests.test_base::test_get_fitted_attr_html"
+  - "sklearn.tests.test_base::test_repr_html_wraps"
+  - "sklearn.tests.test_base::test_repr_mimebundle_"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_birch_duck_typing_meta"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_duck_typing_nested_estimator"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_get_params_return_cls"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_an_empty_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator0]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator1]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator2]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_table"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_unfitted_vs_fitted"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_fallback_exists"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[<lambda>-&lt;lambda&gt;]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[dummy_function-dummy_function]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func2-dummy_function]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func3-vectorize\\\\(\\\\.\\\\.\\\\.\\\\)]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_invalid_parameters_in_stacking"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[False]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[True]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_ovo_classifier_duck_typing_meta"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_show_arrow_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[None]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[final_estimator1]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[None]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[final_estimator1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_countvectorizer_output_features"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_col_names_featureunion"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[False-feature_cols1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[True-feature_cols0]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[False-total_output_features1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[True-total_output_features0]"
+  - "sklearn.utils._repr_html.tests.test_features::test_features_html_with_pipeline"
+  - "sklearn.utils._repr_html.tests.test_features::test_get_feature_names_out_exception"
+  - "sklearn.utils._repr_html.tests.test_features::test_meta_estimator_output_features"
+  - "sklearn.utils._repr_html.tests.test_features::test_n_features_not_fitted"
+  - "sklearn.utils._repr_html.tests.test_features::test_single_estimator_get_feature_names_out_exception"
+  - "sklearn.utils._repr_html.tests.test_features::test_with_MinimalTransformer"
+- reason: LogisticRegression behavior differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_callback_fitted_estimator[False-2]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_callback_fitted_estimator[False-3]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_callback_fitted_estimator[True-2]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_callback_fitted_estimator[True-3]"
+  - "sklearn.linear_model.tests.test_logistic::test_logistic_regression_cv_refit[42-1]"
+- reason: Missing-value validation message differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.utils.tests.test_validation::test_check_array_links_to_imputer_doc_only_for_X[csr_array-X]"
+- reason: Numerical tolerance issue with sparse/dense coordinate descent equality in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-6-24-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-24-6-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-True-6-24-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-24-6-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-False-6-24-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-24-6-0.5-True-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0.5-False-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0.5-False-Lasso]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0.5-True-ElasticNet]"
+  - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-0.5-True-Lasso]"
+- reason: RandomForest estimators_samples_ fitted attribute is not exposed under cuml.accel in sklearn 1.9 (#6966)
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[RandomForestClassifier-RandomForestClassifier]"
+  - "sklearn.tests.test_docstring_parameters::test_fit_docstring_attributes[RandomForestRegressor-RandomForestRegressor]"
+- reason: RandomForest max_samples validation differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.ensemble.tests.test_forest::test_max_samples_geq_one[RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_max_samples_geq_one[RandomForestRegressor]"
+- reason: RandomForest private class/sample-weight helper state differs under cuml.accel in sklearn 1.9 (#8093)
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.ensemble.tests.test_forest::test_class_weights_forest[42-False-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_class_weights_forest[42-True-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_validate_y_class_weight[42-2-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_validate_y_class_weight[42-3-RandomForestClassifier]"
+  - "sklearn.ensemble.tests.test_forest::test_validate_y_class_weight[42-4-RandomForestClassifier]"
+- reason: SVC probability warning behavior differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.svm.tests.test_svm::test_probability_raises_futurewarning[False-SVC-SVC]"
 - reason: Search CV sample weight equivalence differs with cuml.accel in sklearn 1.7.2
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.7.2
   tests:
   - "sklearn.model_selection.tests.test_search::test_search_cv_sample_weight_equivalence[estimator0]"
+- reason: TargetEncoder warning behavior differs with cuml.accel in sklearn 1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  tests:
+  - "sklearn.preprocessing.tests.test_target_encoder::test_target_encoder_shuffle_random_state_deprecated"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   condition: scikit-learn<1.8
@@ -581,21 +730,25 @@
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_array]"
   - "sklearn.svm.tests.test_bounds::test_l1_min_c[no-intercept-multi-class-log-csr_matrix]"
-- reason: Test should fail with cuml.accel (scikit-learn <1.9)
-  marker: cuml_accel_bugs
-  condition: scikit-learn<1.9
-  tests:
-  - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
-  - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
-  - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
 - reason: Test should fail with cuml.accel (scikit-learn<1.7)
   marker: cuml_accel_bugs
   condition: scikit-learn<1.7
   tests:
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_deprecated"
   - "sklearn.manifold.tests.test_t_sne::test_tnse_n_iter_max_iter_both_set"
+- reason: Test should fail with cuml.accel on scikit-learn <1.9
+  marker: cuml_accel_bugs
+  condition: scikit-learn<1.9
+  tests:
+  - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
+- reason: Voting estimator behavior differs with cuml.accel
+  marker: cuml_accel_bugs
+  tests:
+  - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
+  - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
 - reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
   marker: cuml_accel_bugs
+  condition: scikit-learn<1.9
   tests:
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-5.0-auto-3]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_encoding[42-binary-auto-auto-3]"
@@ -609,6 +762,7 @@
   - "sklearn.preprocessing.tests.test_target_encoder::test_smooth_zero"
 - reason: cuML TargetEncoder uses different cross-validation approach producing different encodings
   marker: cuml_accel_bugs
+  condition: scikit-learn<1.9
   tests:
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-False]"
   - "sklearn.preprocessing.tests.test_target_encoder::test_multiple_features_quick[binary-ints-1.0-True]"
@@ -696,7 +850,7 @@
   - "sklearn.tests.test_common::test_estimators[SVR()-check_regressor_data_not_an_array]"
   - "sklearn.tests.test_multioutput::test_base_chain_fit_and_predict_with_sparse_data_and_cv[csr_array]"
   - "sklearn.tests.test_multioutput::test_classifier_chain_fit_and_predict_with_sparse_data[csr_array]"
-- reason: Test is flaky with cuml.accel (scikit-learn <1.9)
+- reason: Test is flaky with cuml.accel on scikit-learn <1.9
   marker: cuml_accel_flaky
   condition: scikit-learn<1.9
   strict: false
@@ -912,7 +1066,7 @@
   tests:
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_alpha_max[sample_weight0-False-True]"
 - reason: Elasticnet scores attribute layout differs with cuml.accel in sklearn 1.8
-  condition: scikit-learn>=1.8
+  condition: scikit-learn>=1.8,<1.9
   tests:
   - "sklearn.linear_model.tests.test_logistic::test_scores_attribute_layout_elasticnet"
 - reason: Flaky deviations in values in cuml.accel
@@ -1034,7 +1188,7 @@
   tests:
   - "sklearn.linear_model.tests.test_logistic::test_logistic_cv_multinomial_score[neg_log_loss-multiclass_agg_list3]"
 - reason: Numerical tolerance issue with Lasso sparse/dense equality in sklearn 1.8
-  condition: scikit-learn>=1.8,<1.9
+  condition: scikit-learn>=1.6,<1.9
   tests:
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-False-Lasso]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_array-False-24-6-True-Lasso]"
