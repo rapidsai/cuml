@@ -5,7 +5,6 @@
 
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
-#include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/prims/opg/matrix/matrix_utils.hpp>
 #include <cuml/prims/opg/stats/cov.hpp>
 #include <cuml/prims/opg/stats/mean.hpp>
@@ -43,8 +42,7 @@ void fit_impl(raft::handle_t& handle,
               paramsPCAMG prms,
               cudaStream_t* streams,
               std::uint32_t n_streams,
-              bool verbose,
-              bool flip_signs_based_on_U = false)
+              bool verbose)
 {
   const auto& comm = handle.get_comms();
 
@@ -85,30 +83,16 @@ void fit_impl(raft::handle_t& handle,
 
   MLCommon::Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
 
-  if (flip_signs_based_on_U) {
-    sign_flip_components_u(handle,
-                           input_data,
-                           input_desc,
-                           components,
-                           prms.n_rows,
-                           prms.n_cols,
-                           prms.n_components,
-                           streams,
-                           n_streams,
-                           true);
-  } else {
-    for (std::uint32_t i = 0; i < n_streams; i++) {
-      handle.sync_stream(streams[i]);
-    }
-    raft::linalg::sign_flip_components(
-      handle_stream_zero,
-      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-        input_data[0]->ptr, prms.n_rows, prms.n_cols),
-      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-        components, prms.n_components, prms.n_cols),
-      true,
-      false);
+  for (std::uint32_t i = 0; i < n_streams; i++) {
+    handle.sync_stream(streams[i]);
   }
+  raft::linalg::sign_flip_components(handle_stream_zero,
+                                     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+                                       input_data[0]->ptr, prms.n_rows, prms.n_cols),
+                                     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+                                       components, prms.n_components, prms.n_cols),
+                                     true,
+                                     false);
 }
 
 /**
@@ -136,8 +120,7 @@ void fit_impl(raft::handle_t& handle,
               T* mu,
               T* noise_vars,
               paramsPCAMG prms,
-              bool verbose,
-              bool flip_signs_based_on_U = false)
+              bool verbose)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -162,8 +145,7 @@ void fit_impl(raft::handle_t& handle,
              prms,
              streams,
              n_streams,
-             verbose,
-             flip_signs_based_on_U);
+             verbose);
   }
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
@@ -469,8 +451,7 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* mu,
                         T* noise_vars,
                         paramsPCAMG prms,
-                        bool verbose,
-                        bool flip_signs_based_on_U = false)
+                        bool verbose)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -498,8 +479,7 @@ void fit_transform_impl(raft::handle_t& handle,
            prms,
            streams,
            n_streams,
-           verbose,
-           flip_signs_based_on_U);
+           verbose);
 
   transform_impl(handle,
                  input_data,
@@ -532,8 +512,7 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose,
-         bool flip_signs_based_on_U)
+         bool verbose)
 {
   fit_impl(handle,
            input_data,
@@ -545,8 +524,7 @@ void fit(raft::handle_t& handle,
            mu,
            noise_vars,
            prms,
-           verbose,
-           flip_signs_based_on_U);
+           verbose);
 }
 
 void fit(raft::handle_t& handle,
@@ -559,8 +537,7 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose,
-         bool flip_signs_based_on_U)
+         bool verbose)
 {
   fit_impl(handle,
            input_data,
@@ -572,8 +549,7 @@ void fit(raft::handle_t& handle,
            mu,
            noise_vars,
            prms,
-           verbose,
-           flip_signs_based_on_U);
+           verbose);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -588,8 +564,7 @@ void fit_transform(raft::handle_t& handle,
                    float* mu,
                    float* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U = false)
+                   bool verbose)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -603,8 +578,7 @@ void fit_transform(raft::handle_t& handle,
                      mu,
                      noise_vars,
                      prms,
-                     verbose,
-                     flip_signs_based_on_U);
+                     verbose);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -619,8 +593,7 @@ void fit_transform(raft::handle_t& handle,
                    double* mu,
                    double* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U = false)
+                   bool verbose)
 {
   fit_transform_impl(handle,
                      rank_sizes,
@@ -634,8 +607,7 @@ void fit_transform(raft::handle_t& handle,
                      mu,
                      noise_vars,
                      prms,
-                     verbose,
-                     flip_signs_based_on_U);
+                     verbose);
 }
 
 void transform(raft::handle_t& handle,
