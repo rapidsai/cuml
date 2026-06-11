@@ -409,7 +409,7 @@ inline void packHistograms(const CountBin* in,
                            std::size_t len,
                            cudaStream_t stream)
 {
-  auto op = [in] __device__(std::uint64_t* out, std::size_t i) { out[i] = in[i].x; };
+  auto op = [in] __device__(std::uint64_t* out, std::size_t i) { *out = in[i].x; };
   raft::linalg::writeOnlyUnaryOp<std::uint64_t, decltype(op), std::size_t, 256>(
     out, len, op, stream);
 }
@@ -419,21 +419,9 @@ inline void unpackHistograms(const std::uint64_t* in,
                              std::size_t len,
                              cudaStream_t stream)
 {
-  auto op = [in] __device__(CountBin* out, std::size_t i) { out[i].x = in[i]; };
+  auto op = [in] __device__(CountBin* out, std::size_t i) { out->x = in[i]; };
   raft::linalg::writeOnlyUnaryOp<CountBin, decltype(op), std::size_t, 256>(
     out, len, op, stream);
-}
-
-static __global__ void packAggregateHistogramsKernel(const AggregateBin* in,
-                                                     double* label_sums,
-                                                     std::uint64_t* counts,
-                                                     std::size_t len)
-{
-  std::size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
-  for (std::size_t i = tid; i < len; i += std::size_t(blockDim.x) * gridDim.x) {
-    label_sums[i] = in[i].label_sum;
-    counts[i]     = in[i].count;
-  }
 }
 
 inline void packHistograms(const AggregateBin* in,
@@ -442,8 +430,15 @@ inline void packHistograms(const AggregateBin* in,
                            std::size_t len,
                            cudaStream_t stream)
 {
-  packAggregateHistogramsKernel<<<histogramTransformBlocks(len), 256, 0, stream>>>(
-    in, label_sums, counts, len);
+  auto label_sum_op = [in] __device__(double* out, std::size_t i) {
+    *out = in[i].label_sum;
+  };
+  raft::linalg::writeOnlyUnaryOp<double, decltype(label_sum_op), std::size_t, 256>(
+    label_sums, len, label_sum_op, stream);
+
+  auto count_op = [in] __device__(std::uint64_t* out, std::size_t i) { *out = in[i].count; };
+  raft::linalg::writeOnlyUnaryOp<std::uint64_t, decltype(count_op), std::size_t, 256>(
+    counts, len, count_op, stream);
 }
 
 inline void unpackHistograms(const double* label_sums,
@@ -453,8 +448,8 @@ inline void unpackHistograms(const double* label_sums,
                              cudaStream_t stream)
 {
   auto op = [label_sums, counts] __device__(AggregateBin* out, std::size_t i) {
-    out[i].label_sum = label_sums[i];
-    out[i].count     = counts[i];
+    out->label_sum = label_sums[i];
+    out->count     = counts[i];
   };
   raft::linalg::writeOnlyUnaryOp<AggregateBin, decltype(op), std::size_t, 256>(
     out, len, op, stream);

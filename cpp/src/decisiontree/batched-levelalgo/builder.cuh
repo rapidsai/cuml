@@ -525,7 +525,9 @@ struct Builder {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     } else {
       auto* packed_label_sums = reinterpret_cast<double*>(packed_histograms);
-      auto* packed_counts = alignPointer<std::uint64_t>(packed_label_sums + len_histograms);
+      auto* packed_counts = reinterpret_cast<std::uint64_t*>(
+        raft::alignTo(reinterpret_cast<std::uintptr_t>(packed_label_sums + len_histograms),
+                      sizeof(std::uint64_t)));
       packHistograms(
         histograms_to_reduce, packed_label_sums, packed_counts, len_histograms, builder_stream);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
