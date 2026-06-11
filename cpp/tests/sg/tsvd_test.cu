@@ -82,7 +82,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    tsvdFit(handle, data.data(), components.data(), singular_vals.data(), prms, false);
+    tsvdFit(handle, data.data(), components.data(), singular_vals.data(), prms);
   }
 
   void advancedTest()
@@ -129,8 +129,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
                      explained_vars2.data(),
                      explained_var_ratio2.data(),
                      singular_vals2.data(),
-                     prms,
-                     false);
+                     prms);
 
     data2_back.resize(len, stream);
     tsvdInverseTransform(handle, data2_trans.data(), components2.data(), data2_back.data(), prms);
