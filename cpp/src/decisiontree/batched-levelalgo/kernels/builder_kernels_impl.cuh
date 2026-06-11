@@ -39,16 +39,16 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
   __shared__ typename BlockScanT::TempStorage temp1, temp2;
   volatile auto* row_ids = reinterpret_cast<volatile IdxT*>(dataset.row_ids);
   // for compaction
-  size_t smemSize  = sizeof(IdxT) * TPB;
-  auto* lcomp      = reinterpret_cast<IdxT*>(smem);
-  auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
-  auto range_start = work_item.instances.begin;
-  auto range_len   = work_item.instances.count;
-  auto* col        = dataset.data + split.colid * std::size_t(dataset.M);
+  size_t smemSize     = sizeof(IdxT) * TPB;
+  auto* lcomp         = reinterpret_cast<IdxT*>(smem);
+  auto* rcomp         = reinterpret_cast<IdxT*>(smem + smemSize);
+  auto range_start    = work_item.instances.begin;
+  auto range_len      = work_item.instances.count;
+  auto* col           = dataset.data + split.colid * std::size_t(dataset.M);
   std::size_t loffset = range_start;
   std::size_t part    = loffset + std::size_t(split.local_nLeft);
   std::size_t roffset = part;
-  auto end  = range_start + range_len;
+  auto end            = range_start + range_len;
   int lflag = 0, rflag = 0, llen = 0, rlen = 0, minlen = 0;
   auto tid = threadIdx.x;
   while (loffset < part && roffset < end) {
@@ -121,11 +121,8 @@ void launchNodeSplitKernel(const DataT min_impurity_decrease,
 {
   using CountT             = typename Split<DataT>::CountT;
   auto constexpr smem_size = sizeof(CountT) + 2 * sizeof(IdxT) * TPB + sizeof(IdxT);
-  nodeSplitKernel<DataT, LabelT, IdxT, TPB>
-    <<<work_items_size, TPB, smem_size, builder_stream>>>(min_impurity_decrease,
-                                                          dataset,
-                                                          work_items,
-                                                          splits);
+  nodeSplitKernel<DataT, LabelT, IdxT, TPB><<<work_items_size, TPB, smem_size, builder_stream>>>(
+    min_impurity_decrease, dataset, work_items, splits);
 }
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT>
@@ -242,11 +239,7 @@ DI unsigned long long int bin_count(CountBin const& bin) { return bin.x; }
 
 DI unsigned long long int bin_count(AggregateBin const& bin) { return bin.count; }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename BinT>
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
 static __global__ void computeSplitHistogramKernel(BinT* histograms,
                                                    IdxT max_n_bins,
                                                    const Dataset<DataT, LabelT, IdxT> dataset,
@@ -280,7 +273,7 @@ static __global__ void computeSplitHistogramKernel(BinT* histograms,
   auto* shared_quantiles    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
   IdxT stride               = blockDim.x * num_blocks;
   IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
-  auto histograms_offset = ((nid * gridDim.y) + blockIdx.y) * max_n_bins * dataset.num_outputs;
+  auto histograms_offset    = ((nid * gridDim.y) + blockIdx.y) * max_n_bins * dataset.num_outputs;
 
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
     shared_histogram[i] = BinT();
@@ -359,11 +352,7 @@ static __global__ void evaluateSplitKernel(BinT* histograms,
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename BinT>
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
 void launchComputeSplitHistogramKernel(BinT* histograms,
                                        IdxT max_n_bins,
                                        const Dataset<DataT, LabelT, IdxT>& dataset,
@@ -377,14 +366,8 @@ void launchComputeSplitHistogramKernel(BinT* histograms,
                                        cudaStream_t builder_stream)
 {
   computeSplitHistogramKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
-                                                       max_n_bins,
-                                                       dataset,
-                                                       quantiles,
-                                                       work_items,
-                                                       colStart,
-                                                       colids,
-                                                       workload_info);
+    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(
+      histograms, max_n_bins, dataset, quantiles, work_items, colStart, colids, workload_info);
 }
 
 template <typename DataT,
@@ -407,15 +390,8 @@ void launchEvaluateSplitKernel(BinT* histograms,
                                cudaStream_t builder_stream)
 {
   evaluateSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
-                                                       max_n_bins,
-                                                       dataset,
-                                                       quantiles,
-                                                       colStart,
-                                                       colids,
-                                                       mutex,
-                                                       splits,
-                                                       objective);
+    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(
+      histograms, max_n_bins, dataset, quantiles, colStart, colids, mutex, splits, objective);
 }
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
@@ -445,8 +421,7 @@ template void launchFinalizeLeafKernel<_NodeT, _ObjectiveT, _DataT>(
   int num_outputs,
   cudaStream_t builder_stream);
 
-template void
-launchComputeSplitHistogramKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _BinT>(
+template void launchComputeSplitHistogramKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _BinT>(
   _BinT* histograms,
   _IdxT max_n_bins,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,

@@ -10,7 +10,6 @@
 
 #include <raft/comms/mpi_comms.hpp>
 #include <raft/core/handle.hpp>
-#include <raft/linalg/transpose.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/cuda_stream_pool.hpp>
@@ -172,7 +171,7 @@ void make_local_dataset(RfMgTestParams const& params,
       DataT feature = signal * static_cast<DataT>(col + 1);
       feature += static_cast<DataT>(((global_row + 13 * col + params.seed) % 11) - 5) /
                  static_cast<DataT>(10);
-      X[i * params.n_cols + col] = feature;
+      X[static_cast<size_t>(col) * rows.size() + i] = feature;
     }
     if constexpr (std::is_integral_v<LabelT>) {
       y[i] = (signal >= DataT(0)) ? 1 : 0;
@@ -230,6 +229,15 @@ void initialize_mpi_once()
   if (!mpi_initialized) { MPI_Init(nullptr, nullptr); }
 }
 
+void get_mpi_local_rank_size(int& local_rank, int& local_size)
+{
+  MPI_Comm local_comm{};
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &local_comm);
+  MPI_Comm_rank(local_comm, &local_rank);
+  MPI_Comm_size(local_comm, &local_size);
+  MPI_Comm_free(&local_comm);
+}
+
 template <typename DataT, typename LabelT>
 class RfMgPropertyTestImpl {
  public:
@@ -241,14 +249,18 @@ class RfMgPropertyTestImpl {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
+    int local_rank = 0;
+    int local_size = 1;
+    get_mpi_local_rank_size(local_rank, local_size);
+
     int n_gpus = 0;
     RAFT_CUDA_TRY(cudaGetDeviceCount(&n_gpus));
-    if (n_gpus < size) {
-      ADD_FAILURE() << "Number of GPUs is smaller than MPI ranks: ngpus=" << n_gpus
-                    << ", nranks=" << size;
+    if (n_gpus < local_size) {
+      ADD_FAILURE() << "Number of GPUs is smaller than local MPI ranks: ngpus=" << n_gpus
+                    << ", local_ranks=" << local_size;
       return;
     }
-    RAFT_CUDA_TRY(cudaSetDevice(rank));
+    RAFT_CUDA_TRY(cudaSetDevice(local_rank));
 
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.handle_n_streams);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
@@ -325,12 +337,9 @@ class RfMgPropertyTestImpl {
     std::vector<DataT> h_X;
     make_prediction_dataset(params, h_X);
     rmm::device_uvector<DataT> X(h_X.size(), handle.get_stream());
-    rmm::device_uvector<DataT> X_transpose(h_X.size(), handle.get_stream());
     rmm::device_uvector<LabelT> predictions(params.n_rows, handle.get_stream());
     raft::update_device(X.data(), h_X.data(), h_X.size(), handle.get_stream());
-    raft::linalg::transpose(
-      handle, X.data(), X_transpose.data(), params.n_rows, params.n_cols, handle.get_stream());
-    predict(handle, forest, X_transpose.data(), params.n_rows, params.n_cols, predictions.data());
+    predict(handle, forest, X.data(), params.n_rows, params.n_cols, predictions.data());
     std::vector<LabelT> h_predictions(params.n_rows);
     raft::update_host(
       h_predictions.data(), predictions.data(), h_predictions.size(), handle.get_stream());

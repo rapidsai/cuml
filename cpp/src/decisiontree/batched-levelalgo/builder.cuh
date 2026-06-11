@@ -374,8 +374,8 @@ struct Builder {
   {
     int n_blocks_dimx = 0;  // gridDim.x required for split histogram construction
     for (std::size_t i = 0; i < work_items.size(); i++) {
-      auto item = work_items[i];
-      const auto node_id = static_cast<int>(i);
+      auto item             = work_items[i];
+      const auto node_id    = static_cast<int>(i);
       int n_blocks_per_node = static_cast<int>(
         std::max(raft::ceildiv(item.instances.count, size_t(TPB_DEFAULT)), size_t(1)));
 
@@ -525,7 +525,7 @@ struct Builder {
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     } else {
       auto* packed_label_sums = reinterpret_cast<double*>(packed_histograms);
-      auto* packed_counts = reinterpret_cast<std::uint64_t*>(
+      auto* packed_counts     = reinterpret_cast<std::uint64_t*>(
         raft::alignTo(reinterpret_cast<std::uintptr_t>(packed_label_sums + len_histograms),
                       sizeof(std::uint64_t)));
       packHistograms(

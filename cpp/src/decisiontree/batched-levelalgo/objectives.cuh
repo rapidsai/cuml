@@ -69,8 +69,7 @@ class ClassificationObjectiveFunction {
   }
 
   HDI DataT
-  EntropyGain(
-    BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
+  EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     auto gain{DataT(0.0)};
     auto invLeft{DataT(1.0) / DataT(nLeft)};
@@ -104,8 +103,7 @@ class ClassificationObjectiveFunction {
 
  public:
   HDI DataT
-  GainPerSplit(
-    BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     switch (criterion) {
       case CRITERION::GINI: return GiniGain(hist, i, n_bins, len, nLeft, nRight);
@@ -180,8 +178,7 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT
-  PoissonGain(
-    BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
+  PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     auto invLen          = DataT(1) / DataT(len);
     auto label_sum       = hist[n_bins - 1].label_sum;
@@ -244,8 +241,7 @@ class RegressionObjectiveFunction {
 
  public:
   HDI DataT
-  GainPerSplit(
-    BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     switch (criterion) {
       case CRITERION::MSE: return MSEGain(hist, i, n_bins, len, nLeft, nRight);
@@ -283,7 +279,7 @@ class RegressionObjectiveFunction {
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = shist[i].count > CountT{0} ? shist[i].label_sum / DataT(shist[i].count) : DataT(0);
     }
   }
 };

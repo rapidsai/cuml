@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -101,10 +101,10 @@ struct Split {
     auto lane = raft::laneId();
 #pragma unroll
     for (int i = raft::WarpSize / 2; i >= 1; i /= 2) {
-      auto id = lane + i;
-      auto qu = raft::shfl(quesval, id);
-      auto co = raft::shfl(colid, id);
-      auto be = raft::shfl(best_metric_val, id);
+      auto id  = lane + i;
+      auto qu  = raft::shfl(quesval, id);
+      auto co  = raft::shfl(colid, id);
+      auto be  = raft::shfl(best_metric_val, id);
       auto gnl = raft::shfl(global_nLeft, id);
       auto lnl = raft::shfl(local_nLeft, id);
       update({qu, co, be, gnl, lnl});
@@ -148,10 +148,10 @@ struct Split {
         split_reg.global_nLeft    = split->global_nLeft;
         split_reg.local_nLeft     = split->local_nLeft;
         bool update_result        = split_reg.update({this->quesval,
-                                                       this->colid,
-                                                       this->best_metric_val,
-                                                       this->global_nLeft,
-                                                       this->local_nLeft});
+                                                      this->colid,
+                                                      this->best_metric_val,
+                                                      this->global_nLeft,
+                                                      this->local_nLeft});
         if (update_result) {
           split->quesval         = split_reg.quesval;
           split->colid           = split_reg.colid;
