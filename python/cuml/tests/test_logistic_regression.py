@@ -5,9 +5,11 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
+import scipy
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from hypothesis import target
+from packaging.version import Version
 from scipy.sparse import csr_matrix
 from sklearn.datasets import load_breast_cancer, load_digits
 from sklearn.linear_model import LogisticRegression as skLog
@@ -24,6 +26,14 @@ from cuml.testing.datasets import (
 )
 from cuml.testing.strategies import dataset_dtypes
 from cuml.testing.utils import array_equal
+
+
+def _filter_scipy_lbfgsb_deprecation(func):
+    if Version("1.16") <= Version(scipy.__version__) < Version("1.18"):
+        return pytest.mark.filterwarnings(
+            "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
+        )(func)
+    return func
 
 
 @given(
@@ -150,7 +160,10 @@ def test_logistic_regression_unscaled(dtype, l1_ratio, C):
 @given(dtype=dataset_dtypes())
 @example(dtype=np.float32)
 @example(dtype=np.float64)
+@_filter_scipy_lbfgsb_deprecation
 def test_logistic_regression_model_default(dtype):
+    # Ignore SciPy 1.16/1.17 deprecation warnings emitted through sklearn's
+    # default LogisticRegression L-BFGS-B path.
     X_train, X_test, y_train, y_test = small_classification_dataset(dtype)
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -362,7 +375,10 @@ def test_logistic_regression_input_type_consistency(constructor, dtype):
     "y_kind", ["object", "fixed-string", "int32", "float32", "float16"]
 )
 @pytest.mark.parametrize("output_type", ["numpy", "cupy", "cudf", "pandas"])
+@_filter_scipy_lbfgsb_deprecation
 def test_logistic_regression_complex_classes(y_kind, output_type):
+    # Ignore SciPy 1.16/1.17 deprecation warnings emitted through sklearn's
+    # default LogisticRegression L-BFGS-B path.
     """Test that LogisticRegression handles non-numeric or non-monotonically
     increasing classes properly in both `fit` and `predict`"""
     if output_type == "cupy" and y_kind in ("object", "fixed-string"):
@@ -527,9 +543,12 @@ def test_logistic_predict_convert_dtype(dataset, test_dtype):
     use_sample_weight=False,
     class_weight_option=None,
 )
+@_filter_scipy_lbfgsb_deprecation
 def test_logistic_regression_weighting(
     dataset, use_sample_weight, class_weight_option
 ):
+    # Ignore SciPy 1.16/1.17 deprecation warnings emitted through sklearn's
+    # default LogisticRegression L-BFGS-B path.
     X, y = dataset
 
     num_classes = len(np.unique(y))
