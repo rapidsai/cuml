@@ -1,18 +1,23 @@
 #
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-import numpy as np
+import cupy as cp
 
-from cuml.internals import run_in_internal_context
+from cuml.internals.array import CumlArray
 from cuml.linear_model.base_mg import MGFitMixin
 from cuml.linear_model.linear_regression import Algo, LinearRegression
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
+from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.opg_data_utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    doubleData_t,
+    floatData_t,
+)
 
 
 cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
@@ -39,8 +44,14 @@ cdef extern from "cuml/linear_model/ols_mg.hpp" namespace "ML::OLS::opg" nogil:
 
 
 class LinearRegressionMG(MGFitMixin, LinearRegression):
-    @run_in_internal_context
-    def _fit(self, X, y, coef_ptr, input_desc):
+    def _fit(
+        self,
+        uintptr_t X_ptr,
+        uintptr_t y_ptr,
+        n_cols,
+        dtype,
+        uintptr_t input_desc_ptr,
+    ):
         cdef int algo = (
             Algo.EIG if self.algorithm == "auto" else Algo.parse(self.algorithm)
         )
@@ -48,13 +59,16 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
         cdef double double_intercept
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        if self.dtype == np.float32:
+        coef = cp.zeros(n_cols, dtype=dtype)
+        cdef uintptr_t coef_ptr = coef.data.ptr
+
+        if dtype == cp.float32:
 
             fit(handle_[0],
-                deref(<vector[floatData_t*]*><uintptr_t>X),
-                deref(<PartDescriptor*><uintptr_t>input_desc),
-                deref(<vector[floatData_t*]*><uintptr_t>y),
-                <float*><size_t>coef_ptr,
+                deref(<vector[floatData_t*]*>X_ptr),
+                deref(<PartDescriptor*>input_desc_ptr),
+                deref(<vector[floatData_t*]*>y_ptr),
+                <float*>coef_ptr,
                 <float*>&float_intercept,
                 <bool>self.fit_intercept,
                 algo,
@@ -64,10 +78,10 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
         else:
 
             fit(handle_[0],
-                deref(<vector[doubleData_t*]*><uintptr_t>X),
-                deref(<PartDescriptor*><uintptr_t>input_desc),
-                deref(<vector[doubleData_t*]*><uintptr_t>y),
-                <double*><size_t>coef_ptr,
+                deref(<vector[doubleData_t*]*>X_ptr),
+                deref(<PartDescriptor*>input_desc_ptr),
+                deref(<vector[doubleData_t*]*>y_ptr),
+                <double*>coef_ptr,
                 <double*>&double_intercept,
                 <bool>self.fit_intercept,
                 algo,
@@ -76,3 +90,5 @@ class LinearRegressionMG(MGFitMixin, LinearRegression):
             self.intercept_ = double_intercept
 
         self.handle.sync()
+
+        self.coef_ = CumlArray(data=coef)

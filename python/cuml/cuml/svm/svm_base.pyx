@@ -126,10 +126,10 @@ cdef class _SVMModel:
         return support, support_vectors, dual_coef, intercept
 
 
-class SVMBase(Base,
-              InteropMixin,
+class SVMBase(InteropMixin,
               FMajorInputTagMixin,
-              SparseInputTagMixin):
+              SparseInputTagMixin,
+              Base):
     """Base class for Support Vector Machines"""
 
     support_ = CumlArrayDescriptor(order="F")

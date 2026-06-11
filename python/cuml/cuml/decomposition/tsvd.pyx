@@ -73,9 +73,9 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                             const paramsTSVD &prms) except +
 
 
-class TruncatedSVD(Base,
-                   InteropMixin,
-                   FMajorInputTagMixin):
+class TruncatedSVD(InteropMixin,
+                   FMajorInputTagMixin,
+                   Base):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in

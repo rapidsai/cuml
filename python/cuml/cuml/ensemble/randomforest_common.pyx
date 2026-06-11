@@ -168,7 +168,7 @@ def compute_max_features(
         )
 
 
-class BaseRandomForestModel(Base, InteropMixin):
+class BaseRandomForestModel(InteropMixin, Base):
 
     @classmethod
     def _get_param_names(cls):
