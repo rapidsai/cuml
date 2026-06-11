@@ -2,12 +2,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
+import cupy as cp
 
 import cuml.common.opg_data_utils_mg as opg
-from cuml.common import input_to_cuml_array
 from cuml.internals import run_in_internal_context
-from cuml.internals.validation import check_features
+from cuml.internals.array import CumlArray
+from cuml.internals.validation import check_inputs
 
 
 class BaseDecompositionMG:
@@ -16,78 +16,96 @@ class BaseDecompositionMG:
         super().__init__(**kwargs)
 
     @run_in_internal_context
-    def fit(self, X, total_rows, n_cols, partsToRanks, rank, _transform=False):
+    def fit(
+        self, X, total_rows, n_cols, parts_rank_size, rank, _transform=False
+    ):
         """
-        Fit function for PCA/TSVD MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param total_rows: total number of rows
-        :param n_cols: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
+        Fit function for PCA/TSVD MG.
+
+        This not meant to be used as part of the public API.
+
+        Parameters
+        ----------
+        X : list of array-like
+            A list of array-like partitions to use as training data.
+        total_rows : int
+            The total number of rows in X across all distributed nodes.
+        n_cols : int
+            The number of columns in X.
+        parts_rank_size : list[tuple[int, int]]
+            A list of tuples of (rank, size)
+        rank : int
+            The current rank.
+
+        Returns
+        -------
+        self
         """
         self._set_output_type(X[0])
-        check_features(self, X[0], reset=True)
 
         if self.n_components is None:
             self.n_components_ = min(total_rows, n_cols)
         else:
             self.n_components_ = self.n_components
 
-        X_arys = []
-        dtype = None
-        for i in range(len(X)):
-            X_m, _, self.n_cols, dtype = input_to_cuml_array(
-                X[i],
-                check_dtype=(
-                    [np.float32, np.float64] if dtype is None else dtype
-                ),
+        Xs = []
+        dtype = ("float32", "float64")
+        for i, X_part in enumerate(X):
+            X_part = check_inputs(
+                self,
+                X_part,
+                dtype=dtype,
+                order="F",
+                reset=(i == 0),
             )
-            X_arys.append(X_m)
+            if i == 0:
+                dtype = X_part.dtype
+            Xs.append(X_part)
 
-        X_arg = opg.build_data_t(X_arys)
+        X_ptr = opg.build_data_t(Xs)
 
-        rank_to_sizes = opg.build_rank_size_pair(partsToRanks, rank)
-
-        input_desc = opg.build_part_descriptor(
-            total_rows, self.n_cols, rank_to_sizes, rank
+        rank_to_sizes = opg.build_rank_size_pair(parts_rank_size)
+        input_desc_ptr = opg.build_part_descriptor(
+            total_rows, n_cols, rank_to_sizes, rank
         )
 
         if _transform:
-            trans_arys = opg.build_pred_or_trans_arys(X_arys, "F", dtype)
-            trans_arg = opg.build_data_t(trans_arys)
-            trans_desc = opg.build_part_descriptor(
+            trans_arys = [
+                cp.zeros(
+                    (X.shape[0], self.n_components), dtype=dtype, order="F"
+                )
+                for X in Xs
+            ]
+            trans_ptr = opg.build_data_t(trans_arys)
+            trans_desc_ptr = opg.build_part_descriptor(
                 total_rows, self.n_components_, rank_to_sizes, rank
             )
 
         if _transform:
             self._mg_fit_transform(
-                X_arg,
+                X_ptr,
                 total_rows,
                 n_cols,
                 dtype,
-                trans_arg,
-                input_desc,
-                trans_desc,
+                trans_ptr,
+                input_desc_ptr,
+                trans_desc_ptr,
             )
         else:
-            self._mg_fit(X_arg, total_rows, n_cols, dtype, input_desc)
+            self._mg_fit(X_ptr, total_rows, n_cols, dtype, input_desc_ptr)
 
         opg.free_rank_size_pair(rank_to_sizes)
-        opg.free_part_descriptor(input_desc)
-        opg.free_data_t(X_arg, dtype)
+        opg.free_part_descriptor(input_desc_ptr)
+        opg.free_data_t(X_ptr, dtype)
 
         if _transform:
-            trans_out = []
+            output_type = self._get_output_type(X[0])
+            trans_out = [
+                CumlArray(data=part).to_output(output_type)
+                for part in trans_arys
+            ]
 
-            for i in range(len(trans_arys)):
-                trans_out.append(
-                    trans_arys[i].to_output(
-                        output_type=self._get_output_type(X[0])
-                    )
-                )
-
-            opg.free_data_t(trans_arg, dtype)
-            opg.free_part_descriptor(trans_desc)
+            opg.free_data_t(trans_ptr, dtype)
+            opg.free_part_descriptor(trans_desc_ptr)
 
             return trans_out
