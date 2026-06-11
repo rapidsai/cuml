@@ -23,27 +23,29 @@ class ClassificationObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   using BinT   = CountBin;
+  using CountT = unsigned long long int;
 
  private:
   IdxT nclasses;
   IdxT min_samples_leaf;
   CRITERION criterion;
 
-  DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins) const
+  DI CountT CountLeft(BinT const* hist, IdxT i, IdxT n_bins) const
   {
-    IdxT nLeft = 0;
+    CountT nLeft = 0;
     for (IdxT j = 0; j < nclasses; ++j) {
       nLeft += hist[n_bins * j + i].x;
     }
     return nLeft;
   }
 
-  HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT
+  GiniGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     constexpr DataT One = DataT(1.0);
-    auto invLen         = One / len;
-    auto invLeft        = One / nLeft;
-    auto invRight       = One / nRight;
+    auto invLen         = One / DataT(len);
+    auto invLeft        = One / DataT(nLeft);
+    auto invRight       = One / DataT(nRight);
     auto gain           = DataT(0.0);
 
     for (IdxT j = 0; j < nclasses; ++j) {
@@ -67,12 +69,12 @@ class ClassificationObjectiveFunction {
   }
 
   HDI DataT
-  EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     auto gain{DataT(0.0)};
-    auto invLeft{DataT(1.0) / nLeft};
-    auto invRight{DataT(1.0) / nRight};
-    auto invLen{DataT(1.0) / len};
+    auto invLeft{DataT(1.0) / DataT(nLeft)};
+    auto invRight{DataT(1.0) / DataT(nRight)};
+    auto invLen{DataT(1.0) / DataT(len)};
     for (IdxT c = 0; c < nclasses; ++c) {
       double val_i = 0.0;
       auto lval_i  = hist[n_bins * c + i].x;
@@ -101,7 +103,7 @@ class ClassificationObjectiveFunction {
 
  public:
   HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     switch (criterion) {
       case CRITERION::GINI: return GiniGain(hist, i, n_bins, len, nLeft, nRight);
@@ -117,15 +119,15 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT> Gain(
+    BinT const* shist, DataT const* squantiles, int col, CountT len, IdxT n_bins) const
   {
-    Split<DataT, IdxT> sp;
+    Split<DataT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = CountLeft(shist, i, n_bins);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+      if (nLeft >= CountT(min_samples_leaf) && nRight >= CountT(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
       sp.update({squantiles[i], col, gain, nLeft});
@@ -153,20 +155,22 @@ class RegressionObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   using BinT   = AggregateBin;
+  using CountT = unsigned long long int;
 
  private:
   IdxT min_samples_leaf;
   CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT
+  MSEGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
-    auto invLen           = DataT(1.0) / len;
+    auto invLen           = DataT(1.0) / DataT(len);
     auto label_sum        = hist[n_bins - 1].label_sum;
     DataT parent_obj      = -label_sum * label_sum * invLen;
-    DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
+    DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / DataT(nLeft);
     DataT right_label_sum = hist[i].label_sum - label_sum;
-    DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
+    DataT right_obj       = -(right_label_sum * right_label_sum) / DataT(nRight);
     DataT gain            = parent_obj - (left_obj + right_obj);
     gain *= DataT(0.5) * invLen;
 
@@ -174,9 +178,9 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT
-  PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
-    auto invLen          = DataT(1) / len;
+    auto invLen          = DataT(1) / DataT(len);
     auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
     auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
@@ -186,8 +190,8 @@ class RegressionObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
-    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / nRight);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / DataT(nLeft));
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / DataT(nRight));
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 
@@ -195,9 +199,9 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT
-  GammaGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  GammaGain(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
-    auto invLen          = DataT(1) / len;
+    auto invLen          = DataT(1) / DataT(len);
     auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
     auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
@@ -206,9 +210,9 @@ class RegressionObjectiveFunction {
     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
       return -std::numeric_limits<DataT>::max();
 
-    DataT parent_obj = len * raft::log(label_sum * invLen);
-    DataT left_obj   = nLeft * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = nRight * raft::log(right_label_sum / nRight);
+    DataT parent_obj = DataT(len) * raft::log(label_sum * invLen);
+    DataT left_obj   = DataT(nLeft) * raft::log(left_label_sum / DataT(nLeft));
+    DataT right_obj  = DataT(nRight) * raft::log(right_label_sum / DataT(nRight));
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 
@@ -216,7 +220,7 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT InverseGaussianGain(
-    BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+    BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     auto label_sum       = hist[n_bins - 1].label_sum;
     auto left_label_sum  = (hist[i].label_sum);
@@ -230,14 +234,14 @@ class RegressionObjectiveFunction {
     DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
     DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain / (2 * len);
+    gain             = gain / (DataT(2) * DataT(len));
 
     return gain;
   }
 
  public:
   HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, CountT len, CountT nLeft, CountT nRight) const
   {
     switch (criterion) {
       case CRITERION::MSE: return MSEGain(hist, i, n_bins, len, nLeft, nRight);
@@ -256,15 +260,15 @@ class RegressionObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT> Gain(
+    BinT const* shist, DataT const* squantiles, int col, CountT len, IdxT n_bins) const
   {
-    Split<DataT, IdxT> sp;
+    Split<DataT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = shist[i].count;
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+      if (nLeft >= CountT(min_samples_leaf) && nRight >= CountT(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
       sp.update({squantiles[i], col, gain, nLeft});
@@ -275,7 +279,7 @@ class RegressionObjectiveFunction {
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      out[i] = shist[i].count > CountT{0} ? shist[i].label_sum / DataT(shist[i].count) : DataT(0);
     }
   }
 };

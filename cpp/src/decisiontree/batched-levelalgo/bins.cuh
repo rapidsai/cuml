@@ -8,18 +8,18 @@
 namespace ML {
 namespace DT {
 
+static_assert(sizeof(unsigned long long int) == 8, "RF histogram counts must be 64-bit.");
+
 struct CountBin {
-  // double covers both the unweighted count path and the future weighted-count
-  // path with one bin type; 32-bit int would overflow on large weighted counts.
-  double x;
+  unsigned long long int x;
   CountBin(CountBin const&) = default;
-  HDI CountBin(double x_) : x(x_) {}
-  HDI CountBin() : x(0.0) {}
+  HDI CountBin(unsigned long long int x_) : x(x_) {}
+  HDI CountBin() : x(0) {}
 
   DI static void IncrementHistogram(CountBin* hist, int n_bins, int b, int label)
   {
     auto offset = label * n_bins + b;
-    CountBin::AtomicAdd(hist + offset, {1.0});
+    CountBin::AtomicAdd(hist + offset, {1ULL});
   }
   DI static void AtomicAdd(CountBin* address, CountBin val) { atomicAdd(&address->x, val.x); }
   HDI CountBin& operator+=(const CountBin& b)
@@ -36,15 +36,18 @@ struct CountBin {
 
 struct AggregateBin {
   double label_sum;
-  int count;
+  unsigned long long int count;
 
   AggregateBin(AggregateBin const&) = default;
   HDI AggregateBin() : label_sum(0.0), count(0) {}
-  HDI AggregateBin(double label_sum, int count) : label_sum(label_sum), count(count) {}
+  HDI AggregateBin(double label_sum, unsigned long long int count)
+    : label_sum(label_sum), count(count)
+  {
+  }
 
   DI static void IncrementHistogram(AggregateBin* hist, int n_bins, int b, double label)
   {
-    AggregateBin::AtomicAdd(hist + b, {label, 1});
+    AggregateBin::AtomicAdd(hist + b, {label, 1ULL});
   }
   DI static void AtomicAdd(AggregateBin* address, AggregateBin val)
   {

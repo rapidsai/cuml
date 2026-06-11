@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,9 +16,11 @@ namespace DT {
  *
  * @tparam DataT input data type
  */
-template <typename DataT, typename IdxT>
+template <typename DataT>
 struct Split {
-  typedef Split<DataT, IdxT> SplitT;
+  typedef Split<DataT> SplitT;
+  using CountT = unsigned long long int;
+  static_assert(sizeof(CountT) == 8, "RF split counts must be 64-bit.");
 
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
@@ -26,14 +28,24 @@ struct Split {
   /** threshold to compare in this node */
   DataT quesval;
   /** feature index */
-  IdxT colid;
+  int colid;
   /** best info gain on this node */
   DataT best_metric_val;
-  /** number of samples in the left child */
-  int nLeft;
+  /** global number of samples in the left child */
+  CountT global_nLeft;
+  /** rank-local number of samples in the left child */
+  CountT local_nLeft;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
-    : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
+  DI Split(DataT quesval,
+           int colid,
+           DataT best_metric_val,
+           CountT global_nLeft,
+           CountT local_nLeft = CountT{0})
+    : quesval(quesval),
+      colid(colid),
+      best_metric_val(best_metric_val),
+      global_nLeft(global_nLeft),
+      local_nLeft(local_nLeft)
   {
   }
 
@@ -41,7 +53,8 @@ struct Split {
   {
     quesval = best_metric_val = Min;
     colid                     = -1;
-    nLeft                     = 0;
+    global_nLeft              = 0;
+    local_nLeft               = 0;
   }
 
   /**
@@ -56,7 +69,8 @@ struct Split {
     quesval         = other.quesval;
     colid           = other.colid;
     best_metric_val = other.best_metric_val;
-    nLeft           = other.nLeft;
+    global_nLeft    = other.global_nLeft;
+    local_nLeft     = other.local_nLeft;
     return *this;
   }
 
@@ -87,12 +101,13 @@ struct Split {
     auto lane = raft::laneId();
 #pragma unroll
     for (int i = raft::WarpSize / 2; i >= 1; i /= 2) {
-      auto id = lane + i;
-      auto qu = raft::shfl(quesval, id);
-      auto co = raft::shfl(colid, id);
-      auto be = raft::shfl(best_metric_val, id);
-      auto nl = raft::shfl(nLeft, id);
-      update({qu, co, be, nl});
+      auto id  = lane + i;
+      auto qu  = raft::shfl(quesval, id);
+      auto co  = raft::shfl(colid, id);
+      auto be  = raft::shfl(best_metric_val, id);
+      auto gnl = raft::shfl(global_nLeft, id);
+      auto lnl = raft::shfl(local_nLeft, id);
+      update({qu, co, be, gnl, lnl});
     }
   }
 
@@ -130,14 +145,19 @@ struct Split {
         split_reg.quesval         = split->quesval;
         split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
-        split_reg.nLeft           = split->nLeft;
-        bool update_result =
-          split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
+        split_reg.global_nLeft    = split->global_nLeft;
+        split_reg.local_nLeft     = split->local_nLeft;
+        bool update_result        = split_reg.update({this->quesval,
+                                                      this->colid,
+                                                      this->best_metric_val,
+                                                      this->global_nLeft,
+                                                      this->local_nLeft});
         if (update_result) {
           split->quesval         = split_reg.quesval;
           split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
-          split->nLeft           = split_reg.nLeft;
+          split->global_nLeft    = split_reg.global_nLeft;
+          split->local_nLeft     = split_reg.local_nLeft;
         }
         __threadfence();
         atomicExch(mutex, 0);
@@ -154,23 +174,25 @@ struct Split {
  * @param[in]  s      cuda stream where to schedule work
  */
 template <typename DataT, typename IdxT, int TPB = 256>
-void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
+void initSplit(Split<DataT>* splits, IdxT len, cudaStream_t s)
 {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { *ptr = Split<DataT, IdxT>(); };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
+  auto op = [] __device__(Split<DataT> * ptr, IdxT idx) { *ptr = Split<DataT>(); };
+  raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), IdxT, TPB>(splits, len, op, s);
 }
 
 template <typename DataT, typename IdxT, int TPB = 256>
-void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
+void printSplits(Split<DataT>* splits, IdxT len, cudaStream_t s)
 {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d\n",
-           ptr->quesval,
-           ptr->colid,
-           ptr->best_metric_val,
-           ptr->nLeft);
+  auto op = [] __device__(Split<DataT> * ptr, IdxT idx) {
+    printf(
+      "quesval = %e, colid = %d, best_metric_val = %e, global_nLeft = %llu, local_nLeft = %llu\n",
+      ptr->quesval,
+      ptr->colid,
+      ptr->best_metric_val,
+      ptr->global_nLeft,
+      ptr->local_nLeft);
   };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
+  raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), IdxT, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 

@@ -13,9 +13,14 @@
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 
 #include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 
 namespace ML {
 namespace DT {
@@ -37,25 +42,12 @@ struct NodeWorkItem {
  * This struct has information about workload of a single threadblock of
  * computeSplit kernels of classification and regression
  */
-template <typename IdxT>
 struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
-  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                        // working on this node
-  IdxT num_blocks;      // Total number of blocks that are working on the node
+  int nodeid;          // Node in the batch on which the threadblock needs to work
+  int offset_blockid;  // Offset threadblock id among all the blocks that are
+                       // working on this node
+  int num_blocks;      // Total number of blocks that are working on the node
 };
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
-}
 
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
@@ -65,25 +57,31 @@ DI OutT* alignPointer(InT dataset)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const IdxT min_samples_split,
-                           const IdxT max_leaves,
-                           const DataT min_impurity_decrease,
+void launchNodeSplitKernel(const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
                            const size_t work_items_size,
-                           const Split<DataT, IdxT>* splits,
+                           Split<DataT>* splits,
                            cudaStream_t builder_stream);
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-void launchLeafKernel(ObjectiveT objective,
-                      DatasetT& dataset,
-                      const NodeT* tree,
-                      const InstanceRange* instance_ranges,
-                      DataT* leaves,
-                      int batch_size,
-                      size_t smem_size,
-                      cudaStream_t builder_stream);
+template <typename DatasetT, typename NodeT, typename ObjectiveT>
+void launchLeafHistogramKernel(ObjectiveT objective,
+                               DatasetT& dataset,
+                               const NodeT* tree,
+                               const InstanceRange* instance_ranges,
+                               typename ObjectiveT::BinT* leaf_histograms,
+                               int batch_size,
+                               size_t smem_size,
+                               cudaStream_t builder_stream);
+
+template <typename NodeT, typename ObjectiveT, typename DataT>
+void launchFinalizeLeafKernel(ObjectiveT objective,
+                              const NodeT* tree,
+                              const typename ObjectiveT::BinT* leaf_histograms,
+                              DataT* leaves,
+                              int batch_size,
+                              int num_outputs,
+                              cudaStream_t builder_stream);
 // Returns the lowest index in `array` whose value is greater or equal to `element`.
 // Values outside the quantile range are clamped to the edge bins: values below the
 // first quantile return 0, and values above the last quantile return len - 1.
@@ -365,31 +363,85 @@ CUML_KERNEL void adaptive_sample_kernel(int* colids,
   }
 }
 
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
+void launchComputeSplitHistogramKernel(BinT* histograms,
+                                       IdxT max_n_bins,
+                                       const Dataset<DataT, LabelT, IdxT>& dataset,
+                                       const Quantiles<DataT, IdxT>& quantiles,
+                                       const NodeWorkItem* work_items,
+                                       IdxT colStart,
+                                       const IdxT* colids,
+                                       const WorkloadInfo* workload_info,
+                                       dim3 grid,
+                                       size_t smem_size,
+                                       cudaStream_t builder_stream);
+
 template <typename DataT,
           typename LabelT,
           typename IdxT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-void launchComputeSplitKernel(BinT* histograms,
-                              IdxT n_bins,
-                              IdxT min_samples_split,
-                              IdxT max_leaves,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* colids,
-                              int* done_count,
-                              int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
-                              ObjectiveT& objective,
-                              IdxT treeid,
-                              const WorkloadInfo<IdxT>* workload_info,
-                              uint64_t seed,
-                              dim3 grid,
-                              size_t smem_size,
-                              cudaStream_t builder_stream);
+void launchEvaluateSplitKernel(BinT* histograms,
+                               IdxT max_n_bins,
+                               const Dataset<DataT, LabelT, IdxT>& dataset,
+                               const Quantiles<DataT, IdxT>& quantiles,
+                               IdxT colStart,
+                               const IdxT* colids,
+                               int* mutex,
+                               volatile Split<DataT>* splits,
+                               ObjectiveT& objective,
+                               dim3 grid,
+                               size_t smem_size,
+                               cudaStream_t builder_stream);
+
+inline void packHistograms(const CountBin* in,
+                           std::uint64_t* out,
+                           std::size_t len,
+                           cudaStream_t stream)
+{
+  auto op = [in] __device__(std::uint64_t* out, std::size_t i) { *out = in[i].x; };
+  raft::linalg::writeOnlyUnaryOp<std::uint64_t, decltype(op), std::size_t, 256>(
+    out, len, op, stream);
+}
+
+inline void unpackHistograms(const std::uint64_t* in,
+                             CountBin* out,
+                             std::size_t len,
+                             cudaStream_t stream)
+{
+  auto op = [in] __device__(CountBin * out, std::size_t i) { out->x = in[i]; };
+  raft::linalg::writeOnlyUnaryOp<CountBin, decltype(op), std::size_t, 256>(out, len, op, stream);
+}
+
+inline void packHistograms(const AggregateBin* in,
+                           double* label_sums,
+                           std::uint64_t* counts,
+                           std::size_t len,
+                           cudaStream_t stream)
+{
+  auto label_sum_op = [in] __device__(double* out, std::size_t i) { *out = in[i].label_sum; };
+  raft::linalg::writeOnlyUnaryOp<double, decltype(label_sum_op), std::size_t, 256>(
+    label_sums, len, label_sum_op, stream);
+
+  auto count_op = [in] __device__(std::uint64_t* out, std::size_t i) { *out = in[i].count; };
+  raft::linalg::writeOnlyUnaryOp<std::uint64_t, decltype(count_op), std::size_t, 256>(
+    counts, len, count_op, stream);
+}
+
+inline void unpackHistograms(const double* label_sums,
+                             const std::uint64_t* counts,
+                             AggregateBin* out,
+                             std::size_t len,
+                             cudaStream_t stream)
+{
+  auto op = [label_sums, counts] __device__(AggregateBin * out, std::size_t i) {
+    out->label_sum = label_sums[i];
+    out->count     = counts[i];
+  };
+  raft::linalg::writeOnlyUnaryOp<AggregateBin, decltype(op), std::size_t, 256>(
+    out, len, op, stream);
+}
 
 }  // namespace DT
 }  // namespace ML
