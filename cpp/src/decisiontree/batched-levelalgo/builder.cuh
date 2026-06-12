@@ -449,6 +449,7 @@ struct Builder {
                                   cudaMemcpyHostToDevice,
                                   builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
+    const auto partition_workload = this->updateWorkloadInfo(work_items);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
     launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
                                                             params.min_impurity_decrease,
@@ -456,7 +457,7 @@ struct Builder {
                                                             d_work_items,
                                                             splits,
                                                             workload_info,
-                                                            n_blocks_dimx,
+                                                            partition_workload.first,
                                                             partition_row_ids,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
