@@ -35,8 +35,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             float *explained_var_ratio,
                             float *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose,
-                            bool flip_signs_based_on_U) except +
+                            bool verbose) except +
 
     cdef void fit_transform(handle_t& handle,
                             vector[doubleData_t *] input_data,
@@ -48,8 +47,7 @@ cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg" nogi
                             double *explained_var_ratio,
                             double *singular_vals,
                             paramsTSVDMG &prms,
-                            bool verbose,
-                            bool flip_signs_based_on_U) except +
+                            bool verbose) except +
 
 
 class TSVDMG(BaseDecompositionMG, TruncatedSVD):
@@ -102,7 +100,6 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
         cdef uintptr_t singular_values_ptr = singular_values.data.ptr
         cdef bool use_float32 = dtype == cp.float32
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform Fit
         with nogil:
@@ -118,8 +115,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
                     params,
-                    False,
-                    flip_signs_based_on_U
+                    False
                 )
             else:
                 fit_transform(
@@ -133,8 +129,7 @@ class TSVDMG(BaseDecompositionMG, TruncatedSVD):
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
                     params,
-                    False,
-                    flip_signs_based_on_U
+                    False
                 )
         self.handle.sync()
 
