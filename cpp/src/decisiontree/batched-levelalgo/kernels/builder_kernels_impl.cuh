@@ -77,23 +77,164 @@ DI void partitionSamples(const Dataset<DataT, LabelT, IdxT>& dataset,
     }
   }
 }
+
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void nodeSplitKernel(const IdxT min_samples_leaf,
-                                       const IdxT min_samples_split,
-                                       const IdxT max_leaves,
-                                       const DataT min_impurity_decrease,
-                                       const Dataset<DataT, LabelT, IdxT> dataset,
-                                       const NodeWorkItem* work_items,
-                                       const Split<DataT, IdxT>* splits)
+static __global__ void nodeSplitCopySourceKernel(const IdxT min_samples_leaf,
+                                                 const IdxT min_samples_split,
+                                                 const IdxT max_leaves,
+                                                 const DataT min_impurity_decrease,
+                                                 const Dataset<DataT, LabelT, IdxT> dataset,
+                                                 const NodeWorkItem* work_items,
+                                                 const Split<DataT, IdxT>* splits,
+                                                 const WorkloadInfo<IdxT>* workload_info,
+                                                 IdxT* tmp_row_ids)
 {
-  extern __shared__ char smem[];
-  const auto work_item = work_items[blockIdx.x];
-  const auto split     = splits[blockIdx.x];
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
   if (SplitNotValid(
         split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
     return;
   }
-  partitionSamples<DataT, LabelT, IdxT, TPB>(dataset, split, work_item, (char*)smem);
+
+  const auto range_start = work_item.instances.begin;
+  const auto range_len   = work_item.instances.count;
+  const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  if (range_pos < range_len) {
+    const auto idx   = range_start + range_pos;
+    tmp_row_ids[idx] = dataset.row_ids[idx];
+  }
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void nodeSplitMisfitKernel(const IdxT min_samples_leaf,
+                                             const IdxT min_samples_split,
+                                             const IdxT max_leaves,
+                                             const DataT min_impurity_decrease,
+                                             const Dataset<DataT, LabelT, IdxT> dataset,
+                                             const NodeWorkItem* work_items,
+                                             const Split<DataT, IdxT>* splits,
+                                             const WorkloadInfo<IdxT>* workload_info,
+                                             IdxT* left_counts,
+                                             IdxT* right_counts,
+                                             IdxT* left_misfit_positions,
+                                             IdxT* right_misfit_positions)
+{
+  typedef cub::BlockScan<int, TPB> BlockScanT;
+  __shared__ typename BlockScanT::TempStorage left_scan;
+  __shared__ typename BlockScanT::TempStorage right_scan;
+  __shared__ IdxT left_base;
+  __shared__ IdxT right_base;
+
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+    return;
+  }
+
+  const auto range_start = work_item.instances.begin;
+  const auto range_len   = work_item.instances.count;
+  const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  const bool valid       = range_pos < range_len;
+
+  IdxT row = 0;
+  bool goes_left{false};
+  if (valid) {
+    row                 = dataset.row_ids[range_start + range_pos];
+    std::size_t col_idx = std::size_t(split.colid) * dataset.M + row;
+    goes_left           = dataset.data[col_idx] <= split.quesval;
+  }
+
+  const bool in_left_range = range_pos < std::size_t(split.nLeft);
+  const int left_flag      = valid && in_left_range && !goes_left;
+  const int right_flag     = valid && !in_left_range && goes_left;
+
+  int left_rank, left_total;
+  int right_rank, right_total;
+  BlockScanT(left_scan).ExclusiveSum(left_flag, left_rank, left_total);
+  BlockScanT(right_scan).ExclusiveSum(right_flag, right_rank, right_total);
+
+  if (threadIdx.x == 0) {
+    left_base  = atomicAdd(left_counts + nid, IdxT(left_total));
+    right_base = atomicAdd(right_counts + nid, IdxT(right_total));
+  }
+  __syncthreads();
+
+  if (left_flag) {
+    left_misfit_positions[range_start + left_base + left_rank] = range_start + range_pos;
+  }
+  if (right_flag) {
+    right_misfit_positions[range_start + right_base + right_rank] = range_start + range_pos;
+  }
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void nodeSplitSwapMisfitsKernel(const IdxT min_samples_leaf,
+                                                  const IdxT min_samples_split,
+                                                  const IdxT max_leaves,
+                                                  const DataT min_impurity_decrease,
+                                                  const Dataset<DataT, LabelT, IdxT> dataset,
+                                                  const NodeWorkItem* work_items,
+                                                  const Split<DataT, IdxT>* splits,
+                                                  const WorkloadInfo<IdxT>* workload_info,
+                                                  const IdxT* left_counts,
+                                                  const IdxT* right_counts,
+                                                  const IdxT* left_misfit_positions,
+                                                  const IdxT* right_misfit_positions,
+                                                  IdxT* tmp_row_ids)
+{
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+    return;
+  }
+
+  const auto range_start = work_item.instances.begin;
+  const auto range_len   = work_item.instances.count;
+  const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  const auto n_swaps     = min(left_counts[nid], right_counts[nid]);
+  if (range_pos < range_len && range_pos < std::size_t(n_swaps)) {
+    const auto left_pos    = left_misfit_positions[range_start + range_pos];
+    const auto right_pos   = right_misfit_positions[range_start + range_pos];
+    tmp_row_ids[left_pos]  = dataset.row_ids[right_pos];
+    tmp_row_ids[right_pos] = dataset.row_ids[left_pos];
+  }
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
+                                               const IdxT min_samples_split,
+                                               const IdxT max_leaves,
+                                               const DataT min_impurity_decrease,
+                                               const Dataset<DataT, LabelT, IdxT> dataset,
+                                               const NodeWorkItem* work_items,
+                                               const Split<DataT, IdxT>* splits,
+                                               const WorkloadInfo<IdxT>* workload_info,
+                                               const IdxT* tmp_row_ids)
+{
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+    return;
+  }
+
+  const auto range_start = work_item.instances.begin;
+  const auto range_len   = work_item.instances.count;
+  const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  if (range_pos < range_len) {
+    const auto idx       = range_start + range_pos;
+    dataset.row_ids[idx] = tmp_row_ids[idx];
+  }
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
@@ -103,19 +244,67 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const size_t work_items_size,
+                           size_t work_items_size,
                            const Split<DataT, IdxT>* splits,
+                           const WorkloadInfo<IdxT>* workload_info,
+                           size_t n_blocks_dimx,
+                           IdxT* tmp_row_ids,
+                           IdxT* left_counts,
+                           IdxT* right_counts,
+                           IdxT* left_misfit_positions,
+                           IdxT* right_misfit_positions,
                            cudaStream_t builder_stream)
 {
-  auto constexpr smem_size = 2 * sizeof(IdxT) * TPB;
-  nodeSplitKernel<DataT, LabelT, IdxT, TPB>
-    <<<work_items_size, TPB, smem_size, builder_stream>>>(min_samples_leaf,
-                                                          min_samples_split,
-                                                          max_leaves,
-                                                          min_impurity_decrease,
-                                                          dataset,
-                                                          work_items,
-                                                          splits);
+  if (n_blocks_dimx == 0) return;
+  RAFT_CUDA_TRY(cudaMemsetAsync(left_counts, 0, sizeof(IdxT) * work_items_size, builder_stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(right_counts, 0, sizeof(IdxT) * work_items_size, builder_stream));
+  nodeSplitCopySourceKernel<DataT, LabelT, IdxT, TPB>
+    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
+                                                min_samples_split,
+                                                max_leaves,
+                                                min_impurity_decrease,
+                                                dataset,
+                                                work_items,
+                                                splits,
+                                                workload_info,
+                                                tmp_row_ids);
+  nodeSplitMisfitKernel<DataT, LabelT, IdxT, TPB>
+    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
+                                                min_samples_split,
+                                                max_leaves,
+                                                min_impurity_decrease,
+                                                dataset,
+                                                work_items,
+                                                splits,
+                                                workload_info,
+                                                left_counts,
+                                                right_counts,
+                                                left_misfit_positions,
+                                                right_misfit_positions);
+  nodeSplitSwapMisfitsKernel<DataT, LabelT, IdxT, TPB>
+    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
+                                                min_samples_split,
+                                                max_leaves,
+                                                min_impurity_decrease,
+                                                dataset,
+                                                work_items,
+                                                splits,
+                                                workload_info,
+                                                left_counts,
+                                                right_counts,
+                                                left_misfit_positions,
+                                                right_misfit_positions,
+                                                tmp_row_ids);
+  nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
+    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
+                                                min_samples_split,
+                                                max_leaves,
+                                                min_impurity_decrease,
+                                                dataset,
+                                                work_items,
+                                                splits,
+                                                workload_info,
+                                                tmp_row_ids);
 }
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
@@ -372,8 +561,15 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const _DataT min_impurity_decrease,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,
   const NodeWorkItem* work_items,
-  const size_t work_items_size,
+  size_t work_items_size,
   const Split<_DataT, _IdxT>* splits,
+  const WorkloadInfo<_IdxT>* workload_info,
+  size_t n_blocks_dimx,
+  _IdxT* tmp_row_ids,
+  _IdxT* left_counts,
+  _IdxT* right_counts,
+  _IdxT* left_misfit_positions,
+  _IdxT* right_misfit_positions,
   cudaStream_t builder_stream);
 
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
