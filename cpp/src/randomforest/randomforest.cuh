@@ -20,6 +20,7 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/logical.h>
 #include <thrust/sequence.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
@@ -36,6 +37,13 @@
 #include <map>
 
 namespace ML {
+
+namespace detail {
+template <typename T>
+struct InvalidSampleWeight {
+  __device__ bool operator()(T weight) const { return weight < T(0) || !isfinite(weight); }
+};
+}  // namespace detail
 
 template <class T, class L>
 class RandomForest {
@@ -83,6 +91,22 @@ class RandomForest {
     }
   }
 
+  void validate_sample_weight(const raft::handle_t& handle,
+                              const T* sample_weight,
+                              int n_rows) const
+  {
+    ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
+           "sample_weight must be a GPU pointer");
+    if (sample_weight == nullptr) { return; }
+
+    bool has_invalid = thrust::any_of(
+      rmm::exec_policy(handle.get_stream()),
+      sample_weight,
+      sample_weight + n_rows,
+      detail::InvalidSampleWeight<T>{});
+    ASSERT(!has_invalid, "sample_weight values must be finite and non-negative");
+  }
+
  public:
   /**
    * @brief Construct RandomForest object.
@@ -124,9 +148,8 @@ class RandomForest {
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
-    ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
-           "sample_weight must be a GPU pointer");
     const raft::handle_t& handle = user_handle;
+    this->validate_sample_weight(handle, sample_weight, n_rows);
     int n_sampled_rows           = 0;
     if (this->rf_params.bootstrap) {
       n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
