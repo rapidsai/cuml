@@ -144,6 +144,21 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
+  template <typename DatasetT>
+  DI void IncrementHistogram(BinT* histogram,
+                             IdxT n_bins,
+                             IdxT bin,
+                             LabelT label,
+                             const DatasetT& dataset,
+                             IdxT row) const
+  {
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
+    }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
@@ -318,6 +333,21 @@ class RegressionObjectiveFunction {
   }
 
   DI IdxT NumClasses() const { return 1; }
+
+  template <typename DatasetT>
+  DI void IncrementHistogram(BinT* histogram,
+                             IdxT n_bins,
+                             IdxT bin,
+                             LabelT label,
+                             const DatasetT& dataset,
+                             IdxT row) const
+  {
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
+    }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
+  }
 
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const

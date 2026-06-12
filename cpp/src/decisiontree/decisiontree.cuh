@@ -243,7 +243,8 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
-    int treeid)
+    int treeid,
+    const DataT* sample_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -255,6 +256,22 @@ class DecisionTree {
     // Dispatch objective family. The objective object switches on the criterion at runtime.
     if (not std::is_same<DataT, LabelT>::value and (params.split_criterion == CRITERION::GINI ||
                                                     params.split_criterion == CRITERION::ENTROPY)) {
+      if (sample_weight != nullptr) {
+        return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                                   s,
+                                                                                   treeid,
+                                                                                   seed,
+                                                                                   params,
+                                                                                   data,
+                                                                                   labels,
+                                                                                   sample_weight,
+                                                                                   nrows,
+                                                                                   ncols,
+                                                                                   row_ids,
+                                                                                   unique_labels,
+                                                                                   quantiles)
+          .train();
+      }
       return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                            s,
                                                                            treeid,
@@ -262,6 +279,7 @@ class DecisionTree {
                                                                            params,
                                                                            data,
                                                                            labels,
+                                                                           sample_weight,
                                                                            nrows,
                                                                            ncols,
                                                                            row_ids,
@@ -273,6 +291,22 @@ class DecisionTree {
                 params.split_criterion == CRITERION::POISSON ||
                 params.split_criterion == CRITERION::GAMMA ||
                 params.split_criterion == CRITERION::INVERSE_GAUSSIAN)) {
+      if (sample_weight != nullptr) {
+        return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                               s,
+                                                                               treeid,
+                                                                               seed,
+                                                                               params,
+                                                                               data,
+                                                                               labels,
+                                                                               sample_weight,
+                                                                               nrows,
+                                                                               ncols,
+                                                                               row_ids,
+                                                                               unique_labels,
+                                                                               quantiles)
+          .train();
+      }
       return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                        s,
                                                                        treeid,
@@ -280,6 +314,7 @@ class DecisionTree {
                                                                        params,
                                                                        data,
                                                                        labels,
+                                                                       sample_weight,
                                                                        nrows,
                                                                        ncols,
                                                                        row_ids,
