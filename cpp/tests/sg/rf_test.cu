@@ -125,6 +125,7 @@ struct RfTestParams {
   CRITERION split_criterion;
   int seed;
   int n_labels;
+  bool sample_weight;
   bool double_precision;
   // c++ has no reflection, so we enumerate the types here
   // This must be updated if new fields are added
@@ -144,6 +145,7 @@ struct RfTestParams {
                            CRITERION,
                            int,
                            int,
+                           bool,
                            bool>;
 };
 
@@ -158,7 +160,8 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
   os << ", min_impurity_decrease = " << ps.min_impurity_decrease
      << ", n_streams = " << ps.n_streams;
   os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
-  os << ", n_labels = " << ps.n_labels << ", double_precision = " << ps.double_precision;
+  os << ", n_labels = " << ps.n_labels << ", sample_weight = " << ps.sample_weight
+     << ", double_precision = " << ps.double_precision;
   return os;
 }
 
@@ -282,8 +285,12 @@ auto nvForestPredictProba(const raft::handle_t& handle,
   return pred;
 }
 template <typename DataT, typename LabelT>
-auto TrainScore(
-  const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
+auto TrainScore(const raft::handle_t& handle,
+                RfTestParams params,
+                DataT* X,
+                DataT* X_transpose,
+                LabelT* y,
+                const DataT* sample_weight)
 {
   RF_params rf_params = set_rf_params(params.max_depth,
                                       params.max_leaves,
@@ -303,9 +310,28 @@ auto TrainScore(
   auto forest     = std::make_shared<RandomForestMetaData<DataT, LabelT>>();
   auto forest_ptr = forest.get();
   if constexpr (std::is_integral_v<LabelT>) {
-    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, params.n_labels, rf_params);
+    fit(handle,
+        forest_ptr,
+        X,
+        params.n_rows,
+        params.n_cols,
+        y,
+        params.n_labels,
+        rf_params,
+        rapids_logger::level_enum::info,
+        nullptr,
+        sample_weight);
   } else {
-    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, rf_params);
+    fit(handle,
+        forest_ptr,
+        X,
+        params.n_rows,
+        params.n_cols,
+        y,
+        rf_params,
+        rapids_logger::level_enum::info,
+        nullptr,
+        sample_weight);
   }
 
   auto pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
@@ -367,15 +393,29 @@ class RfSpecialisedTest {
     }
     raft::linalg::transpose(
       handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);
+    if (params.sample_weight) {
+      thrust::host_vector<DataT> h_sample_weight(params.n_rows);
+      for (std::size_t i = 0; i < params.n_rows; ++i) {
+        int bucket = (int(i) * 37 + params.seed * 13) % 17;
+        h_sample_weight[i] = DataT(0.25) + DataT(bucket) * DataT(0.125);
+      }
+      sample_weight = h_sample_weight;
+    }
     forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
-    std::tie(forest, predictions, training_metrics) =
-      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+    std::tie(forest, predictions, training_metrics) = TrainScore(handle,
+                                                                 params,
+                                                                 X.data().get(),
+                                                                 X_transpose.data().get(),
+                                                                 y.data().get(),
+                                                                 SampleWeightPtr());
 
     Test();
   }
   // Current model should be at least as accurate as a model with depth - 1
   void TestAccuracyImprovement()
   {
+    // Weighted objective training is not expected to monotonically improve unweighted score.
+    if (params.sample_weight) { return; }
     if (params.max_depth <= 1) { return; }
     // avereraging between models can introduce variance
     if (params.n_trees > 1) { return; }
@@ -385,8 +425,12 @@ class RfSpecialisedTest {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
-    auto [alt_forest, alt_predictions, alt_metrics] =
-      TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
+                                                                  alt_params,
+                                                                  X.data().get(),
+                                                                  X_transpose.data().get(),
+                                                                  y.data().get(),
+                                                                  SampleWeightPtr());
     double eps = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
@@ -435,12 +479,18 @@ class RfSpecialisedTest {
     // Regression models use floating point atomics, so are not bitwise reproducible
     bool is_regression = params.split_criterion != GINI and params.split_criterion != ENTROPY;
     if (is_regression) return;
+    // Weighted classification uses floating-point histogram accumulation.
+    if (params.sample_weight) return;
 
     // Repeat training
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-    auto [alt_forest, alt_predictions, alt_metrics] =
-      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
+                                                                  params,
+                                                                  X.data().get(),
+                                                                  X_transpose.data().get(),
+                                                                  y.data().get(),
+                                                                  SampleWeightPtr());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
@@ -550,6 +600,11 @@ class RfSpecialisedTest {
     EXPECT_NEAR(sum, 1.0, 1e-6);
   }
 
+  const DataT* SampleWeightPtr() const
+  {
+    return params.sample_weight ? sample_weight.data().get() : nullptr;
+  }
+
   void Test()
   {
     TestAccuracyImprovement();
@@ -565,6 +620,7 @@ class RfSpecialisedTest {
   thrust::device_vector<DataT> X;
   thrust::device_vector<DataT> X_transpose;
   thrust::device_vector<LabelT> y;
+  thrust::device_vector<DataT> sample_weight;
   RfTestParams params;
   std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
   std::shared_ptr<thrust::device_vector<LabelT>> predictions;
@@ -617,6 +673,7 @@ std::vector<CRITERION> split_criterion   = {CRITERION::INVERSE_GAUSSIAN,
                                             CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 20};
+std::vector<bool> sample_weight          = {false, true};
 std::vector<bool> double_precision       = {false, true};
 
 int n_tests = 100;
@@ -641,6 +698,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            split_criterion,
                                                                            seed,
                                                                            n_labels,
+                                                                           sample_weight,
                                                                            double_precision)));
 
 TEST(RfTests, IntegerOverflow)
