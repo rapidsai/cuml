@@ -117,8 +117,7 @@ class TSNE_runner {
                         singular_vals.data_handle(),
                         mu.data_handle(),
                         noise_vars.data_handle(),
-                        prms,
-                        false);
+                        prms);
 
         auto mean_result       = raft::make_device_vector<float, int>(handle, dim);
         auto stddev_result     = raft::make_device_vector<float, int>(handle, dim);

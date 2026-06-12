@@ -14,7 +14,7 @@ using _DataT      = float;
 using _LabelT     = float;
 using _IdxT       = int;
 using _ObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT>;
-using _BinT       = AggregateBin;
+using _BinT       = RegressionBin;
 using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
