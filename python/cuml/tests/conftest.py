@@ -12,8 +12,8 @@ import cudf.pandas
 import cupy as cp
 import hypothesis
 import numpy as np
-import pynvml
 import pytest
+from cuda.core import system
 from sklearn import datasets
 
 from cuml.testing.datasets import make_text_classification_dataset
@@ -277,7 +277,7 @@ def pytest_pyfunc_call(pyfuncitem):
         pytest.skip("Test requires cudf.pandas accelerator")
 
 
-def _get_pynvml_device_handle(device_id=0):
+def _get_nvml_device_handle(device_id=0):
     """Get GPU handle from device index or UUID.
 
     Parameters
@@ -289,36 +289,32 @@ def _get_pynvml_device_handle(device_id=0):
     ------
     ValueError
         If acquiring the device handle for the device specified failed.
-    pynvml.NVMLError
+    cuda.core.system.NvmlError
         If any NVML error occurred while initializing.
 
     Returns
     -------
-    A pynvml handle to the device.
+    A cuda.core.system.Device.
 
     Examples
     --------
-    >>> _get_pynvml_device_handle(device_id=0)
+    >>> _get_nvml_device_handle(device_id=0)
 
-    >>> _get_pynvml_device_handle(device_id="GPU-9fb42d6f-7d6b-368f-f79c-3c3e784c93f6")
+    >>> _get_nvml_device_handle(device_id="GPU-9fb42d6f-7d6b-368f-f79c-3c3e784c93f6")
     """
-    pynvml.nvmlInit()
-
     try:
         if device_id and not str(device_id).isnumeric():
             # This means device_id is UUID.
             # This works for both MIG and non-MIG device UUIDs.
-            handle = pynvml.nvmlDeviceGetHandleByUUID(str.encode(device_id))
-            if pynvml.nvmlDeviceIsMigDeviceHandle(handle):
+            device = system.Device(uuid=device_id)
+            if device.mig.is_mig_device:
                 # Additionally get parent device handle
                 # if the device itself is a MIG instance
-                handle = pynvml.nvmlDeviceGetDeviceHandleFromMigDeviceHandle(
-                    handle
-                )
+                device = device.mig.parent
         else:
-            handle = pynvml.nvmlDeviceGetHandleByIndex(device_id)
-        return handle
-    except pynvml.NVMLError:
+            device = system.Device(index=device_id)
+        return device
+    except system.NvmlError:
         raise ValueError(f"Invalid device index or UUID: {device_id}")
 
 
@@ -336,12 +332,12 @@ def _get_gpu_memory(device_index=0):
     have a dedicated memory resource, as is usually the case for system on a chip (SoC)
     devices.
     """
-    handle = _get_pynvml_device_handle(device_index)
+    device = _get_nvml_device_handle(device_index)
 
     try:
         # Return total memory in GB
-        return ceil(pynvml.nvmlDeviceGetMemoryInfo(handle).total / 2**30)
-    except pynvml.NVMLError_NotSupported:
+        return ceil(device.memory_info.total / 2**30)
+    except system.NotSupportedError:
         return None
 
 
