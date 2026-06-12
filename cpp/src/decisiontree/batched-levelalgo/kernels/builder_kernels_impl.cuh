@@ -176,22 +176,6 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                                 partition_row_ids);
 }
 
-template <typename ObjectiveT, typename BinT, typename DatasetT, typename LabelT, typename IdxT>
-DI void incrementHistogram(BinT* histogram,
-                           int n_bins,
-                           int bin,
-                           LabelT label,
-                           const DatasetT& dataset,
-                           IdxT row)
-{
-  if constexpr (ObjectiveT::weighted) {
-    double weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
-    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
-  } else {
-    BinT::IncrementHistogram(histogram, n_bins, bin, label);
-  }
-}
-
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 static __global__ void leafKernel(ObjectiveT objective,
                                   DatasetT dataset,
@@ -214,7 +198,7 @@ static __global__ void leafKernel(ObjectiveT objective,
   for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
     auto row   = dataset.row_ids[i];
     auto label = dataset.labels[row];
-    incrementHistogram<ObjectiveT>(histogram, 1, 0, label, dataset, row);
+    objective.IncrementHistogram(histogram, 1, 0, label, dataset, row);
   }
   __syncthreads();
   if (tid == 0) {
@@ -268,13 +252,8 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT n_bins)
   return total_aggregate;
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename ObjectiveT,
-          typename BinT>
-static __global__ void computeSplitKernel(BinT* histograms,
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
                                           IdxT max_n_bins,
                                           IdxT min_samples_split,
                                           IdxT max_leaves,
@@ -291,6 +270,7 @@ static __global__ void computeSplitKernel(BinT* histograms,
                                           const WorkloadInfo<IdxT>* workload_info,
                                           uint64_t seed)
 {
+  using BinT = typename ObjectiveT::BinT;
   // dynamic shared memory
   extern __shared__ char smem[];
 
@@ -342,7 +322,7 @@ static __global__ void computeSplitKernel(BinT* histograms,
     // `start` is lowest index such that data <= shared_quantiles[start]
     IdxT start = lower_bound(shared_quantiles, n_bins, data);
     // ++shared_histogram[start]
-    incrementHistogram<ObjectiveT>(shared_histogram, n_bins, start, label, dataset, row);
+    objective.IncrementHistogram(shared_histogram, n_bins, start, label, dataset, row);
   }
 
   // synchronizing above changes across block
@@ -395,13 +375,8 @@ static __global__ void computeSplitKernel(BinT* histograms,
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename ObjectiveT,
-          typename BinT>
-void launchComputeSplitKernel(BinT* histograms,
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT max_n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,
@@ -421,8 +396,8 @@ void launchComputeSplitKernel(BinT* histograms,
                               size_t smem_size,
                               cudaStream_t builder_stream)
 {
-  computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
+  computeSplitKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
+    <<<grid, TPB, smem_size, builder_stream>>>(histograms,
                                                        max_n_bins,
                                                        min_samples_split,
                                                        max_leaves,
@@ -461,7 +436,7 @@ template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
   size_t smem_size,
   cudaStream_t builder_stream);
 
-template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT>(
   _BinT* histograms,
   _IdxT n_bins,
   _IdxT min_samples_split,

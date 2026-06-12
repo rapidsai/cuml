@@ -25,8 +25,7 @@ using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 namespace ML {
 namespace DT {
 using _WeightedObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT, true>;
-using _WeightedBinT       = WeightedRegressionBin;
-
+using _WeightedBinT       = typename _WeightedObjectiveT::BinT;
 template void launchLeafKernel<_DatasetT, _NodeT, _WeightedObjectiveT, _DataT>(
   _WeightedObjectiveT objective,
   _DatasetT& dataset,
@@ -38,7 +37,7 @@ template void launchLeafKernel<_DatasetT, _NodeT, _WeightedObjectiveT, _DataT>(
   cudaStream_t builder_stream);
 
 template void
-launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _WeightedObjectiveT, _WeightedBinT>(
+launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _WeightedObjectiveT>(
   _WeightedBinT* histograms,
   _IdxT n_bins,
   _IdxT min_samples_split,
