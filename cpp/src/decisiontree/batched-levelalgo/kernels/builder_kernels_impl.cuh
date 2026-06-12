@@ -11,8 +11,15 @@
 #include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 
+#include <rmm/exec_policy.hpp>
+
 #include <cub/cub.cuh>
 #include <thrust/binary_search.h>
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/transform_iterator.h>
+#include <thrust/scan.h>
 
 #include <cstdio>
 
@@ -20,70 +27,6 @@ namespace ML {
 namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
-
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void nodeSplitScatterKernel(const IdxT min_samples_leaf,
-                                              const IdxT min_samples_split,
-                                              const IdxT max_leaves,
-                                              const DataT min_impurity_decrease,
-                                              const Dataset<DataT, LabelT, IdxT> dataset,
-                                              const NodeWorkItem* work_items,
-                                              const Split<DataT, IdxT>* splits,
-                                              const WorkloadInfo<IdxT>* workload_info,
-                                              IdxT* partition_row_ids,
-                                              IdxT* left_counts,
-                                              IdxT* right_counts)
-{
-  typedef cub::BlockScan<int, TPB> BlockScanT;
-  __shared__ typename BlockScanT::TempStorage left_scan;
-  __shared__ typename BlockScanT::TempStorage right_scan;
-  __shared__ IdxT left_base;
-  __shared__ IdxT right_base;
-
-  const auto workload_info_cta = workload_info[blockIdx.x];
-  const auto nid               = workload_info_cta.nodeid;
-  const auto work_item         = work_items[nid];
-  const auto split             = splits[nid];
-  if (SplitNotValid(
-        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
-    return;
-  }
-
-  const auto range_start = work_item.instances.begin;
-  const auto range_len   = work_item.instances.count;
-  const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
-  const bool valid       = range_pos < range_len;
-
-  IdxT row       = 0;
-  bool goes_left = false;
-  if (valid) {
-    row                 = dataset.row_ids[range_start + range_pos];
-    std::size_t col_idx = std::size_t(split.colid) * dataset.M + row;
-    goes_left           = dataset.data[col_idx] <= split.quesval;
-  }
-
-  const int left_flag  = valid && goes_left;
-  const int right_flag = valid && !goes_left;
-
-  int left_rank, left_total;
-  int right_rank, right_total;
-  BlockScanT(left_scan).ExclusiveSum(left_flag, left_rank, left_total);
-  BlockScanT(right_scan).ExclusiveSum(right_flag, right_rank, right_total);
-
-  if (threadIdx.x == 0) {
-    left_base  = atomicAdd(left_counts + nid, IdxT(left_total));
-    right_base = atomicAdd(right_counts + nid, IdxT(right_total));
-  }
-  __syncthreads();
-
-  // split.nLeft is the right partition offset within this node range.
-  if (left_flag) {
-    partition_row_ids[range_start + left_base + left_rank] = row;
-  }
-  if (right_flag) {
-    partition_row_ids[range_start + split.nLeft + right_base + right_rank] = row;
-  }
-}
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
@@ -126,25 +69,69 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
                            IdxT* partition_row_ids,
-                           IdxT* left_counts,
-                           IdxT* right_counts,
+                           IdxT* left_offsets,
                            cudaStream_t builder_stream)
 {
+  (void)work_items_size;
   if (n_blocks_dimx == 0) return;
-  RAFT_CUDA_TRY(cudaMemsetAsync(left_counts, 0, sizeof(IdxT) * work_items_size, builder_stream));
-  RAFT_CUDA_TRY(cudaMemsetAsync(right_counts, 0, sizeof(IdxT) * work_items_size, builder_stream));
-  nodeSplitScatterKernel<DataT, LabelT, IdxT, TPB>
-    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
-                                                min_samples_split,
-                                                max_leaves,
-                                                min_impurity_decrease,
-                                                dataset,
-                                                work_items,
-                                                splits,
-                                                workload_info,
-                                                partition_row_ids,
-                                                left_counts,
-                                                right_counts);
+
+  const auto n_slots = n_blocks_dimx * TPB;
+  auto exec_policy   = rmm::exec_policy(builder_stream);
+  auto slots_begin   = thrust::make_counting_iterator<std::size_t>(0);
+  auto slots_end     = slots_begin + n_slots;
+
+  auto node_key = [workload_info] __host__ __device__(std::size_t slot) {
+    return workload_info[slot / TPB].nodeid;
+  };
+  auto left_predicate = [=] __host__ __device__(std::size_t slot) {
+    const auto workload_info_cta = workload_info[slot / TPB];
+    const auto nid               = workload_info_cta.nodeid;
+    const auto work_item         = work_items[nid];
+    const auto split             = splits[nid];
+    if (SplitNotValid(
+          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+      return false;
+    }
+
+    const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
+    if (range_pos >= work_item.instances.count) { return false; }
+
+    const auto row     = dataset.row_ids[work_item.instances.begin + range_pos];
+    const auto col_idx = std::size_t(split.colid) * dataset.M + row;
+    return dataset.data[col_idx] <= split.quesval;
+  };
+
+  auto node_keys = thrust::make_transform_iterator(slots_begin, node_key);
+  auto left_flag = [left_predicate] __host__ __device__(std::size_t slot) {
+    return left_predicate(slot) ? IdxT(1) : IdxT(0);
+  };
+  auto left_flags = thrust::make_transform_iterator(slots_begin, left_flag);
+  thrust::exclusive_scan_by_key(
+    exec_policy, node_keys, node_keys + n_slots, left_flags, left_offsets, IdxT(0));
+
+  thrust::for_each(exec_policy, slots_begin, slots_end, [=] __device__(std::size_t slot) {
+    const auto workload_info_cta = workload_info[slot / TPB];
+    const auto nid               = workload_info_cta.nodeid;
+    const auto work_item         = work_items[nid];
+    const auto split             = splits[nid];
+    if (SplitNotValid(
+          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+      return;
+    }
+
+    const auto range_start = work_item.instances.begin;
+    const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
+    if (range_pos >= work_item.instances.count) { return; }
+
+    const auto row       = dataset.row_ids[range_start + range_pos];
+    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
+    const bool goes_left = dataset.data[col_idx] <= split.quesval;
+    const auto left_rank = left_offsets[slot];
+    const auto rank      = goes_left ? left_rank : IdxT(range_pos) - left_rank;
+    const auto out_idx   = range_start + (goes_left ? rank : split.nLeft + rank);
+    partition_row_ids[out_idx] = row;
+  });
+
   nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
     <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
                                                 min_samples_split,
@@ -416,8 +403,7 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const WorkloadInfo<_IdxT>* workload_info,
   size_t n_blocks_dimx,
   _IdxT* partition_row_ids,
-  _IdxT* left_counts,
-  _IdxT* right_counts,
+  _IdxT* left_offsets,
   cudaStream_t builder_stream);
 
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(

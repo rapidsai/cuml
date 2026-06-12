@@ -187,9 +187,8 @@ struct Builder {
   IdxT* column_samples;
   /** temporary row IDs for row-wise out-of-place partitioning */
   IdxT* partition_row_ids;
-  /** per-batch child partition counters */
-  IdxT* partition_left_counts;
-  IdxT* partition_right_counts;
+  /** per-logical-row left partition ranks from a segmented scan */
+  IdxT* partition_left_offsets;
   /** rmm device workspace buffer */
   rmm::device_uvector<char> d_buff;
   /** pinned host buffer to store the trained nodes */
@@ -285,8 +284,7 @@ struct Builder {
       calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
     d_wsize +=
       calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);      // left counts
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);      // right counts
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_blocks_dimx * TPB_DEFAULT);  // left ranks
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -330,10 +328,8 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);
     partition_row_ids = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
-    partition_left_counts = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch);
-    partition_right_counts = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch);
+    partition_left_offsets = reinterpret_cast<IdxT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_blocks_dimx * TPB_DEFAULT);
 
     RAFT_CUDA_TRY(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, builder_stream));
@@ -470,8 +466,7 @@ struct Builder {
                                                             workload_info,
                                                             n_blocks_dimx,
                                                             partition_row_ids,
-                                                            partition_left_counts,
-                                                            partition_right_counts,
+                                                            partition_left_offsets,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
