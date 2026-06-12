@@ -185,14 +185,11 @@ struct Builder {
   /** Memory alignment value */
   const size_t align_value = 512;
   IdxT* column_samples;
-  /** staging row IDs for out-of-place partitioning */
-  IdxT* tmp_row_ids;
+  /** temporary row IDs for row-wise out-of-place partitioning */
+  IdxT* partition_row_ids;
   /** per-batch child partition counters */
   IdxT* partition_left_counts;
   IdxT* partition_right_counts;
-  /** staging positions for out-of-place partition swaps */
-  IdxT* partition_left_misfit_positions;
-  IdxT* partition_right_misfit_positions;
   /** rmm device workspace buffer */
   rmm::device_uvector<char> d_buff;
   /** pinned host buffer to store the trained nodes */
@@ -286,13 +283,10 @@ struct Builder {
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     d_wsize +=
       calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // tmp_row_ids
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);               // left counts
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);               // right counts
     d_wsize +=
-      calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // left misfit positions
-    d_wsize +=
-      calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // right misfit positions
+      calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);      // left counts
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch);      // right counts
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -334,16 +328,12 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     column_samples = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);
-    tmp_row_ids = reinterpret_cast<IdxT*>(d_wspace);
+    partition_row_ids = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
     partition_left_counts = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch);
     partition_right_counts = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch);
-    partition_left_misfit_positions = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
-    partition_right_misfit_positions = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
 
     RAFT_CUDA_TRY(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, builder_stream));
@@ -479,11 +469,9 @@ struct Builder {
                                                             splits,
                                                             workload_info,
                                                             n_blocks_dimx,
-                                                            tmp_row_ids,
+                                                            partition_row_ids,
                                                             partition_left_counts,
                                                             partition_right_counts,
-                                                            partition_left_misfit_positions,
-                                                            partition_right_misfit_positions,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();

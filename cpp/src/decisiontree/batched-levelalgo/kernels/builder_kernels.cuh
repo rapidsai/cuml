@@ -113,11 +113,9 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
-                           IdxT* tmp_row_ids,
+                           IdxT* partition_row_ids,
                            IdxT* left_counts,
                            IdxT* right_counts,
-                           IdxT* left_misfit_positions,
-                           IdxT* right_misfit_positions,
                            cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
