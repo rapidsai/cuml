@@ -467,7 +467,6 @@ def main():
                     print(f'  "{test_id}"')
                     count += 1
 
-    # Check threshold
     if pass_rate < args.fail_below:
         print(
             f"\nError: Pass rate {pass_rate:.2f}% is below threshold "

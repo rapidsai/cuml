@@ -111,7 +111,9 @@ class ExampleItem(pytest.Item):
                 f"Example {self.path.name} timed out after {timeout}s",
                 ExampleTimedOut,
             )
-            pytest.xfail(reason=f"Timeout: example exceeded {timeout}s")
+            raise ExampleFailed(
+                f"Example {self.path.name} timed out after {timeout}s"
+            ) from None
         if result.returncode != 0:
             stderr = result.stderr
             pattern = _network_error_pattern(result.stderr + result.stdout)
@@ -121,7 +123,6 @@ class ExampleItem(pytest.Item):
                     f" ({pattern})",
                     ExampleNetworkError,
                 )
-                pytest.xfail(reason=f"Network error: {pattern}")
             if len(stderr) > 4000:
                 stderr = "...\n" + stderr[-4000:]
             raise ExampleFailed(stderr)
@@ -145,9 +146,12 @@ def pytest_addoption(parser):
     parser.addoption(
         "--example-timeout",
         action="store",
-        default=300,
+        default=604800,
         type=int,
-        help="Timeout per example script in seconds (default: 300)",
+        help=(
+            "Timeout per example script in seconds "
+            "(default: 604800; debug-only)"
+        ),
     )
 
 
