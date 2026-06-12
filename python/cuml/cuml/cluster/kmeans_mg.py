@@ -16,3 +16,18 @@ class KMeansMG(KMeans):
     def __init__(self, *, handle, **kwargs):
         self.handle = handle
         super().__init__(**kwargs)
+
+    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True):
+        if isinstance(X, (list, tuple)):
+            return self._fit_mg_parts(
+                X,
+                sample_weight_parts=sample_weight,
+                convert_dtype=convert_dtype,
+            )
+
+        return super().fit(
+            X,
+            y=y,
+            sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
+        )

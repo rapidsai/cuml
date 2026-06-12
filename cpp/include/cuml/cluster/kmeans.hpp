@@ -22,9 +22,13 @@ namespace kmeans {
  * @param[in]     handle        The handle to the cuML library context that
  manages the CUDA resources.
  * @param[in]     params        Parameters for KMeans model.
- * @param[in]     X             Training instances to cluster. It must be noted
- that the data must be in row-major format and stored in device accessible
- * location.
+ * @param[in]     X             Training instances to cluster, in row-major
+ * format. May live on the device or on the host: the implementation queries
+ * the pointer type and dispatches to the device-data or host-data cuVS
+ * overload accordingly. When `X` is host-resident, cuVS streams it to the
+ * device in chunks of `params.streaming_batch_size` samples (or all at once
+ * when `streaming_batch_size == 0`). `sample_weight` (when not null) must
+ * live in the same memory space as `X`.
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
@@ -32,7 +36,8 @@ namespace kmeans {
  * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
- kmeans algorithm is stored at the address pointed by 'centroids'.
+ kmeans algorithm is stored at the address pointed by 'centroids'. `centroids`
+ * must always live on the device, regardless of where `X` resides.
  * @param[out]    inertia       Sum of squared distances of samples to their
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
@@ -73,6 +78,45 @@ void fit(const raft::handle_t& handle,
          int64_t n_samples,
          int64_t n_features,
          const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
+
+/**
+ * @brief Compute multi-GPU k-means clustering from multiple local device partitions.
+ *
+ * Each rank passes its local row-major partitions directly. The partitions are
+ * processed by cuVS without first concatenating them into one device allocation.
+ *
+ * @param[in]     handle              The handle to the cuML library context.
+ * @param[in]     params              Parameters for KMeans model.
+ * @param[in]     X_parts             Device pointers for local row-major partitions.
+ * @param[in]     n_samples_parts     Number of rows for each local partition.
+ * @param[in]     n_parts             Number of local partitions.
+ * @param[in]     n_features          Number of columns in every local partition.
+ * @param[in]     sample_weight_parts Optional device pointers for local partition weights.
+ * @param[inout]  centroids           Input/output cluster centroids.
+ * @param[out]    inertia             Sum of squared distances to closest centroids.
+ * @param[out]    n_iter              Number of iterations run.
+ */
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float** X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const float** sample_weight_parts,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double** X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const double** sample_weight_parts,
          double* centroids,
          double& inertia,
          int64_t& n_iter);

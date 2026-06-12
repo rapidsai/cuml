@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
+import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -25,6 +26,7 @@ from cuml.internals.validation import (
 
 from libc.limits cimport INT_MAX
 from libc.stdint cimport int64_t, uintptr_t
+from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
@@ -45,6 +47,21 @@ cdef inline bool _kmeans_indices_i32(int64_t n_rows, int64_t n_cols) noexcept no
     return n_rows <= ((int_max - 1) // n_cols)
 
 
+cdef inline uintptr_t _array_data_ptr(arr):
+    """Return the data pointer for either a cupy device or numpy host array.
+
+    cupy ndarrays expose `.data.ptr` (a `MemoryPointer` wrapping a device
+    pointer); numpy ndarrays do not, but expose `.ctypes.data` (the host
+    pointer). The C++ `fit` overload then queries `cudaPointerGetAttributes`
+    on the pointer and dispatches to the device-data or host-data cuVS
+    overload accordingly.
+    """
+    try:
+        return arr.data.ptr
+    except AttributeError:
+        return arr.ctypes.data
+
+
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     """Initialize a passed KMeansParams instance from a KMeans instance."""
     cdef bool multi_gpu = kmeans._multi_gpu
@@ -55,6 +72,7 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.verbosity = kmeans._verbose_level
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
+    params.streaming_batch_size = int(kmeans.streaming_batch_size)
     params.oversampling_factor = kmeans.oversampling_factor
 
     # Ensure random_state is set when running on multi-gpu
@@ -100,16 +118,29 @@ cdef _kmeans_fit(
     sample_weight,
     centers,
 ):
-    """Fit the kmeans centers and return `n_iter`"""
+    """Fit the kmeans centers and return `n_iter`.
+
+    `X` and `sample_weight` may live on either the device (cupy) or the host
+    (numpy); `centers` always lives on the device. The C++ `fit` overload
+    inspects the pointer with `cudaPointerGetAttributes` and dispatches to the
+    matching cuVS device-data or host-data fit overload. On the host path the
+    indices are upcast to int64 inside C++ since cuVS only ships an int64-
+    indexed host overload.
+    """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
+    # Indices fitting in int32 is a device-only optimization (the host overload
+    # is int64-only on the cuVS side anyway, and C++ upcasts as needed).
+    cdef bool host_data   = not hasattr(X, "__cuda_array_interface__")
+    cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
-    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t X_ptr = _array_data_ptr(X)
     cdef uintptr_t centers_ptr = centers.data.ptr
-    cdef uintptr_t sample_weight_ptr = sample_weight.data.ptr
+    cdef uintptr_t sample_weight_ptr = 0
+    if sample_weight is not None:
+        sample_weight_ptr = _array_data_ptr(sample_weight)
 
     cdef int n_iter_32 = 0
     cdef int64_t n_iter_64 = 0
@@ -168,6 +199,113 @@ cdef _kmeans_fit(
                     n_iter_64,
                 )
     return n_iter_32 if indices_i32 else n_iter_64
+
+
+cdef _kmeans_fit_parts(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    X_parts,
+    sample_weight_parts,
+    centers,
+):
+    """Fit kmeans centers from multiple local device partitions."""
+    cdef int64_t n_parts = len(X_parts)
+    if n_parts == 0:
+        raise ValueError("Expected at least one non-empty KMeansMG partition.")
+
+    cdef int64_t n_cols = X_parts[0].shape[1]
+    cdef bool values_f32 = X_parts[0].dtype == cp.float32
+    cdef bool has_weights = sample_weight_parts is not None
+
+    cdef const float **X32_parts = NULL
+    cdef const double **X64_parts = NULL
+    cdef const float **W32_parts = NULL
+    cdef const double **W64_parts = NULL
+    cdef int64_t *n_rows_parts = NULL
+
+    cdef uintptr_t centers_ptr = centers.data.ptr
+    cdef int64_t n_iter_64 = 0
+    cdef float inertia_32 = 0
+    cdef double inertia_64 = 0
+    cdef int64_t i
+
+    try:
+        n_rows_parts = <int64_t*>malloc(n_parts * sizeof(int64_t))
+        if n_rows_parts == NULL:
+            raise MemoryError()
+
+        if values_f32:
+            X32_parts = <const float **>malloc(n_parts * sizeof(uintptr_t))
+            if X32_parts == NULL:
+                raise MemoryError()
+            if has_weights:
+                W32_parts = <const float **>malloc(n_parts * sizeof(uintptr_t))
+                if W32_parts == NULL:
+                    raise MemoryError()
+        else:
+            X64_parts = <const double **>malloc(n_parts * sizeof(uintptr_t))
+            if X64_parts == NULL:
+                raise MemoryError()
+            if has_weights:
+                W64_parts = <const double **>malloc(n_parts * sizeof(uintptr_t))
+                if W64_parts == NULL:
+                    raise MemoryError()
+
+        for i in range(n_parts):
+            n_rows_parts[i] = <int64_t>X_parts[i].shape[0]
+            if values_f32:
+                X32_parts[i] = <const float*><uintptr_t>X_parts[i].data.ptr
+                if has_weights:
+                    W32_parts[i] = (
+                        <const float*><uintptr_t>sample_weight_parts[i].data.ptr
+                    )
+            else:
+                X64_parts[i] = <const double*><uintptr_t>X_parts[i].data.ptr
+                if has_weights:
+                    W64_parts[i] = (
+                        <const double*><uintptr_t>sample_weight_parts[i].data.ptr
+                    )
+
+        with nogil:
+            if values_f32:
+                lib.fit(
+                    handle,
+                    params,
+                    X32_parts,
+                    n_rows_parts,
+                    n_parts,
+                    n_cols,
+                    W32_parts,
+                    <float*>centers_ptr,
+                    inertia_32,
+                    n_iter_64,
+                )
+            else:
+                lib.fit(
+                    handle,
+                    params,
+                    X64_parts,
+                    n_rows_parts,
+                    n_parts,
+                    n_cols,
+                    W64_parts,
+                    <double*>centers_ptr,
+                    inertia_64,
+                    n_iter_64,
+                )
+    finally:
+        if X32_parts != NULL:
+            free(X32_parts)
+        if X64_parts != NULL:
+            free(X64_parts)
+        if W32_parts != NULL:
+            free(W32_parts)
+        if W64_parts != NULL:
+            free(W64_parts)
+        if n_rows_parts != NULL:
+            free(n_rows_parts)
+
+    return n_iter_64
 
 
 cdef _kmeans_predict(
@@ -265,7 +403,74 @@ cdef _kmeans_predict(
     return labels, inertia
 
 
-class KMeans(InteropMixin,
+cdef _kmeans_predict_host_chunked(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    X,
+    sample_weight,
+    centers,
+    int64_t batch_size,
+):
+    """Predict labels & total inertia for host-resident `X` in chunks.
+
+    Streams chunks of `batch_size` host rows into a single reusable device
+    buffer, runs the existing device-data predict on each chunk, and stitches
+    the per-chunk labels into a single host (`numpy.ndarray`) result.
+
+    Total inertia is decomposable (sum over samples of squared distance to the
+    nearest centroid), so summing per-chunk inertias gives the correct total.
+
+    Returns (`numpy.ndarray` of labels, `float` total inertia).
+    """
+    cdef int64_t n_rows = X.shape[0]
+    cdef int64_t n_cols = X.shape[1]
+    cdef int64_t cap = batch_size if batch_size > 0 else n_rows
+    if cap > n_rows:
+        cap = n_rows
+
+    # Reusable per-batch device buffers. Allocated once at the upper bound and
+    # sliced down for the final (possibly short) batch.
+    X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
+    sw_buf = cp.empty(shape=cap, dtype=X.dtype)
+
+    # Pick the label dtype based on the *full* dataset so the host-path
+    # contract matches what the device path would have returned for the same
+    # shape. Per-batch predict calls themselves are always safe in i32.
+    labels_dtype = (
+        np.int32
+        if _kmeans_indices_i32(n_rows, n_cols)
+        and _kmeans_indices_i32(centers.shape[0], n_cols)
+        else np.int64
+    )
+    labels_host = np.empty(n_rows, dtype=labels_dtype)
+
+    cdef int64_t start = 0
+    cdef int64_t end = 0
+    cdef int64_t n = 0
+    total_inertia = 0.0
+    while start < n_rows:
+        end = start + cap
+        if end > n_rows:
+            end = n_rows
+        n = end - start
+
+        # Host -> device copy of this batch.
+        X_buf[:n].set(X[start:end])
+        sw_buf[:n].set(sample_weight[start:end])
+
+        batch_labels, batch_inertia = _kmeans_predict(
+            handle, params, X_buf[:n], sw_buf[:n], centers
+        )
+        labels_host[start:end] = cp.asnumpy(batch_labels)
+        total_inertia += float(batch_inertia)
+
+        start = end
+
+    return labels_host, total_inertia
+
+
+class KMeans(Base,
+             InteropMixin,
              ClusterMixin,
              CMajorInputTagMixin,
              Base):
@@ -374,6 +579,13 @@ class KMeans(InteropMixin,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
+    streaming_batch_size : int (default = 0)
+        Number of samples to stream from host to device per GPU batch when
+        fitting with host-resident inputs. When set to 0 (the default), the
+        underlying cuVS implementation processes all samples at once. This
+        parameter is forwarded to cuVS but is ignored by the device-data fit
+        path that today's single-GPU :class:`KMeans` always uses; it is kept
+        as a passthrough for future host-data and multi-GPU code paths.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -423,6 +635,7 @@ class KMeans(InteropMixin,
             "n_init",
             "oversampling_factor",
             "max_samples_per_batch",
+            "streaming_batch_size",
             "init",
             "max_iter",
             "n_clusters",
@@ -511,6 +724,7 @@ class KMeans(InteropMixin,
         n_init="auto",
         oversampling_factor=2.0,
         max_samples_per_batch=1<<15,
+        streaming_batch_size=0,
         output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
@@ -522,6 +736,7 @@ class KMeans(InteropMixin,
         self.n_init = n_init
         self.oversampling_factor = oversampling_factor
         self.max_samples_per_batch = max_samples_per_batch
+        self.streaming_batch_size = streaming_batch_size
 
     @property
     def _n_features_out(self):
@@ -536,7 +751,19 @@ class KMeans(InteropMixin,
         Compute k-means clustering with X.
 
         """
-        # Process input arrays
+        # Opt in to cuVS's host-data fit (which streams `X` to the device in
+        # chunks of `streaming_batch_size`) when the user has explicitly set a
+        # positive `streaming_batch_size`, the input is host-resident, and we
+        # are running on a single GPU. The host path is only meaningful when
+        # the dataset is too large to fit on the GPU all at once; otherwise the
+        # device path is faster and avoids redundant H2D copies.
+        use_host_path = (
+            not self._multi_gpu
+            and int(self.streaming_batch_size) > 0
+            and not hasattr(X, "__cuda_array_interface__")
+        )
+        mem_type = "host" if use_host_path else "device"
+
         X, sample_weight = check_inputs(
             self,
             X,
@@ -544,12 +771,16 @@ class KMeans(InteropMixin,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
+            mem_type=mem_type,
             reset=True,
         )
         n_rows, n_cols = X.shape
 
         if sample_weight is None:
-            sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
+            if use_host_path:
+                sample_weight = np.ones(shape=n_rows, dtype=X.dtype)
+            else:
+                sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
 
         if n_rows < self.n_clusters:
             raise ValueError(
@@ -587,8 +818,145 @@ class KMeans(InteropMixin,
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
-        labels, inertia = _kmeans_predict(handle_[0], params, X, sample_weight, centers)
+        if use_host_path:
+            # cuVS doesn't ship a host-data `predict` overload, so we stage
+            # host X back to the device one streaming batch at a time and run
+            # the existing device-data predict on each chunk. Inertia is
+            # decomposable across chunks, so summing the per-batch values
+            # reproduces the single-shot result.
+            labels, inertia = _kmeans_predict_host_chunked(
+                handle_[0], params, X, sample_weight, centers,
+                int(self.streaming_batch_size),
+            )
+        else:
+            labels, inertia = _kmeans_predict(
+                handle_[0], params, X, sample_weight, centers,
+            )
         handle.sync()
+
+        # Store fitted attributes and return
+        self.cluster_centers_ = CumlArray(data=centers)
+        self.labels_ = CumlArray(data=labels)
+        self.inertia_ = inertia
+        self.n_iter_ = n_iter
+
+        return self
+
+    @run_in_internal_context
+    def _fit_mg_parts(
+        self,
+        X_parts,
+        sample_weight_parts=None,
+        *,
+        convert_dtype=True,
+    ) -> "KMeans":
+        """Fit KMeansMG from multiple local partitions without concatenating X."""
+        if len(X_parts) == 0:
+            raise ValueError("Expected at least one KMeansMG partition.")
+
+        if sample_weight_parts is not None:
+            if len(sample_weight_parts) != len(X_parts):
+                raise ValueError(
+                    "Expected sample_weight partitions to match X partitions. "
+                    f"Got {len(sample_weight_parts)} weights for "
+                    f"{len(X_parts)} partitions."
+                )
+
+        self._set_output_type(X_parts[0])
+
+        X_arys = []
+        sample_weight_arys = [] if sample_weight_parts is not None else None
+        fit_dtype = None
+
+        for i in range(len(X_parts)):
+            check_dtype = ("float32", "float64") if i == 0 else fit_dtype
+            if sample_weight_parts is None:
+                X_m = check_inputs(
+                    self,
+                    X_parts[i],
+                    dtype=check_dtype,
+                    convert_dtype=convert_dtype,
+                    order="C",
+                    ensure_min_samples=0,
+                    reset=(i == 0),
+                )
+            else:
+                X_m, sample_weight_m = check_inputs(
+                    self,
+                    X_parts[i],
+                    sample_weight=sample_weight_parts[i],
+                    dtype=check_dtype,
+                    convert_dtype=convert_dtype,
+                    order="C",
+                    ensure_min_samples=0,
+                    reset=(i == 0),
+                )
+                sample_weight_arys.append(sample_weight_m)
+
+            if i == 0:
+                fit_dtype = X_m.dtype
+
+            X_arys.append(X_m)
+
+        n_rows = sum(X_m.shape[0] for X_m in X_arys)
+        if n_rows == 0:
+            raise ValueError("KMeansMG received no samples on this rank.")
+
+        n_cols = X_arys[0].shape[1]
+        non_empty_indices = [
+            i for i, X_m in enumerate(X_arys) if X_m.shape[0] > 0
+        ]
+        fit_X_arys = [X_arys[i] for i in non_empty_indices]
+        if sample_weight_arys is None:
+            fit_sample_weight_arys = None
+        else:
+            fit_sample_weight_arys = [
+                sample_weight_arys[i] for i in non_empty_indices
+            ]
+
+        # Allocate output cluster_centers_
+        if isinstance(self.init, str):
+            centers = cp.zeros(
+                shape=(self.n_clusters, n_cols), dtype=fit_dtype, order="C",
+            )
+        else:
+            # Initial array provided, coerce to device array and validate
+            centers = check_array(
+                self.init,
+                order="C",
+                dtype=fit_dtype,
+                convert_dtype=convert_dtype,
+            ).copy()
+            if centers.shape[0] != self.n_clusters:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of clusters {self.n_clusters}."
+                )
+            if centers.shape[1] != n_cols:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of features of the data {n_cols}."
+                )
+
+        cdef handle_t* handle_ = <handle_t *><size_t>self.handle.getHandle()
+        cdef lib.KMeansParams params
+        _kmeans_init_params(self, params)
+
+        n_iter = _kmeans_fit_parts(
+            handle_[0],
+            params,
+            fit_X_arys,
+            fit_sample_weight_arys,
+            centers,
+        )
+        labels, inertia = _kmeans_predict_parts(
+            handle_[0],
+            params,
+            X_arys,
+            sample_weight_arys,
+            centers,
+        )
+        self.handle.sync()
 
         # Store fitted attributes and return
         self.cluster_centers_ = CumlArray(data=centers)
