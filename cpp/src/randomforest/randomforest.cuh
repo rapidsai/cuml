@@ -109,6 +109,8 @@ class RandomForest {
   * @param[in] forest: CPU point to RandomForestMetaData struct.
   * @param[out] bootstrap_masks: optional device pointer to store bootstrap masks
   *   (n_trees * n_rows), only populated if a non-null pointer is provided
+  * @param[in] sample_weight: optional device pointer to per-row sample weights. Counts remain
+  *   sample counts; weights are used only for impurity/objective math.
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -117,10 +119,13 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks = nullptr)
+           bool* bootstrap_masks = nullptr,
+           const T* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
+    ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
+           "sample_weight must be a GPU pointer");
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows           = 0;
     if (this->rf_params.bootstrap) {
@@ -186,7 +191,8 @@ class RandomForest {
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
                                                quantiles,
-                                               i);
+                                               i,
+                                               sample_weight);
 
       // Store bootstrap mask if device buffer is provided
       if (bootstrap_masks != nullptr) {
