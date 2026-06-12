@@ -16,8 +16,8 @@
 #include <cub/cub.cuh>
 #include <thrust/binary_search.h>
 #include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/tabulate_output_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 
@@ -27,6 +27,41 @@ namespace ML {
 namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+struct NodeSplitPartitionWriter {
+  IdxT min_samples_leaf;
+  DataT min_impurity_decrease;
+  Dataset<DataT, LabelT, IdxT> dataset;
+  const NodeWorkItem* work_items;
+  const Split<DataT, IdxT>* splits;
+  const WorkloadInfo<IdxT>* workload_info;
+  IdxT* partition_row_ids;
+
+  __host__ __device__ void operator()(std::ptrdiff_t index, IdxT left_rank) const
+  {
+    const auto slot              = std::size_t(index);
+    const auto workload_info_cta = workload_info[slot / TPB];
+    const auto nid               = workload_info_cta.nodeid;
+    const auto work_item         = work_items[nid];
+    const auto split             = splits[nid];
+    if (SplitNotValid(
+          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+      return;
+    }
+
+    const auto range_start = work_item.instances.begin;
+    const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
+    if (range_pos >= work_item.instances.count) { return; }
+
+    const auto row       = dataset.row_ids[range_start + range_pos];
+    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
+    const bool goes_left = dataset.data[col_idx] <= split.quesval;
+    const auto rank      = goes_left ? left_rank : IdxT(range_pos) - left_rank;
+    const auto out_idx   = range_start + (goes_left ? rank : split.nLeft + rank);
+    partition_row_ids[out_idx] = row;
+  }
+};
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
@@ -69,7 +104,6 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
                            IdxT* partition_row_ids,
-                           IdxT* left_offsets,
                            cudaStream_t builder_stream)
 {
   (void)work_items_size;
@@ -78,7 +112,6 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
   const auto n_slots = n_blocks_dimx * TPB;
   auto exec_policy   = rmm::exec_policy(builder_stream);
   auto slots_begin   = thrust::make_counting_iterator<std::size_t>(0);
-  auto slots_end     = slots_begin + n_slots;
 
   auto node_key = [workload_info] __host__ __device__(std::size_t slot) {
     return workload_info[slot / TPB].nodeid;
@@ -106,31 +139,16 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     return left_predicate(slot) ? IdxT(1) : IdxT(0);
   };
   auto left_flags = thrust::make_transform_iterator(slots_begin, left_flag);
+  auto partition_writer = thrust::make_tabulate_output_iterator(
+    NodeSplitPartitionWriter<DataT, LabelT, IdxT, TPB>{min_samples_leaf,
+                                                       min_impurity_decrease,
+                                                       dataset,
+                                                       work_items,
+                                                       splits,
+                                                       workload_info,
+                                                       partition_row_ids});
   thrust::exclusive_scan_by_key(
-    exec_policy, node_keys, node_keys + n_slots, left_flags, left_offsets, IdxT(0));
-
-  thrust::for_each(exec_policy, slots_begin, slots_end, [=] __device__(std::size_t slot) {
-    const auto workload_info_cta = workload_info[slot / TPB];
-    const auto nid               = workload_info_cta.nodeid;
-    const auto work_item         = work_items[nid];
-    const auto split             = splits[nid];
-    if (SplitNotValid(
-          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
-      return;
-    }
-
-    const auto range_start = work_item.instances.begin;
-    const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
-    if (range_pos >= work_item.instances.count) { return; }
-
-    const auto row       = dataset.row_ids[range_start + range_pos];
-    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
-    const bool goes_left = dataset.data[col_idx] <= split.quesval;
-    const auto left_rank = left_offsets[slot];
-    const auto rank      = goes_left ? left_rank : IdxT(range_pos) - left_rank;
-    const auto out_idx   = range_start + (goes_left ? rank : split.nLeft + rank);
-    partition_row_ids[out_idx] = row;
-  });
+    exec_policy, node_keys, node_keys + n_slots, left_flags, partition_writer, IdxT(0));
 
   nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
     <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
@@ -403,7 +421,6 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const WorkloadInfo<_IdxT>* workload_info,
   size_t n_blocks_dimx,
   _IdxT* partition_row_ids,
-  _IdxT* left_offsets,
   cudaStream_t builder_stream);
 
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
