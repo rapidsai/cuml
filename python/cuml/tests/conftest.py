@@ -8,12 +8,12 @@ import tempfile
 from datetime import timedelta
 from math import ceil
 
-from cuda.core import system
 import cudf.pandas
 import cupy as cp
 import hypothesis
 import numpy as np
 import pytest
+from cuda.core import system
 from sklearn import datasets
 
 from cuml.testing.datasets import make_text_classification_dataset
