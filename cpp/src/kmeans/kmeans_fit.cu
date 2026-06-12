@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "../ml_cuda_utils.h"
+
 #include <cuml/cluster/kmeans.hpp>
 #include <cuml/cluster/kmeans_params.hpp>
 
@@ -10,8 +12,6 @@
 #include <raft/core/host_mdspan.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
-
-#include "../ml_cuda_utils.h"
 
 #include <optional>
 

@@ -119,12 +119,8 @@ cdef _kmeans_fit(
 ):
     """Fit the kmeans centers and return `n_iter`.
 
-    `X` and `sample_weight` may live on either the device (cupy) or the host
-    (numpy); `centers` always lives on the device. The C++ `fit` overload
-    inspects the pointer with `cudaPointerGetAttributes` and dispatches to the
-    matching cuVS device-data or host-data fit overload. On the host path the
-    indices are upcast to int64 inside C++ since cuVS only ships an int64-
-    indexed host overload.
+    `X` and `sample_weight` may live on either the device or the host
+    (numpy); `centers` always lives on the device.
     """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
