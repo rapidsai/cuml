@@ -28,6 +28,9 @@ namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
 
+// Output side of the segmented partition scan. The scan supplies the
+// exclusive left rank for each logical row slot in its node segment; this
+// writer uses that rank to place the row into the temporary partition buffer.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 struct NodeSplitPartitionWriter {
   IdxT min_samples_leaf;
@@ -57,16 +60,17 @@ struct NodeSplitPartitionWriter {
     const auto row       = dataset.row_ids[range_start + range_pos];
     const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
     const bool goes_left = dataset.data[col_idx] <= split.quesval;
+    // Previous right rows are the previous rows in this node minus previous left rows.
     const auto rank      = goes_left ? left_rank : IdxT(range_pos) - left_rank;
     const auto out_idx   = range_start + (goes_left ? rank : split.nLeft + rank);
     partition_row_ids[out_idx] = row;
   }
 };
 
+// Copy back only ranges for nodes that actually split. Leaf/invalid nodes keep
+// their existing row-id order because the scan writer skips them too.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
-                                               const IdxT min_samples_split,
-                                               const IdxT max_leaves,
                                                const DataT min_impurity_decrease,
                                                const Dataset<DataT, LabelT, IdxT> dataset,
                                                const NodeWorkItem* work_items,
@@ -94,21 +98,19 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const IdxT min_samples_split,
-                           const IdxT max_leaves,
                            const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           size_t work_items_size,
                            const Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
                            IdxT* partition_row_ids,
                            cudaStream_t builder_stream)
 {
-  (void)work_items_size;
   if (n_blocks_dimx == 0) return;
 
+  // Each slot corresponds to one thread lane in the tiled workload_info layout.
+  // workload_info is grouped by node, so scan-by-key resets ranks at node boundaries.
   const auto n_slots = n_blocks_dimx * TPB;
   auto exec_policy   = rmm::exec_policy(builder_stream);
   auto slots_begin   = thrust::make_counting_iterator<std::size_t>(0);
@@ -134,6 +136,9 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     return dataset.data[col_idx] <= split.quesval;
   };
 
+  // The scan input is a stream of per-slot left flags keyed by node id.
+  // The scan output is a tabulated writer, so partition_row_ids is populated
+  // during the scan rather than by a second scatter kernel.
   auto node_keys = thrust::make_transform_iterator(slots_begin, node_key);
   auto left_flag = [left_predicate] __host__ __device__(std::size_t slot) {
     return left_predicate(slot) ? IdxT(1) : IdxT(0);
@@ -150,10 +155,9 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
   thrust::exclusive_scan_by_key(
     exec_policy, node_keys, node_keys + n_slots, left_flags, partition_writer, IdxT(0));
 
+  // The original row_ids buffer remains the source during the scan, so copy back after it finishes.
   nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
     <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
-                                                min_samples_split,
-                                                max_leaves,
                                                 min_impurity_decrease,
                                                 dataset,
                                                 work_items,
@@ -411,12 +415,9 @@ void launchComputeSplitKernel(BinT* histograms,
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const _IdxT min_samples_leaf,
-  const _IdxT min_samples_split,
-  const _IdxT max_leaves,
   const _DataT min_impurity_decrease,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,
   const NodeWorkItem* work_items,
-  size_t work_items_size,
   const Split<_DataT, _IdxT>* splits,
   const WorkloadInfo<_IdxT>* workload_info,
   size_t n_blocks_dimx,
