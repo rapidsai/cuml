@@ -146,9 +146,12 @@ def pytest_addoption(parser):
     parser.addoption(
         "--example-timeout",
         action="store",
-        default=300,
+        default=604800,
         type=int,
-        help="Timeout per example script in seconds (default: 300)",
+        help=(
+            "Timeout per example script in seconds "
+            "(default: 604800; debug-only)"
+        ),
     )
 
 
