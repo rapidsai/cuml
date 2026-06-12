@@ -1,1 +1,3 @@
-[]
+- reason: Upstream example fails without cuml.accel on this dependency stack
+  tests:
+  - "applications::wikipedia_principal_eigenvector"
