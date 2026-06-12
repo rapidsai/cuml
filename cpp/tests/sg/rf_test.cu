@@ -22,6 +22,7 @@
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -789,6 +790,53 @@ TEST(RfTests, IntegerOverflow)
                          1);
   handle.sync_stream();
   handle.sync_stream_pool();
+}
+
+TEST(RfTests, InvalidSampleWeightThrows)
+{
+  constexpr std::size_t n_rows = 16;
+  constexpr std::size_t n_cols = 2;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  thrust::device_vector<float> X(n_rows * n_cols);
+  thrust::device_vector<int> y(n_rows);
+  thrust::device_vector<float> sample_weight(n_rows, 1.0f);
+  raft::random::Rng r(8);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
+  thrust::host_vector<int> h_y(n_rows);
+  for (std::size_t i = 0; i < n_rows; ++i) {
+    h_y[i] = i % 2;
+  }
+  y = h_y;
+
+  RF_params rf_params =
+    set_rf_params(3, 100, 1.0, 8, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::GINI, 1, 128);
+
+  auto expect_invalid_weight_throws = [&](float invalid_weight) {
+    thrust::fill(thrust::cuda::par.on(handle.get_stream()),
+                 sample_weight.begin(),
+                 sample_weight.end(),
+                 1.0f);
+    sample_weight[0] = invalid_weight;
+    auto forest      = std::make_shared<RandomForestMetaData<float, int>>();
+    auto forest_ptr  = forest.get();
+    EXPECT_THROW(fit(handle,
+                     forest_ptr,
+                     X.data().get(),
+                     n_rows,
+                     n_cols,
+                     y.data().get(),
+                     2,
+                     rf_params,
+                     rapids_logger::level_enum::info,
+                     nullptr,
+                     sample_weight.data().get()),
+                 raft::exception);
+  };
+
+  expect_invalid_weight_throws(-1.0f);
+  expect_invalid_weight_throws(std::numeric_limits<float>::quiet_NaN());
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
