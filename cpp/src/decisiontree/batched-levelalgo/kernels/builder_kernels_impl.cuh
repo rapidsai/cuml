@@ -49,7 +49,7 @@ struct NodeSplitPartitionWriter {
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
     if (SplitNotValid(
-          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+          split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
       return;
     }
 
@@ -83,7 +83,7 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
   const auto work_item         = work_items[nid];
   const auto split             = splits[nid];
   if (SplitNotValid(
-        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+        split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
     return;
   }
 
@@ -124,7 +124,7 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
     if (SplitNotValid(
-          split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
+          split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
       return false;
     }
 
