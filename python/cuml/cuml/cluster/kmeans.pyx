@@ -473,11 +473,8 @@ class KMeans(Base,
         `n_clusters` becomes prohibitively large.
     streaming_batch_size : int (default = 0)
         Number of samples to stream from host to device per GPU batch when
-        fitting with host-resident inputs. When set to 0 (the default), the
-        underlying cuVS implementation processes all samples at once. This
-        parameter is forwarded to cuVS but is ignored by the device-data fit
-        path that today's single-GPU :class:`KMeans` always uses; it is kept
-        as a passthrough for future host-data and multi-GPU code paths.
+        fitting with host-resident inputs. When set to 0 (default), all
+        samples are copied to device at once.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output

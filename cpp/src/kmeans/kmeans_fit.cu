@@ -9,40 +9,14 @@
 #include <raft/core/handle.hpp>
 #include <raft/core/host_mdspan.hpp>
 
-#include <cuda_runtime.h>
-
 #include <cuvs/cluster/kmeans.hpp>
+
+#include "../ml_cuda_utils.h"
 
 #include <optional>
 
 namespace ML {
 namespace kmeans {
-
-namespace {
-
-// Returns true when `ptr` does not refer to device-allocated memory and is
-// therefore safe to treat as host-resident (plain malloc, pinned host, or
-// CUDA-unregistered). `cudaMemoryTypeManaged` is treated as "device" since
-// cuVS's device-data overloads handle it the same as ordinary device memory.
-//
-// Note on portability: modern CUDA returns `cudaSuccess` with
-// `type == cudaMemoryTypeUnregistered` for plain host pointers; older drivers
-// instead returned `cudaErrorInvalidValue`. We treat both as host so the
-// dispatch works across the CUDA versions cuML supports.
-inline bool ptr_is_host(const void* ptr)
-{
-  if (ptr == nullptr) return false;
-  cudaPointerAttributes attr{};
-  cudaError_t err = cudaPointerGetAttributes(&attr, ptr);
-  if (err != cudaSuccess) {
-    // Clear the sticky error so it doesn't surface in an unrelated CUDA call.
-    cudaGetLastError();
-    return true;
-  }
-  return attr.type == cudaMemoryTypeHost || attr.type == cudaMemoryTypeUnregistered;
-}
-
-}  // namespace
 
 template <typename value_t, typename idx_t>
 void fit_impl(const raft::handle_t& handle,
@@ -61,7 +35,7 @@ void fit_impl(const raft::handle_t& handle,
     raft::make_device_matrix_view<value_t, idx_t>(centroids, params.n_clusters, n_features);
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
-  if (ptr_is_host(X)) {
+  if (!ML::is_device_or_managed_type(X)) {
     // Host-resident X: build host matrix views and dispatch to cuVS's
     // host-data fit overload, which streams `X` to the device in chunks of
     // `params.streaming_batch_size`. cuVS only exposes the host overload with
