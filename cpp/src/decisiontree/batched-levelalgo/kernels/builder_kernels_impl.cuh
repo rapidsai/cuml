@@ -415,6 +415,7 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                                                        seed);
 }
 
+#ifndef CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const _IdxT min_samples_leaf,
   const _DataT min_impurity_decrease,
@@ -425,6 +426,7 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   size_t n_blocks_dimx,
   _IdxT* partition_row_ids,
   cudaStream_t builder_stream);
+#endif
 
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
   _ObjectiveT objective,

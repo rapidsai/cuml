@@ -10,14 +10,16 @@
 
 namespace ML {
 namespace DT {
-using _DataT      = double;
-using _LabelT     = int;
+using _DataT      = float;
+using _LabelT     = float;
 using _IdxT       = int;
-using _ObjectiveT = ClassificationObjectiveFunction<_DataT, _LabelT, _IdxT>;
-using _BinT       = ClassificationBin;
+using _ObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT, true>;
+using _BinT       = typename _ObjectiveT::BinT;
 using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML
 
+#define CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION
 #include "builder_kernels_impl.cuh"
+#undef CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION
