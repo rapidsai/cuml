@@ -14,8 +14,6 @@ trap "EXITCODE=1" ERR
 set +e
 
 SKLEARN_EXAMPLES_JUNITXML="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
-SKLEARN_EXAMPLES_MAX_XFAILED="${SKLEARN_EXAMPLES_MAX_XFAILED:-0}"
-SKLEARN_EXAMPLES_MAX_XPASSED="${SKLEARN_EXAMPLES_MAX_XPASSED:-0}"
 
 # Run scikit-learn examples under cuml.accel
 rapids-logger "scikit-learn examples"
@@ -24,13 +22,11 @@ timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/u
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 TEST_EXITCODE=$?
 
-# The examples tests are still being ratcheted down to zero expected xfails,
-# while also requiring a healthy majority of examples to pass.
-rapids-logger "scikit-learn examples: enforce pass-rate and xfail ratchets"
+# The examples tests require a healthy majority of examples to pass so
+# widespread regressions are not missed.
+rapids-logger "scikit-learn examples: require >=50% pass rate"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
     --fail-below 50 \
-    --max-xfailed "${SKLEARN_EXAMPLES_MAX_XFAILED}" \
-    --max-xpassed "${SKLEARN_EXAMPLES_MAX_XPASSED}" \
     "${SKLEARN_EXAMPLES_JUNITXML}"
 SUMMARY_EXITCODE=$?
 
