@@ -84,7 +84,6 @@ else()
       "$ORIGIN/../../nvidia/nvjitlink/lib"
   )
 endif()
-list(APPEND rpaths "$ORIGIN/../../nvidia/nccl/lib")
 
 set_property(
   TARGET ${CUML_CPP_TARGET}

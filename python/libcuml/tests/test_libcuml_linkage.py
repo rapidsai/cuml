@@ -106,7 +106,7 @@ def test_libcuml_linkage():
     is_ctk_13_plus = cuda_major_version >= 13
 
     # Define expected library paths
-    # For CTK 13: nvidia/cu13/lib and nvidia/nccl/lib
+    # For CTK 13: nvidia/cu13/lib
     # For CTK 12: individual nvidia/{library}/lib directories
     # The libcuml.so is at: site-packages/libcuml/lib64/libcuml.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
@@ -120,8 +120,6 @@ def test_libcuml_linkage():
             "libcusparse.so.12": "nvidia/cu13/lib",
             "libnvJitLink.so.13": "nvidia/cu13/lib",
             "libcurand.so.10": "nvidia/cu13/lib",
-            # NCCL (in nvidia/nccl/lib)
-            "libnccl.so.2": "nvidia/nccl/lib",
         }
     else:
         expected_libs = {
@@ -133,8 +131,6 @@ def test_libcuml_linkage():
             "libcusparse.so.12": "nvidia/cusparse/lib",
             "libnvJitLink.so.12": "nvidia/nvjitlink/lib",
             "libcurand.so.10": "nvidia/curand/lib",
-            # NCCL (in nvidia/nccl/lib)
-            "libnccl.so.2": "nvidia/nccl/lib",
         }
 
     failures = []
