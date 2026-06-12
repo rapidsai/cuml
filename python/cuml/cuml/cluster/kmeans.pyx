@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cudf
 import cupy as cp
 import numpy as np
 
@@ -44,21 +45,6 @@ cdef inline bool _kmeans_indices_i32(int64_t n_rows, int64_t n_cols) noexcept no
         return True
 
     return n_rows <= ((int_max - 1) // n_cols)
-
-
-cdef inline uintptr_t _array_data_ptr(arr):
-    """Return the data pointer for either a cupy device or numpy host array.
-
-    cupy ndarrays expose `.data.ptr` (a `MemoryPointer` wrapping a device
-    pointer); numpy ndarrays do not, but expose `.ctypes.data` (the host
-    pointer). The C++ `fit` overload then queries `cudaPointerGetAttributes`
-    on the pointer and dispatches to the device-data or host-data cuVS
-    overload accordingly.
-    """
-    try:
-        return arr.data.ptr
-    except AttributeError:
-        return arr.ctypes.data
 
 
 cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
@@ -131,11 +117,14 @@ cdef _kmeans_fit(
     cdef bool host_data   = not hasattr(X, "__cuda_array_interface__")
     cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
-    cdef uintptr_t X_ptr = _array_data_ptr(X)
+    cdef uintptr_t X_ptr = X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
     cdef uintptr_t centers_ptr = centers.data.ptr
     cdef uintptr_t sample_weight_ptr = 0
     if sample_weight is not None:
-        sample_weight_ptr = _array_data_ptr(sample_weight)
+        sample_weight_ptr = (
+            sample_weight.data.ptr if isinstance(sample_weight, cp.ndarray)
+            else sample_weight.ctypes.data
+        )
 
     cdef int n_iter_32 = 0
     cdef int64_t n_iter_64 = 0
@@ -305,9 +294,6 @@ cdef _kmeans_predict_host_chunked(
     buffer, runs the existing device-data predict on each chunk, and stitches
     the per-chunk labels into a single host (`numpy.ndarray`) result.
 
-    Total inertia is decomposable (sum over samples of squared distance to the
-    nearest centroid), so summing per-chunk inertias gives the correct total.
-
     Returns (`numpy.ndarray` of labels, `float` total inertia).
     """
     cdef int64_t n_rows = X.shape[0]
@@ -316,14 +302,10 @@ cdef _kmeans_predict_host_chunked(
     if cap > n_rows:
         cap = n_rows
 
-    # Reusable per-batch device buffers. Allocated once at the upper bound and
-    # sliced down for the final (possibly short) batch.
+    # Reusable per-batch device buffers. Allocated once
     X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
     sw_buf = cp.empty(shape=cap, dtype=X.dtype)
 
-    # Pick the label dtype based on the *full* dataset so the host-path
-    # contract matches what the device path would have returned for the same
-    # shape. Per-batch predict calls themselves are always safe in i32.
     labels_dtype = (
         np.int32
         if _kmeans_indices_i32(n_rows, n_cols)
@@ -636,17 +618,31 @@ class KMeans(Base,
         Compute k-means clustering with X.
 
         """
-        # Opt in to cuVS's host-data fit (which streams `X` to the device in
-        # chunks of `streaming_batch_size`) when the user has explicitly set a
-        # positive `streaming_batch_size`, the input is host-resident, and we
-        # are running on a single GPU. The host path is only meaningful when
-        # the dataset is too large to fit on the GPU all at once; otherwise the
-        # device path is faster and avoids redundant H2D copies.
-        use_host_path = (
-            not self._multi_gpu
-            and int(self.streaming_batch_size) > 0
-            and not hasattr(X, "__cuda_array_interface__")
+        streaming_batch_size = int(self.streaming_batch_size)
+        if streaming_batch_size < 0:
+            raise ValueError(
+                f"streaming_batch_size must be >= 0, got "
+                f"{streaming_batch_size}."
+            )
+
+        data_on_device = hasattr(X, "__cuda_array_interface__") or isinstance(
+            X, (cudf.DataFrame, cudf.Series)
         )
+
+        if streaming_batch_size > 0 and (self._multi_gpu or data_on_device):
+            if self._multi_gpu:
+                reason = "the multi-GPU KMeans fit path"
+            else:
+                reason = "device-resident inputs"
+            raise ValueError(
+                f"streaming_batch_size={streaming_batch_size} is only "
+                f"supported for single-GPU fit on host-resident inputs; it is "
+                f"not supported for {reason}. Either pass a host array (e.g. "
+                f"numpy.ndarray, pandas.DataFrame) or set "
+                f"streaming_batch_size=0."
+            )
+
+        use_host_path = streaming_batch_size > 0 and not data_on_device
         mem_type = "host" if use_host_path else "device"
 
         X, sample_weight = check_inputs(
@@ -704,11 +700,6 @@ class KMeans(Base,
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
         if use_host_path:
-            # cuVS doesn't ship a host-data `predict` overload, so we stage
-            # host X back to the device one streaming batch at a time and run
-            # the existing device-data predict on each chunk. Inertia is
-            # decomposable across chunks, so summing the per-batch values
-            # reproduces the single-shot result.
             labels, inertia = _kmeans_predict_host_chunked(
                 handle_[0], params, X, sample_weight, centers,
                 int(self.streaming_batch_size),
