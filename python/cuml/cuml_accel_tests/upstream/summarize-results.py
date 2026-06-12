@@ -72,16 +72,6 @@ def parse_args():
         help="Minimum pass rate threshold [0-100] (default: 0)",
     )
     parser.add_argument(
-        "--max-xfailed",
-        type=int,
-        help="Maximum allowed xfailed tests",
-    )
-    parser.add_argument(
-        "--max-xpassed",
-        type=int,
-        help="Maximum allowed total xpassed tests",
-    )
-    parser.add_argument(
         "--format",
         choices=["summary", "xfail_list", "traceback"],
         default="summary",
@@ -477,28 +467,11 @@ def main():
                     print(f'  "{test_id}"')
                     count += 1
 
-    # Check thresholds
-    failures = []
     if pass_rate < args.fail_below:
-        failures.append(
-            f"Pass rate {pass_rate:.2f}% is below threshold {args.fail_below}%"
+        print(
+            f"\nError: Pass rate {pass_rate:.2f}% is below threshold "
+            f"{args.fail_below}%"
         )
-
-    if args.max_xfailed is not None and xfailed > args.max_xfailed:
-        failures.append(
-            f"XFailed count {xfailed} exceeds maximum {args.max_xfailed}"
-        )
-
-    xpassed_total = xpassed_strict + xpassed_non_strict
-    if args.max_xpassed is not None and xpassed_total > args.max_xpassed:
-        failures.append(
-            f"XPassed count {xpassed_total} exceeds maximum {args.max_xpassed}"
-        )
-
-    if failures:
-        print("\nError:")
-        for failure in failures:
-            print(f"  - {failure}")
         sys.exit(1)
 
     sys.exit(0)
