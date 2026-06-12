@@ -42,6 +42,7 @@
 #include <treelite/tree.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -1114,6 +1115,228 @@ Tree #0
 ])";
 
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------
+
+TEST(RfWeightedTest, ClassificationRootLeafUsesWeights)
+{
+  RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {100.0f, 1.0f, 1.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 3);
+  ASSERT_EQ(tree.vector_leaf.size(), 2);
+  EXPECT_NEAR(tree.vector_leaf[0], 100.0f / 102.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[1], 2.0f / 102.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
+{
+  RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, MSE, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<float> y_host            = {0.0f, 10.0f, 10.0f};
+  thrust::device_vector<float> y       = y_host;
+  std::vector<float> weight_host       = {1.0f, 0.0f, 3.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 3);
+  ASSERT_EQ(tree.vector_leaf.size(), 1);
+  EXPECT_NEAR(tree.vector_leaf[0], 7.5f, 1e-6f);
+}
+
+TEST(RfWeightedTest, MinSamplesLeafUsesCountsNotWeights)
+{
+  RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 2, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {0.1f, 0.1f, 100.0f, 100.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 3);
+  EXPECT_FALSE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 4);
+  EXPECT_EQ(tree.sparsetree[1].InstanceCount(), 2);
+  EXPECT_EQ(tree.sparsetree[2].InstanceCount(), 2);
+  ASSERT_EQ(tree.vector_leaf.size(), 6);
+  EXPECT_NEAR(tree.vector_leaf[2], 1.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[3], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[4], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[5], 1.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
+{
+  RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {0.0f, 0.0f, 1.0f, 1.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 4);
+  ASSERT_EQ(tree.vector_leaf.size(), 2);
+  EXPECT_NEAR(tree.vector_leaf[0], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[1], 1.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
+{
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<float> y_host            = {0.0f, 10.0f, 100.0f};
+  thrust::device_vector<float> y       = y_host;
+  std::vector<float> weight_host       = {1.0f, 2.0f, 5.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  constexpr int n_rows = 3;
+  bool found_duplicate = false;
+  for (uint64_t seed = 0; seed < 64 && !found_duplicate; ++seed) {
+    RF_params rf_params =
+      set_rf_params(0, -1, 1.0, 3, 1, 2, 0.0, true, 1, 1.0, seed, MSE, 1, 128);
+    auto forest = std::make_shared<RandomForestMetaData<float, float>>();
+    rmm::device_uvector<bool> bootstrap_masks(n_rows, handle.get_stream());
+
+    fit(handle,
+        forest.get(),
+        X.data().get(),
+        n_rows,
+        1,
+        y.data().get(),
+        rf_params,
+        rapids_logger::level_enum::info,
+        bootstrap_masks.data(),
+        weights.data().get());
+    handle.sync_stream();
+
+    std::array<bool, n_rows> mask{};
+    raft::update_host(mask.data(), bootstrap_masks.data(), mask.size(), handle.get_stream());
+    handle.sync_stream();
+
+    std::array<int, 2> included{};
+    int included_count = 0;
+    for (int i = 0; i < n_rows; ++i) {
+      if (mask[i]) {
+        if (included_count < 2) { included[included_count] = i; }
+        ++included_count;
+      }
+    }
+    if (included_count != 2) { continue; }
+
+    found_duplicate  = true;
+    const auto& tree = *forest->trees[0];
+    ASSERT_EQ(tree.sparsetree.size(), 1);
+    EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+    EXPECT_EQ(tree.sparsetree[0].InstanceCount(), n_rows);
+    ASSERT_EQ(tree.vector_leaf.size(), 1);
+
+    auto mean_with_counts = [&](int count_a, int count_b) {
+      auto a = included[0];
+      auto b = included[1];
+      auto weighted_sum =
+        y_host[a] * weight_host[a] * count_a + y_host[b] * weight_host[b] * count_b;
+      auto weight_sum = weight_host[a] * count_a + weight_host[b] * count_b;
+      return weighted_sum / weight_sum;
+    };
+
+    auto unique_mean      = mean_with_counts(1, 1);
+    auto duplicate_a_mean = mean_with_counts(2, 1);
+    auto duplicate_b_mean = mean_with_counts(1, 2);
+    auto observed         = tree.vector_leaf[0];
+
+    EXPECT_GT(std::abs(observed - unique_mean), 1e-5f);
+    EXPECT_TRUE(std::abs(observed - duplicate_a_mean) < 1e-5f ||
+                std::abs(observed - duplicate_b_mean) < 1e-5f);
+  }
+
+  EXPECT_TRUE(found_duplicate);
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
