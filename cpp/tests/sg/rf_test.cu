@@ -285,6 +285,46 @@ auto nvForestPredictProba(const raft::handle_t& handle,
   return pred;
 }
 template <typename DataT, typename LabelT>
+RF_metrics WeightedScore(const raft::handle_t& handle,
+                         RfTestParams params,
+                         const LabelT* y,
+                         const LabelT* pred,
+                         const DataT* sample_weight)
+{
+  thrust::host_vector<LabelT> h_y(params.n_rows);
+  thrust::host_vector<LabelT> h_pred(params.n_rows);
+  thrust::host_vector<DataT> h_sample_weight(params.n_rows);
+  raft::update_host(h_y.data(), y, params.n_rows, handle.get_stream());
+  raft::update_host(h_pred.data(), pred, params.n_rows, handle.get_stream());
+  raft::update_host(h_sample_weight.data(), sample_weight, params.n_rows, handle.get_stream());
+  handle.sync_stream();
+
+  double weight_sum = 0.0;
+  if constexpr (std::is_integral_v<LabelT>) {
+    double correct = 0.0;
+    for (std::size_t i = 0; i < params.n_rows; ++i) {
+      double weight = double(h_sample_weight[i]);
+      weight_sum += weight;
+      if (h_y[i] == h_pred[i]) { correct += weight; }
+    }
+    return set_rf_metrics_classification(float(correct / weight_sum));
+  } else {
+    double mean_abs_error     = 0.0;
+    double mean_squared_error = 0.0;
+    for (std::size_t i = 0; i < params.n_rows; ++i) {
+      double weight = double(h_sample_weight[i]);
+      double diff   = double(h_y[i]) - double(h_pred[i]);
+      weight_sum += weight;
+      mean_abs_error += weight * std::abs(diff);
+      mean_squared_error += weight * diff * diff;
+    }
+    mean_abs_error /= weight_sum;
+    mean_squared_error /= weight_sum;
+    return set_rf_metrics_regression(mean_abs_error, mean_squared_error, -1.0);
+  }
+}
+
+template <typename DataT, typename LabelT>
 auto TrainScore(const raft::handle_t& handle,
                 RfTestParams params,
                 DataT* X,
@@ -338,7 +378,9 @@ auto TrainScore(const raft::handle_t& handle,
   predict(handle, forest_ptr, X_transpose, params.n_rows, params.n_cols, pred->data().get());
 
   // Predict and compare against known labels
-  RF_metrics metrics = score(handle, forest_ptr, y, params.n_rows, pred->data().get());
+  RF_metrics metrics = sample_weight == nullptr
+                         ? score(handle, forest_ptr, y, params.n_rows, pred->data().get())
+                         : WeightedScore(handle, params, y, pred->data().get(), sample_weight);
   return std::make_tuple(forest, pred, metrics);
 }
 
@@ -414,8 +456,6 @@ class RfSpecialisedTest {
   // Current model should be at least as accurate as a model with depth - 1
   void TestAccuracyImprovement()
   {
-    // Weighted objective training is not expected to monotonically improve unweighted score.
-    if (params.sample_weight) { return; }
     if (params.max_depth <= 1) { return; }
     // avereraging between models can introduce variance
     if (params.n_trees > 1) { return; }
