@@ -206,9 +206,12 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not isinstance(model.kernel, str):
+        if not isinstance(model.kernel, str) and not hasattr(
+            model.kernel, "py_func"
+        ):
             raise UnsupportedOnGPU(
-                "KernelRidge callable kernels are not supported."
+                "Only string kernels and numba device-function kernels "
+                "are supported"
             )
         return {
             "alpha": model.alpha,
