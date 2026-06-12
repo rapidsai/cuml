@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -70,7 +70,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64]
     includes:
       - common_build
@@ -88,7 +88,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -193,7 +193,6 @@ files:
       - common_build
       - depends_on_cuda_python
       - depends_on_libcuml
-      - depends_on_libcuvs
       - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
@@ -391,6 +390,10 @@ dependencies:
               cuda: "13.2"
             packages:
               - cuda-version=13.2
+          - matrix:
+              cuda: "13.3"
+            packages:
+              - cuda-version=13.3
       - output_types: requirements
         matrices:
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
@@ -441,6 +444,11 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==13.2.*
+          - matrix:
+              cuda: "13.3"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.3.*
   cuda:
     common:
       - output_types: [conda]
@@ -651,10 +659,10 @@ dependencies:
         matrices:
           - matrix: {dependencies: "latest"}
             packages:
-              - scikit-learn==1.8.0
+              - scikit-learn==1.9.0
           - matrix: {dependencies: "intermediate"}
             packages:
-              - scikit-learn==1.7.2
+              - scikit-learn==1.8.0
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.6.0
@@ -892,6 +900,24 @@ dependencies:
       - output_types: conda
         packages:
           - &libcuvs_unsuffixed libcuvs==26.8.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libcuvs-cu12==26.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libcuvs-cu13==26.8.*,>=0.0.0a0
+          - {matrix: null, packages: [*libcuvs_unsuffixed]}
   depends_on_libnvforest:
     common:
       - output_types: conda

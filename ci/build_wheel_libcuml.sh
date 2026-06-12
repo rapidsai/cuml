@@ -37,7 +37,7 @@ EXCLUDE_ARGS=(
   --exclude "libcurand.so.*"
   --exclude "libcusolver.so.*"
   --exclude "libcusparse.so.*"
-  --exclude "libnccl.so.*"
+  --exclude "libcuvs.so"
   --exclude "libnvforest++.so"
   --exclude "libnvJitLink.so.*"
   --exclude "libraft.so"
@@ -45,7 +45,7 @@ EXCLUDE_ARGS=(
   --exclude "librmm.so"
 )
 
-export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON;-DCUML_USE_CUVS_STATIC=ON"
+export SKBUILD_CMAKE_ARGS="-DDISABLE_DEPRECATION_WARNINGS=ON"
 ./ci/build_wheel.sh "${package_name}" "${package_dir}"
 
 # repair wheels and write to the location that artifact-uploading code expects to find them
