@@ -152,12 +152,11 @@ class ClassificationObjectiveFunction {
                              const DatasetT& dataset,
                              IdxT row) const
   {
+    double weight = 1.0;
     if constexpr (weighted) {
-      double weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
-      BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
-    } else {
-      BinT::IncrementHistogram(histogram, n_bins, bin, label);
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
     }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
   DI Split<DataT, IdxT> Gain(
@@ -343,12 +342,11 @@ class RegressionObjectiveFunction {
                              const DatasetT& dataset,
                              IdxT row) const
   {
+    double weight = 1.0;
     if constexpr (weighted) {
-      double weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
-      BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
-    } else {
-      BinT::IncrementHistogram(histogram, n_bins, bin, label);
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
     }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
   DI Split<DataT, IdxT> Gain(
