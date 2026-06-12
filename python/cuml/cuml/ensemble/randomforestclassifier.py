@@ -178,10 +178,14 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         }
 
     def _attrs_to_cpu(self, model):
+        attrs = super()._attrs_to_cpu(model)
+        for estimator in attrs.get("estimators_", ()):
+            estimator.classes_ = self.classes_
+            estimator.n_classes_ = self.n_classes_
         return {
+            **attrs,
             "classes_": self.classes_,
             "n_classes_": self.n_classes_,
-            **super()._attrs_to_cpu(model),
         }
 
     def __init__(
