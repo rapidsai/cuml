@@ -87,7 +87,8 @@ jobs:
       files_yaml: |
         build_docs:
           - '**'
-          - '!**/*/agents.md'
+          - '!**/AGENTS.md'
+          - '!**/.agents/**'
           - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.git-blame-ignore-revs'
@@ -113,7 +114,8 @@ jobs:
           - '!codecov.yml'
         test_cpp:
           - '**'
-          - '!**/*/agents.md'
+          - '!**/AGENTS.md'
+          - '!**/.agents/**'
           - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.git-blame-ignore-revs'
@@ -150,7 +152,8 @@ jobs:
           - '!wiki/**'
         test_notebooks:
           - '**'
-          - '!**/*/agents.md'
+          - '!**/AGENTS.md'
+          - '!**/.agents/**'
           - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.git-blame-ignore-revs'
@@ -184,7 +187,8 @@ jobs:
           - '!wiki/**'
         test_python_conda:
           - '**'
-          - '!**/*/agents.md'
+          - '!**/AGENTS.md'
+          - '!**/.agents/**'
           - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.git-blame-ignore-revs'
@@ -223,7 +227,8 @@ jobs:
           - '!wiki/**'
         test_python_wheels:
           - '**'
-          - '!**/*/agents.md'
+          - '!**/AGENTS.md'
+          - '!**/.agents/**'
           - '!.coderabbit.yaml'
           - '!.devcontainer/**'
           - '!.git-blame-ignore-revs'
