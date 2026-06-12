@@ -285,9 +285,7 @@ def test_accuracy_score_scalar_sample_weight():
     ) == cuml.metrics.accuracy_score(y_true, y_pred, normalize=False)
 
 
-dataset_names = ["noisy_circles", "noisy_moons", "aniso"] + [
-    pytest.param(ds, marks=pytest.mark.xfail) for ds in ["blobs", "varied"]
-]
+dataset_names = ["noisy_circles", "noisy_moons", "aniso", "blobs", "varied"]
 
 
 @pytest.mark.parametrize("name", dataset_names)
@@ -390,7 +388,6 @@ def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
         assert False
 
 
-@pytest.mark.xfail
 def test_silhouette_score_batched_non_monotonic():
     vecs = np.array(
         [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [10.0, 10.0, 10.0]]
@@ -1743,18 +1740,7 @@ def test_sparse_pairwise_distances_exceptions():
 
 
 @pytest.mark.parametrize(
-    "metric",
-    [
-        metric
-        if metric != "hellinger"
-        else pytest.param(
-            metric,
-            marks=pytest.mark.xfail(
-                reason="intermittent failure (Issue #4354)"
-            ),
-        )
-        for metric in PAIRWISE_DISTANCE_SPARSE_METRICS.keys()
-    ],
+    "metric", list(PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
 )
 @pytest.mark.parametrize(
     "matrix_size,density",
