@@ -451,12 +451,9 @@ struct Builder {
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
     launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
-                                                            params.min_samples_split,
-                                                            params.max_leaves,
                                                             params.min_impurity_decrease,
                                                             dataset,
                                                             d_work_items,
-                                                            work_items.size(),
                                                             splits,
                                                             workload_info,
                                                             n_blocks_dimx,
