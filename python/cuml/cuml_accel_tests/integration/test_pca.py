@@ -72,6 +72,18 @@ def test_pca_svd_solver(pca_data, svd_solver):
     pca.inverse_transform(X_transformed)
 
 
+def test_pca_randomized_solver_falls_back_to_cpu():
+    X, _ = make_classification(
+        n_samples=100,
+        n_features=10,
+        n_informative=5,
+        n_redundant=0,
+        random_state=42,
+    )
+    pca = PCA(n_components=5, svd_solver="randomized", random_state=42).fit(X)
+    assert pca._gpu is None
+
+
 @pytest.mark.parametrize("whiten", [True, False])
 def test_pca_whiten(pca_data, whiten):
     X, _ = pca_data
