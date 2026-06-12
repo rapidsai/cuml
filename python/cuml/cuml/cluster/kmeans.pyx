@@ -339,8 +339,7 @@ cdef _kmeans_predict_host_chunked(
     return labels_host, total_inertia
 
 
-class KMeans(Base,
-             InteropMixin,
+class KMeans(InteropMixin,
              ClusterMixin,
              CMajorInputTagMixin,
              Base):
