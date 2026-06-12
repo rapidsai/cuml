@@ -142,13 +142,8 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
   return start;
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename ObjectiveT,
-          typename BinT>
-void launchComputeSplitKernel(BinT* histograms,
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,
