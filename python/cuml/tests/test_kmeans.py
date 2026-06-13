@@ -525,4 +525,3 @@ def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
     dev_labels = cp.asnumpy(cp.asarray(dev_model.labels_))
     assert host_labels.shape == (n_rows,)
     assert adjusted_rand_score(dev_labels, host_labels) == pytest.approx(1.0)
-
