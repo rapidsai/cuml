@@ -29,17 +29,11 @@ void fit_impl(const raft::handle_t& handle,
               value_t& inertia,
               idx_t& n_iter)
 {
-  // Centroids are always written by cuVS into a device buffer regardless of
-  // where `X` lives. Both code paths take the same `device_matrix_view`.
   auto centroids_view =
     raft::make_device_matrix_view<value_t, idx_t>(centroids, params.n_clusters, n_features);
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
   if (!ML::is_device_or_managed_type(X)) {
-    // Host-resident X: build host matrix views and dispatch to cuVS's
-    // host-data fit overload, which streams `X` to the device in chunks of
-    // `params.streaming_batch_size`. cuVS only exposes the host overload with
-    // int64 indexing, so we upcast the shape and the n_iter scratch slot here.
     auto n_samples_64  = static_cast<int64_t>(n_samples);
     auto n_features_64 = static_cast<int64_t>(n_features);
     auto X_view =
