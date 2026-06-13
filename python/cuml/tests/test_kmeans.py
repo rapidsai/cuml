@@ -471,3 +471,57 @@ def test_kmeans_init_wrong_shape():
         ),
     ):
         model.fit(X)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("streaming_batch_size", [256, 1024, 5000])
+def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
+    """The single-GPU host-streaming fit path should agree with the device
+    path on identical inputs.
+    """
+    n_rows = 4096
+    n_cols = 16
+    n_clusters = 8
+
+    X_dev, _ = make_blobs(
+        n_samples=n_rows,
+        n_features=n_cols,
+        centers=n_clusters,
+        cluster_std=0.5,
+        random_state=42,
+        dtype=dtype,
+    )
+    X_host = cp.asnumpy(X_dev).astype(dtype)
+    X_dev = cp.asarray(X_host)
+
+    rng = np.random.RandomState(123)
+    init_idx = rng.choice(n_rows, size=n_clusters, replace=False)
+    init = X_host[init_idx]
+
+    common_kwargs = dict(
+        n_clusters=n_clusters,
+        init=init,
+        n_init=1,
+        max_iter=300,
+        tol=1e-6,
+        random_state=42,
+    )
+
+    host_model = cuml.KMeans(
+        streaming_batch_size=streaming_batch_size, **common_kwargs
+    )
+    host_model.fit(X_host)
+
+    dev_model = cuml.KMeans(streaming_batch_size=0, **common_kwargs)
+    dev_model.fit(X_dev)
+
+    np.testing.assert_allclose(
+        float(host_model.inertia_),
+        float(dev_model.inertia_),
+        rtol=1e-3 if dtype == np.float32 else 1e-6,
+    )
+
+    host_labels = cp.asnumpy(cp.asarray(host_model.labels_))
+    dev_labels = cp.asnumpy(cp.asarray(dev_model.labels_))
+    assert host_labels.shape == (n_rows,)
+    assert adjusted_rand_score(dev_labels, host_labels) == pytest.approx(1.0)

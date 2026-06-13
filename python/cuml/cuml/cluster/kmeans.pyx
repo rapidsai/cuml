@@ -2,7 +2,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cudf
 import cupy as cp
+import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
@@ -55,6 +57,7 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.verbosity = kmeans._verbose_level
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
+    params.streaming_batch_size = int(kmeans.streaming_batch_size)
     params.oversampling_factor = kmeans.oversampling_factor
 
     # Ensure random_state is set when running on multi-gpu
@@ -100,16 +103,28 @@ cdef _kmeans_fit(
     sample_weight,
     centers,
 ):
-    """Fit the kmeans centers and return `n_iter`"""
+    """Fit the kmeans centers and return `n_iter`.
+
+    `X` and `sample_weight` may live on either the device or the host
+    (numpy); `centers` always lives on the device.
+    """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
+    # Indices fitting in int32 is a device-only optimization (the host overload
+    # is int64-only on the cuVS side anyway, and C++ upcasts as needed).
+    cdef bool host_data = not hasattr(X, "__cuda_array_interface__")
+    cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
-    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t X_ptr = X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
     cdef uintptr_t centers_ptr = centers.data.ptr
-    cdef uintptr_t sample_weight_ptr = sample_weight.data.ptr
+    cdef uintptr_t sample_weight_ptr = 0
+    if sample_weight is not None:
+        sample_weight_ptr = (
+            sample_weight.data.ptr if isinstance(sample_weight, cp.ndarray)
+            else sample_weight.ctypes.data
+        )
 
     cdef int n_iter_32 = 0
     cdef int64_t n_iter_64 = 0
@@ -265,6 +280,65 @@ cdef _kmeans_predict(
     return labels, inertia
 
 
+cdef _kmeans_predict_host_chunked(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    X,
+    sample_weight,
+    centers,
+    int64_t batch_size,
+):
+    """Predict labels & total inertia for host-resident `X` in chunks.
+
+    Streams chunks of `batch_size` host rows into a single reusable device
+    buffer, runs the existing device-data predict on each chunk, and stitches
+    the per-chunk labels into a single host (`numpy.ndarray`) result.
+
+    Returns (`numpy.ndarray` of labels, `float` total inertia).
+    """
+    cdef int64_t n_rows = X.shape[0]
+    cdef int64_t n_cols = X.shape[1]
+    cdef int64_t cap = batch_size if batch_size > 0 else n_rows
+    if cap > n_rows:
+        cap = n_rows
+
+    # Reusable per-batch device buffers. Allocated once
+    X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
+    sw_buf = cp.empty(shape=cap, dtype=X.dtype)
+
+    labels_dtype = (
+        np.int32
+        if _kmeans_indices_i32(n_rows, n_cols)
+        and _kmeans_indices_i32(centers.shape[0], n_cols)
+        else np.int64
+    )
+    labels_host = np.empty(n_rows, dtype=labels_dtype)
+
+    cdef int64_t start = 0
+    cdef int64_t end = 0
+    cdef int64_t n = 0
+    total_inertia = 0.0
+    while start < n_rows:
+        end = start + cap
+        if end > n_rows:
+            end = n_rows
+        n = end - start
+
+        # Host -> device copy of this batch.
+        X_buf[:n].set(X[start:end])
+        sw_buf[:n].set(sample_weight[start:end])
+
+        batch_labels, batch_inertia = _kmeans_predict(
+            handle, params, X_buf[:n], sw_buf[:n], centers
+        )
+        labels_host[start:end] = cp.asnumpy(batch_labels)
+        total_inertia += float(batch_inertia)
+
+        start = end
+
+    return labels_host, total_inertia
+
+
 class KMeans(InteropMixin,
              ClusterMixin,
              CMajorInputTagMixin,
@@ -374,6 +448,10 @@ class KMeans(InteropMixin,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
+    streaming_batch_size : int (default = 0)
+        Number of samples to stream from host to device per GPU batch when
+        fitting with host-resident inputs. When set to 0 (default), all
+        samples are copied to device at once.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -423,6 +501,7 @@ class KMeans(InteropMixin,
             "n_init",
             "oversampling_factor",
             "max_samples_per_batch",
+            "streaming_batch_size",
             "init",
             "max_iter",
             "n_clusters",
@@ -511,6 +590,7 @@ class KMeans(InteropMixin,
         n_init="auto",
         oversampling_factor=2.0,
         max_samples_per_batch=1<<15,
+        streaming_batch_size=0,
         output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
@@ -522,6 +602,7 @@ class KMeans(InteropMixin,
         self.n_init = n_init
         self.oversampling_factor = oversampling_factor
         self.max_samples_per_batch = max_samples_per_batch
+        self.streaming_batch_size = streaming_batch_size
 
     @property
     def _n_features_out(self):
@@ -536,7 +617,33 @@ class KMeans(InteropMixin,
         Compute k-means clustering with X.
 
         """
-        # Process input arrays
+        streaming_batch_size = int(self.streaming_batch_size)
+        if streaming_batch_size < 0:
+            raise ValueError(
+                f"streaming_batch_size must be >= 0, got "
+                f"{streaming_batch_size}."
+            )
+
+        data_on_device = hasattr(X, "__cuda_array_interface__") or isinstance(
+            X, (cudf.DataFrame, cudf.Series)
+        )
+
+        if streaming_batch_size > 0 and (self._multi_gpu or data_on_device):
+            if self._multi_gpu:
+                reason = "the multi-GPU KMeans fit path"
+            else:
+                reason = "device-resident inputs"
+            raise ValueError(
+                f"streaming_batch_size={streaming_batch_size} is only "
+                f"supported for single-GPU fit on host-resident inputs; it is "
+                f"not supported for {reason}. Either pass a host array (e.g. "
+                f"numpy.ndarray, pandas.DataFrame) or set "
+                f"streaming_batch_size=0."
+            )
+
+        use_host_path = streaming_batch_size > 0 and not data_on_device
+        mem_type = "host" if use_host_path else "device"
+
         X, sample_weight = check_inputs(
             self,
             X,
@@ -544,12 +651,16 @@ class KMeans(InteropMixin,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="C",
+            mem_type=mem_type,
             reset=True,
         )
         n_rows, n_cols = X.shape
 
         if sample_weight is None:
-            sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
+            if use_host_path:
+                sample_weight = np.ones(shape=n_rows, dtype=X.dtype)
+            else:
+                sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
 
         if n_rows < self.n_clusters:
             raise ValueError(
@@ -587,7 +698,15 @@ class KMeans(InteropMixin,
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
-        labels, inertia = _kmeans_predict(handle_[0], params, X, sample_weight, centers)
+        if use_host_path:
+            labels, inertia = _kmeans_predict_host_chunked(
+                handle_[0], params, X, sample_weight, centers,
+                int(self.streaming_batch_size),
+            )
+        else:
+            labels, inertia = _kmeans_predict(
+                handle_[0], params, X, sample_weight, centers,
+            )
         handle.sync()
 
         # Store fitted attributes and return
