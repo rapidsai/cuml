@@ -224,6 +224,31 @@ def test_default_parameters():
     assert reg_params == clf_params
 
 
+@pytest.mark.parametrize("estimator", [curfc, curfr])
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+    ],
+)
+def test_rf_invalid_n_streams(estimator, n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+    if estimator is curfr:
+        y = y.astype(np.float32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        estimator(n_streams=n_streams).fit(X, y)
+
+
 @pytest.mark.parametrize("max_depth", [2, 4])
 @pytest.mark.parametrize(
     "split_criterion", ["poisson", "gamma", "inverse_gaussian"]
