@@ -8,7 +8,7 @@ import numpy as np
 
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client
-from cuml.metrics.confusion_matrix import _compute_confusion_matrix
+from cuml.metrics.confusion_matrix import confusion_matrix as _confusion_matrix
 
 
 def _local_cm(inputs, labels, use_sample_weight):
@@ -18,7 +18,9 @@ def _local_cm(inputs, labels, use_sample_weight):
         y_true, y_pred = inputs
         sample_weight = cp.ones(y_true.shape[0], dtype=y_true.dtype)
 
-    return _compute_confusion_matrix(y_true, y_pred, sample_weight, labels)
+    return _confusion_matrix(
+        y_true, y_pred, labels=labels, sample_weight=sample_weight
+    )
 
 
 def confusion_matrix(
