@@ -475,7 +475,10 @@ def test_kmeans_init_wrong_shape():
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("streaming_batch_size", [256, 1024, 5000])
-def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
+@pytest.mark.parametrize("weighted", [False, True])
+def test_kmeans_streaming_batch_size_host_path(
+    dtype, streaming_batch_size, weighted
+):
     """The single-GPU host-streaming fit path should agree with the device
     path on identical inputs.
     """
@@ -494,6 +497,15 @@ def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
     X_host = cp.asnumpy(X_dev).astype(dtype)
     X_dev = cp.asarray(X_host)
 
+    if weighted:
+        sample_weight_host = np.linspace(
+            0.5, 1.5, num=n_rows, dtype=dtype
+        )
+        sample_weight_dev = cp.asarray(sample_weight_host)
+    else:
+        sample_weight_host = None
+        sample_weight_dev = None
+
     rng = np.random.RandomState(123)
     init_idx = rng.choice(n_rows, size=n_clusters, replace=False)
     init = X_host[init_idx]
@@ -510,10 +522,10 @@ def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
     host_model = cuml.KMeans(
         streaming_batch_size=streaming_batch_size, **common_kwargs
     )
-    host_model.fit(X_host)
+    host_model.fit(X_host, sample_weight=sample_weight_host)
 
     dev_model = cuml.KMeans(streaming_batch_size=0, **common_kwargs)
-    dev_model.fit(X_dev)
+    dev_model.fit(X_dev, sample_weight=sample_weight_dev)
 
     np.testing.assert_allclose(
         float(host_model.inertia_),
