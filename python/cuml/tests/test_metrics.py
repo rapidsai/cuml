@@ -1543,6 +1543,41 @@ def test_pairwise_distances_warns_bool_conversion(metric, kind):
         pairwise_distances(X_bool_like, metric=metric)
 
 
+def test_pairwise_distances_metric_arg_deprecated():
+    X = np.array([[1, 2], [3, 4]], dtype="float64")
+    sol = sklearn_pairwise_distances(X, metric="minkowski", p=1)
+    with pytest.warns(FutureWarning, match="deprecated"):
+        res = pairwise_distances(X, metric="minkowski", metric_arg=1)
+    np.testing.assert_allclose(sol, res)
+
+    # edge case - check that nan_euclidean warns, but still runs
+    with pytest.warns(FutureWarning, match="deprecated"):
+        res = pairwise_distances(X, metric="nan_euclidean", metric_arg=1)
+    sol = sklearn_pairwise_distances(X, metric="nan_euclidean")
+    np.testing.assert_allclose(sol, res)
+
+
+def test_pairwise_distances_metric_kwds():
+    # Forward args to minkowski
+    X = np.array([[1, 2], [3, 4]], dtype="float64")
+    sol = sklearn_pairwise_distances(X, metric="minkowski", p=1)
+    res = pairwise_distances(X, metric="minkowski", p=1)
+    np.testing.assert_allclose(sol, res)
+
+    # Forward args to nan_euclidean
+    sol = sklearn_pairwise_distances(
+        X, metric="nan_euclidean", missing_values=1
+    )
+    res = pairwise_distances(X, metric="nan_euclidean", missing_values=1)
+    np.testing.assert_allclose(sol, res)
+
+    # Unknown parameters raise
+    with pytest.raises(
+        TypeError, match=r"Unknown parameters \['bar', 'foo'\]"
+    ):
+        pairwise_distances(X, bar=1, foo=2)
+
+
 @pytest.mark.parametrize("bad_value", [np.nan, np.inf, -np.inf])
 @pytest.mark.parametrize("position", ["X", "Y"])
 def test_pairwise_distances_rejects_non_finite(bad_value, position):
@@ -1639,9 +1674,8 @@ def test_pairwise_distances_degenerate_x_layout(x_order, y_order):
 
 
 @pytest.mark.parametrize("input_type", ["cudf", "numpy", "cupy"])
-@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
-@pytest.mark.parametrize("use_global", [True, False])
-def test_pairwise_distances_output_types(input_type, output_type, use_global):
+@pytest.mark.parametrize("output_type", ["input", "cudf", "numpy", "cupy"])
+def test_pairwise_distances_output_types(input_type, output_type):
     # Test larger sizes to sklearn
     rng = np.random.RandomState(5)
 
@@ -1655,24 +1689,18 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
         X = cp.asarray(X)
         Y = cp.asarray(Y)
 
-    # Set to None if we are using the global object
-    output_type_param = None if use_global else output_type
-
-    # Use the global manager object. Should do nothing unless use_global is set
     with cuml.using_output_type(output_type):
         # Compare to sklearn, fp64
-        S = pairwise_distances(
-            X, Y, metric="euclidean", output_type=output_type_param
-        )
+        S = pairwise_distances(X, Y, metric="euclidean")
 
-        if output_type == "input":
-            assert isinstance(S, type(X))
-        elif output_type == "cudf":
-            assert isinstance(S, cudf.DataFrame)
-        elif output_type == "numpy":
-            assert isinstance(S, np.ndarray)
-        elif output_type == "cupy":
-            assert isinstance(S, cp.ndarray)
+    if output_type == "input":
+        assert isinstance(S, type(X))
+    elif output_type == "cudf":
+        assert isinstance(S, cudf.DataFrame)
+    elif output_type == "numpy":
+        assert isinstance(S, np.ndarray)
+    elif output_type == "cupy":
+        assert isinstance(S, cp.ndarray)
 
 
 def naive_inner(X, Y, metric=None):

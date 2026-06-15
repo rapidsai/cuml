@@ -265,7 +265,7 @@ def _ensure_boolean(X, metric):
 
 @reflect
 def pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+    X, Y=None, metric="euclidean", convert_dtype=True, **kwds
 ):
     """Compute the distance matrix from a feature array X and optional Y.
 
@@ -298,6 +298,10 @@ def pairwise_distances(
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
+    **kwds : optional keyword parameters
+        Any additional metric-specific parameters. For example, with
+        ``metric="minkowski"``, passing ``p`` sets the norm used.
+
     Returns
     -------
     D : array, shape=(n_samples_X, n_samples_X) or (n_samples_X, n_samples_Y)
@@ -322,8 +326,22 @@ def pairwise_distances(
     array([[1., 2.],
            [2., 1.]])
     """
+    cdef double p = 2
+    if "metric_arg" in kwds:
+        warnings.warn(
+            "The `metric_arg` keyword was deprecated in version 26.08 and will "
+            "be removed in version 26.10. Please use `p` instead.",
+            FutureWarning,
+        )
+        p = kwds.pop("metric_arg")
+    elif metric == "minkowski":
+        p = kwds.pop("p", 2)
+
     if metric == "nan_euclidean":
         return nan_euclidean_distances(X, Y, **kwds)
+
+    if kwds:
+        raise TypeError(f"Unknown parameters {sorted(kwds)}")
 
     Y_is_X = Y is None or Y is X
 
@@ -366,7 +384,7 @@ def pairwise_distances(
             f"X.shape[1] == {X.shape[1]} while Y.shape[1] == {Y.shape[1]}"
         )
 
-    cdef DistanceType metric_c = _determine_metric(metric, is_sparse=is_sparse)
+    cdef DistanceType distance_type = _determine_metric(metric, is_sparse=is_sparse)
 
     # Decompose X and Y into components
     cdef int X_n_rows = X.shape[0]
@@ -409,8 +427,6 @@ def pairwise_distances(
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    cdef double metric_arg_c = metric_arg
-
     with nogil:
         if is_sparse:
             if is_float32:
@@ -428,8 +444,8 @@ def pairwise_distances(
                     <int*>Y_indptr_ptr,
                     <int*>X_indices_ptr,
                     <int*>Y_indices_ptr,
-                    metric_c,
-                    metric_arg_c,
+                    distance_type,
+                    p,
                 )
             else:
                 pairwiseDistance_sparse(
@@ -446,8 +462,8 @@ def pairwise_distances(
                     <int*>Y_indptr_ptr,
                     <int*>X_indices_ptr,
                     <int*>Y_indices_ptr,
-                    metric_c,
-                    metric_arg_c,
+                    distance_type,
+                    p,
                 )
         else:
             if is_float32:
@@ -459,9 +475,9 @@ def pairwise_distances(
                     X_n_rows,
                     Y_n_rows,
                     n_cols,
-                    metric_c,
+                    distance_type,
                     is_row_major,
-                    metric_arg_c,
+                    p,
                 )
             else:
                 pairwise_distance(
@@ -472,9 +488,9 @@ def pairwise_distances(
                     X_n_rows,
                     Y_n_rows,
                     n_cols,
-                    metric_c,
+                    distance_type,
                     is_row_major,
-                    metric_arg_c,
+                    p,
                 )
     handle.sync()
 
@@ -483,7 +499,7 @@ def pairwise_distances(
 
 @reflect
 def sparse_pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+    X, Y=None, metric="euclidean", convert_dtype=True, **kwds
 ):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
@@ -530,9 +546,9 @@ def sparse_pairwise_distances(
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
-    metric_arg : float, optional (default = 2)
-        Additional metric-specific argument.
-        For Minkowski it's the p-norm to apply.
+    **kwds : optional keyword parameters
+        Any additional metric-specific parameters. For example, with
+        ``metric="minkowski"``, passing ``p`` sets the norm used.
 
     Returns
     -------
@@ -580,6 +596,5 @@ def sparse_pairwise_distances(
         Y,
         metric=metric,
         convert_dtype=convert_dtype,
-        metric_arg=metric_arg,
         **kwds,
     )
