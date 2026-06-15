@@ -51,7 +51,7 @@ function(ConfigureTest)
             GTest::gmock
             ${OpenMP_CXX_LIB_NAMES}
             Threads::Threads
-            $<$<BOOL:${_CUML_TEST_MPI}>:MPI::MPI_CXX>
+            $<$<BOOL:${_CUML_TEST_MPI}>:${MPI_CXX_LIBRARIES}>
             $<$<BOOL:${_CUML_TEST_RAFT_DISTRIBUTED}>:raft::distributed>
             ${TREELITE_LIBS}
             ${CUVS_LIB}
@@ -97,99 +97,99 @@ endfunction()
 
 # ##################################################################################################
 # * build ml_test executable -------------------------------------------------
-if(BUILD_CUML_TESTS)
-  if(all_algo OR dbscan_algo)
-    ConfigureTest(PREFIX SG NAME DBSCAN_TEST sg/dbscan_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR dbscan_algo))
+  ConfigureTest(PREFIX SG NAME DBSCAN_TEST sg/dbscan_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR explainer_algo)
-    ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST sg/shap_kernel.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR explainer_algo))
+  ConfigureTest(PREFIX SG NAME SHAP_KERNEL_TEST sg/shap_kernel.cu ML_INCLUDE)
+endif()
 
-  # todo: organize linear models better
-  if(all_algo
-     OR linearregression_algo
-     OR ridge_algo
-     OR lasso_algo
-     OR logisticregression_algo
+# todo: organize linear models better
+if(BUILD_CUML_TESTS
+   AND (all_algo
+        OR linearregression_algo
+        OR ridge_algo
+        OR lasso_algo
+        OR logisticregression_algo
+       )
+)
+  ConfigureTest(PREFIX SG NAME OLS_TEST sg/ols.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME RIDGE_TEST sg/ridge.cu ML_INCLUDE)
+endif()
+
+if(BUILD_CUML_TESTS AND (all_algo OR genetic_algo))
+  ConfigureTest(PREFIX SG NAME GENETIC_NODE_TEST sg/genetic/node_test.cpp ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST sg/genetic/param_test.cu ML_INCLUDE)
+endif()
+
+if(BUILD_CUML_TESTS AND (all_algo OR hdbscan_algo))
+  ConfigureTest(PREFIX SG NAME HDBSCAN_TEST sg/hdbscan_test.cu ML_INCLUDE)
+  # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as errors.
+  # See this issue: https://github.com/rapidsai/cuml/issues/6225
+  set_property(
+    SOURCE sg/hdbscan_test.cu
+    APPEND_STRING
+    PROPERTY COMPILE_FLAGS " -Xcompiler=-Wno-maybe-uninitialized"
   )
-    ConfigureTest(PREFIX SG NAME OLS_TEST sg/ols.cu ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME RIDGE_TEST sg/ridge.cu ML_INCLUDE)
-  endif()
+endif()
 
-  if(all_algo OR genetic_algo)
-    ConfigureTest(PREFIX SG NAME GENETIC_NODE_TEST sg/genetic/node_test.cpp ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME GENETIC_PARAM_TEST sg/genetic/param_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR holtwinters_algo))
+  ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST sg/holtwinters_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR hdbscan_algo)
-    ConfigureTest(PREFIX SG NAME HDBSCAN_TEST sg/hdbscan_test.cu ML_INCLUDE)
-    # When using GCC 13, some maybe-uninitialized warnings appear from CCCL and are treated as
-    # errors. See this issue: https://github.com/rapidsai/cuml/issues/6225
-    set_property(
-      SOURCE sg/hdbscan_test.cu
-      APPEND_STRING
-      PROPERTY COMPILE_FLAGS " -Xcompiler=-Wno-maybe-uninitialized"
-    )
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR knn_algo))
+  ConfigureTest(PREFIX SG NAME KNN_TEST sg/knn_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR holtwinters_algo)
-    ConfigureTest(PREFIX SG NAME HOLTWINTERS_TEST sg/holtwinters_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR metrics_algo))
+  ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST sg/trustworthiness_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR knn_algo)
-    ConfigureTest(PREFIX SG NAME KNN_TEST sg/knn_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR pca_algo))
+  ConfigureTest(PREFIX SG NAME PCA_TEST sg/pca_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR metrics_algo)
-    ConfigureTest(PREFIX SG NAME TRUSTWORTHINESS_TEST sg/trustworthiness_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR randomforest_algo))
+  ConfigureTest(
+    PREFIX SG
+    NAME RF_TEST sg/rf_test.cu ML_INCLUDE
+    GPUS 1
+    PERCENT 100
+  )
+endif()
 
-  if(all_algo OR pca_algo)
-    ConfigureTest(PREFIX SG NAME PCA_TEST sg/pca_test.cu ML_INCLUDE)
-  endif()
+# todo: separate solvers better
+if(BUILD_CUML_TESTS AND (all_algo OR solvers_algo))
+  ConfigureTest(PREFIX SG NAME CD_TEST sg/cd_test.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME LARS_TEST sg/lars_test.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME QUASI_NEWTON sg/quasi_newton.cu ML_INCLUDE)
+  ConfigureTest(PREFIX SG NAME SGD_TEST sg/sgd.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR randomforest_algo)
-    ConfigureTest(
-      PREFIX SG
-      NAME RF_TEST sg/rf_test.cu ML_INCLUDE
-      GPUS 1
-      PERCENT 100
-    )
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR svm_algo))
+  ConfigureTest(
+    PREFIX SG
+    NAME SVC_TEST sg/svc_test.cu ML_INCLUDE
+    GPUS 1
+    PERCENT 100
+  )
+  # The SVC Test tries to verify it has no memory leaks by checking how much free memory on the GPU
+  # exists after execution. This check requires no other GPU tests to be running or it fails since
+  # it thinks it has a memory leak
+  set_tests_properties(SG_SVC_TEST PROPERTIES RUN_SERIAL ON)
+endif()
 
-  # todo: separate solvers better
-  if(all_algo OR solvers_algo)
-    ConfigureTest(PREFIX SG NAME CD_TEST sg/cd_test.cu ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME LARS_TEST sg/lars_test.cu ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME QUASI_NEWTON sg/quasi_newton.cu ML_INCLUDE)
-    ConfigureTest(PREFIX SG NAME SGD_TEST sg/sgd.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR tsne_algo))
+  ConfigureTest(PREFIX SG NAME TSNE_TEST sg/tsne_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR svm_algo)
-    ConfigureTest(
-      PREFIX SG
-      NAME SVC_TEST sg/svc_test.cu ML_INCLUDE
-      GPUS 1
-      PERCENT 100
-    )
-    # The SVC Test tries to verify it has no memory leaks by checking how much free memory on the
-    # GPU exists after execution. This check requires no other GPU tests to be running or it fails
-    # since it thinks it has a memory leak
-    set_tests_properties(SG_SVC_TEST PROPERTIES RUN_SERIAL ON)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR tsvd_algo))
+  ConfigureTest(PREFIX SG NAME TSVD_TEST sg/tsvd_test.cu ML_INCLUDE)
+endif()
 
-  if(all_algo OR tsne_algo)
-    ConfigureTest(PREFIX SG NAME TSNE_TEST sg/tsne_test.cu ML_INCLUDE)
-  endif()
-
-  if(all_algo OR tsvd_algo)
-    ConfigureTest(PREFIX SG NAME TSVD_TEST sg/tsvd_test.cu ML_INCLUDE)
-  endif()
-
-  if(all_algo OR umap_algo)
-    ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST sg/umap_parametrizable_test.cu ML_INCLUDE)
-  endif()
+if(BUILD_CUML_TESTS AND (all_algo OR umap_algo))
+  ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST sg/umap_parametrizable_test.cu ML_INCLUDE)
 endif()
 
 # ##################################################################################################
@@ -199,25 +199,30 @@ if(BUILD_CUML_MG_TESTS)
 
   # This test needs to be rewritten to use the MPI comms, not the std comms, and moved to RAFT:
   # https://github.com/rapidsai/cuml/issues/5058 ConfigureTest(PREFIX MG NAME KMEANS_TEST
-  # mg/kmeans_test.cu NCCL ML_INCLUDE) (please keep the filenames in alphabetical order)
-  ConfigureTest(
-    PREFIX MG NAME KNN_TEST mg/knn.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE NO_GTEST_MAIN
-  )
-  ConfigureTest(
-    PREFIX MG NAME KNN_CLASSIFY_TEST mg/knn_classify.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
-                                     NO_GTEST_MAIN
-  )
-  ConfigureTest(
-    PREFIX MG NAME KNN_REGRESS_TEST mg/knn_regress.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
-                                    NO_GTEST_MAIN
-  )
-  ConfigureTest(
-    PREFIX MG NAME PCA_TEST mg/pca.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE NO_GTEST_MAIN
-  )
-  ConfigureTest(
-    PREFIX MG NAME RF_QUANTILE_TEST mg/rf_quantile_test.cu mg/main.cu MPI RAFT_DISTRIBUTED
-                                    ML_INCLUDE NO_GTEST_MAIN
-  )
+  # mg/kmeans_test.cu NCCL ML_INCLUDE)
+  if(MPI_CXX_FOUND)
+    # (please keep the filenames in alphabetical order)
+    ConfigureTest(
+      PREFIX MG NAME KNN_TEST mg/knn.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE NO_GTEST_MAIN
+    )
+    ConfigureTest(
+      PREFIX MG NAME KNN_CLASSIFY_TEST mg/knn_classify.cu mg/main.cu MPI RAFT_DISTRIBUTED
+                                       ML_INCLUDE NO_GTEST_MAIN
+    )
+    ConfigureTest(
+      PREFIX MG NAME KNN_REGRESS_TEST mg/knn_regress.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
+                                      NO_GTEST_MAIN
+    )
+    ConfigureTest(PREFIX MG NAME MAIN_TEST mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
+    ConfigureTest(
+      PREFIX MG NAME PCA_TEST mg/pca.cu mg/main.cu MPI RAFT_DISTRIBUTED ML_INCLUDE NO_GTEST_MAIN
+    )
+    ConfigureTest(
+      PREFIX MG NAME RF_QUANTILE_TEST mg/rf_quantile_test.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
+    )
+  else(MPI_CXX_FOUND)
+    message("OpenMPI not found. Skipping MultiGPU tests '${CUML_MG_TEST_TARGET}'")
+  endif()
 endif()
 
 # ##################################################################################################
