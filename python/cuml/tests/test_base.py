@@ -108,11 +108,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize("child_class", list(all_base_children.keys()))
-# ignore ColumnTransformer init warning and max_depth deprecation
+# ignore ColumnTransformer init warning
 @pytest.mark.filterwarnings("ignore:Transformers are required")
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_base_children__get_param_names(child_class: str):
     """
@@ -232,12 +229,7 @@ def test_common_signatures(cls, method):
             first = ["self", "X", "y"]
         if "sample_weight" in sig.parameters:
             first.append("sample_weight")
-            # rapids-pre-commit-hooks: disable-next-line
-            # TODO(26.08): remove "deprecated"
-            assert sig.parameters["sample_weight"].default in (
-                None,
-                "deprecated",
-            )
+            assert sig.parameters["sample_weight"].default is None
         if "copy" in sig.parameters:
             first.append("copy")
             assert (
@@ -302,9 +294,6 @@ def test_get_handle_device_ids():
         and hasattr(cls, "predict")
     ],
 )
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 def test_regressor_predict_dtype(cls):
     X, y = make_regression(n_samples=200, random_state=42)
     X32 = X.astype("float32")
@@ -328,31 +317,27 @@ def test_regressor_predict_dtype(cls):
 
 
 @pytest.mark.parametrize(
-    "cls, kwargs",
+    "cls",
     [
-        (cuml.LogisticRegression, None),
-        (cuml.RandomForestClassifier, None),
-        (cuml.SVC, None),
-        (cuml.SVC, {"probability": True}),
-        (cuml.LinearSVC, None),
-        (cuml.KNeighborsClassifier, None),
-        (cuml.MBSGDClassifier, None),
-        (cuml.naive_bayes.GaussianNB, None),
-        (cuml.naive_bayes.BernoulliNB, None),
-        (cuml.naive_bayes.ComplementNB, None),
-        (cuml.naive_bayes.CategoricalNB, None),
-        (cuml.naive_bayes.MultinomialNB, None),
+        cuml.LogisticRegression,
+        cuml.RandomForestClassifier,
+        cuml.SVC,
+        cuml.LinearSVC,
+        cuml.KNeighborsClassifier,
+        cuml.MBSGDClassifier,
+        cuml.naive_bayes.GaussianNB,
+        cuml.naive_bayes.BernoulliNB,
+        cuml.naive_bayes.ComplementNB,
+        cuml.naive_bayes.CategoricalNB,
+        cuml.naive_bayes.MultinomialNB,
     ],
 )
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08) Remove this filter
-@pytest.mark.filterwarnings("ignore:The default value of 'max_depth'")
 @pytest.mark.parametrize(
     "target_kind", ["binary", "multiclass", "multitarget"]
 )
 @pytest.mark.parametrize("dtype_kind", ["int-monotonic", "int", "string"])
-def test_classifier_label_types(cls, kwargs, target_kind, dtype_kind):
-    model = cls(**(kwargs or {}))
+def test_classifier_label_types(cls, target_kind, dtype_kind):
+    model = cls()
     tags = model.__sklearn_tags__()
 
     supports_multitarget = [cuml.KNeighborsClassifier]

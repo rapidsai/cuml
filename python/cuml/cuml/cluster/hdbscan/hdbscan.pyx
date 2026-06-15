@@ -486,7 +486,7 @@ cdef class _HDBSCANState:
         return tree
 
 
-class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
+class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
     """
     HDBSCAN Clustering
 

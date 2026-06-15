@@ -16,20 +16,21 @@ RAPIDS_PY_CUDA_SUFFIX="$(rapids-wheel-ctk-name-gen "${RAPIDS_CUDA_VERSION}")"
 #
 # env variable 'PIP_CONSTRAINT' is set up by rapids-init-pip. It constrains all subsequent
 # 'pip install', 'pip download', etc. calls (except those used in 'pip wheel', handled separately in build scripts)C
-LIBCUML_WHEELHOUSE=$(RAPIDS_PY_WHEEL_NAME="libcuml_${RAPIDS_PY_CUDA_SUFFIX}" rapids-download-wheels-from-github cpp)
+LIBCUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libcuml cuml --cuda "$RAPIDS_CUDA_VERSION")")
 echo "libcuml-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUML_WHEELHOUSE}"/libcuml_*.whl)" >> "${PIP_CONSTRAINT}"
 
 EXCLUDE_ARGS=(
-  --exclude "libcuml.so"
-  --exclude "libcuvs.so"
-  --exclude "libraft.so"
   --exclude "libcublas.so.*"
   --exclude "libcublasLt.so.*"
   --exclude "libcufft.so.*"
+  --exclude "libcuml.so"
   --exclude "libcurand.so.*"
   --exclude "libcusolver.so.*"
   --exclude "libcusparse.so.*"
+  --exclude "libcuvs.so"
+  --exclude "libnvforest++.so"
   --exclude "libnvJitLink.so.*"
+  --exclude "libraft.so"
   --exclude "librapids_logger.so"
   --exclude "librmm.so"
 )
@@ -50,5 +51,5 @@ python -m auditwheel repair \
 
 ./ci/validate_wheel.sh ${package_dir} "${RAPIDS_WHEEL_BLD_OUTPUT_DIR}"
 
-RAPIDS_PACKAGE_NAME="$(rapids-package-name wheel_python cuml --stable --cuda)"
+RAPIDS_PACKAGE_NAME="$(rapids-artifact-name wheel_python cuml cuml --stable --cuda "$RAPIDS_CUDA_VERSION")"
 export RAPIDS_PACKAGE_NAME

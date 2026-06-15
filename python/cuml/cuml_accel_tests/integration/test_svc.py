@@ -37,7 +37,16 @@ def test_svc(binary):
     assert svc.score(X, y) > 0.5
 
 
+# TODO: remove once we only support sklearn >= 1.9
+@pytest.mark.filterwarnings(
+    "ignore:Attribute `prob[AB]_` was deprecated:FutureWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:The `probability` parameter (is|was) deprecated:FutureWarning"
+)
 def test_svc_probability(binary):
+    """This runs fully unaccelerated. Just checking that the gated methods
+    and attributes still work properly."""
     X, y = binary
     svc = SVC(probability=True).fit(X, y)
     # Inference and score works

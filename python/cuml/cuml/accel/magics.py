@@ -86,7 +86,7 @@ def run_cell_with_profiler(source, namespace, profiler):
 
 
 def load_ipython_extension(ip):
-    from IPython.core.magic import Magics, cell_magic, magics_class
+    from IPython.core.magic import Magics, cell_magic, line_magic, magics_class
 
     try:
         # Small UX nicety, added in IPython 8.10
@@ -98,6 +98,38 @@ def load_ipython_extension(ip):
 
     @magics_class
     class CumlAccelMagics(Magics):
+        @line_magic("cuml.accel.log_level")
+        def log_level(self, line):
+            """Get or set the current `cuml.accel` log level.
+
+            Usage
+            -----
+            %cuml.accel.log_level [log_level]
+
+            Options
+            -------
+            log_level: {error, warn, info, debug}, optional
+                The log level to configure. If not specified, the current log
+                level is returned instead.
+
+            Examples
+            --------
+            Set the log level to debug:
+
+              In [1]: %cuml.accel.log_level debug
+
+            Get the current log level:
+
+              In [2]: %cuml.accel.log_level
+              Out[2]: 'debug'
+            """
+            from cuml.accel.core import logger
+
+            if line := line.strip():
+                logger.set_level(line)
+            else:
+                return logger.level.name.lower()
+
         @cell_magic("cuml.accel.profile")
         @output_can_be_silenced
         def profile(self, _, cell):

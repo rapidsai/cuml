@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,10 +7,11 @@
 
 #include "pca.hpp"
 
+#include <cuml/common/export.hpp>
 #include <cuml/prims/opg/matrix/data.hpp>
 #include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace PCA {
 namespace opg {
 
@@ -27,8 +28,6 @@ namespace opg {
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
- * < 1.5)
  */
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<float>*>& input_data,
@@ -40,8 +39,7 @@ void fit(raft::handle_t& handle,
          float* mu,
          float* noise_vars,
          paramsPCAMG prms,
-         bool verbose               = false,
-         bool flip_signs_based_on_U = false);
+         bool verbose = false);
 
 void fit(raft::handle_t& handle,
          std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -53,8 +51,7 @@ void fit(raft::handle_t& handle,
          double* mu,
          double* noise_vars,
          paramsPCAMG prms,
-         bool verbose               = false,
-         bool flip_signs_based_on_U = false);
+         bool verbose = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the pca
@@ -71,8 +68,6 @@ void fit(raft::handle_t& handle,
  * @param[out] noise_vars: variance of the noise
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
- * < 1.5)
  */
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -86,8 +81,7 @@ void fit_transform(raft::handle_t& handle,
                    float* mu,
                    float* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U);
+                   bool verbose);
 
 void fit_transform(raft::handle_t& handle,
                    MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -101,8 +95,7 @@ void fit_transform(raft::handle_t& handle,
                    double* mu,
                    double* noise_vars,
                    paramsPCAMG prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U);
+                   bool verbose);
 
 /**
  * @brief performs MNMG transform operation for the pca
@@ -176,4 +169,4 @@ void inverse_transform(raft::handle_t& handle,
 
 };  // end namespace opg
 };  // end namespace PCA
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

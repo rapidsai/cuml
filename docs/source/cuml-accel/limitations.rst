@@ -156,6 +156,16 @@ Additional notes:
 - Parameters for the ``"randomized"`` solver like ``random_state``,
   ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
 
+IncrementalPCA
+^^^^^^^^^^^^^^
+
+``IncrementalPCA`` has no known estimator-specific ``cuml.accel`` limitations.
+
+Additional notes:
+
+- ``partial_fit`` does not support sparse input. This matches scikit-learn;
+  use ``fit`` for sparse input or provide dense batches to ``partial_fit``.
+
 TruncatedSVD
 ^^^^^^^^^^^^
 
@@ -267,6 +277,7 @@ LogisticRegression
 - If ``warm_start=True``.
 - If ``intercept_scaling`` is not ``1``.
 - If the deprecated ``multi_class`` parameter is used.
+- If a callback is configured with ``set_callbacks``.
 
 ElasticNet
 ^^^^^^^^^^
@@ -433,6 +444,7 @@ StandardScaler
 
 - If ``X`` is sparse.
 - When run on scikit-learn < 1.8.
+- If a callback is configured with ``set_callbacks``.
 
 MinMaxScaler
 ^^^^^^^^^^^^
@@ -462,6 +474,11 @@ LabelEncoder
 ^^^^^^^^^^^^
 
 ``LabelEncoder`` supports all cases and will never fall back to CPU.
+
+LabelBinarizer
+^^^^^^^^^^^^^^
+
+``LabelBinarizer`` supports all cases and will never fall back to CPU.
 
 TargetEncoder
 ^^^^^^^^^^^^^
@@ -502,7 +519,11 @@ SVC
 
 - If ``kernel="precomputed"`` or is a callable.
 - If ``y`` is multiclass.
-- If ``probability=True`` and ``y`` doesn't have at least 5 samples per class.
+- If ``probability=True``. The ``probability`` parameter is deprecated in
+  ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend using
+  wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV`` like
+  ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
+  supported across ``scikit-learn`` versions, and won't require CPU fallback.
 
 Additional notes:
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -213,6 +213,9 @@ def _test_lbfgs(
 
     lr_coef = array_to_numpy(lr.coef_)
     lr_intercept = array_to_numpy(lr.intercept_)
+
+    assert lr_coef.dtype == datatype
+    assert lr_intercept.dtype == datatype
 
     if penalty == "l2" or penalty is None:
         sk_solver = "lbfgs"

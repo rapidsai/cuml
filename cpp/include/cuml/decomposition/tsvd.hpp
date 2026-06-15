@@ -7,24 +7,24 @@
 
 #include "params.hpp"
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 void tsvdFit(const raft::handle_t& handle,
              float* input,
              float* components,
              float* singular_vals,
-             const paramsTSVD& prms,
-             bool flip_signs_based_on_U);
+             const paramsTSVD& prms);
 void tsvdFit(const raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
-             const paramsTSVD& prms,
-             bool flip_signs_based_on_U);
+             const paramsTSVD& prms);
 void tsvdInverseTransform(const raft::handle_t& handle,
                           float* trans_input,
                           float* components,
@@ -52,8 +52,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       float* explained_var,
                       float* explained_var_ratio,
                       float* singular_vals,
-                      const paramsTSVD& prms,
-                      bool flip_signs_based_on_U);
+                      const paramsTSVD& prms);
 void tsvdFitTransform(const raft::handle_t& handle,
                       double* input,
                       double* trans_input,
@@ -61,7 +60,6 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       double* explained_var,
                       double* explained_var_ratio,
                       double* singular_vals,
-                      const paramsTSVD& prms,
-                      bool flip_signs_based_on_U);
+                      const paramsTSVD& prms);
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

@@ -37,11 +37,15 @@ def load_library():
     """Dynamically load libcuml.so and its dependencies"""
     try:
         # These libraries must all be loaded before libcuml
+        import libcuvs
+        import libnvforest
         import libraft
         import librmm
         import rapids_logger
 
         rapids_logger.load_library()
+        libcuvs.load_library()
+        libnvforest.load_library()
         librmm.load_library()
         libraft.load_library()
     except ModuleNotFoundError:

@@ -77,12 +77,12 @@ class Algo(enum.IntEnum):
         return out
 
 
-class LinearRegression(Base,
-                       InteropMixin,
+class LinearRegression(InteropMixin,
                        LinearPredictMixin,
                        RegressorMixin,
                        FMajorInputTagMixin,
-                       SparseInputTagMixin):
+                       SparseInputTagMixin,
+                       Base):
     """
     Ordinary least squares Linear Regression.
 
@@ -241,7 +241,7 @@ class LinearRegression(Base,
         )
 
         # All libcuml solvers require F-ordered X, and mutate the inputs.
-        X = cp.asarray(X, order="F", copy=None if may_mutate_X else True)
+        X = cp.array(X, order="F", copy=None if may_mutate_X else True)
         if not may_mutate_y:
             y = y.copy()
         if sample_weight is not None and not may_mutate_sample_weight:
@@ -325,6 +325,7 @@ class LinearRegression(Base,
             convert_dtype=convert_dtype,
             ensure_min_samples=2,
             accept_sparse=True,
+            accept_large_sparse=True,
             accept_multi_output=True,
             reset=True,
         )
@@ -391,6 +392,7 @@ class LinearRegression(Base,
 
         return self
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags

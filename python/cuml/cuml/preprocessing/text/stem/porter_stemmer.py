@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -72,7 +72,7 @@ class PorterStemmer:
         0     reviv
         1      sing
         2    adjust
-        dtype: object
+        dtype: str
 
     """
 

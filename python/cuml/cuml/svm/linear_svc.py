@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-from sklearn.exceptions import NotFittedError
-from sklearn.utils.metaestimators import available_if
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -19,13 +17,12 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_is_fitted
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
 
 
-class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
+class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
     """
     Linear Support Vector Classification.
 
@@ -53,9 +50,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         Weights to modify the parameter C for class i to ``class_weight[i]*C``.
         The string 'balanced' is also accepted, in which case
         ``class_weight[i] = n_samples / (n_classes * n_samples_of_class[i])``
-    probability: bool, default=False
-        Set to True to enable probability estimate methods (``predict_proba``,
-        ``predict_log_proba``).
     tol : float, default=1e-4
         Tolerance for the stopping criterion.
     max_iter : int, default=1000
@@ -91,9 +85,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         A sorted array of the class labels.
     n_iter_ : int
         The maximum number of iterations run across all classes during the fit.
-    prob_scale_ : array or None, shape (`n_classes_`, 2)
-        The probability calibration constants if ``probability=True``,
-        otherwise ``None``.
 
     Notes
     -----
@@ -121,7 +112,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
 
     coef_ = CumlArrayDescriptor(order="F")
     intercept_ = CumlArrayDescriptor(order="F")
-    prob_scale_ = CumlArrayDescriptor(order="F")
 
     _cpu_class_path = "sklearn.svm.LinearSVC"
 
@@ -135,7 +125,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             "fit_intercept",
             "penalized_intercept",
             "class_weight",
-            "probability",
             "tol",
             "max_iter",
             "linesearch_max_iter",
@@ -185,7 +174,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
                 model.intercept_, order="F", dtype=cp.float64
             ),
             "classes_": model.classes_,
-            "prob_scale_": None,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
@@ -208,7 +196,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         fit_intercept=True,
         penalized_intercept=False,
         class_weight=None,
-        probability=False,
         tol=1e-4,
         max_iter=1000,
         linesearch_max_iter=100,
@@ -226,7 +213,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self.fit_intercept = fit_intercept
         self.penalized_intercept = penalized_intercept
         self.class_weight = class_weight
-        self.probability = probability
         self.tol = tol
         self.max_iter = max_iter
         self.linesearch_max_iter = linesearch_max_iter
@@ -240,7 +226,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
-        coef, intercept, n_iter, prob_scale, classes = cuml.svm.linear.fit(
+        coef, intercept, n_iter, classes = cuml.svm.linear.fit(
             self,
             X,
             y,
@@ -248,7 +234,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             convert_dtype=convert_dtype,
             is_classifier=True,
             n_streams=self.n_streams,
-            probability=self.probability,
             class_weight=self.class_weight,
             loss=self.loss,
             penalty=self.penalty,
@@ -267,9 +252,6 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
             intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
         )
         self.n_iter_ = n_iter
-        self.prob_scale_ = (
-            None if prob_scale is None else CumlArray(data=prob_scale)
-        )
         self.classes_ = classes
         return self
 
@@ -284,10 +266,7 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
     @run_in_internal_context
     def predict(self, X, *, convert_dtype=True):
         """Predict class labels for samples in X."""
-        if self.probability:
-            scores = self.predict_proba(X, convert_dtype=convert_dtype)
-        else:
-            scores = self.decision_function(X, convert_dtype=convert_dtype)
+        scores = self.decision_function(X, convert_dtype=convert_dtype)
         index = scores.index
         scores = scores.to_output("cupy")
         if scores.ndim == 1:
@@ -300,53 +279,3 @@ class LinearSVC(Base, InteropMixin, LinearClassifierMixin, ClassifierMixin):
         return decode_labels(
             inds, self.classes_, output_type=output_type, index=index
         )
-
-    @available_if(lambda self: self.probability)
-    @generate_docstring(
-        return_values={
-            "name": "probs",
-            "type": "dense",
-            "description": "Probabilities per class for each sample.",
-            "shape": "(n_samples, n_classes)",
-        },
-    )
-    @reflect
-    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
-        """Compute probabilities of possible outcomes for samples in X.
-
-        The model must have been fit with ``probability=True`` for this method
-        to be available.
-        """
-        check_is_fitted(self)
-        if self.prob_scale_ is None:
-            raise NotFittedError(
-                "predict_proba is not available when fitted with probability=False"
-            )
-        scores = self.decision_function(X, convert_dtype=convert_dtype)
-        return cuml.svm.linear.compute_probabilities(
-            scores,
-            self.prob_scale_.to_output("cupy"),
-            n_streams=self.n_streams,
-        )
-
-    @available_if(lambda self: self.probability)
-    @generate_docstring(
-        return_values={
-            "name": "probs",
-            "type": "dense",
-            "description": "Log probabilities per class for each sample.",
-            "shape": "(n_samples, n_classes)",
-        },
-    )
-    @reflect
-    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
-        """Compute log probabilities of possible outcomes for samples in X.
-
-        The model must have been fit with ``probability=True`` for this method
-        to be available.
-        """
-        probs = self.predict_proba(X, convert_dtype=convert_dtype).to_output(
-            "cupy"
-        )
-        cp.log(probs, out=probs)
-        return CumlArray(data=probs)

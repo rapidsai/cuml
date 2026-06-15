@@ -67,12 +67,12 @@ _SOLVER_CUML_TO_SKLEARN = {
 }
 
 
-class Ridge(Base,
-            InteropMixin,
+class Ridge(InteropMixin,
             RegressorMixin,
             LinearPredictMixin,
             FMajorInputTagMixin,
-            SparseInputTagMixin):
+            SparseInputTagMixin,
+            Base):
     """Linear least squares with L2 regularization.
 
     Ridge extends LinearRegression by providing L2 regularization on the
@@ -263,9 +263,10 @@ class Ridge(Base,
         self.max_iter = max_iter
         self.copy_X = copy_X
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
 
     def _fit_eig(
         self,
@@ -285,7 +286,7 @@ class Ridge(Base,
         # The `eig` solver requires X be F-contiguous. Additionally, all inputs
         # are mutated when weighted or `fit_intercept=True`.
         mutates = self.fit_intercept or sample_weight is not None
-        X = cp.asarray(X, order="F", copy=True if mutates and not may_mutate_X else None)
+        X = cp.array(X, order="F", copy=True if mutates and not may_mutate_X else None)
         if mutates and not may_mutate_y:
             y = y.copy()
         if sample_weight is not None and mutates and not may_mutate_sample_weight:
@@ -370,6 +371,7 @@ class Ridge(Base,
             convert_dtype=convert_dtype,
             ensure_min_samples=2,
             accept_sparse=True,
+            accept_large_sparse=True,
             accept_multi_output=True,
             reset=True,
         )

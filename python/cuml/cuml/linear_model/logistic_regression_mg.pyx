@@ -2,12 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 
+import cuml.common.opg_data_utils_mg as opg
 from cuml.internals import run_in_internal_context
 from cuml.internals.array import CumlArray
+from cuml.internals.validation import check_inputs
 from cuml.linear_model import LogisticRegression
-from cuml.linear_model.base_mg import MGFitMixin
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport int64_t, uintptr_t
@@ -121,54 +124,93 @@ cdef extern from "cuml/linear_model/qn_mg.hpp" namespace "ML::GLM::opg" nogil:
         int *num_iters) except +
 
 
-class LogisticRegressionMG(MGFitMixin, LogisticRegression):
-
-    def __init__(self, *, standardization=False, _convert_index=False, **kwargs):
-        super(LogisticRegressionMG, self).__init__(**kwargs)
+class LogisticRegressionMG(LogisticRegression):
+    def __init__(self, *, handle, standardization=False, _convert_index=False, **kwargs):
+        super().__init__(**kwargs)
+        self.handle = handle
         self.standardization = standardization
         self._convert_index = _convert_index
 
-    def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank, convert_dtype=False):
+    @run_in_internal_context
+    def fit(
+        self,
+        input_data,
+        n_rows,
+        n_cols,
+        parts_rank_size,
+        rank,
+    ):
+        # Validate and process input data
         if len(input_data) != 1:
             raise ValueError(
                 f"Currently support only one (X, y) pair in the list. "
                 f"Received {len(input_data)} pairs."
             )
-        super().fit(
-            input_data,
-            n_rows,
-            n_cols,
-            parts_rank_size,
-            rank,
+        X, y = input_data[0]
+
+        self._set_output_type(X)
+        X, y = check_inputs(
+            self,
+            X,
+            y,
+            dtype=("float32", "float64"),
             order="C",
-            convert_index=self._convert_index,
+            accept_sparse="csr",
+            accept_large_sparse=True,
+            reset=True,
+        )
+        self.dtype = X.dtype
+
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(parts_rank_size)
+        cdef uintptr_t input_desc = opg.build_part_descriptor(
+            n_rows, n_cols, rank_to_sizes, rank
         )
 
-    @run_in_internal_context
-    def _fit(self, X, uintptr_t y, uintptr_t coef_ptr, uintptr_t input_desc):
+        cdef bool X_is_f32 = X.dtype == np.float32
+        cdef bool X_is_sparse = cp_sp.issparse(X)
+        cdef bool X_index_is_i32 = False
+        cdef uintptr_t y_ptr = opg.build_data_t([y])
+        cdef uintptr_t X_ptr = 0, X_indices_ptr = 0, X_indptr_ptr = 0
+        cdef int64_t X_nnz = 0
+
+        if X_is_sparse:
+            indices = X.indices
+            indptr = X.indptr
+            if self._convert_index:
+                indices = indices.astype(self._convert_index, copy=False)
+                indptr = indptr.astype(self._convert_index, copy=False)
+            self.index_dtype = indices.dtype
+            X_ptr = opg.build_data_t([X.data])
+            X_indices_ptr = indices.data.ptr
+            X_indptr_ptr = indptr.data.ptr
+            X_nnz = X.nnz
+            X_index_is_i32 = self.index_dtype == np.int32
+        else:
+            X_ptr = opg.build_data_t([X])
+
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Determine the number of classes in y
-        if self.dtype == np.float32:
-            classes = getUniquelabelsMG(
-                handle_[0],
-                deref(<PartDescriptor*>input_desc),
-                deref(<vector[floatData_t*]*>y)
+        if X.dtype == np.float32:
+            classes = np.asarray(
+                getUniquelabelsMG(
+                    handle_[0],
+                    deref(<PartDescriptor*>input_desc),
+                    deref(<vector[floatData_t*]*>y_ptr)
+                ),
+                dtype=X.dtype,
             )
-            self.classes_ = np.sort(classes).astype(np.float32)
-        elif self.dtype == np.float64:
-            classes = getUniquelabelsMG(
-                handle_[0],
-                deref(<PartDescriptor*>input_desc),
-                deref(<vector[doubleData_t*]*>y)
-            )
-            self.classes_ = np.sort(classes)
         else:
-            raise ValueError(
-                "dtypes other than float32 and float64 are currently not supported yet."
+            classes = np.asarray(
+                getUniquelabelsMG(
+                    handle_[0],
+                    deref(<PartDescriptor*>input_desc),
+                    deref(<vector[doubleData_t*]*>y_ptr)
+                ),
+                dtype=X.dtype,
             )
-
-        cdef int n_classes = len(self.classes_)
+        classes.sort()
+        cdef int n_classes = len(classes)
 
         # Validate and initialize parameters
         l1_strength, l2_strength = self._get_l1_l2_strength()
@@ -191,22 +233,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         # Allocate outputs
         coef_n_cols = n_classes if n_classes > 2 else 1
-        coef_n_rows = self.n_cols + 1 if self.fit_intercept else self.n_cols
-        coef = CumlArray.zeros((coef_n_rows, coef_n_cols), dtype=self.dtype, order="C")
+        coef_n_rows = n_cols + 1 if self.fit_intercept else n_cols
+        coef = cp.zeros((coef_n_rows, coef_n_cols), dtype=X.dtype, order="C")
 
         # Prepare for fit
-        cdef uintptr_t X_ptr = 0, X_cols_ptr = 0, X_rows_ptr = 0
-        cdef int64_t X_nnz = 0
-        cdef bool X_is_f32 = self.dtype == np.float32
-        cdef bool X_index_is_i32 = False
-        cdef bool X_is_dense = isinstance(X, int)
-        if X_is_dense:
-            X_ptr = X
-        else:
-            X_ptr, X_cols_ptr, X_rows_ptr, X_nnz = X
-            X_index_is_i32 = self.index_dtype == np.int32
-
-        coef_ptr = coef.ptr
+        cdef uintptr_t coef_ptr = coef.data.ptr
         cdef bool standardization = self.standardization
         cdef float objective_f32
         cdef double objective_f64
@@ -214,13 +245,13 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         # Perform fit
         with nogil:
-            if X_is_dense:
+            if not X_is_sparse:
                 if X_is_f32:
                     qnFit(
                         handle_[0],
                         deref(<vector[floatData_t*]*>X_ptr),
                         deref(<PartDescriptor*>input_desc),
-                        deref(<vector[floatData_t*]*>y),
+                        deref(<vector[floatData_t*]*>y_ptr),
                         <float*>coef_ptr,
                         params,
                         False,
@@ -234,7 +265,7 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         handle_[0],
                         deref(<vector[doubleData_t*]*>X_ptr),
                         deref(<PartDescriptor*>input_desc),
-                        deref(<vector[doubleData_t*]*>y),
+                        deref(<vector[doubleData_t*]*>y_ptr),
                         <double*>coef_ptr,
                         params,
                         False,
@@ -249,11 +280,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnFitSparse(
                             handle_[0],
                             deref(<vector[floatData_t*]*>X_ptr),
-                            <int*>X_cols_ptr,
-                            <int*>X_rows_ptr,
+                            <int*>X_indices_ptr,
+                            <int*>X_indptr_ptr,
                             <int>X_nnz,
                             deref(<PartDescriptor*>input_desc),
-                            deref(<vector[floatData_t*]*>y),
+                            deref(<vector[floatData_t*]*>y_ptr),
                             <float*>coef_ptr,
                             params,
                             standardization,
@@ -265,11 +296,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnFitSparse(
                             handle_[0],
                             deref(<vector[floatData_t*]*>X_ptr),
-                            <int64_t *>X_cols_ptr,
-                            <int64_t *>X_rows_ptr,
+                            <int64_t *>X_indices_ptr,
+                            <int64_t *>X_indptr_ptr,
                             X_nnz,
                             deref(<PartDescriptor*>input_desc),
-                            deref(<vector[floatData_t*]*>y),
+                            deref(<vector[floatData_t*]*>y_ptr),
                             <float*>coef_ptr,
                             params,
                             standardization,
@@ -282,11 +313,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnFitSparse(
                             handle_[0],
                             deref(<vector[doubleData_t*]*>X_ptr),
-                            <int*>X_cols_ptr,
-                            <int*>X_rows_ptr,
+                            <int*>X_indices_ptr,
+                            <int*>X_indptr_ptr,
                             <int>X_nnz,
                             deref(<PartDescriptor*>input_desc),
-                            deref(<vector[doubleData_t*]*>y),
+                            deref(<vector[doubleData_t*]*>y_ptr),
                             <double*>coef_ptr,
                             params,
                             standardization,
@@ -298,11 +329,11 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
                         qnFitSparse(
                             handle_[0],
                             deref(<vector[doubleData_t*]*>X_ptr),
-                            <int64_t *>X_cols_ptr,
-                            <int64_t *>X_rows_ptr,
+                            <int64_t *>X_indices_ptr,
+                            <int64_t *>X_indptr_ptr,
                             X_nnz,
                             deref(<PartDescriptor*>input_desc),
-                            deref(<vector[doubleData_t*]*>y),
+                            deref(<vector[doubleData_t*]*>y_ptr),
                             <double*>coef_ptr,
                             params,
                             standardization,
@@ -313,21 +344,27 @@ class LogisticRegressionMG(MGFitMixin, LogisticRegression):
 
         self.handle.sync()
 
+        # Release memory resources
+        opg.free_data_t(X_ptr, X.dtype)
+        opg.free_data_t(y_ptr, X.dtype)
+        opg.free_rank_size_pair(rank_to_sizes)
+        opg.free_part_descriptor(input_desc)
+
         # Postprocess coef into coef_ and intercept_
-        coef_cp = coef.to_output("cupy")
         if self.fit_intercept:
-            intercept = CumlArray(data=coef_cp[-1])
-            coef = CumlArray(data=coef_cp[:-1].T)
+            intercept = coef[-1]
+            coef = coef[:-1].T
         else:
             if n_classes <= 2:
-                intercept = CumlArray.zeros(shape=1)
+                intercept = cp.zeros(shape=1, dtype=X.dtype)
             else:
-                intercept = CumlArray.zeros(shape=n_classes)
-            coef = CumlArray(data=coef_cp.T)
+                intercept = cp.zeros(shape=n_classes, dtype=X.dtype)
+            coef = coef.T
 
         # Store fitted attributes
-        self.coef_ = coef
-        self.intercept_ = intercept
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = CumlArray(data=intercept)
         self.n_iter_ = np.array([n_iter])
+        self.classes_ = classes
 
         return self
