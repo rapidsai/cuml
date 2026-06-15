@@ -42,8 +42,6 @@ void fit_impl(const raft::handle_t& handle,
     if (sample_weight != nullptr)
       sw = std::make_optional(
         raft::make_host_vector_view<const value_t, int64_t>(sample_weight, n_samples_64));
-    // The cuVS host overload still wants a `device_matrix_view<..., int64_t>`
-    // for centroids. Rebuild it with the matching index type.
     auto centroids_view_64 =
       raft::make_device_matrix_view<value_t, int64_t>(centroids, params.n_clusters, n_features_64);
     int64_t n_iter_64   = 0;
@@ -55,7 +53,6 @@ void fit_impl(const raft::handle_t& handle,
     return;
   }
 
-  // Device-resident X: original code path, preserves the caller's `idx_t`.
   auto X_view = raft::make_device_matrix_view(X, n_samples, n_features);
   std::optional<raft::device_vector_view<const value_t, idx_t>> sw = std::nullopt;
   if (sample_weight != nullptr)
