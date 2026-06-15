@@ -191,6 +191,7 @@ cdef _kmeans_predict(
     X,
     sample_weight,
     centers,
+    bool normalize_weights=True,
 ):
     """Predict labels & inertia from a fit `KMeans`.
 
@@ -230,7 +231,7 @@ cdef _kmeans_predict(
                     <int>n_rows,
                     <int>n_cols,
                     <float*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int*>labels_ptr,
                     inertia_f32,
                 )
@@ -243,7 +244,7 @@ cdef _kmeans_predict(
                     <int64_t>n_rows,
                     <int64_t>n_cols,
                     <float*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int64_t*>labels_ptr,
                     inertia_f32,
                 )
@@ -257,7 +258,7 @@ cdef _kmeans_predict(
                     <int>n_rows,
                     <int>n_cols,
                     <double*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int*>labels_ptr,
                     inertia_f64,
                 )
@@ -270,7 +271,7 @@ cdef _kmeans_predict(
                     <int64_t>n_rows,
                     <int64_t>n_cols,
                     <double*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int64_t*>labels_ptr,
                     inertia_f64,
                 )
@@ -302,6 +303,14 @@ cdef _kmeans_predict_host_chunked(
     if cap > n_rows:
         cap = n_rows
 
+    total_sw = float(sample_weight.sum())
+    if total_sw > 0:
+        sample_weight_scaled = (
+            sample_weight.astype(X.dtype, copy=False) * (n_rows / total_sw)
+        ).astype(X.dtype, copy=False)
+    else:
+        sample_weight_scaled = sample_weight
+
     # Reusable per-batch device buffers. Allocated once
     X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
     sw_buf = cp.empty(shape=cap, dtype=X.dtype)
@@ -326,10 +335,10 @@ cdef _kmeans_predict_host_chunked(
 
         # Host -> device copy of this batch.
         X_buf[:n].set(X[start:end])
-        sw_buf[:n].set(sample_weight[start:end])
+        sw_buf[:n].set(sample_weight_scaled[start:end])
 
         batch_labels, batch_inertia = _kmeans_predict(
-            handle, params, X_buf[:n], sw_buf[:n], centers
+            handle, params, X_buf[:n], sw_buf[:n], centers, False
         )
         labels_host[start:end] = cp.asnumpy(batch_labels)
         total_inertia += float(batch_inertia)
