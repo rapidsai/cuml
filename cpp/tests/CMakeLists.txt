@@ -96,9 +96,8 @@ function(ConfigureTest)
 endfunction()
 
 # ##################################################################################################
-# * build single-GPU test executables ------------------------------------------
+# * build ml_test executable -------------------------------------------------
 if(BUILD_CUML_TESTS)
-
   if(all_algo OR dbscan_algo)
     ConfigureTest(PREFIX SG NAME DBSCAN_TEST sg/dbscan_test.cu ML_INCLUDE)
   endif()
@@ -191,11 +190,10 @@ if(BUILD_CUML_TESTS)
   if(all_algo OR umap_algo)
     ConfigureTest(PREFIX SG NAME UMAP_PARAMETRIZABLE_TEST sg/umap_parametrizable_test.cu ML_INCLUDE)
   endif()
-
 endif()
 
 # ##################################################################################################
-# * build Multi-GPU test executables ----------------------------------------------
+# * build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
 
