@@ -58,6 +58,7 @@ from cuml.metrics import (
     pairwise_distances,
     precision_recall_curve,
     roc_auc_score,
+    sparse_pairwise_distances,
 )
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics.cluster import entropy
@@ -1239,6 +1240,14 @@ def prep_dense_array(array, metric, col_major=0):
         return np.asfortranarray(norm_array) if col_major else norm_array
     else:
         return np.asfortranarray(array) if col_major else array
+
+
+def test_sparse_pairwise_distances_deprecated():
+    X = cp_sp.random(10, 10, random_state=42, density=0.5)
+    with pytest.warns(FutureWarning, match="deprecated"):
+        res = sparse_pairwise_distances(X, metric="sqeuclidean")
+    sol = sklearn_pairwise_distances(X.toarray().get(), metric="sqeuclidean")
+    np.testing.assert_allclose(res.get(), sol, atol=1e-4)
 
 
 @pytest.mark.filterwarnings(

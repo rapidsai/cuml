@@ -267,42 +267,31 @@ def _ensure_boolean(X, metric):
 def pairwise_distances(
     X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
 ):
-    """
-    Compute the distance matrix from a vector array `X` and optional `Y`.
+    """Compute the distance matrix from a feature array X and optional Y.
 
-    This method takes either one or two vector arrays, and returns a distance
-    matrix.
-
-    If `Y` is given (default is `None`), then the returned matrix is the
-    pairwise distance between the arrays from both `X` and `Y`.
-
-    Valid values for metric are:
-
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
-        'manhattan'].
-        Sparse matrices are supported, see 'sparse_pairwise_distances'.
-    - From scipy.spatial.distance: ['sqeuclidean']
-        See the documentation for scipy.spatial.distance for details on this
-        metric. Sparse matrices are supported.
+    This function takes either one or two feature arrays, and returns
+    a distance matrix.
 
     Parameters
     ----------
-    X : {array-like, sparse matrix} (device or host) of shape \
-        (n_samples_x, n_features)
-        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy, or
-        cupyx.scipy.sparse for sparse input.
+    X : {array-like, sparse matrix}, shape=(n_samples_X, n_features)
+        A feature array.
 
-    Y : array-like (device or host) of shape (n_samples_y, n_features), \
-        default=None
-        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
-        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy.
+    Y : {array-like, sparse matrix}, shape=(n_samples_y, n_features), default=None
+        A second feature array. If None, Y=X will be used.
 
-    metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
-        "sqeuclidean"}
+    metric : str, default="euclidean"
         The metric to use when calculating distance between instances in a
-        feature array.
+        feature array. Valid options are:
+
+        - Supports both dense and sparse data: ['canberra', 'chebyshev',
+          'cityblock', 'cosine', 'euclidean', 'hellinger', 'l1', 'l2',
+          'manhattan', 'minkowski', 'sqeuclidean'].
+
+        - Supports dense only: ['correlation', 'hamming', 'jensenshannon',
+          'kldivergence', 'nan_euclidean', 'russellrao'].
+
+        - Supports sparse only: ['dice', 'inner_product', 'jaccard'].
 
     convert_dtype : bool, optional (default = True)
         When set to True, the method will, when necessary, convert
@@ -311,37 +300,27 @@ def pairwise_distances(
 
     Returns
     -------
-    D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
-        A distance matrix D such that D_{i, j} is the distance between the
-        ith and jth vectors of the given matrix `X`, if `Y` is None.
-        If `Y` is not `None`, then D_{i, j} is the distance between the ith
-        array from `X` and the jth array from `Y`.
+    D : array, shape=(n_samples_X, n_samples_X) or (n_samples_X, n_samples_Y)
+        A distance matrix D such that D_{i, j} is the distance between the ith
+        and jth vectors of the given matrix X, if Y is None. If Y is not None,
+        then D_{i, j} is the distance between the ith array from X and the jth
+        array from Y.
 
     Examples
     --------
     >>> import cupy as cp
     >>> from cuml.metrics import pairwise_distances
 
-    >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
-    >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
+    >>> X = cp.array([[0., 0., 0.], [1., 1., 1.]])
+    >>> Y = cp.array([[1., 0., 0.], [1., 1., 0.]])
 
-    >>> # Euclidean Pairwise Distance, Single Input:
-    >>> pairwise_distances(X, metric='euclidean')
-    array([[0.        , 2.236..., 5.830...],
-        [2.236..., 0.        , 3.605...],
-        [5.830..., 3.605..., 0.        ]])
+    >>> pairwise_distances(X, metric="sqeuclidean")
+    array([[0., 3.],
+           [3., 0.]])
 
-    >>> # Cosine Pairwise Distance, Multi-Input:
-    >>> pairwise_distances(X, Y, metric='cosine')
-    array([[0.445... , 0.131...],
-        [0.485..., 0.156...],
-        [0.470..., 0.146...]])
-
-    >>> # Manhattan Pairwise Distance, Multi-Input:
-    >>> pairwise_distances(X, Y, metric='manhattan')
-    array([[ 4.,  2.],
-        [ 7.,  5.],
-        [12., 10.]])
+    >>> pairwise_distances(X, Y, metric="sqeuclidean")
+    array([[1., 2.],
+           [2., 1.]])
     """
     if metric == "nan_euclidean":
         return nan_euclidean_distances(X, Y, **kwds)
@@ -509,6 +488,12 @@ def sparse_pairwise_distances(
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
+    .. deprecated:: 26.08
+
+       The ``sparse_pairwise_distances`` function was deprecated in version
+       26.08 and will be removed in version 26.10. Please use
+       ``pairwise_distances`` instead.
+
     This method takes either one or two sparse vector arrays, and returns a
     dense distance matrix.
 
@@ -584,6 +569,12 @@ def sparse_pairwise_distances(
         array([[2.   ],
             [2.333...]])
     """
+    warnings.warn(
+        "The ``sparse_pairwise_distances`` function was deprecated "
+        "in version 26.08 and will be removed in version 26.10. "
+        "Please use ``pairwise_distances`` instead.",
+        FutureWarning,
+    )
     return pairwise_distances(
         X,
         Y,
