@@ -27,7 +27,8 @@ namespace kmeans {
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
- * @param[in]     sample_weight The weights for each observation in X.
+ * @param[in]     sample_weight The weights for each observation in X. If non-null, sample_weight
+ must have the same memory residency as X.
  * @param[inout]  centroids     [in] When init is InitMethod::Array, use
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
