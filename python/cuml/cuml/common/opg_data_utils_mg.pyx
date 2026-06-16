@@ -37,10 +37,7 @@ def build_data_t(parts):
         data_f32 = new vector[floatData_t *]()
         for part in parts:
             data_f32.push_back(
-                new floatData_t(
-                    <float*><uintptr_t>(part.data.ptr),
-                    len(part),
-                )
+                new floatData_t(<float*><uintptr_t>(part.data.ptr), part.size)
             )
         return <uintptr_t> data_f32
 
@@ -48,10 +45,7 @@ def build_data_t(parts):
         data_f64 = new vector[doubleData_t *]()
         for part in parts:
             data_f64.push_back(
-                new doubleData_t(
-                    <double*><uintptr_t>(part.data.ptr),
-                    len(part),
-                )
+                new doubleData_t(<double*><uintptr_t>(part.data.ptr), part.size)
             )
         return <uintptr_t> data_f64
 

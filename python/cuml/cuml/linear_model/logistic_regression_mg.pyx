@@ -356,9 +356,9 @@ class LogisticRegressionMG(LogisticRegression):
             coef = coef[:-1].T
         else:
             if n_classes <= 2:
-                intercept = cp.zeros(shape=1)
+                intercept = cp.zeros(shape=1, dtype=X.dtype)
             else:
-                intercept = cp.zeros(shape=n_classes)
+                intercept = cp.zeros(shape=n_classes, dtype=X.dtype)
             coef = coef.T
 
         # Store fitted attributes
