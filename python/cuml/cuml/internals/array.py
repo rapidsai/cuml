@@ -986,7 +986,7 @@ class CumlArray:
         """
         # Local to workaround circular imports
         import cuml.accel
-        from cuml.common.sparse_utils import is_sparse
+        from cuml.common.sparse import is_sparse
 
         if is_sparse(X):
             # We don't support coercing sparse arrays to dense via this method.

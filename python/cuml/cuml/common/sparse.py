@@ -4,7 +4,32 @@
 #
 import math
 
+import cupyx.scipy.sparse as cp_sp
+import scipy.sparse as sp
+
 from cuml.common.kernel_utils import cuda_kernel_factory
+
+__all__ = (
+    "is_sparse",
+    "csr_row_normalize_l1",
+    "csr_row_normalize_l2",
+    "csr_diag_mul",
+)
+
+
+def is_sparse(X):
+    """Returns whether X is sparse matrix.
+
+    Parameters
+    ----------
+    X : array-like, sparse-matrix
+
+    Returns
+    -------
+    is_sparse : bool
+        Whether the input is sparse.
+    """
+    return sp.issparse(X) or cp_sp.issparse(X)
 
 
 def _map_l1_norm_kernel(dtype):
