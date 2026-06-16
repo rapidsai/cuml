@@ -13,7 +13,7 @@ from cudf import Series
 from sklearn.exceptions import NotFittedError
 
 import cuml.internals.logger as logger
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
 
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
