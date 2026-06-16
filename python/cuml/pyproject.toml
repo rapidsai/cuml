@@ -68,6 +68,8 @@ filterwarnings = [
   "ignore:The cuda.core.experimental namespace is deprecated:DeprecationWarning",
   # Allow informational benchmark warnings (pytest-benchmark plugin)
   "default::pytest_benchmark.logger.PytestBenchmarkWarning",
+  # sklearn's parametrize_with_checks passes a generator to parametrize
+  "ignore:Passing a non-Collection iterable:pytest.PytestRemovedIn10Warning",
 ]
 
 [project]
@@ -122,7 +124,6 @@ test = [
     "pynndescent",
     "pytest",
     "pytest-benchmark",
-    "pytest-cases",
     "pytest-cov",
     "pytest-xdist",
     "pyyaml",

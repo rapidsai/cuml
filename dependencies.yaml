@@ -636,7 +636,6 @@ dependencies:
           # - *skl2onnx
           - pytest
           - pytest-benchmark
-          - pytest-cases
           - pytest-cov
           - pytest-xdist
           - pyyaml
