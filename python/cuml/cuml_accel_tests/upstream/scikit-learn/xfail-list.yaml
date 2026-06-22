@@ -818,6 +818,12 @@
   - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
+  condition: scikit-learn>=1.9
+  strict: false
+  tests:
+  - "sklearn.linear_model.tests.test_logistic::test_logreg_l1[42-csr_matrix]"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
   strict: false
   tests:
   - "sklearn.cluster.tests.test_k_means::test_kmeans_elkan_iter_attribute"
