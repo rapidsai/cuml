@@ -307,6 +307,8 @@ static __global__ void computeSplitKernel(BinT* histograms,
 
   __syncthreads();
 
+  objective.CenterEmptyBinQuantiles(shared_histogram, shared_quantiles, n_bins);
+
   // calculate the best candidate bins (one for each thread in the block) in current feature and
   // corresponding information gain for splitting
   Split<DataT, IdxT> sp =

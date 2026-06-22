@@ -49,35 +49,6 @@ class ClassificationObjectiveFunction {
     return weight;
   }
 
-  DI IdxT PlateauMiddleBin(BinT const* hist, IdxT i, IdxT n_bins, IdxT nLeft) const
-  {
-    IdxT lo = 0;
-    IdxT hi = i;
-    while (lo < hi) {
-      IdxT mid = lo + (hi - lo) / 2;
-      if (CountLeft(hist, mid, n_bins) < nLeft) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    IdxT first = lo;
-
-    lo = i;
-    hi = n_bins - 1;
-    while (lo < hi) {
-      IdxT mid = lo + (hi - lo + 1) / 2;
-      if (CountLeft(hist, mid, n_bins) > nLeft) {
-        hi = mid - 1;
-      } else {
-        lo = mid;
-      }
-    }
-    IdxT last = lo;
-
-    return first + (last - first + 1) / 2;
-  }
-
   HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
     constexpr DataT One = DataT(1.0);
@@ -173,6 +144,28 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
+  DI void CenterEmptyBinQuantiles(BinT const* hist, DataT* quantiles, IdxT n_bins) const
+  {
+    if (threadIdx.x == 0) {
+      IdxT start = 0;
+      while (start < n_bins) {
+        auto nLeft = CountLeft(hist, start, n_bins);
+        IdxT end  = start;
+        while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
+          ++end;
+        }
+
+        auto middle      = start + (end - start + 1) / 2;
+        auto middle_ques = quantiles[middle];
+        for (IdxT i = start; i <= end; ++i) {
+          quantiles[i] = middle_ques;
+        }
+        start = end + 1;
+      }
+    }
+    __syncthreads();
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
@@ -184,9 +177,7 @@ class ClassificationObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      if (i == PlateauMiddleBin(shist, i, n_bins, nLeft)) {
-        sp.update({squantiles[i], col, gain, nLeft});
-      }
+      sp.update({squantiles[i], col, gain, nLeft});
     }
     return sp;
   }
@@ -227,35 +218,6 @@ class RegressionObjectiveFunction {
   DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT) const
   {
     return static_cast<IdxT>(hist[i].Count());
-  }
-
-  DI IdxT PlateauMiddleBin(BinT const* hist, IdxT i, IdxT n_bins, IdxT nLeft) const
-  {
-    IdxT lo = 0;
-    IdxT hi = i;
-    while (lo < hi) {
-      IdxT mid = lo + (hi - lo) / 2;
-      if (CountLeft(hist, mid, n_bins) < nLeft) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    IdxT first = lo;
-
-    lo = i;
-    hi = n_bins - 1;
-    while (lo < hi) {
-      IdxT mid = lo + (hi - lo + 1) / 2;
-      if (CountLeft(hist, mid, n_bins) > nLeft) {
-        hi = mid - 1;
-      } else {
-        lo = mid;
-      }
-    }
-    IdxT last = lo;
-
-    return first + (last - first + 1) / 2;
   }
 
   HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
@@ -384,6 +346,28 @@ class RegressionObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
 
+  DI void CenterEmptyBinQuantiles(BinT const* hist, DataT* quantiles, IdxT n_bins) const
+  {
+    if (threadIdx.x == 0) {
+      IdxT start = 0;
+      while (start < n_bins) {
+        auto nLeft = CountLeft(hist, start, n_bins);
+        IdxT end  = start;
+        while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
+          ++end;
+        }
+
+        auto middle      = start + (end - start + 1) / 2;
+        auto middle_ques = quantiles[middle];
+        for (IdxT i = start; i <= end; ++i) {
+          quantiles[i] = middle_ques;
+        }
+        start = end + 1;
+      }
+    }
+    __syncthreads();
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
@@ -395,9 +379,7 @@ class RegressionObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      if (i == PlateauMiddleBin(shist, i, n_bins, nLeft)) {
-        sp.update({squantiles[i], col, gain, nLeft});
-      }
+      sp.update({squantiles[i], col, gain, nLeft});
     }
     return sp;
   }

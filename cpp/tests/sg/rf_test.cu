@@ -949,13 +949,14 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
 
 template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
 __global__ void objectiveGainKernel(BinT const* hist,
-                                    DataT const* quantiles,
+                                    DataT* quantiles,
                                     DT::Split<DataT, IdxT>* out,
                                     ObjectiveT objective,
                                     IdxT col,
                                     IdxT len,
                                     IdxT n_bins)
 {
+  objective.CenterEmptyBinQuantiles(hist, quantiles, n_bins);
   *out = objective.Gain(hist, quantiles, col, len, n_bins);
 }
 
