@@ -32,6 +32,7 @@
 #include <thrust/transform.h>
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/objectives.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
 #include <nvforest/detail/raft_proto/device_type.hpp>
@@ -945,6 +946,117 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
     }
   }
 };
+
+template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
+__global__ void objectiveGainKernel(BinT const* hist,
+                                    DataT const* quantiles,
+                                    DT::Split<DataT, IdxT>* out,
+                                    ObjectiveT objective,
+                                    IdxT col,
+                                    IdxT len,
+                                    IdxT n_bins)
+{
+  *out = objective.Gain(hist, quantiles, col, len, n_bins);
+}
+
+TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
+{
+  using DataT        = float;
+  using IdxT         = int;
+  constexpr IdxT len = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::ClassificationBin> h_hist = {
+    {1}, {2}, {2}, {2}, {2}, {5},
+    {1}, {2}, {2}, {2}, {2}, {5},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::ClassificationBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+
+  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(
+    2, 1, CRITERION::GINI);
+  objectiveGainKernel<<<1, 1, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
+                                split.data().get(),
+                                sizeof(h_split),
+                                cudaMemcpyDeviceToHost,
+                                handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+}
+
+TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
+{
+  using DataT        = float;
+  using IdxT         = int;
+  constexpr IdxT len = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::RegressionBin> h_hist = {
+    {2.0, 2}, {4.0, 4}, {4.0, 4}, {4.0, 4}, {4.0, 4}, {10.0, 10},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::RegressionBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+
+  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(
+    1, 1, CRITERION::MSE);
+  objectiveGainKernel<<<1, 1, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
+                                split.data().get(),
+                                sizeof(h_split),
+                                cudaMemcpyDeviceToHost,
+                                handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+}
 
 template <typename T>
 class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileTestParameters> {

@@ -49,6 +49,35 @@ class ClassificationObjectiveFunction {
     return weight;
   }
 
+  DI IdxT PlateauMiddleBin(BinT const* hist, IdxT i, IdxT n_bins, IdxT nLeft) const
+  {
+    IdxT lo = 0;
+    IdxT hi = i;
+    while (lo < hi) {
+      IdxT mid = lo + (hi - lo) / 2;
+      if (CountLeft(hist, mid, n_bins) < nLeft) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    IdxT first = lo;
+
+    lo = i;
+    hi = n_bins - 1;
+    while (lo < hi) {
+      IdxT mid = lo + (hi - lo + 1) / 2;
+      if (CountLeft(hist, mid, n_bins) > nLeft) {
+        hi = mid - 1;
+      } else {
+        lo = mid;
+      }
+    }
+    IdxT last = lo;
+
+    return first + (last - first + 1) / 2;
+  }
+
   HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
     constexpr DataT One = DataT(1.0);
@@ -155,7 +184,9 @@ class ClassificationObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      if (i == PlateauMiddleBin(shist, i, n_bins, nLeft)) {
+        sp.update({squantiles[i], col, gain, nLeft});
+      }
     }
     return sp;
   }
@@ -192,6 +223,40 @@ class RegressionObjectiveFunction {
   IdxT min_samples_leaf;
   CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+  DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT) const
+  {
+    return static_cast<IdxT>(hist[i].Count());
+  }
+
+  DI IdxT PlateauMiddleBin(BinT const* hist, IdxT i, IdxT n_bins, IdxT nLeft) const
+  {
+    IdxT lo = 0;
+    IdxT hi = i;
+    while (lo < hi) {
+      IdxT mid = lo + (hi - lo) / 2;
+      if (CountLeft(hist, mid, n_bins) < nLeft) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    IdxT first = lo;
+
+    lo = i;
+    hi = n_bins - 1;
+    while (lo < hi) {
+      IdxT mid = lo + (hi - lo + 1) / 2;
+      if (CountLeft(hist, mid, n_bins) > nLeft) {
+        hi = mid - 1;
+      } else {
+        lo = mid;
+      }
+    }
+    IdxT last = lo;
+
+    return first + (last - first + 1) / 2;
+  }
 
   HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
@@ -330,7 +395,9 @@ class RegressionObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      if (i == PlateauMiddleBin(shist, i, n_bins, nLeft)) {
+        sp.update({squantiles[i], col, gain, nLeft});
+      }
     }
     return sp;
   }
