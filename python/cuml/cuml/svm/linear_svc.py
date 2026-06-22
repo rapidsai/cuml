@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import numbers
+
 import cupy as cp
 
 import cuml.svm.linear
@@ -226,6 +228,19 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
+        n_streams = self.n_streams
+        if isinstance(n_streams, bool) or not isinstance(
+            n_streams, numbers.Integral
+        ):
+            raise TypeError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+        if n_streams <= 0:
+            raise ValueError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+        n_streams = int(n_streams)
+
         coef, intercept, n_iter, classes = cuml.svm.linear.fit(
             self,
             X,
@@ -233,7 +248,7 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
             sample_weight,
             convert_dtype=convert_dtype,
             is_classifier=True,
-            n_streams=self.n_streams,
+            n_streams=n_streams,
             class_weight=self.class_weight,
             loss=self.loss,
             penalty=self.penalty,
