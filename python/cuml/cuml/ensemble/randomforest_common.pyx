@@ -4,6 +4,7 @@
 #
 from __future__ import annotations
 
+import builtins
 import math
 import numbers
 import warnings
@@ -491,7 +492,7 @@ class BaseRandomForestModel(InteropMixin, Base):
 
         n_streams = self.n_streams
         if (
-            isinstance(n_streams, (bool, np.bool_))
+            isinstance(n_streams, (builtins.bool, np.bool_))
             or not isinstance(n_streams, numbers.Integral)
         ):
             raise TypeError(
