@@ -39,5 +39,6 @@
   - "cluster::plot_coin_segmentation"
   - "cluster::plot_coin_ward_segmentation"
 - reason: Upstream example fails without cuml.accel on this dependency stack
+  condition: scikit-learn>=1.9
   tests:
   - "applications::wikipedia_principal_eigenvector"
