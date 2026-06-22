@@ -14,7 +14,6 @@
 #include <cuml/tree/flatnode.h>
 
 #include <raft/core/handle.hpp>
-#include <raft/core/resource/comms.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/util/cuda_utils.cuh>
 
@@ -99,7 +98,7 @@ class NodeQueue {
 
       // parent
       tree->sparsetree.at(item.idx) = NodeT::CreateSplitNode(split.colid,
-                                                             split.pred_quesval,
+                                                             split.quesval,
                                                              split.best_metric_val,
                                                              int64_t(tree->sparsetree.size()),
                                                              parent_range.count);
@@ -171,10 +170,6 @@ struct Builder {
   int* mutex;
   /** best splits for the current batch of nodes */
   SplitT* splits;
-  /** node-local maximum training value routed left by each selected split */
-  DataT* split_left_max;
-  /** node-local minimum training value routed right by each selected split */
-  DataT* split_right_min;
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
   /** device AOS to map CTA blocks along dimx to nodes of a batch */
@@ -278,8 +273,6 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch * n_blks_for_cols);  // done_count
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);                    // mutex
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);                 // splits
-    d_wsize += calculateAlignedBytes(sizeof(DataT) * max_batch);                  // split_left_max
-    d_wsize += calculateAlignedBytes(sizeof(DataT) * max_batch);                  // split_right_min
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
@@ -320,10 +313,6 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
     splits = reinterpret_cast<SplitT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
-    split_left_max = reinterpret_cast<DataT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(DataT) * max_batch);
-    split_right_min = reinterpret_cast<DataT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(DataT) * max_batch);
     d_work_items = reinterpret_cast<NodeWorkItem*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
@@ -399,11 +388,9 @@ struct Builder {
       std::size_t((dataset.N + original_n_sampled_cols - 1) / original_n_sampled_cols);
     struct HostSplit {
       DataT quesval;
-      DataT pred_quesval;
       IdxT colid;
       DataT best_metric_val;
       int nLeft;
-      IdxT feature_order;
     };
     static_assert(sizeof(HostSplit) == sizeof(SplitT));
     static_assert(alignof(HostSplit) == alignof(SplitT));
@@ -433,12 +420,8 @@ struct Builder {
       std::vector<std::size_t> retry_to_original;
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
-        final_splits[original_idx] = HostSplit{h_splits[i].quesval,
-                                                h_splits[i].pred_quesval,
-                                                h_splits[i].colid,
-                                                h_splits[i].best_metric_val,
-                                                h_splits[i].nLeft,
-                                                h_splits[i].feature_order};
+        final_splits[original_idx] = HostSplit{
+          h_splits[i].quesval, h_splits[i].colid, h_splits[i].best_metric_val, h_splits[i].nLeft};
         if (SplitPartitionNotValid(
               h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);
@@ -460,7 +443,6 @@ struct Builder {
                                   cudaMemcpyHostToDevice,
                                   builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
-    refineSplitThresholds(work_items.size());
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
     launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
                                                             params.min_samples_split,
@@ -476,49 +458,6 @@ struct Builder {
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
     handle.sync_stream(builder_stream);
     return std::make_tuple(h_splits, work_items.size());
-  }
-
-  void refineSplitThresholds(std::size_t work_items_size)
-  {
-    if (work_items_size == 0) return;
-    raft::common::nvtx::range fun_scope(
-      "Builder::refineSplitThresholds @builder.cuh [batched-levelalgo]");
-    launchComputeSplitBoundaryKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
-                                                                       params.min_impurity_decrease,
-                                                                       dataset,
-                                                                       d_work_items,
-                                                                       work_items_size,
-                                                                       splits,
-                                                                       split_left_max,
-                                                                       split_right_min,
-                                                                       builder_stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
-
-    bool distributed =
-      raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1;
-    if (distributed) {
-      handle.get_comms().allreduce(split_left_max,
-                                   split_left_max,
-                                   work_items_size,
-                                   raft::comms::op_t::MAX,
-                                   builder_stream);
-      handle.get_comms().allreduce(split_right_min,
-                                   split_right_min,
-                                   work_items_size,
-                                   raft::comms::op_t::MIN,
-                                   builder_stream);
-      ASSERT(handle.get_comms().sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
-             "An error occurred in the distributed RF split-threshold refinement all-reduce.");
-    }
-
-    launchApplySplitThresholdRefinementKernel<DataT, IdxT, TPB_DEFAULT>(work_items_size,
-                                                                        splits,
-                                                                        split_left_max,
-                                                                        split_right_min,
-                                                                        quantiles,
-                                                                        params.max_n_bins,
-                                                                        builder_stream);
-    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   void computeBestSplits(const std::vector<NodeWorkItem>& work_items,

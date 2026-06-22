@@ -118,125 +118,6 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                                           splits);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void computeSplitBoundaryKernel(const IdxT min_samples_leaf,
-                                                  const DataT min_impurity_decrease,
-                                                  const Dataset<DataT, LabelT, IdxT> dataset,
-                                                  const NodeWorkItem* work_items,
-                                                  const Split<DataT, IdxT>* splits,
-                                                  DataT* split_left_max,
-                                                  DataT* split_right_min)
-{
-  using BlockReduce = cub::BlockReduce<DataT, TPB>;
-  __shared__ typename BlockReduce::TempStorage left_storage;
-  __shared__ typename BlockReduce::TempStorage right_storage;
-
-  const auto work_item = work_items[blockIdx.x];
-  const auto split     = splits[blockIdx.x];
-  const DataT lowest   = -std::numeric_limits<DataT>::max();
-  const DataT highest  = std::numeric_limits<DataT>::max();
-
-  DataT thread_left_max  = lowest;
-  DataT thread_right_min = highest;
-
-  if (!SplitNotValid(
-        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
-    auto* col = dataset.data + split.colid * std::size_t(dataset.M);
-    auto begin = work_item.instances.begin;
-    auto end   = begin + work_item.instances.count;
-    for (auto i = begin + threadIdx.x; i < end; i += blockDim.x) {
-      auto data = col[dataset.row_ids[i]];
-      if (data <= split.quesval) {
-        thread_left_max = max(thread_left_max, data);
-      } else {
-        thread_right_min = min(thread_right_min, data);
-      }
-    }
-  }
-
-  auto max_op = [] __device__(DataT a, DataT b) { return max(a, b); };
-  auto min_op = [] __device__(DataT a, DataT b) { return min(a, b); };
-  DataT left_max = BlockReduce(left_storage).Reduce(thread_left_max, max_op);
-  __syncthreads();
-  DataT right_min = BlockReduce(right_storage).Reduce(thread_right_min, min_op);
-
-  if (threadIdx.x == 0) {
-    split_left_max[blockIdx.x]  = left_max;
-    split_right_min[blockIdx.x] = right_min;
-  }
-}
-
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchComputeSplitBoundaryKernel(const IdxT min_samples_leaf,
-                                      const DataT min_impurity_decrease,
-                                      const Dataset<DataT, LabelT, IdxT>& dataset,
-                                      const NodeWorkItem* work_items,
-                                      const size_t work_items_size,
-                                      const Split<DataT, IdxT>* splits,
-                                      DataT* split_left_max,
-                                      DataT* split_right_min,
-                                      cudaStream_t builder_stream)
-{
-  computeSplitBoundaryKernel<DataT, LabelT, IdxT, TPB>
-    <<<work_items_size, TPB, 0, builder_stream>>>(min_samples_leaf,
-                                                  min_impurity_decrease,
-                                                  dataset,
-                                                  work_items,
-                                                  splits,
-                                                  split_left_max,
-                                                  split_right_min);
-}
-
-template <typename DataT, typename IdxT, int TPB>
-static __global__ void applySplitThresholdRefinementKernel(const size_t work_items_size,
-                                                           Split<DataT, IdxT>* splits,
-                                                           const DataT* split_left_max,
-                                                           const DataT* split_right_min,
-                                                           const Quantiles<DataT, IdxT> quantiles,
-                                                           IdxT max_n_bins)
-{
-  for (auto i = blockIdx.x * blockDim.x + threadIdx.x; i < work_items_size;
-       i += blockDim.x * gridDim.x) {
-    auto left_max       = split_left_max[i];
-    auto right_min      = split_right_min[i];
-    const DataT lowest  = -std::numeric_limits<DataT>::max();
-    const DataT highest = std::numeric_limits<DataT>::max();
-    if (splits[i].colid != IdxT(-1) && left_max != lowest && right_min != highest &&
-        left_max < right_min) {
-      DataT threshold = left_max + (right_min - left_max) / DataT(2.0);
-      auto colid      = splits[i].colid;
-      auto n_bins     = quantiles.n_bins_array[colid];
-      auto col_quantiles =
-        quantiles.quantiles_array + std::size_t(colid) * std::size_t(max_n_bins);
-      if (n_bins > 1) {
-        auto left_bin  = lower_bound(col_quantiles, n_bins, left_max);
-        auto right_bin = lower_bound(col_quantiles, n_bins, right_min);
-        if (right_bin > left_bin + 1) {
-          auto middle_empty_bin = left_bin + (right_bin - left_bin) / 2;
-          threshold             = col_quantiles[middle_empty_bin];
-        }
-      }
-      splits[i].pred_quesval = threshold;
-    } else {
-      splits[i].pred_quesval = splits[i].quesval;
-    }
-  }
-}
-
-template <typename DataT, typename IdxT, int TPB>
-void launchApplySplitThresholdRefinementKernel(const size_t work_items_size,
-                                               Split<DataT, IdxT>* splits,
-                                               const DataT* split_left_max,
-                                               const DataT* split_right_min,
-                                               const Quantiles<DataT, IdxT>& quantiles,
-                                               IdxT max_n_bins,
-                                               cudaStream_t builder_stream)
-{
-  int num_blocks = raft::ceildiv<int>(work_items_size, TPB);
-  applySplitThresholdRefinementKernel<DataT, IdxT, TPB><<<num_blocks, TPB, 0, builder_stream>>>(
-    work_items_size, splits, split_left_max, split_right_min, quantiles, max_n_bins);
-}
-
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 static __global__ void leafKernel(ObjectiveT objective,
                                   DatasetT dataset,
@@ -429,7 +310,7 @@ static __global__ void computeSplitKernel(BinT* histograms,
   // calculate the best candidate bins (one for each thread in the block) in current feature and
   // corresponding information gain for splitting
   Split<DataT, IdxT> sp =
-    objective.Gain(shared_histogram, shared_quantiles, col, colIndex, range_len, n_bins);
+    objective.Gain(shared_histogram, shared_quantiles, col, range_len, n_bins);
 
   __syncthreads();
 
@@ -493,26 +374,6 @@ template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
   const NodeWorkItem* work_items,
   const size_t work_items_size,
   const Split<_DataT, _IdxT>* splits,
-  cudaStream_t builder_stream);
-
-template void launchComputeSplitBoundaryKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
-  const _IdxT min_samples_leaf,
-  const _DataT min_impurity_decrease,
-  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
-  const NodeWorkItem* work_items,
-  const size_t work_items_size,
-  const Split<_DataT, _IdxT>* splits,
-  _DataT* split_left_max,
-  _DataT* split_right_min,
-  cudaStream_t builder_stream);
-
-template void launchApplySplitThresholdRefinementKernel<_DataT, _IdxT, TPB_DEFAULT>(
-  const size_t work_items_size,
-  Split<_DataT, _IdxT>* splits,
-  const _DataT* split_left_max,
-  const _DataT* split_right_min,
-  const Quantiles<_DataT, _IdxT>& quantiles,
-  _IdxT max_n_bins,
   cudaStream_t builder_stream);
 
 template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(

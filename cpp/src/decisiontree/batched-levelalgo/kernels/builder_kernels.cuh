@@ -113,26 +113,6 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const Split<DataT, IdxT>* splits,
                            cudaStream_t builder_stream);
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchComputeSplitBoundaryKernel(const IdxT min_samples_leaf,
-                                      const DataT min_impurity_decrease,
-                                      const Dataset<DataT, LabelT, IdxT>& dataset,
-                                      const NodeWorkItem* work_items,
-                                      const size_t work_items_size,
-                                      const Split<DataT, IdxT>* splits,
-                                      DataT* split_left_max,
-                                      DataT* split_right_min,
-                                      cudaStream_t builder_stream);
-
-template <typename DataT, typename IdxT, int TPB>
-void launchApplySplitThresholdRefinementKernel(const size_t work_items_size,
-                                               Split<DataT, IdxT>* splits,
-                                               const DataT* split_left_max,
-                                               const DataT* split_right_min,
-                                               const Quantiles<DataT, IdxT>& quantiles,
-                                               IdxT max_n_bins,
-                                               cudaStream_t builder_stream);
-
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
 void launchLeafKernel(ObjectiveT objective,
                       DatasetT& dataset,
