@@ -645,21 +645,9 @@ INSTANTIATE_TEST_CASE_P(RfTests,
 TEST(RfTests, InvalidNStreams)
 {
   for (auto n_streams : {0, -1}) {
-    EXPECT_THROW(set_rf_params(3,
-                               100,
-                               1.0,
-                               256,
-                               1,
-                               2,
-                               0.0,
-                               false,
-                               1,
-                               1.0,
-                               0,
-                               CRITERION::MSE,
-                               n_streams,
-                               128),
-                 raft::exception);
+    EXPECT_THROW(
+      set_rf_params(3, 100, 1.0, 256, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::MSE, n_streams, 128),
+      raft::exception);
   }
 }
 
