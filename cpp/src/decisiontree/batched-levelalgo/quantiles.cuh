@@ -76,7 +76,7 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
 
 }  // namespace detail
 
-// Convert sorted per-column samples into quantile candidates and compact duplicate candidates.
+// Convert sorted per-column samples into unique quantile candidates.
 template <typename T>
 static __global__ void computeQuantilesBatchedKernel(
   T* quantiles, int* n_bins, const T* sorted_data, const int max_n_bins, const int sample_count)
@@ -84,27 +84,78 @@ static __global__ void computeQuantilesBatchedKernel(
   int col           = blockIdx.x;
   T* col_quantiles  = quantiles + static_cast<int64_t>(col) * max_n_bins;
   const T* col_data = sorted_data + static_cast<int64_t>(col) * sample_count;
-  double bin_width  = static_cast<double>(sample_count) / max_n_bins;
-
-  for (int bin = threadIdx.x; bin < max_n_bins; bin += blockDim.x) {
-    // get index by interpolation
-    int idx            = int(round((bin + 1) * bin_width)) - 1;
-    idx                = min(max(0, idx), sample_count - 1);
-    col_quantiles[bin] = col_data[idx];
-  }
-
-  __syncthreads();
 
   if (threadIdx.x == 0) {
-    // make quantiles unique, in-place
-    // thrust::seq to explicitly disable cuda dynamic parallelism here
-    auto new_last = thrust::unique(thrust::seq, col_quantiles, col_quantiles + max_n_bins);
-    // get the unique count
-    n_bins[col] = new_last - col_quantiles;
-  }
+    int unique_count = 0;
+    for (int i = 0; i < sample_count;) {
+      T value = col_data[i];
+      ++unique_count;
+      do {
+        ++i;
+      } while (i < sample_count && col_data[i] == value);
+    }
 
-  __syncthreads();
-  return;
+    if (unique_count <= max_n_bins) {
+      int out = 0;
+      for (int i = 0; i < sample_count;) {
+        T value              = col_data[i];
+        col_quantiles[out++] = value;
+        do {
+          ++i;
+        } while (i < sample_count && col_data[i] == value);
+      }
+      n_bins[col] = out;
+      return;
+    }
+
+    double bin_width = static_cast<double>(sample_count) / max_n_bins;
+
+    // Select by weighted rank over run-length encoded values. If a very frequent
+    // value spans multiple target ranks, advance to the next unique value instead
+    // of spending multiple candidate slots on the same split threshold.
+    int target_run_idx      = 0;
+    int target_sample_idx   = 0;
+    int selected_run_idx    = 0;
+    int selected_sample_idx = 0;
+    int last_selected_run   = -1;
+
+    for (int bin = 0; bin < max_n_bins; ++bin) {
+      int target_rank = int(round((bin + 1) * bin_width)) - 1;
+      target_rank     = min(max(0, target_rank), sample_count - 1);
+
+      int target_run = target_run_idx;
+      while (target_sample_idx < sample_count) {
+        T value = col_data[target_sample_idx];
+        int run_end = target_sample_idx;
+        while (run_end + 1 < sample_count && col_data[run_end + 1] == value) {
+          ++run_end;
+        }
+        if (run_end >= target_rank) {
+          target_run = target_run_idx;
+          break;
+        }
+        target_sample_idx = run_end + 1;
+        ++target_run_idx;
+      }
+
+      int min_run      = last_selected_run + 1;
+      int max_run      = unique_count - (max_n_bins - bin);
+      int selected_run = min(max(target_run, min_run), max_run);
+
+      while (selected_run_idx < selected_run) {
+        T value = col_data[selected_sample_idx];
+        do {
+          ++selected_sample_idx;
+        } while (selected_sample_idx < sample_count && col_data[selected_sample_idx] == value);
+        ++selected_run_idx;
+      }
+
+      col_quantiles[bin] = col_data[selected_sample_idx];
+      last_selected_run  = selected_run;
+    }
+
+    n_bins[col] = max_n_bins;
+  }
 }
 
 template <typename T>

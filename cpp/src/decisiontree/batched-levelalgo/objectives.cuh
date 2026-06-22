@@ -144,8 +144,12 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT feature_order,
+                             IdxT len,
+                             IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
@@ -155,7 +159,7 @@ class ClassificationObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, feature_order});
     }
     return sp;
   }
@@ -319,8 +323,12 @@ class RegressionObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT, IdxT> Gain(BinT const* shist,
+                             DataT const* squantiles,
+                             IdxT col,
+                             IdxT feature_order,
+                             IdxT len,
+                             IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
@@ -330,7 +338,7 @@ class RegressionObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, feature_order});
     }
     return sp;
   }

@@ -991,6 +991,95 @@ class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileT
   }
 };
 
+template <typename T>
+void checkLowCardinalitySampledQuantilesPreserveUniqueValues()
+{
+  constexpr int n_rows     = 64;
+  constexpr int max_n_bins = 8;
+  constexpr int n_cols     = 1;
+  constexpr uint64_t seed  = 9507819643927052255LLU;
+
+  std::vector<int> counts{8, 7, 8, 7, 8, 7, 12, 7};
+  std::vector<T> h_data;
+  h_data.reserve(n_rows);
+  for (std::size_t value = 0; value < counts.size(); ++value) {
+    h_data.insert(h_data.end(), counts[value], T(value));
+  }
+  ASSERT_EQ(h_data.size(), n_rows);
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  thrust::device_vector<T> data(h_data.begin(), h_data.end());
+
+  // Force full-sample mode so the test isolates rank selection and deduplication,
+  // not random row sampling.
+  auto quantile_result =
+    DT::computeQuantiles(handle, data.data().get(), max_n_bins, n_rows, n_cols, n_rows, seed);
+  auto quantiles = quantile_result.view();
+
+  int n_bins;
+  raft::copy(&n_bins, quantiles.n_bins_array, 1, handle.get_stream());
+
+  thrust::host_vector<T> h_quantiles(max_n_bins);
+  raft::update_host(
+    h_quantiles.data(), quantiles.quantiles_array, max_n_bins, handle.get_stream());
+  handle.sync_stream();
+
+  std::vector<T> expected_unique;
+  expected_unique.reserve(counts.size());
+  for (std::size_t value = 0; value < counts.size(); ++value) {
+    expected_unique.push_back(T(value));
+  }
+
+  std::vector<T> actual_unique(h_quantiles.begin(), h_quantiles.begin() + n_bins);
+
+  double max_abs_right_rank_error   = 0.0;
+  double total_abs_right_rank_error = 0.0;
+  int cumulative_count              = 0;
+  for (std::size_t value = 0; value < counts.size(); ++value) {
+    cumulative_count += counts[value];
+    double expected_right_rank = static_cast<double>(cumulative_count) / n_rows;
+
+    double nearest_candidate_rank_error = std::numeric_limits<double>::infinity();
+    for (auto candidate : actual_unique) {
+      int candidate_cumulative_count = 0;
+      for (std::size_t i = 0; i <= static_cast<std::size_t>(candidate); ++i) {
+        candidate_cumulative_count += counts[i];
+      }
+      double candidate_right_rank = static_cast<double>(candidate_cumulative_count) / n_rows;
+      nearest_candidate_rank_error =
+        std::min(nearest_candidate_rank_error,
+                 std::abs(candidate_right_rank - expected_right_rank));
+    }
+
+    total_abs_right_rank_error += nearest_candidate_rank_error;
+    max_abs_right_rank_error =
+      std::max(max_abs_right_rank_error, nearest_candidate_rank_error);
+  }
+
+  double mean_abs_right_rank_error = total_abs_right_rank_error / expected_unique.size();
+
+  EXPECT_EQ(n_bins, max_n_bins)
+    << "When all sampled unique values fit in max_n_bins, every unique value should be retained.";
+  EXPECT_EQ(actual_unique, expected_unique)
+    << "Current rank-pick-then-deduplicate quantile construction can discard sampled values.";
+  EXPECT_DOUBLE_EQ(max_abs_right_rank_error, 0.0)
+    << "Missing unique candidates create right-rank error even though the candidate budget fits.";
+  EXPECT_DOUBLE_EQ(mean_abs_right_rank_error, 0.0)
+    << "Missing unique candidates create mean right-rank error even though the candidate budget "
+       "fits.";
+}
+
+TEST(RFSampledQuantileLowCardinalityTest, PreservesAllUniqueSampledValuesFloat)
+{
+  checkLowCardinalitySampledQuantilesPreserveUniqueValues<float>();
+}
+
+TEST(RFSampledQuantileLowCardinalityTest, PreservesAllUniqueSampledValuesDouble)
+{
+  checkLowCardinalitySampledQuantilesPreserveUniqueValues<double>();
+}
+
 const std::vector<QuantileTestParameters> inputs = {{1000, 16, 6078587519764079670LLU},
                                                     {1130, 32, 4884670006177930266LLU},
                                                     {1752, 67, 9175325892580481371LLU},

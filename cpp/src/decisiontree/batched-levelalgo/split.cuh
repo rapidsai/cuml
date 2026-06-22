@@ -23,25 +23,35 @@ struct Split {
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
 
-  /** threshold to compare in this node */
+  /** threshold used to partition training rows in this node */
   DataT quesval;
+  /** threshold stored for prediction/export in this node */
+  DataT pred_quesval;
   /** feature index */
   IdxT colid;
   /** best info gain on this node */
   DataT best_metric_val;
   /** number of samples in the left child */
   int nLeft;
+  /** feature order in the per-node sampled feature permutation */
+  IdxT feature_order;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
-    : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
+  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft, IdxT feature_order)
+    : quesval(quesval),
+      pred_quesval(quesval),
+      colid(colid),
+      best_metric_val(best_metric_val),
+      nLeft(nLeft),
+      feature_order(feature_order)
   {
   }
 
   DI Split()
   {
-    quesval = best_metric_val = Min;
-    colid                     = -1;
-    nLeft                     = 0;
+    quesval = pred_quesval = best_metric_val = Min;
+    colid                         = -1;
+    nLeft                         = 0;
+    feature_order                 = std::numeric_limits<IdxT>::max();
   }
 
   /**
@@ -54,9 +64,11 @@ struct Split {
   DI SplitT& operator=(const SplitT& other)
   {
     quesval         = other.quesval;
+    pred_quesval    = other.pred_quesval;
     colid           = other.colid;
     best_metric_val = other.best_metric_val;
     nLeft           = other.nLeft;
+    feature_order   = other.feature_order;
     return *this;
   }
 
@@ -69,10 +81,10 @@ struct Split {
     if (other.best_metric_val > best_metric_val) {
       update_result = true;
     } else if (other.best_metric_val == best_metric_val) {
-      if (other.colid > colid) {
+      if (other.feature_order < feature_order) {
         update_result = true;
-      } else if (other.colid == colid) {
-        if (other.quesval > quesval) { update_result = true; }
+      } else if (other.feature_order == feature_order) {
+        if (other.quesval < quesval) { update_result = true; }
       }
     }
     if (update_result) { *this = other; }
@@ -92,7 +104,8 @@ struct Split {
       auto co = raft::shfl(colid, id);
       auto be = raft::shfl(best_metric_val, id);
       auto nl = raft::shfl(nLeft, id);
-      update({qu, co, be, nl});
+      auto fo = raft::shfl(feature_order, id);
+      update({qu, co, be, nl, fo});
     }
   }
 
@@ -128,16 +141,23 @@ struct Split {
           ;
         SplitT split_reg;
         split_reg.quesval         = split->quesval;
+        split_reg.pred_quesval    = split->pred_quesval;
         split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
         split_reg.nLeft           = split->nLeft;
-        bool update_result =
-          split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
+        split_reg.feature_order   = split->feature_order;
+        bool update_result = split_reg.update({this->quesval,
+                                               this->colid,
+                                               this->best_metric_val,
+                                               this->nLeft,
+                                               this->feature_order});
         if (update_result) {
           split->quesval         = split_reg.quesval;
+          split->pred_quesval    = split_reg.pred_quesval;
           split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
           split->nLeft           = split_reg.nLeft;
+          split->feature_order   = split_reg.feature_order;
         }
         __threadfence();
         atomicExch(mutex, 0);
