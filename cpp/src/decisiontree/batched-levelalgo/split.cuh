@@ -31,9 +31,11 @@ struct Split {
   DataT best_metric_val;
   /** number of samples in the left child */
   int nLeft;
+  /** histogram bin that produced this split */
+  IdxT binid;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
-    : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
+  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft, IdxT binid = -1)
+    : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft), binid(binid)
   {
   }
 
@@ -42,6 +44,7 @@ struct Split {
     quesval = best_metric_val = Min;
     colid                     = -1;
     nLeft                     = 0;
+    binid                     = -1;
   }
 
   /**
@@ -57,6 +60,7 @@ struct Split {
     colid           = other.colid;
     best_metric_val = other.best_metric_val;
     nLeft           = other.nLeft;
+    binid           = other.binid;
     return *this;
   }
 
@@ -92,7 +96,8 @@ struct Split {
       auto co = raft::shfl(colid, id);
       auto be = raft::shfl(best_metric_val, id);
       auto nl = raft::shfl(nLeft, id);
-      update({qu, co, be, nl});
+      auto bi = raft::shfl(binid, id);
+      update({qu, co, be, nl, bi});
     }
   }
 
@@ -106,7 +111,14 @@ struct Split {
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
-  DI void evalBestSplit(void* smem, volatile SplitT* split, int* mutex)
+  template <typename ObjectiveT, typename BinT>
+  DI void evalBestSplit(void* smem,
+                        volatile SplitT* split,
+                        int* mutex,
+                        const ObjectiveT& objective,
+                        BinT const* hist,
+                        DataT const* quantiles,
+                        IdxT n_bins)
   {
     auto* sbest = reinterpret_cast<SplitT*>(smem);
     warpReduce();
@@ -124,6 +136,7 @@ struct Split {
       // only the first thread will go ahead and update the best split info
       // for current node
       if (threadIdx.x == 0 && this->colid != -1) {
+        objective.RefineEmptyBinSplit(hist, quantiles, n_bins, *this);
         while (atomicCAS(mutex, 0, 1))
           ;
         SplitT split_reg;
@@ -131,13 +144,15 @@ struct Split {
         split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
         split_reg.nLeft           = split->nLeft;
-        bool update_result =
-          split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
+        split_reg.binid           = split->binid;
+        bool update_result        = split_reg.update(
+          {this->quesval, this->colid, this->best_metric_val, this->nLeft, this->binid});
         if (update_result) {
           split->quesval         = split_reg.quesval;
           split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
           split->nLeft           = split_reg.nLeft;
+          split->binid           = split_reg.binid;
         }
         __threadfence();
         atomicExch(mutex, 0);
@@ -164,11 +179,12 @@ template <typename DataT, typename IdxT, int TPB = 256>
 void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
 {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d\n",
+    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d, binid = %d\n",
            ptr->quesval,
            ptr->colid,
            ptr->best_metric_val,
-           ptr->nLeft);
+           ptr->nLeft,
+           ptr->binid);
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());

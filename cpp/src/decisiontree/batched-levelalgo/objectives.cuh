@@ -144,26 +144,27 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
-  DI void CenterEmptyBinQuantiles(BinT const* hist, DataT* quantiles, IdxT n_bins) const
+  DI void RefineEmptyBinSplit(BinT const* hist,
+                              DataT const* quantiles,
+                              IdxT n_bins,
+                              Split<DataT, IdxT>& split) const
   {
-    if (threadIdx.x == 0) {
-      IdxT start = 0;
-      while (start < n_bins) {
-        auto nLeft = CountLeft(hist, start, n_bins);
-        IdxT end  = start;
-        while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
-          ++end;
-        }
+    if (split.binid < IdxT{0} || split.binid >= n_bins) return;
 
-        auto middle      = start + (end - start + 1) / 2;
-        auto middle_ques = quantiles[middle];
-        for (IdxT i = start; i <= end; ++i) {
-          quantiles[i] = middle_ques;
-        }
-        start = end + 1;
-      }
+    auto nLeft = CountLeft(hist, split.binid, n_bins);
+    IdxT start = split.binid;
+    while (start > 0 && CountLeft(hist, start - 1, n_bins) == nLeft) {
+      --start;
     }
-    __syncthreads();
+
+    IdxT end = split.binid;
+    while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
+      ++end;
+    }
+
+    auto middle  = start + (end - start + 1) / 2;
+    split.quesval = quantiles[middle];
+    split.binid   = middle;
   }
 
   DI Split<DataT, IdxT> Gain(
@@ -177,7 +178,7 @@ class ClassificationObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }
@@ -346,26 +347,27 @@ class RegressionObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
 
-  DI void CenterEmptyBinQuantiles(BinT const* hist, DataT* quantiles, IdxT n_bins) const
+  DI void RefineEmptyBinSplit(BinT const* hist,
+                              DataT const* quantiles,
+                              IdxT n_bins,
+                              Split<DataT, IdxT>& split) const
   {
-    if (threadIdx.x == 0) {
-      IdxT start = 0;
-      while (start < n_bins) {
-        auto nLeft = CountLeft(hist, start, n_bins);
-        IdxT end  = start;
-        while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
-          ++end;
-        }
+    if (split.binid < IdxT{0} || split.binid >= n_bins) return;
 
-        auto middle      = start + (end - start + 1) / 2;
-        auto middle_ques = quantiles[middle];
-        for (IdxT i = start; i <= end; ++i) {
-          quantiles[i] = middle_ques;
-        }
-        start = end + 1;
-      }
+    auto nLeft = CountLeft(hist, split.binid, n_bins);
+    IdxT start = split.binid;
+    while (start > 0 && CountLeft(hist, start - 1, n_bins) == nLeft) {
+      --start;
     }
-    __syncthreads();
+
+    IdxT end = split.binid;
+    while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
+      ++end;
+    }
+
+    auto middle  = start + (end - start + 1) / 2;
+    split.quesval = quantiles[middle];
+    split.binid   = middle;
   }
 
   DI Split<DataT, IdxT> Gain(
@@ -379,7 +381,7 @@ class RegressionObjectiveFunction {
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }

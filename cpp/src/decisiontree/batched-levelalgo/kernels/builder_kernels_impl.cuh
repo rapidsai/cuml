@@ -307,8 +307,6 @@ static __global__ void computeSplitKernel(BinT* histograms,
 
   __syncthreads();
 
-  objective.CenterEmptyBinQuantiles(shared_histogram, shared_quantiles, n_bins);
-
   // calculate the best candidate bins (one for each thread in the block) in current feature and
   // corresponding information gain for splitting
   Split<DataT, IdxT> sp =
@@ -319,7 +317,8 @@ static __global__ void computeSplitKernel(BinT* histograms,
   // calculate best bins among candidate bins per feature using warp reduce
   // then atomically update across features to get best split per node
   // (in split[nid])
-  sp.evalBestSplit(smem, splits + nid, mutex + nid);
+  sp.evalBestSplit(
+    smem, splits + nid, mutex + nid, objective, shared_histogram, shared_quantiles, n_bins);
 }
 
 template <typename DataT,
