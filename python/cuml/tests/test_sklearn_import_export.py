@@ -5,6 +5,7 @@
 import cupy as cp
 import numpy as np
 import pytest
+import scipy
 import scipy.sparse
 import sklearn
 import sklearn.kernel_ridge
@@ -54,6 +55,14 @@ from cuml.testing.utils import array_equal
 
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+
+def _filter_scipy_lbfgsb_deprecation(func):
+    if Version("1.16") <= Version(scipy.__version__) < Version("1.18"):
+        return pytest.mark.filterwarnings(
+            "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
+        )(func)
+    return func
 
 
 @pytest.fixture
@@ -230,12 +239,10 @@ def test_linear_regression(random_state):
     assert_estimator_roundtrip(original, SkLinearRegression, X, y)
 
 
-# Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
-@pytest.mark.filterwarnings(
-    "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
-)
+@_filter_scipy_lbfgsb_deprecation
 def test_logistic_regression(random_state):
+    # Ignore SciPy 1.16/1.17 deprecation warnings emitted through sklearn's
+    # default LogisticRegression L-BFGS-B path.
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
     )

@@ -235,9 +235,11 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT n_bins)
   return total_aggregate;
 }
 
-DI unsigned long long int bin_count(CountBin const& bin) { return bin.x; }
-
-DI unsigned long long int bin_count(AggregateBin const& bin) { return bin.count; }
+template <typename BinT>
+DI BinCountT bin_count(BinT const& bin)
+{
+  return bin.Count();
+}
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
 static __global__ void computeSplitHistogramKernel(BinT* histograms,
@@ -246,7 +248,7 @@ static __global__ void computeSplitHistogramKernel(BinT* histograms,
                                                    const Quantiles<DataT, IdxT> quantiles,
                                                    const NodeWorkItem* work_items,
                                                    IdxT colStart,
-                                                   const IdxT* colids,
+                                                   const IdxT* column_samples,
                                                    const WorkloadInfo* workload_info)
 {
   extern __shared__ char smem[];
@@ -264,7 +266,7 @@ static __global__ void computeSplitHistogramKernel(BinT* histograms,
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = colids[nid * dataset.n_sampled_cols + colIndex];
+    col           = column_samples[nid * dataset.n_sampled_cols + colIndex];
   }
 
   int n_bins                = quantiles.n_bins_array[col];
@@ -309,7 +311,7 @@ static __global__ void evaluateSplitKernel(BinT* histograms,
                                            const Dataset<DataT, LabelT, IdxT> dataset,
                                            const Quantiles<DataT, IdxT> quantiles,
                                            IdxT colStart,
-                                           const IdxT* colids,
+                                           const IdxT* column_samples,
                                            int* mutex,
                                            volatile Split<DataT>* splits,
                                            ObjectiveT objective)
@@ -322,7 +324,7 @@ static __global__ void evaluateSplitKernel(BinT* histograms,
     col = colStart + blockIdx.y;
   } else {
     IdxT colIndex = colStart + blockIdx.y;
-    col           = colids[nid * dataset.n_sampled_cols + colIndex];
+    col           = column_samples[nid * dataset.n_sampled_cols + colIndex];
   }
 
   int n_bins                = quantiles.n_bins_array[col];
@@ -359,7 +361,7 @@ void launchComputeSplitHistogramKernel(BinT* histograms,
                                        const Quantiles<DataT, IdxT>& quantiles,
                                        const NodeWorkItem* work_items,
                                        IdxT colStart,
-                                       const IdxT* colids,
+                                       const IdxT* column_samples,
                                        const WorkloadInfo* workload_info,
                                        dim3 grid,
                                        size_t smem_size,
@@ -367,7 +369,7 @@ void launchComputeSplitHistogramKernel(BinT* histograms,
 {
   computeSplitHistogramKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(
-      histograms, max_n_bins, dataset, quantiles, work_items, colStart, colids, workload_info);
+      histograms, max_n_bins, dataset, quantiles, work_items, colStart, column_samples, workload_info);
 }
 
 template <typename DataT,
@@ -381,7 +383,7 @@ void launchEvaluateSplitKernel(BinT* histograms,
                                const Dataset<DataT, LabelT, IdxT>& dataset,
                                const Quantiles<DataT, IdxT>& quantiles,
                                IdxT colStart,
-                               const IdxT* colids,
+                               const IdxT* column_samples,
                                int* mutex,
                                volatile Split<DataT>* splits,
                                ObjectiveT& objective,
@@ -391,7 +393,7 @@ void launchEvaluateSplitKernel(BinT* histograms,
 {
   evaluateSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(
-      histograms, max_n_bins, dataset, quantiles, colStart, colids, mutex, splits, objective);
+      histograms, max_n_bins, dataset, quantiles, colStart, column_samples, mutex, splits, objective);
 }
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
@@ -428,7 +430,7 @@ template void launchComputeSplitHistogramKernel<_DataT, _LabelT, _IdxT, TPB_DEFA
   const Quantiles<_DataT, _IdxT>& quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
-  const _IdxT* colids,
+  const _IdxT* column_samples,
   const WorkloadInfo* workload_info,
   dim3 grid,
   size_t smem_size,
@@ -440,7 +442,7 @@ template void launchEvaluateSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _Ob
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,
   const Quantiles<_DataT, _IdxT>& quantiles,
   _IdxT colStart,
-  const _IdxT* colids,
+  const _IdxT* column_samples,
   int* mutex,
   volatile Split<_DataT>* splits,
   _ObjectiveT& objective,

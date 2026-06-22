@@ -11,11 +11,6 @@ from cuml.internals.validation import (
     check_consistent_length,
     check_sample_weight,
 )
-from cuml.metrics.utils import sorted_unique_labels
-from cuml.prims.label import make_monotonic
-
-_LABEL_DTYPES = (np.int32, np.int64)
-_WEIGHT_DTYPES = (np.float32, np.float64, np.int32, np.int64)
 
 
 def confusion_matrix(
@@ -24,7 +19,7 @@ def confusion_matrix(
     labels=None,
     sample_weight=None,
     normalize=None,
-    convert_dtype=False,
+    convert_dtype=True,
 ) -> cp.ndarray:
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
@@ -44,7 +39,7 @@ def confusion_matrix(
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
-    convert_dtype : bool, optional (default=False)
+    convert_dtype : bool, optional (default=True)
         When set to True, the confusion matrix method will automatically
         convert the predictions, ground truth, and labels arrays to np.int32.
 
@@ -56,14 +51,14 @@ def confusion_matrix(
     y_true = check_array(
         y_true,
         ensure_2d=False,
-        dtype=_LABEL_DTYPES,
+        dtype=("int32", "int64"),
         convert_dtype=convert_dtype,
         input_name="y_true",
     )
     y_pred = check_array(
         y_pred,
         ensure_2d=False,
-        dtype=_LABEL_DTYPES,
+        dtype=("int32", "int64"),
         convert_dtype=convert_dtype,
         input_name="y_pred",
     )
@@ -72,53 +67,58 @@ def confusion_matrix(
             f"y_true and y_pred must be 1D arrays, got shapes "
             f"{y_true.shape} and {y_pred.shape}"
         )
-    check_consistent_length(y_true, y_pred)
-    n_rows = y_true.shape[0]
+    sample_weight = check_sample_weight(
+        sample_weight,
+        dtype=("float32", "float64", "int32", "int64"),
+        convert_dtype=convert_dtype,
+    )
+    check_consistent_length(y_true, y_pred, sample_weight)
 
-    if labels is None:
-        labels = sorted_unique_labels(y_true, y_pred)
-    else:
+    if labels is not None:
         labels = check_array(
             labels,
             ensure_2d=False,
-            dtype=_LABEL_DTYPES,
+            dtype=("int32", "int64"),
             convert_dtype=convert_dtype,
             input_name="labels",
+            ensure_min_samples=0,
         )
         if labels.ndim != 1:
             raise ValueError(
                 f"labels must be a 1D array, got shape {labels.shape}"
             )
-    n_labels = labels.shape[0]
-
-    if (
-        sample_weight := check_sample_weight(
-            sample_weight, dtype=_WEIGHT_DTYPES, convert_dtype=convert_dtype
-        )
-    ) is not None:
-        check_consistent_length(y_true, sample_weight)
+        if len(labels) == 0:
+            raise ValueError("'labels' should contain at least one label")
     else:
-        sample_weight = cp.ones(n_rows, dtype=y_true.dtype)
-
-    if normalize not in ("true", "pred", "all", None):
-        raise ValueError(
-            "normalize must be one of "
-            f"{{'true', 'pred', 'all', None}}, got {normalize}."
+        labels = cp.unique(
+            cp.concatenate([cp.unique(y_true), cp.unique(y_pred)])
         )
 
-    y_true, _ = make_monotonic(y_true, labels, copy=True)
-    y_pred, _ = make_monotonic(y_pred, labels, copy=True)
+    if sample_weight is None:
+        sample_weight = cp.ones(y_true.shape[0], dtype=y_true.dtype)
 
-    # intersect y_pred, y_true with labels, eliminate items not in labels
-    ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
-    y_pred = y_pred[ind]
-    y_true = y_true[ind]
-    sample_weight = sample_weight[ind]
+    # Sort provided labels for binary search, but keep track of
+    # original indices to maintain provided order.
+    sort_indices = cp.argsort(labels)
+    sorted_labels = labels[sort_indices]
+
+    valid = cp.in1d(y_true, sorted_labels) & cp.in1d(y_pred, sorted_labels)
+    if not valid.all():
+        y_true = y_true[valid]
+        y_pred = y_pred[valid]
+        sample_weight = sample_weight[valid]
+
+    # Map each label to its index in sorted labels using binary search
+    true_indices = cp.searchsorted(sorted_labels, y_true)
+    pred_indices = cp.searchsorted(sorted_labels, y_pred)
+
+    # Map valid labels to their indices in original labels
+    y_true = sort_indices[true_indices]
+    y_pred = sort_indices[pred_indices]
 
     cm = cupyx.scipy.sparse.coo_matrix(
-        (sample_weight, (y_true, y_pred)),
-        shape=(n_labels, n_labels),
-        dtype=np.float64,
+        (sample_weight.astype("float64", copy=False), (y_true, y_pred)),
+        shape=(labels.shape[0], labels.shape[0]),
     ).toarray()
 
     # Choose the accumulator dtype to always have high precision
@@ -132,6 +132,11 @@ def confusion_matrix(
             cm = cp.divide(cm, cm.sum(axis=0, keepdims=True))
         elif normalize == "all":
             cm = cp.divide(cm, cm.sum())
+        elif normalize is not None:
+            raise ValueError(
+                "normalize must be one of "
+                f"{{'true', 'pred', 'all', None}}, got {normalize}."
+            )
         cm = cp.nan_to_num(cm)
 
     return cm

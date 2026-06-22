@@ -62,7 +62,6 @@ dependencies:
 - pynndescent
 - pytest
 - pytest-benchmark
-- pytest-cases
 - pytest-cov
 - pytest-xdist
 - python>=3.11

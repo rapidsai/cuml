@@ -990,13 +990,6 @@ def test_confusion_matrix_errors():
             np.array([0, 1], dtype=np.int32),
         )
 
-    # Non-integer dtype without convert_dtype
-    with pytest.raises(ValueError, match="dtype"):
-        confusion_matrix(
-            np.array([0.0, 1.0], dtype=np.float32),
-            np.array([0, 1], dtype=np.int32),
-        )
-
     # 2D y_true is rejected
     with pytest.raises(ValueError, match="1D"):
         confusion_matrix(
@@ -1010,6 +1003,14 @@ def test_confusion_matrix_errors():
             np.array([0, 1], dtype=np.int32),
             np.array([0, 1], dtype=np.int32),
             labels=np.array([[0, 1]], dtype=np.int32),
+        )
+
+    # Empty labels are rejected
+    with pytest.raises(ValueError, match="labels"):
+        confusion_matrix(
+            np.array([0, 1], dtype=np.int32),
+            np.array([0, 1], dtype=np.int32),
+            labels=np.array([], dtype=np.int32),
         )
 
     # Inconsistent sample_weight length
