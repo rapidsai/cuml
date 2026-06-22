@@ -38,3 +38,6 @@
   tests:
   - "cluster::plot_coin_segmentation"
   - "cluster::plot_coin_ward_segmentation"
+- reason: Upstream example fails without cuml.accel on this dependency stack
+  tests:
+  - "applications::wikipedia_principal_eigenvector"
