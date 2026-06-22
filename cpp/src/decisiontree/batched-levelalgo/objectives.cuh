@@ -16,6 +16,47 @@
 
 namespace ML {
 namespace DT {
+namespace detail {
+
+template <typename BinT, typename IdxT>
+DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
+{
+  BinCountT nLeft = 0;
+  for (IdxT j = 0; j < n_outputs; ++j) {
+    nLeft += hist[n_bins * j + i].Count();
+  }
+  return static_cast<IdxT>(nLeft);
+}
+
+// Empty quantile-bin runs produce identical training partitions and gain, but
+// the chosen threshold still affects inference for values in the empty interval.
+// Recenter the selected run so tie-breaking does not leave the split at an edge.
+template <typename BinT, typename DataT, typename IdxT>
+DI void RefineEmptyBinSplit(BinT const* hist,
+                            DataT const* quantiles,
+                            IdxT n_bins,
+                            IdxT n_outputs,
+                            Split<DataT, IdxT>& split)
+{
+  if (split.binid < IdxT{0} || split.binid >= n_bins) return;
+
+  auto nLeft = CountLeft(hist, split.binid, n_bins, n_outputs);
+  IdxT start = split.binid;
+  while (start > 0 && CountLeft(hist, start - 1, n_bins, n_outputs) == nLeft) {
+    --start;
+  }
+
+  IdxT end = split.binid;
+  while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins, n_outputs) == nLeft) {
+    ++end;
+  }
+
+  auto middle   = start + (end - start + 1) / 2;
+  split.quesval = quantiles[middle];
+  split.binid   = middle;
+}
+
+}  // namespace detail
 
 template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class ClassificationObjectiveFunction {
@@ -30,15 +71,6 @@ class ClassificationObjectiveFunction {
   IdxT nclasses;
   IdxT min_samples_leaf;
   CRITERION criterion;
-
-  DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins) const
-  {
-    BinCountT nLeft = 0;
-    for (IdxT j = 0; j < nclasses; ++j) {
-      nLeft += hist[n_bins * j + i].Count();
-    }
-    return static_cast<IdxT>(nLeft);
-  }
 
   HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
@@ -149,22 +181,7 @@ class ClassificationObjectiveFunction {
                               IdxT n_bins,
                               Split<DataT, IdxT>& split) const
   {
-    if (split.binid < IdxT{0} || split.binid >= n_bins) return;
-
-    auto nLeft = CountLeft(hist, split.binid, n_bins);
-    IdxT start = split.binid;
-    while (start > 0 && CountLeft(hist, start - 1, n_bins) == nLeft) {
-      --start;
-    }
-
-    IdxT end = split.binid;
-    while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
-      ++end;
-    }
-
-    auto middle  = start + (end - start + 1) / 2;
-    split.quesval = quantiles[middle];
-    split.binid   = middle;
+    detail::RefineEmptyBinSplit(hist, quantiles, n_bins, nclasses, split);
   }
 
   DI Split<DataT, IdxT> Gain(
@@ -172,7 +189,7 @@ class ClassificationObjectiveFunction {
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = CountLeft(shist, i, n_bins);
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
@@ -215,11 +232,6 @@ class RegressionObjectiveFunction {
   IdxT min_samples_leaf;
   CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
-
-  DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT) const
-  {
-    return static_cast<IdxT>(hist[i].Count());
-  }
 
   HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
@@ -352,22 +364,7 @@ class RegressionObjectiveFunction {
                               IdxT n_bins,
                               Split<DataT, IdxT>& split) const
   {
-    if (split.binid < IdxT{0} || split.binid >= n_bins) return;
-
-    auto nLeft = CountLeft(hist, split.binid, n_bins);
-    IdxT start = split.binid;
-    while (start > 0 && CountLeft(hist, start - 1, n_bins) == nLeft) {
-      --start;
-    }
-
-    IdxT end = split.binid;
-    while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins) == nLeft) {
-      ++end;
-    }
-
-    auto middle  = start + (end - start + 1) / 2;
-    split.quesval = quantiles[middle];
-    split.binid   = middle;
+    detail::RefineEmptyBinSplit(hist, quantiles, n_bins, IdxT{1}, split);
   }
 
   DI Split<DataT, IdxT> Gain(
@@ -375,7 +372,7 @@ class RegressionObjectiveFunction {
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = static_cast<IdxT>(shist[i].Count());
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
