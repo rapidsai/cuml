@@ -750,6 +750,32 @@ def test_extract_knn_graph_errors():
         ("numpy", "host"),
     ],
 )
+def test_extract_knn_graph_zero_distance_rows(kind, mem_type):
+    X = np.array([[0, 1, 2], [3, 1, 3], [5, 1, 2], [0, 1, 2]], dtype="float32")
+    nn = cuml.neighbors.NearestNeighbors().fit(X)
+    with cuml.using_output_type(kind):
+        graph = nn.kneighbors_graph(X, 3, mode="distance")
+    graph.sort_indices()
+
+    # Hardcoded indices to ease testing - it's tricky to get `kneighbors` to
+    # return self references first otherwise.
+    sol_indices = np.array([0, 3, 1, 1, 2, 3, 2, 1, 3, 3, 0, 1])
+    sol_distances = nn.kneighbors(X, 3)[0].flatten()
+
+    indices, distances = extract_knn_graph(graph, 3, mem_type=mem_type)
+    np.testing.assert_allclose(cp.asnumpy(distances), sol_distances, atol=1e-5)
+    np.testing.assert_array_equal(cp.asnumpy(indices), sol_indices)
+
+
+@pytest.mark.parametrize(
+    "kind, mem_type",
+    [
+        ("cupy", None),
+        ("cupy", "device"),
+        ("numpy", None),
+        ("numpy", "host"),
+    ],
+)
 def test_extract_knn_graph_from_kneighbors_graph_zero_copy(kind, mem_type):
     """When converting from the output of `kneighbors_graph`, no copy should be
     needed if not changing mem_type, as no sorting is required"""
