@@ -9,7 +9,7 @@ import numpy as np
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse import is_sparse
+from cuml.common.sparse import is_sparse, sparse_cov_and_mean
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
@@ -24,7 +24,6 @@ from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
 )
-from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -429,7 +428,7 @@ class PCA(InteropMixin,
         self.noise_variance_ = float(noise_variance.item())
 
     def _fit_sparse(self, X):
-        covariance, mean, _ = cov(X, X, return_mean=True)
+        covariance, mean = sparse_cov_and_mean(X)
 
         explained_variance, components = cp.linalg.eigh(covariance, UPLO='U')
 
@@ -474,7 +473,7 @@ class PCA(InteropMixin,
         X = check_inputs(
             self,
             X,
-            accept_sparse=["coo"],
+            accept_sparse=["csr"],
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",

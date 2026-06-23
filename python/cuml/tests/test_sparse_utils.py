@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import cupyx
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
 import scipy.sparse as sp
@@ -11,7 +11,11 @@ from sklearn.utils.sparsefuncs_fast import (
     inplace_csr_row_normalize_l2,
 )
 
-from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.common.sparse import (
+    csr_row_normalize_l1,
+    csr_row_normalize_l2,
+    sparse_cov_and_mean,
+)
 
 
 @pytest.mark.parametrize(
@@ -26,7 +30,7 @@ from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
 def test_csr_norms(norm, ref_norm, dtype, seed, shape):
     X = np.random.RandomState(seed).randn(*shape).astype(dtype)
     X_csr = sp.csr_matrix(X)
-    X_csr_gpu = cupyx.scipy.sparse.csr_matrix(X_csr)
+    X_csr_gpu = cp_sp.csr_matrix(X_csr)
 
     norm(X_csr_gpu)
     ref_norm(X_csr)
@@ -35,3 +39,24 @@ def test_csr_norms(norm, ref_norm, dtype, seed, shape):
     assert cp.any(cp.not_equal(X_csr_gpu.todense(), cp.array(X)))
 
     cp.testing.assert_array_almost_equal(X_csr_gpu.todense(), X_csr.todense())
+
+
+@pytest.mark.parametrize("n_cols", [1, 100, 1000])
+@pytest.mark.parametrize("n_rows", [1, 100, 1000])
+@pytest.mark.parametrize("density", [0.2, 0.4])
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("format", ["csr", "coo"])
+@pytest.mark.parametrize("use_dot", [False, True])
+def test_sparse_cov_and_mean(n_cols, n_rows, density, dtype, format, use_dot):
+    X = 10 * cp_sp.random(
+        n_rows,
+        n_cols,
+        density=density,
+        format=format,
+        dtype=dtype,
+        random_state=42,
+    )
+    sol = cp.cov(X.todense(), ddof=0, rowvar=False)
+    res, _ = sparse_cov_and_mean(X, use_dot=use_dot)
+    assert res.dtype == dtype
+    cp.testing.assert_allclose(res, sol, atol=1e-4)
