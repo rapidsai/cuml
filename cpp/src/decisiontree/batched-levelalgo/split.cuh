@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,47 @@
 
 namespace ML {
 namespace DT {
+namespace detail {
+
+template <typename DataT, typename IdxT>
+struct RefinedSplit {
+  DataT quesval;
+  IdxT binid;
+};
+
+template <typename BinT, typename IdxT>
+DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
+{
+  auto nLeft = hist[i].Count();
+  for (IdxT j = 1; j < n_outputs; ++j) {
+    nLeft += hist[n_bins * j + i].Count();
+  }
+  return static_cast<IdxT>(nLeft);
+}
+
+// Empty quantile-bin runs produce identical training partitions and gain, but
+// the chosen threshold still affects inference for values in the empty interval.
+// Recenter the selected run so tie-breaking does not leave the split at an edge.
+template <typename BinT, typename DataT, typename IdxT>
+DI RefinedSplit<DataT, IdxT> RefineEmptyBinSplit(
+  BinT const* hist, DataT const* quantiles, IdxT n_bins, IdxT n_outputs, IdxT binid)
+{
+  auto nLeft = CountLeft(hist, binid, n_bins, n_outputs);
+  IdxT start = binid;
+  while (start > 0 && CountLeft(hist, start - 1, n_bins, n_outputs) == nLeft) {
+    --start;
+  }
+
+  IdxT end = binid;
+  while (end + 1 < n_bins && CountLeft(hist, end + 1, n_bins, n_outputs) == nLeft) {
+    ++end;
+  }
+
+  auto middle = start + (end - start + 1) / 2;
+  return {quantiles[middle], middle};
+}
+
+}  // namespace detail
 
 /**
  * @brief All info pertaining to splitting a node
@@ -136,7 +177,12 @@ struct Split {
       // only the first thread will go ahead and update the best split info
       // for current node
       if (threadIdx.x == 0 && this->colid != -1) {
-        objective.RefineEmptyBinSplit(hist, quantiles, n_bins, *this);
+        if (this->binid >= IdxT{0} && this->binid < n_bins) {
+          auto refined = detail::RefineEmptyBinSplit(
+            hist, quantiles, n_bins, objective.NumClasses(), this->binid);
+          this->quesval = refined.quesval;
+          this->binid   = refined.binid;
+        }
         while (atomicCAS(mutex, 0, 1))
           ;
         SplitT split_reg;

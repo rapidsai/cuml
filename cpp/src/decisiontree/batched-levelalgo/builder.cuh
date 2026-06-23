@@ -422,10 +422,10 @@ struct Builder {
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
         final_splits[original_idx] = HostSplit{h_splits[i].quesval,
-                                                h_splits[i].colid,
-                                                h_splits[i].best_metric_val,
-                                                h_splits[i].nLeft,
-                                                h_splits[i].binid};
+                                               h_splits[i].colid,
+                                               h_splits[i].best_metric_val,
+                                               h_splits[i].nLeft,
+                                               h_splits[i].binid};
         if (SplitPartitionNotValid(
               h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);

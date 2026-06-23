@@ -971,17 +971,27 @@ __global__ void objectiveGainKernel(BinT const* hist,
 
 TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
 {
-  using DataT        = float;
-  using IdxT         = int;
-  constexpr IdxT len = 10;
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
   constexpr IdxT n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::ClassificationBin> h_hist = {
-    {1}, {2}, {2}, {2}, {2}, {5},
-    {1}, {2}, {2}, {2}, {2}, {5},
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
@@ -990,8 +1000,7 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
   thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(
-    2, 1, CRITERION::GINI);
+  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(2, 1, CRITERION::GINI);
   objectiveGainKernel<<<1, 32, sizeof(DT::Split<DataT, IdxT>), handle.get_stream()>>>(
     hist.data().get(),
     quantiles.data().get(),
@@ -1012,11 +1021,8 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
   HostSplit h_split;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
-                                split.data().get(),
-                                sizeof(h_split),
-                                cudaMemcpyDeviceToHost,
-                                handle.get_stream()));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();
 
   EXPECT_EQ(h_split.nLeft, 4);
@@ -1026,16 +1032,21 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
 
 TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
 {
-  using DataT        = float;
-  using IdxT         = int;
-  constexpr IdxT len = 10;
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
   constexpr IdxT n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::RegressionBin> h_hist = {
-    {2.0, 2}, {4.0, 4}, {4.0, 4}, {4.0, 4}, {4.0, 4}, {10.0, 10},
+    {2.0, 2},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {10.0, 10},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
@@ -1044,8 +1055,7 @@ TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
   thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
   thrust::device_vector<int> mutex(1);
 
-  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(
-    1, 1, CRITERION::MSE);
+  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(1, 1, CRITERION::MSE);
   objectiveGainKernel<<<1, 32, sizeof(DT::Split<DataT, IdxT>), handle.get_stream()>>>(
     hist.data().get(),
     quantiles.data().get(),
@@ -1066,11 +1076,8 @@ TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
   HostSplit h_split;
-  RAFT_CUDA_TRY(cudaMemcpyAsync(&h_split,
-                                split.data().get(),
-                                sizeof(h_split),
-                                cudaMemcpyDeviceToHost,
-                                handle.get_stream()));
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();
 
   EXPECT_EQ(h_split.nLeft, 4);
