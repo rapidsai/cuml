@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,6 +10,7 @@
 #include "internal/hw_forecast.cuh"
 #include "internal/hw_optim.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/tsa/holtwinters_params.h>
 
 #include <raft/util/cudart_utils.hpp>
@@ -18,6 +19,9 @@
 #include <raft/linalg/transpose.cuh>
 
 #include <rmm/device_uvector.hpp>
+
+#include <cstdint>
+#include <limits>
 
 namespace ML {
 
@@ -33,6 +37,22 @@ void HWTranspose(const raft::handle_t& handle, Dtype* data_in, int m, int n, Dty
   raft::linalg::transpose<Dtype>(handle, data_in, data_out, n, m, stream);
 }
 
+namespace detail {
+// Narrow an int64_t buffer-size product back to the public `int*` output type,
+// trapping if it does not fit. Computing in int64_t first prevents the signed
+// overflow that would otherwise truncate to a small positive value and feed an
+// undersized allocation to downstream kernels.
+inline int hw_narrow_size(std::int64_t value, const char* name)
+{
+  if (value < 0 || value > static_cast<std::int64_t>(std::numeric_limits<int>::max())) {
+    RAFT_FAIL("HoltWintersBufferSize: %s = %lld exceeds int range; reduce batch_size or n",
+              name,
+              static_cast<long long>(value));
+  }
+  return static_cast<int>(value);
+}
+}  // namespace detail
+
 void HoltWintersBufferSize(int n,
                            int batch_size,
                            int frequency,
@@ -45,15 +65,33 @@ void HoltWintersBufferSize(int n,
                            int* leveltrend_coef_shift,
                            int* season_coef_shift)
 {
-  int w_len = use_gamma ? frequency : (use_beta ? 2 : 1);
+  std::int64_t const w_len   = use_gamma ? frequency : (use_beta ? 2 : 1);
+  std::int64_t const n64     = n;
+  std::int64_t const bs64    = batch_size;
+  std::int64_t const freq64  = frequency;
+  std::int64_t const n_minus = checked_sub<std::int64_t>(n64, w_len);
 
   if (start_leveltrend_len) *start_leveltrend_len = batch_size;
-  if (use_gamma && start_season_len) *start_season_len = frequency * batch_size;
+  if (use_gamma && start_season_len) {
+    *start_season_len =
+      detail::hw_narrow_size(checked_mul<std::int64_t>(freq64, bs64), "start_season_len");
+  }
 
-  if (components_len) *components_len = (n - w_len) * batch_size;
+  if (components_len) {
+    *components_len =
+      detail::hw_narrow_size(checked_mul<std::int64_t>(n_minus, bs64), "components_len");
+  }
 
-  if (leveltrend_coef_shift) *leveltrend_coef_shift = (n - w_len - 1) * batch_size;
-  if (use_gamma && season_coef_shift) *season_coef_shift = (n - w_len - frequency) * batch_size;
+  if (leveltrend_coef_shift) {
+    *leveltrend_coef_shift =
+      detail::hw_narrow_size(checked_mul<std::int64_t>(checked_sub<std::int64_t>(n_minus, 1), bs64),
+                             "leveltrend_coef_shift");
+  }
+  if (use_gamma && season_coef_shift) {
+    *season_coef_shift = detail::hw_narrow_size(
+      checked_mul<std::int64_t>(checked_sub<std::int64_t>(n_minus, freq64), bs64),
+      "season_coef_shift");
+  }
 
   if (error_len) *error_len = batch_size;
 }
@@ -310,7 +348,7 @@ void HoltWintersFitHelper(const raft::handle_t& handle,
                         &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
                         &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
-  rmm::device_uvector<Dtype> dataset_d(batch_size * n, stream);
+  rmm::device_uvector<Dtype> dataset_d(checked_mul<std::size_t>(batch_size, n), stream);
   rmm::device_uvector<Dtype> alpha_d(batch_size, stream);
   raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
   rmm::device_uvector<Dtype> level_seed_d(leveltrend_seed_len, stream);

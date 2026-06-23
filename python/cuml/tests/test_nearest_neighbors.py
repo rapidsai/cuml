@@ -86,7 +86,7 @@ def metric_p_combinations():
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("metric_p", metric_p_combinations())
+@pytest.mark.parametrize("metric_p", list(metric_p_combinations()))
 @pytest.mark.parametrize("nrows", [1000, stress_param(10000)])
 def test_self_neighboring(datatype, metric_p, nrows):
     """Test that searches using an indexed vector itself return sensible
