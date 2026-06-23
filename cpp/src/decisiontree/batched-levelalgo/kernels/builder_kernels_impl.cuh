@@ -16,6 +16,7 @@
 #include <cub/cub.cuh>
 #include <thrust/binary_search.h>
 #include <thrust/execution_policy.h>
+#include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/tabulate_output_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
@@ -28,41 +29,52 @@ namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
 
+template <typename IdxT>
+struct NodeSplitPartitionState {
+  IdxT left_count;
+  bool valid_row;
+  bool goes_left;
+};
+
+template <typename IdxT>
+struct NodeSplitPartitionScanOp {
+  __host__ __device__ NodeSplitPartitionState<IdxT> operator()(
+    const NodeSplitPartitionState<IdxT>& lhs, const NodeSplitPartitionState<IdxT>& rhs) const
+  {
+    return {lhs.left_count + rhs.left_count, rhs.valid_row, rhs.goes_left};
+  }
+};
+
 // Output side of the segmented partition scan. The scan supplies the
-// exclusive left rank for each logical row slot in its node segment; this
-// writer uses that rank to place the row into the temporary partition buffer.
+// inclusive left count and current row side for each logical row slot in its
+// node segment; this writer uses that state to place the row into the temporary
+// partition buffer.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 struct NodeSplitPartitionWriter {
-  IdxT min_samples_leaf;
-  DataT min_impurity_decrease;
   Dataset<DataT, LabelT, IdxT> dataset;
   const NodeWorkItem* work_items;
   const Split<DataT, IdxT>* splits;
   const WorkloadInfo<IdxT>* workload_info;
   IdxT* partition_row_ids;
 
-  __host__ __device__ void operator()(std::ptrdiff_t index, IdxT left_rank) const
+  __host__ __device__ void operator()(std::ptrdiff_t index,
+                                      NodeSplitPartitionState<IdxT> state) const
   {
+    if (!state.valid_row) { return; }
+
     const auto slot              = std::size_t(index);
     const auto workload_info_cta = workload_info[slot / TPB];
     const auto nid               = workload_info_cta.nodeid;
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
-    if (SplitNotValid(
-          split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-      return;
-    }
 
     const auto range_start = work_item.instances.begin;
     const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
-    if (range_pos >= work_item.instances.count) { return; }
 
-    const auto row       = dataset.row_ids[range_start + range_pos];
-    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
-    const bool goes_left = dataset.data[col_idx] <= split.quesval;
-    // Previous right rows are the previous rows in this node minus previous left rows.
-    const auto rank      = goes_left ? left_rank : IdxT(range_pos) - left_rank;
-    const auto out_idx   = range_start + (goes_left ? rank : split.nLeft + rank);
+    const auto row = dataset.row_ids[range_start + range_pos];
+    const auto rank =
+      state.goes_left ? state.left_count - IdxT(1) : IdxT(range_pos) - state.left_count;
+    const auto out_idx         = range_start + (state.goes_left ? rank : split.nLeft + rank);
     partition_row_ids[out_idx] = row;
   }
 };
@@ -82,8 +94,7 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
   const auto nid               = workload_info_cta.nodeid;
   const auto work_item         = work_items[nid];
   const auto split             = splits[nid];
-  if (SplitNotValid(
-        split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
+  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
     return;
   }
 
@@ -118,42 +129,41 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
   auto node_key = [workload_info] __host__ __device__(std::size_t slot) {
     return workload_info[slot / TPB].nodeid;
   };
-  auto left_predicate = [=] __host__ __device__(std::size_t slot) {
+  auto partition_state = [=] __host__ __device__(std::size_t slot) {
     const auto workload_info_cta = workload_info[slot / TPB];
     const auto nid               = workload_info_cta.nodeid;
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
-    if (SplitNotValid(
-          split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-      return false;
+    if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
+      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
     }
 
     const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
-    if (range_pos >= work_item.instances.count) { return false; }
+    if (range_pos >= work_item.instances.count) {
+      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
+    }
 
-    const auto row     = dataset.row_ids[work_item.instances.begin + range_pos];
-    const auto col_idx = std::size_t(split.colid) * dataset.M + row;
-    return dataset.data[col_idx] <= split.quesval;
+    const auto row       = dataset.row_ids[work_item.instances.begin + range_pos];
+    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
+    const auto goes_left = dataset.data[col_idx] <= split.quesval;
+    return NodeSplitPartitionState<IdxT>{goes_left ? IdxT(1) : IdxT(0), true, goes_left};
   };
 
-  // The scan input is a stream of per-slot left flags keyed by node id.
+  // The scan input is a stream of per-slot partition states keyed by node id.
   // The scan output is a tabulated writer, so partition_row_ids is populated
   // during the scan rather than by a second scatter kernel.
-  auto node_keys = thrust::make_transform_iterator(slots_begin, node_key);
-  auto left_flag = [left_predicate] __host__ __device__(std::size_t slot) {
-    return left_predicate(slot) ? IdxT(1) : IdxT(0);
-  };
-  auto left_flags = thrust::make_transform_iterator(slots_begin, left_flag);
-  auto partition_writer = thrust::make_tabulate_output_iterator(
-    NodeSplitPartitionWriter<DataT, LabelT, IdxT, TPB>{min_samples_leaf,
-                                                       min_impurity_decrease,
-                                                       dataset,
-                                                       work_items,
-                                                       splits,
-                                                       workload_info,
-                                                       partition_row_ids});
-  thrust::exclusive_scan_by_key(
-    exec_policy, node_keys, node_keys + n_slots, left_flags, partition_writer, IdxT(0));
+  auto node_keys        = thrust::make_transform_iterator(slots_begin, node_key);
+  auto partition_states = thrust::make_transform_iterator(slots_begin, partition_state);
+  auto partition_writer =
+    thrust::make_tabulate_output_iterator(NodeSplitPartitionWriter<DataT, LabelT, IdxT, TPB>{
+      dataset, work_items, splits, workload_info, partition_row_ids});
+  thrust::inclusive_scan_by_key(exec_policy,
+                                node_keys,
+                                node_keys + n_slots,
+                                partition_states,
+                                partition_writer,
+                                thrust::equal_to<IdxT>{},
+                                NodeSplitPartitionScanOp<IdxT>{});
 
   // The original row_ids buffer remains the source during the scan, so copy back after it finishes.
   nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
