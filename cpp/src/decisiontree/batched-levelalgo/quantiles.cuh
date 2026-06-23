@@ -8,6 +8,7 @@
 #include "quantiles.h"
 #include "random_utils.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
 
 #include <raft/core/error.hpp>
@@ -183,11 +184,10 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   RAFT_EXPECTS(global_rows > 0, "global row count must be positive");
 
   // Allocate one shared row sample for all columns and the buffers used to sort it by column.
-  int sample_count = static_cast<int>(std::min<std::uint64_t>(
-    global_rows, static_cast<std::uint64_t>(max_n_bins) * oversampling_factor));
+  int sample_count = ML::narrow_cast<int>(std::min<std::uint64_t>(
+    global_rows, ML::checked_mul<std::uint64_t>(max_n_bins, oversampling_factor)));
 
-  std::size_t total_sample_values =
-    static_cast<std::size_t>(sample_count) * static_cast<std::size_t>(n_cols);
+  std::size_t total_sample_values = ML::checked_mul<std::size_t>(sample_count, n_cols);
   rmm::device_uvector<T> sampled_columns(total_sample_values, stream);
   rmm::device_uvector<T> sorted_samples(total_sample_values, stream);
 
@@ -197,12 +197,14 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                     [sample_count] __host__ __device__(std::int64_t col) {
                                       return col * static_cast<std::int64_t>(sample_count);
                                     });
-  rmm::device_uvector<T> quantiles_array(n_cols * max_n_bins, stream);
+  rmm::device_uvector<T> quantiles_array(ML::checked_mul<std::size_t>(n_cols, max_n_bins), stream);
   rmm::device_uvector<int> n_bins_array(n_cols, stream);
 
   // Fill this rank's owned positions in the global sample; all other positions remain zero.
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(sampled_columns.data(), 0, sizeof(T) * total_sample_values, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(sampled_columns.data(),
+                                0,
+                                ML::checked_mul<std::size_t>(sizeof(T), total_sample_values),
+                                stream));
   dim3 sample_grid(n_cols, (sample_count + n_threads - 1) / n_threads);
   detail::sampleOwnedColumnsKernel<<<sample_grid, n_threads, 0, stream>>>(sampled_columns.data(),
                                                                           data,

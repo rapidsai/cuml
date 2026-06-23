@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -38,22 +38,35 @@ def test_split_dataframe(n_samples, n_classes, n_splits, shuffle):
             assert ratio_tr == ratio_te
 
 
-def test_num_classes_check():
+def test_stratified_kfold_n_splits_invalid():
     X, y = get_x_y(n_samples=1000, n_classes=1)
     kf = StratifiedKFold(n_splits=5)
-    err_msg = "number of unique classes cannot be less than 2"
-    with pytest.raises(ValueError, match=err_msg):
-        for train_index, test_index in kf.split(X, y):
-            pass
+
+    with pytest.raises(
+        ValueError, match="number of unique classes cannot be less than 2"
+    ):
+        list(kf.split(X, y))
+
+    y = cp.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2])
+    X = cp.zeros((len(y), 3))
+    with pytest.raises(
+        ValueError,
+        match=(
+            "n_splits=5 cannot be greater than the number of members "
+            "in each class"
+        ),
+    ):
+        list(kf.split(X, y))
 
 
-@pytest.mark.parametrize("n_splits", [0, 1])
-def test_invalid_folds(n_splits):
+@pytest.mark.parametrize("n_splits", [0, 1, "bad"])
+@pytest.mark.parametrize("cls", [KFold, StratifiedKFold])
+def test_invalid_folds(cls, n_splits):
     X, y = get_x_y(n_samples=1000, n_classes=2)
 
-    err_msg = f"n_splits {n_splits} is not a integer at least 2"
+    err_msg = f"Expected an integral n_splits >= 2, got {n_splits=!r}"
     with pytest.raises(ValueError, match=err_msg):
-        kf = StratifiedKFold(n_splits=n_splits)
+        kf = cls(n_splits=n_splits)
         for train_index, test_index in kf.split(X, y):
             break
 
