@@ -109,6 +109,7 @@ def _check_self_references(indices, orig_n_neighbors=None):
 
 def extract_knn_graph(
     knn_info,
+    n_samples,
     n_neighbors,
     mem_type="device",
     indices_dtype="int64",
@@ -124,8 +125,10 @@ def extract_knn_graph(
         - Pairwise distances dense array of shape (n_samples, n_samples).
         - KNN graph sparse array. This is most efficient if the graph is in CSR
           format and contains 0 entries in `data` for all diagonal elements.
+    n_samples: int
+        Number of samples expected.
     n_neighbors: int
-        Number of nearest neighbors
+        Number of nearest neighbors required.
     mem_type : {"device", "host", None}, default="device"
         The desired output memory type.
     indices_dtype : dtype, default='int64'
@@ -151,11 +154,11 @@ def extract_knn_graph(
         distances = check_array(
             distances, dtype="float32", order="C", mem_type=mem_type_init
         )
-        if not indices.shape == distances.shape:
+        if indices.shape[0] != n_samples or indices.shape != distances.shape:
             raise ValueError(
                 f"Expected indices and distances to have shape=(n_samples, "
-                f"n_neighbors), got indices.shape={indices.shape}, "
-                f"distances.shape={distances.shape}"
+                f"n_neighbors) where {n_samples=}, got "
+                f"indices.shape={indices.shape}, distances.shape={distances.shape}"
             )
         if not _check_self_references(indices):
             raise ValueError(
@@ -169,10 +172,13 @@ def extract_knn_graph(
         # Sparse KNN graph
         # - shape=(n_samples, n_samples)
         # - nnz=n_samples * orig_n_neighbors
-        if not (knn_info.ndim == 2 and knn_info.shape[0] == knn_info.shape[1]):
+        if not (
+            knn_info.ndim == 2
+            and knn_info.shape[0] == knn_info.shape[1] == n_samples
+        ):
             raise ValueError(
-                f"Expected a sparse array of shape=(n_samples, n_samples), "
-                f"got shape={knn_info.shape}"
+                f"Expected a sparse array of shape=(n_samples, n_samples) where "
+                f"{n_samples=}, got shape={knn_info.shape}"
             )
 
         # Coerce to CSR. If the input was already CSR this is zero-copy and
@@ -187,8 +193,6 @@ def extract_knn_graph(
             dtype="float32",
         )
         xp = cp if isinstance(knn_info.data, cp.ndarray) else np
-
-        n_samples = knn_info.shape[0]
 
         orig_n_neighbors, remainder = divmod(knn_info.nnz, n_samples)
         if (
@@ -245,12 +249,11 @@ def extract_knn_graph(
         knn_info = check_array(
             knn_info, dtype="float32", mem_type=mem_type_init
         )
-        if knn_info.shape[0] != knn_info.shape[1]:
+        if not (knn_info.shape[0] == knn_info.shape[1] == n_samples):
             raise ValueError(
-                f"Expected a dense array of shape=(n_samples, n_samples), "
-                f"got shape={knn_info.shape}"
+                f"Expected a dense array of shape=(n_samples, n_samples) where "
+                f"{n_samples=}, got shape={knn_info.shape}"
             )
-        n_samples = knn_info.shape[0]
         if n_samples < n_neighbors:
             raise ValueError(
                 f"Precomputed KNN data requires n_samples >= n_neighbors. "

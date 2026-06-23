@@ -622,6 +622,7 @@ class TSNE(InteropMixin,
         if knn_graph is not None:
             knn_indices, knn_dists = extract_knn_graph(
                 knn_graph,
+                n_samples,
                 params.n_neighbors,
                 indices_dtype="int32" if sparse_fit else "int64",
             )

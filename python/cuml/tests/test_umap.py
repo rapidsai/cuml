@@ -630,7 +630,7 @@ def test_extract_knn_graph(
 
     # mem_type=None doesn't coerce mem_type
     indices, distances = extract_knn_graph(
-        knn_info, k, indices_dtype=indices_dtype, mem_type=None
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type=None
     )
     assert indices.dtype == indices_dtype
     assert distances.dtype == "float32"
@@ -641,7 +641,7 @@ def test_extract_knn_graph(
     np.testing.assert_array_equal(cp.asnumpy(indices), sol.indices)
 
     indices, distances = extract_knn_graph(
-        knn_info, k, indices_dtype=indices_dtype, mem_type="host"
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type="host"
     )
     assert indices.dtype == indices_dtype
     assert distances.dtype == "float32"
@@ -649,7 +649,7 @@ def test_extract_knn_graph(
     np.testing.assert_array_equal(indices, sol.indices)
 
     indices, distances = extract_knn_graph(
-        knn_info, k, indices_dtype=indices_dtype, mem_type="device"
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type="device"
     )
     assert indices.dtype == indices_dtype
     assert distances.dtype == "float32"
@@ -665,7 +665,12 @@ def test_extract_knn_graph_errors():
     with pytest.raises(
         ValueError, match="Expected indices and distances to have shape"
     ):
-        extract_knn_graph(knn_info, 10)
+        extract_knn_graph(knn_info, 3, 2)
+    knn_info = (np.ones((2, 4)), np.ones((2, 4)))
+    with pytest.raises(
+        ValueError, match="Expected indices and distances to have shape"
+    ):
+        extract_knn_graph(knn_info, 3, 2)
 
     # tuple: n_neighbors > original_n_neighbors
     knn_info = tuple(
@@ -682,7 +687,7 @@ def test_extract_knn_graph_errors():
             "n_neighbors=25 was specified"
         ),
     ):
-        extract_knn_graph(knn_info, 25)
+        extract_knn_graph(knn_info, 30, 25)
 
     # tuple: expected self references
     knn_info = tuple(
@@ -696,12 +701,15 @@ def test_extract_knn_graph_errors():
         ValueError,
         match="Expected indices and distances to include self references",
     ):
-        extract_knn_graph(knn_info, 20)
+        extract_knn_graph(knn_info, 30, 20)
 
     # graph: invalid shape
-    knn_info = sp.random(10, 25, density=0.5)
+    knn_info = sp.random(29, 29, random_state=42, density=0.5)
     with pytest.raises(ValueError, match="Expected a sparse array of shape"):
-        extract_knn_graph(knn_info, 10)
+        extract_knn_graph(knn_info, 30, 10)
+    knn_info = sp.random(30, 29, random_state=42, density=0.5)
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        extract_knn_graph(knn_info, 30, 10)
 
     # graph: invalid nnz
     knn_info = sp.csr_matrix(
@@ -714,7 +722,7 @@ def test_extract_knn_graph_errors():
     with pytest.raises(
         ValueError, match="Precomputed KNN graph has 4 nonzero elements"
     ):
-        extract_knn_graph(knn_info, 3)
+        extract_knn_graph(knn_info, 3, 3)
 
     # graph: n_neighbors > original_n_neighbors
     knn_info = kneighbors_graph(X, 20, include_self=True, mode="distance")
@@ -725,12 +733,15 @@ def test_extract_knn_graph_errors():
             "n_neighbors=25 was specified"
         ),
     ):
-        extract_knn_graph(knn_info, 25)
+        extract_knn_graph(knn_info, 30, 25)
 
     # pairwise: invalid shape
     knn_info = np.ones((5, 6))
     with pytest.raises(ValueError, match="Expected a dense array of shape"):
-        extract_knn_graph(knn_info, 5)
+        extract_knn_graph(knn_info, 5, 5)
+    knn_info = np.ones((5, 5))
+    with pytest.raises(ValueError, match="Expected a dense array of shape"):
+        extract_knn_graph(knn_info, 6, 5)
 
     # pairwise: n_neighbors > n_samples
     knn_info = np.ones((5, 5))
@@ -738,7 +749,7 @@ def test_extract_knn_graph_errors():
         ValueError,
         match="Precomputed KNN data requires n_samples >= n_neighbors",
     ):
-        extract_knn_graph(knn_info, 10)
+        extract_knn_graph(knn_info, 5, 10)
 
 
 @pytest.mark.parametrize(
@@ -762,7 +773,7 @@ def test_extract_knn_graph_zero_distance_rows(kind, mem_type):
     sol_indices = np.array([0, 3, 1, 1, 2, 3, 2, 1, 3, 3, 0, 1])
     sol_distances = nn.kneighbors(X, 3)[0].flatten()
 
-    indices, distances = extract_knn_graph(graph, 3, mem_type=mem_type)
+    indices, distances = extract_knn_graph(graph, 4, 3, mem_type=mem_type)
     np.testing.assert_allclose(cp.asnumpy(distances), sol_distances, atol=1e-5)
     np.testing.assert_array_equal(cp.asnumpy(indices), sol_indices)
 
@@ -792,7 +803,7 @@ def test_extract_knn_graph_from_kneighbors_graph_zero_copy(kind, mem_type):
         assert x_ptr == y_ptr
 
     indices, distances = extract_knn_graph(
-        graph, 20, mem_type=mem_type, indices_dtype=graph.indices.dtype
+        graph, 30, 20, mem_type=mem_type, indices_dtype=graph.indices.dtype
     )
     assert_same_memory(indices, graph.indices)
     assert_same_memory(distances, graph.data)
