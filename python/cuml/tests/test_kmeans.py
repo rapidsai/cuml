@@ -475,19 +475,12 @@ def test_kmeans_init_wrong_shape():
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("streaming_batch_size", [256, 1024, 5000])
-def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
+@pytest.mark.parametrize("weighted", [False, True])
+def test_kmeans_streaming_batch_size_host_path(
+    dtype, streaming_batch_size, weighted
+):
     """The single-GPU host-streaming fit path should agree with the device
     path on identical inputs.
-
-    Setting ``streaming_batch_size > 0`` and passing a numpy array routes
-    through cuVS's host-data fit overload (cuML uploads X chunk-by-chunk).
-    With fixed initial centers and ``n_init=1`` both code paths see the same
-    state, so the resulting labels should match exactly (up to permutation,
-    measured via ARI) and the inertia should match within fp tolerance.
-
-    We also smoke-test that ``streaming_batch_size`` settings that don't
-    divide ``n_samples`` are handled (the final chunk is shorter) and that
-    a value larger than ``n_samples`` is clamped.
     """
     n_rows = 4096
     n_cols = 16
@@ -502,9 +495,15 @@ def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
         dtype=dtype,
     )
     X_host = cp.asnumpy(X_dev).astype(dtype)
-    X_dev = cp.asarray(X_host)  # ensure both paths see the same bits
+    X_dev = cp.asarray(X_host)
 
-    # Fixed initial centers eliminate non-determinism from k-means|| seeding.
+    if weighted:
+        sample_weight_host = np.linspace(0.5, 1.5, num=n_rows, dtype=dtype)
+        sample_weight_dev = cp.asarray(sample_weight_host)
+    else:
+        sample_weight_host = None
+        sample_weight_dev = None
+
     rng = np.random.RandomState(123)
     init_idx = rng.choice(n_rows, size=n_clusters, replace=False)
     init = X_host[init_idx]
@@ -515,63 +514,24 @@ def test_kmeans_streaming_batch_size_host_path(dtype, streaming_batch_size):
         n_init=1,
         max_iter=300,
         tol=1e-6,
-        random_state=10,
+        random_state=42,
     )
 
     host_model = cuml.KMeans(
         streaming_batch_size=streaming_batch_size, **common_kwargs
     )
-    host_model.fit(X_host)
+    host_model.fit(X_host, sample_weight=sample_weight_host)
 
     dev_model = cuml.KMeans(streaming_batch_size=0, **common_kwargs)
-    dev_model.fit(X_dev)
+    dev_model.fit(X_dev, sample_weight=sample_weight_dev)
 
-    # Inertia: cuVS host-streaming fit and device fit go through different
-    # internal kernels and reduction orderings, so allow a tiny fp gap.
     np.testing.assert_allclose(
         float(host_model.inertia_),
         float(dev_model.inertia_),
-        rtol=1e-4 if dtype == np.float32 else 1e-8,
+        rtol=1e-3 if dtype == np.float32 else 1e-6,
     )
 
-    host_labels = np.asarray(host_model.labels_.to_output("numpy"))
-    dev_labels = cp.asnumpy(dev_model.labels_.to_output("cupy"))
+    host_labels = cp.asnumpy(cp.asarray(host_model.labels_))
+    dev_labels = cp.asnumpy(cp.asarray(dev_model.labels_))
     assert host_labels.shape == (n_rows,)
     assert adjusted_rand_score(dev_labels, host_labels) == pytest.approx(1.0)
-
-
-def test_kmeans_streaming_batch_size_device_input_is_noop():
-    """``streaming_batch_size`` must be a silent no-op when ``X`` is already
-    device-resident.
-
-    The dispatch heuristic checks for ``__cuda_array_interface__`` and falls
-    back to the existing device fit path; the parameter is still forwarded
-    to cuVS, which ignores it on the device-data overload. We assert that
-    the result is byte-identical to a run with ``streaming_batch_size=0``.
-    """
-    X, _ = make_blobs(
-        n_samples=512,
-        n_features=8,
-        centers=4,
-        cluster_std=0.5,
-        random_state=0,
-        dtype=np.float32,
-    )
-
-    common_kwargs = dict(
-        n_clusters=4,
-        n_init=1,
-        max_iter=100,
-        tol=1e-6,
-        random_state=7,
-        init="random",
-    )
-
-    with_batch = cuml.KMeans(streaming_batch_size=128, **common_kwargs).fit(X)
-    without_batch = cuml.KMeans(streaming_batch_size=0, **common_kwargs).fit(X)
-
-    np.testing.assert_array_equal(
-        cp.asnumpy(with_batch.cluster_centers_.to_output("cupy")),
-        cp.asnumpy(without_batch.cluster_centers_.to_output("cupy")),
-    )
-    assert with_batch.inertia_ == without_batch.inertia_

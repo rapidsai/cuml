@@ -35,8 +35,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -45,8 +44,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -207,7 +205,6 @@ class TruncatedSVD(InteropMixin,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
-    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -330,7 +327,6 @@ class TruncatedSVD(InteropMixin,
             )
 
         cdef paramsTSVD params
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -374,8 +370,7 @@ class TruncatedSVD(InteropMixin,
                     <float*> explained_variance_ptr,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
             else:
                 tsvdFitTransform(
@@ -386,8 +381,7 @@ class TruncatedSVD(InteropMixin,
                     <double*> explained_variance_ptr,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
         handle.sync()
 

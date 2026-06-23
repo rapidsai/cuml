@@ -14,7 +14,7 @@ using _DataT      = float;
 using _LabelT     = int;
 using _IdxT       = int;
 using _ObjectiveT = ClassificationObjectiveFunction<_DataT, _LabelT, _IdxT>;
-using _BinT       = CountBin;
+using _BinT       = ClassificationBin;
 using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT

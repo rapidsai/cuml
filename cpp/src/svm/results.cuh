@@ -8,6 +8,7 @@
 #include "sparse_util.cuh"
 #include "ws_util.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/svm/svm_model.h>
 
 #include <raft/core/handle.hpp>
@@ -151,10 +152,9 @@ class Results {
     if (is_precomputed) { return support_matrix; }
 
     // allow ~1GB dense support matrix
-    if (isDenseType<MatrixViewType>() ||
-        ((size_t)n_support * n_cols * sizeof(math_t) < (1 << 30))) {
-      support_matrix.data =
-        (math_t*)rmm_alloc.allocate(stream, n_support * n_cols * sizeof(math_t));
+    auto const dense_bytes = checked_mul<std::size_t>(n_support, n_cols, sizeof(math_t));
+    if (isDenseType<MatrixViewType>() || (dense_bytes < (1 << 30))) {
+      support_matrix.data = (math_t*)rmm_alloc.allocate(stream, dense_bytes);
       ML::SVM::extractRows<math_t>(matrix, support_matrix.data, idx, n_support, handle);
     } else {
       ML::SVM::extractRows<math_t>(matrix,

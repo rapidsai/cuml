@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,7 @@
 
 #include <common/fast_int_div.cuh>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/linalg/add.cuh>
@@ -347,7 +348,7 @@ class Matrix {
   Matrix<T> difference(int period = 1) const
   {
     ASSERT(m_shape.first == 1 || m_shape.second == 1, "Invalid operation: must be a vector");
-    int len = m_shape.second * m_shape.first;
+    int len = ML::checked_mul<int>(m_shape.second, m_shape.first);
     ASSERT(len > period, "Length of the vector must be > period");
 
     // Create output batched vector
@@ -395,9 +396,9 @@ class Matrix {
    */
   Matrix<T> inv() const
   {
-    int n = m_shape.first;
+    int n = ML::narrow_cast<int>(m_shape.first);
 
-    rmm::device_uvector<int> P(n * m_batch_size, m_stream);
+    rmm::device_uvector<int> P(ML::checked_mul<std::size_t>(n, m_batch_size), m_stream);
     rmm::device_uvector<int> info(m_batch_size, m_stream);
 
     // A copy of A is necessary as the cublas operations write in A
@@ -924,8 +925,8 @@ void b_lagged_mat(const Matrix<T>& vec,
          "The numbers of batches of the matrix and the vector must match");
   ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
          "The first argument must be a vector (either row or column)");
-  int len              = vec.shape().first == 1 ? vec.shape().second : vec.shape().first;
-  int mat_batch_stride = lagged_mat.shape().first * lagged_mat.shape().second;
+  int len = ML::narrow_cast<int>(vec.shape().first == 1 ? vec.shape().second : vec.shape().first);
+  int mat_batch_stride = ML::checked_mul<int>(lagged_mat.shape().first, lagged_mat.shape().second);
   ASSERT(lagged_height <= len - s * lags - vec_offset,
          "Lagged height can't exceed vector length - s * lags - vector offset");
   ASSERT(mat_offset <= mat_batch_stride - lagged_height * lags,
@@ -961,7 +962,7 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags)
 {
   ASSERT(vec.shape().first == 1 || vec.shape().second == 1,
          "The first argument must be a vector (either row or column)");
-  int len = vec.shape().first * vec.shape().second;
+  int len = ML::checked_mul<int>(vec.shape().first, vec.shape().second);
   ASSERT(lags < len, "The number of lags can't exceed the vector length");
   int lagged_height = len - lags;
 
@@ -1288,22 +1289,29 @@ CUML_KERNEL void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n)
 template <typename T>
 void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
 {
-  int n          = A.shape().first;
-  int n2         = n * n;
-  int batch_size = A.batches();
-  auto stream    = A.stream();
+  int n                  = ML::narrow_cast<int>(A.shape().first);
+  std::size_t const n_sz = static_cast<std::size_t>(n);
+  std::size_t const n2   = ML::checked_mul<std::size_t>(n_sz, n_sz);
+  int batch_size         = ML::narrow_cast<int>(A.batches());
+  auto stream            = A.stream();
+
+  std::size_t const n2_batch = ML::checked_mul<std::size_t>(n2, batch_size);
 
   // Copy A in H
-  raft::copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
+  raft::copy(H.raw_data(), A.raw_data(), n2_batch, stream);
 
   // Initialize U with the identity
-  RAFT_CUDA_TRY(cudaMemsetAsync(U.raw_data(), 0, sizeof(T) * n2 * batch_size, stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(U.raw_data(), 0, ML::checked_mul<std::size_t>(sizeof(T), n2_batch), stream));
   identity_matrix_kernel<T><<<batch_size, std::min(256, n), 0, stream>>>(U.raw_data(), n);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Create a temporary buffer to store the Householder vectors
-  int hh_size = (n * (n - 1)) / 2 - 1;
-  rmm::device_uvector<T> hh_buffer(hh_size * batch_size, stream);
+  // hh_size = (n * (n - 1)) / 2 - 1, computed in size_t to avoid overflow.
+  // checked_sub for (n - 1) too, so n == 0 traps instead of wrapping to SIZE_MAX.
+  std::size_t const hh_size = ML::checked_sub<std::size_t>(
+    ML::checked_mul<std::size_t>(n_sz, ML::checked_sub<std::size_t>(n_sz, 1)) / 2, 1);
+  rmm::device_uvector<T> hh_buffer(ML::checked_mul<std::size_t>(hh_size, batch_size), stream);
 
   // Transform H to Hessenberg form in-place and update U
   int shared_mem_size = n * sizeof(T);
@@ -1567,8 +1575,8 @@ CUML_KERNEL void francis_qr_algorithm_kernel(T* d_U, T* d_H, int n)
 template <typename T>
 void b_schur(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& S, int max_iter_per_step = 20)
 {
-  int n          = A.shape().first;
-  int batch_size = A.batches();
+  int n          = ML::narrow_cast<int>(A.shape().first);
+  int batch_size = ML::narrow_cast<int>(A.batches());
   auto stream    = A.stream();
 
   // Start with a Hessenberg decomposition
@@ -1816,15 +1824,16 @@ CUML_KERNEL void trsyl_kernel(
 template <typename T>
 Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S, const Matrix<T>& F)
 {
-  int batch_size = R.batches();
+  int batch_size = ML::narrow_cast<int>(R.batches());
   auto stream    = R.stream();
-  int n          = R.shape().first;
+  int n          = ML::narrow_cast<int>(R.shape().first);
 
   Matrix<T> R2 = b_gemm(R, R);
   Matrix<T> Y(n, n, batch_size, R.cublasHandle(), stream, false);
 
-  // Scratch buffer for the solver
-  rmm::device_uvector<T> scratch_buffer(batch_size * n * (n + 2), stream);
+  // Scratch buffer for the solver: batch_size * n * (n + 2), in size_t.
+  rmm::device_uvector<T> scratch_buffer(
+    ML::checked_mul<std::size_t>(batch_size, n, static_cast<std::size_t>(n) + 2), stream);
   int shared_mem_size = 2 * (n - 1) * sizeof(T);
   trsyl_kernel<<<batch_size, n + 2, shared_mem_size, stream>>>(R.raw_data(),
                                                                R2.raw_data(),
@@ -1850,7 +1859,7 @@ void _direct_lyapunov_helper(const Matrix<T>& A,
                              int r)
 {
   auto stream    = A.stream();
-  int batch_size = A.batches();
+  int batch_size = ML::narrow_cast<int>(A.batches());
   int r2         = r * r;
   auto counting  = thrust::make_counting_iterator(0);
 
@@ -1889,11 +1898,14 @@ void _direct_lyapunov_helper(const Matrix<T>& A,
 template <typename T>
 Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
 {
-  int batch_size = A.batches();
+  int batch_size = ML::narrow_cast<int>(A.batches());
   auto stream    = A.stream();
-  int n          = A.shape().first;
-  int n2         = n * n;
-  auto counting  = thrust::make_counting_iterator(0);
+  int n          = ML::narrow_cast<int>(A.shape().first);
+  // n is guarded to <= 5 below for the direct path; widen n2 anyway to keep
+  // future callers safe and to match the type Matrix<T> expects.
+  std::size_t const n_sz = static_cast<std::size_t>(n);
+  std::size_t const n2   = ML::checked_mul<std::size_t>(n_sz, n_sz);
+  auto counting          = thrust::make_counting_iterator(0);
 
   if (n <= 5) {
     //
@@ -1905,7 +1917,9 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
       n2, n2, batch_size, A.cublasHandle(), stream, false);
     MLCommon::LinAlg::Batched::Matrix<T> X(n, n, batch_size, A.cublasHandle(), stream, false);
 
-    rmm::device_uvector<int> P(n * batch_size, stream);
+    // Matrix::inv is called on the n2*n2 Kronecker-product matrix I_m_AxA, so
+    // cublasgetrfBatched writes n2 pivots per batch element, not n.
+    rmm::device_uvector<int> P(ML::checked_mul<std::size_t>(n2, batch_size), stream);
     rmm::device_uvector<int> info(batch_size, stream);
 
     MLCommon::LinAlg::Batched::_direct_lyapunov_helper(
@@ -1925,11 +1939,11 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
       T* d_AmI = AmI.raw_data();
       thrust::for_each(
         thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int ib) {
-          int idx = ib * n2;
+          std::size_t idx = static_cast<std::size_t>(ib) * n2;
           for (int i = 0; i < n; i++) {
             d_ApI[idx] += (T)1;
             d_AmI[idx] -= (T)1;
-            idx += n + 1;
+            idx += static_cast<std::size_t>(n) + 1;
           }
         });
       Matrix<T> ApI_inv = ApI.inv();
