@@ -105,8 +105,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
            singular_vals.data(),
            mean.data(),
            noise_vars.data(),
-           prms,
-           false);
+           prms);
     pcaTransform(handle,
                  data.data(),
                  components.data(),
@@ -158,8 +157,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
                     singular_vals2.data(),
                     mean2.data(),
                     noise_vars2.data(),
-                    prms,
-                    false);
+                    prms);
 
     pcaInverseTransform(handle,
                         data2_trans.data(),

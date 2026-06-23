@@ -207,7 +207,7 @@ static __global__ void computeSplitKernel(BinT* histograms,
                                           const Quantiles<DataT, IdxT> quantiles,
                                           const NodeWorkItem* work_items,
                                           IdxT colStart,
-                                          const IdxT* colids,
+                                          const IdxT* column_samples,
                                           int* done_count,
                                           int* mutex,
                                           volatile Split<DataT, IdxT>* splits,
@@ -231,13 +231,8 @@ static __global__ void computeSplitKernel(BinT* histograms,
   IdxT num_blocks     = workload_info_cta.num_blocks;
 
   // obtaining the feature to test split on
-  IdxT col;
-  if (dataset.n_sampled_cols == dataset.N) {
-    col = colStart + blockIdx.y;
-  } else {
-    IdxT colIndex = colStart + blockIdx.y;
-    col           = colids[nid * dataset.n_sampled_cols + colIndex];
-  }
+  IdxT colIndex = colStart + blockIdx.y;
+  IdxT col      = column_samples[nid * dataset.n_sampled_cols + colIndex];
 
   // getting the n_bins for that feature
   int n_bins = quantiles.n_bins_array[col];
@@ -339,7 +334,7 @@ void launchComputeSplitKernel(BinT* histograms,
                               const Quantiles<DataT, IdxT>& quantiles,
                               const NodeWorkItem* work_items,
                               IdxT colStart,
-                              const IdxT* colids,
+                              const IdxT* column_samples,
                               int* done_count,
                               int* mutex,
                               volatile Split<DataT, IdxT>* splits,
@@ -360,7 +355,7 @@ void launchComputeSplitKernel(BinT* histograms,
                                                        quantiles,
                                                        work_items,
                                                        colStart,
-                                                       colids,
+                                                       column_samples,
                                                        done_count,
                                                        mutex,
                                                        splits,
@@ -400,7 +395,7 @@ template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _Obj
   const Quantiles<_DataT, _IdxT>& quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
-  const _IdxT* colids,
+  const _IdxT* column_samples,
   int* done_count,
   int* mutex,
   volatile Split<_DataT, _IdxT>* splits,

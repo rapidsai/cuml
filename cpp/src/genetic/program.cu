@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "node.cuh"
 #include "reg_stack.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/genetic/node.h>
@@ -299,7 +300,7 @@ int get_depth(const program& p_out)
     node curr(p_out.nodes[i]);
 
     // Update depth
-    int sz = arity_stack.size();
+    int sz = ML::narrow_cast<int>(arity_stack.size());
     depth  = std::max(depth, sz);
 
     // Update stack
@@ -358,7 +359,7 @@ void build_program(program& p_out, const param& params, std::mt19937& rng)
 
   // Fill tree
   while (!arity_stack.empty()) {
-    int depth        = arity_stack.size();
+    int depth        = ML::narrow_cast<int>(arity_stack.size());
     p_out.depth      = std::max(depth, p_out.depth);
     bool node_choice = dist_nodeChoice(rng);
 
