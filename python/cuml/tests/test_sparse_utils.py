@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -11,7 +11,7 @@ from sklearn.utils.sparsefuncs_fast import (
     inplace_csr_row_normalize_l2,
 )
 
-from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
 
 
 @pytest.mark.parametrize(
