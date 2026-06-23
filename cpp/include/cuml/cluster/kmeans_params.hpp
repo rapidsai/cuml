@@ -35,7 +35,6 @@ struct KMeansParams {
   double oversampling_factor = 2.0;
   int batch_samples          = 1 << 15;
   int batch_centroids        = 0;
-
   std::int64_t streaming_batch_size = 0;
 
   cuvs::cluster::kmeans::params to_cuvs() const;

@@ -105,15 +105,14 @@ cdef _kmeans_fit(
 ):
     """Fit the kmeans centers and return `n_iter`.
 
-    `X` and `sample_weight` may live on either the device or the host
-    (numpy); `centers` always lives on the device.
+    `X` and `sample_weight` may live on either the device or the host.
+    `centers` always lives on the device.
     """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    # Indices fitting in int32 is a device-only optimization (the host overload
-    # is int64-only on the cuVS side anyway, and C++ upcasts as needed).
+    # Indices fitting in int32 is for device arrays
     cdef bool host_data = not hasattr(X, "__cuda_array_interface__")
     cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
