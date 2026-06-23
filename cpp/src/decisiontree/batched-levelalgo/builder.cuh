@@ -280,8 +280,7 @@ struct Builder {
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     d_wsize +=
       calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
-    d_wsize +=
-      calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
