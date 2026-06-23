@@ -77,7 +77,7 @@ void dist_membership_vector(const raft::handle_t& handle,
   // compute the number of batches based on the batch size
   value_idx n_batches;
 
-  n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
+  n_batches = raft::ceildiv(ML::narrow_cast<int>(n_queries), ML::narrow_cast<int>(batch_size));
 
   for (value_idx bid = 0; bid < n_batches; bid++) {
     value_idx batch_offset      = bid * batch_size;
@@ -228,7 +228,7 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
 
   auto merge_heights_view =
     raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(
-      merge_heights, (int)m, n_selected_clusters);
+      merge_heights, ML::narrow_cast<int>(m), n_selected_clusters);
 
   raft::matrix::argmax(handle, merge_heights_view, height_argmax.view());
 
@@ -344,7 +344,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
 
   auto merge_heights_view =
     raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(
-      merge_heights, (int)n_prediction_points, n_selected_clusters);
+      merge_heights, ML::narrow_cast<int>(n_prediction_points), n_selected_clusters);
 
   raft::matrix::argmax(handle, merge_heights_view, height_argmax.view());
 

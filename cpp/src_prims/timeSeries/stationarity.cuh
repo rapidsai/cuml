@@ -16,6 +16,8 @@
 
 #include "arima_helpers.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
+
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/stats/mean.cuh>
@@ -308,14 +310,23 @@ void kpss_test(const DataT* d_y,
 {
   const DataT* d_y_diff;
 
-  int n_obs_diff = n_obs - d - s * D;
+  // Compute d + s*D in int64_t with overflow detection. d, s, D are user-facing
+  // ARIMA parameters (typically small), but s*D in raw int could wrap for
+  // pathological inputs and produce a misleading bounds check below.
+  std::int64_t const d_sD = ML::checked_add<std::int64_t>(d, ML::checked_mul<std::int64_t>(s, D));
+  if (static_cast<std::int64_t>(n_obs) <= d_sD) {
+    RAFT_FAIL("stationarity: n_obs (%lld) must be greater than d + s*D (%lld)",
+              static_cast<long long>(n_obs),
+              static_cast<long long>(d_sD));
+  }
+  IdxT const n_obs_diff = n_obs - static_cast<IdxT>(d_sD);
 
   // Compute differenced series
   rmm::device_uvector<DataT> diff_buffer(0, stream);
   if (d == 0 && D == 0) {
     d_y_diff = d_y;
   } else {
-    diff_buffer.resize(batch_size * n_obs_diff, stream);
+    diff_buffer.resize(ML::checked_mul<std::size_t>(batch_size, n_obs_diff), stream);
     prepare_data(diff_buffer.data(), d_y, batch_size, n_obs, d, D, s, stream);
     d_y_diff = diff_buffer.data();
   }
