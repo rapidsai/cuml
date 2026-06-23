@@ -7,6 +7,7 @@
 
 #include <common/fast_int_div.cuh>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/random/rng.cuh>
@@ -910,7 +911,7 @@ void call_optimize_sequential_kernel(T* head_embedding,
     };
 
     if (params->deterministic) {
-      int chunk_size = static_cast<int>(grid.x) * (tpb / threads_per_vertex);
+      int chunk_size = ML::checked_mul<int>(ML::narrow_cast<int>(grid.x), tpb / threads_per_vertex);
       RAFT_EXPECTS(chunk_size > 0, "Sequential-kernel chunk_size must be > 0.");
       for (int v_off = 0; v_off < head_n; v_off += chunk_size) {
         do_launch(v_off);

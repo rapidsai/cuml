@@ -23,6 +23,7 @@
 - Invalid memory access (out-of-bounds, use-after-free, host/device confusion)
 - Missing CUDA synchronization causing non-deterministic failures
 - Kernel launch with zero blocks/threads or invalid grid/block dimensions
+- **Host-side integer overflow/underflow in size, launch-dim, or host-index arithmetic** (see "Integer arithmetic for sizes, launches, and host indexing" below)
 - **Missing explicit stream creation for concurrent operations** (reusing default stream, missing stream isolation)
 - **Incorrect stream lifecycle management** (using destroyed streams, not creating dedicated streams for concurrent ops)
 
@@ -267,6 +268,72 @@ cudaStreamCreate(&per_device_stream);
 - Not handling zero-norm vectors
 - Accumulation without compensation (Kahan summation)
 - Unsafe type casting (double→float)
+
+### 5. Integer arithmetic for sizes, launches, and host indexing
+**Pattern**: Host-side `int` (or any sub-`size_t`) arithmetic flows into an
+allocation size, a kernel launch dimension, or a host pointer offset. The
+product silently overflows (CWE-190) or a subtraction underflows (CWE-191)
+before being widened to `size_t`, producing an undersized allocation (then GPU
+heap overflow), a near-`SIZE_MAX` allocation (OOM crash), or an invalid launch
+config.
+
+**Scope**: Host code only. Device/kernel arithmetic is intentionally out of
+scope — checks belong at the host-side computation site so kernels stay
+branch-free.
+
+**Required helpers** (host-side, negligible cost), declared in
+`cpp/include/cuml/common/checked_arithmetic.hpp` under namespace `ML`:
+- `ML::checked_mul<size_t>(a, b, ...)` — variadic, `RAFT_FAIL` on overflow.
+- `ML::checked_add<size_t>(a, b, ...)` — variadic, `RAFT_FAIL` on overflow.
+- `ML::checked_sub<size_t>(a, b)` — `RAFT_FAIL` on underflow.
+- `ML::checked_div<size_t>(a, b)` — `RAFT_FAIL` on `b == 0` (and on signed
+  `INT_MIN / -1` overflow when used with signed types).
+- `ML::narrow_cast<int>(value)` — `RAFT_FAIL` if `value` does not fit in the
+  target type. Use at sites where an existing API forces narrowing (e.g.
+  passing a `size_t` size to a function that takes `int`, or storing
+  `pair::first` into an `int`). Preserves the cast but ensures it doesn't
+  silently corrupt the value. A true widening (target strictly wider than
+  source) skips the magnitude check, but a negative source into an unsigned
+  target still traps — sign loss is always an error.
+- `ML::cuda_launch_t` — alias for the integer type expected by CUDA launch
+  configuration (`dim3` components, shared-mem size). Use
+  `ML::narrow_cast<ML::cuda_launch_t>(...)` for values destined for a `<<<>>>`
+  grid/block dimension so the call site is self-documenting and the trap
+  happens host-side instead of as a silent narrow at the launch syntax.
+
+Use them anywhere a count-product, count-sum, count-difference, or
+count-quotient is passed to an allocator, a `dim3`, a span constructor, or a
+`size_t`/`int64_t` parameter. Public estimator entry points that accept
+count-like `int`s should validate shape preconditions (including ordering,
+e.g. `n_obs > d + s*D`) before any allocation or launch.
+
+**Red flags**:
+- `int * int` / `int + int` / `int - int` / `int / int` passed to
+  `rmm::device_uvector` ctor/`.resize(...)`, `cudaMalloc*`,
+  `*allocator*.allocate(...)`, `dim3(...)`, `raft::span` / `cuda::std::span`
+  construction, or any `size_t` parameter.
+- Subtraction of integer counts used as a length without a prior
+  `RAFT_EXPECTS` / `RAFT_FAIL` guard or `checked_sub`.
+- Division (including ceil-div like `(n + b - 1) / b` for launch dims) where
+  the divisor is derived from a parameter and not statically known to be
+  non-zero — use `checked_div` or guard explicitly.
+- Cumulative offsets built by repeatedly adding `int` counts without
+  `checked_add` — `offset + count` can overflow before it's used to index.
+- Silent narrowing: `int n = c.size();`, `int n = m_shape.first;`,
+  `foo(some_size_t)` where `foo` takes `int`, and similar — any implicit
+  conversion from a wider integer type to a narrower one that involves a
+  count, index, or dimension. Replace with `ML::narrow_cast<int>(...)` (or
+  widen the receiver / API).
+- A size guard that casts to `size_t` but the matching allocation a few lines
+  down does not (the guard validates a value the allocator never sees).
+- Public C/Cython entry points taking count-like `int` parameters with no
+  upper-bound validation before downstream allocation.
+- Grid/block dimension arithmetic in `int` where the product can plausibly
+  exceed 2^31 on large inputs.
+- A value computed in `int` (or `size_t`) that is passed directly into a
+  `<<<grid, block, ...>>>` launch and relies on the implicit conversion to
+  `unsigned int`. Require `ML::narrow_cast<ML::cuda_launch_t>(...)` so the
+  conversion is checked and the call site is explicit.
 
 ---
 
