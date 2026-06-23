@@ -520,6 +520,7 @@ void validity_check(const RF_params rf_params)
   ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
          "max_samples value %f outside permitted (0, 1] range",
          rf_params.max_samples);
+  ASSERT((rf_params.n_streams > 0), "Invalid n_streams %d", rf_params.n_streams);
 }
 
 RF_params set_rf_params(int max_depth,
