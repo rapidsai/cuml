@@ -9,6 +9,7 @@
 
 #include <common/Timer.h>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
@@ -508,19 +509,27 @@ struct Builder {
 
   auto computeSplitSmemSize()
   {
-    size_t dynamic_smem_size =
-      params.max_n_bins * dataset.num_outputs * sizeof(BinT) +  // shared_histogram size
-      params.max_n_bins * sizeof(DataT) +                       // shared_quantiles size
-      sizeof(int);                                              // shared_done size
+    auto shared_histogram_size =
+      ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
+    auto shared_quantiles_size = ML::checked_mul<std::size_t>(params.max_n_bins, sizeof(DataT));
+    auto dynamic_smem_size =
+      ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size, sizeof(int));
+
     // Extra room for alignment (see alignPointer in
     // computeSplitKernel)
-    dynamic_smem_size += sizeof(DataT) + 3 * sizeof(int);
+    auto alignment_smem_size =
+      ML::checked_add<std::size_t>(sizeof(DataT), ML::checked_mul<std::size_t>(3, sizeof(int)));
+    dynamic_smem_size = ML::checked_add<std::size_t>(dynamic_smem_size, alignment_smem_size);
+
     // computeSplitKernel also reserves static shared memory for CUB's scan temp
     // storage and the per-warp split reduction scratch.
-    size_t cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
-    size_t split_scratch_smem_size = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
-    auto available_smem            = handle.get_device_properties().sharedMemPerBlock;
-    ASSERT(available_smem >= dynamic_smem_size + cdf_scan_smem_size + split_scratch_smem_size,
+    auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
+    auto split_scratch_smem_size =
+      ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
+    auto total_smem_size =
+      ML::checked_add<std::size_t>(dynamic_smem_size, cdf_scan_smem_size, split_scratch_smem_size);
+    auto available_smem = handle.get_device_properties().sharedMemPerBlock;
+    ASSERT(available_smem >= total_smem_size,
            "Not enough shared memory. Consider reducing max_n_bins.");
     return dynamic_smem_size;
   }
