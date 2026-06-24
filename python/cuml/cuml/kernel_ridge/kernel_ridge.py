@@ -208,7 +208,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
     def _params_from_cpu(cls, model):
         if not isinstance(model.kernel, str):
             raise UnsupportedOnGPU(
-                "Only string kernels can run on GPU through sklearn interop"
+                "KernelRidge callable kernels are not supported."
             )
         return {
             "alpha": model.alpha,

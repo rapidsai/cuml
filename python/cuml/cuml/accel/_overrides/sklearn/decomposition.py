@@ -5,25 +5,12 @@
 
 import cuml.decomposition
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = ("IncrementalPCA", "PCA", "TruncatedSVD")
 
 
 class PCA(ProxyBase):
     _gpu_class = cuml.decomposition.PCA
-
-    def _check_gpu_supported(self):
-        if self.n_components == 0:
-            raise UnsupportedOnGPU("`n_components=0` is not supported")
-
-    def _gpu_fit(self, X, y=None):
-        self._check_gpu_supported()
-        return self._gpu.fit(X, y)
-
-    def _gpu_fit_transform(self, X, y=None):
-        self._check_gpu_supported()
-        return self._gpu.fit_transform(X, y)
 
 
 class TruncatedSVD(ProxyBase):

@@ -254,6 +254,8 @@ class PCA(InteropMixin,
     def _params_from_cpu(cls, model):
         if model.n_components == "mle":
             raise UnsupportedOnGPU("`n_components='mle'` is not supported")
+        if model.n_components == 0:
+            raise UnsupportedOnGPU("`n_components=0` is not supported")
 
         svd_solver = "auto" if model.svd_solver == "auto" else "full"
 

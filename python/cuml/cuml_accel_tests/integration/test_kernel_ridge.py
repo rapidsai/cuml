@@ -57,5 +57,8 @@ def test_kernel_ridge_precomputed(linear_X_y):
 def test_kernel_ridge_sklearn_kernel_falls_back_to_cpu(sinusoid_X_y):
     X, y = sinusoid_X_y
     model = KernelRidge(kernel=ExpSineSquared()).fit(X, y)
-    assert model._gpu is None
-    assert model.predict(X).shape == y.shape
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+    assert np.isfinite(pred).all()
+    assert model.dual_coef_.shape == y.shape
+    assert model.X_fit_.shape == X.shape

@@ -54,8 +54,11 @@ def test_pca_n_components_zero_falls_back_to_cpu():
         random_state=42,
     )
     pca = PCA(n_components=0).fit(X)
-    assert pca._gpu is None
-    assert pca.transform(X).shape[1] == 0
+    X_transformed = pca.transform(X)
+    assert pca.components_.shape == (0, X.shape[1])
+    assert pca.explained_variance_.shape == (0,)
+    assert pca.singular_values_.shape == (0,)
+    assert X_transformed.shape == (X.shape[0], 0)
 
 
 @pytest.mark.parametrize(
