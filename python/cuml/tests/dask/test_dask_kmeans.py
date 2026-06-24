@@ -356,7 +356,9 @@ def test_parts_fit_matches_concatenated(
         rng = cp.random.RandomState(0)
         weights_local_device = rng.uniform(0.5, 1.5, size=nrows).astype(dtype)
         chunk_size = int(nrows / n_parts)
-        weights_dask = da.from_array(weights_local_device, chunks=(chunk_size,))
+        weights_dask = da.from_array(
+            weights_local_device, chunks=(chunk_size,)
+        )
         weights_local = (
             weights_local_device
             if device_array
@@ -380,7 +382,9 @@ def test_parts_fit_matches_concatenated(
     )
     dask_model.fit(X_dask, sample_weight=weights_dask)
 
-    local_streaming_batch_size = 0 if device_array else max(1, nrows // (n_parts * 2))
+    local_streaming_batch_size = (
+        0 if device_array else max(1, nrows // (n_parts * 2))
+    )
     local_model = cumlKMeans(
         n_clusters=nclusters,
         init=cp.asnumpy(init),
