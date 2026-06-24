@@ -5,6 +5,7 @@
 
 #include "randomforest.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <cuml/tree/flatnode.h>
@@ -143,7 +144,7 @@ void postprocess_labels(int n_rows,
   ML::default_logger().set_level(verbosity);
   CUML_LOG_DEBUG("Postrocessing labels");
   std::map<int, int>::iterator it;
-  int n_unique_cnt = labels_map.size();
+  int n_unique_cnt = ML::narrow_cast<int>(labels_map.size());
   std::vector<int> reverse_map;
   reverse_map.resize(n_unique_cnt);
   for (auto it = labels_map.begin(); it != labels_map.end(); it++) {
@@ -519,6 +520,7 @@ void validity_check(const RF_params rf_params)
   ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
          "max_samples value %f outside permitted (0, 1] range",
          rf_params.max_samples);
+  ASSERT((rf_params.n_streams > 0), "Invalid n_streams %d", rf_params.n_streams);
 }
 
 RF_params set_rf_params(int max_depth,

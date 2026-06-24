@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/explainer/tree_shap.hpp>
 
 #include <raft/core/error.hpp>
@@ -574,9 +575,9 @@ void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdT, LeafT>>&
       if (use_vector_leaf) {
         auto leaf_vector = tree.LeafVector(nid);
         if (leaf_vector.size() != static_cast<std::size_t>(num_groups)) {
-          RAFT_FAIL("Expected leaf vector of length %d but got %d instead",
+          RAFT_FAIL("Expected leaf vector of length %d but got %zu instead",
                     num_groups,
-                    static_cast<int>(leaf_vector.size()));
+                    leaf_vector.size());
         }
         for (int group_id = 0; group_id < num_groups; ++group_id) {
           traverse_towards_leaf_node(
@@ -584,7 +585,8 @@ void visit_path_segments_in_tree(const std::vector<tl::Tree<ThresholdT, LeafT>>&
           path_handler.new_path_handler();
         }
       } else {
-        int group_id    = static_cast<int>(tree_idx) % num_groups;
+        // Compute modulo in size_t so the narrowing below is always in range.
+        int group_id    = ML::narrow_cast<int>(tree_idx % static_cast<std::size_t>(num_groups));
         auto leaf_value = tree.LeafValue(nid);
         traverse_towards_leaf_node(tree, nid, group_id, leaf_value, parent_id, path_handler);
         path_handler.new_path_handler();
@@ -724,7 +726,7 @@ TreePathHandle extract_path_info_impl(const tl::Model& model,
   path_info->global_bias         = model.base_scores[0];
   path_info->task_type           = model.task_type;
   path_info->average_tree_output = model.average_tree_output;
-  path_info->num_tree            = static_cast<int>(model_preset.trees.size());
+  path_info->num_tree            = ML::narrow_cast<int>(model_preset.trees.size());
   path_info->num_groups          = static_cast<std::size_t>(model.num_class[0]);
 
   return path_info;
