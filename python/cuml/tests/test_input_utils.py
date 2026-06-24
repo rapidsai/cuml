@@ -12,10 +12,12 @@ from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda as nbcuda
 from pandas import Series as pdSeries
 
-from cuml.common import CumlArray, input_to_cuml_array, input_to_host_array
+from cuml.internals.array import CumlArray
 from cuml.internals.input_utils import (
     convert_dtype,
+    input_to_cuml_array,
     input_to_cupy_array,
+    input_to_host_array,
     is_array_like,
 )
 from cuml.manifold import umap
