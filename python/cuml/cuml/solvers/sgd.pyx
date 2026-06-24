@@ -290,7 +290,7 @@ class SGD(Base, FMajorInputTagMixin):
         ...                  fit_intercept=True, batch_size=2,
         ...                  tol=0.0, penalty=None, loss='squared_loss')
         >>> cu_sgd.fit(X, y)
-        SGD()
+        SGD(batch_size=2, epochs=2000, eta0=0.005, tol=0.0)
         >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
         >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
         cuML intercept :  0.00418...

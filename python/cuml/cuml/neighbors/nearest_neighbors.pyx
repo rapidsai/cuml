@@ -1122,7 +1122,7 @@ class NearestNeighbors(NeighborsBase):
         >>> # fit model
         >>> model = NearestNeighbors(n_neighbors=3)
         >>> model.fit(X)
-        NearestNeighbors()
+        NearestNeighbors(n_neighbors=3)
 
         >>> # get 3 nearest neighbors
         >>> distances, indices = model.kneighbors(X_cudf)

@@ -306,7 +306,7 @@ class KMeans(Base,
         >>> # Calling fit
         >>> kmeans_float = KMeans(n_clusters=2, n_init="auto", random_state=1)
         >>> kmeans_float.fit(b)
-        KMeans()
+        KMeans(n_clusters=2, random_state=1)
         >>>
         >>> # Labels:
         >>> kmeans_float.labels_

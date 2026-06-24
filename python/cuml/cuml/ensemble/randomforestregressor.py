@@ -40,7 +40,7 @@ class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
         ...                    min_samples_split=2,
         ...                    n_estimators=40)
         >>> cuml_model.fit(X,y)
-        RandomForestRegressor()
+        RandomForestRegressor(n_estimators=40)
         >>> cuml_score = cuml_model.score(X,y)
         >>> print("R2 score of cuml : ", cuml_score) # doctest: +SKIP
         R2 score of cuml :  0.9076250195503235

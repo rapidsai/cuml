@@ -138,7 +138,7 @@ class DBSCAN(Base,
         >>>
         >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
         >>> dbscan_float.fit(gdf_float)
-        DBSCAN()
+        DBSCAN(eps=1.0, min_samples=1)
         >>> dbscan_float.labels_
         0    0
         1    1
