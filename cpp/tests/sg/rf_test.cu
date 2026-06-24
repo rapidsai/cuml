@@ -957,7 +957,9 @@ __global__ void objectiveGainKernel(BinT const* hist,
                                     IdxT len,
                                     IdxT n_bins)
 {
-  extern __shared__ char smem[];
+  __shared__ __align__(alignof(
+    DT::Split<DataT, IdxT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT, IdxT>)];
+  auto* split_scratch = reinterpret_cast<DT::Split<DataT, IdxT>*>(split_scratch_storage);
   if (threadIdx.x == 0) {
     *out   = DT::Split<DataT, IdxT>();
     *mutex = 0;
@@ -966,7 +968,7 @@ __global__ void objectiveGainKernel(BinT const* hist,
 
   auto split = objective.Gain(hist, quantiles, col, len, n_bins);
   __syncthreads();
-  split.evalBestSplit(smem, out, mutex, objective, hist, quantiles, n_bins);
+  split.evalBestSplit(split_scratch, out, mutex, objective, hist, quantiles, n_bins);
 }
 
 TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
@@ -1001,15 +1003,14 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
   thrust::device_vector<int> mutex(1);
 
   DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(2, 1, CRITERION::GINI);
-  objectiveGainKernel<<<1, 32, sizeof(DT::Split<DataT, IdxT>), handle.get_stream()>>>(
-    hist.data().get(),
-    quantiles.data().get(),
-    split.data().get(),
-    mutex.data().get(),
-    objective,
-    IdxT{0},
-    len,
-    n_bins);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   struct HostSplit {
@@ -1056,15 +1057,14 @@ TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
   thrust::device_vector<int> mutex(1);
 
   DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(1, 1, CRITERION::MSE);
-  objectiveGainKernel<<<1, 32, sizeof(DT::Split<DataT, IdxT>), handle.get_stream()>>>(
-    hist.data().get(),
-    quantiles.data().get(),
-    split.data().get(),
-    mutex.data().get(),
-    objective,
-    IdxT{0},
-    len,
-    n_bins);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
   struct HostSplit {

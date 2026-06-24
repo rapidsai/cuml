@@ -145,15 +145,15 @@ struct Split {
   /**
    * @brief Computes the best split across the threadblocks
    *
-   * @param[in]    smem  shared mem for scratchpad purposes
-   * @param[inout] split current split to be updated
-   * @param[inout] mutex location which provides exclusive access to node update
+   * @param[inout] split_scratch shared scratch with at least one entry per warp
+   * @param[inout] split         current split to be updated
+   * @param[inout] mutex         location which provides exclusive access to node update
    *
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
   template <typename ObjectiveT, typename BinT>
-  DI void evalBestSplit(void* smem,
+  DI void evalBestSplit(SplitT* split_scratch,
                         volatile SplitT* split,
                         int* mutex,
                         const ObjectiveT& objective,
@@ -161,16 +161,15 @@ struct Split {
                         DataT const* quantiles,
                         IdxT n_bins)
   {
-    auto* sbest = reinterpret_cast<SplitT*>(smem);
     warpReduce();
     auto warp   = threadIdx.x / raft::WarpSize;
     auto nWarps = blockDim.x / raft::WarpSize;
     auto lane   = raft::laneId();
-    if (lane == 0) sbest[warp] = *this;
+    if (lane == 0) split_scratch[warp] = *this;
     __syncthreads();
     if (warp == 0) {
       if (lane < nWarps)
-        *this = sbest[lane];
+        *this = split_scratch[lane];
       else
         *this = SplitT();
       warpReduce();
