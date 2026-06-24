@@ -10,13 +10,11 @@ import cupyx
 import numba.cuda as numba_cuda
 import numpy as np
 import pandas as pd
-import scipy.sparse
 from packaging.version import Version
 from pandas.api.types import is_extension_array_dtype, is_string_dtype
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.mem_type import MemoryType
 
 PANDAS_VERSION = Version(pd.__version__)
@@ -43,51 +41,6 @@ def determine_array_dtype(X):
         return np.dtype("object")
 
     return dtype
-
-
-def is_array_like(X, accept_lists=False):
-    """Check if X is array-like.
-
-    Parameters
-    ----------
-    X : object
-        The object to check
-    accept_lists : bool, default=False
-        If True, treat list and tuple objects as array-like.
-        If False, only treat actual array-like objects as array-like.
-
-    Returns
-    -------
-    bool
-        True if X is array-like, False otherwise
-    """
-    if (
-        hasattr(X, "__cuda_array_interface__")
-        or (
-            hasattr(X, "__array_interface__")
-            and not (isinstance(X, np.generic) or isinstance(X, type))
-        )
-        or isinstance(
-            X,
-            (
-                SparseCumlArray,
-                cudf.Series,
-                pd.Series,
-                cudf.DataFrame,
-                pd.DataFrame,
-            ),
-        )
-        or (accept_lists and isinstance(X, (list, tuple)))
-    ):
-        return True
-
-    if cupyx.scipy.sparse.issparse(X):
-        return True
-    if scipy.sparse.issparse(X):
-        return True
-    if numba_cuda.devicearray.is_cuda_ndarray(X):
-        return True
-    return False
 
 
 @nvtx.annotate(
