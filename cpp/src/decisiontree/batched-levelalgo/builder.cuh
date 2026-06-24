@@ -19,6 +19,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cub/cub.cuh>
+
 #include <algorithm>
 #include <deque>
 #include <memory>
@@ -391,7 +393,8 @@ struct Builder {
       IdxT colid;
       DataT best_metric_val;
       int nLeft;
-      IdxT binid;
+      IdxT split_start;
+      IdxT split_end;
     };
     static_assert(sizeof(HostSplit) == sizeof(SplitT));
     static_assert(alignof(HostSplit) == alignof(SplitT));
@@ -425,7 +428,8 @@ struct Builder {
                                                h_splits[i].colid,
                                                h_splits[i].best_metric_val,
                                                h_splits[i].nLeft,
-                                               h_splits[i].binid};
+                                               h_splits[i].split_start,
+                                               h_splits[i].split_end};
         if (SplitPartitionNotValid(
               h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);
@@ -504,20 +508,21 @@ struct Builder {
 
   auto computeSplitSmemSize()
   {
-    size_t smem_size_1 =
+    size_t dynamic_smem_size =
       params.max_n_bins * dataset.num_outputs * sizeof(BinT) +  // shared_histogram size
       params.max_n_bins * sizeof(DataT) +                       // shared_quantiles size
       sizeof(int);                                              // shared_done size
     // Extra room for alignment (see alignPointer in
     // computeSplitKernel)
-    smem_size_1 += sizeof(DataT) + 3 * sizeof(int);
-    // Calculate the shared memory needed for evalBestSplit
-    size_t smem_size_2 = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
-    // Pick the max of two
-    auto available_smem = handle.get_device_properties().sharedMemPerBlock;
-    size_t smem_size    = std::max(smem_size_1, smem_size_2);
-    ASSERT(available_smem >= smem_size, "Not enough shared memory. Consider reducing max_n_bins.");
-    return smem_size;
+    dynamic_smem_size += sizeof(DataT) + 3 * sizeof(int);
+    // computeSplitKernel also reserves static shared memory for CUB's scan temp
+    // storage and the per-warp split reduction scratch.
+    size_t cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
+    size_t split_scratch_smem_size = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
+    auto available_smem            = handle.get_device_properties().sharedMemPerBlock;
+    ASSERT(available_smem >= dynamic_smem_size + cdf_scan_smem_size + split_scratch_smem_size,
+           "Not enough shared memory. Consider reducing max_n_bins.");
+    return dynamic_smem_size;
   }
 
   void computeSplit(IdxT col, size_t n_blocks_dimx, size_t n_large_nodes)

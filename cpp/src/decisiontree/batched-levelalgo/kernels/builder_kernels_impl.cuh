@@ -321,13 +321,7 @@ static __global__ void computeSplitKernel(BinT* histograms,
   // calculate best bins among candidate bins per feature using warp reduce
   // then atomically update across features to get best split per node
   // (in split[nid])
-  sp.evalBestSplit(split_scratch,
-                   splits + nid,
-                   mutex + nid,
-                   objective,
-                   shared_histogram,
-                   shared_quantiles,
-                   n_bins);
+  sp.evalBestSplit(split_scratch, splits + nid, mutex + nid, shared_quantiles, n_bins);
 }
 
 template <typename DataT,

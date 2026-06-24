@@ -968,10 +968,10 @@ __global__ void objectiveGainKernel(BinT const* hist,
 
   auto split = objective.Gain(hist, quantiles, col, len, n_bins);
   __syncthreads();
-  split.evalBestSplit(split_scratch, out, mutex, objective, hist, quantiles, n_bins);
+  split.evalBestSplit(split_scratch, out, mutex, quantiles, n_bins);
 }
 
-TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
+TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 {
   using DataT           = float;
   using IdxT            = int;
@@ -1018,7 +1018,8 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
     IdxT colid;
     DataT best_metric_val;
     int nLeft;
-    IdxT binid;
+    IdxT split_start;
+    IdxT split_end;
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
   HostSplit h_split;
@@ -1028,10 +1029,11 @@ TEST(RFEmptyBinPlateauTest, ClassificationChoosesUpperMiddleBin)
 
   EXPECT_EQ(h_split.nLeft, 4);
   EXPECT_EQ(h_split.quesval, DataT{3});
-  EXPECT_EQ(h_split.binid, 3);
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
 }
 
-TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
+TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 {
   using DataT           = float;
   using IdxT            = int;
@@ -1072,7 +1074,8 @@ TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
     IdxT colid;
     DataT best_metric_val;
     int nLeft;
-    IdxT binid;
+    IdxT split_start;
+    IdxT split_end;
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
   HostSplit h_split;
@@ -1082,7 +1085,8 @@ TEST(RFEmptyBinPlateauTest, RegressionChoosesUpperMiddleBin)
 
   EXPECT_EQ(h_split.nLeft, 4);
   EXPECT_EQ(h_split.quesval, DataT{3});
-  EXPECT_EQ(h_split.binid, 3);
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
 }
 
 template <typename T>
@@ -1348,12 +1352,12 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       for (auto b = 0; b < params.max_n_bins; ++b) {
         auto bin_begin =
           std::min<std::size_t>(static_cast<std::size_t>(b) * bin_width, data.size());
-        auto bin_end   = std::min<std::size_t>(bin_begin + bin_width, data.size());
-        auto bin_count = static_cast<BinCountT>(bin_end - bin_begin);
+        auto split_end = std::min<std::size_t>(bin_begin + bin_width, data.size());
+        auto bin_count = static_cast<BinCountT>(split_end - bin_begin);
         if constexpr (is_classification) {
           auto count{BinCountT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             if (data[i] == DataT(c)) {
               ++count;
               weight += sample_weights[i];
@@ -1367,7 +1371,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         } else {  // regression case
           auto label_sum{DataT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             label_sum += data[i] * sample_weights[i];
             weight += sample_weights[i];
           }
