@@ -38,72 +38,38 @@ def is_sparse(X):
     return sp.issparse(X) or cp_sp.issparse(X)
 
 
-def _map_l1_norm_kernel(dtype):
-    """Creates cupy RawKernel for csr_raw_normalize_l1 function."""
-
-    map_kernel_str = r"""
-    ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
-
-      int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-      if(tid >= n_samples) return;
-      {0} sum = 0.0;
-
-
-      for(int i = indptr[tid]; i < indptr[tid+1]; i++) {
-        sum += fabs(data[i]);
-      }
-
-
-      if(sum == 0) return;
-
-      for(int i = indptr[tid]; i < indptr[tid+1]; i++) {
-        data[i] /= sum;
-      }
-    }
-    """
-    return cuda_kernel_factory(map_kernel_str, dtype, "map_l1_norm_kernel")
-
-
-def _map_l2_norm_kernel(dtype):
-    """Creates cupy RawKernel for csr_raw_normalize_l2 function."""
-
-    map_kernel_str = r"""
-    ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
-
-      int tid = blockDim.x * blockIdx.x + threadIdx.x;
-
-      if(tid >= n_samples) return;
-      {0} sum = 0.0;
-
-      for(int i = indptr[tid]; i < indptr[tid+1]; i++) {
-        sum += (data[i] * data[i]);
-      }
-
-      if(sum == 0) return;
-
-      sum = sqrt(sum);
-
-      for(int i = indptr[tid]; i < indptr[tid+1]; i++) {
-        data[i] /= sum;
-      }
-    }
-    """
-    return cuda_kernel_factory(map_kernel_str, dtype, "map_l2_norm_kernel")
-
-
 def csr_row_normalize_l1(X, inplace=True):
     """Row normalize for csr matrix using the l1 norm"""
     if not inplace:
         X = X.copy()
 
-    kernel = _map_l1_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
+    kernel = cuda_kernel_factory(
+        """
+        ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
+            int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+            if (tid >= n_samples) return;
+            {0} sum = 0.0;
+
+            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+                sum += fabs(data[i]);
+            }
+
+            if (sum == 0) return;
+
+            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+                data[i] /= sum;
+            }
+        }
+        """,
+        (X.dtype, X.indices.dtype, X.indptr.dtype),
+        "csr_row_normalize_l1",
+    )
     kernel(
         (math.ceil(X.shape[0] / 32),),
         (32,),
         (X.data, X.indices, X.indptr, X.shape[0]),
     )
-
     return X
 
 
@@ -112,13 +78,35 @@ def csr_row_normalize_l2(X, inplace=True):
     if not inplace:
         X = X.copy()
 
-    kernel = _map_l2_norm_kernel((X.dtype, X.indices.dtype, X.indptr.dtype))
+    kernel = cuda_kernel_factory(
+        """
+        ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
+            int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
+            if (tid >= n_samples) return;
+            {0} sum = 0.0;
+
+            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+                sum += (data[i] * data[i]);
+            }
+
+            if (sum == 0) return;
+
+            sum = sqrt(sum);
+
+            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+                data[i] /= sum;
+            }
+        }
+        """,
+        (X.dtype, X.indices.dtype, X.indptr.dtype),
+        "csr_row_normalize_l2",
+    )
     kernel(
         (math.ceil(X.shape[0] / 32),),
         (32,),
         (X.data, X.indices, X.indptr, X.shape[0]),
     )
-
     return X
 
 
@@ -130,55 +118,6 @@ def csr_diag_mul(X, y, inplace=True):
     y = y.data[0]
     X.data *= y[X.indices]
     return X
-
-
-_cov_kernel = r"""
-({0} *cov_values, {0} *gram_matrix, {0} *mean_x, int n_cols) {
-
-    int rid = blockDim.x * blockIdx.x + threadIdx.x;
-    int cid = blockDim.y * blockIdx.y + threadIdx.y;
-
-    if (rid >= n_cols || cid >= n_cols) return;
-
-    cov_values[rid * n_cols + cid] =
-        gram_matrix[rid * n_cols + cid] - mean_x[rid] * mean_x[cid];
-}
-"""
-
-_gram_kernel = r"""
-(const int *indptr, const int *index, {0} *data, int nrows, int ncols, {0} *out) {
-    int row = blockIdx.x;
-    int col = threadIdx.x;
-
-    if (row >= nrows) return;
-
-    int start = indptr[row];
-    int end = indptr[row + 1];
-
-    for (int idx1 = start; idx1 < end; idx1++) {
-        int index1 = index[idx1];
-        {0} data1 = data[idx1];
-        for (int idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
-            int index2 = index[idx2];
-            {0} data2 = data[idx2];
-            atomicAdd(&out[index1 * ncols + index2], data1 * data2);
-        }
-    }
-}
-"""
-
-_copy_kernel = r"""
-({0} *out, int ncols) {
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (row >= ncols || col >= ncols) return;
-
-    if (row > col) {
-        out[row * ncols + col] = out[col * ncols + row];
-    }
-}
-"""
 
 
 def sparse_cov_and_mean(X, use_dot=CUPY_VERSION >= Version("14.0.0")):
@@ -200,51 +139,95 @@ def sparse_cov_and_mean(X, use_dot=CUPY_VERSION >= Version("14.0.0")):
         The mean of X, equivalent to X.mean(axis=0).
     """
     if use_dot:
-        gram_matrix = X.T.dot(X).toarray()
+        out = X.T.dot(X).toarray()
     else:
         # Workaround for cupy #7699 (fixed in cupy 14.0).
         # Earlier versions of cupy may try to allocate large amounts for sparse
         # matrix multiplication (spGEMM).
-        gram_matrix = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
+        out = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
 
         X = X.tocsr()
-        block = (128,)
-        grid = (X.shape[0],)
         compute_gram = cuda_kernel_factory(
-            _gram_kernel, (X.dtype,), "gram_kernel"
+            """
+            (const int *indptr, const int *index, {0} *data, int m, int n, {0} *out) {
+                int row = blockIdx.x;
+                int col = threadIdx.x;
+
+                if (row >= m) return;
+
+                int start = indptr[row];
+                int end = indptr[row + 1];
+
+                for (int idx1 = start; idx1 < end; idx1++) {
+                    int index1 = index[idx1];
+                    {0} data1 = data[idx1];
+                    for (int idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
+                        int index2 = index[idx2];
+                        {0} data2 = data[idx2];
+                        atomicAdd(&out[index1 * n + index2], data1 * data2);
+                    }
+                }
+            }
+            """,
+            (X.dtype,),
+            "compute_gram",
         )
         compute_gram(
-            grid,
-            block,
+            (X.shape[0],),
+            (128,),
             (
                 X.indptr,
                 X.indices,
                 X.data,
                 X.shape[0],
                 X.shape[1],
-                gram_matrix,
+                out,
             ),
         )
 
-        copy_gram = cuda_kernel_factory(
-            _copy_kernel, (X.dtype,), "copy_kernel"
+        reflect_diagonal = cuda_kernel_factory(
+            """
+            ({0} *out, int ncols) {
+                int row = blockIdx.y * blockDim.y + threadIdx.y;
+                int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+                if (row >= ncols || col >= ncols) return;
+
+                if (row > col) {
+                    out[row * ncols + col] = out[col * ncols + row];
+                }
+            }
+            """,
+            (X.dtype,),
+            "reflect_diagonal",
         )
-        block = (32, 32)
-        grid = (math.ceil(X.shape[1] / 32),) * 2
-        copy_gram(
-            grid,
-            block,
-            (gram_matrix, X.shape[1]),
+        reflect_diagonal(
+            (math.ceil(X.shape[1] / 32),) * 2,
+            (32, 32),
+            (out, X.shape[1]),
         )
 
     mean_x = X.sum(axis=0) * (1 / X.shape[0])
-    gram_matrix *= 1 / X.shape[0]
-    cov_result = gram_matrix
+    out *= 1 / X.shape[0]
 
-    compute_cov = cuda_kernel_factory(_cov_kernel, (X.dtype,), "cov_kernel")
-    compute_cov(
-        (math.ceil(gram_matrix.shape[0] / 32),) * 2,
-        (32, 32),
-        (cov_result, gram_matrix, mean_x, gram_matrix.shape[0]),
+    compute_cov = cuda_kernel_factory(
+        """
+        ({0} *out, {0} *mean_x, int n_cols) {
+
+            int rid = blockDim.x * blockIdx.x + threadIdx.x;
+            int cid = blockDim.y * blockIdx.y + threadIdx.y;
+
+            if (rid >= n_cols || cid >= n_cols) return;
+
+            out[rid * n_cols + cid] -= (mean_x[rid] * mean_x[cid]);
+        }
+        """,
+        (X.dtype,),
+        "subtract_mean_x_x",
     )
-    return cov_result, mean_x
+    compute_cov(
+        (math.ceil(out.shape[0] / 32),) * 2,
+        (32, 32),
+        (out, mean_x, out.shape[0]),
+    )
+    return out, mean_x
