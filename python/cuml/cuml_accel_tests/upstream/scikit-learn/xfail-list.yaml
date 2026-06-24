@@ -38,50 +38,6 @@
   - "sklearn.linear_model.tests.test_coordinate_descent::test_enet_sample_weight_consistency[42-csr_matrix-False-0.01-True-ElasticNet]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_array]"
   - "sklearn.linear_model.tests.test_coordinate_descent::test_random_descent[csr_matrix]"
-- reason: HTML representation differs with cuml.accel under sklearn 1.9 ASCII-locale CI
-  marker: cuml_accel_bugs
-  condition: scikit-learn>=1.9
-  tests:
-  - "sklearn.model_selection.tests.test_search::test_search_html_repr"
-  - "sklearn.tests.test_base::test_get_fitted_attr_html"
-  - "sklearn.tests.test_base::test_repr_html_wraps"
-  - "sklearn.tests.test_base::test_repr_mimebundle_"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_birch_duck_typing_meta"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_duck_typing_nested_estimator"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_get_params_return_cls"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_an_empty_pipeline"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator0]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator1]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator2]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_pipeline"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_table"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_unfitted_vs_fitted"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_fallback_exists"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[<lambda>-&lt;lambda&gt;]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[dummy_function-dummy_function]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func2-dummy_function]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func3-vectorize\\\\(\\\\.\\\\.\\\\.\\\\)]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_invalid_parameters_in_stacking"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[False]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[True]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_ovo_classifier_duck_typing_meta"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_show_arrow_pipeline"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[None]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[final_estimator1]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[None]"
-  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[final_estimator1]"
-  - "sklearn.utils._repr_html.tests.test_features::test_countvectorizer_output_features"
-  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_col_names_featureunion"
-  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[False-feature_cols1]"
-  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[True-feature_cols0]"
-  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[False-total_output_features1]"
-  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[True-total_output_features0]"
-  - "sklearn.utils._repr_html.tests.test_features::test_features_html_with_pipeline"
-  - "sklearn.utils._repr_html.tests.test_features::test_get_feature_names_out_exception"
-  - "sklearn.utils._repr_html.tests.test_features::test_meta_estimator_output_features"
-  - "sklearn.utils._repr_html.tests.test_features::test_n_features_not_fitted"
-  - "sklearn.utils._repr_html.tests.test_features::test_single_estimator_get_feature_names_out_exception"
-  - "sklearn.utils._repr_html.tests.test_features::test_with_MinimalTransformer"
 - reason: LogisticRegression behavior differs with cuml.accel in sklearn 1.9
   marker: cuml_accel_bugs
   condition: scikit-learn>=1.9
@@ -741,6 +697,51 @@
   condition: scikit-learn<1.9
   tests:
   - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
+- reason: These tests sometimes fail in CI due to a misconfigured machine leading to ASCII codec reads
+  marker: cuml_accel_bugs
+  condition: scikit-learn>=1.9
+  strict: false
+  tests:
+  - "sklearn.model_selection.tests.test_search::test_search_html_repr"
+  - "sklearn.tests.test_base::test_get_fitted_attr_html"
+  - "sklearn.tests.test_base::test_repr_html_wraps"
+  - "sklearn.tests.test_base::test_repr_mimebundle_"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_birch_duck_typing_meta"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_duck_typing_nested_estimator"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_get_params_return_cls"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_an_empty_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator0]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator1]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_fitted_icon[estimator2]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_table"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_estimator_html_repr_unfitted_vs_fitted"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_fallback_exists"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[<lambda>-&lt;lambda&gt;]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[dummy_function-dummy_function]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func2-dummy_function]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_function_transformer_show_caption[func3-vectorize\\\\(\\\\.\\\\.\\\\.\\\\)]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_invalid_parameters_in_stacking"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[False]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_one_estimator_print_change_only[True]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_ovo_classifier_duck_typing_meta"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_show_arrow_pipeline"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[None]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_classifier[final_estimator1]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[None]"
+  - "sklearn.utils._repr_html.tests.test_estimator::test_stacking_regressor[final_estimator1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_countvectorizer_output_features"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_col_names_featureunion"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[False-feature_cols1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_col_names[True-feature_cols0]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[False-total_output_features1]"
+  - "sklearn.utils._repr_html.tests.test_features::test_estimator_html_repr_total_feature_names[True-total_output_features0]"
+  - "sklearn.utils._repr_html.tests.test_features::test_features_html_with_pipeline"
+  - "sklearn.utils._repr_html.tests.test_features::test_get_feature_names_out_exception"
+  - "sklearn.utils._repr_html.tests.test_features::test_meta_estimator_output_features"
+  - "sklearn.utils._repr_html.tests.test_features::test_n_features_not_fitted"
+  - "sklearn.utils._repr_html.tests.test_features::test_single_estimator_get_feature_names_out_exception"
+  - "sklearn.utils._repr_html.tests.test_features::test_with_MinimalTransformer"
 - reason: Voting estimator behavior differs with cuml.accel
   marker: cuml_accel_bugs
   tests:
@@ -815,6 +816,13 @@
   strict: false
   tests:
   - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.9
+  strict: false
+  tests:
+  - "sklearn.linear_model.tests.test_logistic::test_logreg_l1[42-csr_array]"
+  - "sklearn.linear_model.tests.test_logistic::test_logreg_l1[42-csr_matrix]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   strict: false
