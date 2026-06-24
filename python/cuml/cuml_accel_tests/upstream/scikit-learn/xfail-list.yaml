@@ -821,6 +821,7 @@
   condition: scikit-learn>=1.9
   strict: false
   tests:
+  - "sklearn.linear_model.tests.test_logistic::test_logreg_l1[42-csr_array]"
   - "sklearn.linear_model.tests.test_logistic::test_logreg_l1[42-csr_matrix]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
