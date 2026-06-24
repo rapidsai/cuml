@@ -49,7 +49,10 @@ def _set_cuda_cache_path_per_xdist_worker(config):
 # =============================================================================
 
 # Add the import here for any plugins that should be loaded EVERY TIME
-pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
+pytest_plugins = [
+    "cuml.testing.plugins.quick_run_plugin",
+    "cuml.testing.plugins.cuda_health_plugin",
+]
 
 
 # =============================================================================
