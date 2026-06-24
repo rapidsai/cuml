@@ -43,11 +43,10 @@ def test_csr_norms(norm, ref_norm, dtype, seed, shape):
 
 @pytest.mark.parametrize("n_cols", [1, 100, 1000])
 @pytest.mark.parametrize("n_rows", [1, 100, 1000])
-@pytest.mark.parametrize("density", [0.2, 0.4])
+@pytest.mark.parametrize("density", [0.2, 0.4, 0.6])
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("format", ["csr", "coo"])
-@pytest.mark.parametrize("use_dot", [False, True])
-def test_sparse_cov_and_mean(n_cols, n_rows, density, dtype, format, use_dot):
+def test_sparse_cov_and_mean(n_cols, n_rows, density, dtype, format):
     X = 10 * cp_sp.random(
         n_rows,
         n_cols,
@@ -57,6 +56,6 @@ def test_sparse_cov_and_mean(n_cols, n_rows, density, dtype, format, use_dot):
         random_state=42,
     )
     sol = cp.cov(X.todense(), ddof=0, rowvar=False)
-    res, _ = sparse_cov_and_mean(X, use_dot=use_dot)
+    res, _ = sparse_cov_and_mean(X)
     assert res.dtype == dtype
     cp.testing.assert_allclose(res, sol, atol=1e-4)

@@ -7,12 +7,8 @@ import math
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 import scipy.sparse as sp
-from packaging.version import Version
 
 from cuml.common.kernel_utils import cuda_kernel_factory
-
-CUPY_VERSION = Version(cp.__version__)
-
 
 __all__ = (
     "is_sparse",
@@ -120,16 +116,13 @@ def csr_diag_mul(X, y, inplace=True):
     return X
 
 
-def sparse_cov_and_mean(X, use_dot=CUPY_VERSION >= Version("14.0.0")):
+def sparse_cov_and_mean(X):
     """Computes the covariance and mean of X.
 
     Parameters
     ----------
     X : cupyx.scipy.sparse, shape=(n_samples, n_features)
         The input data.
-    use_dot : bool
-        Whether to rely on `dot` for computing the grammian matrix.
-        Defaults to True for cupy >= 14 and False otherwise.
 
     Returns
     -------
@@ -138,74 +131,74 @@ def sparse_cov_and_mean(X, use_dot=CUPY_VERSION >= Version("14.0.0")):
     mean: cp.ndarray, shape=(n_features,)
         The mean of X, equivalent to X.mean(axis=0).
     """
-    if use_dot:
-        out = X.T.dot(X).toarray()
-    else:
-        # Workaround for cupy #7699 (fixed in cupy 14.0).
-        # Earlier versions of cupy may try to allocate large amounts for sparse
-        # matrix multiplication (spGEMM).
-        out = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
 
-        X = X.tocsr()
-        compute_gram = cuda_kernel_factory(
-            """
-            (const int *indptr, const int *index, {0} *data, int m, int n, {0} *out) {
-                int row = blockIdx.x;
-                int col = threadIdx.x;
+    # Workaround for cupy #7699 (fixed in cupy 14) and cupy #10033. cupy < 14
+    # may try to allocate large amounts for sparse matrix multiplication
+    # (spGEMM). cupy >= 14 may still run into this issue, but may also silently
+    # return all-0 outputs for large enough matrices. For now we workaround the
+    # issue entirely and use a handrolled kernel.
+    X = X.tocsr()
 
-                if (row >= m) return;
+    out = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
+    compute_gram = cuda_kernel_factory(
+        """
+        (const int *indptr, const int *index, {0} *data, int m, int n, {0} *out) {
+            int row = blockIdx.x;
+            int col = threadIdx.x;
 
-                int start = indptr[row];
-                int end = indptr[row + 1];
+            if (row >= m) return;
 
-                for (int idx1 = start; idx1 < end; idx1++) {
-                    int index1 = index[idx1];
-                    {0} data1 = data[idx1];
-                    for (int idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
-                        int index2 = index[idx2];
-                        {0} data2 = data[idx2];
-                        atomicAdd(&out[index1 * n + index2], data1 * data2);
-                    }
+            int start = indptr[row];
+            int end = indptr[row + 1];
+
+            for (int idx1 = start; idx1 < end; idx1++) {
+                int index1 = index[idx1];
+                {0} data1 = data[idx1];
+                for (int idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
+                    int index2 = index[idx2];
+                    {0} data2 = data[idx2];
+                    atomicAdd(&out[index1 * n + index2], data1 * data2);
                 }
             }
-            """,
-            (X.dtype,),
-            "compute_gram",
-        )
-        compute_gram(
-            (X.shape[0],),
-            (128,),
-            (
-                X.indptr,
-                X.indices,
-                X.data,
-                X.shape[0],
-                X.shape[1],
-                out,
-            ),
-        )
+        }
+        """,
+        (X.dtype,),
+        "compute_gram",
+    )
+    compute_gram(
+        (X.shape[0],),
+        (128,),
+        (
+            X.indptr,
+            X.indices,
+            X.data,
+            X.shape[0],
+            X.shape[1],
+            out,
+        ),
+    )
 
-        reflect_diagonal = cuda_kernel_factory(
-            """
-            ({0} *out, int ncols) {
-                int row = blockIdx.y * blockDim.y + threadIdx.y;
-                int col = blockIdx.x * blockDim.x + threadIdx.x;
+    reflect_diagonal = cuda_kernel_factory(
+        """
+        ({0} *out, int ncols) {
+            int row = blockIdx.y * blockDim.y + threadIdx.y;
+            int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-                if (row >= ncols || col >= ncols) return;
+            if (row >= ncols || col >= ncols) return;
 
-                if (row > col) {
-                    out[row * ncols + col] = out[col * ncols + row];
-                }
+            if (row > col) {
+                out[row * ncols + col] = out[col * ncols + row];
             }
-            """,
-            (X.dtype,),
-            "reflect_diagonal",
-        )
-        reflect_diagonal(
-            (math.ceil(X.shape[1] / 32),) * 2,
-            (32, 32),
-            (out, X.shape[1]),
-        )
+        }
+        """,
+        (X.dtype,),
+        "reflect_diagonal",
+    )
+    reflect_diagonal(
+        (math.ceil(X.shape[1] / 32),) * 2,
+        (32, 32),
+        (out, X.shape[1]),
+    )
 
     mean_x = X.sum(axis=0) * (1 / X.shape[0])
     out *= 1 / X.shape[0]
