@@ -45,6 +45,19 @@ def test_pca_n_components(pca_data, n_components):
     )
 
 
+def test_pca_n_components_zero_falls_back_to_cpu():
+    X, _ = make_classification(
+        n_samples=100,
+        n_features=10,
+        n_informative=5,
+        n_redundant=0,
+        random_state=42,
+    )
+    pca = PCA(n_components=0).fit(X)
+    assert pca._gpu is None
+    assert pca.transform(X).shape[1] == 0
+
+
 @pytest.mark.parametrize(
     "svd_solver", ["auto", "full", "arpack", "randomized", "covariance_eigh"]
 )
