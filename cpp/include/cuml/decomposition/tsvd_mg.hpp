@@ -25,8 +25,6 @@ namespace opg {
  * @param[out] singular_vals: singular values of the data
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
- * < 1.5)
  */
 void fit(raft::handle_t& handle,
          MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -35,8 +33,7 @@ void fit(raft::handle_t& handle,
          float* components,
          float* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose               = false,
-         bool flip_signs_based_on_U = false);
+         bool verbose = false);
 
 void fit(raft::handle_t& handle,
          MLCommon::Matrix::RankSizePair** rank_sizes,
@@ -45,8 +42,7 @@ void fit(raft::handle_t& handle,
          double* components,
          double* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose               = false,
-         bool flip_signs_based_on_U = false);
+         bool verbose = false);
 
 /**
  * @brief performs MNMG fit and transform operation for the tsvd.
@@ -61,8 +57,6 @@ void fit(raft::handle_t& handle,
  * @param[out] singular_vals: singular values of the data
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm
  * @param[in] verbose
- * @param[in] flip_signs_based_on_U: Whether to use U-based decision for sign flipping (for sklearn
- * < 1.5)
  */
 void fit_transform(raft::handle_t& handle,
                    std::vector<MLCommon::Matrix::Data<float>*>& input_data,
@@ -74,8 +68,7 @@ void fit_transform(raft::handle_t& handle,
                    float* explained_var_ratio,
                    float* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U);
+                   bool verbose);
 
 void fit_transform(raft::handle_t& handle,
                    std::vector<MLCommon::Matrix::Data<double>*>& input_data,
@@ -87,8 +80,7 @@ void fit_transform(raft::handle_t& handle,
                    double* explained_var_ratio,
                    double* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U);
+                   bool verbose);
 
 /**
  * @brief performs MNMG transform operation for the tsvd.

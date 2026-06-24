@@ -12,6 +12,7 @@
 #include "fft_tsne.cuh"
 #include "utils.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/manifold/common.hpp>
@@ -117,8 +118,7 @@ class TSNE_runner {
                         singular_vals.data_handle(),
                         mu.data_handle(),
                         noise_vars.data_handle(),
-                        prms,
-                        false);
+                        prms);
 
         auto mean_result       = raft::make_device_vector<float, int>(handle, dim);
         auto stddev_result     = raft::make_device_vector<float, int>(handle, dim);
@@ -191,12 +191,14 @@ class TSNE_runner {
     rmm::device_uvector<value_idx> indices(0, stream);
     rmm::device_uvector<value_t> distances(0, stream);
 
+    auto const knn_size = checked_mul<std::size_t>(n, params.n_neighbors);
+
     if (!k_graph.knn_indices || !k_graph.knn_dists) {
       ASSERT(!k_graph.knn_indices && !k_graph.knn_dists,
              "Either both or none of the KNN parameters should be provided");
 
-      indices   = rmm::device_uvector<value_idx>(n * params.n_neighbors, stream);
-      distances = rmm::device_uvector<value_t>(n * params.n_neighbors, stream);
+      indices   = rmm::device_uvector<value_idx>(knn_size, stream);
+      distances = rmm::device_uvector<value_t>(knn_size, stream);
 
       k_graph.knn_indices = indices.data();
       k_graph.knn_dists   = distances.data();
@@ -208,7 +210,7 @@ class TSNE_runner {
 
       thrust::transform(policy,
                         k_graph.knn_dists,
-                        k_graph.knn_dists + n * params.n_neighbors,
+                        k_graph.knn_dists + knn_size,
                         k_graph.knn_dists,
                         TSNE::FunctionalSquare());
     }
@@ -220,7 +222,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Normalize distances
     CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-    TSNE::normalize_distances(k_graph.knn_dists, n * params.n_neighbors, stream);
+    TSNE::normalize_distances(k_graph.knn_dists, knn_size, stream);
     //---------------------------------------------------
     END_TIMER(NormalizeTime);
 
@@ -228,7 +230,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
-    rmm::device_uvector<value_t> P(n * params.n_neighbors, stream);
+    rmm::device_uvector<value_t> P(knn_size, stream);
     TSNE::perplexity_search(k_graph.knn_dists,
                             P.data(),
                             params.perplexity,

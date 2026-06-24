@@ -261,7 +261,7 @@ def fit_sgd(
     return coef, intercept
 
 
-class SGD(Base, FMajorInputTagMixin):
+class SGD(FMajorInputTagMixin, Base):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD

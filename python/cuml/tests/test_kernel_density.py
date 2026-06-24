@@ -133,9 +133,9 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
     X_np, X_test_np, sample_weight_np = as_type("numpy", *arrays)
 
     if kernel == "cosine":
-        # cosine is numerically unstable at high dimensions
-        # for both cuml and sklearn
-        assume(X.shape[1] <= 20)
+        # cosine is numerically unstable at high dimensions for both cuml
+        # and the numpy reference.
+        assume(X.shape[1] <= 15)
     kde = KernelDensity(
         kernel=kernel, metric=metric, bandwidth=bandwidth, output_type="cupy"
     )

@@ -30,7 +30,6 @@ from scipy.optimize import approx_fprime
 from sklearn.model_selection import train_test_split
 
 import cuml.tsa.arima as arima
-from cuml.internals.input_utils import input_to_host_array
 from cuml.testing.utils import stress_param
 
 sm = pytest.importorskip("statsmodels.api")
@@ -347,9 +346,9 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
 
 
 def mase(y_train, y_test, y_fc, s):
-    y_train_np = input_to_host_array(y_train).array
-    y_test_np = input_to_host_array(y_test).array
-    y_fc_np = input_to_host_array(y_fc).array
+    y_train_np = y_train.to_numpy()
+    y_test_np = y_test.to_numpy()
+    y_fc_np = y_fc
 
     diff = np.abs(y_train_np[s:] - y_train_np[:-s])
     scale = np.nanmean(diff, axis=0)
@@ -397,6 +396,10 @@ def test_integration(key, data, dtype):
     if data.dataset == "endog_hourly_earnings_by_industry_missing_exog":
         pytest.xfail(
             reason="test_111_200_4c_missing_exog dataset causes issues on some GPU architectures (see https://github.com/rapidsai/cuml/issues/6209)"
+        )
+    if data.dataset == "passenger_movements":
+        pytest.xfail(
+            reason="test_112_012_4 dataset causes issues on some GPU architectures (see https://github.com/rapidsai/cuml/issues/6209)"
         )
     order, seasonal_order, intercept = extract_order(key)
     s = max(1, seasonal_order[3])

@@ -11,7 +11,7 @@ from cuml.internals.validation import check_inputs
 from cuml.metrics import r2_score
 
 
-class RandomForestRegressor(BaseRandomForestModel, RegressorMixin):
+class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
     """
     Implements a Random Forest regressor model which fits multiple decision
     trees in an ensemble.

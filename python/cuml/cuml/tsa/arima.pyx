@@ -2,15 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from typing import Dict, Mapping, Optional, Tuple, Union
+from typing import Mapping, Optional, Tuple, Union
 
+import cupy as cp
 import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, nvtx, reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_array
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 from libc.stdint cimport uintptr_t
@@ -109,18 +109,18 @@ cdef class ARIMAParamsWrapper:
         cdef ARIMAOrder order = model.order
 
         cdef uintptr_t d_mu_ptr = \
-            model.mu_.ptr if order.k else <uintptr_t> NULL
+            model.mu_.data.ptr if order.k else <uintptr_t> NULL
         cdef uintptr_t d_beta_ptr = \
-            model.beta_.ptr if order.n_exog else <uintptr_t> NULL
+            model.beta_.data.ptr if order.n_exog else <uintptr_t> NULL
         cdef uintptr_t d_ar_ptr = \
-            model.ar_.ptr if order.p else <uintptr_t> NULL
+            model.ar_.data.ptr if order.p else <uintptr_t> NULL
         cdef uintptr_t d_ma_ptr = \
-            model.ma_.ptr if order.q else <uintptr_t> NULL
+            model.ma_.data.ptr if order.q else <uintptr_t> NULL
         cdef uintptr_t d_sar_ptr = \
-            model.sar_.ptr if order.P else <uintptr_t> NULL
+            model.sar_.data.ptr if order.P else <uintptr_t> NULL
         cdef uintptr_t d_sma_ptr = \
-            model.sma_.ptr if order.Q else <uintptr_t> NULL
-        cdef uintptr_t d_sigma2_ptr = <uintptr_t> model.sigma2_.ptr
+            model.sma_.data.ptr if order.Q else <uintptr_t> NULL
+        cdef uintptr_t d_sigma2_ptr = <uintptr_t> model.sigma2_.data.ptr
 
         self.params.mu = <double*> d_mu_ptr
         self.params.beta = <double*> d_beta_ptr
@@ -315,10 +315,17 @@ class ARIMA(Base):
                              "Required: max(p+s*P, q+s*Q) <= 1024")
 
         # Endogenous variable. Float64 only for now.
-        self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(
-                endog, check_dtype=np.float64,
-                convert_to_dtype=(np.float64 if convert_dtype else None))
+        self.d_y = d_y = check_array(
+            endog,
+            dtype="float64",
+            order="F",
+            convert_dtype=convert_dtype,
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
+        self.n_obs = d_y.shape[0]
+        self.batch_size = d_y.shape[1] if d_y.ndim == 2 else 1
+        self.dtype = d_y.dtype
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
@@ -326,11 +333,16 @@ class ARIMA(Base):
 
         # Exogenous variables
         if exog is not None:
-            self.d_exog, n_obs_exog, n_cols_exog, _ \
-                = input_to_cuml_array(exog,
-                                      convert_to_dtype=(np.float64 if convert_dtype
-                                                        else None),
-                                      check_dtype=np.float64)
+            self.d_exog = d_exog = check_array(
+                exog,
+                dtype="float64",
+                order="F",
+                convert_dtype=convert_dtype,
+                ensure_2d=False,
+                ensure_all_finite=False,
+            )
+            n_obs_exog = d_exog.shape[0]
+            n_cols_exog = d_exog.shape[1] if d_exog.ndim == 2 else 1
 
             if n_cols_exog % self.batch_size != 0:
                 raise ValueError("Number of columns in exog is not a multiple"
@@ -353,19 +365,24 @@ class ARIMA(Base):
 
         self.simple_differencing = simple_differencing
 
-        self._d_y_diff = CumlArray.empty(
-            (self.n_obs - d - s * D, self.batch_size), self.dtype)
+        self._d_y_diff = cp.empty(
+            (self.n_obs - d - s * D, self.batch_size),
+            dtype=self.dtype,
+            order="F",
+        )
         if n_exog > 0:
-            self._d_exog_diff = CumlArray.empty(
+            self._d_exog_diff = cp.empty(
                 (self.n_obs - d - s * D, self.batch_size * n_exog),
-                self.dtype)
+                dtype=self.dtype,
+                order="F",
+            )
 
         self.n_obs_diff = self.n_obs - d - D * s
 
         # Allocate temporary storage
         temp_mem_size = ARIMAMemory[double].compute_size(
             cpp_order, <int> self.batch_size, <int> self.n_obs)
-        self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
+        self._temp_mem = cp.empty(temp_mem_size, dtype="int8")
 
         self._initial_calc()
 
@@ -376,8 +393,8 @@ class ARIMA(Base):
         the CumlArrayDescriptors work
         """
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
-        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
+        cdef uintptr_t d_y_ptr = self.d_y.data.ptr
+        cdef uintptr_t d_y_diff_ptr = self._d_y_diff.data.ptr
         cdef uintptr_t d_exog_ptr
         cdef uintptr_t d_exog_diff_ptr
         handle = get_handle()
@@ -403,8 +420,8 @@ class ARIMA(Base):
             self.order_diff = cpp_order_diff
 
             if cpp_order_diff.n_exog > 0:
-                d_exog_ptr = self.d_exog.ptr
-                d_exog_diff_ptr = self._d_exog_diff.ptr
+                d_exog_ptr = self.d_exog.data.ptr
+                d_exog_diff_ptr = self._d_exog_diff.data.ptr
                 batched_diff(handle_[0], <double*> d_exog_diff_ptr,
                              <double*> d_exog_ptr,
                              <int> self.batch_size * cpp_order_diff.n_exog,
@@ -449,15 +466,15 @@ class ARIMA(Base):
             self.order_diff if self.simple_differencing else self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
-        ic = CumlArray.empty(self.batch_size, self.dtype)
-        cdef uintptr_t d_ic_ptr = ic.ptr
+        ic = cp.empty(self.batch_size, self.dtype)
+        cdef uintptr_t d_ic_ptr = ic.data.ptr
         cdef uintptr_t d_y_kf_ptr = \
-            self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
+            self._d_y_diff.data.ptr if self.simple_differencing else self.d_y.data.ptr
 
         cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_kf_ptr = (self._d_exog_diff.ptr if self.simple_differencing
-                             else self.d_exog.ptr)
+            d_exog_kf_ptr = (self._d_exog_diff.data.ptr if self.simple_differencing
+                             else self.d_exog.data.ptr)
 
         n_obs_kf = (self.n_obs_diff if self.simple_differencing
                     else self.n_obs)
@@ -469,7 +486,7 @@ class ARIMA(Base):
         except KeyError as e:
             raise NotImplementedError("IC type '{}' unknown".format(ic_type))
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)
@@ -486,19 +503,19 @@ class ARIMA(Base):
 
     @property
     @reflect
-    def aic(self) -> CumlArray:
+    def aic(self):
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
     @reflect
-    def aicc(self) -> CumlArray:
+    def aicc(self):
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
     @reflect
-    def bic(self) -> CumlArray:
+    def bic(self):
         """Bayesian Information Criterion"""
         return self._ic("bic")
 
@@ -510,7 +527,7 @@ class ARIMA(Base):
                 + 1)
 
     @reflect
-    def get_fit_params(self) -> Dict[str, CumlArray]:
+    def get_fit_params(self):
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
 
@@ -549,11 +566,12 @@ class ARIMA(Base):
         """
         for param_name in ["mu", "beta", "ar", "ma", "sar", "sma", "sigma2"]:
             if param_name in params:
-                array, *_ = input_to_cuml_array(
+                array = check_array(
                     params[param_name],
-                    convert_to_dtype=(np.float64 if convert_dtype
-                                      else None),
-                    check_dtype=np.float64
+                    dtype="float64",
+                    convert_dtype=convert_dtype,
+                    ensure_2d=False,
+                    ensure_all_finite=False,
                 )
                 setattr(self, "{}_".format(param_name), array)
 
@@ -593,7 +611,7 @@ class ARIMA(Base):
         level=None,
         exog=None,
         convert_dtype=True
-    ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
+    ):
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters
@@ -676,12 +694,16 @@ class ARIMA(Base):
         # Future values of the exogenous variables
         cdef uintptr_t d_exog_fut_ptr = <uintptr_t> NULL
         if order.n_exog and end > self.n_obs:
-            d_exog_fut, n_obs_fut, n_cols_fut, _ = input_to_cuml_array(
+            d_exog_fut = check_array(
                 exog,
-                convert_to_dtype=(np.float64 if convert_dtype
-                                  else None),
-                check_dtype=np.float64
+                dtype="float64",
+                convert_dtype=convert_dtype,
+                order="F",
+                ensure_2d=False,
+                ensure_all_finite=False,
             )
+            n_obs_fut = d_exog_fut.shape[0]
+            n_cols_fut = d_exog_fut.shape[1] if d_exog_fut.ndim == 2 else 1
             if n_obs_fut != end - self.n_obs:
                 raise ValueError(
                     "Dimensions mismatch: `exog` should contain {}"
@@ -690,29 +712,30 @@ class ARIMA(Base):
                 raise ValueError(
                     "Dimensions mismatch: `exog` should have {} columns"
                     .format(self.batch_size * order.n_exog))
-            d_exog_fut_ptr = d_exog_fut.ptr
+            d_exog_fut_ptr = d_exog_fut.data.ptr
 
         # allocate predictions and intervals device memory
         cdef uintptr_t d_y_p_ptr = <uintptr_t> NULL
         cdef uintptr_t d_lower_ptr = <uintptr_t> NULL
         cdef uintptr_t d_upper_ptr = <uintptr_t> NULL
-        d_y_p = CumlArray.empty((predict_size, self.batch_size),
-                                dtype=np.float64, order="F")
-        d_y_p_ptr = d_y_p.ptr
+        d_y_p = cp.empty((predict_size, self.batch_size), dtype="float64", order="F")
+        d_y_p_ptr = d_y_p.data.ptr
         if level is not None:
-            d_lower = CumlArray.empty((predict_size, self.batch_size),
-                                      dtype=np.float64, order="F")
-            d_upper = CumlArray.empty((predict_size, self.batch_size),
-                                      dtype=np.float64, order="F")
-            d_lower_ptr = d_lower.ptr
-            d_upper_ptr = d_upper.ptr
+            d_lower = cp.empty(
+                (predict_size, self.batch_size), dtype="float64", order="F"
+            )
+            d_upper = cp.empty(
+                (predict_size, self.batch_size), dtype="float64", order="F"
+            )
+            d_lower_ptr = d_lower.data.ptr
+            d_upper_ptr = d_upper.data.ptr
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self.d_y.data.ptr
         cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_ptr = self.d_exog.ptr
+            d_exog_ptr = self.d_exog.data.ptr
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)
@@ -741,7 +764,7 @@ class ARIMA(Base):
         nsteps: int,
         level=None,
         exog=None
-    ) -> Union[CumlArray, Tuple[CumlArray, CumlArray, CumlArray]]:
+    ):
         """Forecast the given model `nsteps` into the future.
 
         Parameters
@@ -786,24 +809,21 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
 
         if order.k and not hasattr(self, "mu_"):
-            self.mu_ = CumlArray.empty(self.batch_size, np.float64)
+            self.mu_ = cp.empty(self.batch_size, dtype="float64", order="F")
         if order.n_exog and not hasattr(self, "beta_"):
-            self.beta_ = CumlArray.empty((order.n_exog, self.batch_size),
-                                         np.float64)
+            self.beta_ = cp.empty(
+                (order.n_exog, self.batch_size), dtype="float64", order="F"
+            )
         if order.p and not hasattr(self, "ar_"):
-            self.ar_ = CumlArray.empty((order.p, self.batch_size),
-                                       np.float64)
+            self.ar_ = cp.empty((order.p, self.batch_size), dtype="float64", order="F")
         if order.q and not hasattr(self, "ma_"):
-            self.ma_ = CumlArray.empty((order.q, self.batch_size),
-                                       np.float64)
+            self.ma_ = cp.empty((order.q, self.batch_size), dtype="float64", order="F")
         if order.P and not hasattr(self, "sar_"):
-            self.sar_ = CumlArray.empty((order.P, self.batch_size),
-                                        np.float64)
+            self.sar_ = cp.empty((order.P, self.batch_size), dtype="float64", order="F")
         if order.Q and not hasattr(self, "sma_"):
-            self.sma_ = CumlArray.empty((order.Q, self.batch_size),
-                                        np.float64)
+            self.sma_ = cp.empty((order.Q, self.batch_size), dtype="float64", order="F")
         if not hasattr(self, "sigma2_"):
-            self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
+            self.sigma2_ = cp.empty(self.batch_size, dtype="float64", order="F")
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
@@ -816,10 +836,10 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self.d_y.data.ptr
         cdef uintptr_t d_exog_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_ptr = self.d_exog.ptr
+            d_exog_ptr = self.d_exog.data.ptr
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
@@ -962,27 +982,29 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
-        d_x_array, *_ = \
-            input_to_cuml_array(x,
-                                convert_to_dtype=(np.float64 if convert_dtype
-                                                  else None),
-                                check_dtype=np.float64,
-                                order='C')
-        cdef uintptr_t d_x_ptr = d_x_array.ptr
+        d_x_array = check_array(
+            x,
+            dtype="float64",
+            convert_dtype=convert_dtype,
+            order="C",
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
+        cdef uintptr_t d_x_ptr = d_x_array.data.ptr
 
         cdef uintptr_t d_y_kf_ptr = \
-            self._d_y_diff.ptr if diff else self.d_y.ptr
+            self._d_y_diff.data.ptr if diff else self.d_y.data.ptr
 
         cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
+            d_exog_kf_ptr = self._d_exog_diff.data.ptr if diff else self.d_exog.data.ptr
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)
@@ -1034,31 +1056,33 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
         diff = ll_method != MLE or self.simple_differencing
 
-        grad = CumlArray.empty(N * self.batch_size, np.float64)
-        cdef uintptr_t d_grad = <uintptr_t> grad.ptr
+        grad = cp.empty(N * self.batch_size, dtype="float64", order="F")
+        cdef uintptr_t d_grad = <uintptr_t> grad.data.ptr
 
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
-        d_x_array, *_ = \
-            input_to_cuml_array(x,
-                                convert_to_dtype=(np.float64 if convert_dtype
-                                                  else None),
-                                check_dtype=np.float64,
-                                order='C')
-        cdef uintptr_t d_x_ptr = d_x_array.ptr
+        d_x_array = check_array(
+            x,
+            dtype="float64",
+            convert_dtype=convert_dtype,
+            order="C",
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
+        cdef uintptr_t d_x_ptr = d_x_array.data.ptr
 
         cdef uintptr_t d_y_kf_ptr = \
-            self._d_y_diff.ptr if diff else self.d_y.ptr
+            self._d_y_diff.data.ptr if diff else self.d_y.data.ptr
 
         cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_kf_ptr = self._d_exog_diff.ptr if diff else self.d_exog.ptr
+            d_exog_kf_ptr = self._d_exog_diff.data.ptr if diff else self.d_exog.data.ptr
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)
@@ -1073,7 +1097,7 @@ class ARIMA(Base):
 
         del arima_mem_ptr
 
-        return grad.to_output("numpy")
+        return grad.get(order="A")
 
     @property
     @run_in_internal_context
@@ -1096,19 +1120,19 @@ class ARIMA(Base):
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
         cdef uintptr_t d_y_kf_ptr = \
-            self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
+            self._d_y_diff.data.ptr if self.simple_differencing else self.d_y.data.ptr
 
         cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
         if order.n_exog:
-            d_exog_kf_ptr = (self._d_exog_diff.ptr if self.simple_differencing
-                             else self.d_exog.ptr)
+            d_exog_kf_ptr = (self._d_exog_diff.data.ptr if self.simple_differencing
+                             else self.d_exog.data.ptr)
 
         n_obs_kf = (self.n_obs_diff if self.simple_differencing
                     else self.n_obs)
 
         cdef LoglikeMethod ll_method = MLE
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)
@@ -1143,13 +1167,15 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
-        d_x_array, *_ = \
-            input_to_cuml_array(x,
-                                convert_to_dtype=(np.float64 if convert_dtype
-                                                  else None),
-                                check_dtype=np.float64,
-                                order='C')
-        cdef uintptr_t d_x_ptr = d_x_array.ptr
+        d_x_array = check_array(
+            x,
+            dtype="float64",
+            convert_dtype=convert_dtype,
+            order="C",
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
+        cdef uintptr_t d_x_ptr = d_x_array.data.ptr
 
         cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,
                    <double*>d_x_ptr)
@@ -1171,14 +1197,15 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
 
-        d_x_array = CumlArray.empty(self.complexity * self.batch_size,
-                                    np.float64)
-        cdef uintptr_t d_x_ptr = d_x_array.ptr
+        d_x_array = cp.empty(
+            self.complexity * self.batch_size, dtype="float64", order="F"
+        )
+        cdef uintptr_t d_x_ptr = d_x_array.data.ptr
 
         cpp_pack(handle_[0], cpp_params, order, <int> self.batch_size,
                  <double*>d_x_ptr)
 
-        return d_x_array.to_output("numpy")
+        return d_x_array.get(order="A")
 
     @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
                    domain="cuml_python")
@@ -1204,7 +1231,7 @@ class ARIMA(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
-        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        cdef uintptr_t d_temp_mem = self._temp_mem.data.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
             <char*> d_temp_mem)

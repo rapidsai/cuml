@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/tsne.h>
 
@@ -19,6 +20,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 
+#include <cstddef>
+#include <limits>
 #include <utility>
 
 namespace ML {
@@ -54,11 +57,20 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   //---------------------------------------------------
   const int blocks = raft::getMultiProcessorCount();
 
-  auto nnodes = n * 2;
-  if (nnodes < 1024 * blocks) nnodes = 1024 * blocks;
-  while ((nnodes & (32 - 1)) != 0)
-    nnodes++;
-  nnodes--;
+  // Compute nnodes in size_t to detect overflow, then narrow back to value_idx
+  // (which is what every downstream kernel expects). Trap rather than silently
+  // wrap so kernels never see a corrupted tree size.
+  std::size_t nnodes_sz = checked_mul<std::size_t>(n, 2);
+  if (nnodes_sz < static_cast<std::size_t>(1024) * static_cast<std::size_t>(blocks)) {
+    nnodes_sz = checked_mul<std::size_t>(1024, blocks);
+  }
+  while ((nnodes_sz & (32 - 1)) != 0)
+    nnodes_sz++;
+  nnodes_sz--;
+  if (nnodes_sz > static_cast<std::size_t>(std::numeric_limits<value_idx>::max())) {
+    RAFT_FAIL("Barnes_Hut: nnodes (%zu) exceeds value_idx range; reduce n", nnodes_sz);
+  }
+  auto nnodes = static_cast<value_idx>(nnodes_sz);
   CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
@@ -79,27 +91,32 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   const float theta_squared   = params.theta * params.theta;
   const value_idx NNODES      = nnodes;
 
-  // Actual allocations
-  rmm::device_uvector<value_idx> startl(nnodes + 1, stream);
-  rmm::device_uvector<value_idx> childl((nnodes + 1) * 4, stream);
-  rmm::device_uvector<value_t> massl(nnodes + 1, stream);
+  // Actual allocations. Allocation sizes are computed in size_t so the
+  // backing buffer always matches the tree size the kernels will write to.
+  std::size_t const nnodes_p1      = checked_add<std::size_t>(nnodes_sz, 1);
+  std::size_t const two_nnodes_p1  = checked_mul<std::size_t>(nnodes_p1, 2);
+  std::size_t const four_nnodes_p1 = checked_mul<std::size_t>(nnodes_p1, 4);
+  rmm::device_uvector<value_idx> startl(nnodes_p1, stream);
+  rmm::device_uvector<value_idx> childl(four_nnodes_p1, stream);
+  rmm::device_uvector<value_t> massl(nnodes_p1, stream);
 
   thrust::device_ptr<value_t> begin_massl = thrust::device_pointer_cast(massl.data());
-  thrust::fill(thrust::cuda::par.on(stream), begin_massl, begin_massl + (nnodes + 1), 1.0f);
+  thrust::fill(thrust::cuda::par.on(stream), begin_massl, begin_massl + nnodes_p1, 1.0f);
 
-  rmm::device_uvector<value_t> maxxl(blocks * FACTOR1, stream);
-  rmm::device_uvector<value_t> maxyl(blocks * FACTOR1, stream);
-  rmm::device_uvector<value_t> minxl(blocks * FACTOR1, stream);
-  rmm::device_uvector<value_t> minyl(blocks * FACTOR1, stream);
+  std::size_t const blocks_factor1 = checked_mul<std::size_t>(blocks, FACTOR1);
+  rmm::device_uvector<value_t> maxxl(blocks_factor1, stream);
+  rmm::device_uvector<value_t> maxyl(blocks_factor1, stream);
+  rmm::device_uvector<value_t> minxl(blocks_factor1, stream);
+  rmm::device_uvector<value_t> minyl(blocks_factor1, stream);
 
   // SummarizationKernel
-  rmm::device_uvector<value_idx> countl(nnodes + 1, stream);
+  rmm::device_uvector<value_idx> countl(nnodes_p1, stream);
 
   // SortKernel
-  rmm::device_uvector<value_idx> sortl(nnodes + 1, stream);
+  rmm::device_uvector<value_idx> sortl(nnodes_p1, stream);
 
   // RepulsionKernel
-  rmm::device_uvector<value_t> rep_forces((nnodes + 1) * 2, stream);
+  rmm::device_uvector<value_t> rep_forces(two_nnodes_p1, stream);
   rmm::device_uvector<value_t> attr_forces(n * 2, stream);  // n*2 double for reduction sum
 
   rmm::device_scalar<value_t> Z_norm(stream);
@@ -115,10 +132,11 @@ std::pair<float, int> Barnes_Hut(value_t* VAL,
   rmm::device_uvector<value_t> old_forces(n * 2, stream);
   RAFT_CUDA_TRY(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
-  rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
+  rmm::device_uvector<value_t> YY(two_nnodes_p1, stream);
 
   if (params.init == TSNE_INIT::RANDOM) {
-    random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, params.random_state);
+    random_vector(
+      YY.data(), -0.0001f, 0.0001f, narrow_cast<int>(two_nnodes_p1), stream, params.random_state);
   } else {
     raft::copy(YY.data(), Y, n, stream);
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);

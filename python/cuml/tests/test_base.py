@@ -203,7 +203,7 @@ def generate_test_common_signatures_cases():
 
 
 @pytest.mark.parametrize(
-    "cls, method", generate_test_common_signatures_cases()
+    "cls, method", list(generate_test_common_signatures_cases())
 )
 def test_common_signatures(cls, method):
     sig = inspect.signature(getattr(cls, method))

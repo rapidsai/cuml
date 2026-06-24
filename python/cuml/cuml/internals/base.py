@@ -12,11 +12,10 @@ import pylibraft.common.handle
 import cuml
 import cuml.common
 import cuml.internals
-import cuml.internals.input_utils
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
-from cuml.internals.input_utils import determine_array_type
-from cuml.internals.mixins import TagsMixin
+from cuml.internals.mixins import TagsMixin, _ensure_transformer_tags
+from cuml.internals.outputs import infer_output_type
 
 _THREAD_STATE = threading.local()
 
@@ -215,7 +214,7 @@ class Base(TagsMixin):
         return self
 
     def _set_output_type(self, inp):
-        self._input_type = determine_array_type(inp)
+        self._input_type = infer_output_type(inp)
 
     def _get_output_type(self, inp=None):
         """
@@ -237,20 +236,23 @@ class Base(TagsMixin):
                 output_type = self._input_type
             else:
                 # Determine the output from the input
-                output_type = determine_array_type(inp)
+                output_type = infer_output_type(inp)
 
         return output_type
 
-    def _more_tags(self):
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
         # 'preserves_dtype' tag's Scikit definition currently only applies to
         # transformers and whether the transform method conserves the dtype
         # (in that case returns an empty list, otherwise the dtype it
         # casts to).
         # By default, our transform methods convert to self.dtype, but
         # we need to check whether the tag has been defined already.
-        if hasattr(self, "transform") and hasattr(self, "dtype"):
-            return {"preserves_dtype": [self.dtype]}
-        return {}
+        if hasattr(self, "transform"):
+            transformer_tags = _ensure_transformer_tags(tags)
+            if hasattr(self, "dtype"):
+                transformer_tags.preserves_dtype = [self.dtype]
+        return tags
 
     def _repr_mimebundle_(self, **kwargs):
         """Prepare representations used by jupyter kernels to display estimator"""

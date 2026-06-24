@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 from collections import namedtuple
 
 import cudf
@@ -18,159 +17,11 @@ from pandas.api.types import is_extension_array_dtype, is_string_dtype
 import cuml.internals.nvtx as nvtx
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mem_type import MemoryType
 
-global_settings = GlobalSettings()
 PANDAS_VERSION = Version(pd.__version__)
 
 cuml_array = namedtuple("cuml_array", "array n_rows n_cols dtype")
-
-_input_type_to_str = {
-    CumlArray: "cuml",
-    SparseCumlArray: "cuml",
-    np.ndarray: "numpy",
-    pd.Series: "pandas",
-    pd.DataFrame: "pandas",
-    pd.Index: "pandas",
-    cp.ndarray: "cupy",
-    cudf.Series: "cudf",
-    cudf.DataFrame: "cudf",
-    cudf.Index: "cudf",
-    numba_cuda.devicearray.DeviceNDArrayBase: "numba",
-    cupyx.scipy.sparse.spmatrix: "cupy",
-    scipy.sparse.spmatrix: "numpy",
-    scipy.sparse.sparray: "numpy",
-}
-
-_input_type_to_mem_type = {
-    np.ndarray: MemoryType.host,
-    pd.Series: MemoryType.host,
-    pd.DataFrame: MemoryType.host,
-    scipy.sparse.spmatrix: MemoryType.host,
-    scipy.sparse.sparray: MemoryType.host,
-    cp.ndarray: MemoryType.device,
-    cudf.Series: MemoryType.device,
-    cudf.DataFrame: MemoryType.device,
-    numba_cuda.devicearray.DeviceNDArrayBase: MemoryType.device,
-    cupyx.scipy.sparse.spmatrix: MemoryType.device,
-}
-
-_SPARSE_TYPES = [
-    SparseCumlArray,
-    cupyx.scipy.sparse.spmatrix,
-    scipy.sparse.spmatrix,
-    scipy.sparse.sparray,
-]
-
-
-def get_supported_input_type(X):
-    """
-    Determines if the input object is a supported input array-like object or
-    not. If supported, the type is returned. Otherwise, `None` is returned.
-
-    Parameters
-    ----------
-    X : object
-        Input object to test
-
-    Notes
-    -----
-    To closely match the functionality of
-    :func:`~cuml.internals.input_utils.input_to_cuml_array`, this method will
-    return `cupy.ndarray` for any object supporting
-    `__cuda_array_interface__` and `numpy.ndarray` for any object supporting
-    `__array_interface__`.
-
-    Returns
-    -------
-    array-like type or None
-        If the array-like object is supported, the type is returned.
-        Otherwise, `None` is returned.
-    """
-    # Check CumlArray first to shorten search time
-    if isinstance(X, CumlArray):
-        return CumlArray
-
-    if isinstance(X, SparseCumlArray):
-        return SparseCumlArray
-
-    if isinstance(X, cudf.Series):
-        if X.null_count != 0:
-            return None
-        else:
-            return cudf.Series
-
-    if isinstance(X, pd.DataFrame):
-        return pd.DataFrame
-
-    if isinstance(X, pd.Series):
-        return pd.Series
-
-    if isinstance(X, pd.Index):
-        return pd.Index
-
-    if isinstance(X, cudf.DataFrame):
-        return cudf.DataFrame
-
-    if isinstance(X, cudf.Index):
-        return cudf.Index
-
-    # A cudf.pandas wrapped Numpy array defines `__cuda_array_interface__`
-    # which means without this we'd always return a cupy array. We don't want
-    # to match wrapped cupy arrays, they get dealt with later
-    if getattr(X, "_fsproxy_slow_type", None) is np.ndarray:
-        return np.ndarray
-
-    if numba_cuda.devicearray.is_cuda_ndarray(X):
-        return numba_cuda.devicearray.DeviceNDArrayBase
-
-    if hasattr(X, "__cuda_array_interface__"):
-        return cp.ndarray
-
-    if hasattr(X, "__array_interface__"):
-        # For some reason, numpy scalar types also implement
-        # `__array_interface__`. See numpy.generic.__doc__. Exclude those types
-        # as well as np.dtypes
-        if not isinstance(X, np.generic) and not isinstance(X, type):
-            return np.ndarray
-
-    if cupyx.scipy.sparse.issparse(X):
-        return cupyx.scipy.sparse.spmatrix
-
-    if scipy.sparse.isspmatrix(X):
-        return scipy.sparse.spmatrix
-
-    if scipy.sparse.issparse(X) and X.ndim == 2:
-        return scipy.sparse.sparray
-
-    # Return None if this type is not supported
-    return None
-
-
-def determine_array_type(X):
-    if X is None:
-        return None
-
-    # Get the generic type
-    gen_type = get_supported_input_type(X)
-
-    return _input_type_to_str.get(gen_type, None)
-
-
-def determine_df_obj_type(X):
-    if X is None:
-        return None
-
-    # Get the generic type
-    gen_type = get_supported_input_type(X)
-
-    if gen_type in (cudf.DataFrame, pd.DataFrame):
-        return "dataframe"
-    elif gen_type in (cudf.Series, pd.Series):
-        return "series"
-
-    return None
 
 
 def determine_array_dtype(X):
@@ -192,32 +43,6 @@ def determine_array_dtype(X):
         return np.dtype("object")
 
     return dtype
-
-
-def determine_array_type_full(X):
-    """
-    Returns a tuple of the array type, and a boolean if it is sparse
-
-    Parameters
-    ----------
-    X : array-like
-        Input array to test
-
-    Returns
-    -------
-    (string, bool) Returns a tuple of the array type string and a boolean if it
-        is a sparse array.
-    """
-    if X is None:
-        return None, None
-
-    # Get the generic type
-    gen_type = get_supported_input_type(X)
-
-    if gen_type is None:
-        return None, None
-
-    return _input_type_to_str[gen_type], gen_type in _SPARSE_TYPES
 
 
 def is_array_like(X, accept_lists=False):
@@ -471,24 +296,6 @@ def input_to_host_array(
     )
 
     return out_data._replace(array=out_data.array.to_output("numpy"))
-
-
-def input_to_host_array_with_sparse_support(X):
-    if X is None:
-        return None
-    if scipy.sparse.issparse(X):
-        return X
-    _array_type, is_sparse = determine_array_type_full(X)
-    if is_sparse:
-        if _array_type == "cupy":
-            return SparseCumlArray(X).to_output(output_type="scipy")
-        elif _array_type == "cuml":
-            return X.to_output(output_type="scipy")
-        elif _array_type == "numpy":
-            return X
-        else:
-            raise ValueError(f"Unsupported sparse array type: {_array_type}.")
-    return input_to_host_array(X).array
 
 
 def convert_dtype(X, to_dtype=np.float32, legacy=True, safe_dtype=True):

@@ -480,7 +480,7 @@ cdef class ApproxIndex:
         return distances_cp, indices_cp
 
 
-class NeighborsBase(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
+class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     """Base class for `cuml.neighbors` models"""
     _fit_X = CumlArrayDescriptor(order='C')
 

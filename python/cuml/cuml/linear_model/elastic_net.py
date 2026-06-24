@@ -27,12 +27,12 @@ from cuml.solvers.qn import fit_qn
 
 
 class ElasticNet(
-    Base,
     InteropMixin,
     LinearPredictMixin,
     RegressorMixin,
     SparseInputTagMixin,
     FMajorInputTagMixin,
+    Base,
 ):
     """
     Linear regression with combined L1 and L2 priors as regularizer.

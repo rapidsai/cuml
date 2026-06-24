@@ -6,8 +6,6 @@ import ctypes
 import warnings
 from collections import deque
 
-from cuda.bindings.cyruntime cimport cudaStream_t
-
 import cupy as cp
 import cupyx.scipy.sparse
 import joblib
@@ -18,7 +16,6 @@ import scipy.spatial
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_graph
 from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
@@ -39,7 +36,9 @@ from cuml.internals.validation import (
     check_random_seed,
     check_y,
 )
+from cuml.manifold.utils import extract_knn_graph
 
+from cuda.bindings.cyruntime cimport cudaStream_t
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
@@ -662,7 +661,7 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
         params.build_params.nnd.intermediate_graph_degree = intermediate_graph_degree
 
 
-class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
+class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     """Uniform Manifold Approximation and Projection
 
     Finds a low dimensional embedding of the data that approximates
@@ -790,16 +789,27 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
         feature is made optional in the GPU version due to the
         significant overhead in copying memory to the host for
         computing the hash.
-    precomputed_knn : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of UMAP
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the UMAP embeddings. For most efficient
-        memory usage, the precomputed knn graph should be CPU-accessible arrays
-        such as numpy arrays.
+    precomputed_knn : tuple[array, array], sparse-matrix, array, optional
+        This feature allows the precomputation of the KNN outside of UMAP.
+        Options are:
+
+        - A tuple (indices, distances) of dense arrays of shape (n_samples,
+          n_neighbors), where n_neighbors is >= the ``n_neighbors`` parameter.
+          Self references should be included (i.e. the first column of
+          `indices` should be [0, 1, ...], denotating that the nearest neighbor
+          to each row is itself). This is the most efficient representation.
+          Note that providing on CPU may result in lower peak GPU memory usage.
+
+        - A sparse matrix KNN graph, as may be output by
+          ``cuml.neighbors.kneighbors_graph`` with ``mode="distance"`` and
+          ``include_self=True``. The ``n_neighbors`` used to calculate the
+          graph must be >= the ``n_neighbors`` parameter.
+
+        - A pairwise distances dense array of shape (n_samples, n_samples).
+
+        In all cases the KNN should be computed using the same ``metric`` as
+        provided to ``UMAP``.
+
     random_state : int, RandomState instance or None, optional (default=None)
         Seed used by the random number generator for embedding initialization
         and optimizer sampling. Setting a random_state enables reproducible
@@ -1084,10 +1094,10 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
             input_hash = _joblib_hash(raw_data)
 
         if (knn_dists := getattr(self, "_knn_dists", None)) is not None:
-            knn_dists = to_cpu(knn_dists)
+            knn_dists = cp.asnumpy(knn_dists)
 
         if (knn_indices := getattr(self, "_knn_indices", None)) is not None:
-            knn_indices = to_cpu(knn_indices)
+            knn_indices = cp.asnumpy(knn_indices)
 
         attrs = {
             "embedding_": to_cpu(self.embedding_),
@@ -1205,17 +1215,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-            Either one of a tuple (indices, distances) of
-            arrays of shape (n_samples, n_neighbors), a pairwise distances
-            dense array of shape (n_samples, n_samples) or a KNN graph
-            sparse array (preferably CSR/COO). This feature allows
-            the precomputation of the KNN outside of UMAP
-            and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeddings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+        knn_graph: tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of UMAP.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``UMAP``, and takes precedence
+            over it. See the ``UMAP`` docstring on ``precomputed_knn`` for more
+            information.
         """
         # Normalize X as cheaply as possible to minimize copies and work
         X, index = check_inputs(
@@ -1301,20 +1307,17 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
             knn_indices, knn_dists = extract_knn_graph(
                 (knn_graph if knn_graph is not None else self.precomputed_knn),
+                X.shape[0],
                 self._n_neighbors,
-                mem_type=False,     # mirrors the input graph mem type
+                mem_type=None,     # mirrors the input graph mem type
+                indices_dtype=("int32" if X_is_sparse else "int64"),
             )
-            knn_dists_cp = knn_dists.to_output("cupy")
-            if X_is_sparse:
-                knn_indices_cp = cp.asarray(
-                    knn_indices.to_output("cupy"), dtype=np.int32
-                )
-                # Drop the int64 original and keep only the int32 copy used by the kernel.
-                knn_indices = CumlArray(data=knn_indices_cp)
+            if isinstance(knn_indices, cp.ndarray):
+                knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
+                knn_dists_ptr = <uintptr_t>knn_dists.data.ptr
             else:
-                knn_indices_cp = knn_indices.to_output("cupy")
-            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
-            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
+                knn_indices_ptr = <uintptr_t>knn_indices.ctypes.data
+                knn_dists_ptr = <uintptr_t>knn_dists.ctypes.data
         else:
             knn_indices = knn_dists = None
 
@@ -1451,17 +1454,13 @@ class UMAP(Base, InteropMixin, CMajorInputTagMixin, SparseInputTagMixin):
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-            Either one of a tuple (indices, distances) of
-            arrays of shape (n_samples, n_neighbors), a pairwise distances
-            dense array of shape (n_samples, n_samples) or a KNN graph
-            sparse array (preferably CSR/COO). This feature allows
-            the precomputation of the KNN outside of UMAP
-            and also allows the use of a custom distance function. This function
-            should match the metric used to train the UMAP embeddings.
-            Takes precedence over the precomputed_knn parameter. For most efficient
-            memory usage, the precomputed knn graph should be CPU-accessible arrays
-            such as numpy arrays.
+        knn_graph : tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of UMAP.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``UMAP``, and takes precedence
+            over it. See the ``UMAP`` docstring on ``precomputed_knn`` for more
+            information.
         """
         self.fit(X, y, convert_dtype=convert_dtype, knn_graph=knn_graph)
         return self.embedding_
