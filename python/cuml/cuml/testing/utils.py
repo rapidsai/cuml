@@ -15,8 +15,9 @@ from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
+from cuml.internals.input_utils import is_array_like
 from cuml.internals.mem_type import MemoryType
 
 
@@ -166,12 +167,12 @@ def as_type(type, *args):
                 else:
                     mem_type = None
                 result.append(
-                    input_to_cuml_array(arg).array.to_output(
+                    CumlArray.from_input(arg).to_output(
                         output_type="dataframe", output_mem_type=mem_type
                     )
                 )
             else:
-                result.append(input_to_cuml_array(arg).array.to_output(type))
+                result.append(CumlArray.from_input(arg).to_output(type))
     if len(result) == 1:
         return result[0]
     return tuple(result)
