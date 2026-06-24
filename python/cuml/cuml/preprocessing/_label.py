@@ -18,7 +18,7 @@ from cuml.internals.outputs import (
 from cuml.internals.validation import check_cudf, check_is_fitted, check_y
 
 
-class LabelEncoder(Base, InteropMixin):
+class LabelEncoder(InteropMixin, Base):
     """Encode target labels with values between 0 and n_classes - 1.
 
     This transformer should be used to encode target values (`y`) and not the
@@ -77,9 +77,12 @@ class LabelEncoder(Base, InteropMixin):
     def __sklearn_is_fitted__(self) -> bool:
         return hasattr(self, "classes_")
 
-    @staticmethod
-    def _more_static_tags():
-        return {"X_types": ["1dlabels"]}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.one_d_array = False
+        tags.input_tags.two_d_array = False
+        tags.target_tags.one_d_labels = True
+        return tags
 
     @classmethod
     def _params_from_cpu(cls, model):

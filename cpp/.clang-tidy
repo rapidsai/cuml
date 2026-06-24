@@ -2,7 +2,6 @@
 Checks:          'clang-diagnostic-*,clang-analyzer-*,-modernize-*,-clang-diagnostic-#pragma-messages,-readability-identifier-naming,-clang-diagnostic-switch'
 WarningsAsErrors: '*'
 HeaderFilterRegex: ''
-AnalyzeTemporaryDtors: false
 FormatStyle:     none
 CheckOptions:
   - key:             cert-dcl16-c.NewSuffixes

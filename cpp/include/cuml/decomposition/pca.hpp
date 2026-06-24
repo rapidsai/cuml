@@ -23,8 +23,7 @@ void pcaFit(const raft::handle_t& handle,
             float* singular_vals,
             float* mu,
             float* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U);
+            const paramsPCA& prms);
 void pcaFit(const raft::handle_t& handle,
             double* input,
             double* components,
@@ -33,8 +32,7 @@ void pcaFit(const raft::handle_t& handle,
             double* singular_vals,
             double* mu,
             double* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U);
+            const paramsPCA& prms);
 void pcaFitTransform(const raft::handle_t& handle,
                      float* input,
                      float* trans_input,
@@ -44,8 +42,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      float* singular_vals,
                      float* mu,
                      float* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U);
+                     const paramsPCA& prms);
 void pcaFitTransform(const raft::handle_t& handle,
                      double* input,
                      double* trans_input,
@@ -55,8 +52,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      double* singular_vals,
                      double* mu,
                      double* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U);
+                     const paramsPCA& prms);
 void pcaInverseTransform(const raft::handle_t& handle,
                          float* trans_input,
                          float* components,

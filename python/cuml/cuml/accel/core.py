@@ -49,7 +49,14 @@ class Logger:
         level : {'error', 'warn', 'info', 'debug'}
             The log level to set.
         """
-        self.level = Logger._Level[level.upper()]
+        try:
+            level = Logger._Level[level.upper()]
+        except KeyError:
+            raise ValueError(
+                f"level should be one of ['error', 'warn', 'info', 'debug']; "
+                f"got {level!r} instead."
+            ) from None
+        self.level = level
 
     def error(self, msg: str) -> None:
         """Log a message at ERROR level."""

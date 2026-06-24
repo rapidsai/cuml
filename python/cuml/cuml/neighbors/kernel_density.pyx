@@ -2,9 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-import warnings
-
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import gammainc
@@ -23,6 +20,7 @@ from cuml.internals.validation import (
 from cuml.metrics.pairwise_distances import (
     PAIRWISE_DISTANCE_METRICS as SUPPORTED_METRICS,
 )
+from cuml.metrics.pairwise_distances import _ensure_boolean
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool as cpp_bool
@@ -84,23 +82,7 @@ KDE_KERNEL_TYPES = {
 VALID_KERNELS = list(KDE_KERNEL_TYPES.keys())
 
 
-def _coerce_russellrao_binary(arr, *, input_name):
-    """Coerce values to {0, 1} for the russellrao metric, warning on non-binary input.
-
-    The fused KDE kernel computes RussellRao assuming binary inputs, matching
-    the behavior of ``cuml.metrics.pairwise_distances`` for this metric.
-    """
-    if not bool(cp.logical_or(arr == 0, arr == 1).all()):
-        warnings.warn(
-            f"{input_name} was converted to boolean for metric 'russellrao'",
-            DataConversionWarning,
-            stacklevel=2,
-        )
-        return cp.where(arr != 0, arr.dtype.type(1), arr.dtype.type(0))
-    return arr
-
-
-class KernelDensity(Base, InteropMixin):
+class KernelDensity(InteropMixin, Base):
     """
     Kernel Density Estimation. Computes a non-parametric density estimate
     from a finite data sample, smoothing the estimate according to a
@@ -278,7 +260,7 @@ class KernelDensity(Base, InteropMixin):
             reset=True,
         )
         if self.metric == "russellrao":
-            self._X = _coerce_russellrao_binary(self._X, input_name="X")
+            self._X = _ensure_boolean(self._X, metric=self.metric)
         if self._sample_weight is not None:
             check_non_negative(self._sample_weight, input_name="sample_weight")
 
@@ -322,7 +304,7 @@ class KernelDensity(Base, InteropMixin):
             order="C",
         )
         if self.metric == "russellrao":
-            X = _coerce_russellrao_binary(X, input_name="X")
+            X = _ensure_boolean(X, metric=self.metric)
 
         if self.metric_params:
             if len(self.metric_params) != 1:

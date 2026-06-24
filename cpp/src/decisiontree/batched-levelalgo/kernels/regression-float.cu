@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,11 +10,11 @@
 
 namespace ML {
 namespace DT {
-using _DataT      = double;
-using _LabelT     = int;
+using _DataT      = float;
+using _LabelT     = float;
 using _IdxT       = int;
-using _ObjectiveT = EntropyObjectiveFunction<_DataT, _LabelT, _IdxT>;
-using _BinT       = CountBin;
+using _ObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT>;
+using _BinT       = RegressionBin;
 using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
 using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT

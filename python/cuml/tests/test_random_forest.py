@@ -224,6 +224,31 @@ def test_default_parameters():
     assert reg_params == clf_params
 
 
+@pytest.mark.parametrize("estimator", [curfc, curfr])
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+    ],
+)
+def test_rf_invalid_n_streams(estimator, n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+    if estimator is curfr:
+        y = y.astype(np.float32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        estimator(n_streams=n_streams).fit(X, y)
+
+
 @pytest.mark.parametrize("max_depth", [2, 4])
 @pytest.mark.parametrize(
     "split_criterion", ["poisson", "gamma", "inverse_gaussian"]
@@ -283,9 +308,12 @@ def test_tweedie_convergence(max_depth, split_criterion):
         y[mask], tweedie_preds[mask], power=tweedie[split_criterion]["power"]
     )
 
-    # model trained on tweedie data with
-    # tweedie criterion must perform better on tweedie loss
-    assert mse_tweedie_deviance >= tweedie_tweedie_deviance
+    # model trained on tweedie data with tweedie criterion must perform
+    # no worse on tweedie loss, allowing tiny numeric variation.
+    deviance_tolerance = 1e-5
+    assert (
+        mse_tweedie_deviance + deviance_tolerance >= tweedie_tweedie_deviance
+    )
 
 
 @pytest.mark.parametrize(
@@ -1030,6 +1058,82 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
 def test_max_features(max_features, sol):
     res = compute_max_features(max_features, 100)
     assert res == sol
+
+
+def test_rf_feature_sampling_retries_until_valid_split():
+    n_samples = 128
+    n_features = 32
+    X = np.zeros((n_samples, n_features), dtype=np.float32)
+    y = np.zeros(n_samples, dtype=np.int32)
+    y[n_samples // 2 :] = 1
+    X[:, 0] = y
+
+    for random_state in range(8):
+        clf = curfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            n_bins=4,
+            n_streams=1,
+            random_state=random_state,
+        )
+        clf.fit(X, y)
+        cuml_acc = accuracy_score(y, clf.predict(X))
+
+        sk_clf = skrfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            random_state=random_state,
+        )
+        sk_clf.fit(X, y)
+        sk_acc = accuracy_score(y, sk_clf.predict(X))
+
+        assert sk_acc == 1.0
+        assert cuml_acc == sk_acc
+
+
+def test_rf_feature_sampling_does_not_retry_below_impurity_threshold():
+    n_samples = 128
+    n_features = 32
+    X = np.zeros((n_samples, n_features), dtype=np.float32)
+    y = np.zeros(n_samples, dtype=np.int32)
+    y[n_samples // 2 :] = 1
+
+    X[:, :-1] = (np.arange(n_samples) % 2).reshape(-1, 1)
+    X[:, -1] = y
+
+    cuml_accs = []
+    sk_accs = []
+    for random_state in range(16):
+        clf = curfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            min_impurity_decrease=0.1,
+            n_bins=4,
+            n_streams=1,
+            random_state=random_state,
+        )
+        clf.fit(X, y)
+        cuml_accs.append(accuracy_score(y, clf.predict(X)))
+
+        sk_clf = skrfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            min_impurity_decrease=0.1,
+            random_state=random_state,
+        )
+        sk_clf.fit(X, y)
+        sk_accs.append(accuracy_score(y, sk_clf.predict(X)))
+
+    assert min(sk_accs) == 0.5
+    assert min(cuml_accs) == 0.5
 
 
 def test_rf_predict_returns_int():

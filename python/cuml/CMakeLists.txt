@@ -15,11 +15,16 @@ include(rapids-cuda)
 rapids_cuda_init_architectures(cuml-python)
 list(APPEND language_list "CUDA")
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
 project(
   cuml-python
   VERSION "${RAPIDS_VERSION}"
   LANGUAGES ${language_list}
 )
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ##################################################################################################
 # * User Options  --------------------------------------------------------------

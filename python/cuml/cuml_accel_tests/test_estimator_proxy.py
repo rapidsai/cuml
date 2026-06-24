@@ -33,7 +33,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from cuml.accel import is_proxy
 from cuml.accel.estimator_proxy import ProxyBase
 
-SKLEARN_16 = Version(sklearn.__version__) >= Version("1.6.0")
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 SKLEARN_19 = Version(sklearn.__version__) >= Version("1.9.0.dev0")
 
@@ -99,19 +98,11 @@ def test_sklearn_introspect_parameter_constraints():
     assert isinstance(LogisticRegression()._parameter_constraints, dict)
 
 
-@pytest.mark.skipif(not SKLEARN_16, reason="sklearn >= 1.6 only")
 def test_sklearn_utils_get_tags():
-    """sklearn.utils.get_tags was added in sklearn 1.6"""
     from sklearn.utils import get_tags
 
     model = LogisticRegression()
     assert get_tags(model) == get_tags(model._cpu)
-
-
-@pytest.mark.skipif(SKLEARN_16, reason="sklearn < 1.6 only")
-def test_BaseEstimator__get_tags():
-    model = LogisticRegression()
-    assert model._get_tags() == model._cpu._get_tags()
 
 
 def test_BaseEstimator__validate_params():
@@ -190,6 +181,19 @@ def test_repr_mimebundle():
         pass
     else:
         assert "<span>Fitted</span>" in html_repr
+
+
+def test_repr_mimebundle_display_text():
+    """If `display="text"` is configured, no host sync is needed"""
+    X, y = make_classification()
+    model = LogisticRegression(C=1.5).fit(X, y)
+    with sklearn.config_context(display="text"):
+        # The conditional definition of `_repr_html_` is proxied through
+        assert not hasattr(model, "_repr_html_")
+        mimebundle = model._repr_mimebundle_()
+    # No host sync needed to repr
+    assert not hasattr(model._cpu, "n_features_in_")
+    assert "text/html" not in mimebundle
 
 
 def test_pipeline_repr():

@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -10,9 +10,7 @@ add_module_gpu_default("linear_regression.pyx" ${linearregression_algo} ${linear
 add_module_gpu_default("ridge.pyx" ${ridge_algo} ${linear_model_algo})
 
 if(NOT SINGLEGPU)
-  list(APPEND cython_sources base_mg.pyx linear_regression_mg.pyx logistic_regression_mg.pyx
-       ridge_mg.pyx
-  )
+  list(APPEND cython_sources linear_regression_mg.pyx logistic_regression_mg.pyx ridge_mg.pyx)
 
 endif()
 

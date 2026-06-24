@@ -352,18 +352,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR decisiontree_algo)
     target_sources(
       cuml_objs
-      PRIVATE src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
-              src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
-              src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
-              src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
-              src/decisiontree/batched-levelalgo/kernels/gini-double.cu
-              src/decisiontree/batched-levelalgo/kernels/gini-float.cu
-              src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
-              src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
-              src/decisiontree/batched-levelalgo/kernels/mse-double.cu
-              src/decisiontree/batched-levelalgo/kernels/mse-float.cu
-              src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
-              src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+      PRIVATE src/decisiontree/batched-levelalgo/kernels/classification-double.cu
+              src/decisiontree/batched-levelalgo/kernels/classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/regression-double.cu
+              src/decisiontree/batched-levelalgo/kernels/regression-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()
@@ -509,7 +501,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/knn/knn_classify_mg.cu
               src/knn/knn_regress_mg.cu
               src/pca/pca_mg.cu
-              src/pca/sign_flip_mg.cu
               src/solver/cd_mg.cu
               src/tsvd/tsvd_mg.cu
               # OPG primitives (moved from cumlprims_mg)
