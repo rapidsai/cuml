@@ -609,8 +609,6 @@ dependencies:
               - *skl2onnx
           - matrix:
             packages:
-              - *onnxruntime
-              - *skl2onnx
       # TODO: we're seeing test failures with openblas > 0.3.30 on aarch64. For
       # now we pin openblas in tests on that architecture.
       - output_types: [conda]
