@@ -41,30 +41,30 @@ def csr_row_normalize_l1(X, inplace=True):
 
     kernel = cuda_kernel_factory(
         """
-        ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
+        ({0} *data, {1} *indptr, int n_samples) {
             int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
             if (tid >= n_samples) return;
             {0} sum = 0.0;
 
-            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+            for ({1} i = indptr[tid]; i < indptr[tid+1]; i++) {
                 sum += fabs(data[i]);
             }
 
             if (sum == 0) return;
 
-            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+            for ({1} i = indptr[tid]; i < indptr[tid+1]; i++) {
                 data[i] /= sum;
             }
         }
         """,
-        (X.dtype, X.indices.dtype, X.indptr.dtype),
+        (X.dtype, X.indptr.dtype),
         "csr_row_normalize_l1",
     )
     kernel(
         (math.ceil(X.shape[0] / 32),),
         (32,),
-        (X.data, X.indices, X.indptr, X.shape[0]),
+        (X.data, X.indptr, X.shape[0]),
     )
     return X
 
@@ -76,13 +76,13 @@ def csr_row_normalize_l2(X, inplace=True):
 
     kernel = cuda_kernel_factory(
         """
-        ({0} *data, {1} *indices, {2} *indptr, int n_samples) {
+        ({0} *data, {1} *indptr, int n_samples) {
             int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
             if (tid >= n_samples) return;
             {0} sum = 0.0;
 
-            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+            for ({1} i = indptr[tid]; i < indptr[tid+1]; i++) {
                 sum += (data[i] * data[i]);
             }
 
@@ -90,18 +90,18 @@ def csr_row_normalize_l2(X, inplace=True):
 
             sum = sqrt(sum);
 
-            for (int i = indptr[tid]; i < indptr[tid+1]; i++) {
+            for ({1} i = indptr[tid]; i < indptr[tid+1]; i++) {
                 data[i] /= sum;
             }
         }
         """,
-        (X.dtype, X.indices.dtype, X.indptr.dtype),
+        (X.dtype, X.indptr.dtype),
         "csr_row_normalize_l2",
     )
     kernel(
         (math.ceil(X.shape[0] / 32),),
         (32,),
-        (X.data, X.indices, X.indptr, X.shape[0]),
+        (X.data, X.indptr, X.shape[0]),
     )
     return X
 
@@ -116,13 +116,16 @@ def csr_diag_mul(X, y, inplace=True):
     return X
 
 
-def sparse_cov_and_mean(X):
+def sparse_cov_and_mean(X, ddof=1):
     """Computes the covariance and mean of X.
 
     Parameters
     ----------
     X : cupyx.scipy.sparse, shape=(n_samples, n_features)
         The input data.
+    ddof : int, default=1
+        Delta degrees of freedom. The divisor used in calculations is
+        ``n_samples - ddof``.
 
     Returns
     -------
@@ -131,38 +134,40 @@ def sparse_cov_and_mean(X):
     mean: cp.ndarray, shape=(n_features,)
         The mean of X, equivalent to X.mean(axis=0).
     """
+    X = X.tocsr()
+    X.sum_duplicates()
 
     # Workaround for cupy #7699 (fixed in cupy 14) and cupy #10033. cupy < 14
     # may try to allocate large amounts for sparse matrix multiplication
     # (spGEMM). cupy >= 14 may still run into this issue, but may also silently
     # return all-0 outputs for large enough matrices. For now we workaround the
     # issue entirely and use a handrolled kernel.
-    X = X.tocsr()
-
-    out = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
+    C = cp.zeros((X.shape[1], X.shape[1]), dtype=X.data.dtype)
+    # sanity check, `cupyx.scipy.sparse` already enforces this
+    assert X.indices.dtype == X.indptr.dtype
     compute_gram = cuda_kernel_factory(
         """
-        (const int *indptr, const int *index, {0} *data, int m, int n, {0} *out) {
+        ({1} *indptr, {1} *indices, {0} *data, int n_rows, int n_cols, {0} *C) {
             int row = blockIdx.x;
             int col = threadIdx.x;
 
-            if (row >= m) return;
+            if (row >= n_rows) return;
 
-            int start = indptr[row];
-            int end = indptr[row + 1];
+            {1} start = indptr[row];
+            {1} end = indptr[row + 1];
 
-            for (int idx1 = start; idx1 < end; idx1++) {
-                int index1 = index[idx1];
+            for ({1} idx1 = start; idx1 < end; idx1++) {
                 {0} data1 = data[idx1];
-                for (int idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
-                    int index2 = index[idx2];
+                {1} index1 = indices[idx1];
+                for ({1} idx2 = idx1 + col; idx2 < end; idx2 += blockDim.x) {
                     {0} data2 = data[idx2];
-                    atomicAdd(&out[index1 * n + index2], data1 * data2);
+                    {1} index2 = indices[idx2];
+                    atomicAdd(&C[index1 * n_cols + index2], data1 * data2);
                 }
             }
         }
         """,
-        (X.dtype,),
+        (X.dtype, X.indices.dtype),
         "compute_gram",
     )
     compute_gram(
@@ -174,53 +179,33 @@ def sparse_cov_and_mean(X):
             X.data,
             X.shape[0],
             X.shape[1],
-            out,
+            C,
         ),
     )
 
-    reflect_diagonal = cuda_kernel_factory(
+    x_mean = X.mean(axis=0).reshape(-1)
+    finish_cov = cuda_kernel_factory(
         """
-        ({0} *out, int ncols) {
-            int row = blockIdx.y * blockDim.y + threadIdx.y;
-            int col = blockIdx.x * blockDim.x + threadIdx.x;
+        ({0} *C, {0} *x_mean, int n_samples, int n_cols, int ddof) {
+            int rid = blockDim.x * blockIdx.x + threadIdx.x;
+            int cid = blockDim.y * blockIdx.y + threadIdx.y;
 
-            if (row >= ncols || col >= ncols) return;
+            if (rid >= n_cols || cid >= n_cols || rid < cid) return;
 
-            if (row > col) {
-                out[row * ncols + col] = out[col * ncols + row];
+            C[cid * n_cols + rid] -= (n_samples * x_mean[rid] * x_mean[cid]);
+            C[cid * n_cols + rid] /= (n_samples - ddof);
+
+            if (rid > cid) {
+                C[rid * n_cols + cid] = C[cid * n_cols + rid];
             }
         }
         """,
         (X.dtype,),
-        "reflect_diagonal",
+        "finish_cov",
     )
-    reflect_diagonal(
+    finish_cov(
         (math.ceil(X.shape[1] / 32),) * 2,
         (32, 32),
-        (out, X.shape[1]),
+        (C, x_mean, X.shape[0], X.shape[1], ddof),
     )
-
-    mean_x = X.sum(axis=0) * (1 / X.shape[0])
-    out *= 1 / X.shape[0]
-
-    compute_cov = cuda_kernel_factory(
-        """
-        ({0} *out, {0} *mean_x, int n_cols) {
-
-            int rid = blockDim.x * blockIdx.x + threadIdx.x;
-            int cid = blockDim.y * blockIdx.y + threadIdx.y;
-
-            if (rid >= n_cols || cid >= n_cols) return;
-
-            out[rid * n_cols + cid] -= (mean_x[rid] * mean_x[cid]);
-        }
-        """,
-        (X.dtype,),
-        "subtract_mean_x_x",
-    )
-    compute_cov(
-        (math.ceil(out.shape[0] / 32),) * 2,
-        (32, 32),
-        (out, mean_x, out.shape[0]),
-    )
-    return out, mean_x
+    return C, x_mean

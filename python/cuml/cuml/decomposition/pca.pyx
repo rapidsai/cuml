@@ -459,7 +459,7 @@ class PCA(InteropMixin,
         self.components_ = CumlArray(data=cp.asfortranarray(components))
         self.explained_variance_ = CumlArray(data=explained_variance)
         self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean.flatten())
+        self.mean_ = CumlArray(data=mean)
         self.singular_values_ = CumlArray(data=singular_values)
         self.noise_variance_ = noise_variance
 
