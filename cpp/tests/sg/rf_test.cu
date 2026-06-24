@@ -1268,6 +1268,45 @@ Tree #0
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 
+TEST(RfTest, EquivalentSplitRangePersistsThroughBuilder)
+{
+  RF_params rf_params = set_rf_params(2, 4, 1.0, 6, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  // Column-major: feature 1 has global quantiles {0, 1, 2, 3, 4, 5},
+  // but the left child only sees values {0, 5}. The child split therefore has
+  // an equivalent threshold range that should persist as the centered value.
+  std::vector<float> X_host = {0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 0, 0, 5, 5, 1, 2, 2, 3, 3, 4};
+  thrust::device_vector<float> X = X_host;
+  std::vector<int> y_host        = {0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+  thrust::device_vector<int> y   = y_host;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto forest_ptr = forest.get();
+  fit(handle, forest_ptr, X.data().get(), y.size(), 2, y.data().get(), 2, rf_params);
+
+  const auto& tree = forest->trees[0]->sparsetree;
+  ASSERT_GE(tree.size(), std::size_t{5});
+
+  const auto& root = tree[0];
+  ASSERT_FALSE(root.IsLeaf());
+  EXPECT_EQ(root.ColumnId(), 0);
+  EXPECT_EQ(root.QueryValue(), 0.0f);
+  EXPECT_EQ(root.InstanceCount(), 10);
+
+  const auto& left_child = tree[root.LeftChildId()];
+  ASSERT_FALSE(left_child.IsLeaf());
+  EXPECT_EQ(left_child.ColumnId(), 1);
+  EXPECT_EQ(left_child.QueryValue(), 2.0f);
+  EXPECT_EQ(left_child.InstanceCount(), 4);
+
+  EXPECT_EQ(tree[left_child.LeftChildId()].InstanceCount(), 2);
+  EXPECT_EQ(tree[left_child.RightChildId()].InstanceCount(), 2);
+  EXPECT_TRUE(tree[root.RightChildId()].IsLeaf());
+  EXPECT_EQ(tree[root.RightChildId()].InstanceCount(), 6);
+}
+
 //-------------------------------------------------------------------------------------------------------------------------------------
 namespace DT {
 
