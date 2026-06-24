@@ -180,6 +180,8 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
 
     def _attrs_to_cpu(self, model):
         attrs = super()._attrs_to_cpu(model)
+        # sklearn stores original labels on the forest and encoded labels on
+        # each child tree.
         estimator_classes = np.arange(self.n_classes_, dtype=np.float64)
         for estimator in attrs.get("estimators_", ()):
             estimator.classes_ = estimator_classes

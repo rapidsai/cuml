@@ -821,14 +821,22 @@ def test_random_forest_classifier_as_sklearn_estimator_classes(random_state):
         n_samples=200, n_features=5, n_informative=3, random_state=random_state
     )
     y = np.where(y == 0, 10, 20)
+    common_params = {"n_estimators": 3, "max_depth": None}
 
-    cu_model = cuml.RandomForestClassifier(max_depth=None).fit(X, y)
-    sk_model = cu_model.as_sklearn()
+    cu_model = cuml.RandomForestClassifier(**common_params).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(**common_params).fit(
+        X, y
+    )
+    sk_model2 = cu_model.as_sklearn()
 
-    np.testing.assert_array_equal(sk_model.classes_, [10, 20])
-    for estimator in sk_model.estimators_:
-        np.testing.assert_array_equal(estimator.classes_, [0.0, 1.0])
-        assert estimator.n_classes_ == sk_model.n_classes_
+    np.testing.assert_array_equal(sk_model2.classes_, sk_model.classes_)
+    for estimator, sk_estimator in zip(
+        sk_model2.estimators_, sk_model.estimators_, strict=True
+    ):
+        np.testing.assert_array_equal(
+            estimator.classes_, sk_estimator.classes_
+        )
+        assert estimator.n_classes_ == sk_estimator.n_classes_
 
 
 @pytest.mark.parametrize("oob_score", [False, True])
