@@ -495,7 +495,6 @@ def test_kmeans_streaming_batch_size_host_path(
         dtype=dtype,
     )
     X_host = cp.asnumpy(X_dev).astype(dtype)
-    X_dev = cp.asarray(X_host)
 
     if weighted:
         sample_weight_host = np.linspace(0.5, 1.5, num=n_rows, dtype=dtype)

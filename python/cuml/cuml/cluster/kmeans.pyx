@@ -632,10 +632,6 @@ class KMeans(InteropMixin,
                 f"{streaming_batch_size}."
             )
 
-        data_on_device = hasattr(X, "__cuda_array_interface__") or isinstance(
-            X, (cudf.DataFrame, cudf.Series)
-        )
-
         if streaming_batch_size > 0 and (self._multi_gpu or data_on_device):
             if self._multi_gpu:
                 reason = "the multi-GPU KMeans fit path"
@@ -662,6 +658,8 @@ class KMeans(InteropMixin,
             mem_type=mem_type,
             reset=True,
         )
+        data_on_device = hasattr(X, "__cuda_array_interface__")
+
         n_rows, n_cols = X.shape
 
         if sample_weight is None:
@@ -709,7 +707,7 @@ class KMeans(InteropMixin,
         if use_host_path:
             labels, inertia = _kmeans_predict_host_chunked(
                 handle_[0], params, X, sample_weight, centers,
-                int(self.streaming_batch_size),
+                streaming_batch_size,
             )
         else:
             labels, inertia = _kmeans_predict(
