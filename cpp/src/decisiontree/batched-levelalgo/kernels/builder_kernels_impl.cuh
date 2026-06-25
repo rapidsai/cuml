@@ -22,6 +22,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 
+#include <algorithm>
 #include <cstdio>
 
 namespace ML {
@@ -29,17 +30,17 @@ namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
 
-template <typename IdxT>
+template <typename CountT>
 struct NodeSplitPartitionState {
-  IdxT left_count;
+  CountT left_count;
   bool valid_row;
   bool goes_left;
 };
 
-template <typename IdxT>
+template <typename CountT>
 struct NodeSplitPartitionScanOp {
-  __host__ __device__ NodeSplitPartitionState<IdxT> operator()(
-    const NodeSplitPartitionState<IdxT>& lhs, const NodeSplitPartitionState<IdxT>& rhs) const
+  __host__ __device__ NodeSplitPartitionState<CountT> operator()(
+    const NodeSplitPartitionState<CountT>& lhs, const NodeSplitPartitionState<CountT>& rhs) const
   {
     return {lhs.left_count + rhs.left_count, rhs.valid_row, rhs.goes_left};
   }
@@ -51,14 +52,16 @@ struct NodeSplitPartitionScanOp {
 // partition buffer.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 struct NodeSplitPartitionWriter {
+  using CountT = typename Split<DataT>::CountT;
+
   Dataset<DataT, LabelT, IdxT> dataset;
   const NodeWorkItem* work_items;
-  const Split<DataT, IdxT>* splits;
-  const WorkloadInfo<IdxT>* workload_info;
+  const Split<DataT>* splits;
+  const WorkloadInfo* workload_info;
   IdxT* partition_row_ids;
 
   __host__ __device__ void operator()(std::ptrdiff_t index,
-                                      NodeSplitPartitionState<IdxT> state) const
+                                      NodeSplitPartitionState<CountT> state) const
   {
     if (!state.valid_row) { return; }
 
@@ -71,32 +74,54 @@ struct NodeSplitPartitionWriter {
     const auto range_start = work_item.instances.begin;
     const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
 
-    const auto row = dataset.row_ids[range_start + range_pos];
-    const auto rank =
-      state.goes_left ? state.left_count - IdxT(1) : IdxT(range_pos) - state.left_count;
-    const auto out_idx         = range_start + (state.goes_left ? rank : split.nLeft + rank);
-    partition_row_ids[out_idx] = row;
+    const auto row              = dataset.row_ids[range_start + range_pos];
+    const auto rank             = state.goes_left ? std::size_t(state.left_count - CountT{1})
+                                                  : range_pos - std::size_t(state.left_count);
+    const auto local_left_count = std::size_t(split.local_nLeft);
+    const auto out_idx          = range_start + (state.goes_left ? rank : local_left_count + rank);
+    partition_row_ids[out_idx]  = row;
   }
 };
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void nodeSplitLocalCountKernel(const DataT min_impurity_decrease,
+                                                 const Dataset<DataT, LabelT, IdxT> dataset,
+                                                 const NodeWorkItem* work_items,
+                                                 Split<DataT>* splits,
+                                                 const WorkloadInfo* workload_info)
+{
+  using CountT = typename Split<DataT>::CountT;
+
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
+  if (SplitNotValid(split, min_impurity_decrease)) { return; }
+
+  const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  if (range_pos >= work_item.instances.count) { return; }
+
+  const auto row       = dataset.row_ids[work_item.instances.begin + range_pos];
+  const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
+  const auto goes_left = dataset.data[col_idx] <= split.quesval;
+  if (goes_left) { atomicAdd(&splits[nid].local_nLeft, CountT{1}); }
+}
 
 // Copy back only ranges for nodes that actually split. Leaf/invalid nodes keep
 // their existing row-id order because the scan writer skips them too.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
-                                               const DataT min_impurity_decrease,
+static __global__ void nodeSplitCopyBackKernel(const DataT min_impurity_decrease,
                                                const Dataset<DataT, LabelT, IdxT> dataset,
                                                const NodeWorkItem* work_items,
-                                               const Split<DataT, IdxT>* splits,
-                                               const WorkloadInfo<IdxT>* workload_info,
+                                               const Split<DataT>* splits,
+                                               const WorkloadInfo* workload_info,
                                                const IdxT* partition_row_ids)
 {
   const auto workload_info_cta = workload_info[blockIdx.x];
   const auto nid               = workload_info_cta.nodeid;
   const auto work_item         = work_items[nid];
   const auto split             = splits[nid];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-    return;
-  }
+  if (SplitNotValid(split, min_impurity_decrease)) { return; }
 
   const auto range_start = work_item.instances.begin;
   const auto range_len   = work_item.instances.count;
@@ -108,17 +133,20 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const DataT min_impurity_decrease,
+void launchNodeSplitKernel(const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, IdxT>* splits,
-                           const WorkloadInfo<IdxT>* workload_info,
+                           Split<DataT>* splits,
+                           const WorkloadInfo* workload_info,
                            size_t n_blocks_dimx,
                            IdxT* partition_row_ids,
                            cudaStream_t builder_stream)
 {
   if (n_blocks_dimx == 0) return;
+
+  using CountT = typename Split<DataT>::CountT;
+  nodeSplitLocalCountKernel<DataT, LabelT, IdxT, TPB><<<n_blocks_dimx, TPB, 0, builder_stream>>>(
+    min_impurity_decrease, dataset, work_items, splits, workload_info);
 
   // Each slot corresponds to one thread lane in the tiled workload_info layout.
   // workload_info is grouped by node, so scan-by-key resets ranks at node boundaries.
@@ -134,19 +162,19 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     const auto nid               = workload_info_cta.nodeid;
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
-    if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
+    if (SplitNotValid(split, min_impurity_decrease)) {
+      return NodeSplitPartitionState<CountT>{CountT{0}, false, false};
     }
 
     const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
     if (range_pos >= work_item.instances.count) {
-      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
+      return NodeSplitPartitionState<CountT>{CountT{0}, false, false};
     }
 
     const auto row       = dataset.row_ids[work_item.instances.begin + range_pos];
     const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
     const auto goes_left = dataset.data[col_idx] <= split.quesval;
-    return NodeSplitPartitionState<IdxT>{goes_left ? IdxT(1) : IdxT(0), true, goes_left};
+    return NodeSplitPartitionState<CountT>{goes_left ? CountT{1} : CountT{0}, true, goes_left};
   };
 
   // The scan input is a stream of per-slot partition states keyed by node id.
@@ -162,26 +190,20 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                 node_keys + n_slots,
                                 partition_states,
                                 partition_writer,
-                                thrust::equal_to<IdxT>{},
-                                NodeSplitPartitionScanOp<IdxT>{});
+                                thrust::equal_to<int>{},
+                                NodeSplitPartitionScanOp<CountT>{});
 
   // The original row_ids buffer remains the source during the scan, so copy back after it finishes.
-  nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
-    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
-                                                min_impurity_decrease,
-                                                dataset,
-                                                work_items,
-                                                splits,
-                                                workload_info,
-                                                partition_row_ids);
+  nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB><<<n_blocks_dimx, TPB, 0, builder_stream>>>(
+    min_impurity_decrease, dataset, work_items, splits, workload_info, partition_row_ids);
 }
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
+template <typename DatasetT, typename NodeT, typename ObjectiveT>
 static __global__ void leafKernel(ObjectiveT objective,
                                   DatasetT dataset,
                                   const NodeT* tree,
                                   const InstanceRange* instance_ranges,
-                                  DataT* leaves)
+                                  typename ObjectiveT::BinT* leaf_histograms)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
@@ -201,24 +223,59 @@ static __global__ void leafKernel(ObjectiveT objective,
   }
   __syncthreads();
   if (tid == 0) {
-    ObjectiveT::SetLeafVector(
-      histogram, dataset.num_outputs, leaves + dataset.num_outputs * node_id);
+    auto leaf_histogram = leaf_histograms + dataset.num_outputs * node_id;
+    for (int i = 0; i < dataset.num_outputs; ++i) {
+      leaf_histogram[i] = histogram[i];
+    }
   }
 }
 
-template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
-void launchLeafKernel(ObjectiveT objective,
-                      DatasetT& dataset,
-                      const NodeT* tree,
-                      const InstanceRange* instance_ranges,
-                      DataT* leaves,
-                      int batch_size,
-                      size_t smem_size,
-                      cudaStream_t builder_stream)
+template <typename NodeT, typename ObjectiveT, typename DataT>
+static __global__ void finalizeLeafKernel(ObjectiveT objective,
+                                          const NodeT* tree,
+                                          const typename ObjectiveT::BinT* leaf_histograms,
+                                          DataT* leaves,
+                                          int num_outputs)
+{
+  auto node_id = blockIdx.x;
+  auto leaf    = leaves + num_outputs * node_id;
+  auto& node   = tree[node_id];
+  if (!node.IsLeaf()) {
+    for (int i = 0; i < num_outputs; ++i) {
+      leaf[i] = DataT(0);
+    }
+    return;
+  }
+  auto leaf_histogram = leaf_histograms + num_outputs * node_id;
+  ObjectiveT::SetLeafVector(leaf_histogram, num_outputs, leaf);
+}
+
+template <typename NodeT, typename ObjectiveT, typename DataT>
+void launchFinalizeLeafKernel(ObjectiveT objective,
+                              const NodeT* tree,
+                              const typename ObjectiveT::BinT* leaf_histograms,
+                              DataT* leaves,
+                              int batch_size,
+                              int num_outputs,
+                              cudaStream_t builder_stream)
+{
+  finalizeLeafKernel<<<batch_size, 1, 0, builder_stream>>>(
+    objective, tree, leaf_histograms, leaves, num_outputs);
+}
+
+template <typename DatasetT, typename NodeT, typename ObjectiveT>
+void launchLeafHistogramKernel(ObjectiveT objective,
+                               DatasetT& dataset,
+                               const NodeT* tree,
+                               const InstanceRange* instance_ranges,
+                               typename ObjectiveT::BinT* leaf_histograms,
+                               int batch_size,
+                               size_t smem_size,
+                               cudaStream_t builder_stream)
 {
   int num_blocks = batch_size;
   leafKernel<<<num_blocks, TPB_DEFAULT, smem_size, builder_stream>>>(
-    objective, dataset, tree, instance_ranges, leaves);
+    objective, dataset, tree, instance_ranges, leaf_histograms);
 }
 
 /**
@@ -251,131 +308,69 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT n_bins)
   return total_aggregate;
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename ObjectiveT,
-          typename BinT>
-static __global__ void computeSplitKernel(BinT* histograms,
-                                          IdxT max_n_bins,
-                                          IdxT min_samples_split,
-                                          IdxT max_leaves,
-                                          const Dataset<DataT, LabelT, IdxT> dataset,
-                                          const Quantiles<DataT, IdxT> quantiles,
-                                          const NodeWorkItem* work_items,
-                                          IdxT colStart,
-                                          const IdxT* column_samples,
-                                          int* done_count,
-                                          int* mutex,
-                                          volatile Split<DataT, IdxT>* splits,
-                                          ObjectiveT objective,
-                                          IdxT treeid,
-                                          const WorkloadInfo<IdxT>* workload_info,
-                                          uint64_t seed)
+template <typename BinT>
+DI BinCountT bin_count(BinT const& bin)
 {
-  // dynamic shared memory
+  return bin.Count();
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
+static __global__ void computeSplitHistogramKernel(BinT* histograms,
+                                                   IdxT max_n_bins,
+                                                   const Dataset<DataT, LabelT, IdxT> dataset,
+                                                   const Quantiles<DataT, IdxT> quantiles,
+                                                   const NodeWorkItem* work_items,
+                                                   IdxT colStart,
+                                                   const IdxT* column_samples,
+                                                   const WorkloadInfo* workload_info)
+{
   extern __shared__ char smem[];
 
-  // Read workload info for this block
-  WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
-  IdxT nid                             = workload_info_cta.nodeid;
-  IdxT large_nid                       = workload_info_cta.large_nodeid;
-  const auto work_item                 = work_items[nid];
-  auto range_start                     = work_item.instances.begin;
-  auto range_len                       = work_item.instances.count;
+  auto workload_info_cta = workload_info[blockIdx.x];
+  IdxT nid               = workload_info_cta.nodeid;
+  const auto work_item   = work_items[nid];
+  auto range_start       = work_item.instances.begin;
+  auto range_len         = work_item.instances.count;
+  IdxT offset_blockid    = workload_info_cta.offset_blockid;
+  IdxT num_blocks        = workload_info_cta.num_blocks;
 
-  IdxT offset_blockid = workload_info_cta.offset_blockid;
-  IdxT num_blocks     = workload_info_cta.num_blocks;
+  IdxT col;
+  if (dataset.n_sampled_cols == dataset.N) {
+    col = colStart + blockIdx.y;
+  } else {
+    IdxT colIndex = colStart + blockIdx.y;
+    col           = column_samples[nid * dataset.n_sampled_cols + colIndex];
+  }
 
-  // obtaining the feature to test split on
-  IdxT colIndex = colStart + blockIdx.y;
-  IdxT col      = column_samples[nid * dataset.n_sampled_cols + colIndex];
-
-  // getting the n_bins for that feature
-  int n_bins = quantiles.n_bins_array[col];
-
-  auto end                  = range_start + range_len;
-  auto shared_histogram_len = n_bins * objective.NumClasses();
+  int n_bins                = quantiles.n_bins_array[col];
+  auto shared_histogram_len = n_bins * dataset.num_outputs;
   auto* shared_histogram    = alignPointer<BinT>(smem);
   auto* shared_quantiles    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* shared_done         = alignPointer<int>(shared_quantiles + n_bins);
   IdxT stride               = blockDim.x * num_blocks;
   IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
+  auto histograms_offset    = ((nid * gridDim.y) + blockIdx.y) * max_n_bins * dataset.num_outputs;
 
-  // populating shared memory with initial values
-  for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
+  for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
     shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
+  }
+  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
     shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
-
-  // synchronizing above changes across block
+  }
   __syncthreads();
 
-  // compute pdf shared histogram for all bins for all classes in shared mem
-
-  // Must be 64 bit - can easily grow larger than a 32 bit int
   std::size_t col_offset = std::size_t(col) * dataset.M;
-  for (auto i = range_start + tid; i < end; i += stride) {
-    // each thread works over a data point and strides to the next
+  for (auto i = range_start + tid; i < range_start + range_len; i += stride) {
     auto row   = dataset.row_ids[i];
     auto data  = dataset.data[row + col_offset];
     auto label = dataset.labels[row];
-
-    // `start` is lowest index such that data <= shared_quantiles[start]
     IdxT start = lower_bound(shared_quantiles, n_bins, data);
-    // ++shared_histogram[start]
     BinT::IncrementHistogram(shared_histogram, n_bins, start, label);
   }
-
-  // synchronizing above changes across block
   __syncthreads();
-  if (num_blocks > 1) {
-    // update the corresponding global location
-    auto histograms_offset =
-      ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
-      BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
-    }
 
-    __threadfence();  // for commit guarantee
-    __syncthreads();
-
-    // last threadblock will go ahead and compute the best split
-    bool last = MLCommon::signalDone(
-      done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, shared_done);
-    // if not the last threadblock, exit
-    if (!last) return;
-
-    // store the complete global histogram in shared memory of last block
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
-      shared_histogram[i] = histograms[histograms_offset + i];
-
-    __syncthreads();
+  for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
+    BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
   }
-
-  // PDF to CDF inplace in `shared_histogram`
-  for (IdxT c = 0; c < objective.NumClasses(); ++c) {
-    // left to right scan operation for scanning
-    // "lesser-than-or-equal" counts
-    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(shared_histogram + n_bins * c, n_bins);
-    // now, `shared_histogram[n_bins * c + i]` will have count of datapoints of class `c`
-    // that are less than or equal to `shared_quantiles[i]`.
-  }
-
-  __syncthreads();
-
-  // calculate the best candidate bins (one for each thread in the block) in current feature and
-  // corresponding information gain for splitting
-  Split<DataT, IdxT> sp =
-    objective.Gain(shared_histogram, shared_quantiles, col, range_len, n_bins);
-
-  __syncthreads();
-
-  // calculate best bins among candidate bins per feature using warp reduce
-  // then atomically update across features to get best split per node
-  // (in split[nid])
-  sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
 template <typename DataT,
@@ -384,83 +379,161 @@ template <typename DataT,
           int TPB,
           typename ObjectiveT,
           typename BinT>
-void launchComputeSplitKernel(BinT* histograms,
-                              IdxT max_n_bins,
-                              IdxT min_samples_split,
-                              IdxT max_leaves,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* column_samples,
-                              int* done_count,
-                              int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
-                              ObjectiveT& objective,
-                              IdxT treeid,
-                              const WorkloadInfo<IdxT>* workload_info,
-                              uint64_t seed,
-                              dim3 grid,
-                              size_t smem_size,
-                              cudaStream_t builder_stream)
+static __global__ void evaluateSplitKernel(BinT* histograms,
+                                           IdxT max_n_bins,
+                                           const Dataset<DataT, LabelT, IdxT> dataset,
+                                           const Quantiles<DataT, IdxT> quantiles,
+                                           IdxT colStart,
+                                           const IdxT* column_samples,
+                                           int* mutex,
+                                           volatile Split<DataT>* splits,
+                                           ObjectiveT objective)
 {
-  computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+  extern __shared__ char smem[];
+
+  IdxT nid = blockIdx.x;
+  IdxT col;
+  if (dataset.n_sampled_cols == dataset.N) {
+    col = colStart + blockIdx.y;
+  } else {
+    IdxT colIndex = colStart + blockIdx.y;
+    col           = column_samples[nid * dataset.n_sampled_cols + colIndex];
+  }
+
+  int n_bins                = quantiles.n_bins_array[col];
+  auto shared_histogram_len = n_bins * objective.NumClasses();
+  auto* shared_histogram    = alignPointer<BinT>(smem);
+  auto* shared_quantiles    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
+  auto histograms_offset = ((nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
+
+  for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
+    shared_histogram[i] = histograms[histograms_offset + i];
+  }
+  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
+    shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
+  }
+  __syncthreads();
+
+  typename ObjectiveT::CountT split_len = 0;
+  for (IdxT c = 0; c < objective.NumClasses(); ++c) {
+    auto total_sum = pdf_to_cdf<BinT, IdxT, TPB>(shared_histogram + n_bins * c, n_bins);
+    split_len += bin_count(total_sum);
+  }
+  __syncthreads();
+
+  Split<DataT> sp =
+    objective.Gain(shared_histogram, shared_quantiles, static_cast<int>(col), split_len, n_bins);
+  __syncthreads();
+  sp.evalBestSplit(smem, splits + nid, mutex + nid);
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename BinT>
+void launchComputeSplitHistogramKernel(BinT* histograms,
+                                       IdxT max_n_bins,
+                                       const Dataset<DataT, LabelT, IdxT>& dataset,
+                                       const Quantiles<DataT, IdxT>& quantiles,
+                                       const NodeWorkItem* work_items,
+                                       IdxT colStart,
+                                       const IdxT* column_samples,
+                                       const WorkloadInfo* workload_info,
+                                       dim3 grid,
+                                       size_t smem_size,
+                                       cudaStream_t builder_stream)
+{
+  computeSplitHistogramKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
     <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
                                                        max_n_bins,
-                                                       min_samples_split,
-                                                       max_leaves,
                                                        dataset,
                                                        quantiles,
                                                        work_items,
                                                        colStart,
                                                        column_samples,
-                                                       done_count,
+                                                       workload_info);
+}
+
+template <typename DataT,
+          typename LabelT,
+          typename IdxT,
+          int TPB,
+          typename ObjectiveT,
+          typename BinT>
+void launchEvaluateSplitKernel(BinT* histograms,
+                               IdxT max_n_bins,
+                               const Dataset<DataT, LabelT, IdxT>& dataset,
+                               const Quantiles<DataT, IdxT>& quantiles,
+                               IdxT colStart,
+                               const IdxT* column_samples,
+                               int* mutex,
+                               volatile Split<DataT>* splits,
+                               ObjectiveT& objective,
+                               dim3 grid,
+                               size_t smem_size,
+                               cudaStream_t builder_stream)
+{
+  evaluateSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+    <<<grid, TPB_DEFAULT, smem_size, builder_stream>>>(histograms,
+                                                       max_n_bins,
+                                                       dataset,
+                                                       quantiles,
+                                                       colStart,
+                                                       column_samples,
                                                        mutex,
                                                        splits,
-                                                       objective,
-                                                       treeid,
-                                                       workload_info,
-                                                       seed);
+                                                       objective);
 }
 
 template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
-  const _IdxT min_samples_leaf,
   const _DataT min_impurity_decrease,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,
   const NodeWorkItem* work_items,
-  const Split<_DataT, _IdxT>* splits,
-  const WorkloadInfo<_IdxT>* workload_info,
+  Split<_DataT>* splits,
+  const WorkloadInfo* workload_info,
   size_t n_blocks_dimx,
   _IdxT* partition_row_ids,
   cudaStream_t builder_stream);
 
-template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
+template void launchLeafHistogramKernel<_DatasetT, _NodeT, _ObjectiveT>(
   _ObjectiveT objective,
   _DatasetT& dataset,
   const _NodeT* tree,
   const InstanceRange* instance_ranges,
-  _DataT* leaves,
+  typename _ObjectiveT::BinT* leaf_histograms,
   int batch_size,
   size_t smem_size,
   cudaStream_t builder_stream);
 
-template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+template void launchFinalizeLeafKernel<_NodeT, _ObjectiveT, _DataT>(
+  _ObjectiveT objective,
+  const _NodeT* tree,
+  const typename _ObjectiveT::BinT* leaf_histograms,
+  _DataT* leaves,
+  int batch_size,
+  int num_outputs,
+  cudaStream_t builder_stream);
+
+template void launchComputeSplitHistogramKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _BinT>(
   _BinT* histograms,
-  _IdxT n_bins,
-  _IdxT min_samples_split,
-  _IdxT max_leaves,
+  _IdxT max_n_bins,
   const Dataset<_DataT, _LabelT, _IdxT>& dataset,
   const Quantiles<_DataT, _IdxT>& quantiles,
   const NodeWorkItem* work_items,
   _IdxT colStart,
   const _IdxT* column_samples,
-  int* done_count,
+  const WorkloadInfo* workload_info,
+  dim3 grid,
+  size_t smem_size,
+  cudaStream_t builder_stream);
+
+template void launchEvaluateSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+  _BinT* histograms,
+  _IdxT max_n_bins,
+  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
+  const Quantiles<_DataT, _IdxT>& quantiles,
+  _IdxT colStart,
+  const _IdxT* column_samples,
   int* mutex,
-  volatile Split<_DataT, _IdxT>* splits,
+  volatile Split<_DataT>* splits,
   _ObjectiveT& objective,
-  _IdxT treeid,
-  const WorkloadInfo<_IdxT>* workload_info,
-  uint64_t seed,
   dim3 grid,
   size_t smem_size,
   cudaStream_t builder_stream);

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "quantiles.h"
+#include "random_utils.cuh"
 
 #include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
@@ -127,7 +128,7 @@ struct QuantileResult {
  * @param handle RAFT handle used for stream and resource access.
  * @param data Column-major input matrix with shape `[n_cols, n_rows]`.
  * @param max_n_bins Maximum number of quantile candidates to retain per feature.
- * @param n_rows Number of local rows in `data` for this rank.
+ * @param n_rows Number of local rows in `data` for this rank; may be zero in distributed mode.
  * @param n_cols Number of columns in `data`.
  * @param oversampling_factor Multiplier applied to `max_n_bins` to choose the
  * sampled row budget per feature before sorting and quantile extraction. The
@@ -147,9 +148,9 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                uint64_t seed           = uint64_t{0})
 {
   raft::common::nvtx::push_range("computeQuantiles");
-  RAFT_EXPECTS(data != nullptr, "data pointer must not be null");
+  RAFT_EXPECTS(data != nullptr || n_rows == 0, "data pointer must not be null");
   RAFT_EXPECTS(max_n_bins > 0, "max_n_bins must be positive");
-  RAFT_EXPECTS(n_rows > 0, "n_rows must be positive");
+  RAFT_EXPECTS(n_rows >= 0, "n_rows must be non-negative");
   RAFT_EXPECTS(n_cols > 0, "n_cols must be positive");
   RAFT_EXPECTS(oversampling_factor > 0, "oversampling_factor must be positive");
 
