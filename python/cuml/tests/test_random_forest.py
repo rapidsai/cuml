@@ -1151,6 +1151,36 @@ def test_rf_predict_returns_int():
     assert pred.dtype == np.int64
 
 
+@pytest.mark.skipif(
+    cp.cuda.runtime.getDeviceCount() < 2,
+    reason="test requires at least two visible CUDA devices",
+)
+def test_rf_fit_with_cupy_nondefault_device():
+    # Verify that cuml operations respect the current device context and
+    # restore it upon completion. This test checks that cuML correctly saves
+    # and restores the CUDA device ID, ensuring it does not inadvertently
+    # modify the device set by external code.
+
+    # IMPORTANT: This test does **not** document or endorse ``cp.cuda.Device``
+    # (or ``cp.cuda.runtime.setDevice``) as a supported API for switching
+    # devices in cuML. Switching devices via CuPy is generally **not
+    # supported**.
+    current_device = cp.cuda.runtime.getDevice()
+
+    with cp.cuda.Device(1):
+        X = cp.random.normal(size=(10, 4)).astype(cp.float32)
+        y = cp.asarray([0, 1] * 5, dtype=cp.int32)
+
+        clf = cuml.ensemble.RandomForestClassifier(
+            max_features=1.0,
+            n_bins=8,
+            n_estimators=2,
+        )
+        clf.fit(X, y)
+
+    assert cp.cuda.runtime.getDevice() == current_device
+
+
 def test_ensemble_estimator_length():
     X, y = make_classification()
     clf = cuml.ensemble.RandomForestClassifier(n_estimators=3)
