@@ -8,7 +8,7 @@ import cupy as cp
 import numpy as np
 
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.validation import check_array
 
 

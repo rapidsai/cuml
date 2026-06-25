@@ -375,7 +375,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
 
     def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the wrapped GPU estimator."""
-        from cuml.common.sparse_utils import is_sparse
+        from cuml.common.sparse import is_sparse
 
         if (
             args
