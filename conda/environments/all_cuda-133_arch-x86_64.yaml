@@ -18,7 +18,7 @@ dependencies:
 - cupy>=13.6.0,!=14.0.0,!=14.1.0
 - cuvs==26.8.*,>=0.0.0a0
 - cxx-compiler
-- cython>=3.2.2
+- cython>=3.2.2,<3.3.0a0
 - dask-cuda==26.8.*,>=0.0.0a0
 - dask-cudf==26.8.*,>=0.0.0a0
 - dask-ml>=2024
