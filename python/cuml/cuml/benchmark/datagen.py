@@ -372,7 +372,7 @@ def _convert_to_cupy(data, order="F"):
     elif isinstance(data, np.ndarray):
         return cp.asarray(data, order=order)
     elif isinstance(data, cp.ndarray):
-        return data
+        return cp.asarray(data, order=order)
     elif isinstance(data, cudf.DataFrame):
         return cp.asarray(data.to_cupy(), order=order)
     elif isinstance(data, cudf.Series):
