@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn

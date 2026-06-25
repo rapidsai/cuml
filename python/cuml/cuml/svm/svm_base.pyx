@@ -7,7 +7,7 @@ import scipy.sparse
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
