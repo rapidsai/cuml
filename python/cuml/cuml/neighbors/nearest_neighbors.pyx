@@ -13,7 +13,7 @@ import scipy.sparse
 import cuml
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
-from cuml.common.sparse_utils import is_dense, is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
@@ -793,7 +793,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
     def _kneighbors_dense(
         self, X, int n_neighbors, convert_dtype=True, two_pass_precision=False
     ):
-        if not is_dense(X):
+        if is_sparse(X):
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 

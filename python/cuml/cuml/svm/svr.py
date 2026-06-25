@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect

@@ -35,22 +35,16 @@ from cupyx.scipy import sparse
 from scipy import optimize, stats
 from scipy.special import boxcox
 
-from cuml.internals.mixins import (
-    AllowNaNTagMixin,
-    SparseInputTagMixin,
-)
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import using_output_type, reflect
 from cuml.internals.validation import check_is_fitted, check_array, check_inputs
+from cuml.thirdparty_adapters.sparsefuncs_fast import csr_polynomial_expansion
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array import CumlArray
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters.sparsefuncs_fast import (
-    csr_polynomial_expansion,
-    inplace_csr_row_normalize_l1,
-    inplace_csr_row_normalize_l2,
-)
 from ..utils.extmath import _incremental_mean_and_var, row_norms
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.sparsefuncs import (
@@ -1837,9 +1831,9 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
                                       "for sparse matrices with norm 'l1' "
                                       "or norm 'l2'")
         if norm == 'l1':
-            inplace_csr_row_normalize_l1(X)
+            csr_row_normalize_l1(X)
         elif norm == 'l2':
-            inplace_csr_row_normalize_l2(X)
+            csr_row_normalize_l2(X)
         elif norm == 'max':
             mins, maxes = min_max_axis(X, 1)
             norms = np.maximum(abs(mins), maxes)
