@@ -458,6 +458,54 @@ class RfSpecialisedTest {
         }
       }
     }
+
+    // Bootstrap row samples are not exposed after fit, so reconstruct only full-data trees.
+    if (params.bootstrap) { return; }
+
+    thrust::host_vector<DataT> h_X = X;
+    std::vector<int> rows(params.n_rows);
+    for (std::size_t row = 0; row < params.n_rows; ++row) {
+      rows[row] = row;
+    }
+
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      const auto& tree = forest->trees[i]->sparsetree;
+      ASSERT_FALSE(tree.empty());
+      ASSERT_EQ(static_cast<std::size_t>(tree.front().InstanceCount()), params.n_rows);
+      ExpectNodeCountsMatchTrainingData(tree, 0, rows, h_X);
+    }
+  }
+
+  void ExpectNodeCountsMatchTrainingData(const std::vector<SparseTreeNode<DataT, LabelT>>& tree,
+                                         std::size_t node_id,
+                                         const std::vector<int>& rows,
+                                         const thrust::host_vector<DataT>& h_X)
+  {
+    ASSERT_LT(node_id, tree.size());
+    const auto& node = tree[node_id];
+    EXPECT_EQ(rows.size(), static_cast<std::size_t>(node.InstanceCount()));
+    if (node.IsLeaf()) { return; }
+
+    ASSERT_GE(node.LeftChildId(), 0);
+    ASSERT_GE(node.RightChildId(), 0);
+    const auto left_id  = static_cast<std::size_t>(node.LeftChildId());
+    const auto right_id = static_cast<std::size_t>(node.RightChildId());
+    ASSERT_LT(left_id, tree.size());
+    ASSERT_LT(right_id, tree.size());
+
+    std::vector<int> left_rows;
+    std::vector<int> right_rows;
+    left_rows.reserve(rows.size());
+    right_rows.reserve(rows.size());
+    for (auto row : rows) {
+      const auto col_idx = static_cast<std::size_t>(node.ColumnId()) * params.n_rows + row;
+      (h_X[col_idx] <= node.QueryValue() ? left_rows : right_rows).push_back(row);
+    }
+
+    EXPECT_EQ(left_rows.size(), static_cast<std::size_t>(tree[left_id].InstanceCount()));
+    EXPECT_EQ(right_rows.size(), static_cast<std::size_t>(tree[right_id].InstanceCount()));
+    ExpectNodeCountsMatchTrainingData(tree, left_id, left_rows, h_X);
+    ExpectNodeCountsMatchTrainingData(tree, right_id, right_rows, h_X);
   }
 
   // Difference between the largest element and second largest

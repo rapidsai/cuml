@@ -7,7 +7,7 @@ import cupyx
 from sklearn.exceptions import NotFittedError
 
 import cuml.internals
-from cuml.common.sparsefuncs import (
+from cuml.common.sparse import (
     csr_diag_mul,
     csr_row_normalize_l1,
     csr_row_normalize_l2,
