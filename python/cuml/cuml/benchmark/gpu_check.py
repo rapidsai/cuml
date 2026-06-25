@@ -48,7 +48,7 @@ def get_available_input_types():
         List of available input type strings.
     """
     cpu_types = ["numpy", "pandas"]
-    if is_gpu_available():
+    if is_gpu_available() and is_cuml_available():
         return cpu_types + ["cupy", "cupy-c", "cudf"]
     return cpu_types
 

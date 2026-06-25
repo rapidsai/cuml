@@ -4,10 +4,10 @@
 import time
 
 import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-from numba import cuda
 from sklearn import metrics
 
 from cuml.benchmark import algorithms, datagen
@@ -33,7 +33,7 @@ def test_data_generators(dataset):
 
 
 @pytest.mark.parametrize(
-    "input_type", ["numpy", "cudf", "pandas", "gpuarray", "gpuarray-c"]
+    "input_type", ["numpy", "cudf", "pandas", "cupy", "cupy-c"]
 )
 def test_data_generator_types(input_type):
     X, *_ = datagen.gen_data("blobs", input_type, n_samples=100, n_features=10)
@@ -43,10 +43,8 @@ def test_data_generator_types(input_type):
         assert isinstance(X, cudf.DataFrame)
     elif input_type == "pandas":
         assert isinstance(X, pd.DataFrame)
-    elif input_type == "gpuarray":
-        assert cuda.is_cuda_array(X)
-    elif input_type == "gpuarray-c":
-        assert cuda.is_cuda_array(X)
+    elif input_type in ("cupy", "cupy-c"):
+        assert isinstance(X, cp.ndarray)
     else:
         assert False
 
@@ -200,7 +198,9 @@ def test_real_algos_runner(algo_name):
     assert results["cuml_acc"] is not None
 
 
-@pytest.mark.parametrize("input_type", ["numpy", "cudf", "pandas", "gpuarray"])
+@pytest.mark.parametrize(
+    "input_type", ["numpy", "cudf", "pandas", "cupy", "cupy-c"]
+)
 def test_training_data_to_numpy(input_type):
     X, y, *_ = datagen.gen_data(
         "blobs", input_type, n_samples=100, n_features=10
