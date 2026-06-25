@@ -186,6 +186,8 @@ struct Builder {
   /** Memory alignment value */
   const size_t align_value = 512;
   IdxT* column_samples;
+  /** temporary row IDs for row-wise out-of-place partitioning */
+  IdxT* partition_row_ids;
   /** rmm device workspace buffer */
   rmm::device_uvector<char> d_buff;
   /** pinned host buffer to store the trained nodes */
@@ -286,12 +288,8 @@ struct Builder {
   size_t packedHistogramWorkspaceSize(size_t len) const
   {
     size_t size = calculateAlignedBytes(sizeof(std::uint64_t) * len);
-    if constexpr (has_label_sum_v<T>) {
-      size += calculateAlignedBytes(sizeof(double) * len);
-    }
-    if constexpr (has_weight_v<T>) {
-      size += calculateAlignedBytes(sizeof(double) * len);
-    }
+    if constexpr (has_label_sum_v<T>) { size += calculateAlignedBytes(sizeof(double) * len); }
+    if constexpr (has_weight_v<T>) { size += calculateAlignedBytes(sizeof(double) * len); }
     return size;
   }
 
@@ -309,7 +307,9 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);   // d_work_Items
     d_wsize +=                                                            // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
+    d_wsize +=
+      calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -347,6 +347,8 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
     column_samples = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);
+    partition_row_ids = reinterpret_cast<IdxT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
 
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, builder_stream));
 
@@ -445,12 +447,15 @@ struct Builder {
                                   cudaMemcpyHostToDevice,
                                   builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
+    const auto partition_workload = this->updateWorkloadInfo(work_items);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
     launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_impurity_decrease,
                                                             dataset,
                                                             d_work_items,
-                                                            work_items.size(),
                                                             splits,
+                                                            workload_info,
+                                                            partition_workload,
+                                                            partition_row_ids,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
@@ -513,8 +518,8 @@ struct Builder {
 
   void allReduceHistograms(BinT* histograms_to_reduce, std::size_t len_histograms)
   {
-    auto const& comm = handle.get_comms();
-    auto* packed_base = reinterpret_cast<char*>(packed_histograms);
+    auto const& comm          = handle.get_comms();
+    auto* packed_base         = reinterpret_cast<char*>(packed_histograms);
     double* packed_label_sums = nullptr;
     if constexpr (has_label_sum_v<BinT>) {
       packed_label_sums = reinterpret_cast<double*>(packed_base);
@@ -523,9 +528,7 @@ struct Builder {
     auto* packed_counts = reinterpret_cast<std::uint64_t*>(packed_base);
     packed_base += calculateAlignedBytes(sizeof(std::uint64_t) * len_histograms);
     double* packed_weights = nullptr;
-    if constexpr (has_weight_v<BinT>) {
-      packed_weights = reinterpret_cast<double*>(packed_base);
-    }
+    if constexpr (has_weight_v<BinT>) { packed_weights = reinterpret_cast<double*>(packed_base); }
 
     packHistograms(histograms_to_reduce,
                    packed_label_sums,
@@ -549,11 +552,8 @@ struct Builder {
     ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed RF count histogram all-reduce.");
     if constexpr (has_weight_v<BinT>) {
-      comm.allreduce(packed_weights,
-                     packed_weights,
-                     len_histograms,
-                     raft::comms::op_t::SUM,
-                     builder_stream);
+      comm.allreduce(
+        packed_weights, packed_weights, len_histograms, raft::comms::op_t::SUM, builder_stream);
       ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
              "An error occurred in the distributed RF weight histogram all-reduce.");
     }

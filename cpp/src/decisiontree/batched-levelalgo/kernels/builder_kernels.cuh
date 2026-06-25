@@ -57,6 +57,12 @@ HDI bool SplitPartitionNotValid(const SplitT& split, IdxT, std::size_t)
   return split.colid == -1;
 }
 
+template <typename SplitT, typename DataT>
+HDI bool SplitNotValid(const SplitT& split, DataT min_impurity_decrease)
+{
+  return split.colid == -1 || split.best_metric_val <= min_impurity_decrease;
+}
+
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
 DI OutT* alignPointer(InT dataset)
@@ -98,8 +104,10 @@ template <typename DataT, typename LabelT, typename IdxT, int TPB>
 void launchNodeSplitKernel(const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const size_t work_items_size,
                            Split<DataT>* splits,
+                           const WorkloadInfo* workload_info,
+                           size_t n_blocks_dimx,
+                           IdxT* partition_row_ids,
                            cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT>

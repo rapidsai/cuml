@@ -8,7 +8,7 @@ from packaging.version import Version
 
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.outputs import using_output_type
