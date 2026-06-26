@@ -264,7 +264,7 @@ class CD(FMajorInputTagMixin, Base):
     >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
     >>> cd.fit(X,y)
-    CD()
+    CD(alpha=0.0)
     >>> print(cd.coef_) # doctest: +SKIP
     0 1.001...
     1 1.998...
