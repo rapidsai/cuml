@@ -16,6 +16,7 @@ else:
 import cupy
 from rmm.allocators.cupy import rmm_cupy_allocator
 
+import cuml.accel
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
