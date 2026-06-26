@@ -3,23 +3,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "../bins.cuh"
-#include "../objectives.cuh"
+#include "builder_kernels_impl.cuh"
 
 #include <cuml/tree/flatnode.h>
 
 namespace ML {
 namespace DT {
-using _DataT      = double;
-using _LabelT     = double;
-using _IdxT       = int;
-using _ObjectiveT = RegressionObjectiveFunction<_DataT, _LabelT, _IdxT, true>;
-using _BinT       = typename _ObjectiveT::BinT;
-using _DatasetT   = Dataset<_DataT, _LabelT, _IdxT>;
-using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
+using DataT      = double;
+using LabelT     = double;
+using IdxT       = int;
+using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, IdxT, true>;
+using BinT       = typename ObjectiveT::BinT;
+using DatasetT   = Dataset<DataT, LabelT, IdxT>;
+using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
+
+template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
+  ObjectiveT objective,
+  DatasetT& dataset,
+  const NodeT* tree,
+  const InstanceRange* instance_ranges,
+  DataT* leaves,
+  int batch_size,
+  size_t smem_size,
+  cudaStream_t builder_stream);
+
+template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+  BinT* histograms,
+  IdxT n_bins,
+  IdxT min_samples_split,
+  IdxT max_leaves,
+  const DatasetT& dataset,
+  const Quantiles<DataT, IdxT>& quantiles,
+  const NodeWorkItem* work_items,
+  IdxT colStart,
+  const IdxT* column_samples,
+  int* done_count,
+  int* mutex,
+  volatile Split<DataT, IdxT>* splits,
+  ObjectiveT& objective,
+  IdxT treeid,
+  const WorkloadInfo<IdxT>* workload_info,
+  uint64_t seed,
+  dim3 grid,
+  size_t smem_size,
+  cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML
-
-#define CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION
-#include "builder_kernels_impl.cuh"
-#undef CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION

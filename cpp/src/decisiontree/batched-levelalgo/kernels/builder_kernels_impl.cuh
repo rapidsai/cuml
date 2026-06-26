@@ -398,65 +398,22 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
 {
   computeSplitKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
     <<<grid, TPB, smem_size, builder_stream>>>(histograms,
-                                                       max_n_bins,
-                                                       min_samples_split,
-                                                       max_leaves,
-                                                       dataset,
-                                                       quantiles,
-                                                       work_items,
-                                                       colStart,
-                                                       column_samples,
-                                                       done_count,
-                                                       mutex,
-                                                       splits,
-                                                       objective,
-                                                       treeid,
-                                                       workload_info,
-                                                       seed);
+                                               max_n_bins,
+                                               min_samples_split,
+                                               max_leaves,
+                                               dataset,
+                                               quantiles,
+                                               work_items,
+                                               colStart,
+                                               column_samples,
+                                               done_count,
+                                               mutex,
+                                               splits,
+                                               objective,
+                                               treeid,
+                                               workload_info,
+                                               seed);
 }
 
-#ifndef CUML_DT_SKIP_NODE_SPLIT_KERNEL_INSTANTIATION
-template void launchNodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
-  const _IdxT min_samples_leaf,
-  const _DataT min_impurity_decrease,
-  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
-  const NodeWorkItem* work_items,
-  const Split<_DataT, _IdxT>* splits,
-  const WorkloadInfo<_IdxT>* workload_info,
-  size_t n_blocks_dimx,
-  _IdxT* partition_row_ids,
-  cudaStream_t builder_stream);
-#endif
-
-template void launchLeafKernel<_DatasetT, _NodeT, _ObjectiveT, _DataT>(
-  _ObjectiveT objective,
-  _DatasetT& dataset,
-  const _NodeT* tree,
-  const InstanceRange* instance_ranges,
-  _DataT* leaves,
-  int batch_size,
-  size_t smem_size,
-  cudaStream_t builder_stream);
-
-template void launchComputeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT>(
-  _BinT* histograms,
-  _IdxT n_bins,
-  _IdxT min_samples_split,
-  _IdxT max_leaves,
-  const Dataset<_DataT, _LabelT, _IdxT>& dataset,
-  const Quantiles<_DataT, _IdxT>& quantiles,
-  const NodeWorkItem* work_items,
-  _IdxT colStart,
-  const _IdxT* column_samples,
-  int* done_count,
-  int* mutex,
-  volatile Split<_DataT, _IdxT>* splits,
-  _ObjectiveT& objective,
-  _IdxT treeid,
-  const WorkloadInfo<_IdxT>* workload_info,
-  uint64_t seed,
-  dim3 grid,
-  size_t smem_size,
-  cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML
