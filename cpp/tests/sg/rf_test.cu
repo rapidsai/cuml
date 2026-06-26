@@ -933,6 +933,7 @@ TEST(RfTests, WeightedBootstrapSamplesOnlyPositiveWeightRows)
 
   auto forest     = std::make_shared<RandomForestMetaData<float, int>>();
   auto forest_ptr = forest.get();
+  rmm::device_uvector<bool> bootstrap_masks(std::size_t(n_trees) * n_rows, handle.get_stream());
   fit(handle,
       forest_ptr,
       X.data().get(),
@@ -942,8 +943,20 @@ TEST(RfTests, WeightedBootstrapSamplesOnlyPositiveWeightRows)
       2,
       rf_params,
       rapids_logger::level_enum::info,
-      nullptr,
+      bootstrap_masks.data(),
       sample_weight.data().get());
+  handle.sync_stream();
+
+  thrust::host_vector<bool> h_bootstrap_masks(bootstrap_masks.size());
+  raft::update_host(
+    h_bootstrap_masks.data(), bootstrap_masks.data(), bootstrap_masks.size(), handle.get_stream());
+  handle.sync_stream();
+
+  for (int tree_id = 0; tree_id < n_trees; ++tree_id) {
+    for (int row_id = 0; row_id < n_zero_weight_rows; ++row_id) {
+      EXPECT_FALSE(h_bootstrap_masks[tree_id * n_rows + row_id]);
+    }
+  }
 
   for (auto const& tree_ptr : forest->trees) {
     const auto& tree = *tree_ptr;
@@ -1540,18 +1553,12 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
   auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
-  constexpr int n_rows  = 3;
-  auto mean_with_counts = [&](int count_0, int count_1, int count_2) {
-    auto label_sum = y_host[0] * count_0 + y_host[1] * count_1 + y_host[2] * count_2;
-    auto count_sum = count_0 + count_1 + count_2;
-    return label_sum / count_sum;
-  };
-  auto unique_mean = mean_with_counts(1, 1, 1);
-
+  constexpr int n_rows = 3;
   bool found_duplicate = false;
   for (uint64_t seed = 0; seed < 64 && !found_duplicate; ++seed) {
     RF_params rf_params = set_rf_params(0, -1, 1.0, 3, 1, 2, 0.0, true, 1, 1.0, seed, MSE, 1, 128);
     auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
+    rmm::device_uvector<bool> bootstrap_masks(n_rows, handle.get_stream());
 
     fit(handle,
         forest.get(),
@@ -1561,30 +1568,47 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
         y.data().get(),
         rf_params,
         rapids_logger::level_enum::info,
-        nullptr,
+        bootstrap_masks.data(),
         weights.data().get());
     handle.sync_stream();
 
+    std::array<bool, n_rows> mask{};
+    raft::update_host(mask.data(), bootstrap_masks.data(), mask.size(), handle.get_stream());
+    handle.sync_stream();
+
+    std::array<int, 2> included{};
+    int included_count = 0;
+    for (int i = 0; i < n_rows; ++i) {
+      if (mask[i]) {
+        if (included_count < 2) { included[included_count] = i; }
+        ++included_count;
+      }
+    }
+    if (included_count != 2) { continue; }
+
+    found_duplicate  = true;
     const auto& tree = *forest->trees[0];
     ASSERT_EQ(tree.sparsetree.size(), 1);
     EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
     EXPECT_EQ(tree.sparsetree[0].InstanceCount(), n_rows);
     ASSERT_EQ(tree.vector_leaf.size(), 1);
 
-    auto observed = tree.vector_leaf[0];
-    if (std::abs(observed - unique_mean) < 1e-5f) { continue; }
+    auto mean_with_counts = [&](int count_a, int count_b) {
+      auto a         = included[0];
+      auto b         = included[1];
+      auto label_sum = y_host[a] * count_a + y_host[b] * count_b;
+      auto count_sum = count_a + count_b;
+      return label_sum / count_sum;
+    };
 
-    found_duplicate             = true;
-    bool matched_duplicate_mean = false;
-    for (int count_0 = 0; count_0 <= n_rows; ++count_0) {
-      for (int count_1 = 0; count_1 <= n_rows - count_0; ++count_1) {
-        int count_2 = n_rows - count_0 - count_1;
-        if (count_0 == 1 && count_1 == 1 && count_2 == 1) { continue; }
-        auto duplicate_mean = mean_with_counts(count_0, count_1, count_2);
-        matched_duplicate_mean |= std::abs(observed - duplicate_mean) < 1e-5f;
-      }
-    }
-    EXPECT_TRUE(matched_duplicate_mean);
+    auto unique_mean      = mean_with_counts(1, 1);
+    auto duplicate_a_mean = mean_with_counts(2, 1);
+    auto duplicate_b_mean = mean_with_counts(1, 2);
+    auto observed         = tree.vector_leaf[0];
+
+    EXPECT_GT(std::abs(observed - unique_mean), 1e-5f);
+    EXPECT_TRUE(std::abs(observed - duplicate_a_mean) < 1e-5f ||
+                std::abs(observed - duplicate_b_mean) < 1e-5f);
   }
 
   EXPECT_TRUE(found_duplicate);
