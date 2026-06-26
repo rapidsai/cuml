@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 
 #include <raft/core/handle.hpp>
@@ -67,6 +68,8 @@ class RowSampler {
       sample_weight_sum_(validate_sample_weight(handle, sample_weight_, n_rows_)),
       sample_weight_cdf_(0, handle.get_stream())
   {
+    ASSERT(bootstrap_masks_ == nullptr || DT::is_dev_ptr(bootstrap_masks_),
+           "bootstrap_masks must be a GPU pointer");
     if (use_weighted_bootstrap()) {
       sample_weight_cdf_.resize(n_rows_, handle.get_stream());
       thrust::inclusive_scan(rmm::exec_policy(handle.get_stream()),
@@ -137,7 +140,7 @@ class RowSampler {
   {
     if (bootstrap_masks_ == nullptr) { return; }
 
-    bool* tree_mask = bootstrap_masks_ + (std::size_t(tree_id) * n_rows_);
+    bool* tree_mask = bootstrap_masks_ + (ML::checked_mul<std::size_t>(tree_id, n_rows_));
     thrust::fill(rmm::exec_policy(stream), tree_mask, tree_mask + n_rows_, false);
     thrust::scatter(rmm::exec_policy(stream),
                     thrust::make_constant_iterator(true),
