@@ -45,7 +45,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
-from rmm.librmm.memory_resource cimport make_any_device_resource
+from rmm.librmm.memory_resource cimport any_resource, device_accessible
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
@@ -1347,7 +1347,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                     ),
                     <size_t> init.nbytes,
                     <cudaStream_t> handle_.get_stream(),
-                    make_any_device_resource(get_current_device_resource().get_mr())
+                    any_resource[device_accessible](
+                        get_current_device_resource().get_mr()
+                    )
                 )
             )
 
