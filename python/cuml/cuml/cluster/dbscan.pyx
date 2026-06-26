@@ -298,7 +298,7 @@ class DBSCAN(InteropMixin,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self,
         X,
