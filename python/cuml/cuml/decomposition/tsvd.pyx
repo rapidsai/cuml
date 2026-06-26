@@ -287,7 +287,7 @@ class TruncatedSVD(InteropMixin,
         return self.components_.shape[0]
 
     @generate_docstring()
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -300,7 +300,7 @@ class TruncatedSVD(InteropMixin,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.

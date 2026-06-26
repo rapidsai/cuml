@@ -200,7 +200,7 @@ class Lars(RegressorMixin, Base):
         return gram
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True) -> "Lars":
         """
         Fit the model with X and y.

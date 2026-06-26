@@ -311,7 +311,7 @@ class CD(FMajorInputTagMixin, Base):
         self.shuffle = shuffle
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.

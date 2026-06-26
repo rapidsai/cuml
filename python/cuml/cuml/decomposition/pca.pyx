@@ -466,7 +466,7 @@ class PCA(InteropMixin,
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -507,7 +507,7 @@ class PCA(InteropMixin,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.

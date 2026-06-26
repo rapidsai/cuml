@@ -152,7 +152,7 @@ class KBinsDiscretizer(TransformerMixin,
             "strategy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.

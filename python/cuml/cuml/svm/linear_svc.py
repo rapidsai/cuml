@@ -223,7 +223,7 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
         self.multi_class = multi_class
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVC":

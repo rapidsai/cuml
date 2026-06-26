@@ -567,7 +567,7 @@ class TSNE(InteropMixin,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
