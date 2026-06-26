@@ -17,6 +17,7 @@ using BinT       = typename ObjectiveT::BinT;
 using DatasetT   = Dataset<DataT, LabelT, IdxT>;
 using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   ObjectiveT objective,
   DatasetT& dataset,
@@ -27,6 +28,7 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   size_t smem_size,
   cudaStream_t builder_stream);
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   IdxT n_bins,

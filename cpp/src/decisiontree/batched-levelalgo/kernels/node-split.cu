@@ -8,6 +8,7 @@
 namespace ML {
 namespace DT {
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchNodeSplitKernel<float, int, int, TPB_DEFAULT>(
   const int min_samples_leaf,
   const float min_impurity_decrease,
@@ -19,6 +20,7 @@ template void launchNodeSplitKernel<float, int, int, TPB_DEFAULT>(
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchNodeSplitKernel<double, int, int, TPB_DEFAULT>(
   const int min_samples_leaf,
   const double min_impurity_decrease,
@@ -30,6 +32,7 @@ template void launchNodeSplitKernel<double, int, int, TPB_DEFAULT>(
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchNodeSplitKernel<float, float, int, TPB_DEFAULT>(
   const int min_samples_leaf,
   const float min_impurity_decrease,
@@ -41,6 +44,7 @@ template void launchNodeSplitKernel<float, float, int, TPB_DEFAULT>(
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
+// Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchNodeSplitKernel<double, double, int, TPB_DEFAULT>(
   const int min_samples_leaf,
   const double min_impurity_decrease,
