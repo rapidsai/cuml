@@ -151,6 +151,7 @@ void fit(const raft::handle_t& user_handle,
          int n_unique_labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr,
          const double* sample_weight         = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
@@ -161,6 +162,7 @@ void fit(const raft::handle_t& user_handle,
          int n_unique_labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr,
          const double* sample_weight         = nullptr);
 
 template <typename T, typename L>
@@ -172,6 +174,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   L* labels,
                   int n_unique_labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   T* feature_importances,
                   rapids_logger::level_enum verbosity,
                   const double* sample_weight = nullptr);
@@ -232,6 +235,7 @@ void fit(const raft::handle_t& user_handle,
          float* labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr,
          const double* sample_weight         = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
@@ -241,6 +245,7 @@ void fit(const raft::handle_t& user_handle,
          double* labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
+         bool* bootstrap_masks               = nullptr,
          const double* sample_weight         = nullptr);
 
 template <typename T, typename L>
@@ -251,6 +256,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   int n_cols,
                   L* labels,
                   RF_params rf_params,
+                  bool* bootstrap_masks,
                   T* feature_importances,
                   rapids_logger::level_enum verbosity,
                   const double* sample_weight = nullptr);

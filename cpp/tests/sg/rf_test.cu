@@ -363,6 +363,7 @@ auto TrainScore(const raft::handle_t& handle,
         params.n_labels,
         rf_params,
         rapids_logger::level_enum::info,
+        nullptr,
         sample_weight);
   } else {
     fit(handle,
@@ -373,6 +374,7 @@ auto TrainScore(const raft::handle_t& handle,
         y,
         rf_params,
         rapids_logger::level_enum::info,
+        nullptr,
         sample_weight);
   }
 
@@ -875,6 +877,7 @@ TEST(RfTests, InvalidSampleWeightThrows)
                      2,
                      rf_params,
                      rapids_logger::level_enum::info,
+                     nullptr,
                      sample_weight.data().get()),
                  raft::exception);
   };
@@ -895,6 +898,7 @@ TEST(RfTests, InvalidSampleWeightThrows)
                    2,
                    rf_params,
                    rapids_logger::level_enum::info,
+                   nullptr,
                    sample_weight.data().get()),
                raft::exception);
 }
@@ -938,6 +942,7 @@ TEST(RfTests, WeightedBootstrapSamplesOnlyPositiveWeightRows)
       2,
       rf_params,
       rapids_logger::level_enum::info,
+      nullptr,
       sample_weight.data().get());
 
   for (auto const& tree_ptr : forest->trees) {
@@ -1401,6 +1406,7 @@ TEST(RfWeightedTest, ClassificationRootLeafUsesWeights)
       2,
       rf_params,
       rapids_logger::level_enum::info,
+      nullptr,
       weights.data().get());
 
   ASSERT_EQ(forest->trees.size(), 1);
@@ -1435,6 +1441,7 @@ TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
       y.data().get(),
       rf_params,
       rapids_logger::level_enum::info,
+      nullptr,
       weights.data().get());
 
   ASSERT_EQ(forest->trees.size(), 1);
@@ -1469,6 +1476,7 @@ TEST(RfWeightedTest, MinSamplesLeafUsesCountsNotWeights)
       2,
       rf_params,
       rapids_logger::level_enum::info,
+      nullptr,
       weights.data().get());
 
   ASSERT_EQ(forest->trees.size(), 1);
@@ -1508,6 +1516,7 @@ TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
       2,
       rf_params,
       rapids_logger::level_enum::info,
+      nullptr,
       weights.data().get());
 
   ASSERT_EQ(forest->trees.size(), 1);
@@ -1552,6 +1561,7 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
         y.data().get(),
         rf_params,
         rapids_logger::level_enum::info,
+        nullptr,
         weights.data().get());
     handle.sync_stream();
 
