@@ -19,8 +19,7 @@ struct ClassificationBin {
   HDI ClassificationBin(BinCountT count_) : count(count_) {}
   HDI ClassificationBin() : count(0) {}
 
-  DI static void IncrementHistogram(
-    ClassificationBin* hist, int n_bins, int b, int label, double)
+  DI static void IncrementHistogram(ClassificationBin* hist, int n_bins, int b, int label, double)
   {
     auto offset = label * n_bins + b;
     ClassificationBin::AtomicAdd(hist + offset, {1});

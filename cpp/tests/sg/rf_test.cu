@@ -440,18 +440,14 @@ class RfSpecialisedTest {
     if (params.sample_weight) {
       thrust::host_vector<DataT> h_sample_weight(params.n_rows);
       for (std::size_t i = 0; i < params.n_rows; ++i) {
-        int bucket = (int(i) * 37 + params.seed * 13) % 17;
+        int bucket         = (int(i) * 37 + params.seed * 13) % 17;
         h_sample_weight[i] = DataT(0.25) + DataT(bucket) * DataT(0.125);
       }
       sample_weight = h_sample_weight;
     }
     forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
-    std::tie(forest, predictions, training_metrics) = TrainScore(handle,
-                                                                 params,
-                                                                 X.data().get(),
-                                                                 X_transpose.data().get(),
-                                                                 y.data().get(),
-                                                                 SampleWeightPtr());
+    std::tie(forest, predictions, training_metrics) = TrainScore(
+      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
 
     Test();
   }
@@ -468,12 +464,12 @@ class RfSpecialisedTest {
     RfTestParams alt_params = params;
     alt_params.max_depth--;
     auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
-                                                                  alt_params,
-                                                                  X.data().get(),
-                                                                  X_transpose.data().get(),
-                                                                  y.data().get(),
-                                                                  SampleWeightPtr());
-    double eps = 1e-8;
+                                                                 alt_params,
+                                                                 X.data().get(),
+                                                                 X_transpose.data().get(),
+                                                                 y.data().get(),
+                                                                 SampleWeightPtr());
+    double eps                                      = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
     } else if (params.split_criterion == MAE) {
@@ -527,12 +523,8 @@ class RfSpecialisedTest {
     // Repeat training
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
-                                                                  params,
-                                                                  X.data().get(),
-                                                                  X_transpose.data().get(),
-                                                                  y.data().get(),
-                                                                  SampleWeightPtr());
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(
+      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
@@ -871,10 +863,8 @@ TEST(RfTests, InvalidSampleWeightThrows)
     set_rf_params(3, 100, 1.0, 8, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::GINI, 1, 128);
 
   auto expect_invalid_weight_throws = [&](float invalid_weight) {
-    thrust::fill(thrust::cuda::par.on(handle.get_stream()),
-                 sample_weight.begin(),
-                 sample_weight.end(),
-                 1.0f);
+    thrust::fill(
+      thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 1.0f);
     sample_weight[0] = invalid_weight;
     auto forest      = std::make_shared<RandomForestMetaData<float, int>>();
     auto forest_ptr  = forest.get();
@@ -1483,9 +1473,8 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
   constexpr int n_rows = 3;
   bool found_duplicate = false;
   for (uint64_t seed = 0; seed < 64 && !found_duplicate; ++seed) {
-    RF_params rf_params =
-      set_rf_params(0, -1, 1.0, 3, 1, 2, 0.0, true, 1, 1.0, seed, MSE, 1, 128);
-    auto forest = std::make_shared<RandomForestMetaData<float, float>>();
+    RF_params rf_params = set_rf_params(0, -1, 1.0, 3, 1, 2, 0.0, true, 1, 1.0, seed, MSE, 1, 128);
+    auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
     rmm::device_uvector<bool> bootstrap_masks(n_rows, handle.get_stream());
 
     fit(handle,

@@ -545,24 +545,24 @@ struct Builder {
     // call the computeSplitKernel
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
     launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
-                                                               params.max_n_bins,
-                                                               params.min_samples_split,
-                                                               params.max_leaves,
-                                                               dataset,
-                                                               quantiles,
-                                                               d_work_items,
-                                                               col,
-                                                               column_samples,
-                                                               done_count,
-                                                               mutex,
-                                                               splits,
-                                                               objective,
-                                                               treeid,
-                                                               workload_info,
-                                                               seed,
-                                                               grid,
-                                                               smem_size,
-                                                               builder_stream);
+                                                                           params.max_n_bins,
+                                                                           params.min_samples_split,
+                                                                           params.max_leaves,
+                                                                           dataset,
+                                                                           quantiles,
+                                                                           d_work_items,
+                                                                           col,
+                                                                           column_samples,
+                                                                           done_count,
+                                                                           mutex,
+                                                                           splits,
+                                                                           objective,
+                                                                           treeid,
+                                                                           workload_info,
+                                                                           seed,
+                                                                           grid,
+                                                                           smem_size,
+                                                                           builder_stream);
   }
 
   // Set the leaf value predictions in batch

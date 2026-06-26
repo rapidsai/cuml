@@ -615,15 +615,8 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(user_handle,
-                    input,
-                    n_rows,
-                    n_cols,
-                    labels,
-                    1,
-                    forest,
-                    bootstrap_masks,
-                    sample_weight);
+  rf_regressor->fit(
+    user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks, sample_weight);
 }
 
 void fit(const raft::handle_t& user_handle,
@@ -645,15 +638,8 @@ void fit(const raft::handle_t& user_handle,
 
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(rf_params, RF_type::REGRESSION);
-  rf_regressor->fit(user_handle,
-                    input,
-                    n_rows,
-                    n_cols,
-                    labels,
-                    1,
-                    forest,
-                    bootstrap_masks,
-                    sample_weight);
+  rf_regressor->fit(
+    user_handle, input, n_rows, n_cols, labels, 1, forest, bootstrap_masks, sample_weight);
 }
 
 template <typename value_t, typename label_t>

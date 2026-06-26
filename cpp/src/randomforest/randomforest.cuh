@@ -99,11 +99,10 @@ class RandomForest {
            "sample_weight must be a GPU pointer");
     if (sample_weight == nullptr) { return; }
 
-    bool has_invalid = thrust::any_of(
-      rmm::exec_policy(handle.get_stream()),
-      sample_weight,
-      sample_weight + n_rows,
-      detail::InvalidSampleWeight<T>{});
+    bool has_invalid = thrust::any_of(rmm::exec_policy(handle.get_stream()),
+                                      sample_weight,
+                                      sample_weight + n_rows,
+                                      detail::InvalidSampleWeight<T>{});
     ASSERT(!has_invalid, "sample_weight values must be finite and non-negative");
   }
 
@@ -143,14 +142,14 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks = nullptr,
+           bool* bootstrap_masks  = nullptr,
            const T* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
     const raft::handle_t& handle = user_handle;
     this->validate_sample_weight(handle, sample_weight, n_rows);
-    int n_sampled_rows           = 0;
+    int n_sampled_rows = 0;
     if (this->rf_params.bootstrap) {
       n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
     } else {

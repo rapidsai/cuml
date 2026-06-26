@@ -145,12 +145,8 @@ class ClassificationObjectiveFunction {
   DI IdxT NumClasses() const { return nclasses; }
 
   template <typename DatasetT>
-  DI void IncrementHistogram(BinT* histogram,
-                             IdxT n_bins,
-                             IdxT bin,
-                             LabelT label,
-                             const DatasetT& dataset,
-                             IdxT row) const
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
@@ -335,12 +331,8 @@ class RegressionObjectiveFunction {
   DI IdxT NumClasses() const { return 1; }
 
   template <typename DatasetT>
-  DI void IncrementHistogram(BinT* histogram,
-                             IdxT n_bins,
-                             IdxT bin,
-                             LabelT label,
-                             const DatasetT& dataset,
-                             IdxT row) const
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
