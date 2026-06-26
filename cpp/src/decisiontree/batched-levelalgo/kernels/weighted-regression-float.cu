@@ -12,7 +12,7 @@ namespace DT {
 using DataT      = float;
 using LabelT     = float;
 using IdxT       = int;
-using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, IdxT>;
+using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, IdxT, true>;
 using BinT       = typename ObjectiveT::BinT;
 using DatasetT   = Dataset<DataT, LabelT, IdxT>;
 using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
