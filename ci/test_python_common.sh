@@ -24,6 +24,7 @@ rapids-dependency-file-generator \
   --prepend-channel "${RAFT_CHANNEL}" \
   --prepend-channel "${LIBCUVS_CHANNEL}" \
   --prepend-channel "${CPP_CHANNEL}" \
+  --prepend-channel "${CUVS_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" | tee env.yaml
 
 rapids-mamba-retry env create --yes -f env.yaml -n test

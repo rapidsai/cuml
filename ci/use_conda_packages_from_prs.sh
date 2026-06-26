@@ -6,6 +6,7 @@
 LIBRAFT_CHANNEL=$(rapids-get-pr-artifact raft 3052 cpp conda)
 RAFT_CHANNEL=$(rapids-get-pr-artifact raft 3052 python conda)
 LIBCUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 2227 cpp conda)
+CUVS_CHANNEL=$(rapids-get-pr-artifact cuvs 2227 python conda)
 
 # For `rattler` builds:
 #
@@ -17,6 +18,7 @@ RAPIDS_PREPENDED_CONDA_CHANNELS=(
     "${LIBRAFT_CHANNEL}"
     "${RAFT_CHANNEL}"
     "${LIBCUVS_CHANNEL}"
+    "${CUVS_CHANNEL}"
 )
 export RAPIDS_PREPENDED_CONDA_CHANNELS
 
