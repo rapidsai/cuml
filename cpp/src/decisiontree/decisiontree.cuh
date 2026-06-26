@@ -244,7 +244,7 @@ class DecisionTree {
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
     int treeid,
-    const DataT* sample_weight = nullptr)
+    const double* sample_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)

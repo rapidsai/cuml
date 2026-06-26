@@ -15,7 +15,7 @@ struct Dataset {
   /** input labels */
   const LabelT* labels;
   /** optional input sample weights */
-  const DataT* sample_weight;
+  const double* sample_weight;
   /** total rows in dataset */
   IdxT M;
   /** total cols in dataset */

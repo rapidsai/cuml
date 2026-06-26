@@ -199,7 +199,7 @@ struct Builder {
           const DecisionTreeParams& p,
           const DataT* data,
           const LabelT* labels,
-          const DataT* sample_weight,
+          const double* sample_weight,
           IdxT n_rows,
           IdxT n_cols,
           rmm::device_uvector<IdxT>* row_ids,
