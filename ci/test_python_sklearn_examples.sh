@@ -9,6 +9,13 @@ cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")"/../ || exit 1
 export DEPENDENCY_FILE_KEY=test_python_accel_sklearn
 source ./ci/test_python_common.sh
 
+rapids-logger "Install optional scikit-learn example dependencies"
+rapids-mamba-retry install --yes -n test \
+    "plotly>=6,<7" \
+    "polars>=1,<2" \
+    "pooch>=1,<2" \
+    scikit-image
+
 EXITCODE=0
 trap "EXITCODE=1" ERR
 set +e
