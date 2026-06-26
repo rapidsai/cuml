@@ -19,7 +19,7 @@ struct ClassificationBin {
   HDI ClassificationBin(BinCountT count_) : count(count_) {}
   HDI ClassificationBin() : count(0) {}
 
-  DI static void IncrementHistogram(ClassificationBin* hist, int n_bins, int b, int label)
+  DI static void IncrementHistogram(ClassificationBin* hist, int n_bins, int b, int label, double)
   {
     auto offset = label * n_bins + b;
     ClassificationBin::AtomicAdd(hist + offset, {1});
@@ -52,10 +52,6 @@ struct WeightedClassificationBin {
   }
   HDI WeightedClassificationBin() : count(0), weight(0.0) {}
 
-  DI static void IncrementHistogram(WeightedClassificationBin* hist, int n_bins, int b, int label)
-  {
-    WeightedClassificationBin::IncrementHistogram(hist, n_bins, b, label, 1.0);
-  }
   DI static void IncrementHistogram(
     WeightedClassificationBin* hist, int n_bins, int b, int label, double weight)
   {
@@ -90,7 +86,7 @@ struct RegressionBin {
   HDI RegressionBin() : label_sum(0.0), count(0) {}
   HDI RegressionBin(double label_sum, BinCountT count) : label_sum(label_sum), count(count) {}
 
-  DI static void IncrementHistogram(RegressionBin* hist, int n_bins, int b, double label)
+  DI static void IncrementHistogram(RegressionBin* hist, int n_bins, int b, double label, double)
   {
     RegressionBin::AtomicAdd(hist + b, {label, 1});
   }
@@ -127,10 +123,6 @@ struct WeightedRegressionBin {
   {
   }
 
-  DI static void IncrementHistogram(WeightedRegressionBin* hist, int n_bins, int b, double label)
-  {
-    WeightedRegressionBin::IncrementHistogram(hist, n_bins, b, label, 1.0);
-  }
   DI static void IncrementHistogram(
     WeightedRegressionBin* hist, int n_bins, int b, double label, double weight)
   {

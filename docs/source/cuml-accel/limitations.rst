@@ -149,6 +149,7 @@ PCA
 
 ``PCA`` will fall back to CPU in the following cases:
 
+- If ``n_components=0``.
 - If ``n_components="mle"``.
 
 Additional notes:
@@ -237,6 +238,7 @@ KernelRidge
 ``KernelRidge`` will fall back to CPU in the following cases:
 
 - If ``X`` is sparse.
+- If ``kernel`` is not a string.
 
 ``KernelRidge`` results should be almost identical to those of Scikit-Learn
 when running with ``cuml.accel`` enabled. In particular, the fitted
