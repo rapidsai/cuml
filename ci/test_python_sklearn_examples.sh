@@ -26,6 +26,7 @@ SKLEARN_EXAMPLES_JUNITXML="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
 rapids-logger "scikit-learn examples"
 # DEBUG ONLY: use a very high timeout while investigating sklearn example hangs.
 timeout -v --signal=SIGINT --kill-after=60s 7d ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
+    -vv --durations=0 --durations-min=0 \
     -n 4 --dist worksteal \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 TEST_EXITCODE=$?
