@@ -55,9 +55,6 @@ dependencies:
 - nvidia-ml-py>=12
 - onnxruntime
 - packaging
-- plotly
-- polars
-- pooch
 - pre-commit
 - pydata-sphinx-theme!=0.14.2
 - pylibraft==26.8.*,>=0.0.0a0
@@ -77,7 +74,6 @@ dependencies:
 - rich
 - rmm==26.8.*,>=0.0.0a0
 - scikit-build-core>=0.11.0
-- scikit-image
 - scikit-learn>=1.6
 - scipy>=1.14.0
 - seaborn
