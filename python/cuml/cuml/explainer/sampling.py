@@ -57,33 +57,32 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     if X.ndim == 1:
         X = X.reshape(-1, 1)
 
-    # in case there are any missing values in data impute them
-    imp = SimpleImputer(
-        missing_values=cp.nan, strategy="mean", output_type="cupy"
-    )
-    X = imp.fit_transform(X)
+    with cuml.using_output_type("cupy"):
+        # in case there are any missing values in data impute them
+        imp = SimpleImputer(missing_values=cp.nan, strategy="mean")
+        X = imp.fit_transform(X)
 
-    kmeans = KMeans(
-        n_clusters=k,
-        random_state=random_state,
-        output_type="cupy",
-        n_init="auto",
-    ).fit(X)
+        kmeans = KMeans(
+            n_clusters=k,
+            random_state=random_state,
+            output_type="cupy",
+            n_init="auto",
+        ).fit(X)
 
-    if round_values:
-        for i in range(k):
-            for j in range(X.shape[1]):
-                xj = X[:, j]
-                ind = cp.argmin(cp.abs(xj - kmeans.cluster_centers_[i, j]))
-                kmeans.cluster_centers_[i, j] = X[ind, j]
-    summary = kmeans.cluster_centers_
-    labels = kmeans.labels_
+        summary = kmeans.cluster_centers_
 
-    if detailed:
-        return (
-            CumlArray(data=summary),
-            group_names,
-            CumlArray(labels, index=index),
-        )
-    else:
-        return CumlArray(data=summary)
+        if round_values:
+            for i in range(k):
+                for j in range(X.shape[1]):
+                    xj = X[:, j]
+                    ind = cp.argmin(cp.abs(xj - summary[i, j]))
+                    summary[i, j] = X[ind, j]
+
+        if detailed:
+            return (
+                CumlArray(data=summary),
+                group_names,
+                CumlArray(kmeans.labels_, index=index),
+            )
+        else:
+            return CumlArray(data=summary)
