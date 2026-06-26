@@ -526,7 +526,6 @@
 - reason: Voting estimator behavior differs with cuml.accel
   marker: cuml_accel_bugs
   tests:
-  - "sklearn.ensemble.tests.test_voting::test_predict_on_toy_problem[42]"
   - "sklearn.ensemble.tests.test_voting::test_set_estimator_drop"
 - reason: cuML TargetEncoder uses different CV fold assignment algorithm (interleaved vs sklearn's sequential)
   marker: cuml_accel_bugs
