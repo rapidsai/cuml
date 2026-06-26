@@ -358,7 +358,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const float* sample_weight)
+         const double* sample_weight)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -422,7 +422,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const value_t* sample_weight)
+                  const double* sample_weight)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -605,7 +605,7 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity,
          bool* bootstrap_masks,
-         const float* sample_weight)
+         const double* sample_weight)
 {
   raft::common::nvtx::range fun_scope("RF::fit @randomforest.cu");
   ML::default_logger().set_level(verbosity);
@@ -653,7 +653,7 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const value_t* sample_weight)
+                  const double* sample_weight)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -873,7 +873,7 @@ template CUML_EXPORT void fit_treelite<float, int>(const raft::handle_t& user_ha
                                                    bool* bootstrap_masks,
                                                    float* feature_importances,
                                                    rapids_logger::level_enum verbosity,
-                                                   const float* sample_weight);
+                                                   const double* sample_weight);
 template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                                     TreeliteModelHandle* model,
                                                     double* input,
@@ -896,7 +896,7 @@ template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_
                                                      bool* bootstrap_masks,
                                                      float* feature_importances,
                                                      rapids_logger::level_enum verbosity,
-                                                     const float* sample_weight);
+                                                     const double* sample_weight);
 template CUML_EXPORT void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                                        TreeliteModelHandle* model,
                                                        double* input,
