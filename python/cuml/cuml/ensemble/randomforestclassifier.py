@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
+import numpy as np
 
 import cuml.internals
 import cuml.internals.nvtx as nvtx
@@ -178,10 +179,17 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         }
 
     def _attrs_to_cpu(self, model):
+        attrs = super()._attrs_to_cpu(model)
+        # sklearn stores original labels on the forest and encoded labels on
+        # each child tree.
+        estimator_classes = np.arange(self.n_classes_, dtype=np.float64)
+        for estimator in attrs.get("estimators_", ()):
+            estimator.classes_ = estimator_classes
+            estimator.n_classes_ = self.n_classes_
         return {
+            **attrs,
             "classes_": self.classes_,
             "n_classes_": self.n_classes_,
-            **super()._attrs_to_cpu(model),
         }
 
     def __init__(
