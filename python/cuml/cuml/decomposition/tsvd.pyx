@@ -105,7 +105,7 @@ class TruncatedSVD(InteropMixin,
         >>> tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
         ...                           n_iter = 20, tol = 1e-9)
         >>> tsvd_float.fit(gdf_float)
-        TruncatedSVD()
+        TruncatedSVD(algorithm='jacobi', n_components=2, n_iter=20, tol=1e-09)
         >>> print(f'components: {tsvd_float.components_}') # doctest: +SKIP
         components:           0         1         2
         0  0.587259  0.572331  0.572331
@@ -287,7 +287,7 @@ class TruncatedSVD(InteropMixin,
         return self.components_.shape[0]
 
     @generate_docstring()
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -300,7 +300,7 @@ class TruncatedSVD(InteropMixin,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.

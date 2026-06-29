@@ -324,7 +324,7 @@ class MinMaxScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
 
@@ -347,7 +347,7 @@ class MinMaxScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
@@ -709,7 +709,7 @@ class StandardScaler(TransformerMixin,
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
 
@@ -727,7 +727,7 @@ class StandardScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
@@ -1024,7 +1024,7 @@ class MaxAbsScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
 
@@ -1039,7 +1039,7 @@ class MaxAbsScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
@@ -1287,7 +1287,7 @@ class RobustScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
 
@@ -1618,7 +1618,7 @@ class PolynomialFeatures(TransformerMixin,
             feature_names.append(name)
         return feature_names
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "PolynomialFeatures":
         """
         Compute number of output features.
@@ -1924,7 +1924,7 @@ class Normalizer(TransformerMixin,
         tags.requires_fit = False
         return tags
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
 
@@ -2059,7 +2059,7 @@ class Binarizer(TransformerMixin,
         tags.requires_fit = False
         return tags
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
 
@@ -2200,7 +2200,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
@@ -2458,7 +2458,7 @@ class QuantileTransformer(TransformerMixin,
         # https://github.com/numpy/numpy/issues/14685
         self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
@@ -2887,7 +2887,7 @@ class PowerTransformer(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
@@ -2908,7 +2908,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 

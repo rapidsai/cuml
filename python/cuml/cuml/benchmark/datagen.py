@@ -46,19 +46,13 @@ except ImportError:
     from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
 
 # Conditional GPU imports
-cudf = None
-cp = None
-cuda = None
-cuml_datasets = None
-input_utils = None
-
 if is_cuml_available():
     import cudf
     import cupy as cp
-    from numba import cuda
 
     import cuml.datasets as cuml_datasets
-    from cuml.internals import input_utils
+else:
+    cudf = cp = cuml_datasets = None
 
 
 def _gen_data_regression(
@@ -365,7 +359,7 @@ def _convert_to_numpy(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 
-def _convert_to_cupy(data):
+def _convert_to_cupy(data, order="F"):
     """Returns tuple data with all elements converted to cupy ndarrays"""
     if not is_cuml_available():
         raise RuntimeError(
@@ -374,17 +368,17 @@ def _convert_to_cupy(data):
     if data is None:
         return None
     elif isinstance(data, tuple):
-        return tuple([_convert_to_cupy(d) for d in data])
+        return tuple([_convert_to_cupy(d, order=order) for d in data])
     elif isinstance(data, np.ndarray):
-        return cp.asarray(data)
+        return cp.asarray(data, order=order)
     elif isinstance(data, cp.ndarray):
-        return data
+        return cp.asarray(data, order=order)
     elif isinstance(data, cudf.DataFrame):
-        return data.values
+        return cp.asarray(data.to_cupy(), order=order)
     elif isinstance(data, cudf.Series):
-        return data.values
+        return data.to_cupy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
-        return cp.asarray(data.to_numpy())
+        return cp.asarray(data.to_numpy(), order=order)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
@@ -447,32 +441,6 @@ def _convert_to_pandas(data):
             return pd.DataFrame(data)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
-
-
-def _convert_to_gpuarray(data, order="F"):
-    """Returns tuple data with all elements converted to GPU arrays"""
-    if not is_cuml_available():
-        raise RuntimeError(
-            "GPU libraries not available. Cannot convert to gpuarray format."
-        )
-    if data is None:
-        return None
-    elif isinstance(data, tuple):
-        return tuple([_convert_to_gpuarray(d, order=order) for d in data])
-    elif isinstance(data, pd.DataFrame):
-        return _convert_to_gpuarray(cudf.DataFrame(data), order=order)
-    elif isinstance(data, pd.Series):
-        gs = cudf.Series(data)
-        return cuda.as_cuda_array(gs)
-    else:
-        return input_utils.input_to_cuml_array(data, order=order)[0].to_output(
-            "numba"
-        )
-
-
-def _convert_to_gpuarray_c(data):
-    """Returns tuple data with all elements converted to GPU arrays (C order)"""
-    return _convert_to_gpuarray(data, order="C")
 
 
 def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
@@ -543,9 +511,8 @@ _cpu_data_converters = {
 # GPU converters (only available when GPU libs present)
 _gpu_data_converters = {
     "cupy": _convert_to_cupy,
+    "cupy-c": functools.partial(_convert_to_cupy, order="C"),
     "cudf": _convert_to_cudf,
-    "gpuarray": _convert_to_gpuarray,
-    "gpuarray-c": _convert_to_gpuarray_c,
 }
 
 
@@ -586,7 +553,7 @@ def gen_data(
         Dataset to use. Can be a synthetic generator (blobs or regression)
         or a specified dataset (higgs currently, others coming soon)
     dataset_format : str
-        Type of data to return. (One of cudf, numpy, pandas, gpuarray)
+        Type of data to return. (One of cudf, numpy, pandas, cupy, cupy-c)
     n_samples : int, optional
         Total number of samples. If None, uses generator default.
     n_features : int, optional

@@ -273,6 +273,10 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
   using BinT = typename ObjectiveT::BinT;
   // dynamic shared memory
   extern __shared__ char smem[];
+  constexpr int n_split_warps = (TPB + raft::WarpSize - 1) / raft::WarpSize;
+  __shared__ __align__(alignof(Split<DataT, IdxT>)) unsigned char
+    split_scratch_storage[sizeof(Split<DataT, IdxT>) * n_split_warps];
+  auto* split_scratch = reinterpret_cast<Split<DataT, IdxT>*>(split_scratch_storage);
 
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -372,7 +376,7 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
   // calculate best bins among candidate bins per feature using warp reduce
   // then atomically update across features to get best split per node
   // (in split[nid])
-  sp.evalBestSplit(smem, splits + nid, mutex + nid);
+  sp.evalBestSplit(split_scratch, splits + nid, mutex + nid, shared_quantiles, n_bins);
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
