@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+from collections.abc import Mapping
+
 import cudf
 import cupy as cp
 import numpy as np
@@ -173,18 +175,23 @@ def process_class_weight(
             dtype, copy=False
         )
     else:
+        if not isinstance(class_weight, Mapping):
+            raise ValueError(
+                "class_weight must be a dict, 'balanced', or None; "
+                f"got {class_weight!r}"
+            )
+
+        classes_array = cp.asnumpy(classes)
+        extra_classes = [c for c in class_weight if c not in classes_array]
+        if extra_classes:
+            raise ValueError(
+                f"The classes, {np.array(extra_classes).tolist()}, are not in y"
+            )
+
         weights = np.ones(n_classes, dtype=np.float64)
-        unweighted = []
-        for i, c in enumerate(cp.asnumpy(classes)):
+        for i, c in enumerate(classes_array):
             if c in class_weight:
                 weights[i] = class_weight[c]
-            else:
-                unweighted.append(c)
-
-        if unweighted and (n_classes - len(unweighted)) != len(class_weight):
-            raise ValueError(
-                f"The classes, {np.array(unweighted).tolist()}, are not in class_weight"
-            )
 
     if (weights != 1).any():
         if sample_weight is None:

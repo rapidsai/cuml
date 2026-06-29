@@ -1,8 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import numpy as np
 import pytest
 from sklearn.datasets import make_regression
 from sklearn.ensemble import RandomForestRegressor
@@ -71,6 +72,33 @@ def test_rf_min_samples_leaf_reg(regression_data, min_samples_leaf):
     )
     reg.fit(X, y)
     _ = r2_score(y, reg.predict(X))
+
+
+@pytest.mark.parametrize("bootstrap", [False, True])
+def test_rf_sample_weight_reg(bootstrap):
+    zero_weight_X = np.linspace(-3.0, -1.0, 72).reshape(-1, 1)
+    one_weight_X = np.linspace(1.0, 3.0, 72).reshape(-1, 1)
+    X = np.vstack([zero_weight_X, one_weight_X])
+    y = np.array([-100.0] * len(zero_weight_X) + [4.0] * len(one_weight_X))
+    sample_weight = np.array(
+        [0.0] * len(zero_weight_X) + [1.0] * len(one_weight_X)
+    )
+    probe = np.linspace(-3.5, 3.5, 17).reshape(-1, 1)
+
+    reg = RandomForestRegressor(
+        n_estimators=3,
+        bootstrap=bootstrap,
+        max_depth=3,
+        max_features=1.0,
+        random_state=42,
+    )
+    reg.fit(X, y, sample_weight=sample_weight)
+
+    expected = np.full(probe.shape[0], 4.0)
+    np.testing.assert_allclose(reg.predict(probe), expected)
+    assert reg.score(X, y, sample_weight=sample_weight) == pytest.approx(
+        r2_score(y, reg.predict(X), sample_weight=sample_weight)
+    )
 
 
 @pytest.mark.parametrize("min_weight_fraction_leaf", [0.0, 0.1])
