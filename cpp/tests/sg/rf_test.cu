@@ -22,6 +22,7 @@
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -32,6 +33,7 @@
 #include <thrust/transform.h>
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/objectives.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
 #include <nvforest/detail/raft_proto/device_type.hpp>
@@ -42,6 +44,7 @@
 #include <treelite/tree.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -124,6 +127,7 @@ struct RfTestParams {
   CRITERION split_criterion;
   int seed;
   int n_labels;
+  bool sample_weight;
   bool double_precision;
   // c++ has no reflection, so we enumerate the types here
   // This must be updated if new fields are added
@@ -143,6 +147,7 @@ struct RfTestParams {
                            CRITERION,
                            int,
                            int,
+                           bool,
                            bool>;
 };
 
@@ -157,7 +162,8 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
   os << ", min_impurity_decrease = " << ps.min_impurity_decrease
      << ", n_streams = " << ps.n_streams;
   os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
-  os << ", n_labels = " << ps.n_labels << ", double_precision = " << ps.double_precision;
+  os << ", n_labels = " << ps.n_labels << ", sample_weight = " << ps.sample_weight
+     << ", double_precision = " << ps.double_precision;
   return os;
 }
 
@@ -281,8 +287,55 @@ auto nvForestPredictProba(const raft::handle_t& handle,
   return pred;
 }
 template <typename DataT, typename LabelT>
-auto TrainScore(
-  const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
+RF_metrics Score(const raft::handle_t& handle,
+                 RfTestParams params,
+                 const LabelT* y,
+                 const LabelT* pred,
+                 const DataT* sample_weight)
+{
+  thrust::host_vector<LabelT> h_y(params.n_rows);
+  thrust::host_vector<LabelT> h_pred(params.n_rows);
+  raft::update_host(h_y.data(), y, params.n_rows, handle.get_stream());
+  raft::update_host(h_pred.data(), pred, params.n_rows, handle.get_stream());
+  thrust::host_vector<DataT> h_sample_weight;
+  if (sample_weight != nullptr) {
+    h_sample_weight.resize(params.n_rows);
+    raft::update_host(h_sample_weight.data(), sample_weight, params.n_rows, handle.get_stream());
+  }
+  handle.sync_stream();
+
+  double weight_sum = 0.0;
+  if constexpr (std::is_integral_v<LabelT>) {
+    double correct = 0.0;
+    for (std::size_t i = 0; i < params.n_rows; ++i) {
+      double weight = sample_weight == nullptr ? 1.0 : double(h_sample_weight[i]);
+      weight_sum += weight;
+      if (h_y[i] == h_pred[i]) { correct += weight; }
+    }
+    return set_rf_metrics_classification(float(correct / weight_sum));
+  } else {
+    double mean_abs_error     = 0.0;
+    double mean_squared_error = 0.0;
+    for (std::size_t i = 0; i < params.n_rows; ++i) {
+      double weight = sample_weight == nullptr ? 1.0 : double(h_sample_weight[i]);
+      double diff   = double(h_y[i]) - double(h_pred[i]);
+      weight_sum += weight;
+      mean_abs_error += weight * std::abs(diff);
+      mean_squared_error += weight * diff * diff;
+    }
+    mean_abs_error /= weight_sum;
+    mean_squared_error /= weight_sum;
+    return set_rf_metrics_regression(mean_abs_error, mean_squared_error, -1.0);
+  }
+}
+
+template <typename DataT, typename LabelT>
+auto TrainScore(const raft::handle_t& handle,
+                RfTestParams params,
+                DataT* X,
+                DataT* X_transpose,
+                LabelT* y,
+                const DataT* sample_weight)
 {
   RF_params rf_params = set_rf_params(params.max_depth,
                                       params.max_leaves,
@@ -302,16 +355,35 @@ auto TrainScore(
   auto forest     = std::make_shared<RandomForestMetaData<DataT, LabelT>>();
   auto forest_ptr = forest.get();
   if constexpr (std::is_integral_v<LabelT>) {
-    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, params.n_labels, rf_params);
+    fit(handle,
+        forest_ptr,
+        X,
+        params.n_rows,
+        params.n_cols,
+        y,
+        params.n_labels,
+        rf_params,
+        rapids_logger::level_enum::info,
+        nullptr,
+        sample_weight);
   } else {
-    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, rf_params);
+    fit(handle,
+        forest_ptr,
+        X,
+        params.n_rows,
+        params.n_cols,
+        y,
+        rf_params,
+        rapids_logger::level_enum::info,
+        nullptr,
+        sample_weight);
   }
 
   auto pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
   predict(handle, forest_ptr, X_transpose, params.n_rows, params.n_cols, pred->data().get());
 
   // Predict and compare against known labels
-  RF_metrics metrics = score(handle, forest_ptr, y, params.n_rows, pred->data().get());
+  RF_metrics metrics = Score(handle, params, y, pred->data().get(), sample_weight);
   return std::make_tuple(forest, pred, metrics);
 }
 
@@ -366,9 +438,17 @@ class RfSpecialisedTest {
     }
     raft::linalg::transpose(
       handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);
+    if (params.sample_weight) {
+      thrust::host_vector<DataT> h_sample_weight(params.n_rows);
+      for (std::size_t i = 0; i < params.n_rows; ++i) {
+        int bucket         = (int(i) * 37 + params.seed * 13) % 17;
+        h_sample_weight[i] = DataT(0.25) + DataT(bucket) * DataT(0.125);
+      }
+      sample_weight = h_sample_weight;
+    }
     forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
-    std::tie(forest, predictions, training_metrics) =
-      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+    std::tie(forest, predictions, training_metrics) = TrainScore(
+      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
 
     Test();
   }
@@ -384,9 +464,13 @@ class RfSpecialisedTest {
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
-    auto [alt_forest, alt_predictions, alt_metrics] =
-      TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
-    double eps = 1e-8;
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(handle,
+                                                                 alt_params,
+                                                                 X.data().get(),
+                                                                 X_transpose.data().get(),
+                                                                 y.data().get(),
+                                                                 SampleWeightPtr());
+    double eps                                      = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
     } else if (params.split_criterion == MAE) {
@@ -434,12 +518,14 @@ class RfSpecialisedTest {
     // Regression models use floating point atomics, so are not bitwise reproducible
     bool is_regression = params.split_criterion != GINI and params.split_criterion != ENTROPY;
     if (is_regression) return;
+    // Weighted classification uses floating-point histogram accumulation.
+    if (params.sample_weight) return;
 
     // Repeat training
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.n_streams);
     raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-    auto [alt_forest, alt_predictions, alt_metrics] =
-      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+    auto [alt_forest, alt_predictions, alt_metrics] = TrainScore(
+      handle, params, X.data().get(), X_transpose.data().get(), y.data().get(), SampleWeightPtr());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
@@ -597,6 +683,11 @@ class RfSpecialisedTest {
     EXPECT_NEAR(sum, 1.0, 1e-6);
   }
 
+  const DataT* SampleWeightPtr() const
+  {
+    return params.sample_weight ? sample_weight.data().get() : nullptr;
+  }
+
   void Test()
   {
     TestAccuracyImprovement();
@@ -612,6 +703,7 @@ class RfSpecialisedTest {
   thrust::device_vector<DataT> X;
   thrust::device_vector<DataT> X_transpose;
   thrust::device_vector<LabelT> y;
+  thrust::device_vector<DataT> sample_weight;
   RfTestParams params;
   std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
   std::shared_ptr<thrust::device_vector<LabelT>> predictions;
@@ -664,6 +756,7 @@ std::vector<CRITERION> split_criterion   = {CRITERION::INVERSE_GAUSSIAN,
                                             CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 20};
+std::vector<bool> sample_weight          = {false, true};
 std::vector<bool> double_precision       = {false, true};
 
 int n_tests = 100;
@@ -688,6 +781,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            split_criterion,
                                                                            seed,
                                                                            n_labels,
+                                                                           sample_weight,
                                                                            double_precision)));
 
 TEST(RfTests, InvalidNStreams)
@@ -746,6 +840,51 @@ TEST(RfTests, IntegerOverflow)
                          1);
   handle.sync_stream();
   handle.sync_stream_pool();
+}
+
+TEST(RfTests, InvalidSampleWeightThrows)
+{
+  constexpr std::size_t n_rows = 16;
+  constexpr std::size_t n_cols = 2;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  thrust::device_vector<float> X(n_rows * n_cols);
+  thrust::device_vector<int> y(n_rows);
+  thrust::device_vector<float> sample_weight(n_rows, 1.0f);
+  raft::random::Rng r(8);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
+  thrust::host_vector<int> h_y(n_rows);
+  for (std::size_t i = 0; i < n_rows; ++i) {
+    h_y[i] = i % 2;
+  }
+  y = h_y;
+
+  RF_params rf_params =
+    set_rf_params(3, 100, 1.0, 8, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::GINI, 1, 128);
+
+  auto expect_invalid_weight_throws = [&](float invalid_weight) {
+    thrust::fill(
+      thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 1.0f);
+    sample_weight[0] = invalid_weight;
+    auto forest      = std::make_shared<RandomForestMetaData<float, int>>();
+    auto forest_ptr  = forest.get();
+    EXPECT_THROW(fit(handle,
+                     forest_ptr,
+                     X.data().get(),
+                     n_rows,
+                     n_cols,
+                     y.data().get(),
+                     2,
+                     rf_params,
+                     rapids_logger::level_enum::info,
+                     nullptr,
+                     sample_weight.data().get()),
+                 raft::exception);
+  };
+
+  expect_invalid_weight_throws(-1.0f);
+  expect_invalid_weight_throws(std::numeric_limits<float>::quiet_NaN());
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
@@ -994,6 +1133,148 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
   }
 };
 
+template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
+__global__ void objectiveGainKernel(BinT const* hist,
+                                    DataT const* quantiles,
+                                    DT::Split<DataT, IdxT>* out,
+                                    int* mutex,
+                                    ObjectiveT objective,
+                                    IdxT col,
+                                    IdxT len,
+                                    IdxT n_bins)
+{
+  __shared__ __align__(alignof(
+    DT::Split<DataT, IdxT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT, IdxT>)];
+  auto* split_scratch = reinterpret_cast<DT::Split<DataT, IdxT>*>(split_scratch_storage);
+  if (threadIdx.x == 0) {
+    *out   = DT::Split<DataT, IdxT>();
+    *mutex = 0;
+  }
+  __syncthreads();
+
+  auto split = objective.Gain(hist, quantiles, col, len, n_bins);
+  __syncthreads();
+  split.evalBestSplit(split_scratch, out, mutex, quantiles, n_bins);
+}
+
+TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
+{
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::ClassificationBin> h_hist = {
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::ClassificationBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<int> mutex(1);
+
+  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(2, 1, CRITERION::GINI);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+    IdxT split_start;
+    IdxT split_end;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
+}
+
+TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
+{
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::RegressionBin> h_hist = {
+    {2.0, 2},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {10.0, 10},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::RegressionBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<int> mutex(1);
+
+  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(1, 1, CRITERION::MSE);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+    IdxT split_start;
+    IdxT split_end;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
+}
+
 template <typename T>
 class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
@@ -1173,6 +1454,266 @@ Tree #0
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 
+TEST(RfTest, EquivalentSplitRangePersistsThroughBuilder)
+{
+  RF_params rf_params = set_rf_params(2, 4, 1.0, 6, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  // Column-major: feature 1 has global quantiles {0, 1, 2, 3, 4, 5},
+  // but the left child only sees values {0, 5}. The child split therefore has
+  // an equivalent threshold range that should persist as the centered value.
+  std::vector<float> X_host = {0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 0, 0, 5, 5, 1, 2, 2, 3, 3, 4};
+  thrust::device_vector<float> X = X_host;
+  std::vector<int> y_host        = {0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+  thrust::device_vector<int> y   = y_host;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto forest_ptr = forest.get();
+  fit(handle, forest_ptr, X.data().get(), y.size(), 2, y.data().get(), 2, rf_params);
+
+  const auto& tree = forest->trees[0]->sparsetree;
+  ASSERT_GE(tree.size(), std::size_t{5});
+
+  const auto& root = tree[0];
+  ASSERT_FALSE(root.IsLeaf());
+  EXPECT_EQ(root.ColumnId(), 0);
+  EXPECT_EQ(root.QueryValue(), 0.0f);
+  EXPECT_EQ(root.InstanceCount(), 10);
+
+  const auto& left_child = tree[root.LeftChildId()];
+  ASSERT_FALSE(left_child.IsLeaf());
+  EXPECT_EQ(left_child.ColumnId(), 1);
+  EXPECT_EQ(left_child.QueryValue(), 2.0f);
+  EXPECT_EQ(left_child.InstanceCount(), 4);
+
+  EXPECT_EQ(tree[left_child.LeftChildId()].InstanceCount(), 2);
+  EXPECT_EQ(tree[left_child.RightChildId()].InstanceCount(), 2);
+  EXPECT_TRUE(tree[root.RightChildId()].IsLeaf());
+  EXPECT_EQ(tree[root.RightChildId()].InstanceCount(), 6);
+}
+
+//-------------------------------------------------------------------------------------------------------------------------------------
+
+TEST(RfWeightedTest, ClassificationRootLeafUsesWeights)
+{
+  RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {100.0f, 1.0f, 1.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 3);
+  ASSERT_EQ(tree.vector_leaf.size(), 2);
+  EXPECT_NEAR(tree.vector_leaf[0], 100.0f / 102.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[1], 2.0f / 102.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
+{
+  RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, MSE, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<float> y_host            = {0.0f, 10.0f, 10.0f};
+  thrust::device_vector<float> y       = y_host;
+  std::vector<float> weight_host       = {1.0f, 0.0f, 3.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 3);
+  ASSERT_EQ(tree.vector_leaf.size(), 1);
+  EXPECT_NEAR(tree.vector_leaf[0], 7.5f, 1e-6f);
+}
+
+TEST(RfWeightedTest, MinSamplesLeafUsesCountsNotWeights)
+{
+  RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 2, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {0.1f, 0.1f, 100.0f, 100.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 3);
+  EXPECT_FALSE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 4);
+  EXPECT_EQ(tree.sparsetree[1].InstanceCount(), 2);
+  EXPECT_EQ(tree.sparsetree[2].InstanceCount(), 2);
+  ASSERT_EQ(tree.vector_leaf.size(), 6);
+  EXPECT_NEAR(tree.vector_leaf[2], 1.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[3], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[4], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[5], 1.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
+{
+  RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<int> y_host              = {0, 0, 1, 1};
+  thrust::device_vector<int> y         = y_host;
+  std::vector<float> weight_host       = {0.0f, 0.0f, 1.0f, 1.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  fit(handle,
+      forest.get(),
+      X.data().get(),
+      y.size(),
+      1,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      nullptr,
+      weights.data().get());
+
+  ASSERT_EQ(forest->trees.size(), 1);
+  const auto& tree = *forest->trees[0];
+  ASSERT_EQ(tree.sparsetree.size(), 1);
+  EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 4);
+  ASSERT_EQ(tree.vector_leaf.size(), 2);
+  EXPECT_NEAR(tree.vector_leaf[0], 0.0f, 1e-6f);
+  EXPECT_NEAR(tree.vector_leaf[1], 1.0f, 1e-6f);
+}
+
+TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
+{
+  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X       = X_host;
+  std::vector<float> y_host            = {0.0f, 10.0f, 100.0f};
+  thrust::device_vector<float> y       = y_host;
+  std::vector<float> weight_host       = {1.0f, 2.0f, 5.0f};
+  thrust::device_vector<float> weights = weight_host;
+  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  constexpr int n_rows = 3;
+  bool found_duplicate = false;
+  for (uint64_t seed = 0; seed < 64 && !found_duplicate; ++seed) {
+    RF_params rf_params = set_rf_params(0, -1, 1.0, 3, 1, 2, 0.0, true, 1, 1.0, seed, MSE, 1, 128);
+    auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
+    rmm::device_uvector<bool> bootstrap_masks(n_rows, handle.get_stream());
+
+    fit(handle,
+        forest.get(),
+        X.data().get(),
+        n_rows,
+        1,
+        y.data().get(),
+        rf_params,
+        rapids_logger::level_enum::info,
+        bootstrap_masks.data(),
+        weights.data().get());
+    handle.sync_stream();
+
+    std::array<bool, n_rows> mask{};
+    raft::update_host(mask.data(), bootstrap_masks.data(), mask.size(), handle.get_stream());
+    handle.sync_stream();
+
+    std::array<int, 2> included{};
+    int included_count = 0;
+    for (int i = 0; i < n_rows; ++i) {
+      if (mask[i]) {
+        if (included_count < 2) { included[included_count] = i; }
+        ++included_count;
+      }
+    }
+    if (included_count != 2) { continue; }
+
+    found_duplicate  = true;
+    const auto& tree = *forest->trees[0];
+    ASSERT_EQ(tree.sparsetree.size(), 1);
+    EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+    EXPECT_EQ(tree.sparsetree[0].InstanceCount(), n_rows);
+    ASSERT_EQ(tree.vector_leaf.size(), 1);
+
+    auto mean_with_counts = [&](int count_a, int count_b) {
+      auto a = included[0];
+      auto b = included[1];
+      auto weighted_sum =
+        y_host[a] * weight_host[a] * count_a + y_host[b] * weight_host[b] * count_b;
+      auto weight_sum = weight_host[a] * count_a + weight_host[b] * count_b;
+      return weighted_sum / weight_sum;
+    };
+
+    auto unique_mean      = mean_with_counts(1, 1);
+    auto duplicate_a_mean = mean_with_counts(2, 1);
+    auto duplicate_b_mean = mean_with_counts(1, 2);
+    auto observed         = tree.vector_leaf[0];
+
+    EXPECT_GT(std::abs(observed - unique_mean), 1e-5f);
+    EXPECT_TRUE(std::abs(observed - duplicate_a_mean) < 1e-5f ||
+                std::abs(observed - duplicate_b_mean) < 1e-5f);
+  }
+
+  EXPECT_TRUE(found_duplicate);
+}
+
 //-------------------------------------------------------------------------------------------------------------------------------------
 namespace DT {
 
@@ -1257,12 +1798,12 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       for (auto b = 0; b < params.max_n_bins; ++b) {
         auto bin_begin =
           std::min<std::size_t>(static_cast<std::size_t>(b) * bin_width, data.size());
-        auto bin_end   = std::min<std::size_t>(bin_begin + bin_width, data.size());
-        auto bin_count = static_cast<BinCountT>(bin_end - bin_begin);
+        auto split_end = std::min<std::size_t>(bin_begin + bin_width, data.size());
+        auto bin_count = static_cast<BinCountT>(split_end - bin_begin);
         if constexpr (is_classification) {
           auto count{BinCountT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             if (data[i] == DataT(c)) {
               ++count;
               weight += sample_weights[i];
@@ -1276,7 +1817,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         } else {  // regression case
           auto label_sum{DataT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             label_sum += data[i] * sample_weights[i];
             weight += sample_weights[i];
           }
