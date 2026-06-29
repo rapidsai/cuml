@@ -10,6 +10,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/cuda_stream.hpp>
 #include <raft/random/permute.cuh>
 #include <raft/random/rng.cuh>
 #include <raft/stats/accuracy.cuh>
@@ -50,6 +51,8 @@ struct InvalidSampleWeight {
   __device__ bool operator()(T weight) const { return weight < T(0) || !isfinite(weight); }
 };
 
+// Matches estimator behavior: when bootstrapping is enabled and sample weights exist,
+// those weights are materialized by drawing bootstrap rows according to them.
 class RowSampler {
  public:
   RowSampler(const raft::handle_t& handle,
@@ -65,22 +68,25 @@ class RowSampler {
       n_sampled_rows_(n_sampled_rows),
       bootstrap_masks_(bootstrap_masks),
       sample_weight_(sample_weight),
-      sample_weight_sum_(validate_sample_weight(handle, sample_weight_, n_rows_)),
+      sample_weight_sum_(0.0),
       sample_weight_cdf_(0, handle.get_stream())
   {
     ASSERT(bootstrap_masks_ == nullptr || DT::is_dev_ptr(bootstrap_masks_),
            "bootstrap_masks must be a GPU pointer");
+    validate_sample_weight(handle, sample_weight_, n_rows_);
     if (use_weighted_bootstrap()) {
       sample_weight_cdf_.resize(n_rows_, handle.get_stream());
       thrust::inclusive_scan(rmm::exec_policy(handle.get_stream()),
                              sample_weight_,
                              sample_weight_ + n_rows_,
                              sample_weight_cdf_.begin());
-      raft::update_host(
-        &sample_weight_sum_, sample_weight_cdf_.data() + (n_rows_ - 1), 1, handle.get_stream());
-      handle.sync_stream();
     }
 
+    if (sample_weight_ != nullptr) {
+      sample_weight_sum_ = compute_sample_weight_sum(handle);
+      ASSERT(sample_weight_sum_ > 0.0,
+             "sample_weight values must contain at least one positive value");
+    }
     // Use a deque instead of vector because device_uvector has a deleted copy constructor.
     for (int i = 0; i < n_streams; i++) {
       auto stream = handle.get_stream_from_stream_pool(i);
@@ -104,16 +110,19 @@ class RowSampler {
     auto rs = DT::fnv1a32_basis;
     rs      = DT::fnv1a32(rs, seed_);
     rs      = DT::fnv1a32(rs, tree_id);
-    raft::random::Rng rng(rs, raft::random::GenPhilox);
+    raft::random::RngState rng_state(rs, raft::random::GenPhilox);
 
     if (bootstrap_) {
+      raft::resources stream_resources;
+      raft::resource::set_cuda_stream(stream_resources, stream);
       if (use_weighted_bootstrap()) {
         auto& weighted_draw_scratch = weighted_draw_scratch_[stream_id];
-        rng.uniform<double>(weighted_draw_scratch.data(),
-                            weighted_draw_scratch.size(),
-                            0.0,
-                            sample_weight_sum_,
-                            stream);
+        raft::random::uniform<double>(stream_resources,
+                                      rng_state,
+                                      weighted_draw_scratch.data(),
+                                      weighted_draw_scratch.size(),
+                                      0.0,
+                                      sample_weight_sum_);
         thrust::upper_bound(rmm::exec_policy(stream),
                             sample_weight_cdf_.data(),
                             sample_weight_cdf_.data() + n_rows_,
@@ -121,7 +130,8 @@ class RowSampler {
                             weighted_draw_scratch.end(),
                             selected_rows.begin());
       } else {
-        rng.uniformInt<int>(selected_rows.data(), selected_rows.size(), 0, n_rows_, stream);
+        raft::random::uniformInt<int>(
+          stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
       }
     } else {
       thrust::sequence(rmm::exec_policy(stream), selected_rows.begin(), selected_rows.end());
@@ -131,6 +141,7 @@ class RowSampler {
     return selected_rows;
   }
 
+  // Use sample weights in impurity / objective calculation only when bootstrapping is not enabled.
   const double* tree_sample_weight() const { return bootstrap_ ? nullptr : sample_weight_; }
 
  private:
@@ -149,23 +160,33 @@ class RowSampler {
                     tree_mask);
   }
 
-  static double validate_sample_weight(const raft::handle_t& handle,
-                                       const double* sample_weight,
-                                       int n_rows)
+  double compute_sample_weight_sum(const raft::handle_t& handle) const
+  {
+    if (use_weighted_bootstrap()) {
+      double weight_sum = 0.0;
+      raft::update_host(
+        &weight_sum, sample_weight_cdf_.data() + n_rows_ - 1, 1, handle.get_stream());
+      handle.sync_stream();
+      return weight_sum;
+    }
+
+    return thrust::reduce(
+      rmm::exec_policy(handle.get_stream()), sample_weight_, sample_weight_ + n_rows_, 0.0);
+  }
+
+  static void validate_sample_weight(const raft::handle_t& handle,
+                                     const double* sample_weight,
+                                     int n_rows)
   {
     ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
            "sample_weight must be a GPU pointer");
-    if (sample_weight == nullptr) { return 0.0; }
+    if (sample_weight == nullptr) { return; }
 
     bool has_invalid = thrust::any_of(rmm::exec_policy(handle.get_stream()),
                                       sample_weight,
                                       sample_weight + n_rows,
                                       InvalidSampleWeight<double>{});
     ASSERT(!has_invalid, "sample_weight values must be finite and non-negative");
-    double weight_sum = thrust::reduce(
-      rmm::exec_policy(handle.get_stream()), sample_weight, sample_weight + n_rows, 0.0);
-    ASSERT(weight_sum > 0.0, "sample_weight values must contain at least one positive value");
-    return weight_sum;
   }
 
   bool use_weighted_bootstrap() const { return bootstrap_ && sample_weight_ != nullptr; }
