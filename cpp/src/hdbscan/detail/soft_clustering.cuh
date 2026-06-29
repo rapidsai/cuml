@@ -99,7 +99,7 @@ void dist_membership_vector(const raft::handle_t& handle,
 
     auto reduction_op = [dist = dist.data(),
                          batch_offset,
-                         divisor = raft::util::FastIntDiv(n_selected_clusters),
+                         divisor = raft::util::FastIntDiv<value_idx>(n_selected_clusters),
                          n_selected_clusters,
                          n_exemplars,
                          exemplar_label_offsets] __device__(auto idx) {
@@ -172,14 +172,15 @@ void all_points_outlier_membership_vector(
   auto n_leaves     = condensed_tree.get_n_leaves();
 
   int n_blocks = raft::ceildiv(int(m * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    index_into_children,
-                                                    parents,
-                                                    m,
-                                                    static_cast<value_idx>(n_selected_clusters),
-                                                    raft::util::FastIntDiv(n_selected_clusters),
-                                                    selected_clusters);
+  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(
+    merge_heights,
+    lambdas,
+    index_into_children,
+    parents,
+    m,
+    static_cast<value_idx>(n_selected_clusters),
+    raft::util::FastIntDiv<value_idx>(static_cast<value_idx>(n_selected_clusters)),
+    selected_clusters);
 
   auto leaf_max_lambdas = raft::make_device_vector<value_t, value_idx>(handle, n_leaves);
 
@@ -277,16 +278,17 @@ void outlier_membership_vector(const raft::handle_t& handle,
 
   // Using the nearest neighbor indices, compute outlier membership
   int n_blocks = raft::ceildiv(int(n_prediction_points * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    prediction_lambdas,
-                                                    min_mr_inds,
-                                                    index_into_children,
-                                                    parents,
-                                                    n_prediction_points,
-                                                    static_cast<value_idx>(n_selected_clusters),
-                                                    raft::util::FastIntDiv(n_selected_clusters),
-                                                    selected_clusters);
+  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(
+    merge_heights,
+    lambdas,
+    prediction_lambdas,
+    min_mr_inds,
+    index_into_children,
+    parents,
+    n_prediction_points,
+    static_cast<value_idx>(n_selected_clusters),
+    raft::util::FastIntDiv<value_idx>(static_cast<value_idx>(n_selected_clusters)),
+    selected_clusters);
 
   // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed
   // hierarchy

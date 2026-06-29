@@ -124,7 +124,7 @@ class PCA(InteropMixin,
 
         >>> pca_float = PCA(n_components = 2)
         >>> pca_float.fit(gdf_float)
-        PCA()
+        PCA(n_components=2)
 
         >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
         components: 0           1           2
