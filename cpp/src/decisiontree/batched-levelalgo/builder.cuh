@@ -9,6 +9,7 @@
 
 #include <common/Timer.h>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
@@ -18,6 +19,8 @@
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
+
+#include <cub/cub.cuh>
 
 #include <algorithm>
 #include <deque>
@@ -199,6 +202,7 @@ struct Builder {
           const DecisionTreeParams& p,
           const DataT* data,
           const LabelT* labels,
+          const DataT* sample_weight,
           IdxT n_rows,
           IdxT n_cols,
           rmm::device_uvector<IdxT>* row_ids,
@@ -211,6 +215,7 @@ struct Builder {
       params(p),
       dataset{data,
               labels,
+              sample_weight,
               n_rows,
               n_cols,
               int(row_ids->size()),
@@ -396,6 +401,8 @@ struct Builder {
       IdxT colid;
       DataT best_metric_val;
       int nLeft;
+      IdxT split_start;
+      IdxT split_end;
     };
     static_assert(sizeof(HostSplit) == sizeof(SplitT));
     static_assert(alignof(HostSplit) == alignof(SplitT));
@@ -425,8 +432,12 @@ struct Builder {
       std::vector<std::size_t> retry_to_original;
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
-        final_splits[original_idx] = HostSplit{
-          h_splits[i].quesval, h_splits[i].colid, h_splits[i].best_metric_val, h_splits[i].nLeft};
+        final_splits[original_idx] = HostSplit{h_splits[i].quesval,
+                                               h_splits[i].colid,
+                                               h_splits[i].best_metric_val,
+                                               h_splits[i].nLeft,
+                                               h_splits[i].split_start,
+                                               h_splits[i].split_end};
         if (SplitPartitionNotValid(
               h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);
@@ -506,20 +517,29 @@ struct Builder {
 
   auto computeSplitSmemSize()
   {
-    size_t smem_size_1 =
-      params.max_n_bins * dataset.num_outputs * sizeof(BinT) +  // shared_histogram size
-      params.max_n_bins * sizeof(DataT) +                       // shared_quantiles size
-      sizeof(int);                                              // shared_done size
+    auto shared_histogram_size =
+      ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
+    auto shared_quantiles_size = ML::checked_mul<std::size_t>(params.max_n_bins, sizeof(DataT));
+    auto dynamic_smem_size =
+      ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size, sizeof(int));
+
     // Extra room for alignment (see alignPointer in
     // computeSplitKernel)
-    smem_size_1 += sizeof(DataT) + 3 * sizeof(int);
-    // Calculate the shared memory needed for evalBestSplit
-    size_t smem_size_2 = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
-    // Pick the max of two
+    auto alignment_smem_size =
+      ML::checked_add<std::size_t>(sizeof(DataT), ML::checked_mul<std::size_t>(3, sizeof(int)));
+    dynamic_smem_size = ML::checked_add<std::size_t>(dynamic_smem_size, alignment_smem_size);
+
+    // computeSplitKernel also reserves static shared memory for CUB's scan temp
+    // storage and the per-warp split reduction scratch.
+    auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
+    auto split_scratch_smem_size =
+      ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
+    auto total_smem_size =
+      ML::checked_add<std::size_t>(dynamic_smem_size, cdf_scan_smem_size, split_scratch_smem_size);
     auto available_smem = handle.get_device_properties().sharedMemPerBlock;
-    size_t smem_size    = std::max(smem_size_1, smem_size_2);
-    ASSERT(available_smem >= smem_size, "Not enough shared memory. Consider reducing max_n_bins.");
-    return smem_size;
+    ASSERT(available_smem >= total_smem_size,
+           "Not enough shared memory. Consider reducing max_n_bins.");
+    return dynamic_smem_size;
   }
 
   void computeSplit(IdxT col, size_t n_blocks_dimx, size_t n_large_nodes)
@@ -542,25 +562,25 @@ struct Builder {
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     // call the computeSplitKernel
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(histograms,
-                                                               params.max_n_bins,
-                                                               params.min_samples_split,
-                                                               params.max_leaves,
-                                                               dataset,
-                                                               quantiles,
-                                                               d_work_items,
-                                                               col,
-                                                               column_samples,
-                                                               done_count,
-                                                               mutex,
-                                                               splits,
-                                                               objective,
-                                                               treeid,
-                                                               workload_info,
-                                                               seed,
-                                                               grid,
-                                                               smem_size,
-                                                               builder_stream);
+    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
+                                                                           params.max_n_bins,
+                                                                           params.min_samples_split,
+                                                                           params.max_leaves,
+                                                                           dataset,
+                                                                           quantiles,
+                                                                           d_work_items,
+                                                                           col,
+                                                                           column_samples,
+                                                                           done_count,
+                                                                           mutex,
+                                                                           splits,
+                                                                           objective,
+                                                                           treeid,
+                                                                           workload_info,
+                                                                           seed,
+                                                                           grid,
+                                                                           smem_size,
+                                                                           builder_stream);
   }
 
   // Set the leaf value predictions in batch
