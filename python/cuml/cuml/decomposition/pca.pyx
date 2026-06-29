@@ -9,7 +9,7 @@ import numpy as np
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse, sparse_cov_and_mean
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
@@ -24,7 +24,6 @@ from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
 )
-from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -254,6 +253,8 @@ class PCA(InteropMixin,
     def _params_from_cpu(cls, model):
         if model.n_components == "mle":
             raise UnsupportedOnGPU("`n_components='mle'` is not supported")
+        if model.n_components == 0:
+            raise UnsupportedOnGPU("`n_components=0` is not supported")
 
         svd_solver = "auto" if model.svd_solver == "auto" else "full"
 
@@ -429,7 +430,7 @@ class PCA(InteropMixin,
         self.noise_variance_ = float(noise_variance.item())
 
     def _fit_sparse(self, X):
-        covariance, mean, _ = cov(X, X, return_mean=True)
+        covariance, mean = sparse_cov_and_mean(X)
 
         explained_variance, components = cp.linalg.eigh(covariance, UPLO='U')
 
@@ -460,7 +461,7 @@ class PCA(InteropMixin,
         self.components_ = CumlArray(data=cp.asfortranarray(components))
         self.explained_variance_ = CumlArray(data=explained_variance)
         self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean.flatten())
+        self.mean_ = CumlArray(data=mean)
         self.singular_values_ = CumlArray(data=singular_values)
         self.noise_variance_ = noise_variance
 
@@ -474,7 +475,8 @@ class PCA(InteropMixin,
         X = check_inputs(
             self,
             X,
-            accept_sparse=["coo"],
+            accept_sparse=["csr"],
+            accept_large_sparse=True,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",

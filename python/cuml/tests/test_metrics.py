@@ -44,7 +44,7 @@ from sklearn.preprocessing import StandardScaler
 import cuml
 import cuml.internals.logger as logger
 from cuml import LogisticRegression as cu_log
-from cuml.common.sparsefuncs import csr_row_normalize_l1
+from cuml.common.sparse import csr_row_normalize_l1
 from cuml.metrics import (
     PAIRWISE_DISTANCE_METRICS,
     PAIRWISE_DISTANCE_SPARSE_METRICS,
