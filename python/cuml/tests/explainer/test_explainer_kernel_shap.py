@@ -4,6 +4,7 @@
 #
 
 import math
+from itertools import combinations
 
 import cupy as cp
 import numpy as np
@@ -23,29 +24,97 @@ from cuml.testing.utils import ClassEnumerator, get_shap_values
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
+_REFERENCE_POWERSET_MAX_FEATURES = 6
+_REFERENCE_POWERSET_MAX_ROWS = 2**_REFERENCE_POWERSET_MAX_FEATURES - 2
 
-def assert_and_log(
-    cu_shap_values, golden_result_values, fx, expected, tolerance=1e-02
+
+def _as_numpy(value):
+    if isinstance(value, cp.ndarray):
+        return cp.asnumpy(value)
+    if hasattr(value, "to_numpy"):
+        return value.to_numpy()
+    if hasattr(value, "get"):
+        return value.get()
+    return np.asarray(value)
+
+
+def _assert_additive_shap_values(
+    shap_values,
+    prediction,
+    expected_value,
+    *,
+    expected_shape,
+    rtol=1e-5,
+    atol=1e-5,
 ):
-    close_values = np.allclose(
-        cu_shap_values, golden_result_values, rtol=tolerance, atol=tolerance
+    shap_values = _as_numpy(shap_values)
+    prediction = np.asarray(_as_numpy(prediction)).squeeze()
+    expected_value = np.asarray(_as_numpy(expected_value)).squeeze()
+
+    assert shap_values.shape == expected_shape
+    assert np.all(np.isfinite(shap_values))
+    np.testing.assert_allclose(
+        np.sum(shap_values, axis=-1),
+        prediction - expected_value,
+        rtol=rtol,
+        atol=atol,
     )
 
-    expected_sum = np.allclose(
-        1.00, np.sum(cp.asnumpy(cu_shap_values)) / (fx - expected), rtol=1e-01
+
+def _reference_powerset(n, r, nrows, full_powerset=False, dtype=np.float32):
+    """Build the expected Kernel SHAP mask matrix and mask weights.
+
+    Each row in the mask matrix marks which features are present for one
+    synthetic model evaluation: 1 means the feature is present, 0 means it is
+    hidden. This mirrors the subset ordering used by `_powerset`, but derives
+    the expected rows from `itertools.combinations` instead of storing a
+    hard-coded result table.
+
+    When `full_powerset` is false, each generated subset is followed by its
+    complement, matching the sampled/exact-pair layout used by Kernel SHAP.
+    """
+    if (
+        n > _REFERENCE_POWERSET_MAX_FEATURES
+        or nrows > _REFERENCE_POWERSET_MAX_ROWS
+    ):
+        raise ValueError(
+            "_reference_powerset is only intended for trivial test cases "
+            f"(n <= {_REFERENCE_POWERSET_MAX_FEATURES} and "
+            f"nrows <= {_REFERENCE_POWERSET_MAX_ROWS}); got n={n}, "
+            f"nrows={nrows}."
+        )
+
+    result = np.zeros((nrows, n), dtype=dtype)
+    weights = np.zeros(nrows, dtype=dtype)
+    idx = 0
+    upper_limit = n if full_powerset else r
+    for subset_size in range(1, upper_limit):
+        for subset in combinations(range(n), subset_size):
+            result[idx, subset] = 1
+            weights[idx] = _reference_shapley_kernel(n, subset_size)
+            if not full_powerset:
+                result[idx + 1] = 1 - result[idx]
+                weights[idx + 1] = _reference_shapley_kernel(n, subset_size)
+                idx += 1
+            idx += 1
+    return result, weights
+
+
+def _reference_shapley_kernel(n_features, subset_size):
+    """Compute the expected Kernel SHAP weight for one subset size.
+
+    Kernel SHAP assigns each feature mask a weight that depends only on the
+    total feature count and how many features are present in the mask. The
+    empty and full masks use the same large finite sentinel as cuML's
+    implementation to avoid division by zero at the formula boundaries.
+    """
+    if subset_size == 0 or subset_size == n_features:
+        return 10000
+    return (n_features - 1) / (
+        scipy.special.binom(n_features, subset_size)
+        * subset_size
+        * (n_features - subset_size)
     )
-
-    if not close_values:
-        print("cu_shap_values: ")
-        print(cu_shap_values)
-        print("golden_result_values")
-        print(golden_result_values)
-
-    if not expected_sum:
-        print(np.sum(cp.asnumpy(cu_shap_values)))
-
-    assert expected_sum
-    assert close_values
 
 
 ###############################################################################
@@ -70,13 +139,15 @@ def test_exact_regression_datasets(exact_shap_regression_dataset, model):
             explained_dataset=X_test,
             explainer=KernelExplainer,
         )
+        fx = mod.predict(X_test)
         for i in range(3):
-            print(i)
-            assert_and_log(
+            _assert_additive_shap_values(
                 shap_values[i],
-                golden_regression_results[model][i],
-                mod.predict(X_test[i].reshape(1, X_test.shape[1])),
+                fx[i],
                 explainer.expected_value,
+                expected_shape=(X_test.shape[1],),
+                rtol=1e-4,
+                atol=1e-4,
             )
 
 
@@ -94,17 +165,15 @@ def test_exact_classification_datasets(exact_shap_classification_dataset, cls):
         explainer=KernelExplainer,
     )
 
-    # Some values are very small, which mean our tolerance here needs to be
-    # a little looser to avoid false positives from comparisons like
-    # 0.00348627 - 0.00247397. The loose tolerance still tests that the
-    # distribution of the values matches.
+    fx = model.predict_proba(X_test)
     for idx, svs in enumerate(shap_values):
-        assert_and_log(
-            svs[0],
-            golden_classification_result[idx],
-            float(model.predict_proba(X_test)[0][idx]),
+        _assert_additive_shap_values(
+            svs,
+            fx[:, idx],
             explainer.expected_value[idx],
-            tolerance=1e-01,
+            expected_shape=(X_test.shape[0], X_test.shape[1]),
+            rtol=1e-4,
+            atol=1e-4,
         )
 
 
@@ -136,21 +205,17 @@ def test_kernel_shap_standalone(dtype, n_features, n_background, model):
 
     exp_v = explainer.expected_value
 
-    # we have 3 lists of shap values, each corresponding to a component since
-    # transform gives back arrays of shape (nrows x ncomponents)
-    # we test that for each test row, for each component, the
-    # sum of the shap values is the same as the difference between the
-    # expected value for that component minus the value of the transform of
-    # the row.
-    for sv_idx in range(3):
-        # pca and tsvd transform give results back nested
-        fx = mod.transform(X_test[sv_idx].reshape(1, n_features))[0]
-
-        for comp_idx in range(3):
-            assert (
-                np.sum(shap_values[comp_idx][sv_idx])
-                - abs(fx[comp_idx] - exp_v[comp_idx])
-            ) <= 1e-5
+    # transform returns one SHAP value array per component.
+    fx = mod.transform(X_test)
+    for comp_idx in range(3):
+        _assert_additive_shap_values(
+            shap_values[comp_idx],
+            _as_numpy(fx)[:, comp_idx],
+            exp_v[comp_idx],
+            expected_shape=(X_test.shape[0], n_features),
+            rtol=1e-5,
+            atol=1e-5,
+        )
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -184,20 +249,23 @@ def test_kernel_gpu_cpu_shap(dtype, n_features, n_background, model):
     exp_v = explainer.expected_value
 
     fx = mod.predict(X_test)
-    for test_idx in range(3):
-        assert (
-            np.sum(shap_values[test_idx]) - abs(fx[test_idx] - exp_v)
-        ) <= 1e-5
+    _assert_additive_shap_values(
+        shap_values,
+        fx,
+        exp_v,
+        expected_shape=(X_test.shape[0], X_test.shape[1]),
+        rtol=1e-5,
+        atol=1e-5,
+    )
 
     explainer = shap.KernelExplainer(mod.predict, cp.asnumpy(X_train))
     cpu_shap_values = explainer.shap_values(cp.asnumpy(X_test))
 
-    assert np.allclose(shap_values, cpu_shap_values, rtol=1e-01, atol=1e-01)
+    np.testing.assert_allclose(
+        _as_numpy(shap_values), cpu_shap_values, rtol=1e-1, atol=1e-1
+    )
 
 
-@pytest.mark.xfail(
-    reason="This test is failing with the synthetic regression dataset"
-)
 def test_kernel_regression_dataset():
     # Generate synthetic regression dataset (similar to California housing)
     X, y = make_regression(
@@ -224,7 +292,14 @@ def test_kernel_regression_dataset():
 
     cu_shap_values = explainer.shap_values(X_test[:2])
 
-    np.testing.assert_allclose(cu_shap_values, housing_regression_result)
+    _assert_additive_shap_values(
+        cu_shap_values,
+        cumodel.predict(X_test[:2]),
+        explainer.expected_value,
+        expected_shape=(2, X_test.shape[1]),
+        rtol=1e-4,
+        atol=1e-4,
+    )
 
 
 ###############################################################################
@@ -241,25 +316,32 @@ def test_binom_coef():
 def test_shapley_kernel():
     for i in range(11):
         val = cuml.explainer.kernel_shap._shapley_kernel(10, i)
-        assert val == shapley_kernel_results[i]
+        assert math.isclose(val, _reference_shapley_kernel(10, i))
 
 
 def test_full_powerset():
     ps, w = cuml.explainer.kernel_shap._powerset(
         5, 2, 2**5 - 2, full_powerset=True
     )
+    expected_ps, expected_w = _reference_powerset(
+        5, 2, 2**5 - 2, full_powerset=True
+    )
 
-    for i in range(len(ps)):
-        assert np.all(ps[i] == full_powerset_result[i])
-        assert math.isclose(w[i], full_powerset_weight_result[i])
+    np.testing.assert_array_equal(ps, expected_ps)
+    np.testing.assert_allclose(w, expected_w)
 
 
 def test_partial_powerset():
     ps, w = cuml.explainer.kernel_shap._powerset(6, 3, 42)
+    expected_ps, expected_w = _reference_powerset(6, 3, 42)
 
-    for i in range(len(ps)):
-        assert np.all(ps[i] == partial_powerset_result[i])
-        assert math.isclose(w[i], partial_powerset_weight_result[i])
+    np.testing.assert_array_equal(ps, expected_ps)
+    np.testing.assert_allclose(w, expected_w)
+
+
+def test_reference_powerset_rejects_nontrivial_size():
+    with pytest.raises(ValueError, match="only intended for trivial"):
+        _reference_powerset(7, 2, 2**7 - 2, full_powerset=True)
 
 
 @pytest.mark.parametrize("full_powerset", [True, False])
@@ -361,377 +443,8 @@ def test_typeerror_input():
             raise error
 
 
-###############################################################################
-#                                 Precomputed results                         #
-#                               and testing variables                         #
-###############################################################################
-
-# "golden" results obtained by running brute force Kernel SHAP notebook from
-# https://github.com/slundberg/shap/blob/master/notebooks/kernel_explainer/Simple%20Kernel%20SHAP.ipynb
-# and confirmed with SHAP package.
-golden_regression_results = {
-    cuml.LinearRegression: [
-        [
-            -1.3628216e00,
-            -1.0234555e02,
-            1.3433075e-01,
-            -6.1763966e01,
-            2.6035309e-04,
-            -3.4455872e00,
-            -1.0159061e02,
-            3.4058199e00,
-            4.1598396e01,
-            7.2152481e01,
-            -2.1964417e00,
-        ],
-        [
-            -8.6558792e01,
-            8.9456577e00,
-            -3.6405910e01,
-            1.0574381e01,
-            -4.1580200e-04,
-            -5.8939896e01,
-            4.8407948e01,
-            1.4475842e00,
-            -2.0742226e01,
-            6.6378265e01,
-            -3.5134201e01,
-        ],
-        [
-            -1.3722158e01,
-            -2.9430325e01,
-            -8.0079269e01,
-            1.2096907e02,
-            1.0681152e-03,
-            -5.4266449e01,
-            -3.1012087e01,
-            -7.9640961e-01,
-            7.7072838e01,
-            1.5370981e01,
-            -2.4032040e01,
-        ],
-    ],
-    cuml.KNeighborsRegressor: [
-        [
-            4.3210926,
-            -47.497078,
-            -4.523407,
-            -35.49657,
-            -5.5174675,
-            -14.158726,
-            -51.303787,
-            -2.6457424,
-            12.230529,
-            52.345207,
-            6.3014755,
-        ],
-        [
-            -52.036957,
-            2.4158602,
-            -20.302296,
-            15.428952,
-            5.9823637,
-            -20.046719,
-            22.46046,
-            -4.762917,
-            -6.20145,
-            37.457417,
-            5.3511925,
-        ],
-        [
-            -8.803419,
-            -7.4095736,
-            -48.113777,
-            57.21296,
-            1.0490589,
-            -37.94751,
-            -20.748789,
-            -0.22258139,
-            28.204493,
-            4.5492225,
-            0.5797138,
-        ],
-    ],
-    cuml.SVR: [
-        [
-            3.53810340e-02,
-            -8.11021507e-01,
-            3.34369540e-02,
-            -8.68727207e-01,
-            1.06804073e-03,
-            -1.14741415e-01,
-            -1.35545099e00,
-            3.87545109e-01,
-            4.43311602e-01,
-            1.08623052e00,
-            2.65314579e-02,
-        ],
-        [
-            -1.39247358e00,
-            5.91157824e-02,
-            -4.33764964e-01,
-            1.04503572e-01,
-            -4.41753864e-03,
-            -1.09017754e00,
-            5.90143979e-01,
-            1.08445108e-01,
-            -2.26831138e-01,
-            9.69056726e-01,
-            -1.18437767e-01,
-        ],
-        [
-            -1.28573015e-01,
-            -2.33658075e-01,
-            -1.02735841e00,
-            1.47447693e00,
-            -1.99043751e-03,
-            -1.11328888e00,
-            -4.66209412e-01,
-            -1.02243885e-01,
-            8.18460345e-01,
-            2.20144764e-01,
-            -9.62769389e-02,
-        ],
-    ],
-}
-
-# For testing predict proba, we get one array of shap values per class
-golden_classification_result = [
-    [
-        0.00152159,
-        0.00247397,
-        0.00250474,
-        0.00155965,
-        0.0113184,
-        -0.01153999,
-        0.19297145,
-        0.17027254,
-        0.00850102,
-        -0.01293354,
-        -0.00088981,
-    ],
-    [
-        -0.00152159,
-        -0.00247397,
-        -0.00250474,
-        -0.00155965,
-        -0.0113184,
-        0.01153999,
-        -0.19297145,
-        -0.17027254,
-        -0.00850102,
-        0.01293354,
-        0.00088981,
-    ],
-]
-
-housing_regression_result = np.array(
-    [
-        [
-            -0.8974524140357971,
-            0.001421511173248291,
-            -0.0688888430595398,
-            -0.03094351291656494,
-            -0.015949785709381104,
-            -0.23235774040222168,
-            -0.21568483114242554,
-            -0.0710676908493042,
-        ],
-        [
-            -0.744776725769043,
-            0.01672065258026123,
-            -0.1426766812801361,
-            0.06865900754928589,
-            -0.01718229055404663,
-            -0.06164264678955078,
-            -0.18163931369781494,
-            -0.039707064628601074,
-        ],
-    ],
-    dtype=np.float32,
-)
-
 cuml_skl_class_dict = {
     cuml.LinearRegression: sklearn.linear_model.LinearRegression,
     cuml.KNeighborsRegressor: sklearn.neighbors.KNeighborsRegressor,
     cuml.SVR: sklearn.svm.SVR,
 }
-
-
-# results for individual function unit tests
-shapley_kernel_results = [
-    10000,
-    0.1,
-    0.0125,
-    0.0035714285714285713,
-    0.0017857142857142857,
-    0.0014285714285714286,
-    0.0017857142857142857,
-    0.0035714285714285713,
-    0.0125,
-    0.1,
-    10000,
-]
-
-full_powerset_result = [
-    [1.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 1.0],
-    [1.0, 1.0, 0.0, 0.0, 0.0],
-    [1.0, 0.0, 1.0, 0.0, 0.0],
-    [1.0, 0.0, 0.0, 1.0, 0.0],
-    [1.0, 0.0, 0.0, 0.0, 1.0],
-    [0.0, 1.0, 1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 1.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0, 1.0],
-    [0.0, 0.0, 1.0, 1.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0, 1.0],
-    [0.0, 0.0, 0.0, 1.0, 1.0],
-    [1.0, 1.0, 1.0, 0.0, 0.0],
-    [1.0, 1.0, 0.0, 1.0, 0.0],
-    [1.0, 1.0, 0.0, 0.0, 1.0],
-    [1.0, 0.0, 1.0, 1.0, 0.0],
-    [1.0, 0.0, 1.0, 0.0, 1.0],
-    [1.0, 0.0, 0.0, 1.0, 1.0],
-    [0.0, 1.0, 1.0, 1.0, 0.0],
-    [0.0, 1.0, 1.0, 0.0, 1.0],
-    [0.0, 1.0, 0.0, 1.0, 1.0],
-    [0.0, 0.0, 1.0, 1.0, 1.0],
-    [1.0, 1.0, 1.0, 1.0, 0.0],
-    [1.0, 1.0, 1.0, 0.0, 1.0],
-    [1.0, 1.0, 0.0, 1.0, 1.0],
-    [1.0, 0.0, 1.0, 1.0, 1.0],
-    [0.0, 1.0, 1.0, 1.0, 1.0],
-]
-
-
-full_powerset_weight_result = np.array(
-    [
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.06666667,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-        0.2,
-    ],
-    dtype=np.float32,
-)
-
-partial_powerset_result = [
-    [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-    [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-    [1.0, 0.0, 1.0, 1.0, 1.0, 1.0],
-    [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-    [1.0, 1.0, 0.0, 1.0, 1.0, 1.0],
-    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-    [1.0, 1.0, 1.0, 0.0, 1.0, 1.0],
-    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-    [1.0, 1.0, 1.0, 1.0, 0.0, 1.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-    [1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-    [1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
-    [1.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 1.0, 1.0, 1.0],
-    [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-    [0.0, 1.0, 1.0, 0.0, 1.0, 1.0],
-    [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-    [0.0, 1.0, 1.0, 1.0, 0.0, 1.0],
-    [1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-    [0.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-    [0.0, 1.0, 1.0, 0.0, 0.0, 0.0],
-    [1.0, 0.0, 0.0, 1.0, 1.0, 1.0],
-    [0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
-    [1.0, 0.0, 1.0, 0.0, 1.0, 1.0],
-    [0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
-    [1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
-    [0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
-    [1.0, 0.0, 1.0, 1.0, 1.0, 0.0],
-    [0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
-    [1.0, 1.0, 0.0, 0.0, 1.0, 1.0],
-    [0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
-    [1.0, 1.0, 0.0, 1.0, 0.0, 1.0],
-    [0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
-    [1.0, 1.0, 0.0, 1.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 1.0, 1.0, 0.0],
-    [1.0, 1.0, 1.0, 0.0, 0.0, 1.0],
-    [0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
-    [1.0, 1.0, 1.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
-    [1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-]
-
-partial_powerset_weight_result = np.array(
-    [
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.16666667,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-        0.041666668,
-    ],
-    dtype=np.float32,
-)
