@@ -40,13 +40,15 @@ print('✓ Import test passed')
 "
 
 # Test 2: Run minimal end-to-end example
-rapids-logger "Running BERTopic end-to-end smoke test"
-timeout -v 20m python -c "
+rapids-logger "Running BERTopic end-to-end smoke test (cuml.accel)"
+timeout -v 20m python -m cuml.accel -c "
 import warnings
 warnings.filterwarnings('ignore')
 
 import random
 from bertopic import BERTopic
+
+import cuml.accel
 
 # Generate synthetic documents with topic-like word clusters
 random.seed(42)
@@ -62,12 +64,17 @@ for i in range(100):
     doc = ' '.join(random.choices(topic_words, k=random.randint(10, 30)))
     docs.append(doc)
 
-# Initialize BERTopic with cuML UMAP backend
-# BERTopic will automatically use cuML's UMAP if available
 topic_model = BERTopic(verbose=False, calculate_probabilities=False)
 
 # Fit the model
 topics, probs = topic_model.fit_transform(docs)
+
+# Verify cuML actually backed BERTopic's UMAP and HDBSCAN steps.
+assert cuml.accel.enabled(), 'cuml.accel is not enabled'
+assert cuml.accel.is_proxy(topic_model.umap_model), \
+    f'UMAP not accelerated by cuML: {type(topic_model.umap_model)}'
+assert cuml.accel.is_proxy(topic_model.hdbscan_model), \
+    f'HDBSCAN not accelerated by cuML: {type(topic_model.hdbscan_model)}'
 
 print(f'✓ BERTopic smoke test passed - processed {len(docs)} documents, found {len(set(topics))} topics')
 "
