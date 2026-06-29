@@ -32,7 +32,7 @@ class _BaseMulticlassClassifier(ClassifierMixin, Base):
         return self.multiclass_estimator.classes_
 
     @generate_docstring(y="dense_anydtype")
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y) -> "_BaseMulticlassClassifier":
         """
         Fit a multiclass classifier.

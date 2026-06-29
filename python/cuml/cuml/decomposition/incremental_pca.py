@@ -201,7 +201,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.

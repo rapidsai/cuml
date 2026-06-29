@@ -530,7 +530,7 @@ class KMeans(InteropMixin,
         return self.n_clusters
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.
