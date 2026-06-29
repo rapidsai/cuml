@@ -33,6 +33,7 @@
 #include <thrust/transform.h>
 
 #include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
+#include <decisiontree/batched-levelalgo/objectives.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
 #include <nvforest/detail/raft_proto/device_type.hpp>
@@ -1215,6 +1216,148 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
   }
 };
 
+template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
+__global__ void objectiveGainKernel(BinT const* hist,
+                                    DataT const* quantiles,
+                                    DT::Split<DataT, IdxT>* out,
+                                    int* mutex,
+                                    ObjectiveT objective,
+                                    IdxT col,
+                                    IdxT len,
+                                    IdxT n_bins)
+{
+  __shared__ __align__(alignof(
+    DT::Split<DataT, IdxT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT, IdxT>)];
+  auto* split_scratch = reinterpret_cast<DT::Split<DataT, IdxT>*>(split_scratch_storage);
+  if (threadIdx.x == 0) {
+    *out   = DT::Split<DataT, IdxT>();
+    *mutex = 0;
+  }
+  __syncthreads();
+
+  auto split = objective.Gain(hist, quantiles, col, len, n_bins);
+  __syncthreads();
+  split.evalBestSplit(split_scratch, out, mutex, quantiles, n_bins);
+}
+
+TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
+{
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::ClassificationBin> h_hist = {
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
+    {1},
+    {2},
+    {2},
+    {2},
+    {2},
+    {5},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::ClassificationBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<int> mutex(1);
+
+  DT::ClassificationObjectiveFunction<DataT, int, IdxT, false> objective(2, 1, CRITERION::GINI);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+    IdxT split_start;
+    IdxT split_end;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
+}
+
+TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
+{
+  using DataT           = float;
+  using IdxT            = int;
+  constexpr IdxT len    = 10;
+  constexpr IdxT n_bins = 6;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+
+  std::vector<DT::RegressionBin> h_hist = {
+    {2.0, 2},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {4.0, 4},
+    {10.0, 10},
+  };
+  std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
+
+  thrust::device_vector<DT::RegressionBin> hist(h_hist.begin(), h_hist.end());
+  thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
+  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<int> mutex(1);
+
+  DT::RegressionObjectiveFunction<DataT, DataT, IdxT, false> objective(1, 1, CRITERION::MSE);
+  objectiveGainKernel<<<1, 32, 0, handle.get_stream()>>>(hist.data().get(),
+                                                         quantiles.data().get(),
+                                                         split.data().get(),
+                                                         mutex.data().get(),
+                                                         objective,
+                                                         IdxT{0},
+                                                         len,
+                                                         n_bins);
+  RAFT_CUDA_TRY(cudaGetLastError());
+
+  struct HostSplit {
+    DataT quesval;
+    IdxT colid;
+    DataT best_metric_val;
+    int nLeft;
+    IdxT split_start;
+    IdxT split_end;
+  };
+  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
+  HostSplit h_split;
+  RAFT_CUDA_TRY(cudaMemcpyAsync(
+    &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
+  handle.sync_stream();
+
+  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.quesval, DataT{3});
+  EXPECT_EQ(h_split.split_start, 3);
+  EXPECT_EQ(h_split.split_end, 3);
+}
+
 template <typename T>
 class RFSampledQuantileRankErrorTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
@@ -1392,6 +1535,45 @@ Tree #0
 ])";
 
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
+}
+
+TEST(RfTest, EquivalentSplitRangePersistsThroughBuilder)
+{
+  RF_params rf_params = set_rf_params(2, 4, 1.0, 6, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  // Column-major: feature 1 has global quantiles {0, 1, 2, 3, 4, 5},
+  // but the left child only sees values {0, 5}. The child split therefore has
+  // an equivalent threshold range that should persist as the centered value.
+  std::vector<float> X_host = {0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 0, 0, 5, 5, 1, 2, 2, 3, 3, 4};
+  thrust::device_vector<float> X = X_host;
+  std::vector<int> y_host        = {0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+  thrust::device_vector<int> y   = y_host;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  auto forest_ptr = forest.get();
+  fit(handle, forest_ptr, X.data().get(), y.size(), 2, y.data().get(), 2, rf_params);
+
+  const auto& tree = forest->trees[0]->sparsetree;
+  ASSERT_GE(tree.size(), std::size_t{5});
+
+  const auto& root = tree[0];
+  ASSERT_FALSE(root.IsLeaf());
+  EXPECT_EQ(root.ColumnId(), 0);
+  EXPECT_EQ(root.QueryValue(), 0.0f);
+  EXPECT_EQ(root.InstanceCount(), 10);
+
+  const auto& left_child = tree[root.LeftChildId()];
+  ASSERT_FALSE(left_child.IsLeaf());
+  EXPECT_EQ(left_child.ColumnId(), 1);
+  EXPECT_EQ(left_child.QueryValue(), 2.0f);
+  EXPECT_EQ(left_child.InstanceCount(), 4);
+
+  EXPECT_EQ(tree[left_child.LeftChildId()].InstanceCount(), 2);
+  EXPECT_EQ(tree[left_child.RightChildId()].InstanceCount(), 2);
+  EXPECT_TRUE(tree[root.RightChildId()].IsLeaf());
+  EXPECT_EQ(tree[root.RightChildId()].InstanceCount(), 6);
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
@@ -1698,12 +1880,12 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       for (auto b = 0; b < params.max_n_bins; ++b) {
         auto bin_begin =
           std::min<std::size_t>(static_cast<std::size_t>(b) * bin_width, data.size());
-        auto bin_end   = std::min<std::size_t>(bin_begin + bin_width, data.size());
-        auto bin_count = static_cast<BinCountT>(bin_end - bin_begin);
+        auto split_end = std::min<std::size_t>(bin_begin + bin_width, data.size());
+        auto bin_count = static_cast<BinCountT>(split_end - bin_begin);
         if constexpr (is_classification) {
           auto count{BinCountT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             if (data[i] == DataT(c)) {
               ++count;
               weight += sample_weights[i];
@@ -1717,7 +1899,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         } else {  // regression case
           auto label_sum{DataT(0)};
           auto weight{DataT(0)};
-          for (auto i = bin_begin; i < bin_end; ++i) {
+          for (auto i = bin_begin; i < split_end; ++i) {
             label_sum += data[i] * sample_weights[i];
             weight += sample_weights[i];
           }
