@@ -5,7 +5,7 @@
 
 import cuml.neighbors
 from cuml.accel.estimator_proxy import ProxyBase
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.interop import UnsupportedOnGPU
 
 __all__ = (
