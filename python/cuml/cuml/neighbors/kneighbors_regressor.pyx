@@ -262,11 +262,9 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        out = CumlArray.zeros(
-            res_shape, dtype=np.float32, order="C", index=knn_indices.index
-        )
+        out = cp.zeros(res_shape, dtype=np.float32, order="C")
 
-        cdef float* out_ptr = <float*><uintptr_t>out.ptr
+        cdef float* out_ptr = <float*><uintptr_t>out.data.ptr
 
         cdef vector[float*] y_vec
         cdef float* y_ptr
@@ -300,4 +298,4 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=knn_indices.index)
