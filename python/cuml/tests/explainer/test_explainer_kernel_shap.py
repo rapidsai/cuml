@@ -24,6 +24,9 @@ from cuml.testing.utils import ClassEnumerator, get_shap_values
 models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
+_REFERENCE_POWERSET_MAX_FEATURES = 6
+_REFERENCE_POWERSET_MAX_ROWS = 2**_REFERENCE_POWERSET_MAX_FEATURES - 2
+
 
 def _as_numpy(value):
     if isinstance(value, cp.ndarray):
@@ -70,6 +73,17 @@ def _reference_powerset(n, r, nrows, full_powerset=False, dtype=np.float32):
     When `full_powerset` is false, each generated subset is followed by its
     complement, matching the sampled/exact-pair layout used by Kernel SHAP.
     """
+    if (
+        n > _REFERENCE_POWERSET_MAX_FEATURES
+        or nrows > _REFERENCE_POWERSET_MAX_ROWS
+    ):
+        raise ValueError(
+            "_reference_powerset is only intended for trivial test cases "
+            f"(n <= {_REFERENCE_POWERSET_MAX_FEATURES} and "
+            f"nrows <= {_REFERENCE_POWERSET_MAX_ROWS}); got n={n}, "
+            f"nrows={nrows}."
+        )
+
     result = np.zeros((nrows, n), dtype=dtype)
     weights = np.zeros(nrows, dtype=dtype)
     idx = 0
@@ -323,6 +337,11 @@ def test_partial_powerset():
 
     np.testing.assert_array_equal(ps, expected_ps)
     np.testing.assert_allclose(w, expected_w)
+
+
+def test_reference_powerset_rejects_nontrivial_size():
+    with pytest.raises(ValueError, match="only intended for trivial"):
+        _reference_powerset(7, 2, 2**7 - 2, full_powerset=True)
 
 
 @pytest.mark.parametrize("full_powerset", [True, False])
