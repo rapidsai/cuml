@@ -27,7 +27,12 @@ rapids-pip-retry install \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
   "${CUML_WHEELHOUSE}"/cuml*.whl
 
-# Step 2: Install BERTopic
+# Step 2: Install CPU-only PyTorch first so BERTopic's transitive torch
+# dependency does not pull a CUDA 13 stack on top of cuML's
+rapids-logger "Installing CPU-only PyTorch"
+rapids-pip-retry install --index-url https://download.pytorch.org/whl/cpu torch
+
+# Step 3: Install BERTopic (reuses the already-installed CPU torch)
 rapids-logger "Installing BERTopic"
 rapids-pip-retry install --prefer-binary bertopic
 
