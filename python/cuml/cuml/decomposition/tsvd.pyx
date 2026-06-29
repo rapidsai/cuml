@@ -105,7 +105,7 @@ class TruncatedSVD(InteropMixin,
         >>> tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
         ...                           n_iter = 20, tol = 1e-9)
         >>> tsvd_float.fit(gdf_float)
-        TruncatedSVD()
+        TruncatedSVD(algorithm='jacobi', n_components=2, n_iter=20, tol=1e-09)
         >>> print(f'components: {tsvd_float.components_}') # doctest: +SKIP
         components:           0         1         2
         0  0.587259  0.572331  0.572331

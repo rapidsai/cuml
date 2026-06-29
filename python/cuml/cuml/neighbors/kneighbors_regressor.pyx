@@ -132,7 +132,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         >>> knn = KNeighborsRegressor(n_neighbors=10)
         >>> knn.fit(X_train, y_train)
-        KNeighborsRegressor()
+        KNeighborsRegressor(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
             21.589611  , -14.519918  , -60.25534   , -20.856869  ,

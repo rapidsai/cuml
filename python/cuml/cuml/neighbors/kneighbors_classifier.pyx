@@ -131,7 +131,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         >>> knn = KNeighborsClassifier(n_neighbors=10)
 
         >>> knn.fit(X_train, y_train)
-        KNeighborsClassifier()
+        KNeighborsClassifier(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([1., 2., 2., 3., 4., 2., 4., 4., 2., 3., 1., 4., 3., 1., 3., 4., 3., # noqa: E501
             4., 1., 3.], dtype=float32)
