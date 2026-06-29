@@ -52,9 +52,7 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
-    embedding = cuUMAP(build_algo=build_algo).fit_transform(
-        data, convert_dtype=True
-    )
+    embedding = cuUMAP(build_algo=build_algo).fit_transform(data)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
@@ -93,7 +91,7 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     assert not np.isnan(embedding).any()
     assert not np.isnan(cuml_embedding).any()
@@ -112,7 +110,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     data = iris.data
     embedding = cuUMAP(
         n_neighbors=10, random_state=0, min_dist=0.01
-    ).fit_transform(data, iris.target, convert_dtype=True)
+    ).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -124,7 +122,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target[25:75] = -1
     embedding = cuUMAP(
         n_neighbors=10, random_state=0, min_dist=0.01
-    ).fit_transform(data, target, convert_dtype=True)
+    ).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
@@ -135,7 +133,7 @@ def test_umap_trustworthiness_on_iris():
     data = iris.data
     embedding = cuUMAP(
         n_neighbors=10, min_dist=0.01, random_state=0
-    ).fit_transform(data, convert_dtype=True)
+    ).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -157,9 +155,9 @@ def test_umap_transform_on_iris(target_metric):
         random_state=42,
         target_metric=target_metric,
     )
-    fitter.fit(data, convert_dtype=True)
+    fitter.fit(data)
     new_data = iris.data[~iris_selection]
-    embedding = fitter.transform(new_data, convert_dtype=True)
+    embedding = fitter.transform(new_data)
 
     assert not np.isnan(embedding).any()
 
@@ -195,10 +193,10 @@ def test_umap_transform_on_digits_sparse(
     new_data = sparse.csr_matrix(sp.csr_matrix(digits.data[~digits_selection]))
 
     if xform_method == "fit":
-        fitter.fit(data, convert_dtype=True)
-        embedding = fitter.transform(new_data, convert_dtype=True)
+        fitter.fit(data)
+        embedding = fitter.transform(new_data)
     else:
-        embedding = fitter.fit_transform(new_data, convert_dtype=True)
+        embedding = fitter.fit_transform(new_data)
 
     if input_type == "cupy":
         embedding = embedding.get()
@@ -226,11 +224,11 @@ def test_umap_transform_on_digits(target_metric):
         random_state=42,
         target_metric=target_metric,
     )
-    fitter.fit(data, convert_dtype=True)
+    fitter.fit(data)
 
     new_data = digits.data[~digits_selection]
 
-    embedding = fitter.transform(new_data, convert_dtype=True)
+    embedding = fitter.transform(new_data)
     trust = trustworthiness(
         digits.data[~digits_selection], embedding, n_neighbors=15
     )
@@ -266,7 +264,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         n_neighbors=10, min_dist=0.01, target_metric=target_metric
     )
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     trust = trustworthiness(data, embedding, n_neighbors=10)
     cuml_trust = trustworthiness(data, cuml_embedding, n_neighbors=10)
@@ -330,7 +328,7 @@ def test_umap_fit_transform_score_default(target_metric, build_algo):
     cuml_model = cuUMAP(target_metric=target_metric, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     cuml_score = adjusted_rand_score(
         labels, KMeans(10).fit_predict(cuml_embedding)
@@ -355,8 +353,8 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
 
     cuml_model = cuUMAP(build_algo=build_algo)
 
-    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+    ft_embedding = cuml_model.fit_transform(data)
+    fit_embedding_same_input = cuml_model.transform(data)
 
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_same_input)
 
@@ -366,14 +364,12 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
 
     cuml_model = cuUMAP(hash_input=True)
 
-    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+    ft_embedding = cuml_model.fit_transform(data)
+    fit_embedding_same_input = cuml_model.transform(data)
 
     assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
 
-    fit_embedding_diff_input = cuml_model.transform(
-        data[1:], convert_dtype=True
-    )
+    fit_embedding_diff_input = cuml_model.transform(data[1:])
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
@@ -408,7 +404,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
             random_state=random_state,
             build_algo="brute_force_knn",
         )
-        return reducer.fit_transform(data, convert_dtype=True)
+        return reducer.fit_transform(data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
@@ -450,7 +446,7 @@ def test_umap_force_serial_epochs_reproducibility(n_components, init):
             random_state=42,
             force_serial_epochs=True,
             build_algo="brute_force_knn",
-        ).fit_transform(data, convert_dtype=True)
+        ).fit_transform(data)
 
     cuml_embedding1 = get_embedding()
     cuml_embedding2 = get_embedding()
@@ -498,8 +494,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
             random_state=random_state,
             build_algo="brute_force_knn",
         )
-        reducer.fit(fit_data, convert_dtype=True)
-        return reducer.transform(transform_data, convert_dtype=True)
+        reducer.fit(fit_data)
+        return reducer.transform(transform_data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
@@ -527,7 +523,7 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
         init="random",
         random_state=42,
     )
-    embedding = algo.fit_transform(data, convert_dtype=True)
+    embedding = algo.fit_transform(data)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -546,8 +542,8 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
         init="random",
         random_state=42,
     )
-    model.fit(fit_data, convert_dtype=True)
-    embedding = model.transform(transform_data, convert_dtype=True)
+    model.fit(fit_data)
+    embedding = model.transform(transform_data)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
     assert trust >= 0.92
 
@@ -828,7 +824,6 @@ def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
         embd = model.fit_transform(
             cp.array(data) if data_on_gpu else data,
             knn_graph=knn_graph,
-            convert_dtype=True,
         )
 
         return embd.get() if data_on_gpu else embd
@@ -843,11 +838,8 @@ def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
         model.fit(
             cp.array(data) if data_on_gpu else data,
             knn_graph=knn_graph,
-            convert_dtype=True,
         )
-        embd = model.transform(
-            cp.array(data) if data_on_gpu else data, convert_dtype=True
-        )
+        embd = model.transform(cp.array(data) if data_on_gpu else data)
         return embd.get() if data_on_gpu else embd
 
     def test_trustworthiness(embedding):
@@ -1142,12 +1134,10 @@ def test_umap_trustworthiness_on_batch_nnd(
     )
 
     if fit_then_transform:
-        cuml_model.fit(digits.data, convert_dtype=True)
+        cuml_model.fit(digits.data)
         cuml_embedding = cuml_model.transform(digits.data)
     else:
-        cuml_embedding = cuml_model.fit_transform(
-            digits.data, convert_dtype=True
-        )
+        cuml_embedding = cuml_model.fit_transform(digits.data)
 
     cuml_trust = trustworthiness(
         digits.data, cuml_embedding, n_neighbors=10, metric=metric
@@ -1188,7 +1178,7 @@ def test_umap_fit_transform_batch_brute_force_reproducibility(
             build_algo="brute_force_knn",
             build_kwds={"knn_n_clusters": num_clusters},
         )
-        return reducer.fit_transform(data, convert_dtype=True)
+        return reducer.fit_transform(data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
