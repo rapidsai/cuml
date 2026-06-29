@@ -140,7 +140,7 @@ def make_regression(
     """  # noqa: E501
     dtype = cp.dtype(dtype)
     if dtype not in ["float32", "float64"]:
-        raise ValueError("Expected dtype in ['float32', 'float64'], got `{dtype!s}`")
+        raise ValueError(f"Expected dtype in ['float32', 'float64'], got `{dtype!s}`")
 
     if effective_rank is None:
         effective_rank = -1

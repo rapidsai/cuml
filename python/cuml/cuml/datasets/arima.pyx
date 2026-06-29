@@ -77,6 +77,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Array of the requested type containing the generated dataset
     """
     dtype = cp.dtype(dtype)
+    if dtype not in ["float32", "float64"]:
+        raise ValueError(f"Expected dtype in ['float32', 'float64'], got `{dtype!s}`")
 
     cdef ARIMAOrder cpp_order
     cpp_order.p, cpp_order.d, cpp_order.q = order

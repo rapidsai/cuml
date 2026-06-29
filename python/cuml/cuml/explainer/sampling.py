@@ -62,13 +62,8 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
         imp = SimpleImputer(missing_values=cp.nan, strategy="mean")
         X = imp.fit_transform(X)
 
-        kmeans = KMeans(
-            n_clusters=k,
-            random_state=random_state,
-            output_type="cupy",
-            n_init="auto",
-        ).fit(X)
-
+        kmeans = KMeans(n_clusters=k, random_state=random_state, n_init="auto")
+        kmeans.fit(X)
         summary = kmeans.cluster_centers_
 
         if round_values:
