@@ -71,15 +71,21 @@ for i in range(100):
 
 topic_model = BERTopic(verbose=False, calculate_probabilities=False)
 
-# Fit the model
-topics, probs = topic_model.fit_transform(docs)
+# Inspect the profiler to confirm the UMAP/HDBSCAN steps actually ran on GPU
+with cuml.accel.profile() as prof:
+    topics, probs = topic_model.fit_transform(docs)
 
-# Verify cuML actually backed BERTopic's UMAP and HDBSCAN steps.
-assert cuml.accel.enabled(), 'cuml.accel is not enabled'
-assert cuml.accel.is_proxy(topic_model.umap_model), \
-    f'UMAP not accelerated by cuML: {type(topic_model.umap_model)}'
-assert cuml.accel.is_proxy(topic_model.hdbscan_model), \
-    f'HDBSCAN not accelerated by cuML: {type(topic_model.hdbscan_model)}'
+def assert_ran_on_gpu(prefix):
+    stats = {n: s for n, s in prof.method_calls.items() if n.startswith(prefix)}
+    assert stats, f'no {prefix}* calls were recorded by cuml.accel'
+    gpu_calls = sum(s.gpu_calls for s in stats.values())
+    cpu_calls = sum(s.cpu_calls for s in stats.values())
+    reasons = sorted({r for s in stats.values() for r in s.fallback_reasons})
+    assert gpu_calls > 0, f'{prefix}* never ran on GPU (recorded: {sorted(stats)})'
+    assert cpu_calls == 0, f'{prefix}* fell back to CPU: {reasons}'
+
+assert_ran_on_gpu('UMAP.')
+assert_ran_on_gpu('HDBSCAN.')
 
 print(f'✓ BERTopic smoke test passed - processed {len(docs)} documents, found {len(set(topics))} topics')
 "
