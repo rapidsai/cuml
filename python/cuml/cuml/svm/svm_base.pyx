@@ -478,7 +478,7 @@ class SVMBase(InteropMixin,
         self._gamma = gamma
         self._sparse = sparse_X
 
-    def _predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def _predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Perform `predict`."""
         check_is_fitted(self)
 

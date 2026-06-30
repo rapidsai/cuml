@@ -227,7 +227,7 @@ class LedoitWolf(InteropMixin, Base):
         self.block_size = block_size
 
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
         Parameters
@@ -237,8 +237,12 @@ class LedoitWolf(InteropMixin, Base):
             and `n_features` is the number of features.
         y : Ignored
             Not used, present for API consistency.
-        convert_dtype : bool, default=True
-            If True, convert the input data to float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------

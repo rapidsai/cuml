@@ -81,7 +81,7 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True):
+    def fit(self, X, y=None, *, convert_dtype="deprecated"):
         """Generate a random projection matrix."""
         # Use `mem_type=None` & `order=None` to minimize copies or transfers. We
         # don't need to access the data here, just ensure it's valid and get
@@ -125,7 +125,7 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
 
     @generate_docstring()
     @reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Project the data by taking the matrix product with the random matrix."""
         check_is_fitted(self)
         X, index = check_inputs(
@@ -157,7 +157,9 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
 
     @generate_docstring()
     @reflect
-    def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
+    def fit_transform(
+        self, X, y=None, *, convert_dtype="deprecated"
+    ) -> CumlArray:
         """Fit to data, then transform it."""
         return self.fit(X, convert_dtype=convert_dtype).transform(
             X, convert_dtype=convert_dtype

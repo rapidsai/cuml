@@ -306,7 +306,7 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype=True
+        convert_dtype="deprecated"
     ) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -487,7 +487,7 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

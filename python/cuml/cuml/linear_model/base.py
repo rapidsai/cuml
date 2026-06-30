@@ -21,7 +21,7 @@ class LinearPredictMixin:
         }
     )
     @cuml.internals.reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts `y` values for `X`.
         """
@@ -59,7 +59,7 @@ class LinearClassifierMixin:
         },
     )
     @cuml.internals.reflect
-    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Predict confidence scores for samples."""
         check_is_fitted(self)
 

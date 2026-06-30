@@ -38,7 +38,7 @@ def kpss_test(
     int D=0,
     int s=0,
     double pval_threshold=0.05,
-    convert_dtype=True,
+    convert_dtype="deprecated",
 ):
     """
     Perform the KPSS stationarity test on the data differenced according

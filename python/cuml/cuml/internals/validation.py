@@ -571,9 +571,7 @@ def check_array(
         output. If the input doesn't have a supported dtype, it will be
         converted to the first listed dtype.
     convert_dtype : bool, default="deprecated"
-
         .. deprecated:: 26.08
-
             `convert_dtype` was deprecated in version 26.08 and will be removed
             in version 26.10. cuML only copies input arrays when necessary
             (e.g. to unify dtypes), there is no reason to provide this keyword
@@ -1068,9 +1066,7 @@ def check_y(
         dtypes to enforce a dtype for the output. If the input doesn't have a
         supported dtype, it will be converted to the first listed dtype.
     convert_dtype : bool, default="deprecated"
-
         .. deprecated:: 26.08
-
             `convert_dtype` was deprecated in version 26.08 and will be removed
             in version 26.10. cuML only copies input arrays when necessary
             (e.g. to unify dtypes), there is no reason to provide this keyword
@@ -1330,9 +1326,7 @@ def check_sample_weight(
         output. If the input doesn't have a supported dtype, it will be
         converted to the first listed dtype.
     convert_dtype : bool, default="deprecated"
-
         .. deprecated:: 26.08
-
             `convert_dtype` was deprecated in version 26.08 and will be removed
             in version 26.10. cuML only copies input arrays when necessary
             (e.g. to unify dtypes), there is no reason to provide this keyword
@@ -1468,9 +1462,7 @@ def check_inputs(
         The dtype(s) to support for sample_weight. If not specified, defaults
         to the output dtype of ``X``.
     convert_dtype : bool, default="deprecated"
-
         .. deprecated:: 26.08
-
             `convert_dtype` was deprecated in version 26.08 and will be removed
             in version 26.10. cuML only copies input arrays when necessary
             (e.g. to unify dtypes), there is no reason to provide this keyword

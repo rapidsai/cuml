@@ -41,7 +41,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nog
 
 def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
-        convert_dtype=True):
+        convert_dtype="deprecated"):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients.
 
@@ -145,7 +145,7 @@ def cython_silhouette_score(
     labels,
     metric='euclidean',
     chunksize=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
 ):
     """Calculate the mean silhouette coefficient for the provided data.
 
@@ -184,7 +184,7 @@ def cython_silhouette_samples(
     labels,
     metric='euclidean',
     chunksize=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
 ):
     """Calculate the silhouette coefficient for each sample in the provided data.
 

@@ -111,7 +111,7 @@ class KNeighborsRegressor(NearestNeighbors):
             convert_dtype,
         )
 
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype="deprecated"):
         """
         Predict outputs for a query from previously stored index
         and outputs.
@@ -123,9 +123,12 @@ class KNeighborsRegressor(NearestNeighbors):
             Query data.
             Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will automatically
-            convert the data to the right formats.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
@@ -240,7 +243,7 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        y_pred_plain = self.predict(X, convert_dtype=True)
+        y_pred_plain = self.predict(X)
         if not isinstance(y_pred_plain, da.Array):
             y_pred = y_pred_plain.to_dask_array(lengths=True)
         else:

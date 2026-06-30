@@ -357,7 +357,7 @@ class Ridge(InteropMixin,
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
+    def fit(self, X, y, sample_weight=None, *, convert_dtype="deprecated") -> "Ridge":
         """
         Fit the model with X and y.
         """

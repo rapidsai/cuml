@@ -225,7 +225,7 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
     @generate_docstring()
     @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LinearSVC":
         """Fit the model according to the given training data."""
         n_streams = self.n_streams
@@ -279,7 +279,7 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
         },
     )
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """Predict class labels for samples in X."""
         scores = self.decision_function(X, convert_dtype=convert_dtype)
         index = scores.index

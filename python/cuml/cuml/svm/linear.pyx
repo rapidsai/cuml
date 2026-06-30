@@ -62,7 +62,7 @@ def fit(
     y,
     sample_weight=None,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     is_classifier=False,
     class_weight=None,
     n_streams=0,

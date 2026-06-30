@@ -133,7 +133,9 @@ class SVR(RegressorMixin, SVMBase):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVR":
         """
         Fit the model with X and y.
 
@@ -171,7 +173,7 @@ class SVR(RegressorMixin, SVMBase):
         }
     )
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the values for X.
 

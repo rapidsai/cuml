@@ -310,7 +310,14 @@ class LinearRegression(InteropMixin,
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
+    def fit(
+        self,
+        X,
+        y,
+        sample_weight=None,
+        *,
+        convert_dtype="deprecated",
+    ) -> "LinearRegression":
         """
         Fit the model with X and y.
 
