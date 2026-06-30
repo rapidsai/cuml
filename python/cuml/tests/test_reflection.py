@@ -91,7 +91,7 @@ class ImplementsCudaArrayInterface:
 class DummyEstimator(Base):
     X_ = CumlArrayDescriptor()
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None):
         X = check_inputs(self, X, reset=True)
         self.X_ = CumlArray(data=X)
@@ -526,7 +526,7 @@ def test_array_descriptor_cache_behavior():
 
 def test_decorators_set_cupy_ptds():
     class MyEstimator(Base):
-        @reflect(reset="type")
+        @reflect(reset=True)
         def fit(self, X, y=None):
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return self

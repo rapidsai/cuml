@@ -124,7 +124,7 @@ class PCA(InteropMixin,
 
         >>> pca_float = PCA(n_components = 2)
         >>> pca_float.fit(gdf_float)
-        PCA()
+        PCA(n_components=2)
 
         >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
         components: 0           1           2
@@ -253,6 +253,8 @@ class PCA(InteropMixin,
     def _params_from_cpu(cls, model):
         if model.n_components == "mle":
             raise UnsupportedOnGPU("`n_components='mle'` is not supported")
+        if model.n_components == 0:
+            raise UnsupportedOnGPU("`n_components=0` is not supported")
 
         svd_solver = "auto" if model.svd_solver == "auto" else "full"
 
@@ -464,7 +466,7 @@ class PCA(InteropMixin,
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -505,7 +507,7 @@ class PCA(InteropMixin,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.

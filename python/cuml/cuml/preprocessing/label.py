@@ -396,7 +396,7 @@ class LabelBinarizer(InteropMixin, Base):
         self.fit_transform(y)
         return self
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, y):
         """
         Fit label binarizer and transform labels to binary labels.

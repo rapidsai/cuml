@@ -38,7 +38,7 @@ class SVC(ClassifierMixin, SVMBase):
         >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
         >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
         >>> clf.fit(X, y)
-        SVC()
+        SVC(C=1, degree=2, gamma='auto', kernel='poly')
         >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
@@ -346,7 +346,7 @@ class SVC(ClassifierMixin, SVMBase):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.

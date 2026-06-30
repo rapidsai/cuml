@@ -205,7 +205,7 @@ class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
         self.fit(X, y)
         return self.embedding_
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 

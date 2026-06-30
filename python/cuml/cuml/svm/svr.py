@@ -124,7 +124,7 @@ class SVR(RegressorMixin, SVMBase):
         >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
         >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
         >>> reg.fit(X, y)
-        SVR()
+        SVR(C=10)
         >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
     """
@@ -132,7 +132,7 @@ class SVR(RegressorMixin, SVMBase):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.

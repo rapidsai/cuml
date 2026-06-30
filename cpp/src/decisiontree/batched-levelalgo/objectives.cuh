@@ -16,7 +16,6 @@
 
 namespace ML {
 namespace DT {
-
 template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class ClassificationObjectiveFunction {
  public:
@@ -30,15 +29,6 @@ class ClassificationObjectiveFunction {
   IdxT nclasses;
   IdxT min_samples_leaf;
   CRITERION criterion;
-
-  DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins) const
-  {
-    BinCountT nLeft = 0;
-    for (IdxT j = 0; j < nclasses; ++j) {
-      nLeft += hist[n_bins * j + i].Count();
-    }
-    return static_cast<IdxT>(nLeft);
-  }
 
   HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
@@ -144,18 +134,29 @@ class ClassificationObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
+  template <typename DatasetT>
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
+  {
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
+    }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = CountLeft(shist, i, n_bins);
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }
@@ -319,18 +320,29 @@ class RegressionObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
 
+  template <typename DatasetT>
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
+  {
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
+    }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = static_cast<IdxT>(shist[i].Count());
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }

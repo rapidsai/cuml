@@ -132,7 +132,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         >>> knn = KNeighborsRegressor(n_neighbors=10)
         >>> knn.fit(X_train, y_train)
-        KNeighborsRegressor()
+        KNeighborsRegressor(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
             21.589611  , -14.519918  , -60.25534   , -20.856869  ,
@@ -211,7 +211,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
@@ -262,11 +262,9 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        out = CumlArray.zeros(
-            res_shape, dtype=np.float32, order="C", index=knn_indices.index
-        )
+        out = cp.zeros(res_shape, dtype=np.float32, order="C")
 
-        cdef float* out_ptr = <float*><uintptr_t>out.ptr
+        cdef float* out_ptr = <float*><uintptr_t>out.data.ptr
 
         cdef vector[float*] y_vec
         cdef float* y_ptr
@@ -300,4 +298,4 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=knn_indices.index)
