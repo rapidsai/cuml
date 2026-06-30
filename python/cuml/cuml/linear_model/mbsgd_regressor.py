@@ -11,7 +11,7 @@ from cuml.solvers.sgd import fit_sgd
 
 
 class MBSGDRegressor(
-    Base, LinearPredictMixin, RegressorMixin, FMajorInputTagMixin
+    LinearPredictMixin, RegressorMixin, FMajorInputTagMixin, Base
 ):
     """
     Linear model fitted by minimizing a regularized empirical loss with SGD.
@@ -162,7 +162,7 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.

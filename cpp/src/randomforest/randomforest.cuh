@@ -20,6 +20,7 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/logical.h>
 #include <thrust/sequence.h>
 
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
@@ -36,6 +37,13 @@
 #include <map>
 
 namespace ML {
+
+namespace detail {
+template <typename T>
+struct InvalidSampleWeight {
+  __device__ bool operator()(T weight) const { return weight < T(0) || !isfinite(weight); }
+};
+}  // namespace detail
 
 template <class T, class L>
 class RandomForest {
@@ -83,6 +91,21 @@ class RandomForest {
     }
   }
 
+  void validate_sample_weight(const raft::handle_t& handle,
+                              const T* sample_weight,
+                              int n_rows) const
+  {
+    ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
+           "sample_weight must be a GPU pointer");
+    if (sample_weight == nullptr) { return; }
+
+    bool has_invalid = thrust::any_of(rmm::exec_policy(handle.get_stream()),
+                                      sample_weight,
+                                      sample_weight + n_rows,
+                                      detail::InvalidSampleWeight<T>{});
+    ASSERT(!has_invalid, "sample_weight values must be finite and non-negative");
+  }
+
  public:
   /**
    * @brief Construct RandomForest object.
@@ -109,6 +132,8 @@ class RandomForest {
   * @param[in] forest: CPU point to RandomForestMetaData struct.
   * @param[out] bootstrap_masks: optional device pointer to store bootstrap masks
   *   (n_trees * n_rows), only populated if a non-null pointer is provided
+  * @param[in] sample_weight: optional device pointer to per-row sample weights. Counts remain
+  *   sample counts; weights are used only for impurity/objective math.
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -117,12 +142,14 @@ class RandomForest {
            L* labels,
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
-           bool* bootstrap_masks = nullptr)
+           bool* bootstrap_masks  = nullptr,
+           const T* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
     const raft::handle_t& handle = user_handle;
-    int n_sampled_rows           = 0;
+    this->validate_sample_weight(handle, sample_weight, n_rows);
+    int n_sampled_rows = 0;
     if (this->rf_params.bootstrap) {
       n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
     } else {
@@ -140,10 +167,9 @@ class RandomForest {
            n_streams,
            handle.get_stream_pool_size());
 
-    // computing the quantiles: last two return values are shared pointers to device memory
-    // encapsulated by quantiles struct
-    auto [quantiles, quantiles_array, n_bins_array] = DT::computeQuantiles(
+    auto quantile_result = DT::computeQuantiles(
       handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols, 4, rf_params.seed);
+    auto quantiles = quantile_result.view();
 
     // n_streams should not be less than n_trees
     if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
@@ -187,7 +213,8 @@ class RandomForest {
                                                this->rf_params.tree_params,
                                                this->rf_params.seed,
                                                quantiles,
-                                               i);
+                                               i,
+                                               sample_weight);
 
       // Store bootstrap mask if device buffer is provided
       if (bootstrap_masks != nullptr) {

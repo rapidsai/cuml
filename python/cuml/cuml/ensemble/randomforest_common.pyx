@@ -4,7 +4,9 @@
 #
 from __future__ import annotations
 
+import builtins
 import math
+import numbers
 import warnings
 from typing import Literal
 
@@ -168,7 +170,7 @@ def compute_max_features(
         )
 
 
-class BaseRandomForestModel(Base, InteropMixin):
+class BaseRandomForestModel(InteropMixin, Base):
 
     @classmethod
     def _get_param_names(cls):
@@ -488,6 +490,21 @@ class BaseRandomForestModel(Base, InteropMixin):
         if self.oob_score and not self.bootstrap:
             raise ValueError("Out of bag estimation only available if bootstrap=True")
 
+        n_streams = self.n_streams
+        if (
+            isinstance(n_streams, (builtins.bool, np.bool_))
+            or not isinstance(n_streams, numbers.Integral)
+        ):
+            raise TypeError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+        if n_streams <= 0:
+            raise ValueError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+
+        cdef int n_streams_c = n_streams
+
         cdef float max_features = compute_max_features(self.max_features, n_cols)
         cdef uint64_t seed = (
             0 if self.random_state is None
@@ -524,12 +541,12 @@ class BaseRandomForestModel(Base, InteropMixin):
             self.max_samples,
             seed,
             _normalize_split_criterion(self.split_criterion),
-            self.n_streams,
+            n_streams_c,
             self.max_batch_size,
         )
 
         cdef TreeliteModelHandle tl_handle
-        handle = get_handle(n_streams=self.n_streams)
+        handle = get_handle(n_streams=n_streams_c)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block

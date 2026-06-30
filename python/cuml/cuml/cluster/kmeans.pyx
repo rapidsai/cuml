@@ -265,10 +265,10 @@ cdef _kmeans_predict(
     return labels, inertia
 
 
-class KMeans(Base,
-             InteropMixin,
+class KMeans(InteropMixin,
              ClusterMixin,
-             CMajorInputTagMixin):
+             CMajorInputTagMixin,
+             Base):
     """
     KMeans is a basic but powerful clustering method which is optimized via
     Expectation Maximization. It randomly selects K data points in X, and
@@ -306,7 +306,7 @@ class KMeans(Base,
         >>> # Calling fit
         >>> kmeans_float = KMeans(n_clusters=2, n_init="auto", random_state=1)
         >>> kmeans_float.fit(b)
-        KMeans()
+        KMeans(n_clusters=2, random_state=1)
         >>>
         >>> # Labels:
         >>> kmeans_float.labels_
@@ -530,7 +530,7 @@ class KMeans(Base,
         return self.n_clusters
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
         """
         Compute k-means clustering with X.

@@ -27,11 +27,11 @@ SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
 
 
 class LogisticRegression(
-    Base,
     InteropMixin,
     LinearClassifierMixin,
     ClassifierMixin,
     SparseInputTagMixin,
+    Base,
 ):
     """Logistic Regression classifier.
 
@@ -295,7 +295,7 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LogisticRegression":

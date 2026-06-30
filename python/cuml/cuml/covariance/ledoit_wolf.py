@@ -86,7 +86,7 @@ def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
     return shrinkage, emp_cov, mu
 
 
-class LedoitWolf(Base, InteropMixin):
+class LedoitWolf(InteropMixin, Base):
     """LedoitWolf Estimator for covariance matrix estimation.
 
     Computes the Ledoit-Wolf shrinkage estimator for the covariance matrix.
@@ -226,7 +226,7 @@ class LedoitWolf(Base, InteropMixin):
         self.assume_centered = assume_centered
         self.block_size = block_size
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 

@@ -202,7 +202,7 @@ def fit_cd(
     return coef, intercept, n_iter
 
 
-class CD(Base, FMajorInputTagMixin):
+class CD(FMajorInputTagMixin, Base):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
@@ -264,7 +264,7 @@ class CD(Base, FMajorInputTagMixin):
     >>> y = cudf.Series(cp.array([6.0, 8.0, 9.0, 11.0], dtype=cp.float32))
 
     >>> cd.fit(X,y)
-    CD()
+    CD(alpha=0.0)
     >>> print(cd.coef_) # doctest: +SKIP
     0 1.001...
     1 1.998...
@@ -311,7 +311,7 @@ class CD(Base, FMajorInputTagMixin):
         self.shuffle = shuffle
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
         """
         Fit the model with X and y.

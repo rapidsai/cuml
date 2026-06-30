@@ -486,7 +486,7 @@ cdef class _HDBSCANState:
         return tree
 
 
-class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
+class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
     """
     HDBSCAN Clustering
 
@@ -909,7 +909,7 @@ class HDBSCAN(Base, InteropMixin, ClusterMixin, CMajorInputTagMixin):
         self.prediction_data = True
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.

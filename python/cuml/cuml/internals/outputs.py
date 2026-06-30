@@ -6,14 +6,17 @@ import contextlib
 import functools
 import inspect
 
+import cudf
+import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
+import pandas as pd
+import scipy.sparse as sp
 from cupy.cuda import Stream
 
-# TODO: Try to resolve circular import that makes this necessary:
-from cuml.internals import input_utils as iu
+from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.validation import check_features
 
 __all__ = (
     "check_output_type",
@@ -269,6 +272,57 @@ def _get_param(sig, name_or_index):
     return param.name
 
 
+def infer_output_type(array, array_like="numpy"):
+    """Infer the corresponding ``output_type`` given an input array-like.
+
+    Parameters
+    ----------
+    array : array-like
+        The array-like value to infer from.
+    array_like : Any, default="numpy"
+        The value to return if `array` is not an array but is array-like.
+
+    Returns
+    -------
+    output_type : {"cupy", "numpy", "pandas", "cudf", "numba", "cuml", None}
+        The inferred ``output_type``, or ``None`` if not an array-like input.
+    """
+    if isinstance(array, np.ndarray) or sp.issparse(array):
+        return "numpy"
+    elif isinstance(array, cp.ndarray) or cp_sp.issparse(array):
+        return "cupy"
+    elif isinstance(array, (CumlArray, SparseCumlArray)):
+        return "cuml"
+    elif isinstance(array, (cudf.DataFrame, cudf.Series, cudf.Index)):
+        return "cudf"
+    elif isinstance(array, (pd.DataFrame, pd.Series, pd.Index)):
+        return "pandas"
+    elif hasattr(array, "__cuda_ndarray__"):
+        return "numba"
+    elif hasattr(array, "__cuda_array_interface__"):
+        return "cupy"
+
+    # Explicitly exclude a few common collections that aren't array-likes. This
+    # matches those also explicitly excluded in our validation routines.
+    if isinstance(array, (str, bytes, dict)):
+        return None
+
+    # Exclude numpy scalars, which also implement `__array__`
+    if np.isscalar(array):
+        return None
+
+    # Types with any of these attributes _may_ be coerced to an array by our
+    # validation methods (e.g. `check_array`). The actual instance may error at
+    # that point, but that's fine, this is just a best effort inference to
+    # exclude non-array-like things like `None`/`1`/...
+    for name in ["__array__", "__array_interface__", "__len__"]:
+        if hasattr(array, name):
+            return array_like
+
+    # Not an array-like input, just return None
+    return None
+
+
 def coerce_arrays(res, output_type):
     """Traverse a result, converting it to the proper output type"""
     if isinstance(res, tuple):
@@ -279,18 +333,24 @@ def coerce_arrays(res, output_type):
         return {k: coerce_arrays(v, output_type) for k, v in res.items()}
 
     # Get the output type
-    arr_type, is_sparse = iu.determine_array_type_full(res)
+    arr_type = infer_output_type(res, array_like=None)
 
     if arr_type is None:
         # Not an array, just return
         return res
+
+    is_sparse = (
+        cp_sp.issparse(res)
+        or sp.issparse(res)
+        or isinstance(res, SparseCumlArray)
+    )
 
     # If we are a supported array and not already cuml, convert to cuml
     if arr_type != "cuml":
         if is_sparse:
             res = SparseCumlArray(res, convert_index=False)
         else:
-            res = iu.input_to_cuml_array(res, order="K").array
+            res = CumlArray.from_input(res, order="K")
 
     if output_type == "cuml":
         # Return CumlArray/SparseCumlArray directly
@@ -366,15 +426,11 @@ def reflect(
         provide ``None`` to disable this inference entirely; in this case the
         output type is expected to be specified manually either internal or
         external to the method.
-    reset : bool or "type", default=False
-        If True, both the features and reflected type are reset on the estimator.
-        If ``"type"``, only the reflected type is reset on the estimator.
+    reset : bool, default=False
+        If True, the input type for reflection is reset on the estimator.
         Defaults to False, to not reset anything. Most estimators should set
         ``reset=True`` on any fit-like methods.
     """
-    # Local to avoid circular imports
-    import cuml.accel
-
     if func is None:
         return lambda func: reflect(
             func,
@@ -402,33 +458,22 @@ def reflect(
     if array is not None:
         array = _get_param(sig, array)
 
-    if reset not in (True, False, "type"):
-        raise ValueError(f"reset={reset!r} is not supported")
-
-    if (reset is not False) and (model is None or array is None):
+    if reset and (model is None or array is None):
         raise ValueError(
-            f"`reset={reset}` is not valid with `array=None` or `model=None`"
+            "`reset=True` is not valid with `array=None` or `model=None`"
         )
 
     @functools.wraps(func)
     def inner(*args, **kwargs):
-        # Accept list/tuple inputs when accelerator is active
-        accept_lists = cuml.accel.enabled()
-
         # Bind arguments
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
 
         model_arg = None if model is None else bound.arguments[model]
         array_arg = None if array is None else bound.arguments[array]
-        if accept_lists and isinstance(array_arg, (list, tuple)):
-            array_arg = np.asarray(array_arg)
-
         with enter_internal_context() as was_external:
-            if reset is not False:
+            if reset:
                 model_arg._set_output_type(array_arg)
-            if reset is True:
-                check_features(model_arg, array_arg, reset=True)
 
             res = func(*args, **kwargs)
 
@@ -444,7 +489,7 @@ def reflect(
                 output_type = gs.output_type
                 if output_type in ("input", None):
                     if array is not None:
-                        output_type = iu.determine_array_type(array_arg)
+                        output_type = infer_output_type(array_arg)
                     if output_type in ("input", None):
                         # Nothing to infer from and no explicit type set,
                         # default to cupy

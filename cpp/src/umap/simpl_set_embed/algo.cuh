@@ -8,6 +8,7 @@
 #include "optimize_batch_kernel.cuh"
 #include "optimize_inverse_kernel.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/umapparams.h>
 
@@ -289,11 +290,11 @@ void optimize_layout(T* head_embedding,
     // datasets. See benchmarks in https://github.com/rapidsai/cuml/pull/7597
     if (nnz > 100000) {
       num_chunks =
-        std::max(num_chunks, static_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(100000))));
+        std::max(num_chunks, ML::narrow_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(100000))));
     } else if (nnz > 10000) {
       // more fine-grained chunks for smaller number of edges
       num_chunks =
-        std::max(num_chunks, static_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(10000))));
+        std::max(num_chunks, ML::narrow_cast<int>(raft::ceildiv(nnz, static_cast<nnz_t>(10000))));
     }
   }
 

@@ -48,7 +48,7 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
     )
 
 
-class _BaseRandomProjection(Base, SparseInputTagMixin):
+class _BaseRandomProjection(SparseInputTagMixin, Base):
     """Base class for RandomProjection estimators."""
 
     components_ = CumlArrayDescriptor()
@@ -80,7 +80,7 @@ class _BaseRandomProjection(Base, SparseInputTagMixin):
         raise NotImplementedError
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
         # Use `mem_type=None` & `order=None` to minimize copies or transfers. We

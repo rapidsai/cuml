@@ -9,7 +9,7 @@ import numpy as np
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse, sparse_cov_and_mean
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
@@ -24,7 +24,6 @@ from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
 )
-from cuml.prims.stats import cov
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -43,8 +42,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      float *singular_vals,
                      float *mu,
                      float *noise_vars,
-                     const paramsPCA &prms,
-                     bool flip_signs_based_on_U) except +
+                     const paramsPCA &prms) except +
 
     cdef void pcaFit(handle_t& handle,
                      double *input,
@@ -54,8 +52,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                      double *singular_vals,
                      double *mu,
                      double *noise_vars,
-                     const paramsPCA &prms,
-                     bool flip_signs_based_on_U) except +
+                     const paramsPCA &prms) except +
 
     cdef void pcaInverseTransform(handle_t& handle,
                                   float *trans_input,
@@ -90,10 +87,10 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML" nogil:
                            const paramsPCA &prms) except +
 
 
-class PCA(Base,
-          InteropMixin,
+class PCA(InteropMixin,
           FMajorInputTagMixin,
-          SparseInputTagMixin):
+          SparseInputTagMixin,
+          Base):
 
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
@@ -127,7 +124,7 @@ class PCA(Base,
 
         >>> pca_float = PCA(n_components = 2)
         >>> pca_float.fit(gdf_float)
-        PCA()
+        PCA(n_components=2)
 
         >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
         components: 0           1           2
@@ -246,7 +243,6 @@ class PCA(Base,
     mean_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.PCA"
-    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -257,6 +253,8 @@ class PCA(Base,
     def _params_from_cpu(cls, model):
         if model.n_components == "mle":
             raise UnsupportedOnGPU("`n_components='mle'` is not supported")
+        if model.n_components == 0:
+            raise UnsupportedOnGPU("`n_components=0` is not supported")
 
         svd_solver = "auto" if model.svd_solver == "auto" else "full"
 
@@ -349,16 +347,9 @@ class PCA(Base,
         return self.components_.shape[0]
 
     def _flip_sign(self, components, X):
-        """Flip sign of components based on scikit-learn version."""
-        if self._u_based_sign_flip:
-            # Flip sign based on U matrix (sklearn < 1.5.0)
-            US = (X - X.mean(axis=0)) @ components.T
-            max_idx = cp.abs(US).argmax(axis=0)
-            signs = cp.sign(US[max_idx, cp.arange(US.shape[1])])
-        else:
-            # Flip sign based on components matrix (sklearn >= 1.5.0)
-            max_idx = cp.abs(components).argmax(axis=1)
-            signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
+        """Flip component signs using the components matrix."""
+        max_idx = cp.abs(components).argmax(axis=1)
+        signs = cp.sign(components[cp.arange(components.shape[0]), max_idx])
         signs[signs == 0] = 1
         return components * signs[:, cp.newaxis]
 
@@ -398,10 +389,9 @@ class PCA(Base,
         cdef uintptr_t singular_values_ptr = singular_values.data.ptr
         cdef uintptr_t mean_ptr = mean.data.ptr
         cdef uintptr_t noise_variance_ptr = noise_variance.data.ptr
-        cdef bool fit_float32 = (X.dtype == np.float32)
+        cdef bint fit_float32 = (X.dtype == np.float32)
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
         with nogil:
@@ -415,8 +405,7 @@ class PCA(Base,
                     <float*> singular_values_ptr,
                     <float*> mean_ptr,
                     <float*> noise_variance_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
             else:
                 pcaFit(
@@ -428,8 +417,7 @@ class PCA(Base,
                     <double*> singular_values_ptr,
                     <double*> mean_ptr,
                     <double*> noise_variance_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
         handle.sync()
 
@@ -442,7 +430,7 @@ class PCA(Base,
         self.noise_variance_ = float(noise_variance.item())
 
     def _fit_sparse(self, X):
-        covariance, mean, _ = cov(X, X, return_mean=True)
+        covariance, mean = sparse_cov_and_mean(X)
 
         explained_variance, components = cp.linalg.eigh(covariance, UPLO='U')
 
@@ -473,12 +461,12 @@ class PCA(Base,
         self.components_ = CumlArray(data=cp.asfortranarray(components))
         self.explained_variance_ = CumlArray(data=explained_variance)
         self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean.flatten())
+        self.mean_ = CumlArray(data=mean)
         self.singular_values_ = CumlArray(data=singular_values)
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -487,7 +475,8 @@ class PCA(Base,
         X = check_inputs(
             self,
             X,
-            accept_sparse=["coo"],
+            accept_sparse=["csr"],
+            accept_large_sparse=True,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
@@ -518,7 +507,7 @@ class PCA(Base,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.

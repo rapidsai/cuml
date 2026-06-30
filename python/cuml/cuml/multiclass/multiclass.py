@@ -9,7 +9,7 @@ from cuml.internals.mixins import ClassifierMixin
 from cuml.internals.validation import check_inputs
 
 
-class _BaseMulticlassClassifier(Base, ClassifierMixin):
+class _BaseMulticlassClassifier(ClassifierMixin, Base):
     """Shared base class for multiclass classifiers"""
 
     def __init__(
@@ -32,7 +32,7 @@ class _BaseMulticlassClassifier(Base, ClassifierMixin):
         return self.multiclass_estimator.classes_
 
     @generate_docstring(y="dense_anydtype")
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y) -> "_BaseMulticlassClassifier":
         """
         Fit a multiclass classifier.

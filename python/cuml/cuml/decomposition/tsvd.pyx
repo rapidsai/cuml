@@ -35,8 +35,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -45,8 +44,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -73,9 +71,9 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                             const paramsTSVD &prms) except +
 
 
-class TruncatedSVD(Base,
-                   InteropMixin,
-                   FMajorInputTagMixin):
+class TruncatedSVD(InteropMixin,
+                   FMajorInputTagMixin,
+                   Base):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in
@@ -107,7 +105,7 @@ class TruncatedSVD(Base,
         >>> tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
         ...                           n_iter = 20, tol = 1e-9)
         >>> tsvd_float.fit(gdf_float)
-        TruncatedSVD()
+        TruncatedSVD(algorithm='jacobi', n_components=2, n_iter=20, tol=1e-09)
         >>> print(f'components: {tsvd_float.components_}') # doctest: +SKIP
         components:           0         1         2
         0  0.587259  0.572331  0.572331
@@ -207,7 +205,6 @@ class TruncatedSVD(Base,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
-    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -290,7 +287,7 @@ class TruncatedSVD(Base,
         return self.components_.shape[0]
 
     @generate_docstring()
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -303,7 +300,7 @@ class TruncatedSVD(Base,
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.
@@ -330,7 +327,6 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -374,8 +370,7 @@ class TruncatedSVD(Base,
                     <float*> explained_variance_ptr,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
             else:
                 tsvdFitTransform(
@@ -386,8 +381,7 @@ class TruncatedSVD(Base,
                     <double*> explained_variance_ptr,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
         handle.sync()
 

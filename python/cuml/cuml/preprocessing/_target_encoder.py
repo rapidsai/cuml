@@ -28,7 +28,7 @@ from cuml.internals.validation import (
 )
 
 
-class TargetEncoder(Base, InteropMixin):
+class TargetEncoder(InteropMixin, Base):
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or multiple categorical variables, 'Xs', with the average of
@@ -203,7 +203,7 @@ class TargetEncoder(Base, InteropMixin):
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories

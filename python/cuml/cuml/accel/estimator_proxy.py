@@ -220,12 +220,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         # Store `_cpu_class` from `_gpu_class` for parity and ease-of-reference
         cls._cpu_class = cls._gpu_class._get_cpu_class()
 
-        # Store whether sparse inputs are supported, unless overridden
-        if not hasattr(cls, "_gpu_supports_sparse"):
-            cls._gpu_supports_sparse = (
-                "sparse" in cls._gpu_class._get_tags()["X_types_gpu"]
-            )
-
         # Wrap __init__ to ensure signature compatibility.
         orig_init = cls.__init__
         if cls._cpu_class.__init__ is object.__init__:
@@ -381,9 +375,13 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
 
     def _call_gpu_method(self, method: str, *args: Any, **kwargs: Any) -> Any:
         """Call a method on the wrapped GPU estimator."""
-        from cuml.common.sparse_utils import is_sparse
+        from cuml.common.sparse import is_sparse
 
-        if args and is_sparse(args[0]) and not self._gpu_supports_sparse:
+        if (
+            args
+            and is_sparse(args[0])
+            and "sparse" not in self._gpu.__sklearn_tags__().X_types_gpu
+        ):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         if getattr(self._cpu, "_skl_callbacks", ()) and method in (
@@ -542,6 +540,14 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         return self._cpu._sklearn_auto_wrap_output_keys
 
     ############################################################
+    # set_callbacks handling                                   #
+    ############################################################
+
+    def _gpu_set_callbacks(self, *callbacks):
+        self._cpu.set_callbacks(*callbacks)
+        return self._gpu
+
+    ############################################################
     # Standard magic methods                                   #
     ############################################################
 
@@ -596,10 +602,6 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
             )
 
         return getattr(self._cpu, name)
-
-    def _gpu_set_callbacks(self, *callbacks):
-        self._cpu.set_callbacks(*callbacks)
-        return self._gpu
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name in ("_cpu", "_gpu", "_synced"):
@@ -719,23 +721,12 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         ):
             self._cpu._validate_params()
 
-    def _get_tags(self):
-        return self._cpu._get_tags()
-
-    def _more_tags(self):
-        return self._cpu._more_tags()
-
-    def _repr_mimebundle_(self, **kwargs):
+    def _html_repr(self):
         self._sync_attrs_to_cpu()
-        return self._cpu._repr_mimebundle_(**kwargs)
-
-    @property
-    def _repr_html_(self):
-        self._sync_attrs_to_cpu()
-        return self._cpu._repr_html_
+        return self._cpu._html_repr()
 
 
-class _ArrayAPIWrapper(Base, InteropMixin):
+class _ArrayAPIWrapper(InteropMixin, Base):
     """Wraps an array-api enabled sklearn estimator as a cuml estimator.
 
     This is a **bare-bones implementation**, implementing just enough features
@@ -857,6 +848,11 @@ class _ArrayAPIWrapper(Base, InteropMixin):
 
     def _params_to_cpu(self):
         return self.get_params(deep=False)
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.X_types_gpu = ["2darray"]
+        return tags
 
     def _sync_attrs_from_cpu(self, model) -> None:
         if not is_fitted(model):

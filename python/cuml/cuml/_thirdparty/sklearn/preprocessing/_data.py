@@ -35,23 +35,16 @@ from cupyx.scipy import sparse
 from scipy import optimize, stats
 from scipy.special import boxcox
 
-from cuml.internals.mixins import (
-    AllowNaNTagMixin,
-    SparseInputTagMixin,
-    StatelessTagMixin,
-)
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import using_output_type, reflect
 from cuml.internals.validation import check_is_fitted, check_array, check_inputs
+from cuml.thirdparty_adapters.sparsefuncs_fast import csr_polynomial_expansion
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array import CumlArray
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters.sparsefuncs_fast import (
-    csr_polynomial_expansion,
-    inplace_csr_row_normalize_l1,
-    inplace_csr_row_normalize_l2,
-)
 from ..utils.extmath import _incremental_mean_and_var, row_norms
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.sparsefuncs import (
@@ -331,7 +324,7 @@ class MinMaxScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
 
@@ -354,7 +347,7 @@ class MinMaxScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
@@ -527,10 +520,10 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 
 class StandardScaler(TransformerMixin,
-                     BaseEstimator,
-                     InteropMixin,
                      AllowNaNTagMixin,
-                     SparseInputTagMixin):
+                     SparseInputTagMixin,
+                     BaseEstimator,
+                     InteropMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -646,6 +639,13 @@ class StandardScaler(TransformerMixin,
         self.with_std = with_std
         self.copy = copy
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        if self.with_mean:
+            tags.input_tags.sparse = False
+            tags.X_types_gpu = ["2darray"]
+        return tags
+
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
 
@@ -709,7 +709,7 @@ class StandardScaler(TransformerMixin,
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
 
@@ -727,7 +727,7 @@ class StandardScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
@@ -1024,7 +1024,7 @@ class MaxAbsScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
 
@@ -1039,7 +1039,7 @@ class MaxAbsScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
@@ -1287,7 +1287,7 @@ class RobustScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
 
@@ -1618,7 +1618,7 @@ class PolynomialFeatures(TransformerMixin,
             feature_names.append(name)
         return feature_names
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "PolynomialFeatures":
         """
         Compute number of output features.
@@ -1831,9 +1831,9 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
                                       "for sparse matrices with norm 'l1' "
                                       "or norm 'l2'")
         if norm == 'l1':
-            inplace_csr_row_normalize_l1(X)
+            csr_row_normalize_l1(X)
         elif norm == 'l2':
-            inplace_csr_row_normalize_l2(X)
+            csr_row_normalize_l2(X)
         elif norm == 'max':
             mins, maxes = min_max_axis(X, 1)
             norms = np.maximum(abs(mins), maxes)
@@ -1860,9 +1860,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
 
 class Normalizer(TransformerMixin,
-                 BaseEstimator,
-                 StatelessTagMixin,
-                 SparseInputTagMixin):
+                 SparseInputTagMixin,
+                 BaseEstimator):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1920,7 +1919,12 @@ class Normalizer(TransformerMixin,
         self.norm = norm
         self.copy = copy
 
-    @reflect(reset="type")
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
+
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
 
@@ -1991,9 +1995,8 @@ def binarize(X, *, threshold=0.0, copy=True):
 
 
 class Binarizer(TransformerMixin,
-                BaseEstimator,
-                StatelessTagMixin,
-                SparseInputTagMixin):
+                SparseInputTagMixin,
+                BaseEstimator):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than
@@ -2051,7 +2054,12 @@ class Binarizer(TransformerMixin,
         self.threshold = threshold
         self.copy = copy
 
-    @reflect(reset="type")
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
+
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
 
@@ -2192,7 +2200,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
@@ -2450,7 +2458,7 @@ class QuantileTransformer(TransformerMixin,
         # https://github.com/numpy/numpy/issues/14685
         self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
@@ -2879,7 +2887,7 @@ class PowerTransformer(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
@@ -2900,7 +2908,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 

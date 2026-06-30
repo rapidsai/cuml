@@ -22,6 +22,43 @@ models_config = ClassEnumerator(module=cuml)
 models = models_config.get_models()
 
 
+def _as_numpy(value):
+    if isinstance(value, cp.ndarray):
+        return cp.asnumpy(value)
+    if hasattr(value, "to_numpy"):
+        return value.to_numpy()
+    if hasattr(value, "get"):
+        return value.get()
+    return np.asarray(value)
+
+
+def _as_1d_numpy(value):
+    return np.asarray(_as_numpy(value)).squeeze()
+
+
+def _assert_additive_shap_values(
+    shap_values,
+    prediction,
+    expected_value,
+    *,
+    expected_shape,
+    rtol=1e-5,
+    atol=1e-5,
+):
+    shap_values = _as_numpy(shap_values)
+    prediction = np.asarray(_as_numpy(prediction)).squeeze()
+    expected_value = np.asarray(_as_numpy(expected_value)).squeeze()
+
+    assert shap_values.shape == expected_shape
+    assert np.all(np.isfinite(shap_values))
+    np.testing.assert_allclose(
+        np.sum(shap_values, axis=-1),
+        prediction - expected_value,
+        rtol=rtol,
+        atol=atol,
+    )
+
+
 ###############################################################################
 #                              End to end tests                               #
 ###############################################################################
@@ -48,49 +85,42 @@ def test_regression_datasets(exact_shap_regression_dataset, model):
         fx = mod.predict(X_test)
         exp_v = explainer.expected_value
 
-        for i in range(3):
-            assert (
-                np.sum(cp.asnumpy(shap_values[i])) - abs(fx[i] - exp_v)
-            ) <= 1e-5
+        _assert_additive_shap_values(
+            shap_values,
+            fx,
+            exp_v,
+            expected_shape=(X_test.shape[0], X_test.shape[1]),
+            rtol=1e-5,
+            atol=1e-5,
+        )
 
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Remove this filter once `probability` is removed from cuml.svm.SVC.
-@pytest.mark.filterwarnings(
-    "ignore:The `probability` parameter is deprecated:FutureWarning"
-)
-def test_exact_classification_datasets(exact_shap_classification_dataset):
+@pytest.mark.parametrize("cls", [cuml.SVC, sklearn.svm.SVC])
+def test_exact_classification_datasets(exact_shap_classification_dataset, cls):
     X_train, X_test, y_train, y_test = exact_shap_classification_dataset
 
-    models = []
-    models.append(cuml.SVC(probability=True).fit(X_train, y_train))
-    models.append(
-        CalibratedClassifierCV(sklearn.svm.SVC(), ensemble=False).fit(
-            X_train, y_train
-        )
+    model = CalibratedClassifierCV(cls(), ensemble=False)
+    model.fit(X_train, y_train)
+
+    explainer, shap_values = get_shap_values(
+        model=model.predict_proba,
+        background_dataset=X_train,
+        explained_dataset=X_test,
+        explainer=PermutationExplainer,
     )
 
-    for mod in models:
-        explainer, shap_values = get_shap_values(
-            model=mod.predict_proba,
-            background_dataset=X_train,
-            explained_dataset=X_test,
-            explainer=PermutationExplainer,
+    fx = model.predict_proba(X_test)
+    exp_v = explainer.expected_value
+
+    for class_idx, class_shap_values in enumerate(shap_values):
+        _assert_additive_shap_values(
+            class_shap_values,
+            fx[:, class_idx],
+            exp_v[class_idx],
+            expected_shape=(X_test.shape[0], X_test.shape[1]),
+            rtol=1e-5,
+            atol=1e-5,
         )
-
-        fx = mod.predict_proba(X_test)
-        exp_v = explainer.expected_value
-
-        for i in range(3):
-            print(i, fx[i][1], shap_values[1][i])
-            assert (
-                np.sum(cp.asnumpy(shap_values[0][i]))
-                - abs(fx[i][0] - exp_v[0])
-            ) <= 1e-5
-            assert (
-                np.sum(cp.asnumpy(shap_values[1][i]))
-                - abs(fx[i][1] - exp_v[1])
-            ) <= 1e-5
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -126,14 +156,14 @@ def test_different_parameters(
 
     exp_v = float(cu_explainer.expected_value)
     fx = mod.predict(X_test)
-    for i in range(5):
-        assert (
-            0.97
-            <= (
-                abs(np.sum(cp.asnumpy(cu_shap_values[i]))) / abs(fx[i] - exp_v)
-            )
-            <= 1.03
-        )
+    _assert_additive_shap_values(
+        cu_shap_values,
+        fx,
+        exp_v,
+        expected_shape=(X_test.shape[0], X_test.shape[1]),
+        rtol=1e-3,
+        atol=1e-3,
+    )
 
 
 ###############################################################################
@@ -155,9 +185,15 @@ def test_not_shuffled_explanation(exact_shap_regression_dataset):
     shap_values = explainer.shap_values(
         X_test[0], npermutations=1, testing=True
     )
+    expected_shap_values = _as_numpy(mod.coef_) * (
+        X_test[0] - np.mean(X_train, axis=0)
+    )
 
-    assert np.allclose(
-        shap_values, not_shuffled_shap_values, rtol=1e-04, atol=1e-04
+    np.testing.assert_allclose(
+        _as_1d_numpy(shap_values),
+        _as_1d_numpy(expected_shap_values),
+        rtol=1e-4,
+        atol=1e-4,
     )
 
 
@@ -179,7 +215,12 @@ def test_permutation(exact_shap_regression_dataset):
         npermutations=5,
     )
 
-    assert np.allclose(mod.coef_, shap_values, rtol=1e-04, atol=1e-04)
+    np.testing.assert_allclose(
+        _as_1d_numpy(mod.coef_),
+        _as_1d_numpy(shap_values),
+        rtol=1e-4,
+        atol=1e-4,
+    )
 
 
 ###############################################################################
@@ -192,20 +233,3 @@ cuml_skl_class_dict = {
     cuml.KNeighborsRegressor: sklearn.neighbors.KNeighborsRegressor,
     cuml.SVR: sklearn.svm.SVR,
 }
-
-# values were precomputed with python code and with a modified version
-# of SHAP's permutationExplainer that did not shuffle the indexes for the
-# permutations, giving us a test of the calculations in our implementation
-not_shuffled_shap_values = [
-    -1.3628101e00,
-    -1.0234560e02,
-    1.3428497e-01,
-    -6.1764000e01,
-    2.6702881e-04,
-    -3.4455948e00,
-    -1.0159061e02,
-    3.4058895e00,
-    4.1598404e01,
-    7.2152489e01,
-    -2.1964169e00,
-]

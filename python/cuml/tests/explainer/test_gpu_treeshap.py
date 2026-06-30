@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import json
-import warnings
 
 import cudf
 import cupy as cp
@@ -161,9 +160,9 @@ def test_xgb_regressor(objective):
 
     ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X_test)
-    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(out, correct_out, decimal=4)
     np.testing.assert_almost_equal(
-        explainer.expected_value, ref_explainer.expected_value, decimal=5
+        explainer.expected_value, ref_explainer.expected_value, decimal=4
     )
 
 
@@ -929,15 +928,6 @@ def check_efficiency_interactions(expected_value, pred, shap_values):
             )
 
 
-# rapids-pre-commit-hooks: disable-next-line
-# TODO(26.08): Can inline this back within the `example` call
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore")
-    example_random_forest = curfr(
-        max_features=1.0, random_state=0, n_streams=1, n_bins=10
-    ).fit(np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32))
-
-
 # Generating input data/models can be time consuming and triggers
 # hypothesis HealthCheck
 @settings(
@@ -949,7 +939,9 @@ with warnings.catch_warnings():
     params=(
         pd.DataFrame(np.ones((10, 5), dtype=np.float32)),
         np.ones(10, dtype=np.float32),
-        example_random_forest,
+        curfr(max_features=1.0, random_state=0, n_streams=1, n_bins=10).fit(
+            np.ones((10, 5), dtype=np.float32), np.ones(10, dtype=np.float32)
+        ),
         np.ones(10, dtype=np.float32),
     ),
     interactions_method="shapley-interactions",

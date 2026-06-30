@@ -59,10 +59,10 @@ cdef extern from "cuml/cluster/spectral_clustering.hpp" \
 _AFFINITIES = ["nearest_neighbors", "precomputed"]
 
 
-class SpectralClustering(Base,
-                         InteropMixin,
+class SpectralClustering(InteropMixin,
                          ClusterMixin,
-                         CMajorInputTagMixin):
+                         CMajorInputTagMixin,
+                         Base):
     """Apply spectral clustering from the normalized Laplacian.
 
     In practice spectral clustering is very useful when the structure of
@@ -267,7 +267,7 @@ class SpectralClustering(Base,
         self.fit(X, y=y)
         return self.labels_
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 

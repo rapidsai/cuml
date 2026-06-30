@@ -77,7 +77,7 @@ void dist_membership_vector(const raft::handle_t& handle,
   // compute the number of batches based on the batch size
   value_idx n_batches;
 
-  n_batches = raft::ceildiv((int)n_queries, (int)batch_size);
+  n_batches = raft::ceildiv(ML::narrow_cast<int>(n_queries), ML::narrow_cast<int>(batch_size));
 
   for (value_idx bid = 0; bid < n_batches; bid++) {
     value_idx batch_offset      = bid * batch_size;
@@ -99,7 +99,7 @@ void dist_membership_vector(const raft::handle_t& handle,
 
     auto reduction_op = [dist = dist.data(),
                          batch_offset,
-                         divisor = raft::util::FastIntDiv(n_selected_clusters),
+                         divisor = raft::util::FastIntDiv<value_idx>(n_selected_clusters),
                          n_selected_clusters,
                          n_exemplars,
                          exemplar_label_offsets] __device__(auto idx) {
@@ -172,14 +172,15 @@ void all_points_outlier_membership_vector(
   auto n_leaves     = condensed_tree.get_n_leaves();
 
   int n_blocks = raft::ceildiv(int(m * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    index_into_children,
-                                                    parents,
-                                                    m,
-                                                    static_cast<value_idx>(n_selected_clusters),
-                                                    raft::util::FastIntDiv(n_selected_clusters),
-                                                    selected_clusters);
+  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(
+    merge_heights,
+    lambdas,
+    index_into_children,
+    parents,
+    m,
+    static_cast<value_idx>(n_selected_clusters),
+    raft::util::FastIntDiv<value_idx>(static_cast<value_idx>(n_selected_clusters)),
+    selected_clusters);
 
   auto leaf_max_lambdas = raft::make_device_vector<value_t, value_idx>(handle, n_leaves);
 
@@ -228,7 +229,7 @@ void all_points_prob_in_some_cluster(const raft::handle_t& handle,
 
   auto merge_heights_view =
     raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(
-      merge_heights, (int)m, n_selected_clusters);
+      merge_heights, ML::narrow_cast<int>(m), n_selected_clusters);
 
   raft::matrix::argmax(handle, merge_heights_view, height_argmax.view());
 
@@ -277,16 +278,17 @@ void outlier_membership_vector(const raft::handle_t& handle,
 
   // Using the nearest neighbor indices, compute outlier membership
   int n_blocks = raft::ceildiv(int(n_prediction_points * n_selected_clusters), tpb);
-  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(merge_heights,
-                                                    lambdas,
-                                                    prediction_lambdas,
-                                                    min_mr_inds,
-                                                    index_into_children,
-                                                    parents,
-                                                    n_prediction_points,
-                                                    static_cast<value_idx>(n_selected_clusters),
-                                                    raft::util::FastIntDiv(n_selected_clusters),
-                                                    selected_clusters);
+  merge_height_kernel<<<n_blocks, tpb, 0, stream>>>(
+    merge_heights,
+    lambdas,
+    prediction_lambdas,
+    min_mr_inds,
+    index_into_children,
+    parents,
+    n_prediction_points,
+    static_cast<value_idx>(n_selected_clusters),
+    raft::util::FastIntDiv<value_idx>(static_cast<value_idx>(n_selected_clusters)),
+    selected_clusters);
 
   // fetch the max lambda of the cluster to which the nearest MR neighbor belongs in the condensed
   // hierarchy
@@ -344,7 +346,7 @@ void prob_in_some_cluster(const raft::handle_t& handle,
 
   auto merge_heights_view =
     raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(
-      merge_heights, (int)n_prediction_points, n_selected_clusters);
+      merge_heights, ML::narrow_cast<int>(n_prediction_points), n_selected_clusters);
 
   raft::matrix::argmax(handle, merge_heights_view, height_argmax.view());
 

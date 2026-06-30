@@ -141,6 +141,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: libcuml
       package-type: cpp
+      publish-wheel-search-key: cuml_wheel_cpp_libcuml
   wheel-build-cuml:
     needs: wheel-build-libcuml
     permissions:
@@ -179,7 +180,7 @@ jobs:
       date: ${{ inputs.date }}
       package-name: cuml
       package-type: python
-      publish-wheel-search-key: cuml_wheel_python_abi3
+      publish-wheel-search-key: cuml_wheel_python_cuml
   devcontainers:
     name: Build devcontainers
     secrets: inherit  # zizmor: ignore[secrets-inherit]
@@ -188,4 +189,4 @@ jobs:
       packages: write
     with:
       push: true
-      cuda: '["12.9", "13.2"]'
+      cuda: '["12.9", "13.3"]'

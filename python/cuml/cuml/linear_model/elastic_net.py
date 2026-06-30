@@ -6,7 +6,7 @@ import cupyx.scipy.sparse
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
@@ -27,12 +27,12 @@ from cuml.solvers.qn import fit_qn
 
 
 class ElasticNet(
-    Base,
     InteropMixin,
     LinearPredictMixin,
     RegressorMixin,
     SparseInputTagMixin,
     FMajorInputTagMixin,
+    Base,
 ):
     """
     Linear regression with combined L1 and L2 priors as regularizer.
@@ -229,7 +229,7 @@ class ElasticNet(
         return cupyx.scipy.sparse.csr_matrix(self.coef_.to_output("cupy"))
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "ElasticNet":

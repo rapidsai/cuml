@@ -77,12 +77,12 @@ class Algo(enum.IntEnum):
         return out
 
 
-class LinearRegression(Base,
-                       InteropMixin,
+class LinearRegression(InteropMixin,
                        LinearPredictMixin,
                        RegressorMixin,
                        FMajorInputTagMixin,
-                       SparseInputTagMixin):
+                       SparseInputTagMixin,
+                       Base):
     """
     Ordinary least squares Linear Regression.
 
@@ -309,7 +309,7 @@ class LinearRegression(Base,
         return coef, intercept
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
@@ -392,6 +392,7 @@ class LinearRegression(Base,
 
         return self
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags

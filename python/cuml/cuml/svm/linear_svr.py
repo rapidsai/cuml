@@ -21,7 +21,7 @@ from cuml.linear_model.base import LinearPredictMixin
 __all__ = ["LinearSVR"]
 
 
-class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
+class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
     """
     Linear Support Vector Regression.
 
@@ -200,12 +200,12 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":
         """Fit the model according to the given training data."""
-        coef, intercept, n_iter, _, _ = cuml.svm.linear.fit(
+        coef, intercept, n_iter, _ = cuml.svm.linear.fit(
             self,
             X,
             y,

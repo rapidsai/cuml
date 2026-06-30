@@ -1,18 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import warnings
-
 import cupy as cp
 import numpy as np
-import sklearn
-from packaging.version import Version
-from sklearn.exceptions import NotFittedError
-from sklearn.utils.metaestimators import available_if
 
 from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
@@ -22,18 +16,12 @@ from cuml.internals.outputs import (
     reflect,
     run_in_internal_context,
 )
-from cuml.internals.validation import (
-    check_inputs,
-    check_is_fitted,
-    check_random_seed,
-)
+from cuml.internals.validation import check_inputs, check_is_fitted
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
-SKLEARN_19 = Version(sklearn.__version__) >= Version("1.9.0.dev0")
 
-
-class SVC(SVMBase, ClassifierMixin):
+class SVC(ClassifierMixin, SVMBase):
     """
     SVC (C-Support Vector Classification)
 
@@ -50,7 +38,7 @@ class SVC(SVMBase, ClassifierMixin):
         >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
         >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
         >>> clf.fit(X, y)
-        SVC()
+        SVC(C=1, degree=2, gamma='auto', kernel='poly')
         >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
@@ -110,16 +98,6 @@ class SVC(SVMBase, ClassifierMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    probability : bool (default = False)
-        .. deprecated:: 26.06
-            ``probability`` is deprecated and will be removed in version
-            26.08. Use ``CalibratedClassifierCV(SVC(), ensemble=False)``
-            from ``sklearn.calibration`` for probability estimates instead.
-
-        Set to ``True`` to enable probability estimates
-        (``predict_proba``/``predict_log_proba``). Note that
-        ``probability=True`` requires your training data have at least 5
-        samples per class.
     random_state: int (default = None)
         Seed for random number generator (used only when ``probability=True``).
     verbose : int or boolean, default=False
@@ -184,31 +162,22 @@ class SVC(SVMBase, ClassifierMixin):
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names()
-        params.remove(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
+        # SVC doesn't expose `epsilon` in the constructor
+        params.remove("epsilon")
         params.extend(
-            [
-                "probability",
-                "random_state",
-                "class_weight",
-                "decision_function_shape",
-            ]
+            ["random_state", "class_weight", "decision_function_shape"]
         )
         return params
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.probability is True:
-            # probability=True is deprecated; cuml.accel falls back to
-            # native sklearn's own CalibratedClassifierCV.
+        # TODO: remove when we only support sklearn >= 1.9
+        if getattr(model, "probability", None) is True:
             raise UnsupportedOnGPU("`probability=True` is not supported")
 
         params = super()._params_from_cpu(model)
-        params.pop(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
-        # probability omitted; True rejected above, default restores it.
+        # SVC doesn't expose `epsilon` in the constructor
+        params.pop("epsilon")
         params.update(
             {
                 "random_state": model.random_state,
@@ -220,17 +189,10 @@ class SVC(SVMBase, ClassifierMixin):
 
     def _params_to_cpu(self):
         params = super()._params_to_cpu()
-        params.pop(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
-        # sklearn <1.9 rejects the ``"deprecated"`` sentinel; resolve it there.
-        if SKLEARN_19:
-            probability = self.probability
-        else:
-            probability = self._effective_probability
+        # SVC doesn't expose `epsilon` in the constructor
+        params.pop("epsilon")
         params.update(
             {
-                "probability": probability,
                 "random_state": self.random_state,
                 "class_weight": self.class_weight,
                 "decision_function_shape": self.decision_function_shape,
@@ -281,7 +243,6 @@ class SVC(SVMBase, ClassifierMixin):
         nochange_steps=1000,
         verbose=False,
         output_type=None,
-        probability="deprecated",
         random_state=None,
         class_weight=None,
         decision_function_shape="ovo",
@@ -299,14 +260,9 @@ class SVC(SVMBase, ClassifierMixin):
             verbose=verbose,
             output_type=output_type,
         )
-        self.probability = probability
         self.random_state = random_state
         self.class_weight = class_weight
         self.decision_function_shape = decision_function_shape
-
-    @property
-    def _effective_probability(self):
-        return False if self.probability == "deprecated" else self.probability
 
     @property
     @reflect
@@ -346,9 +302,6 @@ class SVC(SVMBase, ClassifierMixin):
 
         params = self.get_params()
         decision_function_shape = params.pop("decision_function_shape")
-        # Pin the sentinel on inner clones so they don't re-fire the
-        # deprecation warning the outer fit already emitted.
-        params["probability"] = "deprecated"
         wrappers = {"ovo": OneVsOneClassifier, "ovr": OneVsRestClassifier}
         if (multiclass_cls := wrappers.get(decision_function_shape)) is None:
             raise ValueError(
@@ -392,81 +345,13 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight):
-        from sklearn.calibration import CalibratedClassifierCV
-        from sklearn.model_selection import StratifiedKFold
-
-        params = {
-            **self.get_params(),
-            "probability": "deprecated",
-            "output_type": "numpy",
-            "class_weight": None,
-        }
-
-        # Currently CalibratedClassifierCV expects data on the host, see
-        # https://github.com/rapidsai/cuml/issues/2608
-        X = X.get()
-        y = y.get()
-
-        if sample_weight is not None:
-            sample_weight = sample_weight.get()
-
-        cv = StratifiedKFold(
-            n_splits=5,
-            random_state=check_random_seed(self.random_state),
-            shuffle=True,
-        )
-        cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
-
-        with exit_internal_context():
-            cccv.fit(X, y, sample_weight=sample_weight)
-
-        cal_clf = cccv.calibrated_classifiers_[0]
-        svc = cal_clf.estimator
-
-        self._probA = np.array([cal.a_ for cal in cal_clf.calibrators])
-        self._probB = np.array([cal.b_ for cal in cal_clf.calibrators])
-
-        if hasattr(svc, "_multiclass"):
-            attrs = ["_multiclass", "fit_status_", "shape_fit_"]
-        else:
-            attrs = [
-                "support_",
-                "support_vectors_",
-                "dual_coef_",
-                "intercept_",
-                "n_support_",
-                "fit_status_",
-                "shape_fit_",
-                "n_iter_",
-                "_gamma",
-                "_sparse",
-            ]
-
-        # Forward on inner attributes
-        for attr in attrs:
-            setattr(self, attr, getattr(svc, attr))
-
-        return self
-
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.
 
         """
-        if self.probability != "deprecated":
-            warnings.warn(
-                "The `probability` parameter is deprecated and will be "
-                # rapids-pre-commit-hooks: disable-next-line
-                "removed in cuML version 26.08. Use "
-                "`CalibratedClassifierCV(SVC(), ensemble=False)` from "
-                "`sklearn.calibration` instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
@@ -510,9 +395,6 @@ class SVC(SVMBase, ClassifierMixin):
             balanced_with_sample_weight=False,
         )
 
-        if self._effective_probability:
-            return self._fit_proba(X, y, sample_weight)
-
         if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
@@ -541,10 +423,6 @@ class SVC(SVMBase, ClassifierMixin):
             inds = self._multiclass.predict(X)
             index = inds.index
             inds = inds.to_output("cupy")
-        elif self._effective_probability:
-            probs = self.predict_proba(X)
-            index = probs.index
-            inds = cp.argmax(probs.to_output("cupy"), axis=1)
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
             index = res.index
@@ -555,87 +433,6 @@ class SVC(SVMBase, ClassifierMixin):
         return decode_labels(
             inds, self.classes_, output_type=output_type, index=index
         )
-
-    @available_if(lambda self: self._effective_probability)
-    @generate_docstring(
-        skip_parameters_heading=True,
-        return_values={
-            "name": "preds",
-            "type": "dense",
-            "description": "Predicted probabilities",
-            "shape": "(n_samples, n_classes)",
-        },
-    )
-    @reflect
-    def predict_proba(self, X, *, log=False) -> CumlArray:
-        """
-        Predicts the class probabilities for X.
-
-        The model has to be trained with probability=True to use this method.
-
-        Parameters
-        ----------
-        log: boolean (default = False)
-             Whether to return log probabilities.
-
-        """
-        check_is_fitted(self)
-
-        if self._probA.size == 0 or self._probB.size == 0:
-            raise NotFittedError(
-                "predict_proba is not available when fitted with probability=False"
-            )
-
-        from cupyx.scipy.special import expit
-
-        preds = self.decision_function(X)
-        index = preds.index
-        preds = preds.to_output("cupy")
-        if preds.ndim == 1:
-            preds = preds[:, None]
-
-        n_classes = len(self.classes_)
-
-        proba = cp.zeros((preds.shape[0], n_classes))
-        for i in range(preds.shape[1]):
-            a = self._probA[i]
-            b = self._probB[i]
-            ind = i + 1 if n_classes == 2 else i
-            proba[:, ind] = expit(-(a * preds[:, i] + b))
-
-        if n_classes == 2:
-            proba[:, 0] = 1.0 - proba[:, 1]
-        else:
-            den = cp.sum(proba, axis=1)
-            cp.divide(proba, den[:, None], out=proba)
-            # If all probabilities are 0, use a uniform distribution
-            proba[den == 0] = 1 / n_classes
-            # Clip to between 0 and 1 to handle rounding error
-            cp.clip(proba, 0, 1, out=proba)
-
-        if log:
-            proba = cp.log(proba)
-
-        return CumlArray(data=proba, index=index)
-
-    @available_if(lambda self: self._effective_probability)
-    @generate_docstring(
-        return_values={
-            "name": "preds",
-            "type": "dense",
-            "description": "Log of predicted probabilities",
-            "shape": "(n_samples, n_classes)",
-        }
-    )
-    @reflect
-    def predict_log_proba(self, X) -> CumlArray:
-        """
-        Predicts the log probabilities for X (returns log(predict_proba(x)).
-
-        The model has to be trained with probability=True to use this method.
-
-        """
-        return self.predict_proba(X, log=True)
 
     @generate_docstring(
         return_values={

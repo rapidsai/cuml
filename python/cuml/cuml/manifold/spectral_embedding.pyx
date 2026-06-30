@@ -57,7 +57,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
+class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -205,7 +205,7 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self.fit(X, y)
         return self.embedding_
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralEmbedding":
         """Fit the model from data in X.
 

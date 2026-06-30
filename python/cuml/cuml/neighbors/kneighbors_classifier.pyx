@@ -131,7 +131,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         >>> knn = KNeighborsClassifier(n_neighbors=10)
 
         >>> knn.fit(X_train, y_train)
-        KNeighborsClassifier()
+        KNeighborsClassifier(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([1., 2., 2., 3., 4., 2., 4., 4., 2., 3., 1., 4., 3., 1., 3., 4., 3., # noqa: E501
             4., 1., 3.], dtype=float32)
@@ -209,7 +209,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         self.weights = weights
 
     @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
@@ -345,11 +345,9 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         cdef vector[float*] out_vec
         cdef vector[int*] y_vec
         for n, y in zip(n_classes, ys):
-            proba = CumlArray.zeros(
-                (n_rows, n), dtype=np.float32, order="C", index=index
-            )
+            proba = cp.zeros((n_rows, n), dtype=np.float32, order="C")
             probas.append(proba)
-            out_vec.push_back(<float*><uintptr_t>proba.ptr)
+            out_vec.push_back(<float*><uintptr_t>proba.data.ptr)
             y_vec.push_back(<int*><uintptr_t>y.data.ptr)
 
         # Compute weights (returns None for uniform weights)
@@ -375,4 +373,6 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
                 weights_ptr
             )
         handle.sync()
-        return probas[0] if len(probas) == 1 else probas
+        if len(probas) == 1:
+            return CumlArray(probas[0], index=index)
+        return [CumlArray(a, index=index) for a in probas]

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect
@@ -10,7 +10,7 @@ from cuml.internals.validation import check_inputs
 from cuml.svm.svm_base import SVMBase
 
 
-class SVR(SVMBase, RegressorMixin):
+class SVR(RegressorMixin, SVMBase):
     """
     SVR (Epsilon Support Vector Regression)
 
@@ -124,7 +124,7 @@ class SVR(SVMBase, RegressorMixin):
         >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
         >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
         >>> reg.fit(X, y)
-        SVR()
+        SVR(C=10)
         >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
     """
@@ -132,7 +132,7 @@ class SVR(SVMBase, RegressorMixin):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.

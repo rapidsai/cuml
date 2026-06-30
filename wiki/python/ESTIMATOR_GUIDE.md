@@ -95,7 +95,7 @@ At a high level, all cuML Estimators must:
       def __init__(self):
          ...
    ```
-5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset="type")` on fit-like methods in combination with the appropriate `cuml.internals.validation` helpers, and use plain `@reflect` on inference methods:
+5. Use the `@reflect` decorator on public API methods that return arrays. Use `@reflect(reset=True)` on fit-like methods in combination with the appropriate `cuml.internals.validation` helpers, and use plain `@reflect` on inference methods:
    ```python
    from cuml.internals import reflect
    from cuml.internals.array import CumlArray
@@ -103,7 +103,7 @@ At a high level, all cuML Estimators must:
 
    class MyEstimator(Base):
 
-      @reflect(reset="type")
+      @reflect(reset=True)
       def fit(self, X) -> "MyEstimator":
          ...
 
@@ -122,21 +122,7 @@ At a high level, all cuML Estimators must:
          ]
    ```
 
-7. Override estimator tags only when the defaults are wrong. Prefer existing [Mixins](../../python/cuml/cuml/internals/mixins.py) for common capabilities such as preferred input order or sparse support. For one-off static tags, implement `_more_static_tags`:
-   ```python
-    @staticmethod
-    def _more_static_tags():
-       return {
-            "requires_y": True
-       }
-   ```
-   If a tag depends on constructor or runtime state, implement `_more_tags`:
-   ```python
-      def _more_tags(self):
-           return {
-               "allow_nan": is_scalar_nan(self.missing_values)
-            }
-   ```
+7. Override estimator tags only when the defaults are wrong. Prefer existing [Mixins](../../python/cuml/cuml/internals/mixins.py) for common capabilities such as preferred input order, sparse support, string input, or NaN support. See [Estimator Tags and cuML-Specific Tags](#estimator-tags-and-cuml-specific-tags) for custom tag overrides.
 
 For most estimators, the checklist and skeleton below are enough. The later sections explain the contract and uncommon cases.
 
@@ -163,7 +149,7 @@ class MyEstimator(Base):
     def _get_param_names(cls):
         return super()._get_param_names() + ["extra_arg"]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X) -> "MyEstimator":
         X_m = check_inputs(self, X, order="K", reset=True)
         # Replace this placeholder with estimator training.
@@ -178,7 +164,7 @@ class MyEstimator(Base):
         return X_m
 ```
 
-Fit-like methods should use `@reflect(reset="type")` in combination with the appropriate validation helpers. Pass `reset=True` to validation when fitting. Methods that return scalars usually do not need `@reflect`; use `@run_in_internal_context` only when the method calls reflected methods internally.
+Fit-like methods should use `@reflect(reset=True)` in combination with the appropriate validation helpers. Pass `reset=True` to validation when fitting. Methods that return scalars usually do not need `@reflect`; use `@run_in_internal_context` only when the method calls reflected methods internally.
 
 ## Background
 
@@ -221,7 +207,7 @@ from cuml.internals import reflect
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
-@reflect(reset="type")
+@reflect(reset=True)
 def fit(self, X, y, *, convert_dtype=True):
     X_m, y_m = check_inputs(
         self,
@@ -322,25 +308,24 @@ Estimator tags describe capabilities such as sparse support, positive-input requ
    Device-accessible input types accepted by the estimator. `2darray` includes CuPy, Numba device arrays, and cuDF objects. `sparse` includes CuPy sparse arrays.
 - `preferred_input_order` (default=None)
    One of ['F', 'C', None]. Use `F` or `C` only when the estimator consistently benefits from that dense memory layout; otherwise leave it as `None`.
-- `dynamic_tags` (default=False)
-   Whether tags depend on runtime state. `Base` sets this automatically when an estimator defines `_more_tags`.
 
-Tag resolution follows Python MRO. If multiple base classes define the same tag, the class closer to the final estimator wins:
+Use `__sklearn_tags__()` for estimator-specific tag overrides. The method should call `super().__sklearn_tags__()`, mutate the returned structured `Tags` object, and return it:
 
-Class:
 ```python
-class DBSCAN(Base,
-             ClusterMixin,
-             CMajorInputTagMixin):
+def __sklearn_tags__(self):
+   tags = super().__sklearn_tags__()
+   tags.input_tags.positive_only = True
+   return tags
 ```
 
-MRO:
+Prefer the existing tag mixins for common capabilities. Tag-providing mixins are cooperative: each mixin calls `super().__sklearn_tags__()` and mutates the returned object. Put tag mixins to the left of `Base`, following scikit-learn's [estimator MRO guidance](https://scikit-learn.org/stable/developers/develop.html), so the `super()` chain reaches the mixins before `Base` and `TagsMixin`:
+
 ```python
->>> cuml.DBSCAN.__mro__
-(<class 'cuml.cluster.dbscan.DBSCAN'>, <class 'cuml.internals.base.Base'>, <class 'cuml.internals.mixins.TagsMixin'>, <class 'cuml.internals.mixins.ClusterMixin'>, <class 'cuml.internals.mixins.CMajorInputTagMixin'>, <class 'object'>)
+class MyEstimator(CMajorInputTagMixin, AllowNaNTagMixin, Base):
+   ...
 ```
 
-In this example, `ClusterMixin` tags would override `CMajorInputTagMixin` tags if both defined the same key.
+Do not add `_more_tags`, `_more_static_tags`, or `_get_tags` to new estimators. Those are legacy scikit-learn tag APIs and can cause compatibility warnings or fallback behavior in newer scikit-learn versions.
 
 ### Estimator Array-Like Attributes
 
@@ -393,7 +378,7 @@ class SampleEstimator(Base):
       # Init with a cupy array
       self.my_cupy_array_ = cp.zeros((10, 10))
 
-   @reflect(reset="type")
+   @reflect(reset=True)
    def fit(self, X):
       # reset=True on check_inputs sets n_features_in_ and feature_names_in_
       X_m = check_inputs(self, X, order="K", reset=True)
@@ -477,7 +462,7 @@ from cuml.internals.base import Base
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 class MyEstimator(Base):
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X):
         self.coef_ = check_inputs(self, X, order="K", reset=True)
         return self
@@ -491,7 +476,7 @@ class MyEstimator(Base):
 
 | Decorator Usage | When to Use |
 | :-------------- | :---------- |
-| `@reflect(reset="type")` | Fit-like methods that store `_input_type` through reflection while validation helpers set or check `n_features_in_`. |
+| `@reflect(reset=True)` | Fit-like methods that store `_input_type` through reflection while validation helpers set or check `n_features_in_`. |
 | `@reflect` | Transform/predict methods that return arrays. |
 | `@reflect(array=None)` | Methods with no array input (e.g., `forecast(nsteps)`). Uses fit-time input type. |
 
@@ -546,8 +531,8 @@ def support_(self):
 Use these rules when choosing a decorator:
 
 - If a public method returns array-like data directly to the user, use `@reflect`.
-- If a fit-like method calls validation helpers directly, use `@reflect(reset="type")` and pass `reset=True` to validation.
-- If a fit-like method needs feature metadata, use `@reflect(reset="type")` in combination with the appropriate validation helper functions.
+- If a fit-like method calls validation helpers directly, use `@reflect(reset=True)` and pass `reset=True` to validation.
+- If a fit-like method needs feature metadata, use `@reflect(reset=True)` in combination with the appropriate validation helper functions.
 - If a method has no array input and should use the fit-time input type for output conversion, use `@reflect(array=None)`.
 - If a method returns a scalar or needs to call reflected methods internally without automatic output conversion, use `@run_in_internal_context`.
 - If code inside an internal context needs user-facing output-type inference or needs to call an external estimator, temporarily use `exit_internal_context()`.
@@ -592,7 +577,7 @@ class TestEstimator(Base):
     def _method_int(self) -> int:
         return 1 if self.method_name == "type1" else 0
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X) -> "TestEstimator":
         X_m = check_inputs(self, X, order="K", reset=True)
         method = self._method_int()
@@ -611,7 +596,7 @@ class TestEstimator(Base):
 
         self.method_name = 1 if method_name == "type1" else 0
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X) -> "TestEstimator":
         X_m = check_inputs(self, X, order="K", reset=True)
 

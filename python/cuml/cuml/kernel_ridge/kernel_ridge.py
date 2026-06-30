@@ -95,7 +95,7 @@ def _solve_cholesky_kernel(K, y, alpha, sample_weight=None):
         return dual_coefs.T
 
 
-class KernelRidge(Base, InteropMixin, RegressorMixin):
+class KernelRidge(InteropMixin, RegressorMixin, Base):
     """
     Kernel ridge regression (KRR) performs l2 regularised ridge regression
     using the kernel trick. The kernel trick allows the estimator to learn a
@@ -206,6 +206,10 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if not isinstance(model.kernel, str):
+            raise UnsupportedOnGPU(
+                "KernelRidge callable kernels are not supported."
+            )
         return {
             "alpha": model.alpha,
             "kernel": model.kernel,
@@ -268,9 +272,10 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         self.coef0 = coef0
         self.kernel_params = kernel_params
 
-    @staticmethod
-    def _more_static_tags():
-        return {"multioutput": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
 
     @run_in_internal_context
     def _get_kernel(self, X, Y=None):
@@ -287,7 +292,7 @@ class KernelRidge(Base, InteropMixin, RegressorMixin):
         ).to_output("cupy")
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "KernelRidge":

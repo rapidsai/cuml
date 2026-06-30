@@ -261,7 +261,7 @@ def fit_sgd(
     return coef, intercept
 
 
-class SGD(Base, FMajorInputTagMixin):
+class SGD(FMajorInputTagMixin, Base):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD
@@ -290,7 +290,7 @@ class SGD(Base, FMajorInputTagMixin):
         ...                  fit_intercept=True, batch_size=2,
         ...                  tol=0.0, penalty=None, loss='squared_loss')
         >>> cu_sgd.fit(X, y)
-        SGD()
+        SGD(batch_size=2, epochs=2000, eta0=0.005, tol=0.0)
         >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
         >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
         cuML intercept :  0.00418...
@@ -408,7 +408,7 @@ class SGD(Base, FMajorInputTagMixin):
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.

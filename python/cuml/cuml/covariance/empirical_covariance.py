@@ -38,7 +38,7 @@ def _log_likelihood(emp_cov, precision):
     return float(log_likelihood)
 
 
-class EmpiricalCovariance(Base, InteropMixin):
+class EmpiricalCovariance(InteropMixin, Base):
     """Maximum likelihood covariance estimator.
 
     Parameters
@@ -145,7 +145,7 @@ class EmpiricalCovariance(Base, InteropMixin):
         self.store_precision = store_precision
         self.assume_centered = assume_centered
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "EmpiricalCovariance":
         """Fit the maximum likelihood covariance estimator to X.
 

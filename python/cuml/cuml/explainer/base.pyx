@@ -11,7 +11,6 @@ import cuml.internals.logger as logger
 from cuml.explainer.common import (
     get_cai_ptr,
     get_link_fn_from_str_or_fn,
-    get_tag_from_model_func,
     model_func_call,
     output_list_shap_values,
 )
@@ -99,10 +98,19 @@ class SHAPBase():
         else:
             self.time_performance = False
 
+        # Bound methods expose their estimator through __self__; tags live on
+        # that estimator rather than on the method object.
+        tag_model = getattr(model, "__self__", model)
+        tag_getter = getattr(tag_model, "__sklearn_tags__", None)
+        model_tags = tag_getter() if callable(tag_getter) else None
+
         if order is None:
-            self.order = get_tag_from_model_func(func=model,
-                                                 tag='preferred_input_order',
-                                                 default=order_default)
+            self.order = (
+                model_tags.preferred_input_order
+                if getattr(model_tags, "preferred_input_order", None)
+                is not None
+                else order_default
+            )
         else:
             self.order = order
 
@@ -112,10 +120,9 @@ class SHAPBase():
         if is_gpu_model is None:
             # todo (dgd): when sparse support is added, use this tag to see if
             # model can accept sparse data
-            self.is_gpu_model = \
-                get_tag_from_model_func(func=model,
-                                        tag='X_types_gpu',
-                                        default=None) is not None
+            self.is_gpu_model = (
+                getattr(model_tags, "X_types_gpu", None) is not None
+            )
         else:
             self.is_gpu_model = is_gpu_model
 

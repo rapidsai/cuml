@@ -14,6 +14,7 @@
 #include "qn_solvers.cuh"
 #include "qn_util.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/linear_model/qn.h>
 
 #include <raft/matrix/argmax.cuh>
@@ -103,7 +104,7 @@ inline void qn_fit_x(const raft::handle_t& handle,
   int N               = X.m;
   int D               = X.n;
   int n_targets       = qn_is_classification(pams.loss) && C == 2 ? 1 : C;
-  rmm::device_uvector<T> tmp(n_targets * N, stream);
+  rmm::device_uvector<T> tmp(checked_mul<std::size_t>(n_targets, N), stream);
   SimpleDenseMat<T> Z(tmp.data(), n_targets, N);
   SimpleVec<T> y(y_data, N);
 
@@ -255,7 +256,7 @@ void qn_predict(
   cudaStream_t stream = handle.get_stream();
   bool is_class       = qn_is_classification(pams.loss);
   int n_targets       = is_class && C == 2 ? 1 : C;
-  rmm::device_uvector<T> scores(n_targets * X.m, stream);
+  rmm::device_uvector<T> scores(checked_mul<std::size_t>(n_targets, X.m), stream);
   qn_decision_function(handle, pams, X, C, params, scores.data());
   SimpleDenseMat<T> Z(scores.data(), n_targets, X.m);
   SimpleDenseMat<T> P(preds, 1, X.m);
