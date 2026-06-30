@@ -706,11 +706,15 @@ def _result_record(row, dtype):
             "estimated_input_size_bytes": (
                 None if math.isnan(size_gb) else int(size_gb * 1e9)
             ),
-            "estimated_input_size_gb": None if math.isnan(size_gb) else size_gb,
+            "estimated_input_size_gb": None
+            if math.isnan(size_gb)
+            else size_gb,
         },
         "data": {
             "input_type": _json_safe(row.get("input")),
-            "dtype": _json_safe(row.get("dtype", _dtype_to_config_value(dtype))),
+            "dtype": _json_safe(
+                row.get("dtype", _dtype_to_config_value(dtype))
+            ),
             "n_reps": _json_safe(row.get("n_reps")),
         },
         "params": {
@@ -727,10 +731,7 @@ def _result_record(row, dtype):
 
 def _results_to_json_records(results_df, dtype):
     grouped = _coalesce_progress_rows(results_df)
-    return [
-        _result_record(row, dtype)
-        for _, row in grouped.iterrows()
-    ]
+    return [_result_record(row, dtype) for _, row in grouped.iterrows()]
 
 
 def _write_json_atomic(path, payload):
@@ -830,7 +831,12 @@ def _ratio(numerator, denominator):
         denominator = float(denominator)
     except (TypeError, ValueError):
         return None
-    if numerator <= 0 or denominator <= 0 or math.isnan(numerator) or math.isnan(denominator):
+    if (
+        numerator <= 0
+        or denominator <= 0
+        or math.isnan(numerator)
+        or math.isnan(denominator)
+    ):
         return None
     return denominator / numerator
 
@@ -966,14 +972,21 @@ def _print_progress_rows(results_df, start_index, total, dtype, verbose=True):
     return start_index
 
 
-def _median_ratio_by_algorithm(results_df, numerator_column, denominator_column):
-    if numerator_column not in results_df or denominator_column not in results_df:
+def _median_ratio_by_algorithm(
+    results_df, numerator_column, denominator_column
+):
+    if (
+        numerator_column not in results_df
+        or denominator_column not in results_df
+    ):
         return []
     rows = []
     for algo, group in results_df.groupby("algo", dropna=False):
         ratios = []
         for _, row in group.iterrows():
-            value = _ratio(row.get(numerator_column), row.get(denominator_column))
+            value = _ratio(
+                row.get(numerator_column), row.get(denominator_column)
+            )
             if value is not None:
                 ratios.append(value)
         if ratios:
@@ -1183,7 +1196,9 @@ def _param_combination_count(param_lists):
     return count
 
 
-def _planned_legacy_result_count(algos_to_run, bench_rows, bench_dims, param_lists):
+def _planned_legacy_result_count(
+    algos_to_run, bench_rows, bench_dims, param_lists
+):
     return (
         len(algos_to_run)
         * len(bench_rows)
@@ -1192,17 +1207,18 @@ def _planned_legacy_result_count(algos_to_run, bench_rows, bench_dims, param_lis
     )
 
 
-def _planned_config_result_count(benchmark_entries, entry_backends, args, explicit_options):
+def _planned_config_result_count(
+    benchmark_entries, entry_backends, args, explicit_options
+):
     total = 0
     for entry, _ in zip(benchmark_entries, entry_backends):
         shape_pairs, bench_rows, bench_dims = _resolved_entry_dimensions(
             entry, args, explicit_options
         )
         param_lists = _config_param_lists(entry, args, explicit_options)
-        total += (
-            len(_variation_shapes(shape_pairs, bench_rows, bench_dims))
-            * _param_combination_count(param_lists)
-        )
+        total += len(
+            _variation_shapes(shape_pairs, bench_rows, bench_dims)
+        ) * _param_combination_count(param_lists)
     return total
 
 
@@ -1285,7 +1301,9 @@ def _run_config_benchmarks(args, explicit_options):
         dtype = _resolve_dtype(dtype)
         param_lists = _config_param_lists(entry, args, explicit_options)
 
-        variation_shapes = _variation_shapes(shape_pairs, bench_rows, bench_dims)
+        variation_shapes = _variation_shapes(
+            shape_pairs, bench_rows, bench_dims
+        )
 
         for shape in variation_shapes:
             shape_results = []

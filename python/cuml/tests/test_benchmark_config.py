@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-from argparse import Namespace
 import json
+from argparse import Namespace
 from pathlib import Path
 
 import pandas as pd
@@ -1127,7 +1127,13 @@ def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
     def fake_run_json_command(command):
         if command[:2] == ["conda", "list"]:
             return None, "conda failed"
-        return [{"name": "cuml", "version": "26.06", "editable_project_location": "/tmp"}], None
+        return [
+            {
+                "name": "cuml",
+                "version": "26.06",
+                "editable_project_location": "/tmp",
+            }
+        ], None
 
     monkeypatch.setattr(
         run_benchmarks, "_run_json_command", fake_run_json_command
