@@ -267,7 +267,7 @@ class SpectralClustering(InteropMixin,
         self.fit(X, y=y)
         return self.labels_
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 

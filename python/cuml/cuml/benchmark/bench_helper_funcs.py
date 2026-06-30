@@ -19,20 +19,14 @@ except ImportError:
     from gpu_check import is_cuml_available  # noqa: E402
 
 # Conditional GPU imports
-cudf = None
-cp = None
-cuda = None
-cuml = None
-input_utils = None
-DeviceType = None
-UMAP = None
-
 if is_cuml_available():
     import cudf
     import cupy as cp
     from numba import cuda
 
     from cuml.manifold import UMAP
+else:
+    cudf = cp = cuda = UMAP = None
 
 
 def call(m, func_name, X, y=None):

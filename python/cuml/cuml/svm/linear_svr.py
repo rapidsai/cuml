@@ -200,7 +200,7 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype=True
     ) -> "LinearSVR":

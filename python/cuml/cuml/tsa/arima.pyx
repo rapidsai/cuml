@@ -440,6 +440,20 @@ class ARIMA(Base):
             return "ARIMA({},{},{}) ({}) - {} series".format(
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
+    def __repr__(self):
+        # ARIMA can't use the base `__repr__` because it does not support
+        # `get_params`.
+        cdef ARIMAOrder order = self.order
+        return (
+            "ARIMA(order={}, seasonal_order={}, fit_intercept={}, "
+            "simple_differencing={})".format(
+                (order.p, order.d, order.q),
+                (order.P, order.D, order.Q, order.s),
+                order.k != 0,
+                self.simple_differencing,
+            )
+        )
+
     @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion

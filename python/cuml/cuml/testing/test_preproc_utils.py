@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -14,8 +14,8 @@ from scipy.sparse import coo_matrix as cpu_coo_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
 from scipy.sparse import csr_matrix as cpu_csr_matrix
 
-from cuml.common import input_to_cuml_array
 from cuml.datasets import make_blobs, make_classification
+from cuml.internals.array import CumlArray
 
 
 def to_output_type(array, output_type, order="F"):
@@ -70,7 +70,7 @@ def to_output_type(array, output_type, order="F"):
         else:
             array = array.todense()
 
-    cuml_array = input_to_cuml_array(array, order=order)[0]
+    cuml_array = CumlArray.from_input(array, order=order)
     if output_type == "series" and len(array.shape) > 1:
         output_type = "cudf"
 

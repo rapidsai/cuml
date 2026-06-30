@@ -151,7 +151,7 @@ class IncrementalPCA(PCA):
         ...                               density=0.07, random_state=5)
         >>> ipca = IncrementalPCA(n_components=2, batch_size=200)
         >>> ipca.fit(X)
-        IncrementalPCA()
+        IncrementalPCA(batch_size=200, n_components=2)
         >>>
         >>> # Components:
         >>> ipca.components_ # doctest: +SKIP
@@ -201,7 +201,7 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.

@@ -609,7 +609,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
                 )
 
     @generate_docstring(X='dense_sparse')
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -1122,7 +1122,7 @@ class NearestNeighbors(NeighborsBase):
         >>> # fit model
         >>> model = NearestNeighbors(n_neighbors=3)
         >>> model.fit(X)
-        NearestNeighbors()
+        NearestNeighbors(n_neighbors=3)
 
         >>> # get 3 nearest neighbors
         >>> distances, indices = model.kneighbors(X_cudf)
