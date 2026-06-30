@@ -351,7 +351,7 @@ dependencies:
         packages:
           - joblib>=0.11
           - numba>=0.60.0,<0.65.0
-          - &numpy numpy>=1.26,<3.0
+          - &numpy numpy>=2.0,<3.0
           - scipy>=1.14.0
           - packaging
           - rich
@@ -566,7 +566,7 @@ dependencies:
               - scikit-learn==1.6.0
               - umap-learn==0.5.7
               - hdbscan==0.8.39
-              - numpy==1.26
+              - numpy==2.0
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
@@ -774,37 +774,57 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0,!=14.0.0,!=14.1.0
+          - cupy>=14.0.1,!=14.1.0
     # NOTE: This is intentionally not broken into groups by a 'cuda_suffixed' selector like
     #       other packages with -cu{nn}x suffixes in this file.
     #       All RAPIDS wheel builds (including in devcontainers) expect cupy to be suffixed.
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         matrices:
           # Nightly dependencies with pre-release specifiers
           - matrix:
               cuda: "12.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda12x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda12x>=14.0.1a0,!=14.1.0
           - matrix:
               cuda: "13.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda13x>=14.0.1a0,!=14.1.0
           - matrix:
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda13x>=14.0.1a0,!=14.1.0
           # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cu12 cupy-cuda12x>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cu13 cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu12
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu13
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
       - output_types: requirements
         matrices:
           - matrix:

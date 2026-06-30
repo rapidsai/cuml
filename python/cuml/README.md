@@ -61,7 +61,7 @@ To build cuML's Python package, the following dependencies are required:
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}
-- cupy >=13.6.0
+- cupy >=14.0.1
 - joblib >=0.11
 
 Packages required for multigpu algorithms*:
