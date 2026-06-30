@@ -8,8 +8,6 @@ source rapids-init-pip
 
 LIBCUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libcuml cuml --cuda "$RAPIDS_CUDA_VERSION")")
 CUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python cuml cuml --stable --cuda "$RAPIDS_CUDA_VERSION")")
-RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
-mkdir -p "${RAPIDS_TESTS_DIR}"
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
@@ -20,21 +18,19 @@ set +e
 #
 rapids-logger "===== Testing BERTopic Integration ====="
 
-# Step 1: Install cuML wheels first (two-step workaround for issue #7374)
-rapids-logger "Installing cuML wheels"
+rapids-logger "Generating testing dependencies"
+rapids-dependency-file-generator \
+  --output requirements \
+  --file-key test_integration_bertopic \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};dependencies=${RAPIDS_DEPENDENCIES}" \
+| tee ./requirements.txt
+
+rapids-logger "Installing cuML, BERTopic, and dependencies"
 rapids-pip-retry install \
   --prefer-binary \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
-  "${CUML_WHEELHOUSE}"/cuml*.whl
-
-# Step 2: Install CPU-only PyTorch first so BERTopic's transitive torch
-# dependency does not pull a CUDA 13 stack on top of cuML's
-rapids-logger "Installing CPU-only PyTorch"
-rapids-pip-retry install --index-url https://download.pytorch.org/whl/cpu torch
-
-# Step 3: Install BERTopic (reuses the already-installed CPU torch)
-rapids-logger "Installing BERTopic"
-rapids-pip-retry install --prefer-binary bertopic
+  "${CUML_WHEELHOUSE}"/cuml*.whl \
+  -r ./requirements.txt
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"
