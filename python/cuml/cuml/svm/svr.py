@@ -132,7 +132,7 @@ class SVR(RegressorMixin, SVMBase):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
         """
         Fit the model with X and y.

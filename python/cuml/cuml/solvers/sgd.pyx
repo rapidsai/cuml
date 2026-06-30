@@ -408,7 +408,7 @@ class SGD(FMajorInputTagMixin, Base):
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, convert_dtype=True) -> "SGD":
         """
         Fit the model with X and y.

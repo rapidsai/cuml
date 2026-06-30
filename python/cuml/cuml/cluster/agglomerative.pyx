@@ -138,7 +138,7 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         self.c = c
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.

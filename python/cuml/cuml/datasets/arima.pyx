@@ -4,10 +4,9 @@
 #
 from random import randint
 
-import numpy as np
+import cupy as cp
 
 from cuml.internals import get_handle, reflect
-from cuml.internals.array import CumlArray as cumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -41,19 +40,10 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
     ) except +
 
 
-inp_to_dtype = {
-    'single': np.float32,
-    'float': np.float32,
-    'double': np.float64,
-    np.float32: np.float32,
-    np.float64: np.float64
-}
-
-
 @reflect(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
-               random_state=None, dtype='double'):
+               random_state=None, dtype="float64"):
     """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
 
@@ -78,15 +68,17 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
         Whether to include a constant trend mu in the simulated ARIMA process
     random_state: int, RandomState instance or None (default)
         Seed for the random number generator for dataset creation.
-    dtype: string or numpy dtype (default: 'double')
-        Type of the data. Possible values: float32, float64, 'single', 'float'
-        or 'double'
+    dtype: string or numpy dtype (default: 'float64')
+        The output dtype. Only float32 or float64 supported.
 
     Returns
     -------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
     """
+    dtype = cp.dtype(dtype)
+    if dtype not in ["float32", "float64"]:
+        raise ValueError(f"Expected dtype in ['float32', 'float64'], got `{dtype!s}`")
 
     cdef ARIMAOrder cpp_order
     cpp_order.p, cpp_order.d, cpp_order.q = order
@@ -99,21 +91,16 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     noise_scale = 0.2
     intercept_scale = [1.0, 0.2, 0.01][cpp_order.d + cpp_order.D]
 
-    if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
-        raise TypeError("dtype must be either 'float' or 'double'")
-    else:
-        dtype = inp_to_dtype[dtype]
-
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')
-    cdef uintptr_t out_ptr = <uintptr_t> out.ptr
+    out = cp.empty((n_obs, batch_size), dtype=dtype, order='F')
+    cdef uintptr_t out_ptr = <uintptr_t> out.data.ptr
 
     if random_state is None:
         random_state = randint(0, 10**18)
 
-    if dtype == np.float32:
+    if dtype == "float32":
         cpp_make_arima(handle_[0], <float*> out_ptr, <int> batch_size,
                        <int> n_obs, cpp_order, <float> scale,
                        <float> noise_scale, <float> intercept_scale,

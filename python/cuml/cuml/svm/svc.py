@@ -346,7 +346,7 @@ class SVC(ClassifierMixin, SVMBase):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
         """
         Fit the model with X and y.

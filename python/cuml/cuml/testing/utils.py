@@ -15,8 +15,8 @@ from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
 
 
@@ -166,12 +166,12 @@ def as_type(type, *args):
                 else:
                     mem_type = None
                 result.append(
-                    input_to_cuml_array(arg).array.to_output(
+                    CumlArray.from_input(arg).to_output(
                         output_type="dataframe", output_mem_type=mem_type
                     )
                 )
             else:
-                result.append(input_to_cuml_array(arg).array.to_output(type))
+                result.append(CumlArray.from_input(arg).to_output(type))
     if len(result) == 1:
         return result[0]
     return tuple(result)
@@ -565,7 +565,7 @@ def compare_svm(
     # We skip this test for multiclass (when intercept_ is an array). Apart
     # from the larger discrepancies in multiclass case, sklearn also uses a
     # different sign convention for intercept in that case.
-    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
+    if cp.isscalar(svm2.intercept_) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
             assert (
                 abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_)
