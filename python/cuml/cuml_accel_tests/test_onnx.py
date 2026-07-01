@@ -30,10 +30,6 @@ FloatTensorType = skl2onnx.common.data_types.FloatTensorType
 xfail_unsupported = pytest.mark.xfail(
     reason="not supported by skl2onnx", strict=True
 )
-xfail_proxy_private_attr = pytest.mark.xfail(
-    reason="skl2onnx accesses private attributes not exposed by the proxy",
-    strict=True,
-)
 xfail_skl2onnx_bug = pytest.mark.xfail(
     reason="skl2onnx conversion error", strict=True
 )
@@ -74,8 +70,10 @@ classifiers = [
     pytest.param(LinearSVC(dual="auto"), id="LinearSVC"),
     pytest.param(
         SVC(kernel="linear"),
-        marks=xfail_proxy_private_attr,
         id="SVC",
+        marks=pytest.mark.filterwarnings(
+            "ignore:Attribute `prob[A|B]_` was deprecated:FutureWarning"
+        ),
     ),
     pytest.param(
         OneVsOneClassifier(LinearSVC(dual="auto")),
@@ -96,11 +94,7 @@ regressors = [
     ),
     pytest.param(KNeighborsRegressor(), id="KNeighborsRegressor"),
     pytest.param(LinearSVR(dual="auto"), id="LinearSVR"),
-    pytest.param(
-        SVR(kernel="linear"),
-        marks=xfail_proxy_private_attr,
-        id="SVR",
-    ),
+    pytest.param(SVR(kernel="linear"), id="SVR"),
 ]
 
 transformers = [
