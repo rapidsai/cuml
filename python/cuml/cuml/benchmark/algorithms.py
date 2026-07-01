@@ -12,6 +12,7 @@ from importlib import import_module
 import numpy as np
 import sklearn
 import sklearn.cluster
+import sklearn.covariance
 import sklearn.decomposition
 import sklearn.ensemble
 import sklearn.linear_model
@@ -68,6 +69,7 @@ StandardScaler = sklearn.preprocessing.StandardScaler
 
 if is_cuml_available():
     import cuml as _cuml
+    import cuml.covariance
     import cuml.decomposition
     import cuml.metrics as _cuml_metrics
     import cuml.naive_bayes
@@ -307,6 +309,7 @@ def all_algorithms():
     # Get cuML classes and metrics if available
     if is_cuml_available():
         cuml_KMeans = cuml.cluster.KMeans
+        cuml_EmpiricalCovariance = cuml.covariance.EmpiricalCovariance
         cuml_PCA = cuml.PCA
         cuml_TruncatedSVD = cuml.decomposition.tsvd.TruncatedSVD
         cuml_GaussianRandomProjection = (
@@ -338,6 +341,7 @@ def all_algorithms():
         r2_fn = cuml_metrics.r2_score
         trustworthiness_fn = cuml_metrics.trustworthiness
     else:
+        cuml_EmpiricalCovariance = None
         cuml_KMeans = cuml_PCA = cuml_TruncatedSVD = None
         cuml_GaussianRandomProjection = cuml_SparseRandomProjection = None
         cuml_NearestNeighbors = cuml_DBSCAN = cuml_HDBSCAN = None
@@ -368,6 +372,13 @@ def all_algorithms():
             name="KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,
+        ),
+        AlgorithmPair(
+            sklearn.covariance.EmpiricalCovariance,
+            cuml_EmpiricalCovariance,
+            shared_args=dict(),
+            name="EmpiricalCovariance",
+            accepts_labels=False,
         ),
         AlgorithmPair(
             sklearn.decomposition.PCA,
