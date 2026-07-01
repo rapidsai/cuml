@@ -8,6 +8,7 @@
 #include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 
+#include <raft/core/device_setter.hpp>
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
 #include <raft/core/resource/cuda_stream.hpp>
@@ -269,9 +270,11 @@ class RandomForest {
            const double* sample_weight = nullptr)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
-    this->error_checking(input, labels, n_rows, n_cols, false);
     const raft::handle_t& handle = user_handle;
-    int n_sampled_rows           = 0;
+    int handle_device            = handle.get_device();
+    auto device_guard            = raft::device_setter(handle_device);
+    this->error_checking(input, labels, n_rows, n_cols, false);
+    int n_sampled_rows = 0;
     if (this->rf_params.bootstrap) {
       n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
     } else {
@@ -303,8 +306,9 @@ class RandomForest {
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
-      int stream_id = omp_get_thread_num();
-      auto s        = handle.get_stream_from_stream_pool(stream_id);
+      auto thread_device_guard = raft::device_setter(handle_device);
+      int stream_id            = omp_get_thread_num();
+      auto s                   = handle.get_stream_from_stream_pool(stream_id);
 
       auto& selected_rows = row_sampler.sample(i, stream_id, s);
 
