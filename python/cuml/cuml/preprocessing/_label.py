@@ -109,7 +109,7 @@ class LabelEncoder(InteropMixin, Base):
             )
             raise ValueError(msg)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",
@@ -138,7 +138,7 @@ class LabelEncoder(InteropMixin, Base):
         self.classes_ = classes
         return CumlArray(data=y, index=index)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",

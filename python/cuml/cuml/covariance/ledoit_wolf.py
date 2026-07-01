@@ -226,7 +226,7 @@ class LedoitWolf(InteropMixin, Base):
         self.assume_centered = assume_centered
         self.block_size = block_size
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 

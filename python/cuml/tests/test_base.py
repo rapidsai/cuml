@@ -18,7 +18,9 @@ import cuml
 from cuml._thirdparty.sklearn.utils.skl_dependencies import (
     BaseEstimator as sklBaseEstimator,
 )
+from cuml.ensemble import RandomForestClassifier
 from cuml.internals import get_handle
+from cuml.linear_model import LogisticRegression, Ridge
 from cuml.testing.utils import get_all_base_subclasses
 
 all_base_children = get_all_base_subclasses()
@@ -404,3 +406,93 @@ def test_classifier_label_types(cls, target_kind, dtype_kind):
         ):
             with cuml.using_output_type("cupy"):
                 preds2 = model.predict(X)
+
+
+# Names of `Base` subclasses that go through `cuml.Base.__repr__`. Preprocessing
+# estimators (`sklBaseEstimator` subclasses) use scikit-learn's own repr, so we
+# exclude them here. `ForestInference` is a FIL inference wrapper that normalizes
+# several constructor arguments before storing them, so its stored attributes
+# don't round-trip against the constructor defaults; exclude it too.
+_REPR_TESTABLE_CLASSES = [
+    name
+    for name, klass in all_base_children.items()
+    if "Base" not in name
+    and name != "ForestInference"
+    and not issubclass(klass, sklBaseEstimator)
+]
+
+
+def _default_instance(klass):
+    """Construct ``klass`` with all-default arguments, or skip if not possible."""
+    sig = inspect.signature(klass, follow_wrapped=True)
+    try:
+        bound = sig.bind()
+        bound.apply_defaults()
+    except TypeError:
+        pytest.skip(
+            f"{klass.__name__}.__init__ requires non-default arguments."
+        )
+    return klass(*bound.args, **bound.kwargs)
+
+
+@pytest.mark.parametrize("child_class", _REPR_TESTABLE_CLASSES)
+def test_repr_default_shows_no_params(child_class):
+    """A default-constructed estimator reprs as ``ClassName()``."""
+    klass = all_base_children[child_class]
+    obj = _default_instance(klass)
+    assert repr(obj) == f"{klass.__name__}()"
+
+
+@pytest.mark.parametrize("child_class", _REPR_TESTABLE_CLASSES)
+def test_repr_shows_changed_params(child_class):
+    """Every parameter set different from its default value appears in the repr.
+
+    This is the regression guard for the keyword-only constructor bug: the
+    previous implementation used ``getfullargspec().args``, which silently
+    dropped keyword-only parameters. We set each parameter individually to a
+    sentinel value and confirm it (and only it) shows up.
+    """
+    klass = all_base_children[child_class]
+    sentinel = "CUML_TEST_SENTINEL"
+
+    for name in _default_instance(klass)._get_param_names():
+        obj = _default_instance(klass)
+        setattr(obj, name, sentinel)
+        assert repr(obj) == f"{klass.__name__}({name}='{sentinel}')"
+
+
+def test_repr_only_non_default_params():
+    """Only parameters differing from their default are shown, sorted by name."""
+    assert repr(LogisticRegression()) == "LogisticRegression()"
+    assert repr(LogisticRegression(C=0.5)) == "LogisticRegression(C=0.5)"
+    assert (
+        repr(LogisticRegression(C=0.5, max_iter=200, penalty="l1"))
+        == "LogisticRegression(C=0.5, max_iter=200, penalty='l1')"
+    )
+
+    # `alpha` is a positional parameter
+    assert repr(Ridge()) == "Ridge()"
+    assert repr(Ridge(2.0)) == "Ridge(alpha=2.0)"
+    assert repr(Ridge(alpha=2.0)) == "Ridge(alpha=2.0)"
+
+    # Parameters are sorted alphabetically
+    assert (
+        repr(RandomForestClassifier(n_estimators=50, max_depth=5))
+        == "RandomForestClassifier(max_depth=5, n_estimators=50)"
+    )
+
+
+def test_repr_sk_model_suffix():
+    """The ``sk_model_`` marker is appended when the attribute is present."""
+    obj = Ridge(alpha=2.0)
+    obj.sk_model_ = object()
+    assert repr(obj) == "Ridge(alpha=2.0) <sk_model_ attribute used>"
+
+
+def test_repr_truncates_long_output():
+    """Very long reprs are truncated with an ellipsis, like scikit-learn."""
+    obj = Ridge()
+    obj.solver = "x" * 2000
+    out = repr(obj)
+    assert "..." in out
+    assert len("".join(out.split())) < 2000

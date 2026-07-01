@@ -80,7 +80,7 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
         raise NotImplementedError
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True):
         """Generate a random projection matrix."""
         # Use `mem_type=None` & `order=None` to minimize copies or transfers. We
