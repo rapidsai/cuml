@@ -73,8 +73,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         ncols: number of columns
         n_outputs: number of outputs columns
         rank: rank of current worker
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------

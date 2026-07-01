@@ -202,7 +202,9 @@ class IncrementalPCA(PCA):
         self.batch_size = batch_size
 
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
+    def fit(
+        self, X, y=None, *, convert_dtype="deprecated"
+    ) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
 
@@ -396,7 +398,7 @@ class IncrementalPCA(PCA):
         return self
 
     @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=False) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
@@ -406,19 +408,19 @@ class IncrementalPCA(PCA):
 
         Parameters
         ----------
-
         X : array-like or sparse matrix, shape (n_samples, n_features)
             New data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
-
         X_new : array-like, shape (n_samples, n_components)
 
         """

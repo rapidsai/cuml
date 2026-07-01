@@ -103,7 +103,7 @@ def fit_sgd(
     X,
     y,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     return_classes=False,
     loss="squared_loss",
     penalty=None,
@@ -409,7 +409,7 @@ class SGD(FMajorInputTagMixin, Base):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "SGD":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "SGD":
         """
         Fit the model with X and y.
 
@@ -446,7 +446,7 @@ class SGD(FMajorInputTagMixin, Base):
         }
     )
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the y for X.
 

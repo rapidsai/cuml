@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 from cuml import LogisticRegression as cuLog
@@ -24,7 +24,7 @@ def test_mbsgd_regressor_attributes():
 
 def test_logistic_regression_attributes():
     X, y = make_classification()
-    clf = cuLog().fit(X, y, convert_dtype=True)
+    clf = cuLog().fit(X, y)
 
     attrs = [
         "coef_",

@@ -294,7 +294,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
     @generate_docstring()
     @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "KernelRidge":
         X, y, index = check_inputs(
             self,
@@ -329,7 +329,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         return self
 
     @reflect
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predict using the kernel ridge model.
 

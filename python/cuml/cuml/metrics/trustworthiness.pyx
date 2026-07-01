@@ -40,7 +40,7 @@ def trustworthiness(
     X_embedded,
     n_neighbors=5,
     metric='euclidean',
-    convert_dtype=True,
+    convert_dtype="deprecated",
     batch_size=512,
 ) -> float:
     """
@@ -64,9 +64,12 @@ def trustworthiness(
             Metric used to compute the trustworthiness. For the moment only
             'euclidean' is supported.
 
-        convert_dtype : bool, optional (default=True)
-            When set to True, the trustworthiness method will automatically
-            convert the inputs to np.float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         batch_size : int (default=512)
             The number of samples to use for each batch.

@@ -183,9 +183,12 @@ class ARIMA(Base):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    convert_dtype : boolean
-        When set to True, the model will automatically convert the inputs to
-        np.float64.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
     Attributes
     ----------
@@ -288,7 +291,7 @@ class ARIMA(Base):
                  simple_differencing=True,
                  verbose=False,
                  output_type=None,
-                 convert_dtype=True):
+                 convert_dtype="deprecated"):
 
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
@@ -550,7 +553,7 @@ class ARIMA(Base):
                 params[names[i]] = getattr(self, "{}_".format(names[i]))
         return params
 
-    def set_fit_params(self, params: Mapping[str, object], convert_dtype=True):
+    def set_fit_params(self, params: Mapping[str, object], convert_dtype="deprecated"):
         """Set all the fit parameters. Not to be confused with ``set_params``
         Note: `unpack()` can be used to load a compact vector of the
         parameters
@@ -610,7 +613,7 @@ class ARIMA(Base):
         end=None,
         level=None,
         exog=None,
-        convert_dtype=True
+        convert_dtype="deprecated"
     ):
         """Compute in-sample and/or out-of-sample prediction for each series
 
@@ -856,7 +859,7 @@ class ARIMA(Base):
             maxiter: int = 1000,
             method="ml",
             truncate: int = 0,
-            convert_dtype: bool = True) -> "ARIMA":
+            convert_dtype = "deprecated") -> "ARIMA":
         r"""Fit the ARIMA model to each time series.
 
         Parameters
@@ -951,7 +954,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @run_in_internal_context
-    def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype=True):
+    def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype="deprecated"):
         """Compute the batched log-likelihood for the given parameters.
 
         Parameters
@@ -1023,7 +1026,7 @@ class ARIMA(Base):
                    domain="cuml_python")
     @run_in_internal_context
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
-                      convert_dtype=True):
+                      convert_dtype="deprecated"):
         """Compute the gradient (via finite differencing) of the batched
         log-likelihood.
 
@@ -1149,7 +1152,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
     @run_in_internal_context
-    def unpack(self, x: Union[list, np.ndarray], convert_dtype=True):
+    def unpack(self, x: Union[list, np.ndarray], convert_dtype="deprecated"):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
 

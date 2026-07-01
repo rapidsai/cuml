@@ -210,9 +210,9 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         )
         self.weights = weights
 
-    @generate_docstring(convert_dtype_cast='np.float32')
+    @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
@@ -235,13 +235,12 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X

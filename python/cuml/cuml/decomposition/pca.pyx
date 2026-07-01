@@ -467,7 +467,7 @@ class PCA(InteropMixin,
 
     @generate_docstring(X='dense_sparse')
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -584,7 +584,7 @@ class PCA(InteropMixin,
         self,
         X,
         *,
-        convert_dtype=False,
+        convert_dtype="deprecated",
         return_sparse=False,
         sparse_tol=1e-10,
     ) -> CumlArray:
@@ -679,7 +679,7 @@ class PCA(InteropMixin,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Apply dimensionality reduction to X.
 

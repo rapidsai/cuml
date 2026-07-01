@@ -231,7 +231,7 @@ class ElasticNet(
     @generate_docstring()
     @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "ElasticNet":
         """
         Fit the model with X and y.

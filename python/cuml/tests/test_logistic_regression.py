@@ -364,7 +364,7 @@ def test_logistic_regression_predict_proba(
 def test_logistic_regression_input_type_consistency(constructor, dtype):
     X = constructor([[5, 10], [3, 1], [7, 8]]).astype(dtype)
     y = constructor([0, 1, 1]).astype(dtype)
-    clf = cuLog().fit(X, y, convert_dtype=True)
+    clf = cuLog().fit(X, y)
 
     assert isinstance(clf.predict_proba(X), type(X))
     expected_type = cudf.Series if constructor == cudf.DataFrame else type(X)
@@ -471,7 +471,7 @@ def test_logistic_regression_categorical_y(y_kind):
 @example(
     dataset=small_classification_dataset(np.float64), test_dtype=np.float64
 )
-def test_logistic_predict_convert_dtype(dataset, test_dtype):
+def test_logistic_predict_output_dtype(dataset, test_dtype):
     X_train, X_test, y_train, y_test = dataset
 
     # Assumption needed to avoid qn.h: logistic loss invalid C error.
