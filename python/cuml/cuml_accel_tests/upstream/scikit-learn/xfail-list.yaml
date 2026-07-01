@@ -649,7 +649,6 @@
   marker: cuml_accel_invalid_sklearn_tests
   tests:
   - "sklearn.model_selection.tests.test_search::test_grid_search_score_method"
-  - "sklearn.svm.tests.test_svm::test_gamma_scale"
   - "sklearn.svm.tests.test_svm::test_svc_raises_error_internal_representation"
 - reason: This test asserts a copy hasn't happened, but that's not actually guaranteed by the interface.
   marker: cuml_accel_invalid_sklearn_tests
