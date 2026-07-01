@@ -301,7 +301,7 @@ class Accelerator:
               patches. All names specified in `__all__` in the module will be
               used to override/patch attributes in the accelerated module.
         callback : callable or None, default=None
-            A callback taking no arguments to be called upong first loading
+            A callback taking no arguments to be called upon first loading
             of this module.
 
         Examples
