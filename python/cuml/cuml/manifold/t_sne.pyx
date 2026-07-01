@@ -7,8 +7,7 @@ import numpy as np
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.common.sparsefuncs import extract_knn_graph
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
@@ -20,6 +19,7 @@ from cuml.internals.interop import (
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.outputs import reflect
 from cuml.internals.validation import check_inputs, check_random_seed
+from cuml.manifold.utils import extract_knn_graph
 
 from libc.stdint cimport int64_t, uintptr_t
 from libcpp cimport bool
@@ -329,14 +329,26 @@ class TSNE(InteropMixin,
         'sqeuclidean' metric, the distances will still be squared when True.
         Note: This argument should likely be set to False for distance metrics
         other than 'euclidean' and 'l2'.
-    precomputed_knn : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of TSNE
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the TSNE embeedings.
+    precomputed_knn : tuple[array, array], sparse-matrix, array, optional
+        This feature allows the precomputation of the KNN outside of TSNE.
+        Options are:
+
+        - A tuple (indices, distances) of dense arrays of shape (n_samples,
+          n_neighbors), where n_neighbors is >= the ``n_neighbors`` parameter.
+          Self references should be included (i.e. the first column of
+          `indices` should be [0, 1, ...], denotating that the nearest neighbor
+          to each row is itself). This is the most efficient representation.
+
+        - A sparse matrix KNN graph, as may be output by
+          ``cuml.neighbors.kneighbors_graph`` with ``mode="distance"`` and
+          ``include_self=True``. The ``n_neighbors`` used to calculate the
+          graph must be >= the ``n_neighbors`` parameter.
+
+        - A pairwise distances dense array of shape (n_samples, n_samples).
+
+        In all cases the KNN should be computed using the same ``metric`` as
+        provided to ``TSNE``.
+
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
         'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
@@ -555,22 +567,20 @@ class TSNE(InteropMixin,
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse',
                         convert_dtype_cast='np.float32')
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
         Parameters
         ----------
-        knn_graph : array / sparse array / tuple, optional (device or host)
-        Either one of a tuple (indices, distances) of
-        arrays of shape (n_samples, n_neighbors), a pairwise distances
-        dense array of shape (n_samples, n_samples) or a KNN graph
-        sparse array (preferably CSR/COO). This feature allows
-        the precomputation of the KNN outside of TSNE
-        and also allows the use of a custom distance function. This function
-        should match the metric used to train the TSNE embeedings.
-        Takes precedence over the precomputed_knn parameter.
+        knn_graph : tuple[array, array], sparse-matrix, array, optional
+            This feature allows the precomputation of the KNN outside of TSNE.
+
+            This may take any of the valid forms accepted by the
+            ``precomputed_knn`` parameter to ``TSNE``, and takes precedence
+            over it. See the ``TSNE`` docstring on ``precomputed_knn`` for more
+            information.
         """
         cdef int n_samples, n_features
         cdef uintptr_t X_ptr = 0
@@ -610,20 +620,14 @@ class TSNE(InteropMixin,
         if knn_graph is None:
             knn_graph = self.precomputed_knn
         if knn_graph is not None:
-            knn_indices, knn_dists = extract_knn_graph(knn_graph, params.n_neighbors)
-
-            knn_dists_cp = knn_dists.to_output("cupy")
-
-            if sparse_fit:
-                # Sparse fitting requires the indices to be int32
-                knn_indices_cp = cupy.asarray(
-                    knn_indices.to_output("cupy"), dtype=np.int32
-                )
-            else:
-                knn_indices_cp = knn_indices.to_output("cupy")
-
-            knn_dists_ptr = <uintptr_t>knn_dists_cp.data.ptr
-            knn_indices_ptr = <uintptr_t>knn_indices_cp.data.ptr
+            knn_indices, knn_dists = extract_knn_graph(
+                knn_graph,
+                n_samples,
+                params.n_neighbors,
+                indices_dtype="int32" if sparse_fit else "int64",
+            )
+            knn_dists_ptr = <uintptr_t>knn_dists.data.ptr
+            knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
 
         # Allocate output array
         embedding = cupy.zeros(

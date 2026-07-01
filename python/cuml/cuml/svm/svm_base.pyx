@@ -7,7 +7,7 @@ import scipy.sparse
 
 import cuml.internals
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
@@ -307,7 +307,7 @@ class SVMBase(InteropMixin,
         # Handle the no-support-vectors case: return zeros with correct shape
         if self.n_support_ == 0:
             n_features = self.shape_fit_[1]
-            return CumlArray.zeros((1, n_features), dtype=self.dual_coef_.dtype)
+            return CumlArray(cp.zeros((1, n_features), dtype=self.dual_coef_.dtype))
         dual_coef = self.dual_coef_.to_output("cupy")
         support_vectors = self.support_vectors_.to_output("cupy")
         return CumlArray(data=dual_coef @ support_vectors)

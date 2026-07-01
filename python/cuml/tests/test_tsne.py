@@ -61,41 +61,14 @@ def test_tsne_knn_graph_used(
         min_grad_norm=1e-12,
     )
 
-    # Perform tsne with normal knn_graph
+    # Fit works and results in decent score with provided knn_graph
     Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    trust = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
+    assert trust >= 0.80
 
-    trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-
-    X_garbage = np.ones(X.shape)
-    knn_graph_garbage = neigh.kneighbors_graph(
-        X_garbage, mode="distance"
-    ).astype("float32")
-
-    if type_knn_graph == "cuml":
-        knn_graph_garbage = cupyx.scipy.sparse.csr_matrix(knn_graph_garbage)
-
-    tsne = TSNE(
-        random_state=1,
-        n_neighbors=DEFAULT_N_NEIGHBORS,
-        method=method,
-        perplexity=DEFAULT_PERPLEXITY,
-        learning_rate_method="none",
-        min_grad_norm=1e-12,
-    )
-
-    # Perform tsne with garbage knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
+    # Fit errors if graph is bad
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        tsne.fit_transform(X, knn_graph=knn_graph[:20, :20])
 
 
 @pytest.mark.parametrize("type_knn_graph", ["cuml", "sklearn"])

@@ -68,6 +68,8 @@ filterwarnings = [
   "ignore:The cuda.core.experimental namespace is deprecated:DeprecationWarning",
   # Allow informational benchmark warnings (pytest-benchmark plugin)
   "default::pytest_benchmark.logger.PytestBenchmarkWarning",
+  # sklearn's parametrize_with_checks passes a generator to parametrize
+  "ignore:Passing a non-Collection iterable:pytest.PytestRemovedIn10Warning",
 ]
 
 [project]
@@ -84,12 +86,12 @@ dependencies = [
     "cuda-python>=13.0.1,<14.0",
     "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*",
     "cudf==26.8.*,>=0.0.0a0",
-    "cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0",
+    "cupy-cuda13x[ctk]>=14.0.1,!=14.1.0",
     "joblib>=0.11",
     "libcuml==26.8.*,>=0.0.0a0",
     "numba-cuda>=0.22.2",
     "numba>=0.60.0,<0.65.0",
-    "numpy>=1.26,<3.0",
+    "numpy>=2.0,<3.0",
     "nvforest==26.8.*,>=0.0.0a0",
     "nvidia-nvjitlink>=13.0,<14",
     "packaging",
@@ -110,7 +112,7 @@ classifiers = [
 [project.optional-dependencies]
 test = [
     "certifi",
-    "cython>=3.2.2",
+    "cython>=3.2.2,!=3.2.7",
     "hdbscan>=0.8.39",
     "hypothesis>=6.0,<7",
     "ipython>=7.32.0",
@@ -122,7 +124,6 @@ test = [
     "pynndescent",
     "pytest",
     "pytest-benchmark",
-    "pytest-cases",
     "pytest-cov",
     "pytest-xdist",
     "pyyaml",
@@ -188,7 +189,7 @@ matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=4.0",
     "cuda-python>=13.0.1,<14.0",
-    "cython>=3.2.2",
+    "cython>=3.2.2,!=3.2.7",
     "libcuml==26.8.*,>=0.0.0a0",
     "libnvforest==26.8.*,>=0.0.0a0",
     "libraft==26.8.*,>=0.0.0a0",

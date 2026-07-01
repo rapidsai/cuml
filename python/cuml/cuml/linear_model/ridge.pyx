@@ -356,7 +356,7 @@ class Ridge(InteropMixin,
         return coef, intercept, None
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "Ridge":
         """
         Fit the model with X and y.

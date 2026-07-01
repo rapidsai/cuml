@@ -2,14 +2,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import typing
 from random import randint
 
-import numpy as np
+import cupy as cp
 
 import cuml.internals.nvtx as nvtx
 from cuml.internals import get_handle, reflect
-from cuml.internals.array import CumlArray
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -49,14 +47,6 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
         bool shuffle,
         uint64_t seed) except +
 
-inp_to_dtype = {
-    'single': np.float32,
-    'float': np.float32,
-    'double': np.float64,
-    np.float32: np.float32,
-    np.float64: np.float64
-}
-
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
 @reflect(array=None)
@@ -72,9 +62,8 @@ def make_regression(
     shuffle=True,
     coef=False,
     random_state=None,
-    dtype='single',
-) -> typing.Union[typing.Tuple[CumlArray, CumlArray],
-                  typing.Tuple[CumlArray, CumlArray, CumlArray]]:
+    dtype='float32',
+):
     """Generate a random regression problem.
 
     See https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
@@ -134,9 +123,8 @@ def make_regression(
         If True, the coefficients of the underlying linear model are returned.
     random_state : int, RandomState instance or None (default)
         Seed for the random number generator for dataset creation.
-    dtype: string or numpy dtype (default: 'single')
-        Type of the data. Possible values: float32, float64, 'single', 'float'
-        or 'double'.
+    dtype: string or numpy dtype (default: 'float32')
+        The output dtype. Only 'float32' or 'float64' supported.
 
     Returns
     -------
@@ -150,10 +138,9 @@ def make_regression(
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
     """  # noqa: E501
-    if dtype not in ['single', 'float', 'double', np.float32, np.float64]:
-        raise TypeError("dtype must be either 'float' or 'double'")
-    else:
-        dtype = inp_to_dtype[dtype]
+    dtype = cp.dtype(dtype)
+    if dtype not in ["float32", "float64"]:
+        raise ValueError(f"Expected dtype in ['float32', 'float64'], got `{dtype!s}`")
 
     if effective_rank is None:
         effective_rank = -1
@@ -161,24 +148,22 @@ def make_regression(
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    out = CumlArray.zeros((n_samples, n_features), dtype=dtype, order='C')
-    cdef uintptr_t out_ptr = out.ptr
+    out = cp.zeros((n_samples, n_features), dtype=dtype, order='C')
+    cdef uintptr_t out_ptr = out.data.ptr
 
-    values = CumlArray.zeros((n_samples, n_targets), dtype=dtype, order='C')
-    cdef uintptr_t values_ptr = values.ptr
+    values = cp.zeros((n_samples, n_targets), dtype=dtype, order='C')
+    cdef uintptr_t values_ptr = values.data.ptr
 
     cdef uintptr_t coef_ptr
     coef_ptr = <uintptr_t> NULL
     if coef:
-        coefs = CumlArray.zeros((n_features, n_targets),
-                                dtype=dtype,
-                                order='C')
-        coef_ptr = coefs.ptr
+        coefs = cp.zeros((n_features, n_targets), dtype=dtype, order='C')
+        coef_ptr = coefs.data.ptr
 
     if random_state is None:
         random_state = randint(0, 10**18)
 
-    if dtype == np.float32:
+    if dtype == "float32":
         cpp_make_regression(handle_[0], <float*> out_ptr,
                             <float*> values_ptr, <long> n_samples,
                             <long> n_features, <long> n_informative,

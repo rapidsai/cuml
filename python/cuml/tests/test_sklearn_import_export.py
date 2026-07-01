@@ -779,6 +779,13 @@ def test_random_forest_classifier(random_state, oob_score):
     assert isinstance(sk_model2.classes_, np.ndarray)
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
+    for estimator in sk_model2.estimators_:
+        estimator_classes = np.arange(
+            sk_model2.n_classes_, dtype=estimator.classes_.dtype
+        )
+        assert isinstance(estimator.classes_, np.ndarray)
+        assert (estimator.classes_ == estimator_classes).all()
+        assert estimator.n_classes_ == sk_model2.n_classes_
 
     # Ensure params/attrs roundtrip
     # Exclude classes_ due to dtype differences between implementations
@@ -807,6 +814,29 @@ def test_random_forest_classifier(random_state, oob_score):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
+
+
+def test_random_forest_classifier_as_sklearn_estimator_classes(random_state):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state
+    )
+    y = np.where(y == 0, 10, 20)
+    common_params = {"n_estimators": 3, "max_depth": None}
+
+    cu_model = cuml.RandomForestClassifier(**common_params).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(**common_params).fit(
+        X, y
+    )
+    sk_model2 = cu_model.as_sklearn()
+
+    np.testing.assert_array_equal(sk_model2.classes_, sk_model.classes_)
+    for estimator, sk_estimator in zip(
+        sk_model2.estimators_, sk_model.estimators_, strict=True
+    ):
+        np.testing.assert_array_equal(
+            estimator.classes_, sk_estimator.classes_
+        )
+        assert estimator.n_classes_ == sk_estimator.n_classes_
 
 
 @pytest.mark.parametrize("oob_score", [False, True])

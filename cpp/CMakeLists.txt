@@ -355,8 +355,13 @@ if(BUILD_CUML_CPP_LIBRARY)
       cuml_objs
       PRIVATE src/decisiontree/batched-levelalgo/kernels/classification-double.cu
               src/decisiontree/batched-levelalgo/kernels/classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/node-split.cu
               src/decisiontree/batched-levelalgo/kernels/regression-double.cu
               src/decisiontree/batched-levelalgo/kernels/regression-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()

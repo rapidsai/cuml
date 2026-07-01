@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/tsa/arima_common.h>
 
 #include <raft/random/rng.cuh>
@@ -136,10 +137,15 @@ void make_arima(DataT* out,
                 uint64_t seed                    = 0ULL,
                 raft::random::GeneratorType type = raft::random::GenPhilox)
 {
-  int d_sD      = order.d + order.s * order.D;
-  int n_phi     = order.p + order.s * order.P;
-  int n_theta   = order.q + order.s * order.Q;
-  auto counting = thrust::make_counting_iterator(0);
+  int const d_sD    = ML::checked_add<int>(order.d, ML::checked_mul<int>(order.s, order.D));
+  int const n_phi   = ML::checked_add<int>(order.p, ML::checked_mul<int>(order.s, order.P));
+  int const n_theta = ML::checked_add<int>(order.q, ML::checked_mul<int>(order.s, order.Q));
+  if (n_obs <= d_sD) {
+    RAFT_FAIL("make_arima: n_obs (%d) must be greater than d + s*D (%d)", n_obs, d_sD);
+  }
+  std::size_t const effective_len = ML::checked_sub<std::size_t>(n_obs, d_sD);
+  std::size_t const batch_eff_len = ML::checked_mul<std::size_t>(batch_size, effective_len);
+  auto counting                   = thrust::make_counting_iterator(0);
 
   // Create CPU/GPU random generators and distributions
   raft::random::Rng gpu_gen(seed, type);
@@ -175,11 +181,12 @@ void make_arima(DataT* out,
   // create the random walk
   rmm::device_uvector<DataT> starting_values(0, stream);
   if (d_sD) {
-    starting_values.resize(batch_size * d_sD, stream);
+    std::size_t const start_len = ML::checked_mul<std::size_t>(batch_size, d_sD);
+    starting_values.resize(start_len, stream);
     DataT* d_start_val = starting_values.data();
 
     // First generate random values between - 1 and 1
-    gpu_gen.uniform(starting_values.data(), batch_size * d_sD, (DataT)-1, (DataT)1, stream);
+    gpu_gen.uniform(starting_values.data(), start_len, (DataT)-1, (DataT)1, stream);
 
     // Then use a kernel to create the random walk
     DataT walk_scale = 0.5 * scale;
@@ -197,33 +204,42 @@ void make_arima(DataT* out,
   DataT* d_diff;
   rmm::device_uvector<DataT> diff_data(0, stream);
   if (d_sD) {
-    diff_data.resize(batch_size * (n_obs - d_sD), stream);
+    diff_data.resize(batch_eff_len, stream);
     d_diff = diff_data.data();
   } else {
     d_diff = out;
   }
 
   // Generate noise/residuals
-  rmm::device_uvector<DataT> residuals(batch_size * (n_obs - d_sD), stream);
-  gpu_gen.normal(residuals.data(), batch_size * (n_obs - d_sD), (DataT)0.0, noise_scale, stream);
+  rmm::device_uvector<DataT> residuals(batch_eff_len, stream);
+  gpu_gen.normal(residuals.data(), batch_eff_len, (DataT)0.0, noise_scale, stream);
 
-  // Call the main kernel to generate the differenced series
-  int n_warps            = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
-  size_t shared_mem_size = (2 * (n_obs - d_sD) + n_warps) * sizeof(double);
-  make_arima_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(d_diff,
-                                                                           residuals.data(),
-                                                                           params.mu,
-                                                                           params.ar,
-                                                                           params.ma,
-                                                                           params.sar,
-                                                                           params.sma,
-                                                                           n_obs - d_sD,
-                                                                           order.p,
-                                                                           order.q,
-                                                                           order.P,
-                                                                           order.Q,
-                                                                           order.s,
-                                                                           order.k);
+  // Call the main kernel to generate the differenced series.
+  // Block dim is 32 * n_warps; checked_mul traps if the product overflows int
+  // before reaching the launcher. CUDA enforces the per-block thread limit
+  // itself, which varies by device.
+  int const n_warps            = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
+  int const threads            = ML::checked_mul<int>(32, n_warps);
+  size_t const shared_mem_size = ML::checked_mul<std::size_t>(
+    ML::checked_add<std::size_t>(ML::checked_mul<std::size_t>(2, effective_len),
+                                 static_cast<std::size_t>(n_warps)),
+    sizeof(double));
+  auto const grid_dim  = ML::narrow_cast<ML::cuda_launch_t>(batch_size);
+  auto const block_dim = ML::narrow_cast<ML::cuda_launch_t>(threads);
+  make_arima_kernel<<<grid_dim, block_dim, shared_mem_size, stream>>>(d_diff,
+                                                                      residuals.data(),
+                                                                      params.mu,
+                                                                      params.ar,
+                                                                      params.ma,
+                                                                      params.sar,
+                                                                      params.sma,
+                                                                      n_obs - d_sD,
+                                                                      order.p,
+                                                                      order.q,
+                                                                      order.P,
+                                                                      order.Q,
+                                                                      order.s,
+                                                                      order.k);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Final time series
