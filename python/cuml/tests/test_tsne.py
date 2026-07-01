@@ -145,6 +145,48 @@ def test_tsne_precomputed_knn(precomputed_type, sparse_input):
     assert trust >= 0.92
 
 
+@pytest.mark.parametrize("use_precomputed_knn", [False, True])
+@pytest.mark.parametrize("n_features", [4, 64, 256, 1024])
+def test_tsne_fft_random_state_reproducibility(
+    use_precomputed_knn, n_features
+):
+    data, _ = make_blobs(
+        n_samples=2000, n_features=n_features, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+
+    n_neighbors = 30
+    perplexity = 10
+    knn_graph = None
+    if use_precomputed_knn:
+        nn = NearestNeighbors(n_neighbors=n_neighbors)
+        nn.fit(data)
+        knn_graph = nn.kneighbors_graph(data, mode="distance").astype(
+            "float32"
+        )
+
+    tsne_kwargs = {
+        "n_components": 2,
+        "random_state": 42,
+        "n_neighbors": n_neighbors,
+        "perplexity": perplexity,
+        "method": "fft",
+        "init": "random",
+        "learning_rate_method": "none",
+        "max_iter": 300,
+        "min_grad_norm": 1e-12,
+    }
+
+    embedding_a = TSNE(**tsne_kwargs).fit_transform(
+        data, convert_dtype=True, knn_graph=knn_graph
+    )
+    embedding_b = TSNE(**tsne_kwargs).fit_transform(
+        data, convert_dtype=True, knn_graph=knn_graph
+    )
+
+    assert np.array_equal(embedding_a, embedding_b)
+
+
 @pytest.mark.parametrize("init", ["random", "pca"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
 def test_tsne(supervised_learning_dataset, method, init):
