@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <deque>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
