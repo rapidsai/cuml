@@ -9,6 +9,7 @@ import pytest
 from packaging.version import Version
 
 import cuml.accel
+from cuml.accel.core import _CONSTRAINTS
 from cuml.accel.estimator_proxy import ProxyBase
 
 
@@ -142,3 +143,30 @@ def test_proxied_methods_signature_compatibility(cls, name):
                 Parameter.KEYWORD_ONLY,
                 Parameter.VAR_KEYWORD,
             }
+
+
+def test_constraints_match_installed_versions(capsys):
+    """This test checks all registered version constraints, and errors if
+    they're not met in the test environment. Since we test oldest and latest
+    versions in CI, this test will error if we ever update our dependencies
+    without also updating the constraints."""
+
+    invalid = []
+    for constraint in _CONSTRAINTS.values():
+        if not constraint():
+            invalid.append(f"- {constraint.requirement!s}")
+
+    stdout, _ = capsys.readouterr()
+    logs = [
+        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    ]
+    if invalid:
+        msg = (
+            "Please update `cuml.accel.core._CONSTRAINTS` to match the new "
+            "runtime constraints.\n\n"
+            "Currently the following constraints failed:\n\n"
+            f"{'\n'.join(invalid)}\n\n"
+            "leading to the following user-facing logs:\n\n"
+            f"{'\n'.join(logs)}"
+        )
+        assert False, msg
