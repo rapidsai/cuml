@@ -579,13 +579,19 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         of get_params via BaseComposition._get_params which expects lists
         of tuples of len 2.
         """
+        if self.transformers is None:
+            return []
         return [(name, trans) for name, trans, _ in self.transformers]
 
     @_transformers.setter
     def _transformers(self, value):
-        self.transformers = [
-            (name, trans, col) for ((name, trans), (_, _, col))
-            in zip(value, self.transformers)]
+        if self.transformers is None:
+            self.transformers = [(name, trans, None) for name, trans in value]
+        else:
+
+            self.transformers = [
+                (name, trans, col) for ((name, trans), (_, _, col))
+                in zip(value, self.transformers)]
 
     def get_params(self, deep=True):
         """Get parameters for this estimator.
