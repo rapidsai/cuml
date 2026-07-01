@@ -6,10 +6,11 @@ import multiprocessing
 from inspect import Parameter, signature
 
 import pytest
+import sklearn
 from packaging.version import Version
 
 import cuml.accel
-from cuml.accel.core import _CONSTRAINTS
+from cuml.accel.core import _CONSTRAINTS, CheckConstraint
 from cuml.accel.estimator_proxy import ProxyBase
 
 
@@ -143,6 +144,30 @@ def test_proxied_methods_signature_compatibility(cls, name):
                 Parameter.KEYWORD_ONLY,
                 Parameter.VAR_KEYWORD,
             }
+
+
+def test_check_constraints(capsys):
+    # A constraingt we know to be met
+    constraint = CheckConstraint("scikit-learn>=1.0")
+    assert constraint()
+    stdout, _ = capsys.readouterr()
+    logs = [
+        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    ]
+    assert not logs
+
+    # A constraint we know to not be met
+    constraint = CheckConstraint("scikit-learn>=1.0,<=1.4")
+
+    assert not constraint()
+    stdout, _ = capsys.readouterr()
+    logs = [
+        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    ]
+    assert len(logs) == 1
+    log = logs[0]
+    assert str(constraint.requirement) in log
+    assert sklearn.__version__ in log
 
 
 def test_constraints_match_installed_versions(capsys):
