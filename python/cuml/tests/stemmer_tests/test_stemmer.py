@@ -1,14 +1,26 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import cudf
+import pytest
 from nltk import stem as nltk_stem
 
 from cuml.preprocessing.text import stem as rapids_stem
 
 
+def test_deprecated():
+    with pytest.warns(
+        FutureWarning,
+        match=r"`cuml\.preprocessing\.text\.stem\.PorterStemmer`",
+    ):
+        rapids_stem.PorterStemmer()
+
+
+@pytest.mark.filterwarnings(
+    "ignore:`cuml.preprocessing.text.stem.PorterStemmer`:FutureWarning"
+)
 def test_same_results():
     # This is a list of 100 random words from nltk treebank.
     word_ls = [
