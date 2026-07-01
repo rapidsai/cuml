@@ -94,19 +94,29 @@ def mockmod(clean_meta_path):
 
 
 def test_accelerator(mockmod):
+    call_count = 0
+
+    def callback():
+        nonlocal call_count
+        call_count += 1
+
     def fizz():
         return "FIZZ"
 
     accel = Accelerator()
+    accel.register(f"{mockmod}.utils", {"fizz": fizz}, callback=callback)
     assert not accel.installed
-    accel.register(f"{mockmod}.utils", {"fizz": fizz})
+    assert call_count == 0
+
     accel.install()
     assert accel.installed
+    assert call_count == 0
 
-    # No harm in calling install more than once
+    # No harm in calling install more than once, it's a no-op
     accel.install()
 
     mod = importlib.import_module(mockmod)
+    assert call_count == 1  # callback delayed until first import
     assert mod.fizz is fizz
     assert mod.utils.fizz is fizz
     assert sys.modules[f"{mockmod}.utils"] is mod.utils
@@ -185,20 +195,28 @@ def test_accelerator_import_in_override(mockmod):
 
 
 def test_accelerator_install_after_import(mockmod):
+    callback_called = False
+
+    def callback():
+        nonlocal callback_called
+        callback_called = True
+
     def fizz():
         return "FIZZ"
 
     accel = Accelerator()
-    accel.register(f"{mockmod}.utils", {"fizz": fizz})
+    accel.register(f"{mockmod}.utils", {"fizz": fizz}, callback=callback)
 
     mod = importlib.import_module(mockmod)
     assert mod.utils.fizz is not fizz
+    assert not callback_called
 
     accel.install()
 
     assert isinstance(mod.utils, AccelModule)
     assert sys.modules[f"{mockmod}.utils"] is mod.utils
     assert mod.utils.fizz is fizz
+    assert callback_called
 
 
 def test_accelerator_module_patch(mockmod):
