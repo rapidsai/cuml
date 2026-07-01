@@ -527,24 +527,12 @@ SVC
   ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
   supported across ``scikit-learn`` versions, and won't require CPU fallback.
 
-Additional notes:
-
-- ONNX export via ``skl2onnx`` is not supported for this estimator.
-- Using ``SVC`` in the same process as ``LinearSVC`` under ``cuml.accel`` can
-  cause a segfault.
-
 SVR
 ^^^
 
 ``SVR`` will fall back to CPU in the following cases:
 
 - If ``kernel="precomputed"`` or is a callable.
-
-Additional notes:
-
-- ONNX export via ``skl2onnx`` is not supported for this estimator.
-- Using ``SVR`` in the same process as ``LinearSVR`` under ``cuml.accel`` can
-  cause a segfault.
 
 LinearSVC
 ^^^^^^^^^
