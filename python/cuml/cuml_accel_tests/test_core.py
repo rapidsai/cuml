@@ -176,22 +176,26 @@ def test_constraints_match_installed_versions(capsys):
     versions in CI, this test will error if we ever update our dependencies
     without also updating the constraints."""
 
-    invalid = []
-    for constraint in _CONSTRAINTS.values():
-        if not constraint():
-            invalid.append(f"- {constraint.requirement!s}")
-
-    stdout, _ = capsys.readouterr()
-    logs = [
-        line for line in stdout.split("\n") if line.startswith("[cuml.accel]")
+    missed_constraints = [
+        constraint for constraint in _CONSTRAINTS.values() if not constraint()
     ]
-    if invalid:
+
+    if missed_constraints:
+        constraint_lines = "\n".join(
+            f"- {c.requirement!s}" for c in missed_constraints
+        )
+        stdout, _ = capsys.readouterr()
+        log_lines = "\n".join(
+            line
+            for line in stdout.split("\n")
+            if line.startswith("[cuml.accel]")
+        )
         msg = (
             "Please update `cuml.accel.core._CONSTRAINTS` to match the new "
             "runtime constraints.\n\n"
             "Currently the following constraints failed:\n\n"
-            f"{'\n'.join(invalid)}\n\n"
+            f"{constraint_lines}\n\n"
             "leading to the following user-facing logs:\n\n"
-            f"{'\n'.join(logs)}"
+            f"{log_lines}"
         )
         assert False, msg
