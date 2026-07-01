@@ -286,18 +286,18 @@ auto nvForestPredictProba(const raft::handle_t& handle,
 
   return pred;
 }
-template <typename DataT, typename LabelT>
+template <typename LabelT>
 RF_metrics Score(const raft::handle_t& handle,
                  RfTestParams params,
                  const LabelT* y,
                  const LabelT* pred,
-                 const DataT* sample_weight)
+                 const double* sample_weight)
 {
   thrust::host_vector<LabelT> h_y(params.n_rows);
   thrust::host_vector<LabelT> h_pred(params.n_rows);
   raft::update_host(h_y.data(), y, params.n_rows, handle.get_stream());
   raft::update_host(h_pred.data(), pred, params.n_rows, handle.get_stream());
-  thrust::host_vector<DataT> h_sample_weight;
+  thrust::host_vector<double> h_sample_weight;
   if (sample_weight != nullptr) {
     h_sample_weight.resize(params.n_rows);
     raft::update_host(h_sample_weight.data(), sample_weight, params.n_rows, handle.get_stream());
@@ -335,7 +335,7 @@ auto TrainScore(const raft::handle_t& handle,
                 DataT* X,
                 DataT* X_transpose,
                 LabelT* y,
-                const DataT* sample_weight)
+                const double* sample_weight)
 {
   RF_params rf_params = set_rf_params(params.max_depth,
                                       params.max_leaves,
@@ -439,10 +439,10 @@ class RfSpecialisedTest {
     raft::linalg::transpose(
       handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);
     if (params.sample_weight) {
-      thrust::host_vector<DataT> h_sample_weight(params.n_rows);
+      thrust::host_vector<double> h_sample_weight(params.n_rows);
       for (std::size_t i = 0; i < params.n_rows; ++i) {
         int bucket         = (int(i) * 37 + params.seed * 13) % 17;
-        h_sample_weight[i] = DataT(0.25) + DataT(bucket) * DataT(0.125);
+        h_sample_weight[i] = 0.25 + double(bucket) * 0.125;
       }
       sample_weight = h_sample_weight;
     }
@@ -683,7 +683,7 @@ class RfSpecialisedTest {
     EXPECT_NEAR(sum, 1.0, 1e-6);
   }
 
-  const DataT* SampleWeightPtr() const
+  const double* SampleWeightPtr() const
   {
     return params.sample_weight ? sample_weight.data().get() : nullptr;
   }
@@ -703,7 +703,7 @@ class RfSpecialisedTest {
   thrust::device_vector<DataT> X;
   thrust::device_vector<DataT> X_transpose;
   thrust::device_vector<LabelT> y;
-  thrust::device_vector<DataT> sample_weight;
+  thrust::device_vector<double> sample_weight;
   RfTestParams params;
   std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
   std::shared_ptr<thrust::device_vector<LabelT>> predictions;
@@ -851,7 +851,7 @@ TEST(RfTests, InvalidSampleWeightThrows)
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
   thrust::device_vector<float> X(n_rows * n_cols);
   thrust::device_vector<int> y(n_rows);
-  thrust::device_vector<float> sample_weight(n_rows, 1.0f);
+  thrust::device_vector<double> sample_weight(n_rows, 1.0);
   raft::random::Rng r(8);
   r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
   thrust::host_vector<int> h_y(n_rows);
@@ -863,9 +863,9 @@ TEST(RfTests, InvalidSampleWeightThrows)
   RF_params rf_params =
     set_rf_params(3, 100, 1.0, 8, 1, 2, 0.0, false, 1, 1.0, 0, CRITERION::GINI, 1, 128);
 
-  auto expect_invalid_weight_throws = [&](float invalid_weight) {
+  auto expect_invalid_weight_throws = [&](double invalid_weight) {
     thrust::fill(
-      thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 1.0f);
+      thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 1.0);
     sample_weight[0] = invalid_weight;
     auto forest      = std::make_shared<RandomForestMetaData<float, int>>();
     auto forest_ptr  = forest.get();
@@ -883,8 +883,91 @@ TEST(RfTests, InvalidSampleWeightThrows)
                  raft::exception);
   };
 
-  expect_invalid_weight_throws(-1.0f);
-  expect_invalid_weight_throws(std::numeric_limits<float>::quiet_NaN());
+  expect_invalid_weight_throws(-1.0);
+  expect_invalid_weight_throws(std::numeric_limits<double>::quiet_NaN());
+
+  thrust::fill(
+    thrust::cuda::par.on(handle.get_stream()), sample_weight.begin(), sample_weight.end(), 0.0);
+  auto forest     = std::make_shared<RandomForestMetaData<float, int>>();
+  auto forest_ptr = forest.get();
+  EXPECT_THROW(fit(handle,
+                   forest_ptr,
+                   X.data().get(),
+                   n_rows,
+                   n_cols,
+                   y.data().get(),
+                   2,
+                   rf_params,
+                   rapids_logger::level_enum::info,
+                   nullptr,
+                   sample_weight.data().get()),
+               raft::exception);
+}
+
+TEST(RfTests, WeightedBootstrapSamplesOnlyPositiveWeightRows)
+{
+  constexpr int n_rows             = 32;
+  constexpr int n_cols             = 2;
+  constexpr int n_trees            = 8;
+  constexpr int n_zero_weight_rows = 16;
+
+  auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(2);
+  raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
+  thrust::device_vector<float> X(n_rows * n_cols);
+  thrust::device_vector<int> y(n_rows);
+  thrust::device_vector<double> sample_weight(n_rows);
+
+  raft::random::Rng r(8);
+  r.normal(X.data().get(), X.size(), 0.0f, 1.0f, handle.get_stream());
+
+  thrust::host_vector<int> h_y(n_rows);
+  thrust::host_vector<double> h_sample_weight(n_rows);
+  for (int i = 0; i < n_rows; ++i) {
+    h_y[i]             = i < n_zero_weight_rows ? 0 : 1;
+    h_sample_weight[i] = i < n_zero_weight_rows ? 0.0 : 1.0;
+  }
+  y             = h_y;
+  sample_weight = h_sample_weight;
+
+  RF_params rf_params =
+    set_rf_params(0, 100, 1.0, 8, 1, 2, 0.0, true, n_trees, 1.0, 0, CRITERION::GINI, 2, 128);
+
+  auto forest     = std::make_shared<RandomForestMetaData<float, int>>();
+  auto forest_ptr = forest.get();
+  rmm::device_uvector<bool> bootstrap_masks(std::size_t(n_trees) * n_rows, handle.get_stream());
+  fit(handle,
+      forest_ptr,
+      X.data().get(),
+      n_rows,
+      n_cols,
+      y.data().get(),
+      2,
+      rf_params,
+      rapids_logger::level_enum::info,
+      bootstrap_masks.data(),
+      sample_weight.data().get());
+  handle.sync_stream();
+
+  thrust::host_vector<bool> h_bootstrap_masks(bootstrap_masks.size());
+  raft::update_host(
+    h_bootstrap_masks.data(), bootstrap_masks.data(), bootstrap_masks.size(), handle.get_stream());
+  handle.sync_stream();
+
+  for (int tree_id = 0; tree_id < n_trees; ++tree_id) {
+    for (int row_id = 0; row_id < n_zero_weight_rows; ++row_id) {
+      EXPECT_FALSE(h_bootstrap_masks[tree_id * n_rows + row_id]);
+    }
+  }
+
+  for (auto const& tree_ptr : forest->trees) {
+    const auto& tree = *tree_ptr;
+    ASSERT_EQ(tree.sparsetree.size(), 1);
+    EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
+    EXPECT_EQ(tree.sparsetree[0].InstanceCount(), n_rows);
+    ASSERT_EQ(tree.vector_leaf.size(), 2);
+    EXPECT_NEAR(tree.vector_leaf[0], 0.0f, 1e-6f);
+    EXPECT_NEAR(tree.vector_leaf[1], 1.0f, 1e-6f);
+  }
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------
@@ -1500,13 +1583,13 @@ TEST(RfWeightedTest, ClassificationRootLeafUsesWeights)
   RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
   auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
 
-  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
-  thrust::device_vector<float> X       = X_host;
-  std::vector<int> y_host              = {0, 1, 1};
-  thrust::device_vector<int> y         = y_host;
-  std::vector<float> weight_host       = {100.0f, 1.0f, 1.0f};
-  thrust::device_vector<float> weights = weight_host;
-  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  std::vector<float> X_host             = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X        = X_host;
+  std::vector<int> y_host               = {0, 1, 1};
+  thrust::device_vector<int> y          = y_host;
+  std::vector<double> weight_host       = {100.0f, 1.0f, 1.0f};
+  thrust::device_vector<double> weights = weight_host;
+  auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   fit(handle,
@@ -1536,13 +1619,13 @@ TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
   RF_params rf_params = set_rf_params(0, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, MSE, 1, 128);
   auto forest         = std::make_shared<RandomForestMetaData<float, float>>();
 
-  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
-  thrust::device_vector<float> X       = X_host;
-  std::vector<float> y_host            = {0.0f, 10.0f, 10.0f};
-  thrust::device_vector<float> y       = y_host;
-  std::vector<float> weight_host       = {1.0f, 0.0f, 3.0f};
-  thrust::device_vector<float> weights = weight_host;
-  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  std::vector<float> X_host             = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X        = X_host;
+  std::vector<float> y_host             = {0.0f, 10.0f, 10.0f};
+  thrust::device_vector<float> y        = y_host;
+  std::vector<double> weight_host       = {1.0f, 0.0f, 3.0f};
+  thrust::device_vector<double> weights = weight_host;
+  auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   fit(handle,
@@ -1570,13 +1653,13 @@ TEST(RfWeightedTest, MinSamplesLeafUsesCountsNotWeights)
   RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 2, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
   auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
 
-  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
-  thrust::device_vector<float> X       = X_host;
-  std::vector<int> y_host              = {0, 0, 1, 1};
-  thrust::device_vector<int> y         = y_host;
-  std::vector<float> weight_host       = {0.1f, 0.1f, 100.0f, 100.0f};
-  thrust::device_vector<float> weights = weight_host;
-  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  std::vector<float> X_host             = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X        = X_host;
+  std::vector<int> y_host               = {0, 0, 1, 1};
+  thrust::device_vector<int> y          = y_host;
+  std::vector<double> weight_host       = {0.1f, 0.1f, 100.0f, 100.0f};
+  thrust::device_vector<double> weights = weight_host;
+  auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   fit(handle,
@@ -1610,13 +1693,13 @@ TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
   RF_params rf_params = set_rf_params(1, -1, 1.0, 4, 1, 2, 0.0, false, 1, 1.0, 0, GINI, 1, 128);
   auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
 
-  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f, 3.0f};
-  thrust::device_vector<float> X       = X_host;
-  std::vector<int> y_host              = {0, 0, 1, 1};
-  thrust::device_vector<int> y         = y_host;
-  std::vector<float> weight_host       = {0.0f, 0.0f, 1.0f, 1.0f};
-  thrust::device_vector<float> weights = weight_host;
-  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  std::vector<float> X_host             = {0.0f, 1.0f, 2.0f, 3.0f};
+  thrust::device_vector<float> X        = X_host;
+  std::vector<int> y_host               = {0, 0, 1, 1};
+  thrust::device_vector<int> y          = y_host;
+  std::vector<double> weight_host       = {0.0f, 0.0f, 1.0f, 1.0f};
+  thrust::device_vector<double> weights = weight_host;
+  auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   fit(handle,
@@ -1643,13 +1726,13 @@ TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
 
 TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
 {
-  std::vector<float> X_host            = {0.0f, 1.0f, 2.0f};
-  thrust::device_vector<float> X       = X_host;
-  std::vector<float> y_host            = {0.0f, 10.0f, 100.0f};
-  thrust::device_vector<float> y       = y_host;
-  std::vector<float> weight_host       = {1.0f, 2.0f, 5.0f};
-  thrust::device_vector<float> weights = weight_host;
-  auto stream_pool                     = std::make_shared<rmm::cuda_stream_pool>(1);
+  std::vector<float> X_host             = {0.0f, 1.0f, 2.0f};
+  thrust::device_vector<float> X        = X_host;
+  std::vector<float> y_host             = {0.0f, 10.0f, 100.0f};
+  thrust::device_vector<float> y        = y_host;
+  std::vector<double> weight_host       = {1.0f, 2.0f, 5.0f};
+  thrust::device_vector<double> weights = weight_host;
+  auto stream_pool                      = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   constexpr int n_rows = 3;
@@ -1693,12 +1776,11 @@ TEST(RfWeightedTest, BootstrapDuplicatesContributePerOccurrence)
     ASSERT_EQ(tree.vector_leaf.size(), 1);
 
     auto mean_with_counts = [&](int count_a, int count_b) {
-      auto a = included[0];
-      auto b = included[1];
-      auto weighted_sum =
-        y_host[a] * weight_host[a] * count_a + y_host[b] * weight_host[b] * count_b;
-      auto weight_sum = weight_host[a] * count_a + weight_host[b] * count_b;
-      return weighted_sum / weight_sum;
+      auto a         = included[0];
+      auto b         = included[1];
+      auto label_sum = y_host[a] * count_a + y_host[b] * count_b;
+      auto count_sum = count_a + count_b;
+      return label_sum / count_sum;
     };
 
     auto unique_mean      = mean_with_counts(1, 1);
@@ -1779,9 +1861,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GenSampleWeights()
   {
-    std::vector<DataT> sample_weights(params.n_rows, DataT(1));
+    std::vector<double> sample_weights(params.n_rows, 1.0);
     if constexpr (is_weighted) {
-      std::uniform_real_distribution<DataT> weight_dist(DataT(0.2), DataT(3.0));
+      std::uniform_real_distribution<double> weight_dist(0.2, 3.0);
       for (auto& w : sample_weights) {
         w = weight_dist(rng);
       }
@@ -1789,7 +1871,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return sample_weights;
   }
 
-  auto GenHist(std::vector<DataT> const& data, std::vector<DataT> const& sample_weights)
+  auto GenHist(std::vector<DataT> const& data, std::vector<double> const& sample_weights)
   {
     std::vector<BinT> cdf_hist, pdf_hist;
     auto bin_width = static_cast<std::size_t>(raft::ceildiv(params.n_rows, params.max_n_bins));
@@ -1852,7 +1934,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto MSE(std::vector<DataT> const& data,
-           std::vector<DataT> const&
+           std::vector<double> const&
              sample_weights)  //  1/w * 1/2 * sum(w_i * (y - y_pred) * (y - y_pred))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
@@ -1873,16 +1955,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto MSEGroundTruthGain(std::vector<DataT> const& data,
-                          std::vector<DataT> const& sample_weights,
+                          std::vector<double> const& sample_weights,
                           std::size_t split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto [parent_mse, label_sum, n, weight_sum]              = MSE(data, sample_weights);
     auto [left_mse, label_sum_left, n_left, weight_sum_left] = MSE(left_data, left_sample_weights);
@@ -1903,8 +1985,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto InverseGaussianHalfDeviance(
     std::vector<DataT> const& data,
-    std::vector<DataT> const& sample_weights)  //  1/w * 2 * sum(w_i * (y - y_pred) * (y -
-                                               //  y_pred)/(y * (y_pred) * (y_pred)))
+    std::vector<double> const& sample_weights)  //  1/w * 2 * sum(w_i * (y - y_pred) * (y -
+                                                //  y_pred)/(y * (y_pred) * (y_pred)))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT sum{0};
@@ -1924,16 +2006,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto InverseGaussianGroundTruthGain(std::vector<DataT> const& data,
-                                      std::vector<DataT> const& sample_weights,
+                                      std::vector<double> const& sample_weights,
                                       std::size_t split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto [parent_ighd, label_sum, n, weight_sum] =
       InverseGaussianHalfDeviance(data, sample_weights);
@@ -1955,7 +2037,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       return gain;
   }
 
-  auto GammaHalfDeviance(std::vector<DataT> const& data, std::vector<DataT> const& sample_weights)
+  auto GammaHalfDeviance(std::vector<DataT> const& data, std::vector<double> const& sample_weights)
   //  1/w * 2 * sum(w_i * (log(y_pred/y_true) + y_true/y_pred - 1))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
@@ -1977,16 +2059,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto GammaGroundTruthGain(std::vector<DataT> const& data,
-                            std::vector<DataT> const& sample_weights,
+                            std::vector<double> const& sample_weights,
                             std::size_t split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto [parent_ghd, label_sum, n, weight_sum] = GammaHalfDeviance(data, sample_weights);
     auto [left_ghd, label_sum_left, n_left, weight_sum_left] =
@@ -2009,7 +2091,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto PoissonHalfDeviance(
     std::vector<DataT> const& data,
-    std::vector<DataT> const&
+    std::vector<double> const&
       sample_weights)  //  1/w * sum(w_i * (y_true * log(y_true/y_pred) + y_pred - y_true))
   {
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
@@ -2031,16 +2113,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto PoissonGroundTruthGain(std::vector<DataT> const& data,
-                              std::vector<DataT> const& sample_weights,
+                              std::vector<double> const& sample_weights,
                               std::size_t split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto [parent_phd, label_sum, n, weight_sum] = PoissonHalfDeviance(data, sample_weights);
     auto [left_phd, label_sum_left, n_left, weight_sum_left] =
@@ -2060,7 +2142,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       return gain;
   }
 
-  auto Entropy(std::vector<DataT> const& data, std::vector<DataT> const& sample_weights)
+  auto Entropy(std::vector<DataT> const& data, std::vector<double> const& sample_weights)
   {  // sum((n_c/n_total)*(log(n_c/n_total)))
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT entropy(0);
@@ -2077,16 +2159,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto EntropyGroundTruthGain(std::vector<DataT> const& data,
-                              std::vector<DataT> const& sample_weights,
+                              std::vector<double> const& sample_weights,
                               std::size_t const split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto parent_entropy = Entropy(data, sample_weights);
     auto left_entropy   = Entropy(left_data, left_sample_weights);
@@ -2108,7 +2190,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     }
   }
 
-  auto GiniImpurity(std::vector<DataT> const& data, std::vector<DataT> const& sample_weights)
+  auto GiniImpurity(std::vector<DataT> const& data, std::vector<double> const& sample_weights)
   {  // sum((n_c/n_total)(1-(n_c/n_total)))
     DataT weight_sum = std::accumulate(sample_weights.begin(), sample_weights.end(), DataT(0));
     DataT gini(0);
@@ -2124,16 +2206,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto GiniGroundTruthGain(std::vector<DataT> const& data,
-                           std::vector<DataT> const& sample_weights,
+                           std::vector<double> const& sample_weights,
                            std::size_t const split_bin_index)
   {
     auto split_offset = SplitOffset(split_bin_index);
     std::vector<DataT> left_data(data.begin(), data.begin() + split_offset);
     std::vector<DataT> right_data(data.begin() + split_offset, data.end());
-    std::vector<DataT> left_sample_weights(sample_weights.begin(),
-                                           sample_weights.begin() + split_offset);
-    std::vector<DataT> right_sample_weights(sample_weights.begin() + split_offset,
-                                            sample_weights.end());
+    std::vector<double> left_sample_weights(sample_weights.begin(),
+                                            sample_weights.begin() + split_offset);
+    std::vector<double> right_sample_weights(sample_weights.begin() + split_offset,
+                                             sample_weights.end());
 
     auto parent_gini = GiniImpurity(data, sample_weights);
     auto left_gini   = GiniImpurity(left_data, left_sample_weights);
@@ -2156,7 +2238,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto GroundTruthGain(std::vector<DataT> const& data,
-                       std::vector<DataT> const& sample_weights,
+                       std::vector<double> const& sample_weights,
                        std::size_t const split_bin_index)
   {
     if constexpr (ObjectiveConfig::splitCriteria == CRITERION::MSE) {
