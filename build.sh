@@ -27,7 +27,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    clean              - remove all existing build artifacts and configuration (start over)
    libcuml            - build the cuml C++ code only.
    cuml               - build the cuml Python package
-   cpp-mgtests        - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   cpp-mgtests        - build libcuml MNMG tests. Requires MPI and RAFT distributed dependencies.
    prims              - build the ml-prims tests
    bench              - build the libcuml C++ benchmark
    prims-bench        - build the ml-prims C++ benchmark
@@ -274,7 +274,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DCUML_ALGORITHMS="ALL" \
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
-          -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
           -DCUML_USE_TREELITE_STATIC=${BUILD_STATIC_TREELITE} \
           -DNVTX=${NVTX} \

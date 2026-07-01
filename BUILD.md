@@ -4,7 +4,7 @@
 
 To install cuML from source, ensure the following dependencies are met:
 
-> **Note:** The easiest way to setup a fully functional build environment is to use the conda environment files located in `conda/environments/all_*.yaml`. These files contain all the dependencies listed below except for clang-format (only needed for development/contributing) and UCX (only needed for optional multi-node operations). To create a development environment, see the [recommended conda setup](#recommended-conda-setup) at the end of this section.
+> **Note:** The easiest way to setup a fully functional build environment is to use the conda environment files located in `conda/environments/all_*.yaml`. These files contain the dependencies listed below except for development-only tools such as clang-format. To create a development environment, see the [recommended conda setup](#recommended-conda-setup) at the end of this section.
 
 **Hardware Needed to Run cuML:**
 To run cuML code, you will need an NVIDIA GPU with the following minimum compute capability depending on your CUDA version:
@@ -51,8 +51,9 @@ For detailed version requirements of runtime dependencies (numpy, scikit-learn, 
 
 cuML has limited support for multi-GPU and multi-node operations. The following dependencies enable these features:
 
-- **NCCL** (>= 2.19) - required for multi-GPU communication; provided automatically as a transitive dependency through libcuvs (listed above)
-- **UCX** (>= 1.7) - optional; only required for multi-node operations (not needed for multi-GPU on a single node); must be explicitly enabled during build with `WITH_UCX=ON` (see [Using Infiniband for MNMG](wiki/mnmg/Using_Infiniband_for_MNMG.md))
+- **NCCL** - required by RAFT and cuVS multi-GPU communication paths.
+- **UCXX/UCX** - required by RAFT/Dask distributed communication paths and is configured through RAFT/Dask packages rather than a cuML CMake option.
+- **MPI** - required only for cuML C++ multi-GPU tests when `BUILD_CUML_MG_TESTS=ON`.
 
 **For development only:**
 - clang-format (= 20.1.8) - enforces uniform C++ coding style; required for pre-commit hooks and CI checks. The packages `clang=20` and `clang-tools=20` from the conda-forge channel should be sufficient, if you are using conda. If not using conda, install the right version using your OS package manager.
@@ -107,17 +108,12 @@ CMAKE_GENERATOR='Unix Makefiles' ./build.sh
 To run the C++ unit tests (optional), from the repo root:
 
 ```bash
-$ cd cpp/build
-$ ./test/ml # single-GPU algorithm tests
-$ ./test/ml_mg # multi-GPU algorithm tests, if --singlegpu was not used
-$ ./test/prims # ML Primitive function tests
+$ ctest --test-dir cpp/build --output-on-failure
 ```
 
 If you want a list of the available C++ tests:
 ```bash
-$ ./test/ml --gtest_list_tests # single-GPU algorithm tests
-$ ./test/ml_mg --gtest_list_tests # multi-GPU algorithm tests
-$ ./test/prims --gtest_list_tests # ML Primitive function tests
+$ ctest --test-dir cpp/build -N
 ```
 
 To run all Python tests, including multi-GPU algorithms, from the repo root:
@@ -200,18 +196,20 @@ $ make -j
 $ make install
 ```
 
-To run tests (optional):
+To run tests (optional), from the `cpp/build` directory created above:
 ```bash
-$ ./test/ml # single-GPU algorithm tests
-$ ./test/ml_mg # multi-GPU algorithm tests
-$ ./test/prims # ML Primitive function tests
+$ ctest --output-on-failure
 ```
 
-If you want a list of the available tests:
+Or, from the repository root:
 ```bash
-$ ./test/ml --gtest_list_tests # single-GPU algorithm tests
-$ ./test/ml_mg --gtest_list_tests # multi-GPU algorithm tests
-$ ./test/prims --gtest_list_tests # ML Primitive function tests
+$ ctest --test-dir cpp/build --output-on-failure
+```
+
+If you want a list of the available tests, use the same directory convention:
+```bash
+$ ctest -N
+$ ctest --test-dir cpp/build -N
 ```
 
 To run cuML C++ benchmarks (optional):
@@ -265,12 +263,10 @@ cuML's cmake has the following configurable flags available:
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building the `libcuml` shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
-| BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive and can both be installed simultaneously. |
-| WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support for the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This has no effect on the MPI communicator. |
-| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. Note that BUILD_CUML_STD_COMMS and BUILD_CUML_MPI_COMMS are not mutually exclusive, and can both be installed simultaneously. |
-| BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
-| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
-| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML single-GPU C++ test targets.  |
+| BUILD_CUML_MG_TESTS | [ON, OFF]  | OFF | Enable/disable building cuML multi-GPU C++ test targets. Requires MPI and RAFT distributed dependencies. |
+| SINGLEGPU | [ON, OFF] | OFF | Disable cuML MNMG C++ sources and tests, and build cuVS without multi-GPU algorithms. Forces `BUILD_CUML_MG_TESTS` to `OFF`. |
+| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML primitive C++ test targets.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building of cuML C++ benchmark.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |

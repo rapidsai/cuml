@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,6 +9,7 @@
 #include <cuml/neighbors/knn_mg.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/linalg/reduce_rows_by_key.cuh>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
@@ -17,10 +18,13 @@
 #include <selection/knn.cuh>
 
 #include <memory>
+#include <optional>
 
 namespace ML {
 namespace KNN {
 namespace opg {
+
+namespace Matrix = MLCommon::Matrix;
 
 struct KNNParams {
   int k;
@@ -95,49 +99,58 @@ class KNNTestHelper {
       query_parts_per_rank       = params.n_query_parts - ((size - 1) * query_parts_per_rank);
     }
 
-    this->ind =
-      (float*)allocator.get()->allocate((this->index_parts_per_rank + this->query_parts_per_rank) *
-                                          params.min_rows * params.n_cols * sizeof(float),
-                                        stream);
+    auto total_rows = static_cast<int64_t>(
+      (this->index_parts_per_rank + this->query_parts_per_rank) * params.min_rows);
+    auto total_data_elements =
+      static_cast<int64_t>(total_rows * static_cast<int64_t>(params.n_cols));
 
-    this->out = (T*)allocator.get()->allocate(
-      (this->index_parts_per_rank + this->query_parts_per_rank) * params.min_rows * sizeof(T),
-      stream);
+    this->data_storage.emplace(
+      raft::make_device_vector<float, int64_t>(handle, total_data_elements));
+    this->label_storage.emplace(raft::make_device_vector<T, int64_t>(handle, total_rows));
+
+    float* data = this->data_storage->data_handle();
+    T* labels   = this->label_storage->data_handle();
 
     generate_partitions<T>(
-      this->ind,
-      this->out,
+      data,
+      labels,
       (this->index_parts_per_rank + this->query_parts_per_rank) * params.min_rows,
       params.n_cols,
       params.n_classes,
       my_rank,
-      this->allocator,
       this->stream);
 
     y.resize(this->index_parts_per_rank);
     for (int i = 0; i < this->index_parts_per_rank; i++) {
       Matrix::Data<float>* i_d = new Matrix::Data<float>(
-        ind + (i * params.min_rows * params.n_cols), params.min_rows * params.n_cols);
+        data + (i * params.min_rows * params.n_cols), params.min_rows * params.n_cols);
       this->index_parts.push_back(i_d);
 
       for (int j = 0; j < params.n_outputs; j++) {
-        y[i].push_back(this->out + (j * params.min_rows));
+        y[i].push_back(labels + (i * params.min_rows));
       }
     }
 
     int end_of_idx = this->index_parts_per_rank * params.min_rows * params.n_cols;
 
+    this->out_part_storage.reserve(this->query_parts_per_rank);
+    this->out_i_part_storage.reserve(this->query_parts_per_rank);
+    this->out_d_part_storage.reserve(this->query_parts_per_rank);
+
     for (int i = 0; i < query_parts_per_rank; i++) {
       Matrix::Data<float>* query_d = new Matrix::Data<float>(
-        ind + end_of_idx + (i * params.min_rows * params.n_cols), params.min_rows * params.n_cols);
+        data + end_of_idx + (i * params.min_rows * params.n_cols), params.min_rows * params.n_cols);
 
-      T* o = (T*)allocator.get()->allocate(params.min_rows * params.n_outputs * sizeof(T*), stream);
+      this->out_part_storage.emplace_back(raft::make_device_vector<T, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.n_outputs)));
+      this->out_d_part_storage.emplace_back(raft::make_device_vector<float, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.k)));
+      this->out_i_part_storage.emplace_back(raft::make_device_vector<int64_t, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.k)));
 
-      float* d =
-        (float*)allocator.get()->allocate(params.min_rows * params.k * sizeof(float*), stream);
-
-      int64_t* ind =
-        (int64_t*)allocator.get()->allocate(params.min_rows * params.k * sizeof(int64_t), stream);
+      T* o         = this->out_part_storage.back().data_handle();
+      float* d     = this->out_d_part_storage.back().data_handle();
+      int64_t* ind = this->out_i_part_storage.back().data_handle();
 
       Matrix::Data<T>* out = new Matrix::Data<T>(o, params.min_rows * params.n_outputs);
 
@@ -161,24 +174,15 @@ class KNNTestHelper {
     std::cout << "Finished!" << std::endl;
 
     std::cout << raft::arr2Str(out_parts[0]->ptr, 10, "final_out", stream) << std::endl;
-    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream) << std::endl;
-    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream) << std::endl;
   }
 
   void release_ressources(const KNNParams& params)
   {
+    (void)params;
     delete this->idx_desc;
     delete this->query_desc;
-
-    allocator.get()->deallocate(this->ind,
-                                (this->index_parts_per_rank + this->query_parts_per_rank) *
-                                  params.min_rows * params.n_cols * sizeof(float),
-                                stream);
-
-    allocator.get()->deallocate(
-      this->out,
-      (this->index_parts_per_rank + this->query_parts_per_rank) * params.min_rows * sizeof(T),
-      stream);
+    this->idx_desc   = nullptr;
+    this->query_desc = nullptr;
 
     for (Matrix::floatData_t* fd : query_parts) {
       delete fd;
@@ -189,17 +193,14 @@ class KNNTestHelper {
     }
 
     for (Matrix::Data<T>* fd : out_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(T), stream);
       delete fd;
     }
 
     for (Matrix::Data<int64_t>* fd : out_i_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(int64_t), stream);
       delete fd;
     }
 
     for (Matrix::floatData_t* fd : out_d_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
@@ -210,6 +211,20 @@ class KNNTestHelper {
     for (Matrix::RankSizePair* rsp : this->idxPartsToRanks) {
       delete rsp;
     }
+
+    this->out_parts.clear();
+    this->out_i_parts.clear();
+    this->out_d_parts.clear();
+    this->index_parts.clear();
+    this->query_parts.clear();
+    this->y.clear();
+    this->idxPartsToRanks.clear();
+    this->queryPartsToRanks.clear();
+    this->out_part_storage.clear();
+    this->out_i_part_storage.clear();
+    this->out_d_part_storage.clear();
+    this->label_storage.reset();
+    this->data_storage.reset();
   }
 
   raft::handle_t handle;
@@ -217,10 +232,10 @@ class KNNTestHelper {
   std::vector<Matrix::Data<int64_t>*> out_i_parts;
   std::vector<Matrix::floatData_t*> out_d_parts;
   std::vector<Matrix::floatData_t*> index_parts;
-  Matrix::PartDescriptor* idx_desc;
+  Matrix::PartDescriptor* idx_desc = nullptr;
   std::vector<Matrix::floatData_t*> query_parts;
-  Matrix::PartDescriptor* query_desc;
-  std::vector < std::vector<T*> y;
+  Matrix::PartDescriptor* query_desc = nullptr;
+  std::vector<std::vector<T*>> y;
 
   cudaStream_t stream = 0;
 
@@ -230,8 +245,11 @@ class KNNTestHelper {
   std::vector<Matrix::RankSizePair*> idxPartsToRanks;
   std::vector<Matrix::RankSizePair*> queryPartsToRanks;
 
-  float* ind;
-  T* out;
+  std::optional<raft::device_vector<float, int64_t>> data_storage;
+  std::optional<raft::device_vector<T, int64_t>> label_storage;
+  std::vector<raft::device_vector<T, int64_t>> out_part_storage;
+  std::vector<raft::device_vector<int64_t, int64_t>> out_i_part_storage;
+  std::vector<raft::device_vector<float, int64_t>> out_d_part_storage;
 };
 
 }  // namespace opg
