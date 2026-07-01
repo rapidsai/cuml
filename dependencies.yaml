@@ -120,6 +120,10 @@ files:
       - depends_on_libnvforest
       - test_libcuml
       - test_cpp
+  test_integration_bertopic:
+    output: none
+    includes:
+      - test_bertopic
   test_python:
     output: none
     includes:
@@ -546,6 +550,29 @@ dependencies:
           - matrix:
             packages:
               - python>=3.11
+  test_bertopic:
+    common:
+      - output_types: requirements
+        packages:
+          - bertopic>=0.17.4
+    specific:
+      # The 'pytorch.org' indices referenced in --extra-index-url below host CPU-only variants too,
+      # so requirements like '>=' are not safe.
+      #
+      # Using '==' and a version with the CUDA specifier like '+cu132' is the most reliable way to ensure
+      # the packages we want are pulled (at the expense of needing to maintain this list).
+      - output_types: requirements
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu129
+              - torch==2.10.0+cu129
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu132
+              - torch==2.12.1+cu132
   test_libcuml:
     common:
       - output_types: conda
