@@ -65,7 +65,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         """An optional transform to apply to X after it's been validated"""
         return X
 
-    def _check_predict(self, X, *, convert_dtype=True):
+    def _check_predict(self, X, *, convert_dtype="deprecated"):
         """Validate X and return (X, index) for predict."""
         X, index = check_inputs(
             self,
@@ -88,7 +88,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         sample_weight=None,
         *,
         reset=False,
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ):
         """Validate and return (X, y, classes, sample_weight) for fit."""
         if reset:
@@ -149,7 +149,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         },
     )
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
@@ -181,7 +181,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         },
     )
     @reflect
-    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
@@ -313,7 +313,7 @@ class GaussianNB(_BaseNB):
         classes=None,
         sample_weight=None,
         reset=False,
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ) -> "GaussianNB":
         classes, reset = self._check_classes(classes, reset)
         X, y, classes, sample_weight = self._check_fit(
@@ -666,7 +666,7 @@ class _BaseDiscreteNB(_BaseNB):
         y,
         classes=None,
         reset=False,
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ) -> "_BaseDiscreteNB":
         if self.alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")

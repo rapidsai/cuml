@@ -108,8 +108,7 @@ class NearestNeighborsMG(NearestNeighbors):
         ncols: number of columns
         rank: rank of current worker
         n_neighbors: number of nearest neighbors to query
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------

@@ -931,8 +931,7 @@ def test_confusion_matrix_random(n_samples, dtype, problem_type):
     y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype)
     )
-    convert_dtype = True if dtype == np.float32 else False
-    cm = confusion_matrix(y_true, y_pred, convert_dtype=convert_dtype)
+    cm = confusion_matrix(y_true, y_pred)
     ref = sk_confusion_matrix(y_true, y_pred)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
 
@@ -1029,15 +1028,6 @@ def test_confusion_matrix_errors():
             np.array([0, 1], dtype=np.int32),
             normalize="bogus",
         )
-
-
-def test_confusion_matrix_convert_dtype():
-    # convert_dtype=True should coerce float labels to int32.
-    y_true = np.array([0, 1, 2, 1], dtype=np.float32)
-    y_pred = np.array([0, 1, 1, 1], dtype=np.float32)
-    cm = confusion_matrix(y_true, y_pred, convert_dtype=True)
-    ref = sk_confusion_matrix(y_true.astype(np.int32), y_pred.astype(np.int32))
-    cp.testing.assert_array_equal(cm, ref)
 
 
 def test_roc_auc_score():
@@ -1220,7 +1210,7 @@ def naive_kl_divergence_dist(X, Y):
     )
 
 
-def ref_dense_pairwise_dist(X, Y=None, metric=None, convert_dtype=False):
+def ref_dense_pairwise_dist(X, Y=None, metric=None):
     # Select sklearn except for Hellinger that
     # sklearn doesn't support
     if Y is None:
@@ -1310,15 +1300,15 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Test sending an int type with convert_dtype=True
+    # Integer inputs
     if metric != "kldivergence":
         Y = prep_dense_array(
             rng.randint(10, size=Y.shape),
             metric=metric,
             col_major=is_col_major,
         )
-        S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
-        S2 = ref_dense_pairwise_dist(X, Y, metric=metric, convert_dtype=True)
+        S = pairwise_distances(X, Y, metric=metric)
+        S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test that uppercase on the metric name throws an error.
@@ -1782,7 +1772,7 @@ def test_pairwise_distances_sparse_corner_cases(
     S2 = ref_pairwise_distances_sparse(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Change precision of one parameter, should work (convert_dtype=True)
+    # Changing precision of one parameter works
     Y = Y.astype(cp.float32)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = ref_pairwise_distances_sparse(X, Y, metric=metric)
@@ -1802,7 +1792,7 @@ def test_pairwise_distances_sparse_corner_cases(
     S2 = ref_pairwise_distances_sparse(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
-    # Test sending an int type (convert_dtype=True)
+    # Test sending an int type
     if metric != "hellinger":
         compare_precision = 2
         Y = Y * 100
@@ -2051,13 +2041,7 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         P = cp.asarray(P, dtype=dtypeP)
         Q = cp.asarray(Q, dtype=dtypeQ)
 
-    if dtypeP != dtypeQ:
-        with pytest.raises(ValueError, match="dtype"):
-            cu_kl_divergence(P, Q, convert_dtype=False)
-        cu_res = cu_kl_divergence(P, Q)
-    else:
-        cu_res = cu_kl_divergence(P, Q, convert_dtype=False)
-
+    cu_res = cu_kl_divergence(P, Q)
     cp.testing.assert_array_almost_equal(cu_res, sk_res)
 
 

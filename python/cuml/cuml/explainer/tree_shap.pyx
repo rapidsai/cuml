@@ -155,7 +155,7 @@ cdef class TreeExplainer:
     cdef object num_class
     cdef object data
 
-    def __init__(self, *, model, data=None, convert_dtype=True):
+    def __init__(self, *, model, data=None, convert_dtype="deprecated"):
         if data is not None:
             data = check_array(
                 data,
@@ -213,7 +213,7 @@ cdef class TreeExplainer:
         # Process Treelite model to extract path info
         self.path_info = extract_path_info(tl_handle)
 
-    def shap_values(self, X, convert_dtype=True):
+    def shap_values(self, X, convert_dtype="deprecated"):
         """
         Estimate the SHAP values for a set of samples. For a given row, the
         SHAP values plus the `expected_value` attribute sum up to the raw
@@ -288,7 +288,12 @@ cdef class TreeExplainer:
             preds = preds[:, :-1]
         return preds
 
-    def shap_interaction_values(self, X, method='shapley-interactions', convert_dtype=True):
+    def shap_interaction_values(
+        self,
+        X,
+        method='shapley-interactions',
+        convert_dtype="deprecated",
+    ):
         """
         Estimate the SHAP interaction values for a set of samples. For a
         given row, the SHAP values plus the `expected_value` attribute sum

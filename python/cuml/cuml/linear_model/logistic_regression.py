@@ -297,7 +297,7 @@ class LogisticRegression(
     @generate_docstring(X="dense_sparse")
     @cuml.internals.reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LogisticRegression":
         """
         Fit the model with X and y.
@@ -341,7 +341,7 @@ class LogisticRegression(
         },
     )
     @cuml.internals.run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the y for X.
 
@@ -371,7 +371,7 @@ class LogisticRegression(
         },
     )
     @cuml.internals.reflect
-    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the class probabilities for each class in X
         """
@@ -401,7 +401,7 @@ class LogisticRegression(
         },
     )
     @cuml.internals.reflect
-    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the log class probabilities for each class in X
         """

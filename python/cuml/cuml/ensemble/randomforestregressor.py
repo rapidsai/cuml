@@ -201,7 +201,9 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
     )
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestRegressor":
+    def fit(
+        self, X, y, *, convert_dtype="deprecated"
+    ) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
 
@@ -230,7 +232,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         self,
         X,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -241,10 +243,13 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         Parameters
         ----------
         X : {}
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -300,7 +305,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         X,
         y,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -312,9 +317,13 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         ----------
         X : {}
         y : {}
-        convert_dtype : bool (default = True)
-            When True, automatically convert the input to the data type used
-            to train the model. This may increase memory usage.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.

@@ -214,7 +214,7 @@ class KernelDensity(InteropMixin, Base):
 
     @reflect(reset=True)
     def fit(
-        self, X, y=None, sample_weight=None, *, convert_dtype=True
+        self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "KernelDensity":
         """Fit the Kernel Density model on the data.
 
@@ -279,7 +279,7 @@ class KernelDensity(InteropMixin, Base):
         return self
 
     @reflect
-    def score_samples(self, X, *, convert_dtype=True) -> CumlArray:
+    def score_samples(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Compute the log-likelihood of each sample under the model.
 
         Parameters
