@@ -266,10 +266,16 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         """
         Perform Random Forest Classification on the input data
         """
-        if self.class_weight == "balanced_subsample":
-            raise NotImplementedError(
-                "class_weight='balanced_subsample' is not supported"
-            )
+        if isinstance(self.class_weight, str):
+            if self.class_weight == "balanced_subsample":
+                raise NotImplementedError(
+                    "class_weight='balanced_subsample' is not supported"
+                )
+            if self.class_weight != "balanced":
+                raise ValueError(
+                    "class_weight must be a dict, 'balanced', or None; "
+                    f"got {self.class_weight!r}"
+                )
 
         X, y, sample_weight, classes = check_inputs(
             self,

@@ -396,7 +396,9 @@ def test_rf_classifier_balanced_subsample_rejected_before_fit_state():
     "class_weight,match",
     [
         pytest.param("not-balanced", "class_weight", id="invalid-string"),
-        pytest.param({0: 1.0, 1: 1.0, 2: 1.0}, "not in y", id="extra-class"),
+        pytest.param(
+            {0: 1.0, 2: 1.0}, "not in class_weight", id="missing-class"
+        ),
     ],
 )
 def test_rf_classifier_invalid_class_weight_raises(class_weight, match):
