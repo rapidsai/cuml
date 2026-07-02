@@ -104,13 +104,13 @@ void sample_features(IdxT* column_samples,
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const IdxT min_samples_split,
-                           const IdxT max_leaves,
                            const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const size_t work_items_size,
                            const Split<DataT, IdxT>* splits,
+                           const WorkloadInfo<IdxT>* workload_info,
+                           size_t n_blocks_dimx,
+                           IdxT* partition_row_ids,
                            cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
@@ -142,13 +142,8 @@ HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
   return start;
 }
 
-template <typename DataT,
-          typename LabelT,
-          typename IdxT,
-          int TPB,
-          typename ObjectiveT,
-          typename BinT>
-void launchComputeSplitKernel(BinT* histograms,
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT n_bins,
                               IdxT min_samples_split,
                               IdxT max_leaves,

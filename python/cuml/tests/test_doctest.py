@@ -81,7 +81,7 @@ def _find_doctests_in_obj(obj, finder=None, criteria=None):
 
 @pytest.mark.parametrize(
     "docstring",
-    _find_doctests_in_obj(cuml),
+    list(_find_doctests_in_obj(cuml)),
     ids=lambda docstring: docstring.name,
 )
 def test_docstring(docstring):

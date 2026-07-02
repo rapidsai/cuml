@@ -131,7 +131,7 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         >>> knn = KNeighborsClassifier(n_neighbors=10)
 
         >>> knn.fit(X_train, y_train)
-        KNeighborsClassifier()
+        KNeighborsClassifier(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([1., 2., 2., 3., 4., 2., 4., 4., 2., 3., 1., 4., 3., 1., 3., 4., 3., # noqa: E501
             4., 1., 3.], dtype=float32)
@@ -208,9 +208,9 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         )
         self.weights = weights
 
-    @generate_docstring(convert_dtype_cast='np.float32')
-    @reflect(reset="type")
-    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsClassifier":
+    @generate_docstring()
+    @reflect(reset=True)
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
@@ -239,13 +239,12 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         """Whether the output is 2d"""
         return self._y.ndim == 2 and self._y.shape[1] != 1
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
@@ -309,13 +308,12 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             index=knn_indices.index,
         )
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @reflect
-    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray | list[CumlArray]:
+    def predict_proba(self, X, *, convert_dtype="deprecated"):
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X
@@ -345,11 +343,9 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         cdef vector[float*] out_vec
         cdef vector[int*] y_vec
         for n, y in zip(n_classes, ys):
-            proba = CumlArray.zeros(
-                (n_rows, n), dtype=np.float32, order="C", index=index
-            )
+            proba = cp.zeros((n_rows, n), dtype=np.float32, order="C")
             probas.append(proba)
-            out_vec.push_back(<float*><uintptr_t>proba.ptr)
+            out_vec.push_back(<float*><uintptr_t>proba.data.ptr)
             y_vec.push_back(<int*><uintptr_t>y.data.ptr)
 
         # Compute weights (returns None for uniform weights)
@@ -375,4 +371,6 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
                 weights_ptr
             )
         handle.sync()
-        return probas[0] if len(probas) == 1 else probas
+        if len(probas) == 1:
+            return CumlArray(probas[0], index=index)
+        return [CumlArray(a, index=index) for a in probas]

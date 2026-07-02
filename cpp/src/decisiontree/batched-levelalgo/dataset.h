@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,6 +14,8 @@ struct Dataset {
   const DataT* data;
   /** input labels */
   const LabelT* labels;
+  /** optional input sample weights */
+  const double* sample_weight;
   /** total rows in dataset */
   IdxT M;
   /** total cols in dataset */

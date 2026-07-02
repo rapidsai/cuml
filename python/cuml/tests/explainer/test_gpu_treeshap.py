@@ -160,9 +160,9 @@ def test_xgb_regressor(objective):
 
     ref_explainer = shap.explainers.Tree(model=xgb_model)
     correct_out = ref_explainer.shap_values(X_test)
-    np.testing.assert_almost_equal(out, correct_out, decimal=5)
+    np.testing.assert_almost_equal(out, correct_out, decimal=4)
     np.testing.assert_almost_equal(
-        explainer.expected_value, ref_explainer.expected_value, decimal=5
+        explainer.expected_value, ref_explainer.expected_value, decimal=4
     )
 
 

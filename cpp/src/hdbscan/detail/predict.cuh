@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,6 +8,7 @@
 #include "kernels/predict.cuh"
 #include "reachability.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/distance_type.hpp>
 
 #include <raft/util/cuda_utils.cuh>
@@ -57,7 +58,8 @@ void _find_neighbor_and_lambda(const raft::handle_t& handle,
   // Buffer for storing the minimum mutual reachability distances
   rmm::device_uvector<value_t> min_mr_dists(n_prediction_points, stream);
 
-  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+  auto const n_blocks =
+    narrow_cast<ML::cuda_launch_t>(raft::ceildiv(narrow_cast<int>(n_prediction_points), tpb));
 
   // get nearest neighbors for each prediction point in mutual reachability space
   min_mutual_reachability_kernel<<<n_blocks, tpb, 0, stream>>>(input_core_dists,
@@ -122,7 +124,8 @@ void _find_cluster_and_probability(const raft::handle_t& handle,
   value_idx* selected_clusters   = prediction_data.get_selected_clusters();
   value_idx* index_into_children = prediction_data.get_index_into_children();
 
-  int n_blocks = raft::ceildiv((int)n_prediction_points, tpb);
+  auto const n_blocks =
+    narrow_cast<ML::cuda_launch_t>(raft::ceildiv(narrow_cast<int>(n_prediction_points), tpb));
 
   cluster_probability_kernel<<<n_blocks, tpb, 0, stream>>>(min_mr_inds,
                                                            prediction_lambdas,

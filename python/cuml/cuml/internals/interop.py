@@ -5,9 +5,9 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+import cupy as cp
 import numpy as np
 
-from cuml.internals.mem_type import MemoryType
 from cuml.internals.outputs import using_output_type
 
 __all__ = (
@@ -21,17 +21,12 @@ __all__ = (
 
 def to_gpu(x, order="K", dtype=None):
     """Coerce `x` to the equivalent gpu type."""
-    from cuml.internals.input_utils import input_to_cuml_array
+    from cuml.internals.array import CumlArray
 
     if np.isscalar(x):
         # cuml typically expects scalars on host
         return x
-    return input_to_cuml_array(
-        x,
-        order=order,
-        convert_to_dtype=dtype,
-        convert_to_mem_type=MemoryType.device,
-    )[0]
+    return CumlArray(data=cp.asarray(x, order=order, dtype=dtype))
 
 
 def to_cpu(x, order="K", dtype=None):

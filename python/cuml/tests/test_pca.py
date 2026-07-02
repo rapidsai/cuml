@@ -25,18 +25,15 @@ from cuml.testing.utils import (
 @pytest.mark.parametrize("input_type", ["ndarray"])
 @pytest.mark.parametrize("sparse", [True, False])
 def test_pca_fit(datatype, input_type, sparse):
-    solver = "auto"
     if sparse:
-        X = scipy.sparse.random(
+        X = 100 * scipy.sparse.random(
             200,
             100,
-            density=0.03,
+            density=0.1,
             dtype=cp.float32,
             random_state=10,
         )
-        tol = 1e-1
     else:
-        tol = 1e-3
         X, _ = make_multilabel_classification(
             n_samples=500,
             n_classes=2,
@@ -45,29 +42,24 @@ def test_pca_fit(datatype, input_type, sparse):
             random_state=1,
         )
 
-    skpca = skPCA(n_components=2, svd_solver=solver)
-    skpca.fit(X)
-
-    cupca = cuPCA(n_components=2)
-    cupca.fit(X)
-
-    for attr in [
-        "singular_values_",
-        "components_",
-        "explained_variance_",
-        "explained_variance_ratio_",
-    ]:
-        print(attr)
-        print(getattr(cupca, attr))
-        print(getattr(skpca, attr))
-        cuml_res = getattr(cupca, attr)
-        skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, tol, with_sign=True)
+    sol = skPCA(n_components=2).fit(X)
+    res = cuPCA(n_components=2).fit(X)
 
     np.testing.assert_allclose(
-        cupca.noise_variance_, skpca.noise_variance_, tol
+        res.singular_values_, sol.singular_values_, atol=1e-3
     )
-    assert isinstance(cupca.noise_variance_, float)
+    np.testing.assert_allclose(res.components_, sol.components_, atol=1e-3)
+    np.testing.assert_allclose(
+        res.explained_variance_, sol.explained_variance_, atol=1e-3
+    )
+    np.testing.assert_allclose(
+        res.explained_variance_ratio_, sol.explained_variance_ratio_, atol=1e-3
+    )
+    np.testing.assert_allclose(res.mean_, sol.mean_, atol=1e-3)
+    np.testing.assert_allclose(
+        res.noise_variance_, sol.noise_variance_, atol=1e-3
+    )
+    assert isinstance(res.noise_variance_, float)
 
 
 @pytest.mark.parametrize("n_samples", [200])

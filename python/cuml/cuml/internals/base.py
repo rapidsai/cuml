@@ -4,6 +4,7 @@
 #
 import inspect
 import os
+import re
 import threading
 
 import pylibraft.common.handle
@@ -124,25 +125,47 @@ class Base(TagsMixin):
         if nvtx_benchmark and nvtx_benchmark.lower() == "true":
             self.set_nvtx_annotations()
 
-    def __repr__(self):
+    def __repr__(self, N_CHAR_MAX=700):
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
-        signature = inspect.getfullargspec(self.__init__).args
-        if len(signature) > 0 and signature[0] == "self":
-            del signature[0]
-        state = self.__dict__
-        string = self.__class__.__name__ + "("
-        for key in signature:
-            if key not in state:
+        # Only show parameters whose value differs from the constructor
+        # default, sorted by name, matching scikit-learn's behavior.
+        # `inspect.signature` (unlike `getfullargspec().args`) includes
+        # keyword-only parameters, which all cuML estimators now use. Params
+        # returned by `get_params` that aren't constructor arguments (e.g.
+        # base params injected into sklearn-derived preprocessors) are skipped.
+        init_params = inspect.signature(type(self).__init__).parameters
+        changed = {}
+        for key, value in self.get_params(deep=False).items():
+            if key not in init_params:
                 continue
-            if type(state[key]) is str:
-                string += "{}='{}', ".format(key, state[key])
-            else:
-                if hasattr(state[key], "__str__"):
-                    string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(", ")
-        output = string + ")"
+            default = init_params[key].default
+            if default is inspect.Parameter.empty or repr(value) != repr(
+                default
+            ):
+                changed[key] = value
+        body = ", ".join(
+            f"{key}={value!r}" for key, value in sorted(changed.items())
+        )
+        output = f"{type(self).__name__}({body})"
+
+        # Use bruteforce ellipsis when there are a lot of non-blank characters,
+        # mirroring `sklearn.base.BaseEstimator.__repr__`.
+        n_nonblank = len("".join(output.split()))
+        if n_nonblank > N_CHAR_MAX:
+            lim = N_CHAR_MAX // 2  # apprx number of chars to keep on both ends
+            regex = r"^(\s*\S){%d}" % lim
+            left_lim = re.match(regex, output).end()
+            right_lim = re.match(regex, output[::-1]).end()
+
+            if "\n" in output[left_lim:-right_lim]:
+                regex += r"[^\n]*\n"
+                right_lim = re.match(regex, output[::-1]).end()
+
+            ellipsis = "..."
+            if left_lim + len(ellipsis) < len(output) - right_lim:
+                output = output[:left_lim] + "..." + output[-right_lim:]
 
         if hasattr(self, "sk_model_"):
             output += " <sk_model_ attribute used>"

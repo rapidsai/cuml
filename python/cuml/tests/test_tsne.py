@@ -61,41 +61,14 @@ def test_tsne_knn_graph_used(
         min_grad_norm=1e-12,
     )
 
-    # Perform tsne with normal knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    # Fit works and results in decent score with provided knn_graph
+    Y = tsne.fit_transform(X, knn_graph=knn_graph)
+    trust = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
+    assert trust >= 0.80
 
-    trust_normal = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-
-    X_garbage = np.ones(X.shape)
-    knn_graph_garbage = neigh.kneighbors_graph(
-        X_garbage, mode="distance"
-    ).astype("float32")
-
-    if type_knn_graph == "cuml":
-        knn_graph_garbage = cupyx.scipy.sparse.csr_matrix(knn_graph_garbage)
-
-    tsne = TSNE(
-        random_state=1,
-        n_neighbors=DEFAULT_N_NEIGHBORS,
-        method=method,
-        perplexity=DEFAULT_PERPLEXITY,
-        learning_rate_method="none",
-        min_grad_norm=1e-12,
-    )
-
-    # Perform tsne with garbage knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
-
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph_garbage)
-    trust_garbage = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
-    assert (trust_normal - trust_garbage) > 0.15
+    # Fit errors if graph is bad
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        tsne.fit_transform(X, knn_graph=knn_graph[:20, :20])
 
 
 @pytest.mark.parametrize("type_knn_graph", ["cuml", "sklearn"])
@@ -125,17 +98,13 @@ def test_tsne_knn_parameters(
         perplexity=DEFAULT_PERPLEXITY,
     )
 
-    embed = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    embed = tsne.fit_transform(X, knn_graph=knn_graph)
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocoo())
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocsc())
     validate_embedding(X, embed)
 
 
@@ -257,7 +226,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
         "float32"
     )
 
-    embedding = fitter.fit_transform(new_data, convert_dtype=True)
+    embedding = fitter.fit_transform(new_data)
 
     if input_type == "cupy":
         embedding = embedding.get()
@@ -299,21 +268,17 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     new_data = sp_prefix.csr_matrix(scipy.sparse.csr_matrix(digits))
 
-    Y = tsne.fit_transform(new_data, convert_dtype=True, knn_graph=knn_graph)
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph)
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocoo())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocsc())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)

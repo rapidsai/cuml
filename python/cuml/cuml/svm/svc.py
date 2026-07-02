@@ -6,7 +6,7 @@ import numpy as np
 
 from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
@@ -38,7 +38,7 @@ class SVC(ClassifierMixin, SVMBase):
         >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
         >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
         >>> clf.fit(X, y)
-        SVC()
+        SVC(C=1, degree=2, gamma='auto', kernel='poly')
         >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
@@ -346,8 +346,10 @@ class SVC(ClassifierMixin, SVMBase):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset="type")
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
+    @reflect(reset=True)
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVC":
         """
         Fit the model with X and y.
 
@@ -412,7 +414,7 @@ class SVC(ClassifierMixin, SVMBase):
         }
     )
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -443,7 +445,7 @@ class SVC(ClassifierMixin, SVMBase):
         }
     )
     @reflect
-    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Calculates the decision function values for X.
 

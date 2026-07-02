@@ -17,7 +17,6 @@ from cupy.cuda import Stream
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.validation import check_features
 
 __all__ = (
     "check_output_type",
@@ -427,15 +426,11 @@ def reflect(
         provide ``None`` to disable this inference entirely; in this case the
         output type is expected to be specified manually either internal or
         external to the method.
-    reset : bool or "type", default=False
-        If True, both the features and reflected type are reset on the estimator.
-        If ``"type"``, only the reflected type is reset on the estimator.
+    reset : bool, default=False
+        If True, the input type for reflection is reset on the estimator.
         Defaults to False, to not reset anything. Most estimators should set
         ``reset=True`` on any fit-like methods.
     """
-    # Local to avoid circular imports
-    import cuml.accel
-
     if func is None:
         return lambda func: reflect(
             func,
@@ -463,33 +458,22 @@ def reflect(
     if array is not None:
         array = _get_param(sig, array)
 
-    if reset not in (True, False, "type"):
-        raise ValueError(f"reset={reset!r} is not supported")
-
-    if (reset is not False) and (model is None or array is None):
+    if reset and (model is None or array is None):
         raise ValueError(
-            f"`reset={reset}` is not valid with `array=None` or `model=None`"
+            "`reset=True` is not valid with `array=None` or `model=None`"
         )
 
     @functools.wraps(func)
     def inner(*args, **kwargs):
-        # Accept list/tuple inputs when accelerator is active
-        accept_lists = cuml.accel.enabled()
-
         # Bind arguments
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
 
         model_arg = None if model is None else bound.arguments[model]
         array_arg = None if array is None else bound.arguments[array]
-        if accept_lists and isinstance(array_arg, (list, tuple)):
-            array_arg = np.asarray(array_arg)
-
         with enter_internal_context() as was_external:
-            if reset is not False:
+            if reset:
                 model_arg._set_output_type(array_arg)
-            if reset is True:
-                check_features(model_arg, array_arg, reset=True)
 
             res = func(*args, **kwargs)
 

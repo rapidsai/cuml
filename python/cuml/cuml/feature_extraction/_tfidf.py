@@ -7,12 +7,11 @@ import cupyx
 from sklearn.exceptions import NotFittedError
 
 import cuml.internals
-from cuml.common.sparsefuncs import (
+from cuml.common.sparse import (
     csr_diag_mul,
     csr_row_normalize_l1,
     csr_row_normalize_l2,
 )
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 
 
@@ -136,7 +135,7 @@ class TfidfTransformer(Base):
         n_samples, n_features = X.shape
         df = _sparse_document_frequency(X)
         df = df.astype(output_dtype, copy=False)
-        self.__df = CumlArray(df)
+        self.__df = df
         self.__n_samples = n_samples
         self.__n_features = n_features
 
@@ -147,7 +146,7 @@ class TfidfTransformer(Base):
         Sets idf_diagonal sparse array
         """
         # perform idf smoothing if required
-        df = self.__df.to_output("cupy") + int(self.smooth_idf)
+        df = self.__df + int(self.smooth_idf)
         n_samples = self.__n_samples + int(self.smooth_idf)
 
         # log+1 instead of log makes sure terms with zero idf don't get

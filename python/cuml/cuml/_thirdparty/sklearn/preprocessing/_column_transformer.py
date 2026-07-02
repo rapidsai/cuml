@@ -856,7 +856,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Fit all transformers, transform the data and concatenate results.
 

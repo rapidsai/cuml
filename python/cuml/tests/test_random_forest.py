@@ -224,6 +224,31 @@ def test_default_parameters():
     assert reg_params == clf_params
 
 
+@pytest.mark.parametrize("estimator", [curfc, curfr])
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+    ],
+)
+def test_rf_invalid_n_streams(estimator, n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+    if estimator is curfr:
+        y = y.astype(np.float32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        estimator(n_streams=n_streams).fit(X, y)
+
+
 @pytest.mark.parametrize("max_depth", [2, 4])
 @pytest.mark.parametrize(
     "split_criterion", ["poisson", "gamma", "inverse_gaussian"]
@@ -484,16 +509,13 @@ def test_rf_classification_seed(small_clf, datatype):
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
-@pytest.mark.parametrize("convert_dtype", [True, False])
 @pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_classification_fit_and_predict_dtypes_differ(
-    small_clf, datatype, convert_dtype
-):
+def test_rf_classification_fit_and_predict_dtypes_differ(small_clf, datatype):
     X, y = small_clf
     X = X.astype(datatype[0])
     y = y.astype(np.int32)
@@ -505,14 +527,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
 
-    if not convert_dtype:
-        with pytest.raises(
-            ValueError, match=r".*Expected array with dtype in.*"
-        ):
-            preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
-        return
-
-    preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
+    preds = cuml_model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfc(random_state=10)
@@ -544,7 +559,7 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
 
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
-    preds = cuml_model.predict(X_test, convert_dtype=True)
+    preds = cuml_model.predict(X_test)
     r2 = r2_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfr(random_state=10)

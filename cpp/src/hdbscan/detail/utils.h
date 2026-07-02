@@ -10,6 +10,7 @@
 #include <common/fast_int_div.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
+#include <cuml/common/checked_arithmetic.hpp>
 
 #include <raft/core/device_mdspan.hpp>
 #include <raft/label/classlabels.cuh>
@@ -207,13 +208,14 @@ void softmax(const raft::handle_t& handle, value_t* data, value_idx n, size_t m)
 {
   rmm::device_uvector<value_t> linf_norm(m, handle.get_stream());
 
+  auto const m_idx = ML::narrow_cast<value_idx>(m);
   auto data_const_view =
-    raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(data, (int)m, n);
+    raft::make_device_matrix_view<const value_t, value_idx, raft::row_major>(data, m_idx, n);
   auto data_view =
-    raft::make_device_matrix_view<value_t, value_idx, raft::row_major>(data, (int)m, n);
+    raft::make_device_matrix_view<value_t, value_idx, raft::row_major>(data, m_idx, n);
   auto linf_norm_const_view =
-    raft::make_device_vector_view<const value_t, value_idx>(linf_norm.data(), (int)m);
-  auto linf_norm_view = raft::make_device_vector_view<value_t, value_idx>(linf_norm.data(), (int)m);
+    raft::make_device_vector_view<const value_t, value_idx>(linf_norm.data(), m_idx);
+  auto linf_norm_view = raft::make_device_vector_view<value_t, value_idx>(linf_norm.data(), m_idx);
 
   raft::linalg::norm<raft::linalg::NormType::LinfNorm, raft::Apply::ALONG_ROWS>(
     handle, data_const_view, linf_norm_view);

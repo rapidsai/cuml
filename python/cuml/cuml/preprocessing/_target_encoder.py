@@ -203,7 +203,7 @@ class TargetEncoder(InteropMixin, Base):
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y, *, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories

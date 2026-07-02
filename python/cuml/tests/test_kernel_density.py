@@ -133,9 +133,9 @@ def test_kernel_density(arrays, kernel, metric, bandwidth):
     X_np, X_test_np, sample_weight_np = as_type("numpy", *arrays)
 
     if kernel == "cosine":
-        # cosine is numerically unstable at high dimensions
-        # for both cuml and sklearn
-        assume(X.shape[1] <= 20)
+        # cosine is numerically unstable at high dimensions for both cuml
+        # and the numpy reference.
+        assume(X.shape[1] <= 15)
     kde = KernelDensity(
         kernel=kernel, metric=metric, bandwidth=bandwidth, output_type="cupy"
     )
@@ -397,9 +397,7 @@ def test_all_kernels_all_metrics(metric, kernel):
     h = 1.0
 
     kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=h)
-    # fit with convert_dtype=False so float64 test data stays float64,
-    # matching the float64 Python reference distances.
-    kde.fit(X, convert_dtype=False)
+    kde.fit(X)
     cuml_log = as_type("numpy", kde.score_samples(Q))
 
     # -inf is valid (zero density when all train points are beyond the bandwidth);

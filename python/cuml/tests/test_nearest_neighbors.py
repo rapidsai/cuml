@@ -10,7 +10,6 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
-import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
@@ -86,7 +85,7 @@ def metric_p_combinations():
 
 
 @pytest.mark.parametrize("datatype", ["dataframe", "numpy"])
-@pytest.mark.parametrize("metric_p", metric_p_combinations())
+@pytest.mark.parametrize("metric_p", list(metric_p_combinations()))
 @pytest.mark.parametrize("nrows", [1000, stress_param(10000)])
 def test_self_neighboring(datatype, metric_p, nrows):
     """Test that searches using an indexed vector itself return sensible
@@ -422,30 +421,6 @@ def test_knn_fit_twice():
     knn_cu.kneighbors(X, k)
 
     del knn_cu
-
-
-@pytest.mark.parametrize("input_type", ["ndarray"])
-@pytest.mark.parametrize("nrows", [unit_param(500), stress_param(70000)])
-@pytest.mark.parametrize("n_feats", [unit_param(20), stress_param(1000)])
-def test_nn_downcast_fails(input_type, nrows, n_feats):
-    X, y = sklearn.datasets.make_blobs(
-        n_samples=nrows, n_features=n_feats, random_state=0
-    )
-
-    knn_cu = cuKNN()
-    if input_type == "dataframe":
-        X_pd = pd.DataFrame({"fea%d" % i: X[0:, i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame(X_pd)
-        knn_cu.fit(X_cudf, convert_dtype=True)
-
-    with pytest.raises(Exception):
-        knn_cu.fit(X, convert_dtype=False)
-
-    # Test fit() fails when downcast corrupted data
-    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-    knn_cu = cuKNN()
-    with pytest.raises(Exception):
-        knn_cu.fit(X, convert_dtype=False)
 
 
 def check_knn_graph(

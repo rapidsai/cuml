@@ -13,6 +13,7 @@
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/matrix/kernel_params.hpp>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
@@ -252,10 +253,11 @@ void svcPredictX(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
   cudaStream_t stream               = handle_impl.get_stream();
 
-  rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
+  rmm::device_uvector<math_t> K(checked_mul<std::size_t>(n_batch, model.n_support), stream);
   rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
-    RAFT_CUDA_TRY(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+    RAFT_CUDA_TRY(
+      cudaMemsetAsync(y.data(), 0, checked_mul<std::size_t>(n_rows, sizeof(math_t)), stream));
   }
 
   // Handle precomputed kernel prediction separately

@@ -200,9 +200,9 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LinearSVR":
         """Fit the model according to the given training data."""
         coef, intercept, n_iter, _ = cuml.svm.linear.fit(

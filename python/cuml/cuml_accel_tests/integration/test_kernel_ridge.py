@@ -1,9 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 import pytest
 from sklearn.datasets import make_regression
+from sklearn.gaussian_process.kernels import ExpSineSquared
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics.pairwise import pairwise_kernels
 
@@ -51,3 +52,13 @@ def test_kernel_ridge_precomputed(linear_X_y):
     pred = KernelRidge(kernel="cosine").fit(X, y).predict(X)
     pred2 = KernelRidge(kernel="precomputed").fit(K, y).predict(K)
     np.testing.assert_array_almost_equal(pred, pred2)
+
+
+def test_kernel_ridge_sklearn_kernel_falls_back_to_cpu(sinusoid_X_y):
+    X, y = sinusoid_X_y
+    model = KernelRidge(kernel=ExpSineSquared()).fit(X, y)
+    pred = model.predict(X)
+    assert pred.shape == y.shape
+    assert np.isfinite(pred).all()
+    assert model.dual_coef_.shape == y.shape
+    assert model.X_fit_.shape == X.shape

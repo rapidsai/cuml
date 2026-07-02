@@ -8,7 +8,7 @@ from cuml.internals.validation import check_array
 
 
 @reflect
-def seas_test(y, s, convert_dtype=True):
+def seas_test(y, s, convert_dtype="deprecated"):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed

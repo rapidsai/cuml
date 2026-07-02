@@ -206,6 +206,10 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
 
     @classmethod
     def _params_from_cpu(cls, model):
+        if not isinstance(model.kernel, str):
+            raise UnsupportedOnGPU(
+                "KernelRidge callable kernels are not supported."
+            )
         return {
             "alpha": model.alpha,
             "kernel": model.kernel,
@@ -288,9 +292,9 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         ).to_output("cupy")
 
     @generate_docstring()
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "KernelRidge":
         X, y, index = check_inputs(
             self,
@@ -325,7 +329,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         return self
 
     @reflect
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predict using the kernel ridge model.
 

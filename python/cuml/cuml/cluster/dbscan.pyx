@@ -138,7 +138,7 @@ class DBSCAN(InteropMixin,
         >>>
         >>> dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
         >>> dbscan_float.fit(gdf_float)
-        DBSCAN()
+        DBSCAN(eps=1.0, min_samples=1)
         >>> dbscan_float.labels_
         0    0
         1    1
@@ -298,7 +298,7 @@ class DBSCAN(InteropMixin,
         self.algorithm = algorithm
 
     @generate_docstring(skip_parameters_heading=True)
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(
         self,
         X,
@@ -306,7 +306,7 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype=True
+        convert_dtype="deprecated"
     ) -> "DBSCAN":
         """
         Perform DBSCAN clustering from features.
@@ -487,7 +487,7 @@ class DBSCAN(InteropMixin,
         sample_weight=None,
         *,
         out_dtype="int32",
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ) -> CumlArray:
         """
         Performs clustering on X and returns cluster labels.

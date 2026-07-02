@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/core/handle.hpp>
@@ -700,7 +701,7 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
 
   auto stream       = T.stream();
   auto cublasHandle = T.cublasHandle();
-  int batch_size    = T.batches();
+  int batch_size    = ML::narrow_cast<int>(T.batches());
 
   // Temporary matrices
   MLCommon::LinAlg::Batched::Matrix<double> m_tmp(rd,
@@ -763,7 +764,7 @@ void batched_kalman_loop(raft::handle_t& handle,
                          bool conf_int  = false,
                          double* d_F_fc = nullptr)
 {
-  const int batch_size = T.batches();
+  const int batch_size = ML::narrow_cast<int>(T.batches());
   auto stream          = T.stream();
   int rd               = order.rd();
   int n_diff           = order.n_diff();
@@ -851,7 +852,7 @@ void _lyapunov_wrapper(raft::handle_t& handle,
   if (r <= 5) {
     auto stream       = handle.get_stream();
     auto cublasHandle = handle.get_cublas_handle();
-    int batch_size    = A.batches();
+    int batch_size    = ML::narrow_cast<int>(A.batches());
     int r2            = r * r;
 
     //

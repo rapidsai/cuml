@@ -98,7 +98,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
                               " want to proceed regardless, set"
                               " 'check_inverse=False'.", UserWarning)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "FunctionTransformer":
         """Fit transformer by checking X.
 

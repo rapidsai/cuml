@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect
@@ -124,7 +124,7 @@ class SVR(RegressorMixin, SVMBase):
         >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
         >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
         >>> reg.fit(X, y)
-        SVR()
+        SVR(C=10)
         >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
     """
@@ -132,8 +132,10 @@ class SVR(RegressorMixin, SVMBase):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
+    @reflect(reset=True)
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVR":
         """
         Fit the model with X and y.
 
@@ -171,7 +173,7 @@ class SVR(RegressorMixin, SVMBase):
         }
     )
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the values for X.
 

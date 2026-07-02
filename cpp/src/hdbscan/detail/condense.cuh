@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -256,9 +256,9 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
   // connectivities graph.
   RAFT_EXPECTS(n_vertices == root,
                "Multiple components found in MST or MST is invalid. "
-               "Cannot find single-linkage solution. Found %d vertices "
+               "Cannot find single-linkage solution. Found %lld vertices "
                "total.",
-               static_cast<int>(n_vertices));
+               static_cast<long long>(n_vertices));
 
   // Allocate output arrays
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);

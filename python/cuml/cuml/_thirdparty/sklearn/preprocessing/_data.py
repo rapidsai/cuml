@@ -35,22 +35,16 @@ from cupyx.scipy import sparse
 from scipy import optimize, stats
 from scipy.special import boxcox
 
-from cuml.internals.mixins import (
-    AllowNaNTagMixin,
-    SparseInputTagMixin,
-)
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import using_output_type, reflect
 from cuml.internals.validation import check_is_fitted, check_array, check_inputs
+from cuml.thirdparty_adapters.sparsefuncs_fast import csr_polynomial_expansion
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array import CumlArray
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters.sparsefuncs_fast import (
-    csr_polynomial_expansion,
-    inplace_csr_row_normalize_l1,
-    inplace_csr_row_normalize_l2,
-)
 from ..utils.extmath import _incremental_mean_and_var, row_norms
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.sparsefuncs import (
@@ -330,7 +324,7 @@ class MinMaxScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MinMaxScaler":
         """Compute the minimum and maximum to be used for later scaling.
 
@@ -353,7 +347,7 @@ class MinMaxScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MinMaxScaler":
         """Online computation of min and max on X for later scaling.
 
@@ -715,7 +709,7 @@ class StandardScaler(TransformerMixin,
         }
         return {**attrs, **super()._attrs_to_cpu(model)}
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "StandardScaler":
         """Compute the mean and std to be used for later scaling.
 
@@ -733,7 +727,7 @@ class StandardScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "StandardScaler":
         """
         Online computation of mean and std on X for later scaling.
@@ -1030,7 +1024,7 @@ class MaxAbsScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MaxAbsScaler":
         """Compute the maximum absolute value to be used for later scaling.
 
@@ -1045,7 +1039,7 @@ class MaxAbsScaler(TransformerMixin,
         self._reset()
         return self.partial_fit(X, y)
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def partial_fit(self, X, y=None) -> "MaxAbsScaler":
         """
         Online computation of max absolute value of X for later scaling.
@@ -1293,7 +1287,7 @@ class RobustScaler(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "RobustScaler":
         """Compute the median and quantiles to be used for scaling.
 
@@ -1624,7 +1618,7 @@ class PolynomialFeatures(TransformerMixin,
             feature_names.append(name)
         return feature_names
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "PolynomialFeatures":
         """
         Compute number of output features.
@@ -1837,9 +1831,9 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
                                       "for sparse matrices with norm 'l1' "
                                       "or norm 'l2'")
         if norm == 'l1':
-            inplace_csr_row_normalize_l1(X)
+            csr_row_normalize_l1(X)
         elif norm == 'l2':
-            inplace_csr_row_normalize_l2(X)
+            csr_row_normalize_l2(X)
         elif norm == 'max':
             mins, maxes = min_max_axis(X, 1)
             norms = np.maximum(abs(mins), maxes)
@@ -1930,7 +1924,7 @@ class Normalizer(TransformerMixin,
         tags.requires_fit = False
         return tags
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
 
@@ -2065,7 +2059,7 @@ class Binarizer(TransformerMixin,
         tags.requires_fit = False
         return tags
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
 
@@ -2206,7 +2200,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         # Needed for backported inspect.signature compatibility with PyPy
         pass
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, K, y=None) -> 'KernelCenterer':
         """Fit KernelCenterer
 
@@ -2464,7 +2458,7 @@ class QuantileTransformer(TransformerMixin,
         # https://github.com/numpy/numpy/issues/14685
         self.quantiles_ = np.array(cpu_np.maximum.accumulate(self.quantiles_))
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'QuantileTransformer':
         """Compute the quantiles used for transforming.
 
@@ -2893,7 +2887,7 @@ class PowerTransformer(TransformerMixin,
             "copy"
         ]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> 'PowerTransformer':
         """Estimate the optimal parameter lambda for each feature.
 
@@ -2914,7 +2908,7 @@ class PowerTransformer(TransformerMixin,
         self._fit(X, y=y, force_transform=False)
         return self
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         return self._fit(X, y, force_transform=True)
 

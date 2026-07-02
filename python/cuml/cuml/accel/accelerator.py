@@ -110,14 +110,16 @@ def wrap_module(
     return out
 
 
-class ModuleTransform:
+class ModuleHandler:
     def __init__(
         self,
         override: LazyNamespace | None = None,
         patch: LazyNamespace | None = None,
+        callback: Callable[[], Any] | None = None,
     ):
         self.override = override
         self.patch = patch
+        self.callback = callback
 
     @staticmethod
     def _load_namespace(
@@ -139,6 +141,9 @@ class ModuleTransform:
 
     def apply(self, module: AccelModule) -> None:
         """Load and apply patches/overrides to an accelerated module."""
+        if self.callback is not None:
+            self.callback()
+
         if self.patch is not None:
             ns = self._load_namespace(module, self.patch)
             for k, v in ns.items():
@@ -155,11 +160,11 @@ class AccelLoader(importlib.abc.Loader):
     def __init__(
         self,
         spec: importlib.machinery.ModuleSpec,
-        transform: ModuleTransform,
+        handler: ModuleHandler,
         exclude: Callable[[str], bool] | None = None,
     ) -> None:
         self._spec = spec
-        self._transform = transform
+        self._handler = handler
         self._exclude = exclude
 
     def create_module(
@@ -173,7 +178,7 @@ class AccelLoader(importlib.abc.Loader):
         assert isinstance(module, AccelModule)
         assert self._spec.loader is not None
         self._spec.loader.exec_module(module._accel_module)
-        self._transform.apply(module)
+        self._handler.apply(module)
 
 
 class AccelFinder(importlib.abc.MetaPathFinder):
@@ -197,7 +202,7 @@ class AccelFinder(importlib.abc.MetaPathFinder):
         if fullname in self._importing:
             return None
 
-        if (transform := self.accelerator.transforms.get(fullname)) is None:
+        if (handler := self.accelerator.modules.get(fullname)) is None:
             return None
 
         try:
@@ -211,7 +216,7 @@ class AccelFinder(importlib.abc.MetaPathFinder):
 
         spec = importlib.machinery.ModuleSpec(
             name=fullname,
-            loader=AccelLoader(real_spec, transform, self.accelerator.exclude),
+            loader=AccelLoader(real_spec, handler, self.accelerator.exclude),
             origin=real_spec.origin,
             loader_state=real_spec.loader_state,
             is_package=real_spec.submodule_search_locations is not None,
@@ -232,7 +237,7 @@ class Accelerator:
     """
 
     exclude: Callable[[str], bool]
-    transforms: dict[str, ModuleTransform]
+    modules: dict[str, ModuleHandler]
     _lock: RLock
     _installed: bool
 
@@ -244,7 +249,7 @@ class Accelerator:
         else:
             self.exclude = frozenset(exclude or ()).__contains__
 
-        self.transforms = {}
+        self.modules = {}
         self._lock = RLock()
         self._installed = False
 
@@ -267,6 +272,7 @@ class Accelerator:
         name: str,
         override: LazyNamespace | None = None,
         patch: LazyNamespace | None = None,
+        callback: Callable[[], Any] | None = None,
     ):
         """Register a new override or patch for a module.
 
@@ -284,7 +290,7 @@ class Accelerator:
         ----------
         name : str
             The name of the unaccelerated module to patch.
-        override, patch : mapping, callable, or str
+        override, patch : mapping, callable, str, or None, default=None
             May be one of the following:
 
             - A mapping of attributes to override/patch in the accelerated
@@ -294,6 +300,9 @@ class Accelerator:
             - A string name of a module to import containing overrides or
               patches. All names specified in `__all__` in the module will be
               used to override/patch attributes in the accelerated module.
+        callback : callable or None, default=None
+            A callback taking no arguments to be called upon first loading
+            of this module.
 
         Examples
         --------
@@ -308,10 +317,12 @@ class Accelerator:
         >>> accel.register("foobar", "fast.foobar")
         """
         assert not self._installed
-        assert name not in self.transforms
-        self.transforms[name] = ModuleTransform(override=override, patch=patch)
+        assert name not in self.modules
+        self.modules[name] = ModuleHandler(
+            override=override, patch=patch, callback=callback
+        )
 
-    def _maybe_transform(self, name: str) -> None:
+    def _handle_if_already_imported(self, name: str) -> None:
         if (module := sys.modules.get(name)) is None:
             # Not imported yet, import system will load patch lazily later
             return
@@ -333,8 +344,8 @@ class Accelerator:
         if getattr(parent, child_name, None) is module:
             setattr(parent, child_name, accelerated)
 
-        # 4. Apply module transforms
-        self.transforms[name].apply(accelerated)
+        # 4. Apply module handler
+        self.modules[name].apply(accelerated)
 
     def install(self) -> None:
         """Install the accelerator.
@@ -350,8 +361,8 @@ class Accelerator:
             # Install the import hook. This handles patching any modules imported later.
             sys.meta_path.insert(0, AccelFinder(self))
 
-            # Wrap any modules that are already imported.
-            for name in self.transforms:
-                self._maybe_transform(name)
+            # Handle any modules that are already imported.
+            for name in self.modules:
+                self._handle_if_already_imported(name)
 
             self._installed = True
