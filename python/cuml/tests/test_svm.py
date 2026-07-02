@@ -270,6 +270,26 @@ def test_svc_weights(class_weight, sample_weight):
     compare_svm(cu_model, sk_model, X, y, coef_tol=1e-5, report_summary=True)
 
 
+@pytest.mark.parametrize("decision_function_shape", ["ovo", "ovr"])
+def test_svc_multiclass_class_weight_dict(decision_function_shape):
+    X, y = make_blobs(
+        n_samples=45,
+        n_features=4,
+        centers=3,
+        random_state=137,
+    )
+
+    model = cu_svm.SVC(
+        class_weight={0: 1000.0, 1: 0.0001, 2: 0.0001},
+        decision_function_shape=decision_function_shape,
+        kernel="linear",
+        max_iter=1000,
+    )
+
+    model.fit(X, y)
+    assert cp.asnumpy(model.classes_).tolist() == [0, 1, 2]
+
+
 @pytest.mark.parametrize(
     "params",
     [
