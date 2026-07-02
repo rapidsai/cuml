@@ -295,6 +295,19 @@ def test_sklearn_compatible_estimator(estimator, check):
     check(estimator)
 
 
+def test_rf_sample_weight_equivalence_without_bootstrap():
+    # The default estimator check above uses bootstrap=True. This check covers
+    # the non-bootstrap case where integer sample weights should match
+    # physically removing/repeating rows for the small dense check dataset.
+    for estimator in [
+        RandomForestClassifier(bootstrap=False),
+        RandomForestRegressor(bootstrap=False),
+    ]:
+        estimator_checks._check_sample_weight_equivalence(
+            type(estimator).__name__, estimator, sparse_container=None
+        )
+
+
 def test_all_estimators_covered():
     all_estimators = _all_cuml_estimators()
     tested = {type(est) for est in ESTIMATORS}
