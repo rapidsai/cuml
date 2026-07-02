@@ -14,7 +14,8 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cub/cub.cuh>
-#include <thrust/binary_search.h>
+#include <cuda/iterator>
+#include <cuda/std/algorithm>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -323,8 +324,15 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
     auto data  = dataset.data[row + col_offset];
     auto label = dataset.labels[row];
 
-    // `start` is lowest index such that data <= shared_quantiles[start]
-    IdxT start = lower_bound(shared_quantiles, n_bins, data);
+    // Search bin indices so lower_bound uses 32-bit distance and advance arithmetic.
+    auto bin_begin = cuda::counting_iterator<int, int>(0);
+    auto bin_end   = bin_begin + n_bins;
+    auto bin_it =
+      ::cuda::std::lower_bound(bin_begin, bin_end, data, [shared_quantiles](int bin, DataT value) {
+        return shared_quantiles[bin] < value;
+      });
+    int bin    = bin_it == bin_end ? n_bins - 1 : *bin_it;
+    IdxT start = static_cast<IdxT>(bin);
     // ++shared_histogram[start]
     objective.IncrementHistogram(shared_histogram, n_bins, start, label, dataset, row);
   }

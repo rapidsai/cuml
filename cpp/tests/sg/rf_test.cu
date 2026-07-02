@@ -18,7 +18,6 @@
 #include <cub/device/device_segmented_reduce.cuh>
 #include <cuda/iterator>
 #include <cuda/std/functional>
-#include <thrust/binary_search.h>
 #include <thrust/copy.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
@@ -978,57 +977,6 @@ struct QuantileTestParameters {
 };
 
 template <typename T>
-class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTestParameters> {
- public:
-  void SetUp() override
-  {
-    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
-
-    thrust::device_vector<T> data(params.n_rows);
-    thrust::host_vector<T> h_data(params.n_rows);
-    thrust::host_vector<T> h_quantiles(params.max_n_bins);
-    raft::random::Rng r(8);
-    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
-    auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
-    raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
-
-    // computing the quantiles
-    auto quantile_result =
-      DT::computeQuantiles(handle, data.data().get(), params.max_n_bins, params.n_rows, 1);
-    auto quantiles = quantile_result.view();
-
-    raft::update_host(
-      h_quantiles.data(), quantiles.quantiles_array, params.max_n_bins, handle.get_stream());
-
-    int n_unique_bins;
-    raft::copy(&n_unique_bins, quantiles.n_bins_array, 1, handle.get_stream());
-    if (n_unique_bins < params.max_n_bins) {
-      return;  // almost impossible that this happens, skip if so
-    }
-
-    h_data = data;
-    for (std::size_t i = 0; i < h_data.size(); ++i) {
-      auto d = h_data[i];
-      // golden lower bound from thrust
-      auto golden_lb =
-        thrust::lower_bound(
-          thrust::seq, h_quantiles.data(), h_quantiles.data() + params.max_n_bins, d) -
-        h_quantiles.data();
-      // lower bound from custom lower_bound impl
-      auto lb = DT::lower_bound(h_quantiles.data(), params.max_n_bins, d);
-      if (golden_lb == params.max_n_bins) {
-        ASSERT_EQ(lb, params.max_n_bins - 1)
-          << "custom lower_bound should clamp values above the last quantile to the last bin"
-          << std::endl;
-        continue;
-      }
-      ASSERT_EQ(golden_lb, lb)
-        << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
-    }
-  }
-};
-
-template <typename T>
 class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
   void SetUp() override
@@ -1450,16 +1398,6 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestF, ::testing::ValuesIn(inputs));
 typedef RFQuantileTest<double> RFQuantileTestD;
 TEST_P(RFQuantileTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
-
-// float type quantile bins lower bounds test
-typedef RFQuantileBinsLowerBoundTest<float> RFQuantileBinsLowerBoundTestF;
-TEST_P(RFQuantileBinsLowerBoundTestF, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::ValuesIn(inputs));
-
-// double type quantile bins lower bounds test
-typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
-TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
-INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
 
 // float type quantile variable binning test
 typedef RFQuantileVariableBinsTest<float> RFQuantileVariableBinsTestF;
