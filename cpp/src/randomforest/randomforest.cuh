@@ -141,23 +141,22 @@ class RowSampler {
       // Draw bootstrap rows uniformly when there are no sample weights.
       raft::random::uniformInt<int>(
         stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
+    } else if (sample_weight_ != nullptr) {
+      // Remove zero-weight rows from the non-bootstrap row set.
+      selected_rows.resize(n_sampled_rows_, stream);
+      auto rows_begin        = thrust::make_counting_iterator<int>(0);
+      auto selected_rows_end = thrust::copy_if(rmm::exec_policy(stream),
+                                               rows_begin,
+                                               rows_begin + n_rows_,
+                                               sample_weight_,
+                                               selected_rows.begin(),
+                                               NonzeroSampleWeight<double>{});
+      auto n_selected        = selected_rows_end - selected_rows.begin();
+      ASSERT(n_selected > 0, "sample_weight values must contain at least one positive value");
+      selected_rows.resize(n_selected, stream);
     } else {
       selected_rows.resize(n_sampled_rows_, stream);
       thrust::sequence(rmm::exec_policy(stream), selected_rows.begin(), selected_rows.end());
-
-      if (sample_weight_ != nullptr) {
-        // Remove zero-weight rows from the non-bootstrap row set.
-        auto rows_begin        = thrust::make_counting_iterator<int>(0);
-        auto selected_rows_end = thrust::copy_if(rmm::exec_policy(stream),
-                                                 rows_begin,
-                                                 rows_begin + n_rows_,
-                                                 sample_weight_,
-                                                 selected_rows.begin(),
-                                                 NonzeroSampleWeight<double>{});
-        auto n_selected        = selected_rows_end - selected_rows.begin();
-        ASSERT(n_selected > 0, "sample_weight values must contain at least one positive value");
-        selected_rows.resize(n_selected, stream);
-      }
     }
 
     store_bootstrap_mask(tree_id, selected_rows, stream);
