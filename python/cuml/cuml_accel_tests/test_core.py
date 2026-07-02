@@ -147,7 +147,7 @@ def test_proxied_methods_signature_compatibility(cls, name):
 
 
 def test_check_constraints(capsys):
-    # A constraingt we know to be met
+    # A constraint we know to be met
     constraint = CheckConstraint("scikit-learn>=1.0")
     assert constraint()
     stdout, _ = capsys.readouterr()
@@ -176,9 +176,13 @@ def test_constraints_match_installed_versions(capsys):
     versions in CI, this test will error if we ever update our dependencies
     without also updating the constraints."""
 
-    missed_constraints = [
-        constraint for constraint in _CONSTRAINTS.values() if not constraint()
-    ]
+    missed_constraints = []
+    for constraint in _CONSTRAINTS.values():
+        version = importlib.metadata.version(constraint.requirement.name)
+        # Skip checking constraints on prereleases so this test doesn't fail
+        # when run with sklearn prereleases as part of nightly runs.
+        if not Version(version).is_prerelease and not constraint():
+            missed_constraints.append(constraint)
 
     if missed_constraints:
         constraint_lines = "\n".join(

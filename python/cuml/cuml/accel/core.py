@@ -119,7 +119,7 @@ class CheckConstraint:
 
 
 _CONSTRAINTS = {
-    "sklearn": CheckConstraint("scikit-learn>=1.6,<=1.9"),
+    "sklearn": CheckConstraint("scikit-learn>=1.6.0,<=1.9.0"),
     "hdbscan": CheckConstraint("hdbscan>=0.8.39,<=0.8.44"),
     "umap": CheckConstraint("umap-learn>=0.5.7,<=0.5.12"),
 }
