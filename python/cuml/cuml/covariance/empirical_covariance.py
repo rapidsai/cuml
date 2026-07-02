@@ -146,7 +146,9 @@ class EmpiricalCovariance(InteropMixin, Base):
         self.assume_centered = assume_centered
 
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "EmpiricalCovariance":
+    def fit(
+        self, X, y=None, *, convert_dtype="deprecated"
+    ) -> "EmpiricalCovariance":
         """Fit the maximum likelihood covariance estimator to X.
 
         Parameters
@@ -156,8 +158,12 @@ class EmpiricalCovariance(InteropMixin, Base):
             and `n_features` is the number of features.
         y : Ignored
             Not used, present for API consistency.
-        convert_dtype : bool, default=True
-            If True, convert the input data to float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------

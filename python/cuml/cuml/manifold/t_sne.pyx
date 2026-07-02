@@ -565,10 +565,9 @@ class TSNE(InteropMixin,
         return self.embedding_.shape[1]
 
     @generate_docstring(skip_parameters_heading=True,
-                        X='dense_sparse',
-                        convert_dtype_cast='np.float32')
+                        X='dense_sparse')
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "TSNE":
+    def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
 
@@ -683,15 +682,16 @@ class TSNE(InteropMixin,
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Embedding of the \
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
     @reflect
-    def fit_transform(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> CumlArray:
+    def fit_transform(
+        self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
+    ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed output.
         """

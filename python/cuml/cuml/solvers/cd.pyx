@@ -81,7 +81,7 @@ def fit_cd(
     y,
     sample_weight=None,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     loss="squared_loss",
     double alpha=0.0001,
     double l1_ratio=0.15,
@@ -102,8 +102,13 @@ def fit_cd(
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_dtype : bool, default=True
-        When set to True, will convert array inputs to be of the proper dtypes.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
     **kwargs
         Remaining keyword arguments match the hyperparameters
         to ``CD``, see the ``CD`` docs for more information.
@@ -312,7 +317,7 @@ class CD(FMajorInputTagMixin, Base):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, convert_dtype=True, sample_weight=None) -> "CD":
+    def fit(self, X, y, convert_dtype="deprecated", sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
         """
@@ -341,7 +346,7 @@ class CD(FMajorInputTagMixin, Base):
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
     @reflect
-    def predict(self, X, convert_dtype=True) -> CumlArray:
+    def predict(self, X, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the y for X.
         """

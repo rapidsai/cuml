@@ -397,9 +397,7 @@ def test_all_kernels_all_metrics(metric, kernel):
     h = 1.0
 
     kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=h)
-    # fit with convert_dtype=False so float64 test data stays float64,
-    # matching the float64 Python reference distances.
-    kde.fit(X, convert_dtype=False)
+    kde.fit(X)
     cuml_log = as_type("numpy", kde.score_samples(Q))
 
     # -inf is valid (zero density when all train points are beyond the bandwidth);

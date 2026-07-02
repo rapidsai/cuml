@@ -155,7 +155,7 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
+    def fit(self, X, y, convert_dtype="deprecated", broadcast_data=False):
         """
         Fit the input data with a Random Forest classifier
 
@@ -196,10 +196,13 @@ class RandomForestClassifier(
         y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
             Labels of training examples.
             **y must be partitioned the same way as X**
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be of dtype int32. This will increase memory used for
-            the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         broadcast_data : bool, optional (default = False)
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
@@ -230,7 +233,7 @@ class RandomForestClassifier(
         self,
         X,
         threshold=0.5,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -247,10 +250,13 @@ class RandomForestClassifier(
             (n_samples, n_features).
         threshold : float (default = 0.5)
             Threshold used for classification.
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.

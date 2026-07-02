@@ -208,9 +208,9 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         )
         self.weights = weights
 
-    @generate_docstring(convert_dtype_cast='np.float32')
+    @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsClassifier":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsClassifier":
         """
         Fit a GPU index for k-nearest neighbors classifier model.
 
@@ -239,13 +239,12 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
         """Whether the output is 2d"""
         return self._y.ndim == 2 and self._y.shape[1] != 1
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels predicted',
                                        'shape': '(n_samples, 1)'})
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Use the trained k-nearest neighbors classifier to
         predict the labels for X
@@ -309,13 +308,12 @@ class KNeighborsClassifier(ClassifierMixin, FMajorInputTagMixin, NeighborsBase):
             index=knn_indices.index,
         )
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Labels probabilities',
                                        'shape': '(n_samples, 1)'})
     @reflect
-    def predict_proba(self, X, *, convert_dtype=True) -> CumlArray | list[CumlArray]:
+    def predict_proba(self, X, *, convert_dtype="deprecated"):
         """
         Use the trained k-nearest neighbors classifier to
         predict the label probabilities for X

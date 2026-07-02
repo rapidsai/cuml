@@ -163,7 +163,7 @@ class MBSGDRegressor(
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDRegressor":
         """
         Fit the model with X and y.
 
