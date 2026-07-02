@@ -175,7 +175,7 @@ class MBSGDClassifier(
 
     @generate_docstring()
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "MBSGDClassifier":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDClassifier":
         """
         Fit the model with X and y.
 
@@ -214,7 +214,7 @@ class MBSGDClassifier(
         }
     )
     @cuml.internals.run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the y for X.
 

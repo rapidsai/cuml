@@ -62,7 +62,7 @@ def test_tsne_knn_graph_used(
     )
 
     # Fit works and results in decent score with provided knn_graph
-    Y = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    Y = tsne.fit_transform(X, knn_graph=knn_graph)
     trust = trustworthiness(X, Y, n_neighbors=DEFAULT_N_NEIGHBORS)
     assert trust >= 0.80
 
@@ -98,17 +98,13 @@ def test_tsne_knn_parameters(
         perplexity=DEFAULT_PERPLEXITY,
     )
 
-    embed = tsne.fit_transform(X, convert_dtype=True, knn_graph=knn_graph)
+    embed = tsne.fit_transform(X, knn_graph=knn_graph)
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocoo())
     validate_embedding(X, embed)
 
-    embed = tsne.fit_transform(
-        X, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    embed = tsne.fit_transform(X, knn_graph=knn_graph.tocsc())
     validate_embedding(X, embed)
 
 
@@ -230,7 +226,7 @@ def test_tsne_fit_transform_on_digits_sparse(input_type, method):
         "float32"
     )
 
-    embedding = fitter.fit_transform(new_data, convert_dtype=True)
+    embedding = fitter.fit_transform(new_data)
 
     if input_type == "cupy":
         embedding = embedding.get()
@@ -272,21 +268,17 @@ def test_tsne_knn_parameters_sparse(type_knn_graph, input_type, method):
 
     new_data = sp_prefix.csr_matrix(scipy.sparse.csr_matrix(digits))
 
-    Y = tsne.fit_transform(new_data, convert_dtype=True, knn_graph=knn_graph)
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph)
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocoo()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocoo())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
 
-    Y = tsne.fit_transform(
-        new_data, convert_dtype=True, knn_graph=knn_graph.tocsc()
-    )
+    Y = tsne.fit_transform(new_data, knn_graph=knn_graph.tocsc())
     if input_type == "cupy":
         Y = Y.get()
     validate_embedding(digits, Y, 0.85)
