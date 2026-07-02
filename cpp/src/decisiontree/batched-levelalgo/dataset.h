@@ -8,7 +8,7 @@
 namespace ML {
 namespace DT {
 
-template <typename DataT, typename LabelT, typename IdxT>
+template <typename DataT, typename LabelT>
 struct Dataset {
   /** input dataset (assumed to be col-major) */
   const DataT* data;
@@ -17,17 +17,17 @@ struct Dataset {
   /** optional input sample weights */
   const double* sample_weight;
   /** total rows in dataset */
-  IdxT M;
+  int M;
   /** total cols in dataset */
-  IdxT N;
+  int N;
   /** total sampled rows in dataset */
-  IdxT n_sampled_rows;
+  int n_sampled_rows;
   /** total sampled cols in dataset */
-  IdxT n_sampled_cols;
+  int n_sampled_cols;
   /** indices of sampled rows */
-  IdxT* row_ids;
+  int* row_ids;
   /** Number of classes or regression outputs*/
-  IdxT num_outputs;
+  int num_outputs;
 };
 
 }  // namespace DT

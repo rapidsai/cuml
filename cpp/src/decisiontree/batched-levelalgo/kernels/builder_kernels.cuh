@@ -38,27 +38,27 @@ struct NodeWorkItem {
  * This struct has information about workload of a single threadblock of
  * computeSplit kernels of classification and regression
  */
-template <typename IdxT>
 struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
-  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                        // working on this node
-  IdxT num_blocks;      // Total number of blocks that are working on the node
+  int nodeid;        // Node in the batch on which the threadblock needs to work
+  int large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
+                     // for histogram calculation)
+  int offset_blockid;  // Offset threadblock id among all the blocks that are
+                       // working on this node
+  int num_blocks;      // Total number of blocks that are working on the node
 };
 
-template <typename SplitT, typename IdxT>
-HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
+template <typename SplitT>
+HDI bool SplitPartitionNotValid(const SplitT& split, int min_samples_leaf, std::size_t num_rows)
 {
-  return split.colid == IdxT(-1) || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
+  auto n_left = static_cast<std::size_t>(split.nLeft);
+  return split.colid == -1 || split.nLeft < min_samples_leaf || n_left > num_rows ||
+         num_rows - n_left < static_cast<std::size_t>(min_samples_leaf);
 }
 
-template <typename SplitT, typename DataT, typename IdxT>
+template <typename SplitT, typename DataT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
+                       int min_samples_leaf,
                        std::size_t num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease ||
@@ -72,16 +72,15 @@ DI OutT* alignPointer(InT dataset)
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
 }
 
-template <typename IdxT>
-void sample_features(IdxT* column_samples,
-                     const NodeWorkItem* work_items,
-                     size_t work_items_size,
-                     IdxT treeid,
-                     uint64_t seed,
-                     IdxT sample_offset,
-                     IdxT n,
-                     IdxT k,
-                     cudaStream_t stream)
+inline void sample_features(int* column_samples,
+                            const NodeWorkItem* work_items,
+                            size_t work_items_size,
+                            int treeid,
+                            uint64_t seed,
+                            int sample_offset,
+                            int n,
+                            int k,
+                            cudaStream_t stream)
 {
   auto n_column_samples = work_items_size * size_t(k);
   auto counting         = thrust::make_counting_iterator<size_t>(0);
@@ -90,27 +89,27 @@ void sample_features(IdxT* column_samples,
                    counting,
                    counting + n_column_samples,
                    [=] __device__(size_t sample_idx) {
-                     auto node_idx     = sample_idx / size_t(k);
-                     IdxT column_index = static_cast<IdxT>(sample_idx % size_t(k));
+                     auto node_idx    = sample_idx / size_t(k);
+                     int column_index = static_cast<int>(sample_idx % size_t(k));
 
                      const uint32_t nodeid = work_items[node_idx].idx;
                      uint32_t rng_seed     = fnv1a32_hash(seed, treeid, nodeid);
 
-                     cuda::shuffle_iterator<IdxT> shuffled_features(
+                     cuda::shuffle_iterator<int> shuffled_features(
                        n, cuda::std::minstd_rand(rng_seed), sample_offset);
                      column_samples[sample_idx] = shuffled_features[column_index];
                    });
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
+template <typename DataT, typename LabelT, int TPB>
+void launchNodeSplitKernel(const int min_samples_leaf,
                            const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT, IdxT>& dataset,
+                           const Dataset<DataT, LabelT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, IdxT>* splits,
-                           const WorkloadInfo<IdxT>* workload_info,
+                           const Split<DataT>* splits,
+                           const WorkloadInfo* workload_info,
                            size_t n_blocks_dimx,
-                           IdxT* partition_row_ids,
+                           int* partition_row_ids,
                            cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
@@ -122,22 +121,22 @@ void launchLeafKernel(ObjectiveT objective,
                       int batch_size,
                       size_t smem_size,
                       cudaStream_t builder_stream);
-template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+template <typename DataT, typename LabelT, int TPB, typename ObjectiveT>
 void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
-                              IdxT n_bins,
-                              IdxT min_samples_split,
-                              IdxT max_leaves,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
+                              int n_bins,
+                              int min_samples_split,
+                              int max_leaves,
+                              const Dataset<DataT, LabelT>& dataset,
+                              const Quantiles<DataT>& quantiles,
                               const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* column_samples,
+                              int colStart,
+                              const int* column_samples,
                               int* done_count,
                               int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
+                              volatile Split<DataT>* splits,
                               ObjectiveT& objective,
-                              IdxT treeid,
-                              const WorkloadInfo<IdxT>* workload_info,
+                              int treeid,
+                              const WorkloadInfo* workload_info,
                               uint64_t seed,
                               dim3 grid,
                               size_t smem_size,

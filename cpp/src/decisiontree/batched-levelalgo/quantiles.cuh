@@ -112,8 +112,8 @@ struct QuantileResult {
   rmm::device_uvector<T> quantiles_array;
   rmm::device_uvector<int> n_bins_array;
 
-  Quantiles<T, int> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
-  Quantiles<T, int> view() && = delete;
+  Quantiles<T> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
+  Quantiles<T> view() && = delete;
 };
 
 /**

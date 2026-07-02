@@ -16,30 +16,29 @@
 
 namespace ML {
 namespace DT {
-template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
+template <typename DataT_, typename LabelT_, bool weighted_ = false>
 class ClassificationObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
-  using IdxT   = IdxT_;
   using BinT   = std::conditional_t<weighted_, WeightedClassificationBin, ClassificationBin>;
   static constexpr bool weighted = weighted_;
 
  private:
-  IdxT nclasses;
-  IdxT min_samples_leaf;
+  int nclasses;
+  int min_samples_leaf;
   CRITERION criterion;
 
-  HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
+  HDI double WeightAt(BinT const* hist, int i, int n_bins) const
   {
     double weight = 0.0;
-    for (IdxT j = 0; j < nclasses; ++j) {
+    for (int j = 0; j < nclasses; ++j) {
       weight += hist[n_bins * j + i].Weight();
     }
     return weight;
   }
 
-  HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT GiniGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     constexpr DataT One = DataT(1.0);
     auto total_weight   = WeightAt(hist, n_bins - 1, n_bins);
@@ -54,7 +53,7 @@ class ClassificationObjectiveFunction {
     auto invRight = One / DataT(right_weight);
     auto gain     = DataT(0.0);
 
-    for (IdxT j = 0; j < nclasses; ++j) {
+    for (int j = 0; j < nclasses; ++j) {
       double val_i = 0.0;
       auto lval_i  = hist[n_bins * j + i].Weight();
       auto lval    = DataT(lval_i);
@@ -74,7 +73,7 @@ class ClassificationObjectiveFunction {
     return gain;
   }
 
-  HDI DataT EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT EntropyGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     auto total_weight = WeightAt(hist, n_bins - 1, n_bins);
     auto left_weight  = WeightAt(hist, i, n_bins);
@@ -87,7 +86,7 @@ class ClassificationObjectiveFunction {
     auto invLeft{DataT(1.0) / DataT(left_weight)};
     auto invRight{DataT(1.0) / DataT(right_weight)};
     auto invLen{DataT(1.0) / DataT(total_weight)};
-    for (IdxT c = 0; c < nclasses; ++c) {
+    for (int c = 0; c < nclasses; ++c) {
       double val_i = 0.0;
       auto lval_i  = hist[n_bins * c + i].Weight();
       if (lval_i != 0) {
@@ -114,8 +113,7 @@ class ClassificationObjectiveFunction {
   }
 
  public:
-  HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT GainPerSplit(BinT const* hist, int i, int n_bins, int len, int nLeft, int nRight) const
   {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
@@ -127,16 +125,16 @@ class ClassificationObjectiveFunction {
     }
   }
 
-  HDI ClassificationObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf, CRITERION criterion)
+  HDI ClassificationObjectiveFunction(int nclasses, int min_samples_leaf, CRITERION criterion)
     : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
   {
   }
 
-  DI IdxT NumClasses() const { return nclasses; }
+  DI int NumClasses() const { return nclasses; }
 
   template <typename DatasetT>
   DI void IncrementHistogram(
-    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
+    BinT* histogram, int n_bins, int bin, LabelT label, const DatasetT& dataset, int row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
@@ -145,11 +143,11 @@ class ClassificationObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT> Gain(
+    BinT const* shist, DataT const* squantiles, int col, int len, int n_bins) const
   {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
+    Split<DataT> sp;
+    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
@@ -180,21 +178,20 @@ class ClassificationObjectiveFunction {
   }
 };
 
-template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
+template <typename DataT_, typename LabelT_, bool weighted_ = false>
 class RegressionObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
-  using IdxT   = IdxT_;
   using BinT   = std::conditional_t<weighted_, WeightedRegressionBin, RegressionBin>;
   static constexpr bool weighted = weighted_;
 
  private:
-  IdxT min_samples_leaf;
+  int min_samples_leaf;
   CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT MSEGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -216,7 +213,7 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT PoissonGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -243,7 +240,7 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT GammaGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT GammaGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -270,7 +267,7 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT InverseGaussianGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT InverseGaussianGain(BinT const* hist, int i, int n_bins, int, int, int) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -297,8 +294,7 @@ class RegressionObjectiveFunction {
   }
 
  public:
-  HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT GainPerSplit(BinT const* hist, int i, int n_bins, int len, int nLeft, int nRight) const
   {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
@@ -313,16 +309,16 @@ class RegressionObjectiveFunction {
     }
   }
 
-  HDI RegressionObjectiveFunction(IdxT, IdxT min_samples_leaf, CRITERION criterion)
+  HDI RegressionObjectiveFunction(int, int min_samples_leaf, CRITERION criterion)
     : min_samples_leaf(min_samples_leaf), criterion(criterion)
   {
   }
 
-  DI IdxT NumClasses() const { return 1; }
+  DI int NumClasses() const { return 1; }
 
   template <typename DatasetT>
   DI void IncrementHistogram(
-    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
+    BinT* histogram, int n_bins, int bin, LabelT label, const DatasetT& dataset, int row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
@@ -331,12 +327,12 @@ class RegressionObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  DI Split<DataT> Gain(
+    BinT const* shist, DataT const* squantiles, int col, int len, int n_bins) const
   {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
+    Split<DataT> sp;
+    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, int{1});
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
