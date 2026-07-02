@@ -181,17 +181,22 @@ def process_class_weight(
                 f"got {class_weight!r}"
             )
 
-        classes_array = cp.asnumpy(classes)
-        extra_classes = [c for c in class_weight if c not in classes_array]
-        if extra_classes:
-            raise ValueError(
-                f"The classes, {np.array(extra_classes).tolist()}, are not in y"
-            )
-
         weights = np.ones(n_classes, dtype=np.float64)
+        unweighted_classes = []
+        classes_array = cp.asnumpy(classes)
         for i, c in enumerate(classes_array):
             if c in class_weight:
                 weights[i] = class_weight[c]
+            else:
+                unweighted_classes.append(c)
+
+        n_weighted_classes = n_classes - len(unweighted_classes)
+        if unweighted_classes and n_weighted_classes != len(class_weight):
+            raise ValueError(
+                "The classes, "
+                f"{np.array(unweighted_classes).tolist()}, "
+                "are not in class_weight"
+            )
 
     if (weights != 1).any():
         if sample_weight is None:
