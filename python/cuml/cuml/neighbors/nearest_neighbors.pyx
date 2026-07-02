@@ -525,12 +525,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._fit_X):
             fit_X = SparseCumlArray(
-                check_array(
-                    model._fit_X,
-                    dtype="float32",
-                    accept_sparse=["csr"],
-                    convert_dtype=True,
-                )
+                check_array(model._fit_X, dtype="float32", accept_sparse=["csr"])
             )
         else:
             fit_X = to_gpu(model._fit_X, order="C", dtype=np.float32)
@@ -610,7 +605,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
 
     @generate_docstring(X='dense_sparse')
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "NearestNeighbors":
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
 
@@ -707,7 +702,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         n_neighbors=None,
         return_distance=True,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         two_pass_precision=False
     ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
         """
@@ -724,9 +719,12 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         return_distance: Boolean
             If False, distances will not be returned
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the kneighbors method will automatically
-            convert the inputs to np.float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         two_pass_precision : bool, optional (default = False)
             When set to True, a slow second pass will be used to improve the
@@ -791,7 +789,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         return (distances, indices) if return_distance else indices
 
     def _kneighbors_dense(
-        self, X, int n_neighbors, convert_dtype=True, two_pass_precision=False
+        self, X, int n_neighbors, convert_dtype="deprecated", two_pass_precision=False
     ):
         if is_sparse(X):
             raise ValueError("A NearestNeighbors model trained on dense "
@@ -903,7 +901,6 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             X,
             dtype="float32",
             accept_sparse=["csr"],
-            convert_dtype=True,
             input_name="X",
         )
         cdef int* X_indptr = <int *><uintptr_t>X_cp.indptr.data.ptr
@@ -1269,7 +1266,6 @@ class NearestNeighbors(NeighborsBase):
         X_cp = check_array(
             X,
             dtype="float32",
-            convert_dtype=True,
             order="C",
             input_name="X",
         )

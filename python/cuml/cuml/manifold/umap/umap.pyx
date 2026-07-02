@@ -1202,12 +1202,11 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         self.device_ids = device_ids
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X="dense_sparse",
         skip_parameters_heading=True,
     )
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
+    def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -1429,7 +1428,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return self
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         skip_parameters_heading=True,
         return_values={
             "name": "X_new",
@@ -1440,7 +1438,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     )
     @reflect
     def fit_transform(
-        self, X, y=None, *, convert_dtype=True, knn_graph=None
+        self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -1466,7 +1464,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return self.embedding_
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         return_values={
             "name": "X_new",
             "type": "dense",
@@ -1475,7 +1472,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         }
     )
     @reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -1595,7 +1592,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return CumlArray(data=out, index=index)
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X_shape="(n_samples, n_components)",
         return_values={
             "name": "X_new",
@@ -1605,7 +1601,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         }
     )
     @reflect
-    def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def inverse_transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
@@ -1852,7 +1848,7 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified

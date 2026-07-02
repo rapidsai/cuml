@@ -32,46 +32,38 @@ from inspect import signature
 
 _parameters_docstrings = {
     "dense": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense matrix. If datatype is other than floats or doubles,\n"
-    "    then the data will be converted to float which increases memory\n"
-    "    utilization. Set the parameter convert_dtype to False to avoid \n"
-    "    this, then the method will throw an error instead.  \n"
+    "    Dense matrix with dtype float32 or float64.\n"
     "    Acceptable formats: CUDA array interface compliant objects like\n"
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",
     "dense_anydtype": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense matrix of any dtype.\n"
+    "    Dense matrix with any dtype.\n"
     "    Acceptable formats: CUDA array interface compliant objects like\n"
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",
     "dense_intdtype": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense matrix of type np.int32.\n"
+    "    Dense matrix with dtype int32.\n"
     "    Acceptable formats: CUDA array interface compliant objects like\n"
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",
     "sparse": "{name} : sparse array-like (device) shape = {shape}\n"
-    "    Dense matrix containing floats or doubles.\n"
+    "    Sparse matrix with dtype float32 or float64.\n"
     "    Acceptable formats: cupyx.scipy.sparse",
     "dense_sparse": "{name} : array-like (device or host) shape = {shape}\n"
-    "    Dense or sparse matrix containing floats or doubles.\n"
+    "    Dense or sparse matrix with dtype float32 or float64.\n"
     "    Acceptable dense formats: CUDA array interface compliant objects like\n"  # noqa
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",
-    "convert_dtype_fit": "convert_dtype : bool, optional (default = {default})\n"
-    "    When set to True, the train method will, when necessary, convert\n"
-    "    y to be the same data type as X if they differ. This\n"
-    "    will increase memory used for the method.",
-    "convert_dtype_other": "convert_dtype : bool, optional (default = {default})\n"
-    "    When set to True, the {func_name} method will, when necessary,\n"
-    "    convert the input to the data type which was used to train the\n"
-    "    model. This will increase memory used for the method.",
-    "convert_dtype_single": "convert_dtype : bool, optional (default = {default})\n"
-    "    When set to True, the method will automatically\n"
-    "    convert the inputs to {dtype}.",
+    "convert_dtype": "convert_dtype : bool, optional (default = 'deprecated')\n"
+    "    .. deprecated:: 26.08\n"
+    "        `convert_dtype` was deprecated in version 26.08 and will be removed\n"
+    "        in version 26.10. cuML only copies input arrays when necessary\n"
+    "        (e.g. to unify dtypes), there is no reason to provide this keyword\n"
+    "        going forward.\n",
     "sample_weight": "sample_weight : array-like (device or host) shape = (n_samples,), default={default}\n"  # noqa
     "    The weights for each observation in X. If None, all observations\n"
     "    are assigned equal weight.\n"
-    "    Acceptable dense formats: CUDA array interface compliant objects like\n"  # noqa
+    "    Acceptable formats: CUDA array interface compliant objects like\n"  # noqa
     "    CuPy, cuDF DataFrame/Series, NumPy ndarray and Pandas\n"
     "    DataFrame/Series.",  # noqa
     "return_sparse": "return_sparse : bool, optional (default = {default})\n"
@@ -114,7 +106,12 @@ _return_values_docstrings = {
 
 _return_values_possible_values = ["name", "type", "shape", "description"]
 
-_simple_params = ["return_sparse", "sparse_tol", "sample_weight"]
+_simple_params = [
+    "convert_dtype",
+    "return_sparse",
+    "sparse_tol",
+    "sample_weight",
+]
 
 
 def generate_docstring(
@@ -122,7 +119,6 @@ def generate_docstring(
     X_shape="(n_samples, n_features)",
     y="dense",
     y_shape="(n_samples, 1)",
-    convert_dtype_cast=False,
     skip_parameters=[],
     skip_parameters_heading=False,
     prepend_parameters=True,
@@ -152,7 +148,7 @@ def generate_docstring(
     # anything, and the decorator auto detects the parameters and defaults
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y):
 
     # for a function that takes X as dense or sparse
 
@@ -179,12 +175,6 @@ def generate_docstring(
         dense_anydtype, dense_intdtype, sparse, dense_sparse
     y_shape : str (default = '(n_samples, 1)')
         Shape of variable y
-    convert_dtype_cast : Boolean or str (default = False)
-        If not false, use it to specify when convert_dtype is used to convert
-        to a single specific dtype (as opposed to converting the dtype of one
-        variable to the dtype of another for example). Example of this is how
-        NearestNeighbors and UMAP use convert_dtype to convert inputs to
-        np.float32.
     skip_parameters : list of str (default = [])
         Use if you want the decorator to skip generating a docstring entry
         for a specific parameter
@@ -240,36 +230,10 @@ def generate_docstring(
                 func.__doc__ += _parameters_docstrings[y].format(
                     name=par, shape=y_shape
                 )
-
-            # convert_dtype requires some magic to distinguish
-            # whether we use the fit version or the version
-            # for the other methods.
-            elif par == "convert_dtype" and par not in skip_parameters:
-                if not convert_dtype_cast:
-                    if func.__name__ == "fit":
-                        k = "convert_dtype_fit"
-                    else:
-                        k = "convert_dtype_other"
-
-                    func.__doc__ += _parameters_docstrings[k].format(
-                        default=params["convert_dtype"].default,
-                        func_name=func.__name__,
-                    )
-
-                else:
-                    func.__doc__ += _parameters_docstrings[
-                        "convert_dtype_single"
-                    ].format(
-                        default=params["convert_dtype"].default,
-                        dtype=convert_dtype_cast,
-                    )
-
-            # All other parameters only take a default (for now).
-            else:
-                if par in _simple_params:
-                    func.__doc__ += _parameters_docstrings[par].format(
-                        default=params[par].default
-                    )
+            elif par in _simple_params:
+                func.__doc__ += _parameters_docstrings[par].format(
+                    default=params[par].default
+                )
             func.__doc__ += "\n\n"
 
         if skip_parameters_heading and prepend_parameters:
@@ -324,8 +288,7 @@ def insert_into_docstring(parameters=False, return_values=False):
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    def kneighbors(self, X=None, n_neighbors=None, return_distance=True,
-                   convert_dtype=True):
+    def kneighbors(self, X=None, n_neighbors=None, return_distance=True):
         \"""
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -339,10 +302,6 @@ def insert_into_docstring(parameters=False, return_values=False):
 
         return_distance: Boolean
             If False, distances will not be returned
-
-        convert_dtype : bool, optional (default = True)
-            When set to True, the kneighbors method will automatically
-            convert the inputs to np.float32.
 
         Returns
         -------
