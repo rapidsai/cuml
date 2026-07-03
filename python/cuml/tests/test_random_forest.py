@@ -384,7 +384,7 @@ def test_rf_classifier_balanced_subsample_rejected_before_fit_state():
         class_weight="balanced_subsample",
     )
 
-    with pytest.raises(NotImplementedError, match="balanced_subsample"):
+    with pytest.raises(ValueError, match="class_weight"):
         clf.fit(X, y)
 
     assert not hasattr(clf, "classes_")

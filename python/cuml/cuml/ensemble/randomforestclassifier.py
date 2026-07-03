@@ -6,7 +6,11 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels, process_class_weight
+from cuml.common.classification import (
+    decode_labels,
+    process_class_weight,
+    validate_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -124,8 +128,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         validation set. The OOB score is computed using accuracy.
     class_weight : dict, 'balanced', or None, default=None
         Weights associated with classes. If ``'balanced'``, class weights are
-        computed from the training labels. ``'balanced_subsample'`` is not
-        currently supported.
+        computed from the training labels.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -266,16 +269,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         """
         Perform Random Forest Classification on the input data
         """
-        if isinstance(self.class_weight, str):
-            if self.class_weight == "balanced_subsample":
-                raise NotImplementedError(
-                    "class_weight='balanced_subsample' is not supported"
-                )
-            if self.class_weight != "balanced":
-                raise ValueError(
-                    "class_weight must be a dict, 'balanced', or None; "
-                    f"got {self.class_weight!r}"
-                )
+        validate_class_weight(self.class_weight)
 
         X, y, sample_weight, classes = check_inputs(
             self,

@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+from collections.abc import Mapping
+
 import cudf
 import cupy as cp
 import numpy as np
@@ -111,6 +113,20 @@ def decode_labels(y_encoded, classes, output_type="cupy", index=None):
         )
 
 
+def validate_class_weight(class_weight):
+    if class_weight is None:
+        return
+    if isinstance(class_weight, str) and class_weight == "balanced":
+        return
+    if isinstance(class_weight, Mapping):
+        return
+
+    raise ValueError(
+        "class_weight must be a dict, 'balanced', or None; "
+        f"got {class_weight!r}"
+    )
+
+
 def process_class_weight(
     classes,
     y_ind,
@@ -152,6 +168,8 @@ def process_class_weight(
     sample_weight: cp.ndarray or None
         The resulting sample weights, or None if uniformly weighted.
     """
+    validate_class_weight(class_weight)
+
     n_classes = len(classes)
     if dtype is None:
         dtype = getattr(sample_weight, "dtype", np.float32)
