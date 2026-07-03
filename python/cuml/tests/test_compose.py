@@ -13,6 +13,7 @@ from sklearn.compose import make_column_selector as sk_make_column_selector
 from sklearn.compose import (
     make_column_transformer as sk_make_column_transformer,
 )
+from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import Normalizer as skNormalizer
 from sklearn.preprocessing import OneHotEncoder as skOneHotEncoder
 from sklearn.preprocessing import PolynomialFeatures as skPolynomialFeatures
@@ -24,6 +25,7 @@ from cuml.compose import make_column_transformer as cu_make_column_transformer
 from cuml.preprocessing import Normalizer as cuNormalizer
 from cuml.preprocessing import OneHotEncoder as cuOneHotEncoder
 from cuml.preprocessing import PolynomialFeatures as cuPolynomialFeatures
+from cuml.preprocessing import SimpleImputer as cuSimpleImputer
 from cuml.preprocessing import StandardScaler as cuStandardScaler
 from cuml.testing.test_preproc_utils import (  # noqa: F401
     assert_allclose,
@@ -352,3 +354,83 @@ def test_column_transform_properly_handles_sub_output_type():
         ]
     ).fit(df)
     transformer.transform(df)
+
+
+def test_column_transformer_simple_imputer_categorical_cudf():
+    """Regression test for https://github.com/rapidsai/cuml/issues/6183
+
+    ColumnTransformer + SimpleImputer on a native cuDF DataFrame with
+    categorical/string columns used to raise (KeyError / AttributeError on
+    ``.dtype``, later ``ValueError: Unsupported dtype object`` after
+    unrelated refactors). impute-then-transform is one of the most common
+    sklearn pipeline shapes, so this must work end to end.
+    """
+    df = cudf.DataFrame(
+        {
+            "num1": [1.0, np.nan, 3.0],
+            "num2": [4.0, 5.0, np.nan],
+            "cat1": ["a", None, "c"],
+            "cat2": ["x", "y", None],
+        }
+    )
+    df_np = df.to_pandas()
+
+    num_cols = ["num1", "num2"]
+    cat_cols = ["cat1"]
+    mode_cols = ["cat2"]
+
+    cu_transformer = cuColumnTransformer(
+        transformers=[
+            (
+                "num",
+                cuSimpleImputer(strategy="constant", fill_value=0),
+                num_cols,
+            ),
+            (
+                "cat",
+                cuSimpleImputer(
+                    strategy="constant",
+                    fill_value="missing",
+                    missing_values=pd.NA,
+                ),
+                cat_cols,
+            ),
+            (
+                "mod",
+                cuSimpleImputer(
+                    strategy="most_frequent", missing_values=pd.NA
+                ),
+                mode_cols,
+            ),
+        ]
+    )
+    cu_result = cu_transformer.fit_transform(df)
+
+    sk_transformer = skColumnTransformer(
+        transformers=[
+            (
+                "num",
+                skSimpleImputer(strategy="constant", fill_value=0),
+                num_cols,
+            ),
+            (
+                "cat",
+                skSimpleImputer(
+                    strategy="constant",
+                    fill_value="missing",
+                    missing_values=pd.NA,
+                ),
+                cat_cols,
+            ),
+            (
+                "mod",
+                skSimpleImputer(
+                    strategy="most_frequent", missing_values=pd.NA
+                ),
+                mode_cols,
+            ),
+        ]
+    )
+    sk_result = sk_transformer.fit_transform(df_np)
+
+    np.testing.assert_array_equal(np.asarray(cu_result), sk_result)

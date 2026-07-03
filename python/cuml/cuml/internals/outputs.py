@@ -297,6 +297,18 @@ def infer_output_type(array, array_like="numpy"):
     return None
 
 
+def _is_object_dtype(res):
+    """Check for NumPy object dtype on an array-like or dataframe-like."""
+    dtypes = getattr(res, "dtypes", None)
+    if dtypes is not None:
+        return any(
+            isinstance(dtype, np.dtype) and dtype.kind == "O"
+            for dtype in dtypes
+        )
+    dtype = getattr(res, "dtype", None)
+    return isinstance(dtype, np.dtype) and dtype.kind == "O"
+
+
 class ArrayIndexPair:
     """An array paired with an aligned index.
 
@@ -493,6 +505,11 @@ def convert_arrays(
 
     if isinstance(obj, ClassLabels):
         return obj.to_output(output_type, index=index)
+
+    # NumPy object arrays have no device representation.
+    # Keep them on host for method outputs and reflected attributes.
+    if isinstance(obj, np.ndarray) and _is_object_dtype(obj):
+        return obj
 
     if isinstance(obj, np.ndarray):
         if output_type == "numpy":

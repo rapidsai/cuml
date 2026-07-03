@@ -25,6 +25,7 @@ from itertools import chain, compress
 import cudf
 import cupy as np
 import numba
+import numpy as cpu_np
 import pandas as pd
 import scipy.sparse as sp_sparse
 from cupyx.scipy import sparse as cu_sparse
@@ -982,6 +983,16 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             return cu_sparse.hstack(converted_Xs).tocsr()
         else:
             Xs = [f.toarray() if issparse(f) else f for f in Xs]
+            if any(
+                isinstance(getattr(X, "dtype", None), cpu_np.dtype)
+                and X.dtype.kind == "O"
+                for X in Xs
+            ):
+                # Object dtype (e.g. string columns from a categorical
+                # SimpleImputer) has no device representation - cupy has no
+                # way to store it. Stack on host instead.
+                Xs = [X.get() if isinstance(X, np.ndarray) else X for X in Xs]
+                return cpu_np.hstack(Xs)
             return np.hstack(Xs)
 
 

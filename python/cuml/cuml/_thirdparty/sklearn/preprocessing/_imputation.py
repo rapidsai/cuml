@@ -260,10 +260,12 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
     @classmethod
     def _get_param_names(cls):
         return super()._get_param_names() + [
+            "missing_values",
             "strategy",
             "fill_value",
             "verbose",
-            "copy"
+            "copy",
+            "add_indicator",
         ]
 
     def _validate_input(self, X, in_fit):
@@ -423,7 +425,11 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
 
         # Constant
         elif strategy == "constant":
-            return np.full(X.shape[1], fill_value, dtype=X.dtype)
+            # Object-dtype X (e.g. strings) lives on host, since cupy has no
+            # way to represent it on device. Dispatch to X's own module so
+            # this works for both device (numeric) and host (object) input.
+            xp = np.get_array_module(X)
+            return xp.full(X.shape[1], fill_value, dtype=X.dtype)
 
     @mlfunc
     def transform(self, X):
@@ -449,14 +455,18 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
         if self.strategy == "constant":
             valid_statistics = statistics
         else:
+            # Object-dtype statistics (e.g. strings) live on host, since cupy
+            # has no way to represent them on device. Dispatch to their own
+            # module so this works for both device and host input.
+            xp = np.get_array_module(statistics)
             # same as np.isnan but also works for object dtypes
             invalid_mask = _get_mask(statistics, np.nan)
-            valid_mask = np.logical_not(invalid_mask)
+            valid_mask = xp.logical_not(invalid_mask)
             valid_statistics = statistics[valid_mask]
-            valid_statistics_indexes = np.flatnonzero(valid_mask)
+            valid_statistics_indexes = xp.flatnonzero(valid_mask)
 
             if invalid_mask.any():
-                missing = np.arange(X.shape[1])[invalid_mask]
+                missing = xp.arange(X.shape[1])[invalid_mask]
                 if self.verbose:
                     warnings.warn("Deleting features without "
                                   "observed values: %s" % missing)
@@ -481,8 +491,9 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
             if self.strategy == "constant":
                 X[mask] = valid_statistics[0]
             else:
+                xp = np.get_array_module(mask)
                 for i, vi in enumerate(valid_statistics_indexes):
-                    feature_idxs = np.flatnonzero(mask[:, vi])
+                    feature_idxs = xp.flatnonzero(mask[:, vi])
                     X[feature_idxs, vi] = valid_statistics[i]
 
         X = super()._concatenate_indicator(X, X_indicator)
