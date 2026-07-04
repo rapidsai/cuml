@@ -210,6 +210,7 @@ def _validate_args(args, run_gpu, selected_backends):
 def _handle_print_commands(args):
     """Handle --print-status, --print-algorithms, --print-datasets; exits if used."""
     if args.print_status:
+        print(get_status_string())
         sys.exit()
     if args.print_algorithms:
         for algo in algorithms.all_algorithms():
