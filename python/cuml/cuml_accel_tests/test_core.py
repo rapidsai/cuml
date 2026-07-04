@@ -10,7 +10,13 @@ import sklearn
 from packaging.version import Version
 
 import cuml.accel
-from cuml.accel.core import _CONSTRAINTS, CheckConstraint
+import cuml.accel.core as accel_core
+from cuml.accel.core import (
+    _CONSTRAINTS,
+    CheckConstraint,
+    _is_concurrent_managed_access_supported,
+    logger,
+)
 from cuml.accel.estimator_proxy import ProxyBase
 
 
@@ -203,3 +209,64 @@ def test_constraints_match_installed_versions(capsys):
             f"{log_lines}"
         )
         assert False, msg
+
+
+def test_is_concurrent_managed_access_supported_uses_current_device(monkeypatch):
+    # Validate that we query attributes for the current CUDA device.
+    calls = []
+
+    def fake_cuda_free(_: int):
+        calls.append(("cudaFree", 0))
+        return accel_core.runtime.cudaError_t.cudaSuccess
+
+    def fake_cuda_get_device():
+        calls.append(("cudaGetDevice",))
+        return accel_core.runtime.cudaError_t.cudaSuccess, 7
+
+    def fake_cuda_device_attribute(attr, device):
+        calls.append(("cudaDeviceGetAttribute", attr, device))
+        return accel_core.runtime.cudaError_t.cudaSuccess, 1
+
+    monkeypatch.setattr(accel_core.runtime, "cudaFree", fake_cuda_free)
+    monkeypatch.setattr(accel_core.runtime, "cudaGetDevice", fake_cuda_get_device)
+    monkeypatch.setattr(
+        accel_core.runtime, "cudaDeviceGetAttribute", fake_cuda_device_attribute
+    )
+
+    assert _is_concurrent_managed_access_supported()
+    assert calls == [
+        ("cudaFree", 0),
+        ("cudaGetDevice",),
+        (
+            "cudaDeviceGetAttribute",
+            accel_core.runtime.cudaDeviceAttr.cudaDevAttrConcurrentManagedAccess,
+            7,
+        ),
+    ]
+
+
+def test_is_concurrent_managed_access_supported_logs_cuda_free_result(monkeypatch):
+    # Check that cudaFree(0) return value is logged before continuing.
+    messages = []
+
+    def fake_cuda_free(_: int):
+        return accel_core.runtime.cudaError_t.cudaErrorInvalidValue
+
+    def fake_cuda_get_device():
+        return accel_core.runtime.cudaError_t.cudaSuccess, 0
+
+    def fake_cuda_device_attribute(attr, device):
+        return accel_core.runtime.cudaError_t.cudaSuccess, 0
+
+    def fake_error(message):
+        messages.append(message)
+
+    monkeypatch.setattr(accel_core.runtime, "cudaFree", fake_cuda_free)
+    monkeypatch.setattr(accel_core.runtime, "cudaGetDevice", fake_cuda_get_device)
+    monkeypatch.setattr(
+        accel_core.runtime, "cudaDeviceGetAttribute", fake_cuda_device_attribute
+    )
+    monkeypatch.setattr(logger, "error", fake_error)
+
+    assert not _is_concurrent_managed_access_supported()
+    assert any("cudaFree(0)" in message for message in messages)

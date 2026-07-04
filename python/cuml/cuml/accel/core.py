@@ -185,9 +185,17 @@ def _is_concurrent_managed_access_supported():
     """
 
     # Ensure CUDA is initialized before checking cudaDevAttrConcurrentManagedAccess
-    runtime.cudaFree(0)
+    init_err = runtime.cudaFree(0)
+    if init_err != runtime.cudaError_t.cudaSuccess:
+        logger.error(f"cudaFree(0) returned error {init_err} while initializing CUDA")
 
-    device_id = 0
+    err, device_id = runtime.cudaGetDevice()
+    if err != runtime.cudaError_t.cudaSuccess:
+        logger.error(
+            f"Failed to get current CUDA device for managed access check with error {err}"
+        )
+        return False
+
     err, supports_managed_access = runtime.cudaDeviceGetAttribute(
         runtime.cudaDeviceAttr.cudaDevAttrConcurrentManagedAccess, device_id
     )
