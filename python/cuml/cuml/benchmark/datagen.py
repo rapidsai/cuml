@@ -548,7 +548,7 @@ def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
     elif input_type == "csc":
         return scipy.sparse.csc_matrix(data)
     else:
-        TypeError("Wrong sparse input type {}".format(input_type))
+        raise TypeError("Wrong sparse input type {}".format(input_type))
 
 
 def _convert_to_scipy_sparse(data, input_type):
