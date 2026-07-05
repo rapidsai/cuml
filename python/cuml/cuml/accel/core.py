@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import enum
+import importlib.metadata
 import os
 from typing import Literal
 
 from cuda.bindings import runtime
+from packaging.requirements import Requirement
 
+import cuml
 from cuml.accel.accelerator import Accelerator
 from cuml.internals.outputs import set_global_output_type
 
@@ -82,6 +85,45 @@ class Logger:
 logger = Logger()
 
 
+class CheckConstraint:
+    """A version constraint checker.
+
+    A warning will be logged if the constraint is not satisfied.
+
+    Parameters
+    ----------
+    constraint: str
+        A constraint on the installed version of the package, in the form
+        of a valid requirements string.
+    """
+
+    def __init__(self, requirement: str) -> None:
+        self.requirement = Requirement(requirement)
+
+    def __call__(self) -> bool:
+        """Check the constraint.
+
+        Returns whether the constraint was satisfied, and logs a warning if
+        it wasn't.
+        """
+        version = importlib.metadata.version(self.requirement.name)
+        if not self.requirement.specifier.contains(version):
+            logger.warn(
+                f"Warning: `cuml.accel` version {cuml.__version__} was tested "
+                f"with {self.requirement!s}, but {self.requirement.name}={version} "
+                f"was found. Things may work, but you may also encounter "
+                f"potentially subtle breakage."
+            )
+            return False
+        return True
+
+
+_CONSTRAINTS = {
+    "sklearn": CheckConstraint("scikit-learn>=1.6.0,<=1.9.0"),
+    "hdbscan": CheckConstraint("hdbscan>=0.8.39,<=0.8.44"),
+    "umap": CheckConstraint("umap-learn>=0.5.7,<=0.5.12"),
+}
+
 _OVERRIDES = {
     "hdbscan",
     "sklearn.cluster",
@@ -105,7 +147,7 @@ _PATCHES = {
     "sklearn.utils.discovery",
 }
 
-ACCELERATED_MODULES = sorted(_OVERRIDES.union(_PATCHES))
+ACCELERATED_MODULES = sorted(_OVERRIDES.union(_PATCHES).union(_CONSTRAINTS))
 
 
 def _exclude_from_acceleration(module: str) -> bool:
@@ -132,6 +174,7 @@ for module in ACCELERATED_MODULES:
         patch=(
             f"cuml.accel._patches.{module}" if module in _PATCHES else None
         ),
+        callback=_CONSTRAINTS.get(module),
     )
 
 

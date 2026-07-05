@@ -127,7 +127,7 @@ def fit_qn(
     y,
     sample_weight=None,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     loss="l2",
     class_weight=None,
     bool fit_intercept=True,
@@ -155,8 +155,13 @@ def fit_qn(
         The target values.
     sample_weight : None or array-like, shape=(n_samples,)
         The sample weights.
-    convert_dtype : bool, default=True
-        When set to True, will convert array inputs to be of the proper dtypes.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
     class_weight : dict or 'balanced', default=None
         Weights associated per-classes, or None for uniform weights. If 'balanced',
         weights inversely proportional to the class frequencies will be used.
@@ -538,8 +543,8 @@ class QN(Base):
         self.penalty_normalized = penalty_normalized
 
     @generate_docstring(X="dense_sparse")
-    @reflect(reset="type")
-    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> "QN":
+    @reflect(reset=True)
+    def fit(self, X, y, sample_weight=None, convert_dtype="deprecated") -> "QN":
         """
         Fit the model with X and y.
         """
@@ -593,7 +598,7 @@ class QN(Base):
 
     @generate_docstring(X="dense_sparse")
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Predicts the y for X."""
         check_is_fitted(self)
 

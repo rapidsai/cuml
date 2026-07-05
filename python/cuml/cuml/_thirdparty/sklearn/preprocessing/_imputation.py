@@ -314,7 +314,7 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
 
         return X
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
@@ -701,7 +701,7 @@ class MissingIndicator(AllowNaNTagMixin,
 
         return missing_features_info[0]
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
@@ -760,7 +760,7 @@ class MissingIndicator(AllowNaNTagMixin,
 
         return imputer_mask
 
-    @reflect(reset="type")
+    @reflect(reset=True)
     def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Generate missing values indicator for X.
 

@@ -6,6 +6,7 @@
 import math
 
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pytest
 from numpy.testing import (
@@ -22,7 +23,6 @@ from sklearn.naive_bayes import GaussianNB as skGNB
 from sklearn.naive_bayes import MultinomialNB as skNB
 
 from cuml.datasets import make_classification
-from cuml.internals.input_utils import sparse_scipy_to_cp
 from cuml.naive_bayes import (
     BernoulliNB,
     CategoricalNB,
@@ -59,7 +59,7 @@ def test_multinomial_basic_fit_predict_dense_numpy(
     n_rows = 500
     n_cols = 10000
 
-    X = sparse_scipy_to_cp(X, cp.float32).tocsr()[:n_rows, :n_cols]
+    X = cp_sp.csr_matrix(X, dtype="float32")[:n_rows, :n_cols]
     y = y[:n_rows].astype(y_dtype)
 
     model = MultinomialNB()
@@ -81,7 +81,7 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = cp_sp.coo_matrix(X, dtype=x_dtype)
     y = y.astype(y_dtype)
 
     X = X.tocsr()
@@ -124,7 +124,7 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
 def test_multinomial(x_dtype, y_dtype, sparse_text_dataset):
     X, y = sparse_text_dataset
 
-    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_X = cp_sp.coo_matrix(X, dtype=x_dtype)
     cu_y = y.astype(y_dtype)
 
     cu_X = cu_X.tocsr()
@@ -163,7 +163,7 @@ def test_bernoulli(x_dtype, y_dtype, is_sparse, sparse_text_dataset):
     n_rows = 500
     n_cols = 20000
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = cp_sp.coo_matrix(X, dtype=x_dtype)
     y = y.astype(y_dtype)
 
     X = X.tocsr()[:n_rows, :n_cols]
@@ -200,7 +200,7 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = cp_sp.coo_matrix(X, dtype=x_dtype)
     y = y.astype(y_dtype)[:n_rows]
 
     X = X.tocsr()[:n_rows]
@@ -242,7 +242,7 @@ def test_complement(x_dtype, y_dtype, is_sparse, norm, sparse_text_dataset):
     n_rows = 500
     n_cols = 20000
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = cp_sp.coo_matrix(X, dtype=x_dtype)
     y = y.astype(y_dtype)
 
     X = X.tocsr()[:n_rows, :n_cols]
@@ -373,8 +373,7 @@ def test_gaussian_fit_predict(
     model = GaussianNB()
     n_rows = 500
     n_cols = 50000
-    X = sparse_scipy_to_cp(X, x_dtype)
-    X = X.tocsr()[:n_rows, :n_cols]
+    X = cp_sp.csr_matrix(X, dtype=x_dtype)[:n_rows, :n_cols]
 
     if is_sparse:
         y = y.astype(y_dtype)[:n_rows]
@@ -399,7 +398,7 @@ def test_gaussian_partial_fit(sparse_text_dataset):
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:n_rows, :n_cols]
+    X = cp_sp.csr_matrix(X, dtype=x_dtype)[:n_rows, :n_cols]
     y = y.astype(y_dtype)[:n_rows]
 
     model = GaussianNB()
@@ -450,8 +449,8 @@ def test_gaussian_parameters(priors, var_smoothing, sparse_text_dataset):
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X[:nrows], x_dtype).todense()[:, :ncols]
-    y = y.astype(y_dtype)[:nrows]
+    X = cp.asarray(X[:nrows, :ncols].todense(), dtype=x_dtype)
+    y = y[:nrows].astype(y_dtype)
 
     if priors == "balanced":
         priors = cp.array([1 / 20] * 20)
@@ -489,8 +488,7 @@ def test_categorical(x_dtype, y_dtype, is_sparse, sparse_text_dataset):
     n_rows = 500
     n_cols = 400
 
-    X = sparse_scipy_to_cp(X, dtype=cp.float32)
-    X = X.tocsr()[:n_rows, :n_cols]
+    X = cp_sp.csr_matrix(X, dtype=cp.float32)[:n_rows, :n_cols]
     y = y.astype(y_dtype)[:n_rows]
 
     if not is_sparse:
@@ -537,7 +535,7 @@ def test_categorical_partial_fit(
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X, "float32").tocsr()[:n_rows, :n_cols]
+    X = cp_sp.csr_matrix(X, dtype="float32")[:n_rows, :n_cols]
     if is_sparse:
         X.data = X.data.astype(x_dtype)
     else:
@@ -585,7 +583,7 @@ def test_categorical_parameters(
 
     X, y = sparse_text_dataset
 
-    X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:nrows, :ncols]
+    X = cp_sp.csr_matrix(X, dtype=x_dtype)[:nrows, :ncols]
     if not is_sparse:
         X = X.todense()
     y = y.astype(y_dtype)[:nrows]

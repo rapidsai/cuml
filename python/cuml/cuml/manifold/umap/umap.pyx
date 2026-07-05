@@ -20,7 +20,6 @@ from cuml.internals import logger, reflect
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import is_array_like
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -45,7 +44,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.utility cimport move
 from pylibraft.common.handle cimport handle_t
 from rmm.librmm.device_buffer cimport device_buffer
-from rmm.librmm.memory_resource cimport make_any_device_resource
+from rmm.librmm.memory_resource cimport any_resource, device_accessible
 from rmm.pylibrmm.device_buffer cimport DeviceBuffer
 from rmm.pylibrmm.memory_resource cimport get_current_device_resource
 
@@ -555,15 +554,15 @@ cdef init_params(self, lib.UMAPParams &params, n_rows, is_sparse=False, is_fit=T
     # deterministic if a random_state provided or when run on very small inputs
     params.deterministic = self.random_state is not None or n_rows < 300
 
-    if is_array_like(self.init):
-        params.init = 2
-    elif self.init in _INITS:
+    if isinstance(self.init, str):
+        if self.init not in _INITS:
+            raise ValueError(
+                f"Expected `init` to be an array or one of {list(_INITS)}, "
+                f"got {self.init!r}"
+            )
         params.init = _INITS[self.init]
     else:
-        raise ValueError(
-            f"Expected `init` to be an array or one of {list(_INITS)}, "
-            f"got {self.init!r}"
-        )
+        params.init = 2
 
     if self.force_serial_epochs is None:
         # Only auto-enable for spectral fit. Also skip when n_components > 512 since
@@ -974,8 +973,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if not ((isinstance(model.init, str) and model.init in _INITS) or
-                is_array_like(model.init)):
+        if isinstance(model.init, str) and model.init not in _INITS:
             raise UnsupportedOnGPU(f"`init={model.init!r}` is not supported")
 
         try:
@@ -1027,7 +1025,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             precomputed_knn = (None, None, None)
 
         init = self.init
-        if is_array_like(init):
+        if not isinstance(init, str):
             init = cp.asnumpy(init)
 
         return {
@@ -1204,12 +1202,11 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         self.device_ids = device_ids
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X="dense_sparse",
         skip_parameters_heading=True,
     )
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True, knn_graph=None) -> "UMAP":
+    @reflect(reset=True)
+    def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
 
@@ -1327,7 +1324,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef lib.HostCOO fss_graph = lib.HostCOO()
         handle_ = <handle_t*> <size_t> handle.getHandle()
 
-        if is_array_like(self.init):
+        if not isinstance(self.init, str):
             init = check_array(
                 self.init,
                 dtype="float32",
@@ -1347,7 +1344,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                     ),
                     <size_t> init.nbytes,
                     <cudaStream_t> handle_.get_stream(),
-                    make_any_device_resource(get_current_device_resource().get_mr())
+                    any_resource[device_accessible](
+                        get_current_device_resource().get_mr()
+                    )
                 )
             )
 
@@ -1429,7 +1428,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return self
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         skip_parameters_heading=True,
         return_values={
             "name": "X_new",
@@ -1440,7 +1438,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     )
     @reflect
     def fit_transform(
-        self, X, y=None, *, convert_dtype=True, knn_graph=None
+        self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
     ) -> CumlArray:
         """
         Fit X into an embedded space and return that transformed
@@ -1466,7 +1464,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return self.embedding_
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         return_values={
             "name": "X_new",
             "type": "dense",
@@ -1475,7 +1472,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         }
     )
     @reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -1595,7 +1592,6 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         return CumlArray(data=out, index=index)
 
     @generate_docstring(
-        convert_dtype_cast="np.float32",
         X_shape="(n_samples, n_components)",
         return_values={
             "name": "X_new",
@@ -1605,7 +1601,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         }
     )
     @reflect
-    def inverse_transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def inverse_transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
@@ -1852,7 +1848,7 @@ def simplicial_set_embedding(
     metric_kwds=None,
     output_metric="euclidean",
     output_metric_kwds=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     verbose=False,
 ):
     """Perform a fuzzy simplicial set embedding, using a specified
@@ -1999,7 +1995,7 @@ def simplicial_set_embedding(
             f"got {output_metric!r}"
         )
 
-    cdef bool initialized = is_array_like(init)
+    cdef bool initialized = not isinstance(init, str)
     if initialized:
         embedding = check_array(
             init,

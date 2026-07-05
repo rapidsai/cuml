@@ -162,8 +162,8 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y, *, convert_dtype=True) -> "MBSGDRegressor":
+    @reflect(reset=True)
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDRegressor":
         """
         Fit the model with X and y.
 

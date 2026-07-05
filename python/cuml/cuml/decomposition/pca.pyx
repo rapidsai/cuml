@@ -124,7 +124,7 @@ class PCA(InteropMixin,
 
         >>> pca_float = PCA(n_components = 2)
         >>> pca_float.fit(gdf_float)
-        PCA()
+        PCA(n_components=2)
 
         >>> print(f'components: {pca_float.components_}') # doctest: +SKIP
         components: 0           1           2
@@ -466,8 +466,8 @@ class PCA(InteropMixin,
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True) -> "PCA":
+    @cuml.internals.reflect(reset=True)
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
@@ -507,7 +507,7 @@ class PCA(InteropMixin,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset="type")
+    @cuml.internals.reflect(reset=True)
     def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
@@ -584,7 +584,7 @@ class PCA(InteropMixin,
         self,
         X,
         *,
-        convert_dtype=False,
+        convert_dtype="deprecated",
         return_sparse=False,
         sparse_tol=1e-10,
     ) -> CumlArray:
@@ -679,7 +679,7 @@ class PCA(InteropMixin,
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
