@@ -123,6 +123,7 @@ class ExampleItem(pytest.Item):
                     f" ({pattern})",
                     ExampleNetworkError,
                 )
+                pytest.xfail(reason=f"Network error: {pattern}")
             if len(stderr) > 4000:
                 stderr = "...\n" + stderr[-4000:]
             raise ExampleFailed(stderr)
