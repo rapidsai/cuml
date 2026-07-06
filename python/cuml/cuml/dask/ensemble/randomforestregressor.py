@@ -138,7 +138,13 @@ class RandomForestRegressor(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype="deprecated", broadcast_data=False):
+    def fit(
+        self,
+        X,
+        y,
+        convert_dtype="deprecated",
+        broadcast_data=False,
+    ):
         """
         Fit the input data with a Random Forest regression model
 
@@ -186,7 +192,6 @@ class RandomForestRegressor(
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
-
         """
         self.internal_model = None
         self._fit(
