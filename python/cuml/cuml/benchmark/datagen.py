@@ -123,16 +123,29 @@ def _gen_data_classification(
     n_features=100,
     random_state=42,
     n_classes=2,
+    n_informative=None,
+    n_redundant=None,
+    n_clusters_per_class=None,
     dtype=np.float32,
 ):
     """Generate classification data using optimal backend."""
     if is_gpu_available() and is_cuml_available():
-        X, y = cuml_datasets.make_classification(
+        gen_kwargs = dict(
             n_samples=n_samples,
             n_features=n_features,
             n_classes=n_classes,
             random_state=random_state,
             dtype=dtype,
+        )
+        if n_informative is not None:
+            gen_kwargs["n_informative"] = n_informative
+        if n_redundant is not None:
+            gen_kwargs["n_redundant"] = n_redundant
+        if n_clusters_per_class is not None:
+            gen_kwargs["n_clusters_per_class"] = n_clusters_per_class
+
+        X, y = cuml_datasets.make_classification(
+            **gen_kwargs,
         )
         return cudf.DataFrame(X), cudf.Series(y)
 
@@ -140,15 +153,19 @@ def _gen_data_classification(
     # Note: GPU path uses cuml_datasets.make_classification (different defaults);
     # CPU path uses these settings. Slight differences in data generation may
     # affect cross-backend comparability of benchmark results.
-    n_informative = max(2, n_features // 2)
-    n_redundant = min(2, n_features - n_informative)
+    if n_informative is None:
+        n_informative = max(2, n_features // 2)
+    if n_redundant is None:
+        n_redundant = min(2, n_features - n_informative)
+    if n_clusters_per_class is None:
+        n_clusters_per_class = 1
     X, y = sklearn_make_classification(
         n_samples=n_samples,
         n_features=n_features,
         n_classes=n_classes,
         n_informative=n_informative,
         n_redundant=n_redundant,
-        n_clusters_per_class=1,
+        n_clusters_per_class=n_clusters_per_class,
         random_state=random_state,
     )
     return pd.DataFrame(X.astype(dtype)), pd.Series(y)
