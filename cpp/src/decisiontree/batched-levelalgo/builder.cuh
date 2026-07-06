@@ -586,8 +586,10 @@ struct Builder {
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
     dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
     auto histogram_node_count = use_global_memory_histogram ? n_work_items : n_large_nodes;
-    size_t len_histograms     = size_t(n_bins) * n_classes * n_blocks_dimy * histogram_node_count;
-    RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
+    auto len_histograms =
+      ML::checked_mul<std::size_t>(n_bins, n_classes, n_blocks_dimy, histogram_node_count);
+    auto histograms_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), len_histograms);
+    RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, histograms_bytes, builder_stream));
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     // call the computeSplitKernel
