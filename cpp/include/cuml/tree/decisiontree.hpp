@@ -10,6 +10,7 @@
 
 #include <cuml/common/export.hpp>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -96,7 +97,7 @@ struct TreeMetaDataNode {
   int leaf_counter;
   double train_time;
   std::vector<T> vector_leaf;
-  std::vector<SparseTreeNode<T, L>> sparsetree;
+  std::vector<SparseTreeNode<T, L, std::int64_t>> sparsetree;
   int num_outputs;
 };
 

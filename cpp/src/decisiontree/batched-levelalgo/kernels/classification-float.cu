@@ -14,7 +14,7 @@ using LabelT     = int;
 using ObjectiveT = ClassificationObjectiveFunction<DataT, LabelT>;
 using BinT       = typename ObjectiveT::BinT;
 using DatasetT   = Dataset<DataT, LabelT>;
-using NodeT      = SparseTreeNode<DataT, LabelT>;
+using NodeT      = SparseTreeNode<DataT, LabelT, std::int64_t>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
@@ -31,18 +31,18 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
 template void launchComputeSplitKernel<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   int n_bins,
-  int min_samples_split,
-  int max_leaves,
+  std::int64_t min_samples_split,
+  std::int64_t max_leaves,
   const DatasetT& dataset,
   const Quantiles<DataT>& quantiles,
   const NodeWorkItem* work_items,
-  int colStart,
-  const int* column_samples,
+  std::int64_t colStart,
+  const std::int64_t* column_samples,
   int* done_count,
   int* mutex,
   volatile Split<DataT>* splits,
   ObjectiveT& objective,
-  int treeid,
+  std::int64_t treeid,
   const WorkloadInfo* workload_info,
   uint64_t seed,
   dim3 grid,

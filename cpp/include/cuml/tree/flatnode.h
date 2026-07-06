@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -48,12 +48,11 @@ struct SparseTreeNode {
   FLATNODE_HD static SparseTreeNode CreateSplitNode(
     IdxT colid, DataT quesval, DataT best_metric_val, int64_t left_child_id, IdxT instance_count)
   {
-    return SparseTreeNode<DataT, LabelT>{
-      colid, quesval, best_metric_val, left_child_id, instance_count};
+    return SparseTreeNode{colid, quesval, best_metric_val, left_child_id, instance_count};
   }
   FLATNODE_HD static SparseTreeNode CreateLeafNode(IdxT instance_count)
   {
-    return SparseTreeNode<DataT, LabelT>{0, 0, 0, -1, instance_count};
+    return SparseTreeNode{0, 0, 0, -1, instance_count};
   }
   FLATNODE_HD bool IsLeaf() const { return left_child_id == -1; }
   bool operator==(const SparseTreeNode& other) const

@@ -87,7 +87,7 @@ std::string get_node_text(const std::string& prefix,
                           int idx,
                           bool isLeft)
 {
-  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
+  const auto& node = tree->sparsetree[idx];
 
   std::ostringstream oss;
 
@@ -124,7 +124,7 @@ std::string get_node_text(const std::string& prefix,
 template <class T, class L>
 std::string get_node_json(const std::string& prefix, const TreeMetaDataNode<T, L>* tree, int idx)
 {
-  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
+  const auto& node = tree->sparsetree[idx];
 
   std::ostringstream oss;
   if (!node.IsLeaf()) {
@@ -181,9 +181,9 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
     next_level_queue.resize(std::max(2 * cur_level_size, next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
-      auto cuml_node_id                  = cur_level_queue[cur_front].first;
-      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cuml_node_id];
-      auto tl_node_id                    = cur_level_queue[cur_front].second;
+      auto cuml_node_id  = cur_level_queue[cur_front].first;
+      const auto& q_node = rf_tree.sparsetree[cuml_node_id];
+      auto tl_node_id    = cur_level_queue[cur_front].second;
       ++cur_front;
 
       if (!q_node.IsLeaf()) {
@@ -235,15 +235,15 @@ class DecisionTree {
     const raft::handle_t& handle,
     const cudaStream_t s,
     const DataT* data,
-    const int ncols,
-    const int nrows,
+    const std::int64_t ncols,
+    const std::int64_t nrows,
     const LabelT* labels,
-    rmm::device_uvector<int>* row_ids,
+    rmm::device_uvector<std::int64_t>* row_ids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT>& quantiles,
-    int treeid,
+    std::int64_t treeid,
     const double* sample_weight = nullptr)
   {
     if (params.split_criterion ==

@@ -40,6 +40,7 @@
 #define omp_get_max_threads() 1
 #endif
 
+#include <cstdint>
 #include <deque>
 #include <map>
 
@@ -100,7 +101,7 @@ class RowSampler {
   RowSampler(const RowSampler&)            = delete;
   RowSampler& operator=(const RowSampler&) = delete;
 
-  rmm::device_uvector<int>& sample(int tree_id, int stream_id, cudaStream_t stream)
+  rmm::device_uvector<std::int64_t>& sample(int tree_id, int stream_id, cudaStream_t stream)
   {
     raft::common::nvtx::range fun_scope("bootstrapping row IDs @randomforest.cuh");
 
@@ -130,7 +131,7 @@ class RowSampler {
                             weighted_draw_scratch.end(),
                             selected_rows.begin());
       } else {
-        raft::random::uniformInt<int>(
+        raft::random::uniformInt<std::int64_t>(
           stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
       }
     } else {
@@ -146,7 +147,7 @@ class RowSampler {
 
  private:
   void store_bootstrap_mask(int tree_id,
-                            rmm::device_uvector<int>& selected_rows,
+                            rmm::device_uvector<std::int64_t>& selected_rows,
                             cudaStream_t stream)
   {
     if (bootstrap_masks_ == nullptr) { return; }
@@ -199,7 +200,7 @@ class RowSampler {
   const double* sample_weight_;
   double sample_weight_sum_;
   rmm::device_uvector<double> sample_weight_cdf_;
-  std::deque<rmm::device_uvector<int>> selected_rows_;
+  std::deque<rmm::device_uvector<std::int64_t>> selected_rows_;
   std::deque<rmm::device_uvector<double>> weighted_draw_scratch_;
 };
 }  // namespace detail

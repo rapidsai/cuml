@@ -8,18 +8,20 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
+#include <cstdint>
+
 namespace ML {
 namespace DT {
 namespace detail {
 
 template <typename BinT>
-DI int CountLeft(BinT const* hist, int i, int n_bins, int n_outputs)
+DI std::int64_t CountLeft(BinT const* hist, int i, int n_bins, std::int64_t n_outputs)
 {
   auto nLeft = hist[i].Count();
   for (int j = 1; j < n_outputs; ++j) {
     nLeft += hist[n_bins * j + i].Count();
   }
-  return static_cast<int>(nLeft);
+  return static_cast<std::int64_t>(nLeft);
 }
 
 }  // namespace detail
@@ -39,17 +41,21 @@ struct Split {
   /** threshold to compare in this node */
   DataT quesval;
   /** feature index */
-  int colid;
+  std::int64_t colid;
   /** best info gain on this node */
   DataT best_metric_val;
   /** number of samples in the left child */
-  int nLeft;
+  std::int64_t nLeft;
   /** first quantile index in an inclusive range of training-equivalent splits */
-  int split_start;
+  std::int64_t split_start;
   /** last quantile index in an inclusive range of training-equivalent splits */
-  int split_end;
+  std::int64_t split_end;
 
-  DI Split(DataT quesval, int colid, DataT best_metric_val, int nLeft, int bin = -1)
+  DI Split(DataT quesval,
+           std::int64_t colid,
+           DataT best_metric_val,
+           std::int64_t nLeft,
+           std::int64_t bin = -1)
     : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
   {
     split_start = bin;
@@ -241,13 +247,15 @@ template <typename DataT, int TPB = 256>
 void printSplits(Split<DataT>* splits, int len, cudaStream_t s)
 {
   auto op = [] __device__(Split<DataT> * ptr, int idx) {
-    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d, split_range = [%d, %d]\n",
-           ptr->quesval,
-           ptr->colid,
-           ptr->best_metric_val,
-           ptr->nLeft,
-           ptr->split_start,
-           ptr->split_end);
+    printf(
+      "quesval = %e, colid = %lld, best_metric_val = %e, nLeft = %lld, "
+      "split_range = [%lld, %lld]\n",
+      ptr->quesval,
+      static_cast<long long>(ptr->colid),
+      ptr->best_metric_val,
+      static_cast<long long>(ptr->nLeft),
+      static_cast<long long>(ptr->split_start),
+      static_cast<long long>(ptr->split_end));
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), int, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace ML {
 namespace DT {
 
@@ -17,17 +19,17 @@ struct Dataset {
   /** optional input sample weights */
   const double* sample_weight;
   /** total rows in dataset */
-  int M;
+  std::int64_t M;
   /** total cols in dataset */
-  int N;
+  std::int64_t N;
   /** total sampled rows in dataset */
-  int n_sampled_rows;
+  std::int64_t n_sampled_rows;
   /** total sampled cols in dataset */
-  int n_sampled_cols;
+  std::int64_t n_sampled_cols;
   /** indices of sampled rows */
-  int* row_ids;
+  std::int64_t* row_ids;
   /** Number of classes or regression outputs*/
-  int num_outputs;
+  std::int64_t num_outputs;
 };
 
 }  // namespace DT

@@ -560,10 +560,11 @@ class RfSpecialisedTest {
     }
   }
 
-  void ExpectNodeCountsMatchTrainingData(const std::vector<SparseTreeNode<DataT, LabelT>>& tree,
-                                         std::size_t node_id,
-                                         const std::vector<int>& rows,
-                                         const thrust::host_vector<DataT>& h_X)
+  void ExpectNodeCountsMatchTrainingData(
+    const std::vector<SparseTreeNode<DataT, LabelT, std::int64_t>>& tree,
+    std::size_t node_id,
+    const std::vector<int>& rows,
+    const thrust::host_vector<DataT>& h_X)
   {
     ASSERT_LT(node_id, tree.size());
     const auto& node = tree[node_id];
@@ -1231,11 +1232,11 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 
   struct HostSplit {
     DataT quesval;
-    int colid;
+    std::int64_t colid;
     DataT best_metric_val;
-    int nLeft;
-    int split_start;
-    int split_end;
+    std::int64_t nLeft;
+    std::int64_t split_start;
+    std::int64_t split_end;
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT>));
   HostSplit h_split;
@@ -1286,11 +1287,11 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 
   struct HostSplit {
     DataT quesval;
-    int colid;
+    std::int64_t colid;
     DataT best_metric_val;
-    int nLeft;
-    int split_start;
-    int split_end;
+    std::int64_t nLeft;
+    std::int64_t split_start;
+    std::int64_t split_end;
   };
   static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT>));
   HostSplit h_split;
@@ -2510,7 +2511,7 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     auto stream = handle->get_stream();
 
     // Allocate device memory
-    rmm::device_uvector<int> d_colids(params.n_nodes * params.k, stream);
+    rmm::device_uvector<std::int64_t> d_colids(params.n_nodes * params.k, stream);
     rmm::device_uvector<NodeWorkItem> d_work_items(params.n_nodes, stream);
     rmm::device_uvector<unsigned long long> d_counts(params.n_features, stream);
 
@@ -2546,7 +2547,7 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
       << ", max capacity=" << (MAX_SAMPLES_PER_THREAD * BLOCK_THREADS);
 
     // Run the sampling kernel with diagnostics enabled
-    excess_sample_with_replacement_kernel<int, MAX_SAMPLES_PER_THREAD, BLOCK_THREADS>
+    excess_sample_with_replacement_kernel<std::int64_t, MAX_SAMPLES_PER_THREAD, BLOCK_THREADS>
       <<<params.n_nodes, BLOCK_THREADS, 0, stream>>>(d_colids.data(),
                                                      d_work_items.data(),
                                                      params.n_nodes,
@@ -2565,7 +2566,7 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
     // Copy colids back to host for duplicate checking
-    std::vector<int> h_colids(params.n_nodes * params.k);
+    std::vector<std::int64_t> h_colids(params.n_nodes * params.k);
     raft::update_host(h_colids.data(), d_colids.data(), params.n_nodes * params.k, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
@@ -2575,7 +2576,7 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
       int unique_count = 0;
 
       for (int j = 0; j < params.k; ++j) {
-        int feature_idx = h_colids[node * params.k + j];
+        auto feature_idx = h_colids[node * params.k + j];
 
         // Check feature index is within valid range
         EXPECT_GE(feature_idx, 0) << "Node " << node << " has invalid feature index " << feature_idx
