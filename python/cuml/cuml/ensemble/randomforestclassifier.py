@@ -6,7 +6,11 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
+from cuml.common.classification import (
+    decode_labels,
+    process_class_weight,
+    validate_class_weight,
+)
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -122,6 +126,9 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         accuracy. Only available if ``bootstrap=True``. The out-of-bag estimate
         provides a way to evaluate the model without requiring a separate
         validation set. The OOB score is computed using accuracy.
+    class_weight : dict, 'balanced', or None, default=None
+        Weights associated with classes. If ``'balanced'``, class weights are
+        computed from the training labels.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -166,10 +173,25 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
     @classmethod
+    def _get_param_names(cls):
+        return [*super()._get_param_names(), "class_weight"]
+
+    @classmethod
     def _params_from_cpu(cls, model):
-        if model.class_weight is not None:
-            raise UnsupportedOnGPU("`class_weight` is not supported")
-        return super()._params_from_cpu(model)
+        if model.class_weight == "balanced_subsample":
+            raise UnsupportedOnGPU(
+                "`class_weight='balanced_subsample'` is not supported"
+            )
+        return {
+            "class_weight": model.class_weight,
+            **super()._params_from_cpu(model),
+        }
+
+    def _params_to_cpu(self):
+        return {
+            **super()._params_to_cpu(),
+            "class_weight": self.class_weight,
+        }
 
     def _attrs_from_cpu(self, model):
         return {
@@ -210,6 +232,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         random_state=None,
         n_streams=4,
         oob_score=False,
+        class_weight=None,
         verbose=False,
         output_type=None,
     ):
@@ -232,42 +255,45 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             verbose=verbose,
             output_type=output_type,
         )
+        self.class_weight = class_weight
 
     @nvtx.annotate(
         message="fit RF-Classifier @randomforestclassifier.pyx",
         domain="cuml_python",
     )
-    @generate_docstring(
-        skip_parameters_heading=True,
-        y="dense_intdtype",
-        convert_dtype_cast="np.float32",
-    )
+    @generate_docstring(y="dense_intdtype")
     @cuml.internals.reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "RandomForestClassifier":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
-
-        Parameters
-        ----------
-        convert_dtype : bool, optional (default = True)
-            When set to True, the fit method will, when necessary, convert
-            y to be of dtype int32. This will increase memory used for
-            the method.
         """
-        X, y, classes = check_inputs(
+        validate_class_weight(self.class_weight)
+
+        X, y, sample_weight, classes = check_inputs(
             self,
             X,
             y,
+            sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
             y_dtype="int32",
+            sample_weight_dtype="float64",
             return_classes=True,
             reset=True,
         )
         self.classes_ = classes
         self.n_classes_ = len(classes)
-        return self._fit_forest(X, y)
+        _, sample_weight = process_class_weight(
+            classes,
+            y,
+            class_weight=self.class_weight,
+            sample_weight=sample_weight,
+            dtype=np.float64,
+        )
+        return self._fit_forest(X, y, sample_weight=sample_weight)
 
     @nvtx.annotate(
         message="predict RF-Classifier @randomforestclassifier.pyx",
@@ -283,7 +309,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         X,
         *,
         threshold=0.5,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -296,9 +322,13 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         X : {}
         threshold : float (default = 0.5)
             Threshold used for classification.
-        convert_dtype : bool (default = True)
-            When True, automatically convert the input to the data type used
-            to train the model. This may increase memory usage.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Forest layout for GPU inference. Options: 'depth_first', 'layered',
             'breadth_first'.
@@ -343,7 +373,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         self,
         X,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -354,9 +384,13 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         Parameters
         ----------
         X : {}
-        convert_dtype : bool (default = True)
-            When True, automatically convert the input to the data type used
-            to train the model. This may increase memory usage.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -399,7 +433,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         self,
         X,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -410,9 +444,13 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         Parameters
         ----------
         X : {}
-        convert_dtype : bool (default = True)
-            When True, automatically convert the input to the data type used
-            to train the model. This may increase memory usage.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -456,9 +494,10 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         self,
         X,
         y,
+        sample_weight=None,
         *,
         threshold=0.5,
-        convert_dtype=True,
+        convert_dtype="deprecated",
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
@@ -470,11 +509,17 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         ----------
         X : {}
         y : {}
+        sample_weight : array-like, shape=(n_samples,), default=None
+            Sample weights for weighted mean accuracy.
         threshold : float (default = 0.5)
             Threshold used for classification predictions
-        convert_dtype : bool (default = True)
-            When True, automatically convert the input to the data type used
-            to train the model. This may increase memory usage.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
+
         layout : string (default = 'depth_first')
             Specifies the in-memory layout of nodes in FIL forests. Options:
             'depth_first', 'layered', 'breadth_first'.
@@ -501,4 +546,4 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return accuracy_score(y, y_pred)
+        return accuracy_score(y, y_pred, sample_weight=sample_weight)

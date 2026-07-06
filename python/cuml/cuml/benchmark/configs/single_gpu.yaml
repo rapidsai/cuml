@@ -138,6 +138,51 @@ benchmarks:
           default: {rows: [5200000]}
           nightly: {rows: [20800000]}
 
+  - id: kernelridge_fit
+    algorithm: KernelRidge
+    dataset: regression
+    operation: fit
+    tags: [kernel, regression]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [1500]}
+          nightly: {rows: [6000]}
+      medium:
+        features: [64]
+        tiers:
+          default: {rows: [1000]}
+          nightly: {rows: [4000]}
+      wide:
+        features: [128]
+        tiers:
+          default: {rows: [500]}
+          nightly: {rows: [2000]}
+
+  - id: mbsgdregressor_fit
+    algorithm: MBSGDRegressor
+    dataset: regression
+    operation: fit
+    backends: [gpu]
+    tags: [linear, regression]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [40000000]}
+          nightly: {rows: [160000000]}
+      medium:
+        features: [128]
+        tiers:
+          default: {rows: [5000000]}
+          nightly: {rows: [20000000]}
+      wide:
+        features: [512]
+        tiers:
+          default: {rows: [1200000]}
+          nightly: {rows: [4800000]}
+
   - id: kmeans_fitpredict
     algorithm: KMeans
     dataset: blobs
@@ -161,6 +206,54 @@ benchmarks:
         tiers:
           default: {rows: [1500000]}
           nightly: {rows: [6000000]}
+
+  - id: agglomerative_fit
+    algorithm: AgglomerativeClustering
+    dataset: blobs
+    operation: fit
+    dataset_params:
+      centers: 8
+    tags: [clustering]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [2000]}
+          nightly: {rows: [8000]}
+      medium:
+        features: [64]
+        tiers:
+          default: {rows: [1000]}
+          nightly: {rows: [4000]}
+      wide:
+        features: [128]
+        tiers:
+          default: {rows: [500]}
+          nightly: {rows: [2000]}
+
+  - id: spectralclustering_fit
+    algorithm: SpectralClustering
+    dataset: blobs
+    operation: fit
+    dataset_params:
+      centers: 8
+    tags: [clustering]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [1000]}
+          nightly: {rows: [4000]}
+      medium:
+        features: [64]
+        tiers:
+          default: {rows: [750]}
+          nightly: {rows: [3000]}
+      wide:
+        features: [128]
+        tiers:
+          default: {rows: [500]}
+          nightly: {rows: [2000]}
 
   - id: neighbors_fitkneighbors
     algorithm: NearestNeighbors
@@ -207,6 +300,30 @@ benchmarks:
         tiers:
           default: {rows: [4000000]}
           nightly: {rows: [16000000]}
+
+  - id: incrementalpca_fit
+    algorithm: IncrementalPCA
+    dataset: blobs
+    operation: fit
+    params:
+      n_components: 10
+    tags: [decomposition]
+    variants:
+      narrow:
+        features: [32]
+        tiers:
+          default: {rows: [4000000]}
+          nightly: {rows: [16000000]}
+      medium:
+        features: [128]
+        tiers:
+          default: {rows: [2000000]}
+          nightly: {rows: [8000000]}
+      wide:
+        features: [512]
+        tiers:
+          default: {rows: [500000]}
+          nightly: {rows: [2000000]}
 
   - id: tsvd_fit
     algorithm: tSVD
@@ -279,6 +396,28 @@ benchmarks:
         tiers:
           default: {rows: [2000000]}
           nightly: {rows: [8000000]}
+
+  - id: ledoitwolf_fit
+    algorithm: LedoitWolf
+    dataset: blobs
+    operation: fit
+    tags: [covariance]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [2000000]}
+          nightly: {rows: [8000000]}
+      medium:
+        features: [128]
+        tiers:
+          default: {rows: [500000]}
+          nightly: {rows: [2000000]}
+      wide:
+        features: [512]
+        tiers:
+          default: {rows: [100000]}
+          nightly: {rows: [400000]}
 
   - id: rf_classifier_fit
     algorithm: RandomForestClassifier
@@ -638,6 +777,166 @@ benchmarks:
           default: {rows: [400000]}
           nightly: {rows: [1600000]}
 
+  - id: binarizer_fittransform
+    algorithm: Binarizer
+    dataset: classification
+    operation: fit_transform
+    tags: [preprocessing]
+    variants:
+      narrow:
+        features: [128]
+        tiers:
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
+      medium:
+        features: [512]
+        tiers:
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
+      wide:
+        features: [1024]
+        tiers:
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
+
+  - id: kbinsdiscretizer_fittransform
+    algorithm: KBinsDiscretizer
+    dataset: classification
+    operation: fit_transform
+    params:
+      n_bins: 16
+      encode: ordinal
+      strategy: uniform
+    tags: [preprocessing]
+    variants:
+      narrow:
+        features: [128]
+        tiers:
+          default: {rows: [210000]}
+          nightly: {rows: [1050000]}
+      medium:
+        features: [512]
+        tiers:
+          default: {rows: [52000]}
+          nightly: {rows: [260000]}
+      wide:
+        features: [1024]
+        tiers:
+          default: {rows: [26000]}
+          nightly: {rows: [130000]}
+
+  - id: powertransformer_fittransform
+    algorithm: PowerTransformer
+    dataset: classification
+    operation: fit_transform
+    params:
+      method: yeo-johnson
+    tags: [preprocessing]
+    variants:
+      narrow:
+        features: [16]
+        tiers:
+          default: {rows: [20000]}
+          nightly: {rows: [80000]}
+      medium:
+        features: [64]
+        tiers:
+          default: {rows: [5000]}
+          nightly: {rows: [20000]}
+      wide:
+        features: [128]
+        tiers:
+          default: {rows: [2500]}
+          nightly: {rows: [10000]}
+
+  - id: quantiletransformer_fittransform
+    algorithm: QuantileTransformer
+    dataset: classification
+    operation: fit_transform
+    params:
+      n_quantiles: 1000
+      subsample: 100000
+      random_state: 42
+    tags: [preprocessing]
+    variants:
+      narrow:
+        features: [64]
+        tiers:
+          default: {rows: [100000]}
+          nightly: {rows: [400000]}
+      medium:
+        features: [256]
+        tiers:
+          default: {rows: [25000]}
+          nightly: {rows: [100000]}
+      wide:
+        features: [512]
+        tiers:
+          default: {rows: [12000]}
+          nightly: {rows: [48000]}
+
+  - id: labelencoder_fittransform
+    algorithm: LabelEncoder
+    dataset: classification
+    operation: fit_transform
+    dataset_params:
+      n_clusters_per_class: 1
+      n_informative: 8
+    tags: [preprocessing, labels]
+    variants:
+      classes2:
+        features: [16]
+        dataset_params:
+          n_classes: 2
+        tiers:
+          default: {rows: [10000000]}
+          nightly: {rows: [40000000]}
+      classes32:
+        features: [16]
+        dataset_params:
+          n_classes: 32
+        tiers:
+          default: {rows: [5000000]}
+          nightly: {rows: [20000000]}
+      classes256:
+        features: [16]
+        dataset_params:
+          n_classes: 256
+        tiers:
+          default: {rows: [2000000]}
+          nightly: {rows: [8000000]}
+
+  - id: labelbinarizer_fittransform
+    algorithm: LabelBinarizer
+    dataset: classification
+    operation: fit_transform
+    dataset_params:
+      n_clusters_per_class: 1
+      n_informative: 8
+    tags: [preprocessing, labels]
+    variants:
+      classes2:
+        features: [16]
+        dataset_params:
+          n_classes: 2
+        tiers:
+          default: {rows: [10000000]}
+          nightly: {rows: [40000000]}
+      classes8:
+        features: [16]
+        dataset_params:
+          n_classes: 8
+        tiers:
+          default: {rows: [2000000]}
+          nightly: {rows: [8000000]}
+      classes32:
+        features: [16]
+        dataset_params:
+          n_classes: 32
+        tiers:
+          default: {rows: [500000]}
+          nightly: {rows: [2000000]}
+
   - id: tsne_fit
     algorithm: TSNE
     dataset: blobs
@@ -681,3 +980,25 @@ benchmarks:
         tiers:
           default: {rows: [2000000]}
           nightly: {rows: [8000000]}
+
+  - id: gaussiannb_fit
+    algorithm: GaussianNB
+    dataset: classification
+    operation: fit
+    tags: [naive-bayes]
+    variants:
+      narrow:
+        features: [64]
+        tiers:
+          default: {rows: [10000000]}
+          nightly: {rows: [40000000]}
+      medium:
+        features: [256]
+        tiers:
+          default: {rows: [3000000]}
+          nightly: {rows: [12000000]}
+      wide:
+        features: [1024]
+        tiers:
+          default: {rows: [1000000]}
+          nightly: {rows: [4000000]}

@@ -24,7 +24,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
         int n) except +
 
 
-def kl_divergence(P, Q, convert_dtype=True):
+def kl_divergence(P, Q, convert_dtype="deprecated"):
     """
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
@@ -44,10 +44,12 @@ def kl_divergence(P, Q, convert_dtype=True):
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
 
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, convert P and
-        Q to be the same data type: float32. This
-        will increase memory used for the method.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
     Returns
     -------

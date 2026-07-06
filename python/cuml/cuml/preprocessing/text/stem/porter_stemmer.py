@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import warnings
 
 import cudf
 import cupy as cp
@@ -36,6 +36,12 @@ from .porter_stemmer_utils.suffix_utils import (
 class PorterStemmer:
     """
     A word stemmer based on the Porter stemming algorithm.
+
+    .. deprecated:: 26.08
+
+        This class was deprecated in version 26.08 and will be removed
+        in version 26.10. Please transition to an alternative Porter
+        Stemmer implementation.
 
     Porter, M. "An algorithm for suffix stripping."
     Program 14.3 (1980): 130-137.
@@ -77,6 +83,12 @@ class PorterStemmer:
     """
 
     def __init__(self, mode="NLTK_EXTENSIONS"):
+        warnings.warn(
+            "`cuml.preprocessing.text.stem.PorterStemmer` was deprecated "
+            "in version 26.08 and will be removed in version 26.10. Please "
+            "transition to an alternative Porter Stemmer implementation.",
+            FutureWarning,
+        )
         if mode != "NLTK_EXTENSIONS":
             raise ValueError(
                 "Only PorterStemmer.NLTK_EXTENSIONS is supported currently"
