@@ -910,7 +910,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "HDBSCAN":
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
         """
@@ -1184,7 +1184,12 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
 
 
 @reflect(model="clusterer", array="points_to_predict")
-def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert_dtype=True):
+def membership_vector(
+    clusterer,
+    points_to_predict,
+    int batch_size=4096,
+    convert_dtype="deprecated",
+):
     """
     Predict soft cluster membership. The result produces a vector
     for each point in ``points_to_predict`` that gives a probability that
@@ -1264,7 +1269,7 @@ def membership_vector(clusterer, points_to_predict, int batch_size=4096, convert
 
 
 @reflect(model="clusterer", array="points_to_predict")
-def approximate_predict(clusterer, points_to_predict, convert_dtype=True):
+def approximate_predict(clusterer, points_to_predict, convert_dtype="deprecated"):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
     and therefore are not (necessarily) the cluster labels that would

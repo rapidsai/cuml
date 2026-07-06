@@ -162,7 +162,7 @@ class KNeighborsClassifier(NearestNeighbors):
                 convert_dtype,
             )
 
-    def predict(self, X, convert_dtype=True):
+    def predict(self, X, convert_dtype="deprecated"):
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -174,9 +174,12 @@ class KNeighborsClassifier(NearestNeighbors):
             Query data.
             Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will automatically
-            convert the data to the right formats.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
@@ -274,7 +277,7 @@ class KNeighborsClassifier(NearestNeighbors):
 
         return to_output(out_futures, self.datatype).squeeze()
 
-    def score(self, X, y, convert_dtype=True):
+    def score(self, X, y, convert_dtype="deprecated"):
         """
         Predict labels for a query from previously stored index
         and index labels.
@@ -307,7 +310,7 @@ class KNeighborsClassifier(NearestNeighbors):
         mean_match = matched.mean()
         return float(mean_match.compute())
 
-    def predict_proba(self, X, convert_dtype=True):
+    def predict_proba(self, X, convert_dtype="deprecated"):
         """
         Provide score by comparing predictions and ground truth.
 
@@ -317,9 +320,12 @@ class KNeighborsClassifier(NearestNeighbors):
             Query data.
             Acceptable formats: dask cuDF, dask CuPy/NumPy/Numba Array
 
-        convert_dtype : bool, optional (default = True)
-            When set to True, the predict method will automatically
-            convert the data to the right formats.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------

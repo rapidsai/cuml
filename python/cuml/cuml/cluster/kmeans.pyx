@@ -531,7 +531,7 @@ class KMeans(InteropMixin,
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y=None, sample_weight=None, *, convert_dtype=True) -> "KMeans":
+    def fit(self, X, y=None, sample_weight=None, *, convert_dtype="deprecated") -> "KMeans":
         """
         Compute k-means clustering with X.
 
@@ -610,7 +610,7 @@ class KMeans(InteropMixin,
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels_inertia(self, X, convert_dtype=True, sample_weight=None):
+    def _predict_labels_inertia(self, X, convert_dtype="deprecated", sample_weight=None):
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -621,10 +621,12 @@ class KMeans(InteropMixin,
             Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
 
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         sample_weight : array-like (device or host) shape = (n_samples,), default=None # noqa
             The weights for each observation in X. If None, all observations
@@ -674,7 +676,7 @@ class KMeans(InteropMixin,
         self,
         X,
         *,
-        convert_dtype=True,
+        convert_dtype="deprecated",
     ) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
@@ -688,7 +690,7 @@ class KMeans(InteropMixin,
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
     @reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Transform X to a cluster-distance space.
 
@@ -784,7 +786,7 @@ class KMeans(InteropMixin,
                                                         of X on the K-means \
                                                         objective.'})
     @run_in_internal_context
-    def score(self, X, y=None, sample_weight=None, *, convert_dtype=True):
+    def score(self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"):
         """
         Opposite of the value of X on the K-means objective.
 
@@ -801,7 +803,7 @@ class KMeans(InteropMixin,
                                        'shape': '(n_samples, n_clusters)'})
     @reflect
     def fit_transform(
-        self, X, y=None, sample_weight=None, *, convert_dtype=False
+        self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"
     ) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.

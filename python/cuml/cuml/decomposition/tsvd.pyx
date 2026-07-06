@@ -301,7 +301,7 @@ class TruncatedSVD(InteropMixin,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect(reset=True)
-    def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
+    def fit_transform(self, X, y=None, *, convert_dtype="deprecated") -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.
         y is currently ignored.
@@ -398,7 +398,7 @@ class TruncatedSVD(InteropMixin,
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
     @cuml.internals.reflect
-    def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
+    def inverse_transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
@@ -462,7 +462,7 @@ class TruncatedSVD(InteropMixin,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
