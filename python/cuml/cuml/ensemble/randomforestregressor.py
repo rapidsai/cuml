@@ -202,22 +202,24 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
     @generate_docstring()
     @reflect(reset=True)
     def fit(
-        self, X, y, *, convert_dtype="deprecated"
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "RandomForestRegressor":
         """
         Perform Random Forest Regression on the input data
 
         """
-        X, y = check_inputs(
+        X, y, sample_weight = check_inputs(
             self,
             X,
             y,
+            sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
+            sample_weight_dtype="float64",
             reset=True,
         )
-        return self._fit_forest(X, y)
+        return self._fit_forest(X, y, sample_weight=sample_weight)
 
     @nvtx.annotate(
         message="predict RF-Regressor @randomforestclassifier.pyx",
@@ -304,6 +306,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         self,
         X,
         y,
+        sample_weight=None,
         *,
         convert_dtype="deprecated",
         layout="depth_first",
@@ -317,6 +320,8 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         ----------
         X : {}
         y : {}
+        sample_weight : array-like, shape=(n_samples,), default=None
+            Sample weights for weighted R^2.
         convert_dtype : bool, default="deprecated"
             .. deprecated:: 26.08
                 `convert_dtype` was deprecated in version 26.08 and will be
@@ -348,4 +353,4 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return r2_score(y, y_pred)
+        return r2_score(y, y_pred, sample_weight=sample_weight)

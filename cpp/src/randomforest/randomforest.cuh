@@ -20,9 +20,11 @@
 #include <rmm/exec_policy.hpp>
 
 #include <thrust/binary_search.h>
+#include <thrust/copy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 #include <thrust/logical.h>
 #include <thrust/reduce.h>
 #include <thrust/scan.h>
@@ -49,6 +51,11 @@ namespace detail {
 template <typename T>
 struct InvalidSampleWeight {
   __device__ bool operator()(T weight) const { return weight < T(0) || !isfinite(weight); }
+};
+
+template <typename T>
+struct NonzeroSampleWeight {
+  __device__ bool operator()(T weight) const { return weight != T(0); }
 };
 
 // Matches estimator behavior: when bootstrapping is enabled and sample weights exist,
@@ -106,34 +113,49 @@ class RowSampler {
 
     auto& selected_rows = selected_rows_[stream_id];
 
+    raft::resources stream_resources;
+    raft::resource::set_cuda_stream(stream_resources, stream);
+
     // Hash these together so per-tree row samples are uncorrelated.
     auto rs = DT::fnv1a32_basis;
     rs      = DT::fnv1a32(rs, seed_);
     rs      = DT::fnv1a32(rs, tree_id);
     raft::random::RngState rng_state(rs, raft::random::GenPhilox);
 
-    if (bootstrap_) {
-      raft::resources stream_resources;
-      raft::resource::set_cuda_stream(stream_resources, stream);
-      if (use_weighted_bootstrap()) {
-        auto& weighted_draw_scratch = weighted_draw_scratch_[stream_id];
-        raft::random::uniform<double>(stream_resources,
-                                      rng_state,
-                                      weighted_draw_scratch.data(),
-                                      weighted_draw_scratch.size(),
-                                      0.0,
-                                      sample_weight_sum_);
-        thrust::upper_bound(rmm::exec_policy(stream),
-                            sample_weight_cdf_.data(),
-                            sample_weight_cdf_.data() + n_rows_,
-                            weighted_draw_scratch.begin(),
-                            weighted_draw_scratch.end(),
-                            selected_rows.begin());
-      } else {
-        raft::random::uniformInt<int>(
-          stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
-      }
+    if (use_weighted_bootstrap()) {
+      // Draw bootstrap rows according to sample weights.
+      auto& weighted_draw_scratch = weighted_draw_scratch_[stream_id];
+      raft::random::uniform<double>(stream_resources,
+                                    rng_state,
+                                    weighted_draw_scratch.data(),
+                                    weighted_draw_scratch.size(),
+                                    0.0,
+                                    sample_weight_sum_);
+      thrust::upper_bound(rmm::exec_policy(stream),
+                          sample_weight_cdf_.data(),
+                          sample_weight_cdf_.data() + n_rows_,
+                          weighted_draw_scratch.begin(),
+                          weighted_draw_scratch.end(),
+                          selected_rows.begin());
+    } else if (bootstrap_) {
+      // Draw bootstrap rows uniformly when there are no sample weights.
+      raft::random::uniformInt<int>(
+        stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
+    } else if (sample_weight_ != nullptr) {
+      // Remove zero-weight rows from the non-bootstrap row set.
+      selected_rows.resize(n_sampled_rows_, stream);
+      auto rows_begin        = thrust::make_counting_iterator<int>(0);
+      auto selected_rows_end = thrust::copy_if(rmm::exec_policy(stream),
+                                               rows_begin,
+                                               rows_begin + n_rows_,
+                                               sample_weight_,
+                                               selected_rows.begin(),
+                                               NonzeroSampleWeight<double>{});
+      auto n_selected        = selected_rows_end - selected_rows.begin();
+      ASSERT(n_selected > 0, "sample_weight values must contain at least one positive value");
+      selected_rows.resize(n_selected, stream);
     } else {
+      selected_rows.resize(n_sampled_rows_, stream);
       thrust::sequence(rmm::exec_policy(stream), selected_rows.begin(), selected_rows.end());
     }
 
@@ -155,7 +177,7 @@ class RowSampler {
     thrust::fill(rmm::exec_policy(stream), tree_mask, tree_mask + n_rows_, false);
     thrust::scatter(rmm::exec_policy(stream),
                     thrust::make_constant_iterator(true),
-                    thrust::make_constant_iterator(true) + n_sampled_rows_,
+                    thrust::make_constant_iterator(true) + selected_rows.size(),
                     selected_rows.data(),
                     tree_mask);
   }
@@ -256,7 +278,8 @@ class RandomForest {
   *   (n_trees * n_rows), only populated if a non-null pointer is provided.
   * @param[in] sample_weight: optional device pointer to per-row sample weights. With bootstrap
   *   enabled, rows are sampled with probability proportional to these weights and the sampled
-  *   counts drive tree training. Without bootstrap, weights are used for impurity/objective math.
+  *   counts drive tree training. Without bootstrap, zero-weight rows are removed from the tree
+  *   row set and remaining weights are used for impurity/objective math.
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -310,7 +333,7 @@ class RandomForest {
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
-        - n_sampled_rows: # rows sampled for tree's bootstrap sample.
+        - n_sampled_rows: # rows sampled or retained for this tree.
         - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements)
           used to build the bootstrapped sample.
           Expectation: Each tree node will contain (a) # n_sampled_rows and

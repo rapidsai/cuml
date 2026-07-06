@@ -1643,7 +1643,7 @@ TEST(RfWeightedTest, RegressionRootLeafUsesWeights)
   const auto& tree = *forest->trees[0];
   ASSERT_EQ(tree.sparsetree.size(), 1);
   EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
-  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 3);
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 2);
   ASSERT_EQ(tree.vector_leaf.size(), 1);
   EXPECT_NEAR(tree.vector_leaf[0], 7.5f, 1e-6f);
 }
@@ -1718,7 +1718,7 @@ TEST(RfWeightedTest, ZeroWeightSamplesDoNotCreatePositiveWeightSplit)
   const auto& tree = *forest->trees[0];
   ASSERT_EQ(tree.sparsetree.size(), 1);
   EXPECT_TRUE(tree.sparsetree[0].IsLeaf());
-  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 4);
+  EXPECT_EQ(tree.sparsetree[0].InstanceCount(), 2);
   ASSERT_EQ(tree.vector_leaf.size(), 2);
   EXPECT_NEAR(tree.vector_leaf[0], 0.0f, 1e-6f);
   EXPECT_NEAR(tree.vector_leaf[1], 1.0f, 1e-6f);
