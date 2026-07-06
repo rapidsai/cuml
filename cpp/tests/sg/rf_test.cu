@@ -876,8 +876,8 @@ TEST(RfTests, HighClassCountSplitHistogramFallsBackToGlobalMemory)
 
   ASSERT_NO_THROW(
     fit(handle, forest_ptr, X.data().get(), n_rows, n_cols, y.data().get(), n_classes, rf_params));
-  EXPECT_EQ(forest->trees.size(), 1);
-  EXPECT_GE(forest->trees[0]->leaf_counter, 1);
+  ASSERT_EQ(forest->trees.size(), 1);
+  EXPECT_GT(forest->trees.front()->depth_counter, 0);
 }
 
 TEST(RfTests, InvalidSampleWeightThrows)
