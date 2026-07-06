@@ -123,6 +123,7 @@ __all__ = [
     "KMeans",
     "KNeighborsClassifier",
     "KNeighborsRegressor",
+    "Lars",
     "Lasso",
     "LedoitWolf",
     "LinearRegression",
