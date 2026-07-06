@@ -201,7 +201,7 @@ class Lars(RegressorMixin, Base):
 
     @generate_docstring(y="dense_anydtype")
     @reflect(reset=True)
-    def fit(self, X, y, convert_dtype="deprecated") -> "Lars":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "Lars":
         """
         Fit the model with X and y.
 
@@ -211,6 +211,7 @@ class Lars(RegressorMixin, Base):
             self,
             X,
             y,
+            dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
             reset=True,
@@ -339,7 +340,7 @@ class Lars(RegressorMixin, Base):
         }
     )
     @reflect
-    def predict(self, X, convert_dtype="deprecated") -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """Predicts `y` values for `X`."""
         check_is_fitted(self)
 

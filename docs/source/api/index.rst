@@ -23,7 +23,6 @@ use.
    cuml.datasets
    cuml.decomposition
    cuml.ensemble
-   cuml.experimental
    cuml.explainer
    cuml.feature_extraction
    cuml.fil
