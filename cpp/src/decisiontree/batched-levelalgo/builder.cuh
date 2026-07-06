@@ -492,11 +492,12 @@ struct Builder {
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
+    auto split_smem_config              = computeSplitSharedMemoryConfig();
 
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
     for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
-      computeSplit(c, n_blocks_dimx, n_large_nodes, work_items.size());
+      computeSplit(c, n_blocks_dimx, n_large_nodes, work_items.size(), split_smem_config);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -520,67 +521,67 @@ struct Builder {
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
-  size_t computeSplitHistogramSmemSize() const
+  struct SplitSharedMemoryConfig {
+    bool use_global_memory_histogram;
+    size_t dynamic_smem_size;
+  };
+
+  SplitSharedMemoryConfig computeSplitSharedMemoryConfig() const
   {
+    // Dynamic shared memory for the fast path: histogram, copied quantiles, and
+    // alignment padding for the kernel's shared-memory layout.
     auto shared_histogram_size =
       ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
     auto shared_quantiles_size = ML::checked_mul<std::size_t>(params.max_n_bins, sizeof(DataT));
-    auto dynamic_smem_size =
+    auto shared_dynamic_smem_size =
       ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size, sizeof(int));
-
-    // Extra room for alignment (see alignPointer in
-    // computeSplitKernel)
     auto alignment_smem_size =
       ML::checked_add<std::size_t>(sizeof(DataT), ML::checked_mul<std::size_t>(3, sizeof(int)));
-    return ML::checked_add<std::size_t>(dynamic_smem_size, alignment_smem_size);
-  }
+    shared_dynamic_smem_size =
+      ML::checked_add<std::size_t>(shared_dynamic_smem_size, alignment_smem_size);
 
-  size_t computeSplitGlobalHistogramSmemSize() const
-  {
-    // shared_done only, plus conservative alignment room for alignPointer<int>.
-    return ML::checked_add<std::size_t>(sizeof(int), sizeof(int));
-  }
+    // Dynamic shared memory for the fallback path only needs the per-block done
+    // flag used by the inter-block completion handshake.
+    auto global_dynamic_smem_size = ML::checked_add<std::size_t>(sizeof(int), sizeof(int));
 
-  size_t computeSplitStaticSmemSize() const
-  {
-    // computeSplitKernel also reserves static shared memory for CUB's scan temp
-    // storage and the per-warp split reduction scratch.
+    // Static shared memory is reserved by the kernel regardless of where the
+    // histogram lives.
     auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
     auto split_scratch_smem_size =
       ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
-    return ML::checked_add<std::size_t>(cdf_scan_smem_size, split_scratch_smem_size);
-  }
+    auto static_smem_size =
+      ML::checked_add<std::size_t>(cdf_scan_smem_size, split_scratch_smem_size);
 
-  size_t computeSplitSmemSize() const
-  {
-    return ML::checked_add<std::size_t>(computeSplitHistogramSmemSize(),
-                                        computeSplitStaticSmemSize());
-  }
-
-  bool shouldUseGlobalMemoryHistogram(size_t shared_histogram_dynamic_smem_size,
-                                      size_t shared_path_total_smem_size) const
-  {
     auto available_smem = size_t(handle.get_device_properties().sharedMemPerBlock);
-    auto global_smem    = ML::checked_add<std::size_t>(computeSplitGlobalHistogramSmemSize(),
-                                                    computeSplitStaticSmemSize());
-    ASSERT(available_smem >= global_smem, "Not enough shared memory for RF split bookkeeping.");
-    return shared_path_total_smem_size > available_smem ||
-           shared_histogram_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
+    auto global_total_smem_size =
+      ML::checked_add<std::size_t>(global_dynamic_smem_size, static_smem_size);
+    ASSERT(available_smem >= global_total_smem_size,
+           "Not enough shared memory for RF split bookkeeping.");
+
+    // Prefer shared memory when it fits and stays small enough for good occupancy;
+    // otherwise use the global histogram path to avoid launch failure or slowdown.
+    auto shared_total_smem_size =
+      ML::checked_add<std::size_t>(shared_dynamic_smem_size, static_smem_size);
+    bool use_global_memory_histogram =
+      shared_total_smem_size > available_smem ||
+      shared_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
+
+    return {use_global_memory_histogram,
+            use_global_memory_histogram ? global_dynamic_smem_size : shared_dynamic_smem_size};
   }
 
-  void computeSplit(IdxT col, size_t n_blocks_dimx, size_t n_large_nodes, size_t n_work_items)
+  void computeSplit(IdxT col,
+                    size_t n_blocks_dimx,
+                    size_t n_large_nodes,
+                    size_t n_work_items,
+                    const SplitSharedMemoryConfig& split_smem_config)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
     raft::common::nvtx::range fun_scope("Builder::computeSplit @builder.cuh [batched-levelalgo]");
-    auto n_bins                             = params.max_n_bins;
-    auto n_classes                          = dataset.num_outputs;
-    auto shared_histogram_dynamic_smem_size = computeSplitHistogramSmemSize();
-    auto shared_path_total_smem_size        = computeSplitSmemSize();
-    auto use_global_memory_histogram        = shouldUseGlobalMemoryHistogram(
-      shared_histogram_dynamic_smem_size, shared_path_total_smem_size);
-    auto smem_size = use_global_memory_histogram ? computeSplitGlobalHistogramSmemSize()
-                                                 : shared_histogram_dynamic_smem_size;
+    auto n_bins                      = params.max_n_bins;
+    auto n_classes                   = dataset.num_outputs;
+    auto use_global_memory_histogram = split_smem_config.use_global_memory_histogram;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
     dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
@@ -610,7 +611,7 @@ struct Builder {
       seed,
       use_global_memory_histogram,
       grid,
-      smem_size,
+      split_smem_config.dynamic_smem_size,
       builder_stream);
   }
 
