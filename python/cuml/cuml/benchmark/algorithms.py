@@ -60,10 +60,16 @@ _build_cpu_skl_classifier = None
 _build_mnmg_umap = None
 
 # cuML preprocessing classes (fallback to sklearn if not available)
+Binarizer = sklearn.preprocessing.Binarizer
+KBinsDiscretizer = sklearn.preprocessing.KBinsDiscretizer
+LabelBinarizer = sklearn.preprocessing.LabelBinarizer
+LabelEncoder = sklearn.preprocessing.LabelEncoder
 MaxAbsScaler = sklearn.preprocessing.MaxAbsScaler
 MinMaxScaler = sklearn.preprocessing.MinMaxScaler
 Normalizer = sklearn.preprocessing.Normalizer
 PolynomialFeatures = sklearn.preprocessing.PolynomialFeatures
+PowerTransformer = sklearn.preprocessing.PowerTransformer
+QuantileTransformer = sklearn.preprocessing.QuantileTransformer
 RobustScaler = sklearn.preprocessing.RobustScaler
 SimpleImputer = skSimpleImputer
 StandardScaler = sklearn.preprocessing.StandardScaler
@@ -76,10 +82,16 @@ if is_cuml_available():
     import cuml.metrics as _cuml_metrics
     import cuml.naive_bayes
     from cuml.preprocessing import (
+        Binarizer,
+        KBinsDiscretizer,
+        LabelBinarizer,
+        LabelEncoder,
         MaxAbsScaler,
         MinMaxScaler,
         Normalizer,
         PolynomialFeatures,
+        PowerTransformer,
+        QuantileTransformer,
         RobustScaler,
         SimpleImputer,
         StandardScaler,
@@ -298,6 +310,13 @@ def _treelite_format_hook(data):
 def _numpy_format_hook(data):
     """Helper function converting data into numpy array"""
     return _training_data_to_numpy(data[0], data[1])
+
+
+def _labels_as_features_hook(data):
+    """Helper function using labels as input for target-only transformers."""
+    if len(data) >= 4:
+        return data[1], None, data[3], None
+    return data[1], None
 
 
 @functools.cache
@@ -712,6 +731,58 @@ def all_algorithms():
             shared_args=dict(),
             name="PolynomialFeatures",
             accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.Binarizer,
+            Binarizer,
+            shared_args=dict(),
+            name="Binarizer",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.KBinsDiscretizer,
+            KBinsDiscretizer,
+            shared_args=dict(),
+            name="KBinsDiscretizer",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.PowerTransformer,
+            PowerTransformer,
+            shared_args=dict(),
+            name="PowerTransformer",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.QuantileTransformer,
+            QuantileTransformer,
+            shared_args=dict(),
+            name="QuantileTransformer",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.LabelEncoder,
+            LabelEncoder,
+            shared_args=dict(),
+            name="LabelEncoder",
+            accepts_labels=False,
+            cpu_data_prep_hook=_labels_as_features_hook,
+            cuml_data_prep_hook=_labels_as_features_hook,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.LabelBinarizer,
+            LabelBinarizer,
+            shared_args=dict(),
+            name="LabelBinarizer",
+            accepts_labels=False,
+            cpu_data_prep_hook=_labels_as_features_hook,
+            cuml_data_prep_hook=_labels_as_features_hook,
             bench_func=fit_transform,
         ),
     ]
