@@ -46,6 +46,8 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
                                                 int sample_count,
                                                 int rank,
                                                 int n_rows,
+                                                int n_cols,
+                                                bool row_major,
                                                 std::uint64_t seed)
 {
   int col        = blockIdx.x;
@@ -70,7 +72,8 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
   if (sample_rank == rank) {
     int local_row = static_cast<int>(global_row - local_begin);
     out[static_cast<std::size_t>(col) * sample_count + sample_idx] =
-      data[static_cast<int64_t>(col) * n_rows + local_row];
+      row_major ? data[static_cast<std::size_t>(local_row) * n_cols + col]
+                : data[static_cast<std::size_t>(col) * n_rows + local_row];
   }
 }
 
@@ -125,7 +128,9 @@ struct QuantileResult {
  *
  * @tparam T Floating-point input type.
  * @param handle RAFT handle used for stream and resource access.
- * @param data Column-major input matrix with shape `[n_cols, n_rows]`.
+ * @param data Input matrix. When `row_major` is false, data is column-major with
+ * shape `[n_cols, n_rows]`; when `row_major` is true, data is row-major with
+ * shape `[n_rows, n_cols]`.
  * @param max_n_bins Maximum number of quantile candidates to retain per feature.
  * @param n_rows Number of local rows in `data` for this rank.
  * @param n_cols Number of columns in `data`.
@@ -135,6 +140,7 @@ struct QuantileResult {
  * `max_n_bins`, rank error decreases like O(1 / sqrt(oversampling_factor)), so
  * returns from increasing this are strongly diminishing.
  * @param seed User seed for deterministic sampling.
+ * @param row_major Whether `data` is row-major instead of column-major.
  * @return Quantile metadata and owning device buffers for quantile values and bin counts.
  */
 template <typename T>
@@ -144,7 +150,8 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                int n_rows,
                                                int n_cols,
                                                int oversampling_factor = 4,
-                                               uint64_t seed           = uint64_t{0})
+                                               uint64_t seed           = uint64_t{0},
+                                               bool row_major          = false)
 {
   raft::common::nvtx::push_range("computeQuantiles");
   RAFT_EXPECTS(data != nullptr, "data pointer must not be null");
@@ -213,6 +220,8 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                                           sample_count,
                                                                           rank,
                                                                           n_rows,
+                                                                          n_cols,
+                                                                          row_major,
                                                                           seed);
   RAFT_CUDA_TRY(cudaGetLastError());
   if (distributed) {

@@ -152,7 +152,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         const double* sample_weight         = nullptr);
+         const double* sample_weight         = nullptr,
+         bool input_row_major                = false);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -163,7 +164,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         const double* sample_weight         = nullptr);
+         const double* sample_weight         = nullptr,
+         bool input_row_major                = false);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -236,7 +238,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         const double* sample_weight         = nullptr);
+         const double* sample_weight         = nullptr,
+         bool input_row_major                = false);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
          double* input,
@@ -246,7 +249,8 @@ void fit(const raft::handle_t& user_handle,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
          bool* bootstrap_masks               = nullptr,
-         const double* sample_weight         = nullptr);
+         const double* sample_weight         = nullptr,
+         bool input_row_major                = false);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
