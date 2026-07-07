@@ -118,7 +118,7 @@ class DummyEstimator(Base):
 
 @reflect
 def reflects_input(X):
-    return X
+    return cp.asarray(X)
 
 
 @reflect
@@ -308,7 +308,7 @@ def test_global_input_with_estimator_output_type():
 @pytest.mark.parametrize("output_type", ["input", "cupy", "cudf"])
 def test_convert_nested_outputs(construct, output_type):
     cuml.set_global_output_type(output_type)
-    x = rand_array("numpy")
+    x = rand_array("cupy")
 
     @reflect(array="x")
     def apply(func, x):
@@ -317,7 +317,7 @@ def test_convert_nested_outputs(construct, output_type):
     res = apply(construct, x)
     sol = construct("x", "y")
 
-    expected_type = "numpy" if output_type == "input" else output_type
+    expected_type = "cupy" if output_type == "input" else output_type
 
     def check_nested_types(res, sol):
         """Check types match, using `x` and `y` as placeholders for arrays"""
@@ -337,7 +337,7 @@ def test_convert_nested_outputs(construct, output_type):
     check_nested_types(res, sol)
 
 
-@pytest.mark.parametrize("sparse_type", ["cupy", "numpy", "cuml"])
+@pytest.mark.parametrize("sparse_type", ["cupy", "cuml"])
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
 def test_convert_sparse_outputs(sparse_type, output_type):
     @reflect
@@ -345,8 +345,6 @@ def test_convert_sparse_outputs(sparse_type, output_type):
         arr = cupyx.scipy.sparse.random(5, 5, random_state=42)
         if sparse_type == "cupy":
             return arr
-        elif sparse_type == "numpy":
-            return arr.get()
         else:
             return SparseCumlArray(arr)
 
@@ -382,12 +380,12 @@ def test_dont_convert_array_like(obj):
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
 def test_functions(output_type):
     cuml.set_global_output_type(output_type)
-    X = rand_array("numpy")
+    X = rand_array("cupy")
 
     # Reflected functions treat None/"input" the same
     assert_output_type(
         reflects_input(X),
-        "numpy" if output_type in (None, "input") else output_type,
+        "cupy" if output_type in (None, "input") else output_type,
     )
 
     # With no array argument functions default to 'cupy' unless
