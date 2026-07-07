@@ -105,7 +105,8 @@ Useful options:
   small.
 
 The examples runner also supports `--example-timeout=SECONDS` to bound each
-example subprocess runtime.
+example subprocess runtime. Examples that exceed the timeout are reported as
+xfailed instead of failed. The default timeout is 1200 seconds.
 
 ## scikit-learn examples environment
 
@@ -132,7 +133,7 @@ To debug expected example failures as ordinary failures:
 ```bash
 ./scikit-learn/run-examples.sh \
     --runxfail \
-    --example-timeout=300 \
+    --example-timeout=1200 \
     --junitxml=report-sklearn-examples-runxfail.xml
 ```
 

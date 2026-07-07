@@ -24,14 +24,15 @@ SKLEARN_EXAMPLES_JUNITXML="${RAPIDS_TESTS_DIR}/junit-sklearn-examples.xml"
 
 # Run scikit-learn examples under cuml.accel
 rapids-logger "scikit-learn examples"
-# DEBUG ONLY: use a very high timeout while investigating sklearn example hangs.
-timeout -v --signal=SIGINT --kill-after=60s 7d ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
+timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
     -vv --durations=0 --durations-min=0 \
     -n 4 --dist worksteal \
+    --example-timeout=1200 \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 TEST_EXITCODE=$?
 
-# The examples tests require a healthy majority of examples to pass so
+# Per-example timeouts and network failures are reported as xfails. The
+# examples tests still require a healthy majority of examples to pass so
 # widespread regressions are not missed.
 rapids-logger "scikit-learn examples: require >=50% pass rate"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
