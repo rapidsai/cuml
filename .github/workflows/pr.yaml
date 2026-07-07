@@ -31,7 +31,6 @@ jobs:
       - wheel-build-cuml
       - wheel-tests-cuml
       - wheel-tests-cuml-dask
-      - wheel-tests-integrations
       - devcontainer
     permissions:
       actions: read
