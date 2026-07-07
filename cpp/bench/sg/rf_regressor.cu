@@ -50,10 +50,10 @@ class RFRegressor : public RegressionFixture<D> {
       mPtr->trees.clear();
       fit(*this->handle,
           mPtr,
-          this->data.X,
+          this->data.X.data(),
           this->params.nrows,
           this->params.ncols,
-          this->data.y,
+          this->data.y.data(),
           rfParams,
           rapids_logger::level_enum::info,
           nullptr,

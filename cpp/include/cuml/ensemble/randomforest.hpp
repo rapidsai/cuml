@@ -179,7 +179,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   T* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight = nullptr);
+                  const double* sample_weight = nullptr,
+                  bool input_row_major        = false);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -263,7 +264,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   T* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight = nullptr);
+                  const double* sample_weight = nullptr,
+                  bool input_row_major        = false);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,

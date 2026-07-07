@@ -428,7 +428,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight)
+                  const double* sample_weight,
+                  bool input_row_major)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -441,7 +442,8 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks,
-      sample_weight);
+      sample_weight,
+      input_row_major);
 
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
@@ -679,7 +681,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   bool* bootstrap_masks,
                   value_t* feature_importances,
                   rapids_logger::level_enum verbosity,
-                  const double* sample_weight)
+                  const double* sample_weight,
+                  bool input_row_major)
 {
   RandomForestMetaData<value_t, label_t> metadata;
   fit(user_handle,
@@ -691,7 +694,8 @@ void fit_treelite(const raft::handle_t& user_handle,
       rf_params,
       verbosity,
       bootstrap_masks,
-      sample_weight);
+      sample_weight,
+      input_row_major);
 
   // Compute feature importances if requested
   if (feature_importances != nullptr) {
@@ -899,7 +903,8 @@ template CUML_EXPORT void fit_treelite<float, int>(const raft::handle_t& user_ha
                                                    bool* bootstrap_masks,
                                                    float* feature_importances,
                                                    rapids_logger::level_enum verbosity,
-                                                   const double* sample_weight);
+                                                   const double* sample_weight,
+                                                   bool input_row_major);
 template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_handle,
                                                     TreeliteModelHandle* model,
                                                     double* input,
@@ -911,7 +916,8 @@ template CUML_EXPORT void fit_treelite<double, int>(const raft::handle_t& user_h
                                                     bool* bootstrap_masks,
                                                     double* feature_importances,
                                                     rapids_logger::level_enum verbosity,
-                                                    const double* sample_weight);
+                                                    const double* sample_weight,
+                                                    bool input_row_major);
 template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_handle,
                                                      TreeliteModelHandle* model,
                                                      float* input,
@@ -922,7 +928,8 @@ template CUML_EXPORT void fit_treelite<float, float>(const raft::handle_t& user_
                                                      bool* bootstrap_masks,
                                                      float* feature_importances,
                                                      rapids_logger::level_enum verbosity,
-                                                     const double* sample_weight);
+                                                     const double* sample_weight,
+                                                     bool input_row_major);
 template CUML_EXPORT void fit_treelite<double, double>(const raft::handle_t& user_handle,
                                                        TreeliteModelHandle* model,
                                                        double* input,
@@ -933,5 +940,6 @@ template CUML_EXPORT void fit_treelite<double, double>(const raft::handle_t& use
                                                        bool* bootstrap_masks,
                                                        double* feature_importances,
                                                        rapids_logger::level_enum verbosity,
-                                                       const double* sample_weight);
+                                                       const double* sample_weight,
+                                                       bool input_row_major);
 }  // End namespace ML
