@@ -17,3 +17,4 @@ cuml.linear_model
    ElasticNet
    MBSGDClassifier
    MBSGDRegressor
+   Lars

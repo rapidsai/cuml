@@ -123,16 +123,29 @@ def _gen_data_classification(
     n_features=100,
     random_state=42,
     n_classes=2,
+    n_informative=None,
+    n_redundant=None,
+    n_clusters_per_class=None,
     dtype=np.float32,
 ):
     """Generate classification data using optimal backend."""
     if is_gpu_available() and is_cuml_available():
-        X, y = cuml_datasets.make_classification(
+        gen_kwargs = dict(
             n_samples=n_samples,
             n_features=n_features,
             n_classes=n_classes,
             random_state=random_state,
             dtype=dtype,
+        )
+        if n_informative is not None:
+            gen_kwargs["n_informative"] = n_informative
+        if n_redundant is not None:
+            gen_kwargs["n_redundant"] = n_redundant
+        if n_clusters_per_class is not None:
+            gen_kwargs["n_clusters_per_class"] = n_clusters_per_class
+
+        X, y = cuml_datasets.make_classification(
+            **gen_kwargs,
         )
         return cudf.DataFrame(X), cudf.Series(y)
 
@@ -140,18 +153,99 @@ def _gen_data_classification(
     # Note: GPU path uses cuml_datasets.make_classification (different defaults);
     # CPU path uses these settings. Slight differences in data generation may
     # affect cross-backend comparability of benchmark results.
-    n_informative = max(2, n_features // 2)
-    n_redundant = min(2, n_features - n_informative)
+    if n_informative is None:
+        n_informative = max(2, n_features // 2)
+    if n_redundant is None:
+        n_redundant = min(2, n_features - n_informative)
+    if n_clusters_per_class is None:
+        n_clusters_per_class = 1
     X, y = sklearn_make_classification(
         n_samples=n_samples,
         n_features=n_features,
         n_classes=n_classes,
         n_informative=n_informative,
         n_redundant=n_redundant,
-        n_clusters_per_class=1,
+        n_clusters_per_class=n_clusters_per_class,
         random_state=random_state,
     )
     return pd.DataFrame(X.astype(dtype)), pd.Series(y)
+
+
+def _gen_data_binary_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    positive_probability=0.2,
+    dtype=np.float32,
+):
+    """Generate binary feature classification data for Bernoulli models."""
+    rng = np.random.default_rng(random_state)
+    X = rng.binomial(
+        1, positive_probability, size=(n_samples, n_features)
+    ).astype(dtype)
+    n_informative = max(1, min(n_features, 8))
+    scores = X[:, :n_informative].sum(axis=1)
+    threshold = max(1, int(np.ceil(n_informative * positive_probability)))
+    y = (scores >= threshold).astype(np.int32)
+    return pd.DataFrame(X), pd.Series(y)
+
+
+def _gen_data_count_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    n_classes=2,
+    dtype=np.float32,
+):
+    """Generate non-negative count data for multinomial-style models."""
+    rng = np.random.default_rng(random_state)
+    y = rng.integers(0, n_classes, size=n_samples, dtype=np.int32)
+    feature_class = np.arange(n_features) % n_classes
+    X = rng.poisson(1.0, size=(n_samples, n_features)).astype(dtype)
+    for class_id in range(n_classes):
+        row_mask = y == class_id
+        col_idx = np.flatnonzero(feature_class == class_id)
+        if row_mask.any() and col_idx.size > 0:
+            X[np.ix_(row_mask, col_idx)] += rng.poisson(
+                2.0, size=(row_mask.sum(), col_idx.size)
+            ).astype(dtype)
+    return pd.DataFrame(X), pd.Series(y)
+
+
+def _gen_data_categorical_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    n_categories=16,
+    n_classes=2,
+    dtype=np.float32,
+):
+    """Generate integer-coded categorical data for categorical estimators."""
+    rng = np.random.default_rng(random_state)
+    X = rng.integers(
+        0, n_categories, size=(n_samples, n_features), dtype=np.int32
+    )
+    n_informative = max(1, min(n_features, 4))
+    y = (X[:, :n_informative].sum(axis=1) % n_classes).astype(np.int32)
+    return pd.DataFrame(X.astype(dtype)), pd.Series(y)
+
+
+def _gen_data_missing_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    missing_rate=0.1,
+    dtype=np.float32,
+):
+    """Generate numeric data with missing values for missingness indicators."""
+    rng = np.random.default_rng(random_state)
+    X = rng.normal(size=(n_samples, n_features)).astype(dtype)
+    y = (X[:, 0] > 0).astype(np.int32)
+    mask = rng.random(size=X.shape) < missing_rate
+    if not mask.any() and X.size > 0:
+        mask[0, 0] = True
+    X[mask] = np.nan
+    return pd.DataFrame(X), pd.Series(y)
 
 
 # Default location to cache datasets
@@ -489,6 +583,10 @@ _data_generators = {
     "blobs": _gen_data_blobs,
     "zeros": _gen_data_zeros,
     "classification": _gen_data_classification,
+    "binary_classification": _gen_data_binary_classification,
+    "count_classification": _gen_data_count_classification,
+    "categorical_classification": _gen_data_categorical_classification,
+    "missing_classification": _gen_data_missing_classification,
     "regression": _gen_data_regression,
     "airline_regression": _gen_data_airline_regression,
     "airline_classification": _gen_data_airline_classification,
@@ -586,7 +684,16 @@ def gen_data(
         datasets_root_dir, "%s_y.pkl" % dataset_name
     )
 
-    mock_datasets = ["regression", "classification", "blobs", "zeros"]
+    mock_datasets = [
+        "regression",
+        "classification",
+        "binary_classification",
+        "count_classification",
+        "categorical_classification",
+        "missing_classification",
+        "blobs",
+        "zeros",
+    ]
     if dataset_name in mock_datasets:
         gen_kwargs = {"dtype": dtype, **kwargs}
         if n_samples is not None:
