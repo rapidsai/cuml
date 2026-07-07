@@ -17,6 +17,19 @@ Most examples in this README use scikit-learn as a reference, but the instructio
   ./scikit-learn/run-tests.sh -x --pdb            # Stop on first failure and debug
   ```
 
+- `scikit-learn/run-examples.sh`
+  Executes scikit-learn example scripts under `python -m cuml.accel`.
+  The script clones `scikit-learn` into `scikit-learn/sklearn-upstream`
+  if needed, checks out the tag matching the installed scikit-learn
+  version, and forwards any extra arguments directly to pytest.
+
+  Example usage:
+  ```bash
+  ./scikit-learn/run-examples.sh                  # Run all examples
+  ./scikit-learn/run-examples.sh -k plot_kmeans   # Run matching examples
+  ./scikit-learn/run-examples.sh --runxfail       # Ignore xfail markers
+  ```
+
 - `summarize-results.py`
   Analyzes test results from an XML report file and prints a summary or generates an xfail list.
   Options:
@@ -76,6 +89,77 @@ View tracebacks for specific failures:
 ```bash
 ./summarize-results.py --format=traceback -k "logistic" report.xml
 ```
+
+### 3. Run scikit-learn examples locally
+
+Run these commands from `python/cuml/cuml_accel_tests/upstream` in a
+cuML development environment where `cuml.accel`, scikit-learn, and the
+scikit-learn example dependencies are importable. The CI job installs a
+few optional example dependencies such as `plotly`, `polars`, `pooch`,
+and `scikit-image` before invoking the runner.
+
+To create a local conda environment from RAPIDS nightlies with the
+dependencies needed to run the example suite:
+
+```bash
+conda create -n rapids-26.08-sklearn-examples \
+    -c rapidsai-nightly -c conda-forge \
+    rapids=26.08 \
+    python=3.14 \
+    "cuda-version>=13.0,<=13.3" \
+    scikit-learn \
+    git \
+    pytest \
+    pytest-xdist \
+    matplotlib \
+    seaborn \
+    plotly \
+    "polars>=1,<2" \
+    "pooch>=1,<2" \
+    scikit-image
+```
+
+Adjust the RAPIDS, Python, and CUDA constraints if you are testing a
+different release branch or host CUDA stack.
+
+The default local invocation uses the same xfail handling as CI. Expected
+example failures are read from `scikit-learn/xfail-examples.yaml`, and
+all remaining failures are reported in the JUnit XML file.
+
+```bash
+./scikit-learn/run-examples.sh \
+    -vv --durations=0 --durations-min=0 \
+    -n 4 --dist worksteal \
+    --junitxml=report-sklearn-examples.xml
+```
+
+Summarize the report with the same pass-rate threshold used by the CI
+example job:
+
+```bash
+./summarize-results.py \
+    --fail-below 50 \
+    report-sklearn-examples.xml
+```
+
+To debug the examples without applying xfails, add `--runxfail`. This
+causes examples listed in `xfail-examples.yaml` to run as ordinary tests,
+so their actual pass/fail behavior is visible.
+
+```bash
+./scikit-learn/run-examples.sh \
+    --runxfail \
+    --example-timeout=300 \
+    --junitxml=report-sklearn-examples-runxfail.xml
+```
+
+Useful debugging options:
+- `-k "pattern"`: Run only examples whose node ID matches a pattern, for
+  example `-k plot_svm_scale_c`
+- `-x --tb=short`: Stop at the first failure with shorter tracebacks
+- `--example-timeout=SECONDS`: Bound each example subprocess runtime
+- `-n N --dist worksteal`: Run examples in parallel; use a small bounded
+  `N` because high parallelism can exhaust GPU memory
 
 ## Xfail List
 
