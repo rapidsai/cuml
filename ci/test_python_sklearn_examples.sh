@@ -34,9 +34,9 @@ TEST_EXITCODE=$?
 # Per-example timeouts and network failures are reported as xfails. The
 # examples tests still require a healthy majority of examples to pass so
 # widespread regressions are not missed.
-rapids-logger "scikit-learn examples: require >=50% pass rate"
+rapids-logger "scikit-learn examples: require >=95% pass rate"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
-    --fail-below 50 \
+    --fail-below 95 \
     "${SKLEARN_EXAMPLES_JUNITXML}"
 SUMMARY_EXITCODE=$?
 
