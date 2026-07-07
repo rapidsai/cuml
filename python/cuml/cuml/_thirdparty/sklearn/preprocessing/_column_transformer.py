@@ -571,6 +571,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.transformer_weights = transformer_weights
         self.verbose = verbose
 
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            "n_jobs",
+            "output_type",
+            "remainder",
+            "sparse_threshold",
+            "transformer_weights",
+            "transformers",
+            "verbose",
+        ]
+
     @property
     def _transformers(self):
         """
