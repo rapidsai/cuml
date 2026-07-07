@@ -285,21 +285,12 @@ def _cuml_preds(model, X):
     return cp.asnumpy(cp.asarray(model.predict(X)))
 
 
-def _ordered_array(X, datatype, order, input_type):
-    X = np.array(X, dtype=datatype, order=order, copy=True)
-    if input_type == "cupy":
-        return cp.asarray(X, order=order)
-    return X
-
-
-def _assert_strict_order(X, order):
-    assert bool(X.flags.c_contiguous) == (order == "C")
-    assert bool(X.flags.f_contiguous) == (order == "F")
-
-
+@pytest.mark.parametrize(
+    "estimator", [curfc, curfr], ids=["classifier", "regressor"]
+)
 @pytest.mark.parametrize("input_type", ["numpy", "cupy"])
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_rf_classifier_fit_input_order_parity(datatype, input_type):
+def test_rf_fit_input_order_parity(datatype, input_type, estimator):
     X, y = make_classification(
         n_samples=128,
         n_features=8,
@@ -310,11 +301,9 @@ def test_rf_classifier_fit_input_order_parity(datatype, input_type):
         class_sep=2.0,
         random_state=7,
     )
-    X_c = _ordered_array(X, datatype, "C", input_type)
-    X_f = _ordered_array(X, datatype, "F", input_type)
-    _assert_strict_order(X_c, "C")
-    _assert_strict_order(X_f, "F")
-    y = y.astype(np.int32)
+    xp = cp if input_type == "cupy" else np
+    X_c = xp.asarray(X, dtype=datatype, order="C")
+    X_f = xp.asarray(X, dtype=datatype, order="F")
 
     params = dict(
         n_estimators=3,
@@ -325,51 +314,14 @@ def test_rf_classifier_fit_input_order_parity(datatype, input_type):
         random_state=11,
         n_streams=1,
     )
-    c_model = curfc(**params).fit(X_c, y)
-    f_model = curfc(**params).fit(X_f, y)
+    c_model = estimator(**params).fit(X_c, y)
+    f_model = estimator(**params).fit(X_f, y)
 
     X_pred = np.array(X, dtype=datatype, order="C")
-    np.testing.assert_array_equal(
-        _cuml_preds(c_model, X_pred), _cuml_preds(f_model, X_pred)
-    )
-    assert c_model.as_treelite().num_feature == X.shape[1]
+    c_preds = _cuml_preds(c_model, X_pred)
+    f_preds = _cuml_preds(f_model, X_pred)
 
-
-@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
-@pytest.mark.parametrize("datatype", [np.float32, np.float64])
-def test_rf_regressor_fit_input_order_parity(datatype, input_type):
-    X, y = make_regression(
-        n_samples=128,
-        n_features=8,
-        n_informative=5,
-        noise=0.1,
-        random_state=7,
-    )
-    X_c = _ordered_array(X, datatype, "C", input_type)
-    X_f = _ordered_array(X, datatype, "F", input_type)
-    _assert_strict_order(X_c, "C")
-    _assert_strict_order(X_f, "F")
-    y = y.astype(datatype)
-
-    params = dict(
-        n_estimators=3,
-        bootstrap=False,
-        max_depth=4,
-        max_features=1.0,
-        n_bins=16,
-        random_state=11,
-        n_streams=1,
-    )
-    c_model = curfr(**params).fit(X_c, y)
-    f_model = curfr(**params).fit(X_f, y)
-
-    X_pred = np.array(X, dtype=datatype, order="C")
-    np.testing.assert_allclose(
-        _cuml_preds(c_model, X_pred),
-        _cuml_preds(f_model, X_pred),
-        rtol=1e-6,
-        atol=1e-6,
-    )
+    np.testing.assert_allclose(c_preds, f_preds, rtol=1e-6, atol=1e-6)
     assert c_model.as_treelite().num_feature == X.shape[1]
 
 

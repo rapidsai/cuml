@@ -167,6 +167,24 @@ void fit(const raft::handle_t& user_handle,
          const double* sample_weight         = nullptr,
          bool input_row_major                = false);
 
+/**
+ * @brief Train a random forest classifier and export it as a Treelite model.
+ *
+ * @param[in] user_handle RAFT handle for stream and allocator resources.
+ * @param[out] model Treelite model handle populated by training.
+ * @param[in] input Training data, column-major by default or row-major when
+ *   input_row_major is true.
+ * @param[in] n_rows Number of rows in input.
+ * @param[in] n_cols Number of columns in input.
+ * @param[in] labels Training labels.
+ * @param[in] n_unique_labels Number of unique classes in labels.
+ * @param[in] rf_params Random forest training parameters.
+ * @param[in] bootstrap_masks Optional bootstrap masks.
+ * @param[out] feature_importances Output feature importances.
+ * @param[in] verbosity Logging verbosity.
+ * @param[in] sample_weight Optional per-row sample weights.
+ * @param[in] input_row_major Whether input is row-major instead of column-major.
+ */
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
                   TreeliteModelHandle* model,
@@ -253,6 +271,23 @@ void fit(const raft::handle_t& user_handle,
          const double* sample_weight         = nullptr,
          bool input_row_major                = false);
 
+/**
+ * @brief Train a random forest regressor and export it as a Treelite model.
+ *
+ * @param[in] user_handle RAFT handle for stream and allocator resources.
+ * @param[out] model Treelite model handle populated by training.
+ * @param[in] input Training data, column-major by default or row-major when
+ *   input_row_major is true.
+ * @param[in] n_rows Number of rows in input.
+ * @param[in] n_cols Number of columns in input.
+ * @param[in] labels Training labels.
+ * @param[in] rf_params Random forest training parameters.
+ * @param[in] bootstrap_masks Optional bootstrap masks.
+ * @param[out] feature_importances Output feature importances.
+ * @param[in] verbosity Logging verbosity.
+ * @param[in] sample_weight Optional per-row sample weights.
+ * @param[in] input_row_major Whether input is row-major instead of column-major.
+ */
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
                   TreeliteModelHandle* model,

@@ -472,9 +472,7 @@ class BaseRandomForestModel(InteropMixin, Base):
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
-        cdef bool input_row_major = (
-            X.flags.c_contiguous and not X.flags.f_contiguous
-        )
+        cdef bool input_row_major = not X.flags.f_contiguous
 
         cdef int max_depth_c
         max_depth = self.max_depth
