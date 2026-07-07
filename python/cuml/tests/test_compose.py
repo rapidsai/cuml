@@ -255,6 +255,15 @@ def test_column_transformer_sklearn_clone_preserves_transformers():
     assert cloned.transformers[0][2] == ["a", "b"]
 
 
+def test_column_transformer_sklearn_clone_default_transformers():
+    transformer = cuColumnTransformer()
+
+    assert transformer.get_params(deep=True)["transformers"] is None
+    cloned = sk_clone(transformer)
+
+    assert cloned.transformers is None
+
+
 def test_make_column_selector():
     X_np = pd.DataFrame(
         {
