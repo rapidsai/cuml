@@ -34,6 +34,10 @@ from cuml.testing.utils import stress_param
 
 sm = pytest.importorskip("statsmodels.api")
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:`cuml.tsa.ARIMA` was deprecated:FutureWarning"
+)
+
 ###############################################################################
 #                                  Test data                                  #
 ###############################################################################

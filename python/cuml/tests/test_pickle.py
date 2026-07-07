@@ -368,6 +368,9 @@ def test_umap_pickle(tmpdir, datatype, keys):
 @pytest.mark.filterwarnings(
     "ignore:Transformers((.|\n)*):UserWarning:cuml[.*]"
 )
+@pytest.mark.filterwarnings(
+    "ignore:`cuml.tsa.ExponentialSmoothing` was deprecated:FutureWarning"
+)
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
