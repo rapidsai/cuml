@@ -9,6 +9,7 @@
 #include <raft/core/handle.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
+#include <kmeans/kmeans_params.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -38,7 +39,7 @@ void predict_impl(const raft::handle_t& handle,
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
 
   cuvs::cluster::kmeans::predict(
-    handle, params.to_cuvs(), X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
+    handle, to_cuvs(params), X_view, sw, centroids_view, rLabels, normalize_weights, inertia_view);
 }
 
 void predict(const raft::handle_t& handle,
