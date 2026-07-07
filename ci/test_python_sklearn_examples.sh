@@ -27,7 +27,7 @@ rapids-logger "scikit-learn examples"
 timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/upstream/scikit-learn/run-examples.sh \
     -vv --durations=0 --durations-min=0 \
     -n 4 --dist worksteal \
-    --example-timeout=1200 \
+    --example-timeout=300 \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 TEST_EXITCODE=$?
 
