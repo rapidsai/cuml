@@ -11,6 +11,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, nvtx, reflect, run_in_internal_context
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 
 from libc.stdint cimport uintptr_t
@@ -292,6 +293,8 @@ class ARIMA(Base):
                  verbose=False,
                  output_type=None,
                  convert_dtype="deprecated"):
+
+        warn_deprecated_tsa_api("cuml.tsa.ARIMA")
 
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)

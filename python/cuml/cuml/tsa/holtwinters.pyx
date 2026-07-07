@@ -9,6 +9,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base, get_handle
 from cuml.internals.outputs import run_in_internal_context
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -160,6 +161,8 @@ class ExponentialSmoothing(Base):
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3,
                  verbose=False, output_type=None):
+
+        warn_deprecated_tsa_api("cuml.tsa.ExponentialSmoothing")
 
         super().__init__(verbose=verbose, output_type=output_type)
 

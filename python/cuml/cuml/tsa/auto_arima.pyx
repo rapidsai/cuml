@@ -11,6 +11,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, reflect, run_in_internal_context
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -164,6 +165,9 @@ class AutoARIMA(Base):
                  verbose=False,
                  output_type=None,
                  convert_dtype="deprecated"):
+
+        warn_deprecated_tsa_api("cuml.tsa.auto_arima.AutoARIMA")
+
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
