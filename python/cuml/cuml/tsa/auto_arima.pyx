@@ -93,6 +93,10 @@ class AutoARIMA(Base):
     Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
+    .. deprecated:: 26.08
+        ``cuml.tsa.auto_arima.AutoARIMA`` and ``cuml.AutoARIMA`` are
+        deprecated and will be removed in the cuML 26.12 release.
+
     This interface offers a highly customizable search, with functionality
     similar to the `forecast` and `fable` packages in R. It provides an
     abstraction around the underlying ARIMA models to predict and forecast as

@@ -137,6 +137,10 @@ class ARIMA(Base):
     Implements a batched ARIMA model for in- and out-of-sample
     time-series prediction, with support for seasonality (SARIMA)
 
+    .. deprecated:: 26.08
+        ``cuml.tsa.ARIMA`` and ``cuml.ARIMA`` are deprecated and will be
+        removed in the cuML 26.12 release.
+
     ARIMA stands for Auto-Regressive Integrated Moving Average.
     See https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average
 

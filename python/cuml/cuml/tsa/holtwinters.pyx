@@ -58,6 +58,10 @@ class ExponentialSmoothing(Base):
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
 
+    .. deprecated:: 26.08
+        ``cuml.tsa.ExponentialSmoothing`` and ``cuml.ExponentialSmoothing``
+        are deprecated and will be removed in the cuML 26.12 release.
+
     Notes
     -----
     *Known Limitations:* This version of ExponentialSmoothing currently
