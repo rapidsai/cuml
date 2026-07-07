@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cuml
@@ -54,6 +54,7 @@ def test_class_enumerator_actual_module():
             cuml.LinearRegression,
             cuml.MBSGDClassifier,
             cuml.MBSGDRegressor,
+            cuml.linear_model.Lars,
         ],
         custom_constructors={
             "LogisticRegression": lambda: cuml.LogisticRegression(C=5.5)
