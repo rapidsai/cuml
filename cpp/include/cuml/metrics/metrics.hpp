@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <cstdint>
 
@@ -13,7 +14,7 @@ namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace Metrics {
 
@@ -425,4 +426,4 @@ double trustworthiness_score(const raft::handle_t& h,
                              int batchSize = 512);
 
 }  // namespace Metrics
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

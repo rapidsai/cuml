@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
@@ -19,4 +19,4 @@ add_executable(symreg_example symreg_example.cpp)
 set_target_properties(symreg_example PROPERTIES LINKER_LANGUAGE "CUDA")
 
 # Link cuml and cudart
-target_link_libraries(symreg_example cuml::cuml++)
+target_link_libraries(symreg_example cuml::cuml)

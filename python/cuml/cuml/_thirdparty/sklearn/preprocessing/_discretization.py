@@ -24,12 +24,11 @@ import numpy as cpu_np
 from cuml.cluster import KMeans
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.preprocessing.encoders import OneHotEncoder
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.validation import check_is_fitted, check_inputs, check_array
 
 from ....common.array_descriptor import CumlArrayDescriptor
 from ....internals.array_sparse import SparseCumlArray
 from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters import check_array
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES
 
@@ -171,7 +170,7 @@ class KBinsDiscretizer(TransformerMixin,
         -------
         self
         """
-        X = self._validate_data(X, dtype='numeric')
+        X = check_inputs(self, X, dtype=FLOAT_DTYPES, reset=True)
 
         valid_encode = ('onehot', 'onehot-dense', 'ordinal')
         if self.encode not in valid_encode:
@@ -296,12 +295,7 @@ class KBinsDiscretizer(TransformerMixin,
             Data in the binned space.
         """
         check_is_fitted(self)
-
-        Xt = check_array(X, copy=True, dtype=FLOAT_DTYPES)
-        n_features = self.n_bins_.shape[0]
-        if Xt.shape[1] != n_features:
-            raise ValueError("Incorrect number of features. Expecting {}, "
-                             "received {}.".format(n_features, Xt.shape[1]))
+        Xt = check_inputs(self, X, dtype=FLOAT_DTYPES, copy=True)
 
         bin_edges = self.bin_edges_
         for jj in range(Xt.shape[1]):

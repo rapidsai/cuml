@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -243,7 +243,8 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
-    int treeid)
+    int treeid,
+    const double* sample_weight = nullptr)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -252,93 +253,73 @@ class DecisionTree {
       params.split_criterion = default_criterion;
     }
     using IdxT = int;
-    // Dispatch objective
-    if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GINI) {
-      return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                 s,
-                                                                 treeid,
-                                                                 seed,
-                                                                 params,
-                                                                 data,
-                                                                 labels,
-                                                                 nrows,
-                                                                 ncols,
-                                                                 row_ids,
-                                                                 unique_labels,
-                                                                 quantiles)
-        .train();
-    } else if (not std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::ENTROPY) {
-      return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    s,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    row_ids,
-                                                                    unique_labels,
-                                                                    quantiles)
-        .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
-      return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                s,
-                                                                treeid,
-                                                                seed,
-                                                                params,
-                                                                data,
-                                                                labels,
-                                                                nrows,
-                                                                ncols,
-                                                                row_ids,
-                                                                unique_labels,
-                                                                quantiles)
+    // Dispatch objective family. The objective object switches on the criterion at runtime.
+    if (not std::is_same<DataT, LabelT>::value and (params.split_criterion == CRITERION::GINI ||
+                                                    params.split_criterion == CRITERION::ENTROPY)) {
+      if (sample_weight != nullptr) {
+        return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                                   s,
+                                                                                   treeid,
+                                                                                   seed,
+                                                                                   params,
+                                                                                   data,
+                                                                                   labels,
+                                                                                   sample_weight,
+                                                                                   nrows,
+                                                                                   ncols,
+                                                                                   row_ids,
+                                                                                   unique_labels,
+                                                                                   quantiles)
+          .train();
+      }
+      return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                           s,
+                                                                           treeid,
+                                                                           seed,
+                                                                           params,
+                                                                           data,
+                                                                           labels,
+                                                                           sample_weight,
+                                                                           nrows,
+                                                                           ncols,
+                                                                           row_ids,
+                                                                           unique_labels,
+                                                                           quantiles)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::POISSON) {
-      return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    s,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    row_ids,
-                                                                    unique_labels,
-                                                                    quantiles)
-        .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
-      return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                  s,
-                                                                  treeid,
-                                                                  seed,
-                                                                  params,
-                                                                  data,
-                                                                  labels,
-                                                                  nrows,
-                                                                  ncols,
-                                                                  row_ids,
-                                                                  unique_labels,
-                                                                  quantiles)
-        .train();
-    } else if (std::is_same<DataT, LabelT>::value and
-               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
-      return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                            s,
-                                                                            treeid,
-                                                                            seed,
-                                                                            params,
-                                                                            data,
-                                                                            labels,
-                                                                            nrows,
-                                                                            ncols,
-                                                                            row_ids,
-                                                                            unique_labels,
-                                                                            quantiles)
+               (params.split_criterion == CRITERION::MSE ||
+                params.split_criterion == CRITERION::POISSON ||
+                params.split_criterion == CRITERION::GAMMA ||
+                params.split_criterion == CRITERION::INVERSE_GAUSSIAN)) {
+      if (sample_weight != nullptr) {
+        return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                               s,
+                                                                               treeid,
+                                                                               seed,
+                                                                               params,
+                                                                               data,
+                                                                               labels,
+                                                                               sample_weight,
+                                                                               nrows,
+                                                                               ncols,
+                                                                               row_ids,
+                                                                               unique_labels,
+                                                                               quantiles)
+          .train();
+      }
+      return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                       s,
+                                                                       treeid,
+                                                                       seed,
+                                                                       params,
+                                                                       data,
+                                                                       labels,
+                                                                       sample_weight,
+                                                                       nrows,
+                                                                       ncols,
+                                                                       row_ids,
+                                                                       unique_labels,
+                                                                       quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

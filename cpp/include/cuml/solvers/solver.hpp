@@ -1,15 +1,17 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Solver {
 
 void sgdFit(raft::handle_t& handle,
@@ -188,4 +190,4 @@ void cdPredict(raft::handle_t& handle,
                int loss);
 
 };  // namespace Solver
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

@@ -5,9 +5,11 @@
 import cupy as cp
 import numpy as np
 import pytest
+import scipy
 import scipy.sparse
 import sklearn
 import sklearn.kernel_ridge
+import sklearn.preprocessing
 import sklearn.svm
 import umap
 from numpy.testing import assert_allclose
@@ -53,6 +55,14 @@ from cuml.testing.utils import array_equal
 
 
 SKLEARN_18 = Version(sklearn.__version__) >= Version("1.8.0.dev0")
+
+
+def _filter_scipy_lbfgsb_deprecation(func):
+    if Version("1.16") <= Version(scipy.__version__) < Version("1.18"):
+        return pytest.mark.filterwarnings(
+            "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
+        )(func)
+    return func
 
 
 @pytest.fixture
@@ -229,12 +239,10 @@ def test_linear_regression(random_state):
     assert_estimator_roundtrip(original, SkLinearRegression, X, y)
 
 
-# Ignore scipy 1.17.0+ deprecation warning from sklearn 1.5.x LogisticRegression
-# using deprecated L-BFGS-B parameters. This is fixed in sklearn 1.6.0+.
-@pytest.mark.filterwarnings(
-    "ignore:.*The `disp` and `iprint` options.*:DeprecationWarning"
-)
+@_filter_scipy_lbfgsb_deprecation
 def test_logistic_regression(random_state):
+    # Ignore SciPy 1.16/1.17 deprecation warnings emitted through sklearn's
+    # default LogisticRegression L-BFGS-B path.
     X, y = make_classification(
         n_samples=50, n_features=5, n_informative=3, random_state=random_state
     )
@@ -376,55 +384,38 @@ def test_svr(random_state, sparse, kernel):
 
 
 @pytest.mark.parametrize("sparse", [False, True])
-@pytest.mark.parametrize("probability", [False, True])
-@pytest.mark.parametrize("kernel", ["rbf", "precomputed"])
-def test_svc(random_state, sparse, probability, kernel):
+def test_svc(random_state, sparse):
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=random_state
     )
-    if kernel == "precomputed":
-        if sparse or probability:
-            pytest.skip(
-                "precomputed kernel not supported with sparse or probability"
-            )
-        K = X @ X.T  # Linear kernel matrix
-        original = cuml.SVC(kernel="precomputed")
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
-    else:
-        if sparse:
-            X = scipy.sparse.coo_matrix(X)
-        original = cuml.SVC()
-        assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
+    if sparse:
+        X = scipy.sparse.coo_matrix(X)
+    original = cuml.SVC()
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, X, y)
 
-        # Check inference works after conversion
-        cu_model = cuml.SVC(probability=probability).fit(X, y)
-        sk_model = sklearn.svm.SVC(probability=probability).fit(X, y)
+    # Check inference works after conversion.
+    cu_model = cuml.SVC().fit(X, y)
+    sk_model2 = cu_model.as_sklearn()
+    sk_score = sk_model2.score(X, y)
+    assert sk_score > 0.7
 
-        cu_model2 = cuml.SVC.from_sklearn(sk_model)
-        sk_model2 = cu_model.as_sklearn()
+    sk_model = sklearn.svm.SVC().fit(X, y)
+    cu_model2 = cuml.SVC.from_sklearn(sk_model)
 
-        cu_score = cu_model2.score(X, y)
-        assert cu_score > 0.7
+    cu_score = cu_model2.score(X, y)
+    assert cu_score > 0.7
 
-        sk_score = sk_model2.score(X, y)
-        assert sk_score > 0.7
+    # Check n_support_ is correctly set
+    assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
 
-        if probability:
-            # Check that predict_proba works
-            cu_pred_prob = cu_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(cu_pred_prob, y) > 0.7
-            sk_pred_prob = sk_model2.predict_proba(X).argmax(axis=1)
-            assert accuracy_score(sk_pred_prob, y) > 0.7
 
-            # Check that probA_, probB_ are wired up properly
-            for attr in ["probA_", "probB_"]:
-                val = getattr(sk_model2, attr)
-                assert isinstance(val, np.ndarray)
-                assert val.dtype == "float64"
-                assert val.shape == (1,)
-
-        # Check n_support_ is correctly set
-        assert cu_model2.n_support_ == cu_model2.support_vectors_.shape[0]
+def test_svc_precomputed(random_state):
+    X, y = make_classification(
+        n_samples=100, n_features=5, n_informative=3, random_state=random_state
+    )
+    K = X @ X.T  # Linear kernel matrix
+    original = cuml.SVC(kernel="precomputed")
+    assert_estimator_roundtrip(original, sklearn.svm.SVC, K, y)
 
 
 @pytest.mark.parametrize("kind", ["SVC", "SVR"])
@@ -788,6 +779,13 @@ def test_random_forest_classifier(random_state, oob_score):
     assert isinstance(sk_model2.classes_, np.ndarray)
     assert isinstance(cu_model2.classes_, np.ndarray)
     assert (sk_model2.classes_ == cu_model2.classes_).all()
+    for estimator in sk_model2.estimators_:
+        estimator_classes = np.arange(
+            sk_model2.n_classes_, dtype=estimator.classes_.dtype
+        )
+        assert isinstance(estimator.classes_, np.ndarray)
+        assert (estimator.classes_ == estimator_classes).all()
+        assert estimator.n_classes_ == sk_model2.n_classes_
 
     # Ensure params/attrs roundtrip
     # Exclude classes_ due to dtype differences between implementations
@@ -816,6 +814,29 @@ def test_random_forest_classifier(random_state, oob_score):
     # Refit models have similar results
     assert sk_model2.score(X, y) > 0.7
     assert cu_model2.score(X, y) > 0.7
+
+
+def test_random_forest_classifier_as_sklearn_estimator_classes(random_state):
+    X, y = make_classification(
+        n_samples=200, n_features=5, n_informative=3, random_state=random_state
+    )
+    y = np.where(y == 0, 10, 20)
+    common_params = {"n_estimators": 3, "max_depth": None}
+
+    cu_model = cuml.RandomForestClassifier(**common_params).fit(X, y)
+    sk_model = sklearn.ensemble.RandomForestClassifier(**common_params).fit(
+        X, y
+    )
+    sk_model2 = cu_model.as_sklearn()
+
+    np.testing.assert_array_equal(sk_model2.classes_, sk_model.classes_)
+    for estimator, sk_estimator in zip(
+        sk_model2.estimators_, sk_model.estimators_, strict=True
+    ):
+        np.testing.assert_array_equal(
+            estimator.classes_, sk_estimator.classes_
+        )
+        assert estimator.n_classes_ == sk_estimator.n_classes_
 
 
 @pytest.mark.parametrize("oob_score", [False, True])
@@ -1010,3 +1031,49 @@ def test_target_encoder(random_state):
 
     assert array_equal(original_output, sklearn_output)
     assert array_equal(original_output, roundtrip_output)
+
+
+def test_label_encoder():
+    y = np.array(["a", "b", "b", "a"])
+    cu_model = cuml.preprocessing.LabelEncoder().fit(y)
+    sk_model = sklearn.preprocessing.LabelEncoder().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelEncoder.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+
+    sol = np.array([0, 1, 1, 0])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)
+
+
+def test_label_binarizer():
+    y = np.array(["a", "b", "c", "a"])
+    cu_model = cuml.preprocessing.LabelBinarizer().fit(y)
+    sk_model = sklearn.preprocessing.LabelBinarizer().fit(y)
+
+    cu_model2 = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model)
+    sk_model2 = cu_model.as_sklearn()
+
+    roundtrip = cuml.preprocessing.LabelBinarizer.from_sklearn(sk_model2)
+    assert_roundtrip_consistency(cu_model, roundtrip)
+
+    np.testing.assert_array_equal(cu_model.classes_, sk_model2.classes_)
+    np.testing.assert_array_equal(cu_model.classes_, roundtrip.classes_)
+    assert roundtrip.y_type_ == cu_model.y_type_
+    assert roundtrip.sparse_input_ == cu_model.sparse_input_
+
+    sol = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]])
+    cu_out = cu_model2.transform(y)
+    sk_out = sk_model2.transform(y)
+
+    np.testing.assert_array_equal(cu_out, sol)
+    np.testing.assert_array_equal(sk_out, sol)

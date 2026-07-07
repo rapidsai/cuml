@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -7,9 +7,11 @@
 #include "../matrix/data.hpp"
 #include "../matrix/part_descriptor.hpp"
 
+#include <cuml/common/export.hpp>
+
 #include <raft/core/handle.hpp>
 
-namespace MLCommon {
+namespace CUML_EXPORT MLCommon {
 namespace LinAlg {
 namespace opg {
 
@@ -34,4 +36,4 @@ void lstsqEig(const raft::handle_t& handle,
 
 }  // end namespace opg
 }  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // namespace CUML_EXPORT MLCommon

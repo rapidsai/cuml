@@ -236,7 +236,7 @@ def test_linear_regression_model_default_generalized(dataset):
 @example(train_dtype=np.float32, test_dtype=np.float64)
 @example(train_dtype=np.float64, test_dtype=np.float32)
 @example(train_dtype=np.float64, test_dtype=np.float64)
-def test_linreg_predict_convert_dtype(train_dtype, test_dtype):
+def test_linreg_predict_mixed_dtypes(train_dtype, test_dtype):
     X, y = make_regression(
         n_samples=50, n_features=10, n_informative=5, random_state=0
     )

@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 import scipy
 import sklearn
-from packaging.version import Version
 from sklearn.impute import MissingIndicator as skMissingIndicator
 from sklearn.impute import SimpleImputer as skSimpleImputer
 from sklearn.preprocessing import Binarizer as skBinarizer
@@ -830,7 +829,7 @@ def test_kbinsdiscretizer(
         n_bins=n_bins,
         encode=encode,
         strategy=strategy,
-        # defaults for subsample were changed in sklearn version 1.5+
+        # Set subsample explicitly for parity with cuML's configured default.
         subsample=200_000
         if strategy in ("uniform", "quantile", "kmeans")
         else None,
@@ -907,6 +906,9 @@ def test_missing_indicator_sparse(
     assert_allclose(t_X, sk_t_X)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
+)
 def test_function_transformer(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
@@ -931,9 +933,13 @@ def test_function_transformer(clf_dataset):  # noqa: F811
 def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     X_np, X = sparse_clf_dataset
 
+    assert not cuFunctionTransformer().__sklearn_tags__().input_tags.sparse
+
     transformer = cuFunctionTransformer(
         func=lambda x: x * 2, inverse_func=lambda x: x / 2, accept_sparse=True
     )
+    assert transformer.__sklearn_tags__().input_tags.sparse
+
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
     assert cpx.scipy.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
@@ -949,8 +955,18 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
     assert_allclose(r_X, sk_r_X)
 
 
+@pytest.mark.parametrize("Estimator", [cuNormalizer, cuBinarizer])
+def test_stateless_transformer_tags(Estimator):
+    tags = Estimator().__sklearn_tags__()
+    assert not tags.requires_fit
+    assert tags.input_tags.sparse
+
+
 @pytest.mark.filterwarnings(
     "ignore:'ignore_implicit_zeros' takes effect only with sparse matrix.*:UserWarning"
+)
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
 )
 @pytest.mark.parametrize("n_quantiles", [30, 100])
 @pytest.mark.parametrize("output_distribution", ["uniform", "normal"])
@@ -964,14 +980,6 @@ def test_quantile_transformer(
     ignore_implicit_zeros,
     subsample,
 ):
-    pytest.importorskip(
-        "sklearn",
-        minversion="1.5.0",
-        reason=(
-            "subsampling in QuantileTransformer is different pre-1.5.0, this test checks "
-            "that we implement the post-1.5.0 behavior"
-        ),
-    )
     X_np, X = nan_filled_positive
 
     transformer = cuQuantileTransformer(
@@ -1088,12 +1096,6 @@ def test_quantile_transform(
     ignore_implicit_zeros,
     subsample,
 ):
-    # The exact way the subsampling works in QuantileTransformer changed
-    # and means we do not get exactly the same quantiles for older versions.
-    # This is Ok, we do not need to get the exact same quantiles.
-    if Version(sklearn.__version__) < Version("1.5.0"):
-        pytest.skip("Skipping test for sklearn < 1.5.0")
-
     X_np, X = nan_filled_positive
 
     t_X = cu_quantile_transform(
@@ -1124,6 +1126,9 @@ def test_quantile_transform(
 
 @pytest.mark.parametrize("method", ["yeo-johnson", "box-cox"])
 @pytest.mark.parametrize("standardize", [False, True])
+@pytest.mark.filterwarnings(
+    "ignore:X does not have valid feature names:UserWarning"
+)
 def test_power_transformer(
     failure_logger,
     nan_filled_positive,

@@ -6,17 +6,14 @@ from functools import partial
 
 import cudf
 import cupy as cp
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import pandas as pd
 from cudf import Series
 from sklearn.exceptions import NotFittedError
 
 import cuml.internals.logger as logger
-from cuml.common.sparsefuncs import (
-    create_csr_matrix_from_count_df,
-    csr_row_normalize_l1,
-    csr_row_normalize_l2,
-)
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.feature_extraction._stop_words import ENGLISH_STOP_WORDS
 
 CUPY_SPARSE_DTYPES = [cp.float32, cp.float64, cp.complex64, cp.complex128]
@@ -30,6 +27,65 @@ def min_signed_type(n):
                 return dtype
     # resort to using `int64` and let numpy raise appropriate exception:
     return np.int64(n).dtype
+
+
+def _insert_zeros(ary, zero_indices):
+    """
+    Create a new array of len(ary + zero_indices) where zero_indices
+    indicates indexes of 0s in the new array. Ary is used to fill the rest.
+
+    Examples
+    --------
+    _insert_zeros([1, 2, 3], [1, 3]) => [1, 0, 2, 0, 3]
+    """
+    if len(zero_indices) == 0:
+        return ary.values
+
+    new_ary = cp.zeros((len(ary) + len(zero_indices)), dtype=cp.int32)
+
+    # getting mask of non-zeros
+    data_mask = ~cp.in1d(
+        cp.arange(0, len(new_ary), dtype=cp.int32), zero_indices
+    )
+
+    new_ary[data_mask] = ary
+    return new_ary
+
+
+def _create_csr_matrix_from_count_df(
+    count_df, empty_doc_ids, n_doc, n_features, dtype=np.float32
+):
+    """
+    Create a sparse matrix from the count of tokens by document
+
+    Parameters
+    ----------
+    count_df = cudf.DataFrame({'count':..., 'doc_id':.., 'token':.. })
+                sorted by doc_id and token
+    empty_doc_ids = cupy array containing doc_ids with no tokens
+    n_doc: Total number of documents
+    n_features: Number of features
+    dtype: Output dtype
+    """
+    data = count_df["count"].values
+    indices = count_df["token"].values
+
+    doc_token_counts = count_df["doc_id"].value_counts().reset_index()
+    del count_df
+
+    doc_token_counts = doc_token_counts.rename(
+        {"count": "token_counts"}, axis=1
+    ).sort_values(by="doc_id")
+
+    token_counts = _insert_zeros(
+        doc_token_counts["token_counts"], empty_doc_ids
+    )
+    indptr = token_counts.cumsum()
+    indptr = cp.pad(indptr, (1, 0), "constant")
+
+    return cp_sp.csr_matrix(
+        arg1=(data, indices, indptr), dtype=dtype, shape=(n_doc, n_features)
+    )
 
 
 def _preprocess(
@@ -629,7 +685,7 @@ class CountVectorizer(_VectorizerMixin):
 
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
 
-        X = create_csr_matrix_from_count_df(
+        X = _create_csr_matrix_from_count_df(
             count_df,
             empty_doc_ids,
             n_doc,
@@ -668,7 +724,7 @@ class CountVectorizer(_VectorizerMixin):
         tokenized_df = self._create_tokenized_df(docs)
         count_df = self._count_vocab(tokenized_df)
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
-        X = create_csr_matrix_from_count_df(
+        X = _create_csr_matrix_from_count_df(
             count_df,
             empty_doc_ids,
             n_doc,
@@ -901,7 +957,9 @@ class HashingVectorizer(_VectorizerMixin):
         tokenized_df["token"] = tokenized_df["token"].hash_values()
         if self.alternate_sign:
             # below logic is equivalent to: value *= ((h >= 0) * 2) - 1
-            tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
+            tokenized_df["value"] = (tokenized_df["token"] >= 0).astype(
+                cp.int8
+            ) * 2 - 1
             tokenized_df["token"] = (
                 tokenized_df["token"].abs() % self.n_features
             )
@@ -968,7 +1026,7 @@ class HashingVectorizer(_VectorizerMixin):
         count_df = self._count_hash(tokenized_df)
         del tokenized_df
         empty_doc_ids = self._compute_empty_doc_ids(count_df, n_doc)
-        X = create_csr_matrix_from_count_df(
+        X = _create_csr_matrix_from_count_df(
             count_df, empty_doc_ids, n_doc, self.n_features, dtype=self.dtype
         )
 

@@ -7,8 +7,6 @@ import cupyx
 import numpy as np
 import pytest
 import scipy.sparse
-import sklearn
-from packaging.version import Version
 from sklearn import datasets
 from sklearn.datasets import make_blobs, make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
@@ -22,29 +20,20 @@ from cuml.testing.utils import (
     unit_param,
 )
 
-SKLEARN_GE_1_5_0 = Version(sklearn.__version__) >= Version("1.5.0")
-
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("input_type", ["ndarray"])
 @pytest.mark.parametrize("sparse", [True, False])
 def test_pca_fit(datatype, input_type, sparse):
-    solver = "auto"
     if sparse:
-        X = scipy.sparse.random(
+        X = 100 * scipy.sparse.random(
             200,
             100,
-            density=0.03,
+            density=0.1,
             dtype=cp.float32,
             random_state=10,
         )
-        tol = 1e-1
-        # In old versions of scikit-learn you have to explicitly set the solver
-        # to arpack if using sparse inputs.
-        if Version(sklearn.__version__) < Version("1.5.0"):
-            solver = "arpack"
     else:
-        tol = 1e-3
         X, _ = make_multilabel_classification(
             n_samples=500,
             n_classes=2,
@@ -53,29 +42,24 @@ def test_pca_fit(datatype, input_type, sparse):
             random_state=1,
         )
 
-    skpca = skPCA(n_components=2, svd_solver=solver)
-    skpca.fit(X)
-
-    cupca = cuPCA(n_components=2)
-    cupca.fit(X)
-
-    for attr in [
-        "singular_values_",
-        "components_",
-        "explained_variance_",
-        "explained_variance_ratio_",
-    ]:
-        print(attr)
-        print(getattr(cupca, attr))
-        print(getattr(skpca, attr))
-        cuml_res = getattr(cupca, attr)
-        skl_res = getattr(skpca, attr)
-        assert array_equal(cuml_res, skl_res, tol, with_sign=SKLEARN_GE_1_5_0)
+    sol = skPCA(n_components=2).fit(X)
+    res = cuPCA(n_components=2).fit(X)
 
     np.testing.assert_allclose(
-        cupca.noise_variance_, skpca.noise_variance_, tol
+        res.singular_values_, sol.singular_values_, atol=1e-3
     )
-    assert isinstance(cupca.noise_variance_, float)
+    np.testing.assert_allclose(res.components_, sol.components_, atol=1e-3)
+    np.testing.assert_allclose(
+        res.explained_variance_, sol.explained_variance_, atol=1e-3
+    )
+    np.testing.assert_allclose(
+        res.explained_variance_ratio_, sol.explained_variance_ratio_, atol=1e-3
+    )
+    np.testing.assert_allclose(res.mean_, sol.mean_, atol=1e-3)
+    np.testing.assert_allclose(
+        res.noise_variance_, sol.noise_variance_, atol=1e-3
+    )
+    assert isinstance(res.noise_variance_, float)
 
 
 @pytest.mark.parametrize("n_samples", [200])
@@ -115,7 +99,7 @@ def test_pca_defaults(n_samples, n_features, sparse):
     assert skpca.svd_solver == cupca.svd_solver
     assert cupca.components_.shape[0] == skpca.components_.shape[0]
     assert curesult.shape == skresult.shape
-    assert array_equal(curesult, skresult, 1e-3, with_sign=SKLEARN_GE_1_5_0)
+    assert array_equal(curesult, skresult, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])

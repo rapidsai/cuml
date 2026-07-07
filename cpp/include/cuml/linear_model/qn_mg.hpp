@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/linear_model/qn.h>
 #include <cuml/prims/opg/matrix/data.hpp>
@@ -14,7 +15,7 @@
 
 #include <vector>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace GLM {
 namespace opg {
 
@@ -93,4 +94,4 @@ void qnFitSparse(raft::handle_t& handle,
 
 };  // namespace opg
 };  // namespace GLM
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

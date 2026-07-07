@@ -259,7 +259,7 @@ TEST_F(GeneticEvolutionTest, SymReg)
   MLCommon::CompareApprox<float> compApprox(tolerance);
   program_t final_progs;
   final_progs = (program_t)rmm::mr::get_current_device_resource_ref().allocate(
-    stream, hyper_params.population_size * sizeof(program));
+    stream, hyper_params.population_size * sizeof(program), alignof(program));
   std::vector<std::vector<program>> history;
   history.reserve(hyper_params.generations);
 
@@ -327,12 +327,12 @@ TEST_F(GeneticEvolutionTest, SymReg)
     program tmp = program();
     raft::copy(&tmp, final_progs + i, 1, stream);
     rmm::mr::get_current_device_resource_ref().deallocate(
-      stream, tmp.nodes, tmp.len * sizeof(node));
+      stream, tmp.nodes, tmp.len * sizeof(node), alignof(node));
     tmp.nodes = nullptr;
   }
   // deallocate the final programs from device memory
   rmm::mr::get_current_device_resource_ref().deallocate(
-    stream, final_progs, hyper_params.population_size * sizeof(program));
+    stream, final_progs, hyper_params.population_size * sizeof(program), alignof(program));
 
   ASSERT_TRUE(compApprox(history[n_gen - 1][best_idx].raw_fitness_, 0.0036f));
   std::cout << "Some Predicted test values:" << std::endl;

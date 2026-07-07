@@ -23,7 +23,6 @@ use.
    cuml.datasets
    cuml.decomposition
    cuml.ensemble
-   cuml.experimental
    cuml.explainer
    cuml.feature_extraction
    cuml.fil
@@ -379,6 +378,9 @@ Covariance Estimation
    * - Object
      - Description
      - Module
+   * - :obj:`~cuml.covariance.EmpiricalCovariance`
+     - Maximum likelihood covariance estimator.
+     - :mod:`cuml.covariance`
    * - :obj:`~cuml.covariance.LedoitWolf`
      - Ledoit-Wolf shrinkage covariance estimator.
      - :mod:`cuml.covariance`

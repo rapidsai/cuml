@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -15,7 +16,7 @@ namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 /**
  * @brief Flat C++ API function to perform a brute force knn on
@@ -258,4 +259,4 @@ void knn_class_proba(raft::handle_t& handle,
                      size_t n_query_rows,
                      int k,
                      float* sample_weight = nullptr);
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

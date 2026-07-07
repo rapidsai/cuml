@@ -35,24 +35,16 @@ from cupyx.scipy import sparse
 from scipy import optimize, stats
 from scipy.special import boxcox
 
-from cuml.internals.mixins import (
-    AllowNaNTagMixin,
-    SparseInputTagMixin,
-    StatelessTagMixin,
-)
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.sparse import csr_row_normalize_l1, csr_row_normalize_l2
+from cuml.internals.array import CumlArray
+from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
-from cuml.internals.validation import check_is_fitted
+from cuml.internals.mixins import AllowNaNTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import using_output_type, reflect
+from cuml.internals.validation import check_is_fitted, check_array, check_inputs
+from cuml.thirdparty_adapters.sparsefuncs_fast import csr_polynomial_expansion
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array import CumlArray
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
-from ....thirdparty_adapters import check_array
-from ....thirdparty_adapters.sparsefuncs_fast import (
-    csr_polynomial_expansion,
-    inplace_csr_row_normalize_l1,
-    inplace_csr_row_normalize_l2,
-)
 from ..utils.extmath import _incremental_mean_and_var, row_norms
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.sparsefuncs import (
@@ -151,9 +143,14 @@ def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     StandardScaler: Performs scaling to unit variance using the``Transformer`` API
 
     """  # noqa
-    X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
-                    ensure_2d=False, estimator='the scale function',
-                    dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+    X = check_array(
+        X,
+        accept_sparse=['csr', 'csc'],
+        copy=copy,
+        ensure_2d=False,
+        dtype=FLOAT_DTYPES,
+        ensure_all_finite='allow-nan',
+    )
 
     if sparse.issparse(X):
         if with_mean:
@@ -378,9 +375,13 @@ class MinMaxScaler(TransformerMixin,
                              " than maximum. Got %s." % str(feature_range))
 
         first_pass = not hasattr(self, 'n_samples_seen_')
-        X = self._validate_data(X, reset=first_pass,
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite="allow-nan")
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         data_min = np.nanmin(X, axis=0)
         data_max = np.nanmax(X, axis=0)
@@ -416,10 +417,13 @@ class MinMaxScaler(TransformerMixin,
             Transformed data.
         """
         check_is_fitted(self)
-
-        X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-                        force_all_finite="allow-nan")
-
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=self.copy,
+            ensure_all_finite="allow-nan",
+        )
         X *= self.scale_
         X += self.min_
 
@@ -442,7 +446,7 @@ class MinMaxScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, copy=self.copy, dtype=FLOAT_DTYPES,
-                        force_all_finite="allow-nan")
+                        ensure_all_finite="allow-nan")
 
         X -= self.min_
         X /= self.scale_
@@ -496,7 +500,7 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     # If copy is required, it will be done inside the scaler object.
 
     X = check_array(X, copy=False, ensure_2d=False,
-                    dtype=FLOAT_DTYPES, force_all_finite='allow-nan')
+                    dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -516,10 +520,10 @@ def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
 
 
 class StandardScaler(TransformerMixin,
-                     BaseEstimator,
-                     InteropMixin,
                      AllowNaNTagMixin,
-                     SparseInputTagMixin):
+                     SparseInputTagMixin,
+                     BaseEstimator,
+                     InteropMixin):
     """Standardize features by removing the mean and scaling to unit variance
 
     The standard score of a sample `x` is calculated as:
@@ -635,6 +639,13 @@ class StandardScaler(TransformerMixin,
         self.with_std = with_std
         self.copy = copy
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        if self.with_mean:
+            tags.input_tags.sparse = False
+            tags.X_types_gpu = ["2darray"]
+        return tags
+
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
 
@@ -744,9 +755,15 @@ class StandardScaler(TransformerMixin,
         self : object
             Transformer instance.
         """
-        X = self._validate_data(X, accept_sparse=('csr', 'csc'),
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        first_pass = not hasattr(self, 'n_samples_seen_')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=("csr", "csc"),
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         # Even in the case of `with_mean=False`, we update the mean anyway
         # This is needed for the incremental computation of the var
@@ -853,10 +870,14 @@ class StandardScaler(TransformerMixin,
 
         copy = copy if copy is not None else self.copy
 
-        X = self._validate_data(X, reset=False,
-                                accept_sparse=['csr', 'csc'], copy=copy,
-                                estimator=self, dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=("csr", "csc"),
+            copy=copy,
+            ensure_all_finite="allow-nan",
+        )
 
         if sparse.issparse(X):
             if self.with_mean:
@@ -895,8 +916,7 @@ class StandardScaler(TransformerMixin,
         copy = copy if copy is not None else self.copy
 
         X = check_array(X, accept_sparse=['csr', 'csc'], copy=copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             if self.with_mean:
@@ -1043,10 +1063,14 @@ class MaxAbsScaler(TransformerMixin,
             Transformer instance.
         """
         first_pass = not hasattr(self, 'n_samples_seen_')
-        X = self._validate_data(X, reset=first_pass,
-                                accept_sparse=('csr', 'csc'), estimator=self,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            accept_sparse=("csr", "csc"),
+            dtype=FLOAT_DTYPES,
+            ensure_all_finite="allow-nan",
+            reset=first_pass,
+        )
 
         if sparse.issparse(X):
             mins, maxs = min_max_axis(X, axis=0, ignore_nan=True)
@@ -1074,10 +1098,14 @@ class MaxAbsScaler(TransformerMixin,
             The data that should be scaled.
         """
         check_is_fitted(self)
-
-        X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=('csr', 'csc'),
+            copy=self.copy,
+            ensure_all_finite='allow-nan'
+        )
 
         if sparse.issparse(X):
             inplace_column_scale(X, 1.0 / self.scale_)
@@ -1098,8 +1126,7 @@ class MaxAbsScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             inplace_column_scale(X, self.scale_)
@@ -1145,7 +1172,7 @@ def maxabs_scale(X, *, axis=0, copy=True):
     # If copy is required, it will be done inside the scaler object.
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
                     ensure_2d=False, dtype=FLOAT_DTYPES,
-                    force_all_finite='allow-nan')
+                    ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -1272,9 +1299,14 @@ class RobustScaler(TransformerMixin,
         """
         # at fit, convert sparse matrices to csc for optimized computation of
         # the quantiles
-        X = self._validate_data(X, accept_sparse='csc', estimator=self,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse="csc",
+            ensure_all_finite="allow-nan",
+            reset=True
+        )
 
         q_min, q_max = self.quantile_range
         if not 0 <= q_min <= q_max <= 100:
@@ -1332,10 +1364,14 @@ class RobustScaler(TransformerMixin,
             The data used to scale along the specified axis.
         """
         check_is_fitted(self)
-
-        X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            accept_sparse=('csr', 'csc'),
+            copy=self.copy,
+            ensure_all_finite='allow-nan',
+        )
 
         if sparse.issparse(X):
             if self.with_scaling:
@@ -1359,8 +1395,7 @@ class RobustScaler(TransformerMixin,
         check_is_fitted(self)
 
         X = check_array(X, accept_sparse=('csr', 'csc'), copy=self.copy,
-                        estimator=self, dtype=FLOAT_DTYPES,
-                        force_all_finite='allow-nan')
+                        dtype=FLOAT_DTYPES, ensure_all_finite='allow-nan')
 
         if sparse.issparse(X):
             if self.with_scaling:
@@ -1427,7 +1462,7 @@ def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
     """
     X = check_array(X, accept_sparse=('csr', 'csc'), copy=False,
                     ensure_2d=False, dtype=FLOAT_DTYPES,
-                    force_all_finite='allow-nan')
+                    ensure_all_finite='allow-nan')
     original_ndim = X.ndim
 
     if original_ndim == 1:
@@ -1598,8 +1633,8 @@ class PolynomialFeatures(TransformerMixin,
         -------
         self : instance
         """
-        n_samples, n_features = self._validate_data(
-            X, accept_sparse=True).shape
+        X = check_inputs(self, X, accept_sparse=True, reset=True)
+        n_samples, n_features = X.shape
         combinations = self._combinations(n_features, self.degree,
                                           self.interaction_only,
                                           self.include_bias)
@@ -1785,8 +1820,7 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     else:
         raise ValueError("'%d' is not a supported axis" % axis)
 
-    X = check_array(X, accept_sparse=sparse_format, copy=copy,
-                    estimator='the normalize function', dtype=FLOAT_DTYPES)
+    X = check_array(X, accept_sparse=sparse_format, copy=copy, dtype=FLOAT_DTYPES)
 
     if axis == 0:
         X = X.T
@@ -1797,9 +1831,9 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
                                       "for sparse matrices with norm 'l1' "
                                       "or norm 'l2'")
         if norm == 'l1':
-            inplace_csr_row_normalize_l1(X)
+            csr_row_normalize_l1(X)
         elif norm == 'l2':
-            inplace_csr_row_normalize_l2(X)
+            csr_row_normalize_l2(X)
         elif norm == 'max':
             mins, maxes = min_max_axis(X, 1)
             norms = np.maximum(abs(mins), maxes)
@@ -1826,9 +1860,8 @@ def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
 
 
 class Normalizer(TransformerMixin,
-                 BaseEstimator,
-                 StatelessTagMixin,
-                 SparseInputTagMixin):
+                 SparseInputTagMixin,
+                 BaseEstimator):
     """Normalize samples individually to unit norm.
 
     Each sample (i.e. each row of the data matrix) with at least one
@@ -1886,6 +1919,11 @@ class Normalizer(TransformerMixin,
         self.norm = norm
         self.copy = copy
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
+
     @reflect(reset=True)
     def fit(self, X, y=None) -> "Normalizer":
         """Do nothing and return the estimator unchanged
@@ -1897,7 +1935,7 @@ class Normalizer(TransformerMixin,
         ----------
         X : {array-like, CSR matrix}
         """
-        self._validate_data(X, accept_sparse='csr')
+        check_inputs(self, X, accept_sparse="csr", reset=True)
         return self
 
     @reflect
@@ -1913,7 +1951,7 @@ class Normalizer(TransformerMixin,
             a copy might be triggered by a conversion.
         """
         copy = copy if copy is not None else self.copy
-        X = check_array(X, accept_sparse='csr')
+        X = check_inputs(self, X, accept_sparse="csr")
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
@@ -1957,9 +1995,8 @@ def binarize(X, *, threshold=0.0, copy=True):
 
 
 class Binarizer(TransformerMixin,
-                BaseEstimator,
-                StatelessTagMixin,
-                SparseInputTagMixin):
+                SparseInputTagMixin,
+                BaseEstimator):
     """Binarize data (set feature values to 0 or 1) according to a threshold
 
     Values greater than the threshold map to 1, while values less than
@@ -2017,6 +2054,11 @@ class Binarizer(TransformerMixin,
         self.threshold = threshold
         self.copy = copy
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.requires_fit = False
+        return tags
+
     @reflect(reset=True)
     def fit(self, X, y=None) -> "Binarizer":
         """Do nothing and return the estimator unchanged
@@ -2028,7 +2070,7 @@ class Binarizer(TransformerMixin,
         ----------
         X : {array-like, sparse matrix}
         """
-        self._validate_data(X, accept_sparse=['csr', 'csc'])
+        check_inputs(self, X, accept_sparse=['csr', 'csc'], reset=True)
         return self
 
     @reflect
@@ -2171,8 +2213,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         -------
         self : returns an instance of self.
         """
-
-        K = self._validate_data(K, dtype=FLOAT_DTYPES)
+        K = check_inputs(self, K, dtype=FLOAT_DTYPES, reset=True)
 
         if K.shape[0] != K.shape[1]:
             raise ValueError("Kernel matrix must be a square matrix."
@@ -2203,7 +2244,7 @@ class KernelCenterer(TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
 
-        K = check_array(K, copy=copy, dtype=FLOAT_DTYPES)
+        K = check_inputs(self, K, copy=copy, dtype=FLOAT_DTYPES)
 
         K_pred_cols = (np.sum(K, axis=1) /
                        self.K_fit_rows_.shape[0])[:, np.newaxis]
@@ -2540,19 +2581,15 @@ class QuantileTransformer(TransformerMixin,
     def _check_inputs(self, X, in_fit, accept_sparse_negative=False,
                       copy=False):
         """Check inputs before fit and transform"""
-        # In theory reset should be equal to `in_fit`, but there are tests
-        # checking the input number of feature and they expect a specific
-        # string, which is not the same one raised by check_n_features. So we
-        # don't check n_features_in_ here for now (it's done with adhoc code in
-        # the estimator anyway).
-        # TODO: set reset=in_fit when addressing reset in
-        # predict/transform/etc.
-        reset = True
-
-        X = self._validate_data(X, reset=reset,
-                                accept_sparse='csc', copy=copy,
-                                dtype=FLOAT_DTYPES,
-                                force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=copy,
+            accept_sparse="csc",
+            ensure_all_finite="allow-nan",
+            reset=in_fit,
+        )
         # we only accept positive sparse matrix when ignore_implicit_zeros is
         # false and that we call fit or transform.
         if (not accept_sparse_negative and not self.ignore_implicit_zeros
@@ -2567,16 +2604,6 @@ class QuantileTransformer(TransformerMixin,
                                  self.output_distribution))
 
         return X
-
-    def _check_is_fitted(self, X):
-        """Check the inputs before transforming"""
-        check_is_fitted(self)
-        # check that the dimension of X are adequate with the fitted data
-        if X.shape[1] != self.quantiles_.shape[1]:
-            raise ValueError('X does not have the same number of features as'
-                             ' the previously fitted data. Got {} instead of'
-                             ' {}.'.format(X.shape[1],
-                                           self.quantiles_.shape[1]))
 
     def _transform(self, X, inverse=False):
         """Forward and inverse transform.
@@ -2628,8 +2655,8 @@ class QuantileTransformer(TransformerMixin,
         Xt : ndarray or sparse matrix, shape (n_samples, n_features)
             The projected data.
         """
+        check_is_fitted(self)
         X = self._check_inputs(X, in_fit=False, copy=self.copy)
-        self._check_is_fitted(X)
 
         return self._transform(X, inverse=False)
 
@@ -2650,9 +2677,9 @@ class QuantileTransformer(TransformerMixin,
         Xt : ndarray or sparse matrix, shape (n_samples, n_features)
             The projected data.
         """
+        check_is_fitted(self)
         X = self._check_inputs(X, in_fit=False, accept_sparse_negative=True,
                                copy=self.copy)
-        self._check_is_fitted(X)
 
         return self._transform(X, inverse=True)
 
@@ -3112,8 +3139,14 @@ class PowerTransformer(TransformerMixin,
         check_method : bool
             If True, check that the transformation method is valid.
         """
-        X = self._validate_data(X, ensure_2d=True, dtype=FLOAT_DTYPES,
-                                copy=self.copy, force_all_finite='allow-nan')
+        X = check_inputs(
+            self,
+            X,
+            dtype=FLOAT_DTYPES,
+            copy=self.copy,
+            ensure_all_finite="allow-nan",
+            reset=in_fit,
+        )
 
         if (check_positive and self.method == 'box-cox' and np.nanmin(X) <= 0):
             raise ValueError("The Box-Cox transformation can only be "

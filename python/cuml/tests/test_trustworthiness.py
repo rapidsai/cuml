@@ -47,8 +47,31 @@ def test_trustworthiness(
     assert abs(cu_score - sk_score) <= 1e-3
 
 
-def test_trustworthiness_invalid_input():
+@pytest.mark.parametrize("n_neighbors", [0, 5, 50])
+def test_trustworthiness_invalid_n_neighbors(n_neighbors):
     X, y = make_blobs(n_samples=10, centers=1, n_features=2, random_state=32)
 
+    with pytest.raises(ValueError, match="n_neighbors.*n_samples"):
+        cuml_trustworthiness(X, X, n_neighbors=n_neighbors)
+
+
+def test_trustworthiness_mismatched_rows():
+    X, _ = make_blobs(n_samples=10, n_features=4, random_state=0)
+    X_embedded, _ = make_blobs(n_samples=12, n_features=2, random_state=0)
+    with pytest.raises(ValueError, match="inconsistent number of samples"):
+        cuml_trustworthiness(
+            X.astype(np.float32), X_embedded.astype(np.float32)
+        )
+
+
+def test_trustworthiness_rejects_1d_input():
+    X = np.arange(20, dtype=np.float32)
+    X_embedded = np.arange(20, dtype=np.float32)
     with pytest.raises(ValueError):
-        cuml_trustworthiness(X, X, n_neighbors=50)
+        cuml_trustworthiness(X, X_embedded)
+
+
+def test_trustworthiness_unknown_metric():
+    X = np.arange(20, dtype=np.float32)
+    with pytest.raises(ValueError, match="Unsupported metric 'manhattan'"):
+        cuml_trustworthiness(X, X, metric="manhattan")

@@ -2,7 +2,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import warnings
 
 import cupy as cp
@@ -12,9 +11,8 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import reflect, run_in_internal_context
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 
 def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
@@ -88,7 +86,7 @@ def _ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
     return shrinkage, emp_cov, mu
 
 
-class LedoitWolf(Base, InteropMixin):
+class LedoitWolf(InteropMixin, Base):
     """LedoitWolf Estimator for covariance matrix estimation.
 
     Computes the Ledoit-Wolf shrinkage estimator for the covariance matrix.
@@ -229,7 +227,7 @@ class LedoitWolf(Base, InteropMixin):
         self.block_size = block_size
 
     @reflect(reset=True)
-    def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
         Parameters
@@ -239,46 +237,44 @@ class LedoitWolf(Base, InteropMixin):
             and `n_features` is the number of features.
         y : Ignored
             Not used, present for API consistency.
-        convert_dtype : bool, default=True
-            If True, convert the input data to float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
         self : LedoitWolf
             Returns the instance itself.
         """
-        X_arr, n_samples, n_features, dtype = input_to_cupy_array(
+        X = check_inputs(
+            self,
             X,
-            check_dtype=[np.float32, np.float64],
-            order="C",
-            convert_to_dtype=(np.float32 if convert_dtype else None),
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            reset=True,
         )
-
-        if n_samples == 0:
-            raise ValueError(
-                f"Found array with 0 sample(s) (shape={tuple(X_arr.shape)}) while a "
-                "minimum of 1 is required."
-            )
-
-        if n_samples == 1:
+        if X.shape[0] == 1:
             warnings.warn(
                 "Only one sample available. "
                 "You may want to reshape your data array"
             )
 
         if self.assume_centered:
-            location = cp.zeros(n_features, dtype=dtype)
+            location = cp.zeros(X.shape[1], dtype=X.dtype)
         else:
-            location = cp.mean(X_arr, axis=0)
+            location = cp.mean(X, axis=0)
 
         shrinkage, emp_cov, mu = _ledoit_wolf_shrinkage(
-            X_arr,
+            X,
             assume_centered=self.assume_centered,
             block_size=self.block_size,
         )
 
         shrunk_cov = (1.0 - shrinkage) * emp_cov
-        shrunk_cov.flat[:: n_features + 1] += shrinkage * mu
+        shrunk_cov.flat[:: X.shape[1] + 1] += shrinkage * mu
 
         self.shrinkage_ = shrinkage
         self.location_ = CumlArray(data=location)
@@ -305,7 +301,7 @@ class LedoitWolf(Base, InteropMixin):
         if self.store_precision:
             return self.precision_
         else:
-            covariance = cp.asarray(self.covariance_)
+            covariance = self.covariance_.to_output("cupy")
             precision = cp.linalg.pinv(covariance)
             return precision
 
@@ -328,24 +324,22 @@ class LedoitWolf(Base, InteropMixin):
             Log-likelihood of the data under the fitted Gaussian model.
         """
         check_is_fitted(self)
-        check_features(self, X_test)
-
-        X_arr, _, n_features, _ = input_to_cupy_array(
+        X_test = check_inputs(
+            self,
             X_test,
-            check_dtype=[np.float32, np.float64],
-            check_cols=self.n_features_in_,
-            order="C",
+            dtype=("float32", "float64"),
         )
+        precision = self.get_precision().to_output("cupy")
+        location = self.location_.to_output("cupy")
 
-        precision = cp.asarray(self.get_precision())
-        location = cp.asarray(self.location_)
-
-        X_centered = X_arr - location
+        X_centered = X_test - location
         log_det_precision = cp.linalg.slogdet(precision)[1]
         mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
 
         log_likelihood = -0.5 * (
-            n_features * np.log(2 * np.pi) - log_det_precision + cp.mean(mahal)
+            X_test.shape[1] * np.log(2 * np.pi)
+            - log_det_precision
+            + cp.mean(mahal)
         )
 
         return float(log_likelihood)
@@ -375,14 +369,10 @@ class LedoitWolf(Base, InteropMixin):
         """
         check_is_fitted(self)
 
-        comp_cov_arr, _, _, _ = input_to_cupy_array(
-            comp_cov,
-            check_dtype=[np.float32, np.float64],
-            order="C",
-        )
-        self_cov = cp.asarray(self.covariance_)
+        comp_cov = check_inputs(self, comp_cov, dtype=("float32", "float64"))
+        self_cov = self.covariance_.to_output("cupy")
 
-        diff = self_cov - comp_cov_arr
+        diff = self_cov - comp_cov
 
         if norm == "frobenius":
             error = cp.sum(diff**2)
@@ -417,18 +407,11 @@ class LedoitWolf(Base, InteropMixin):
             Squared Mahalanobis distances of the observations.
         """
         check_is_fitted(self)
-        check_features(self, X)
+        X = check_inputs(self, X, dtype=("float32", "float64"))
+        precision = self.get_precision().to_output("cupy")
+        location = self.location_.to_output("cupy")
 
-        X_arr, _, _, _ = input_to_cupy_array(
-            X,
-            check_dtype=[np.float32, np.float64],
-            check_cols=self.n_features_in_,
-            order="C",
-        )
-        precision = cp.asarray(self.get_precision())
-        location = cp.asarray(self.location_)
-
-        X_centered = X_arr - location
+        X_centered = X - location
         mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
 
         return mahal

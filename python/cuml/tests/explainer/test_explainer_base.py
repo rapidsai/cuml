@@ -6,9 +6,11 @@ import cudf
 import cupy as cp
 import numpy as np
 import pytest
+from sklearn.utils import InputTags, TargetTags
 
 from cuml import LinearRegression as cuLR
 from cuml.explainer.base import SHAPBase
+from cuml.internals.mixins import CumlTags
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64, None])
@@ -97,5 +99,39 @@ def test_init_explainer_base_wrong_dtype():
         explainer.ncols
 
 
+def test_init_explainer_base_uses_public_tags_protocol():
+    bg = np.arange(10).reshape(5, 2).astype(np.float32)
+    model = TaggedCallable()
+
+    explainer = SHAPBase(
+        model=model,
+        background=bg,
+        order=None,
+        order_default="C",
+        link="identity",
+        random_state=None,
+        is_gpu_model=None,
+        dtype=None,
+        output_type=None,
+    )
+
+    assert explainer.order == "F"
+    assert explainer.is_gpu_model
+
+
 def dummy_func(x):
     return x
+
+
+class TaggedCallable:
+    def __call__(self, x):
+        return x
+
+    def __sklearn_tags__(self):
+        return CumlTags(
+            estimator_type=None,
+            target_tags=TargetTags(required=False),
+            input_tags=InputTags(two_d_array=True),
+            preferred_input_order="F",
+            X_types_gpu=["2darray"],
+        )

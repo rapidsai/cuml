@@ -47,6 +47,47 @@ reviews:
         - API changes flagged for docs/ updates
         - Breaking changes require deprecation warnings and migration guide updates
 
+    - path: "cpp/{src,src_prims,include}/**/*.{cu,cuh,cpp,hpp,h}"
+      instructions: |
+        For C++/CUDA host-side size and shape arithmetic, flag the following as
+        HIGH priority (see cpp/agents.md "Integer arithmetic for sizes, launches,
+        and host indexing"):
+
+        - Multiplications, additions, subtractions, or divisions of `int` (or
+          any sub-`size_t` integer) whose result is passed to:
+          `rmm::device_uvector` ctor or `.resize(...)`, `cudaMalloc*`, any
+          `*allocator*.allocate(...)`, `dim3(...)`, `cuda::std::span` /
+          `raft::span` construction, or used as a `size_t`/`int64_t` parameter.
+          Require the appropriate helper from
+          `cpp/include/cuml/common/checked_arithmetic.hpp`:
+            * `ML::checked_mul<size_t>(...)` for products
+            * `ML::checked_add<size_t>(...)` for sums / cumulative offsets
+            * `ML::checked_sub<size_t>(...)` for differences used as lengths
+            * `ML::checked_div<size_t>(...)` for quotients whose divisor is
+              not statically non-zero (including ceil-div for launch dims)
+          or equivalent widening + explicit guard at the call site.
+        - Silent narrowing of a wider integer type into a narrower one for
+          a count, index, or dimension — e.g. `int n = c.size();`,
+          `int n = m_shape.first;`, or passing a `size_t` to a function
+          parameter typed `int`. Require `ML::narrow_cast<int>(...)` (which
+          traps if the value does not fit, including negative-to-unsigned
+          sign loss) or widening the receiver / API.
+        - Public estimator entry points (anything reachable from cython/pylibraft
+          bindings) that accept count-like `int` parameters without an
+          upper-bound / shape validation step before allocations or launches.
+        - `int * int` or `int + int` expressions used to compute grid/block
+          dimensions for kernel launches. Require widening to `size_t` and a
+          check against device launch limits where the product can plausibly
+          exceed 2^31.
+        - A value passed directly to a `<<<grid, block, ...>>>` launch that
+          relies on an implicit conversion to `unsigned int`. Require
+          `ML::narrow_cast<ML::cuda_launch_t>(...)` for grid/block dimensions
+          so the conversion is checked and the call site is explicit.
+
+        Do not flag arithmetic that is purely inside `__device__` / `__global__`
+        code — the rule is host-side only. Performance-sensitive kernel bodies
+        are intentionally out of scope.
+
     - path: "notebooks/**/*"
       instructions: |
         For example notebooks:

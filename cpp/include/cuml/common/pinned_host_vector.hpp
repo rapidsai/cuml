@@ -1,25 +1,30 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <rmm/mr/pinned_host_memory_resource.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 template <typename T>
 class pinned_host_vector {
  public:
-  pinned_host_vector() = default;
+  pinned_host_vector() : data_{nullptr}, size_{0} {}
 
   explicit pinned_host_vector(std::size_t n)
     : size_{n}, data_{static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)))}
   {
     std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
   }
-  ~pinned_host_vector() { pinned_mr.deallocate_sync(data_, size_ * sizeof(T)); }
+  ~pinned_host_vector()
+  {
+    if (data_ != nullptr) { pinned_mr.deallocate_sync(data_, size_ * sizeof(T)); }
+  }
 
   pinned_host_vector(pinned_host_vector const&)            = delete;
   pinned_host_vector(pinned_host_vector&&)                 = delete;
@@ -28,9 +33,10 @@ class pinned_host_vector {
 
   void resize(std::size_t n)
   {
+    if (data_ != nullptr) { pinned_mr.deallocate_sync(data_, size_ * sizeof(T)); }
     size_ = n;
-    data_ = static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)));
-    std::uninitialized_fill(data_, data_ + n, static_cast<T>(0));
+    data_ = (n == 0) ? nullptr : static_cast<T*>(pinned_mr.allocate_sync(n * sizeof(T)));
+    if (data_ != nullptr) { std::uninitialized_fill(data_, data_ + n, static_cast<T>(0)); }
   }
 
   T* data() { return data_; }
@@ -46,8 +52,8 @@ class pinned_host_vector {
 
  private:
   rmm::mr::pinned_host_memory_resource pinned_mr{};
-  T* data_;
-  std::size_t size_;
+  T* data_{nullptr};
+  std::size_t size_{0};
 };
 
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

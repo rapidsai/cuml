@@ -78,8 +78,10 @@ requirements:
   host:
     - cuda-version =${{ cuda_version }}
     - cudf =${{ minor_version }}
-    - cython >=3.2.2
+    # skipping Cython 3.2.7 because of https://github.com/cython/cython/issues/7781
+    - cython >=3.2.2,!=3.2.7
     - libcuml =${{ version }}
+    - nvforest =${{ minor_version }}
     - pip
     - pylibraft =${{ minor_version }}
     - python =${{ py_abi_min }}
@@ -95,13 +97,14 @@ requirements:
   run:
     - ${{ pin_compatible("cuda-version", upper_bound="x", lower_bound="x") }}
     - cudf =${{ minor_version }}
-    - cupy >=13.6.0
+    - cupy >=14.0.1,!=14.1.0
     - joblib >=0.11
     - libcuml =${{ version }}
     - numba >=0.60.0,<0.65.0
-    - numba-cuda >=0.22.2,<0.29.0
-    - numpy >=1.23,<3.0
-    - scikit-learn >=1.4
+    - numba-cuda >=0.22.2
+    - numpy >=2.0,<3.0
+    - nvforest =${{ minor_version }}
+    - scikit-learn >=1.6
     - scipy >=1.14.0
     - packaging
     - pylibraft =${{ minor_version }}
@@ -109,7 +112,6 @@ requirements:
     - rapids-logger =0.2
     - rich
     - treelite ${{ treelite_version }}
-    - cuda-cudart
     - if: cuda_major == "12"
       then: cuda-python >=12.9.2,<13.0
       else: cuda-python >=13.0.1,<14.0

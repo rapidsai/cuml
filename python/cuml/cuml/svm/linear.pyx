@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
-import numpy as np
 
-from cuml.internals.array import CumlArray
+from cuml.common.classification import process_class_weight
 from cuml.internals.base import get_handle
+from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -13,7 +13,7 @@ from pylibraft.common.handle cimport handle_t
 
 from cuml.internals.logger cimport level_enum
 
-__all__ = ("fit", "compute_probabilities")
+__all__ = ("fit",)
 
 
 cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
@@ -53,43 +53,19 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM::linear" nogil:
         const T* y,
         const T* sampleWeight,
         T* w,
-        T* probScale,
     ) except +
-
-    cdef void computeProbabilities[T](
-        const handle_t& handle,
-        const size_t nRows,
-        const int nClasses,
-        const T* probScale,
-        T* scores,
-        T* out) except +
-
-
-def _check_array(name, arr, dtype=None, shape=None, order=None):
-    """Perform sanity checks.
-
-    User-facing checks should happen earlier, this is just to enforce invariants.
-    """
-    if dtype is not None and arr.dtype != dtype:
-        raise RuntimeError(f"Expected `{name}` with {dtype=}, got {arr.dtype!r}")
-    if shape is not None:
-        n_cols = shape[1] if len(shape) == 2 else 1
-        ok_rows = arr.shape[0] == shape[0]
-        ok_cols = arr.ndim == 1 and n_cols == 1 or arr.shape[1] == n_cols
-        if not (ok_rows and ok_cols):
-            raise RuntimeError(f"Expected `{name}` with {shape=}, got {arr.shape!r}")
-    if order is not None and arr.order != order:
-        raise RuntimeError(f"Expected `{name}` with {order=}, got {arr.order!r}")
 
 
 def fit(
+    estimator,
     X,
     y,
-    sample_weight,
+    sample_weight=None,
     *,
-    n_classes=None,
+    convert_dtype="deprecated",
+    is_classifier=False,
+    class_weight=None,
     n_streams=0,
-    probability=False,
     penalty,
     loss,
     fit_intercept,
@@ -106,19 +82,22 @@ def fit(
 
     Parameters
     ----------
-    X : CumlArray, shape = (n_samples, n_features)
-        Training vectors
-    y : CumlArray, shape = (n_samples,)
-        Target values or classes
-    sample_weight : None or CumlArray, shape = (n_samples,), default=None
-        Sample weights
-    n_classes : int or None, default=None
-        The number of classes, or None if fitting a regression problem.
+    estimator : Base
+        The estimator being fit.
+    X : array-like, shape = (n_samples, n_features)
+        The training vectors
+    y : array-like, shape = (n_samples,)
+        The target values
+    sample_weight : None or array-like, shape = (n_samples,), default=None
+        The sample weights
+    is_classifier : bool, default=False
+        Whether this is a classifier model. Defaults to False.
+    class_weight : dict or 'balanced', default=None
+        When fitting a classifier, weights associated per-classes, or None for
+        uniform weights. If 'balanced', weights inversely proportional to the
+        class frequencies will be used.
     n_streams : int, default=0
-        The number of streams to use when fitting classes.
-    probability : bool, default=False
-        When fitting an SVC, whether to also fit probability scales to enable
-        `predict_proba`.
+        The number of streams to use when fitting a classifier.
     **kwargs
         Remaining common hyperparameters for LinearSVC/LinearSVR, see their
         docstrings for details. These are required keyword-only to ensure
@@ -126,21 +105,21 @@ def fit(
 
     Returns
     -------
-    coef_ : CumlArray, shape = (1, n_features) or (n_classes, n_features)
+    coef_ : cp.ndarray, shape = (1, n_features) or (n_classes, n_features)
         The fitted coefficients. Has 1 row for regression and binary
         classification, or n_classes rows for multi-class classification.
-    intercept_ : float or CumlArray, shape = (1,) or (n_classes,)
+    intercept_ : float or cp.ndarray, shape = (1,) or (n_classes,)
         The fitted intercept. If `fit_intercept=False`, returns 0.0 (matching
         sklearn behavior). Otherwise returns a 1-element array for regression
         and binary classification, or `n_classes` elements for multi-class
         classification.
     n_iter_ : int
         The maximum number of iterations run across all classes.
-    prob_scale_ : None or CumlArray, shape = (n_classes, 2)
-        The probability scales (if `probability=True`), `None` otherwise.
+    classes_ : numpy.ndarray, shape=(n_classes,)
+        The classes (if ``is_classifier=True``), `None` otherwise.
     """
     penalties = {"l1": Penalty.L1, "l2": Penalty.L2}
-    if n_classes is not None:
+    if is_classifier:
         losses = {"hinge": Loss.HINGE, "squared_hinge": Loss.SQUARED_HINGE}
     else:
         losses = {
@@ -176,59 +155,61 @@ def fit(
     params.change_tol = 0.1 * tol
     params.verbose = verbose
 
+    # Validate and normalize inputs
+    out = check_inputs(
+        estimator,
+        X,
+        y,
+        sample_weight,
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        order="F",
+        y_dtype=(None if is_classifier else ...),
+        return_classes=is_classifier,
+        reset=True,
+    )
+
     # Extract dimensions
-    cdef size_t n_rows = X.shape[0]
-    cdef size_t n_cols = X.shape[1]
-
-    # Validate dimensions
-    if n_rows < 1:
-        raise ValueError(
-            f"Found array with {n_rows} sample(s) (shape={X.shape}) while a "
-            f"minimum of 1 is required."
-        )
-    if n_cols < 1:
-        raise ValueError(
-            f"Found array with {n_cols} feature(s) (shape={X.shape}) while a "
-            f"minimum of 1 is required."
-        )
-    if n_classes == 1:
-        raise ValueError(
-            "This solver needs samples of at least 2 classes in the data, but "
-            "the data contains only 1 class"
-        )
-
-    # Sanity checks
-    _check_array("X", X, order="F")
-    _check_array("y", y, dtype=X.dtype, shape=(n_rows,))
-    if sample_weight is not None:
-        _check_array("sample_weight", sample_weight, dtype=X.dtype, shape=(n_rows,))
-
-    if n_classes is not None:
-        classes = cp.arange(n_classes, dtype=X.dtype)
-
-    # Allocate output arrays
+    cdef size_t n_rows = out[0].shape[0]
+    cdef size_t n_cols = out[0].shape[1]
+    cdef int n_classes
     n_coefs = n_cols + int(fit_intercept)
-    if n_classes is not None:
+
+    if is_classifier:
+        X, y, sample_weight, classes = out
+        n_classes = len(classes)
+        if n_classes == 1:
+            raise ValueError(
+                "This solver needs samples of at least 2 classes in the data, but "
+                "the data contains only 1 class"
+            )
+        _, sample_weight = process_class_weight(
+            classes,
+            y,
+            class_weight=class_weight,
+            sample_weight=sample_weight,
+            dtype=X.dtype,
+        )
+        y = y.astype(X.dtype, copy=False)
+        class_codes = cp.arange(n_classes, dtype=X.dtype)
         w_shape = (1 if n_classes == 2 else n_classes, n_coefs)
     else:
+        X, y, sample_weight = out
+        n_classes = 0
+        classes = class_codes = None
         w_shape = n_coefs
-    w = CumlArray.empty(shape=w_shape, dtype=X.dtype, order="F")
 
-    if probability and n_classes is not None:
-        prob_scale = CumlArray.empty((n_classes, 2), dtype=X.dtype, order="F")
-    else:
-        prob_scale = None
+    # Allocate output arrays
+    w = cp.empty(shape=w_shape, dtype=X.dtype, order="F")
 
     handle = get_handle(n_streams=n_streams)
     cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef bool is_float32 = X.dtype == np.float32
-    cdef int n_classes_or_0 = 0 if n_classes is None else n_classes
-    cdef uintptr_t X_ptr = X.ptr
-    cdef uintptr_t y_ptr = y.ptr
-    cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.ptr
-    cdef uintptr_t classes_ptr = 0 if n_classes is None else classes.data.ptr
-    cdef uintptr_t w_ptr = w.ptr
-    cdef uintptr_t prob_scale_ptr = 0 if prob_scale is None else prob_scale.ptr
+    cdef bool is_float32 = X.dtype == cp.float32
+    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t y_ptr = y.data.ptr
+    cdef uintptr_t sample_weight_ptr = 0 if sample_weight is None else sample_weight.data.ptr
+    cdef uintptr_t classes_ptr = 0 if class_codes is None else class_codes.data.ptr
+    cdef uintptr_t w_ptr = w.data.ptr
     cdef int n_iter
 
     # Perform fit
@@ -239,13 +220,12 @@ def fit(
                 params,
                 n_rows,
                 n_cols,
-                n_classes_or_0,
+                n_classes,
                 <const float*>classes_ptr,
                 <const float*>X_ptr,
                 <const float*>y_ptr,
                 <const float*>sample_weight_ptr,
                 <float*>w_ptr,
-                <float*>prob_scale_ptr,
             )
         else:
             n_iter = cpp_fit[double](
@@ -253,13 +233,12 @@ def fit(
                 params,
                 n_rows,
                 n_cols,
-                n_classes_or_0,
+                n_classes,
                 <const double*>classes_ptr,
                 <const double*>X_ptr,
                 <const double*>y_ptr,
                 <const double*>sample_weight_ptr,
                 <double*>w_ptr,
-                <double*>prob_scale_ptr,
             )
     handle.sync()
 
@@ -267,7 +246,7 @@ def fit(
     if fit_intercept:
         if w.ndim == 2:
             coef = w[:, :-1]
-            intercept = CumlArray(data=w.to_output("cupy")[:, -1:].flatten())
+            intercept = w[:, -1:].flatten()
         else:
             coef = w[:-1]
             intercept = w[-1:]
@@ -275,65 +254,4 @@ def fit(
         coef = w
         intercept = 0.0
 
-    return coef, intercept, n_iter, prob_scale
-
-
-def compute_probabilities(scores, prob_scale, n_streams):
-    """Compute probabilities from decision function scores.
-
-    Parameters
-    ----------
-    scores : CumlArray, shape = (n_samples, n_classes)
-        The decision function scores.
-    prob_scale : CumlArray, shape = (n_classes, 2)
-        The probability scaling factors.
-    n_streams : int
-        The number of streams to use.
-
-    Returns
-    -------
-    probabilities : CumlArray, shape = (n_samples, n_classes)
-        The computed probabilities.
-    """
-    # Extract dimensions
-    cdef size_t n_rows = scores.shape[0]
-    cdef int n_classes = prob_scale.shape[0]
-
-    # Sanity checks
-    _check_array("scores", scores, order="C")
-    _check_array(
-        "prob_scale", prob_scale, dtype=scores.dtype, order="F", shape=(n_classes, 2)
-    )
-
-    # Allocate outputs
-    out = CumlArray.empty((n_rows, n_classes), dtype=scores.dtype, order="C")
-
-    handle = get_handle(n_streams=n_streams)
-    cdef handle_t *handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef bool is_float32 = scores.dtype == np.float32
-    cdef uintptr_t scores_ptr = scores.ptr
-    cdef uintptr_t prob_scale_ptr = prob_scale.ptr
-    cdef uintptr_t out_ptr = out.ptr
-
-    # Compute probabilities
-    with nogil:
-        if is_float32:
-            computeProbabilities[float](
-                handle_[0],
-                n_rows,
-                n_classes,
-                <const float*>prob_scale_ptr,
-                <float*>scores_ptr,
-                <float*>out_ptr
-            )
-        else:
-            computeProbabilities[double](
-                handle_[0],
-                n_rows,
-                n_classes,
-                <const double*>prob_scale_ptr,
-                <double*>scores_ptr,
-                <double*>out_ptr
-            )
-    handle.sync()
-    return out
+    return coef, intercept, n_iter, classes

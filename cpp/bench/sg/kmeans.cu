@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -95,7 +95,6 @@ std::vector<Params> getInputs()
   p.kmeans.verbosity                       = rapids_logger::level_enum::info;
   p.kmeans.metric                          = ML::distance::DistanceType::L2Expanded;
   p.kmeans.rng_state                       = raft::random::RngState(p.blobs.seed);
-  p.kmeans.inertia_check                   = true;
   std::vector<std::pair<int, int>> rowcols = {
     {160000, 64},
     {320000, 64},

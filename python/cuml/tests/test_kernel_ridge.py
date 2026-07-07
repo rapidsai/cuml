@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -26,6 +26,9 @@ def gradient_norm(model, X, y, K, sw=None):
         sw = cp.ones(X.shape[0])
     else:
         sw = cp.atleast_1d(cp.array(sw, dtype=np.float64))
+
+    if y.ndim == 1:
+        y = y[:, None]
 
     X = cp.array(X, dtype=np.float64)
     y = cp.array(y, dtype=np.float64)
@@ -252,7 +255,21 @@ def estimator_array_strategy(draw):
         np.array([[2.0, 3.0], [4.0, 5.0]]),  # X_test
         np.array([0.1]),  # alpha
         None,  # sample_weight
-        np.float32,  # dtype
+        np.float64,  # dtype
+    ),
+    gamma=1.0,
+    degree=1,
+    coef0=0.0,
+)
+@example(
+    kernel_arg=("linear", {}),
+    arrays=(
+        np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]),  # X
+        np.array([[1.0, 2.0, 3.0]]).T,  # y
+        np.array([[2.0, 3.0], [4.0, 5.0]]),  # X_test
+        np.array([0.1]),  # alpha
+        0.5,  # sample_weight
+        np.float64,  # dtype
     ),
     gamma=1.0,
     degree=1,

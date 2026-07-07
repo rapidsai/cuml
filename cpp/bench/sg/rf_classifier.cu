@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -70,9 +70,6 @@ class RFClassifier : public BlobsFixture<D> {
 template <typename D>
 std::vector<Params> getInputs()
 {
-  struct Triplets {
-    int nrows, ncols, nclasses;
-  };
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = false;
@@ -98,16 +95,28 @@ std::vector<Params> getInputs()
                        128                  /* max_batch_size */
   );
 
-  std::vector<Triplets> rowcols = {
-    {160000, 64, 2}, {640000, 64, 8}, {1184000, 968, 2},  // Mimicking Bosch dataset
+  struct Config {
+    int nrows, ncols, nclasses, max_n_bins;
+    ML::CRITERION criterion;
   };
-  for (auto& rc : rowcols) {
+  std::vector<Config> configs = {
+    {160000, 64, 2, 32, ML::CRITERION::GINI},
+    {640000, 64, 8, 32, ML::CRITERION::GINI},
+    {1184000, 968, 2, 32, ML::CRITERION::GINI},  // Mimicking Bosch dataset
+    // High class count (44) + large bins (128) stress the shared-memory histogram path.
+    {160000, 64, 44, 128, ML::CRITERION::GINI},
+    // Entropy variant exercises the entropy-{float,double}.cu instantiations.
+    {640000, 64, 8, 32, ML::CRITERION::ENTROPY},
+  };
+  for (auto& cfg : configs) {
     // Let's run Bosch only for float type
-    if (!std::is_same<D, float>::value && rc.ncols == 968) continue;
-    p.data.nrows                  = rc.nrows;
-    p.data.ncols                  = rc.ncols;
-    p.data.nclasses               = rc.nclasses;
-    p.rf.tree_params.max_features = 1.f / std::sqrt(float(rc.ncols));
+    if (!std::is_same<D, float>::value && cfg.ncols == 968) continue;
+    p.data.nrows                     = cfg.nrows;
+    p.data.ncols                     = cfg.ncols;
+    p.data.nclasses                  = cfg.nclasses;
+    p.rf.tree_params.max_n_bins      = cfg.max_n_bins;
+    p.rf.tree_params.split_criterion = cfg.criterion;
+    p.rf.tree_params.max_features    = 1.f / std::sqrt(float(cfg.ncols));
     for (auto max_depth : std::vector<int>({7, 9})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);

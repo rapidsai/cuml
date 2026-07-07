@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,12 +8,13 @@
 #include "svm_model.h"
 #include "svm_parameter.h"
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/matrix/kernel_params.hpp>
 
 #include <raft/core/handle.hpp>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace SVM {
 
 // Forward declarations of the stateless API
@@ -272,4 +273,4 @@ class SVC {
 };
 
 };  // end namespace SVM
-};  // end namespace ML
+}  // end namespace CUML_EXPORT ML

@@ -16,12 +16,14 @@ else:
 import cupy
 from rmm.allocators.cupy import rmm_cupy_allocator
 
+import cuml.accel
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.hdbscan import HDBSCAN
 from cuml.cluster.kmeans import KMeans
+from cuml.covariance.empirical_covariance import EmpiricalCovariance
 from cuml.covariance.ledoit_wolf import LedoitWolf
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
@@ -35,7 +37,7 @@ from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
 from cuml.explainer.tree_shap import TreeExplainer
-from cuml.fil import ForestInference, fil
+from cuml.fil import ForestInference
 from cuml.internals.base import Base
 from cuml.internals.global_settings import (
     GlobalSettings,
@@ -44,6 +46,7 @@ from cuml.internals.global_settings import (
 from cuml.internals.outputs import set_global_output_type, using_output_type
 from cuml.kernel_ridge.kernel_ridge import KernelRidge
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.linear_model.lars import Lars
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
@@ -94,7 +97,6 @@ __all__ = [
     # Modules
     "common",
     "feature_extraction",
-    "fil",
     "metrics",
     "multiclass",
     "naive_bayes",
@@ -108,6 +110,7 @@ __all__ = [
     "CD",
     "DBSCAN",
     "ElasticNet",
+    "EmpiricalCovariance",
     "ExponentialSmoothing",
     "ForestInference",
     "GaussianRandomProjection",
@@ -120,6 +123,7 @@ __all__ = [
     "KMeans",
     "KNeighborsClassifier",
     "KNeighborsRegressor",
+    "Lars",
     "Lasso",
     "LedoitWolf",
     "LinearRegression",

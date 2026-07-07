@@ -1,8 +1,6 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-import sys
 
 import cupy as cp
 import numpy as np
@@ -11,7 +9,7 @@ import sklearn
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Lars as skLars
 
-from cuml.experimental.linear_model import Lars as cuLars
+from cuml.linear_model import Lars as cuLars
 from cuml.testing.datasets import make_regression_dataset
 from cuml.testing.utils import (
     array_equal,
@@ -19,9 +17,6 @@ from cuml.testing.utils import (
     stress_param,
     unit_param,
 )
-
-# As tests directory is not a module, we need to add it to the path
-sys.path.insert(0, ".")
 
 
 def normalize_data(X, y):
@@ -32,6 +27,22 @@ def normalize_data(X, y):
     x_scale[x_scale == 0] = 1
     X = (X - x_mean) / x_scale
     return X, y, x_mean, x_scale, y_mean
+
+
+def test_experimental_namespace_deprecation():
+    with pytest.warns(
+        FutureWarning, match="`cuml.experimental.linear_model.Lars`"
+    ):
+        from cuml.experimental.linear_model import Lars
+
+        assert Lars is cuLars
+
+    import cuml.experimental.linear_model as ex_lm
+
+    with pytest.warns(
+        FutureWarning, match="`cuml.experimental.linear_model.Lars`"
+    ):
+        assert ex_lm.Lars is cuLars
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -190,6 +201,7 @@ def test_lars_attributes(datatype, params):
                 sklars.coef_path_[sklars.active_],
                 unit_tol=1e-3,
             )
+            assert culars.coef_path_.shape[1] == culars.n_iter_ + 1
 
         intercept_diff = abs(culars.intercept_ - sklars.intercept_)
         if abs(sklars.intercept_) > 1e-6:

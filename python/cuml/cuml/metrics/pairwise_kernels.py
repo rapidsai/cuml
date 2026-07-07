@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -9,7 +9,7 @@ import numpy as np
 from numba import cuda
 
 import cuml.internals
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_array
 from cuml.metrics import pairwise_distances
 
 
@@ -184,7 +184,7 @@ def pairwise_kernels(
     metric="linear",
     *,
     filter_params=False,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     **kwds,
 ):
     """
@@ -202,18 +202,18 @@ def pairwise_kernels(
 
     Parameters
     ----------
-    X : Dense matrix (device or host) of shape (n_samples_X, n_samples_X) or \
+    X : array-like (device or host) of shape (n_samples_X, n_samples_X) or \
             (n_samples_X, n_features)
         Array of pairwise kernels between samples, or a feature array.
         The shape of the array should be (n_samples_X, n_samples_X) if
         metric == "precomputed" and (n_samples_X, n_features) otherwise.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
-    Y : Dense matrix (device or host) of shape (n_samples_Y, n_features), \
+        ndarray, cuda array interface compliant array like CuPy.
+    Y : array-like (device or host) of shape (n_samples_Y, n_features), \
         default=None
         A second feature array only if X has shape (n_samples_X, n_features).
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+        ndarray, cuda array interface compliant array like CuPy.
     metric : str or callable (numba device function), default="linear"
         The metric to use when calculating kernel between instances in a
         feature array.
@@ -224,10 +224,13 @@ def pairwise_kernels(
         kernel value as a single number.
     filter_params : bool, default=False
         Whether to filter invalid parameters or not.
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, when necessary, convert
-        Y to be the same data type as X if they differ. This
-        will increase memory used for the method.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
     **kwds : optional keyword parameters
         Any further parameters are passed directly to the kernel function.
 
@@ -275,11 +278,11 @@ def pairwise_kernels(
             [5.04347663e-07, 2.03468369e-04],
             [4.24835426e-18, 2.54366565e-13]])
     """
-    X = input_to_cupy_array(X).array
+    X = check_array(X, input_name="X")
     if Y is None:
         Y = X
     else:
-        Y = input_to_cupy_array(Y).array
+        Y = check_array(Y, input_name="Y")
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 

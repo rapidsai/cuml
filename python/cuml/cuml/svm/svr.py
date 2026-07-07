@@ -1,20 +1,16 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
-
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import check_inputs
 from cuml.svm.svm_base import SVMBase
 
 
-class SVR(SVMBase, RegressorMixin):
+class SVR(RegressorMixin, SVMBase):
     """
     SVR (Epsilon Support Vector Regression)
 
@@ -128,7 +124,7 @@ class SVR(SVMBase, RegressorMixin):
         >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
         >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
         >>> reg.fit(X, y)
-        SVR()
+        SVR(C=10)
         >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
     """
@@ -137,60 +133,32 @@ class SVR(SVMBase, RegressorMixin):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVR":
         """
         Fit the model with X and y.
 
         """
-        # Handle precomputed kernels
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                order="F",
-            ).array
-            # Validate that X is square for precomputed kernels
-            if X.shape[0] != X.shape[1]:
-                raise ValueError(
-                    f"Precomputed kernel matrix must be square, "
-                    f"got shape ({X.shape[0]}, {X.shape[1]})"
-                )
-        elif is_sparse(X):
-            X = SparseCumlArray(
-                X,
-                convert_to_dtype=(
-                    None if X.dtype in (np.float32, np.float64) else np.float32
-                ),
-            )
-        else:
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                order="F",
-            ).array
+        if self.kernel == "precomputed" and is_sparse(X):
+            raise TypeError("Sparse precomputed kernels are not supported.")
 
-        y = input_to_cuml_array(
+        X, y, sample_weight = check_inputs(
+            self,
+            X,
             y,
-            check_dtype=X.dtype,
-            convert_to_dtype=(X.dtype if convert_dtype else None),
-            check_rows=X.shape[0],
-            check_cols=1,
-        ).array
-
-        if sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X.dtype,
-                convert_to_dtype=(X.dtype if convert_dtype else None),
-                check_rows=X.shape[0],
-                check_cols=1,
-            ).array
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            ensure_min_samples=2,
+            accept_sparse="csr",
+            reset=True,
+        )
+        if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
+            raise ValueError(
+                f"Precomputed kernel matrix must be square, got shape {X.shape}"
+            )
 
         self._fit(X, y, sample_weight)
 
@@ -205,7 +173,7 @@ class SVR(SVMBase, RegressorMixin):
         }
     )
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the values for X.
 
@@ -214,33 +182,4 @@ class SVR(SVMBase, RegressorMixin):
         number of samples used during fit.
 
         """
-        check_is_fitted(self)
-        check_features(self, X)
-
-        dtype = self.support_vectors_.dtype
-
-        # For precomputed kernels, check that columns match training set size
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[0],  # Number of training samples
-            ).array
-        elif is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=dtype)
-        else:
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
-            ).array
-
-        return self._predict(X)
+        return self._predict(X, convert_dtype=convert_dtype)

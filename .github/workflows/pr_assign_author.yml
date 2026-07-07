@@ -1,6 +1,9 @@
 name: Assign PR to Author
 
-on:
+# `zizmor` always flags these triggers because they are easy to use
+# incorrectly. These usages are ok and don't execute any PR-specific
+# code (and so aren't susceptible to exploits from forked PRs)
+on: # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     types: [opened]
 

@@ -1,14 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2023, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <cstdint>
 #include <string>
 
-namespace cuml {
+namespace CUML_EXPORT cuml {
 namespace genetic {
 
 /**
@@ -153,4 +155,4 @@ struct node {
 };  // struct node
 
 }  // namespace genetic
-}  // namespace cuml
+}  // namespace CUML_EXPORT cuml

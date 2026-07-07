@@ -7,32 +7,28 @@ import warnings
 import cudf
 import cupy as cp
 import numpy as np
-import pandas as pd
 
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
+    UnsupportedOnGPU,
     to_cpu,
     to_gpu,
 )
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import (
+    check_classification_targets,
+    check_consistent_length,
+    check_cudf,
+    check_features,
+    check_is_fitted,
+    check_random_seed,
+)
 
 
-def get_stat_func(stat):
-    def func(ds):
-        if hasattr(ds, stat):
-            return getattr(ds, stat)()
-        else:
-            # implement stat
-            raise ValueError(f"{stat} function is not implemented.")
-
-    return func
-
-
-class TargetEncoder(Base, InteropMixin):
+class TargetEncoder(InteropMixin, Base):
     """
     A cudf based implementation of target encoding [1]_, which converts
     one or multiple categorical variables, 'Xs', with the average of
@@ -91,11 +87,18 @@ class TargetEncoder(Base, InteropMixin):
         The categories of each input feature determined during fitting.
         Each element is an array of unique category values for that feature,
         sorted in ascending order.
+    target_type_ : str
+        Type of target.
+    classes_ : numpy.ndarray or None
+        The labels for each class if `target_type_` is 'binary', `None`
+        otherwise.
     n_features_in_ : int
         Number of features seen during :meth:`fit`.
-    encode_all : cudf.DataFrame
+    encode_all : cudf.DataFrame or list[cudf.DataFrame]
         DataFrame containing the learned encodings for all category
-        combinations. Used internally for transforming new data.
+        combinations, or a list of such dataframes if fit with
+        `multi_feature_mode="independent"`. Used internally for transforming
+        new data.
     mean : float
         The overall mean of the target variable, computed during fitting.
         Used for smoothing and imputing unseen categories.
@@ -193,44 +196,10 @@ class TargetEncoder(Base, InteropMixin):
         multi_feature_mode="combination",
     ):
         super().__init__(verbose=verbose, output_type=output_type)
-        if smooth < 0:
-            raise ValueError(f"smooth {smooth} is not zero or positive")
-        if n_folds < 0 or not isinstance(n_folds, int):
-            raise ValueError(
-                "n_folds {} is not a positive integer".format(n_folds)
-            )
-        if stat not in {"mean", "var", "median"}:
-            msg = f"stat should be 'mean', 'var' or 'median'.got {stat}."
-            raise ValueError(msg)
-
-        if not isinstance(seed, int):
-            raise ValueError("seed {} is not an integer".format(seed))
-
-        if split_method not in {
-            "random",
-            "continuous",
-            "interleaved",
-            "customize",
-        }:
-            msg = (
-                "split_method should be either 'random'"
-                " or 'continuous' or 'interleaved', or 'customize'"
-                "got {0}.".format(split_method)
-            )
-            raise ValueError(msg)
-
         self.n_folds = n_folds
         self.seed = seed
         self.smooth = smooth
         self.split_method = split_method
-        self.y_col = "__TARGET__"
-        self.y_col2 = "__TARGET__SQUARE__"
-        self.x_col = "__FEA__"
-        self.out_col = "__TARGET_ENCODE__"
-        self.out_col2 = "__TARGET_ENCODE__SQUARE__"
-        self.fold_col = "__FOLD__"
-        self.id_col = "__INDEX__"
-        self.train = None
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
 
@@ -257,47 +226,9 @@ class TargetEncoder(Base, InteropMixin):
         self : TargetEncoder
             A fitted instance of itself to allow method chaining
         """
-        if y is None:
-            raise ValueError(
-                "This TargetEncoder estimator requires y to be passed, "
-                "but the target y is None."
-            )
-
-        if len(X) == 0:
-            raise ValueError(
-                "Found array with 0 sample(s) while a minimum of 1 is "
-                "required."
-            )
-
-        if self.split_method == "customize" and fold_ids is None:
-            raise ValueError(
-                "`fold_ids` is required "
-                "since split_method is set to"
-                "'customize'."
-            )
-        if fold_ids is not None and self.split_method != "customize":
-            self.split_method == "customize"
-            warnings.warn(
-                "split_method is set to 'customize'"
-                "since `fold_ids` are provided."
-            )
-        if fold_ids is not None and len(fold_ids) != len(X):
-            raise ValueError(
-                f"`fold_ids` length {len(fold_ids)}"
-                "is different from input data length"
-                f"{len(X)}"
-            )
-
         res, train = self._fit_transform(X, y, fold_ids=fold_ids)
         self.train_encode = res
         self.train = train
-
-        # Set _n_features_out for sklearn compatibility (get_feature_names_out)
-        if getattr(self, "_independent_mode_fitted", False):
-            self._n_features_out = self.n_features_in_
-        else:
-            self._n_features_out = 1
-
         return self
 
     @reflect
@@ -351,31 +282,28 @@ class TargetEncoder(Base, InteropMixin):
 
         """
         check_is_fitted(self)
-        check_features(self, X)
+        df = self._check_X(X)
 
-        test = self._data_with_strings_to_cudf_dataframe(X)
-
-        if self._is_train_df(test):
+        if self._is_train_df(df):
             return self.train_encode
 
-        x_cols = [i for i in test.columns.tolist() if i != self.id_col]
+        x_cols = [n for n in df.columns.tolist() if n.startswith("X_")]
 
-        # Handle independent mode (per-feature encoding)
-        if getattr(self, "_independent_mode_fitted", False):
-            return self._transform_independent(test, x_cols)
+        if isinstance(self.encode_all, list):
+            return self._transform_independent(df, x_cols)
 
-        test = test.merge(self.encode_all, on=x_cols, how="left")
-        return self._impute_and_sort(test)
+        df = df.merge(self.encode_all, on=x_cols, how="left")
+        return self._impute_and_sort(df)
 
     def _transform_independent(self, test, x_cols):
         """Transform using independent per-feature encodings."""
         result_cols = []
         for i, col in enumerate(x_cols):
-            out_col_i = f"{self.out_col}_{i}"
-            encode_all_i = self._encode_all_per_feature[i]
+            out_col_i = f"out_{i}"
+            encode_all_i = self.encode_all[i]
 
             test = test.merge(
-                encode_all_i.rename(columns={self.out_col: out_col_i}),
+                encode_all_i.rename(columns={"out": out_col_i}),
                 on=col,
                 how="left",
             )
@@ -383,46 +311,27 @@ class TargetEncoder(Base, InteropMixin):
             test[out_col_i] = test[out_col_i].fillna(self.y_stat_val)
             result_cols.append(out_col_i)
 
-        test = test.sort_values(self.id_col)
-        res = test[result_cols].values.copy()
+        test = test.sort_values("id")
+        res = test[result_cols].to_cupy()
         return CumlArray(res)
 
-    def _fit_transform(self, x, y, fold_ids):
-        cp.random.seed(self.seed)
-        train = self._data_with_strings_to_cudf_dataframe(x)
-        x_cols = [i for i in train.columns.tolist() if i != self.id_col]
+    def _fit_transform(self, X, y, fold_ids):
+        if self.smooth < 0:
+            raise ValueError(f"smooth {self.smooth} is not zero or positive")
 
-        self._x_cols = x_cols
+        if self.stat not in {"mean", "var", "median"}:
+            raise ValueError(
+                f"Expected `stat` in ['mean', 'var', 'median'], got {self.stat!r}"
+            )
 
-        # Extract unique categories for each feature (sorted for consistency)
+        df = self._check_X_y(X, y)
+        x_cols = [n for n in df.columns.tolist() if n.startswith("X_")]
+
+        # Extract unique categories for each feature
         self.categories_ = []
         for col in x_cols:
-            # Handle string columns specially - cudf.unique() fails on object dtype
-            # because it tries to return .values which cupy doesn't support
-            try:
-                unique_vals = train[col].unique()
-            except TypeError:
-                # String column in cudf - get unique values via drop_duplicates
-                unique_vals = (
-                    train[col].drop_duplicates().sort_values().to_numpy()
-                )
-                self.categories_.append(unique_vals)
-                continue
-
-            # Handle both cudf Series and numpy arrays (cudf.pandas compatibility)
-            if hasattr(unique_vals, "sort_values"):
-                # cudf Series - use sort_values()
-                unique_vals = unique_vals.sort_values()
-                # Use to_numpy() for string columns since .values fails on strings
-                # (cupy doesn't support object dtype)
-                try:
-                    self.categories_.append(unique_vals.values)
-                except TypeError:
-                    # String column - use numpy array instead of cupy
-                    self.categories_.append(unique_vals.to_numpy())
-            else:
-                # numpy/cupy array - use np.sort()
-                self.categories_.append(np.sort(unique_vals))
+            cats = df[col].drop_duplicates().sort_values().to_numpy()
+            self.categories_.append(cats)
 
         if self.multi_feature_mode not in {"combination", "independent"}:
             raise ValueError(
@@ -430,317 +339,216 @@ class TargetEncoder(Base, InteropMixin):
                 f"got '{self.multi_feature_mode}'."
             )
 
-        # Delegate to appropriate method based on mode and stat
-        if len(x_cols) > 1 and self.multi_feature_mode == "independent":
-            return self._fit_transform_independent(train, x_cols, y, fold_ids)
-        elif self.stat == "median":
-            return self._fit_transform_median(train, x_cols, y, fold_ids)
-        else:
-            return self._fit_transform_combination(train, x_cols, y, fold_ids)
+        # Add fold column
+        df = df.assign(fold=self._make_fold_column(len(df), fold_ids))
 
-    def _fit_transform_combination(self, train, x_cols, y, fold_ids):
+        # Compute stats
+        self.mean = df.y.mean()
+        self.y_stat_val = getattr(df.y, self.stat)()
+
+        # Delegate to appropriate method based on mode and stat
+        if self.multi_feature_mode == "independent":
+            self._n_features_out = self.n_features_in_
+            return self._fit_transform_independent(df, x_cols, fold_ids)
+        elif self.stat == "median":
+            self._n_features_out = 1
+            return self._fit_transform_median(df, x_cols, fold_ids)
+        else:
+            self._n_features_out = 1
+            return self._fit_transform_combination(df, x_cols, fold_ids)
+
+    def _fit_transform_combination(self, df, x_cols, fold_ids):
         """
         Fit-transform with combination encoding (cuML native behavior).
 
         Encodes all feature combinations together, producing a single output
         column with encodings based on the joint distribution of all features.
         """
-        y_values = self._make_y_column(y)
-        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
-        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
-
-        self.n_folds = min(self.n_folds, len(train))
-        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
-
-        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
-        self.mean = train[self.y_col].mean()
-
+        self._encodings_per_feature = []
         if self.stat == "var":
-            y_cols = [self.y_col, self.y_col2]
-            train[self.y_col2] = self._make_y_column(y * y)
-            self.mean2 = train[self.y_col2].mean()
+            y_cols = ["y", "y2"]
+            df = df.assign(y2=df.y * df.y)
+            self.mean2 = df.y2.mean()
         else:
-            y_cols = [self.y_col]
+            y_cols = ["y"]
 
         y_count_each_fold, y_count_all = self._groupby_agg(
-            train, x_cols, op="count", y_cols=y_cols
+            df, x_cols, op="count", y_cols=y_cols
         )
 
         y_sum_each_fold, y_sum_all = self._groupby_agg(
-            train, x_cols, op="sum", y_cols=y_cols
+            df, x_cols, op="sum", y_cols=y_cols
         )
 
-        # encode_each_fold is used to encode train data
-        # encode_all is used to encode test data
-        cols = [self.fold_col] + x_cols
+        # encode_each_fold is used to encode training data
+        # encode_all is used to encode testing data
+        cols = ["fold", *x_cols]
         encode_each_fold = self._compute_output(
             y_sum_each_fold,
             y_count_each_fold,
             cols,
-            f"{self.y_col}_x",
-            f"{self.y_col2}_x",
+            "y_x",
+            "y2_x",
         )
-        encode_all = self._compute_output(
-            y_sum_all, y_count_all, x_cols, self.y_col, self.y_col2
+        self.encode_all = self._compute_output(
+            y_sum_all, y_count_all, x_cols, "y", "y2"
         )
 
-        self.encode_all = encode_all
+        df = df.merge(encode_each_fold, on=cols, how="left")
+        return self._impute_and_sort(df), df
 
-        train = train.merge(encode_each_fold, on=cols, how="left")
-        del encode_each_fold
-        return self._impute_and_sort(train), train
-
-    def _fit_transform_median(self, train, x_cols, y, fold_ids):
+    def _fit_transform_median(self, df, x_cols, fold_ids):
         """
         Fit-transform with median stat using a for-loop approach.
 
         Median requires computing the statistic per fold separately,
         which cannot be vectorized like mean/var.
         """
-        y_values = self._make_y_column(y)
-        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
-        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
-
-        self.n_folds = min(self.n_folds, len(train))
-        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
-
-        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
-        self.mean = train[self.y_col].mean()
+        self._encodings_per_feature = []
 
         def _rename_col(df, col):
             df.columns = [col]
             return df.reset_index()
 
         res = []
-        unq_vals = train[self.fold_col].unique()
-        if not isinstance(unq_vals, (cp.ndarray, np.ndarray)):
-            unq_vals = unq_vals.to_numpy()
+        unq_vals = df.fold.drop_duplicates().sort_values().to_numpy()
         for f in unq_vals:
-            mask = train[self.fold_col].values == f
-            dg = train.loc[~mask].groupby(x_cols).agg({self.y_col: self.stat})
-            dg = _rename_col(dg, self.out_col)
-            res.append(train.loc[mask].merge(dg, on=x_cols, how="left"))
+            mask = df.fold.values == f
+            dg = df.loc[~mask].groupby(x_cols).agg({"y": self.stat})
+            dg = _rename_col(dg, "out")
+            res.append(df.loc[mask].merge(dg, on=x_cols, how="left"))
         res = cudf.concat(res, axis=0)
-        self.encode_all = train.groupby(x_cols).agg({self.y_col: self.stat})
-        self.encode_all = _rename_col(self.encode_all, self.out_col)
-        return self._impute_and_sort(res), train
+        self.encode_all = df.groupby(x_cols).agg({"y": self.stat})
+        self.encode_all = _rename_col(self.encode_all, "out")
+        return self._impute_and_sort(res), df
 
-    def _fit_transform_independent(self, train, x_cols, y, fold_ids):
+    def _fit_transform_independent(self, df, x_cols, fold_ids):
         """
         Fit-transform with independent per-feature encoding (sklearn-like).
 
         Each feature is encoded independently based on its relationship with
         the target, producing N output columns for N input features.
         """
-        y_values = self._make_y_column(y)
-        # Ensure y is stored as float64 in cudf (handles string->numeric conversion)
-        train[self.y_col] = cp.asarray(y_values, dtype=cp.float64)
-
-        self.n_folds = min(self.n_folds, len(train))
-        train[self.fold_col] = self._make_fold_column(len(train), fold_ids)
-
-        self.mean = train[self.y_col].mean()
-        self.y_stat_val = get_stat_func(self.stat)(train[self.y_col])
-
         self._encodings_per_feature = []
-        self._encode_all_per_feature = []
+        self.encode_all = []
         result_cols = []
 
         for i, col in enumerate(x_cols):
-            out_col_i = f"{self.out_col}_{i}"
+            out_col_i = f"out_{i}"
 
             if self.stat in ["median"]:
-                # Use for-loop approach for median
                 encode_all_i = self._compute_single_feature_encoding_median(
-                    train, col
+                    df, col
                 )
             else:
                 encode_all_i = self._compute_single_feature_encoding(
-                    train, col, out_col_i
+                    df, col, out_col_i
                 )
 
-            self._encode_all_per_feature.append(encode_all_i)
+            self.encode_all.append(encode_all_i)
 
             # Extract encodings in category order for sklearn compatibility
             feature_encodings = []
             for cat_val in self.categories_[i]:
                 mask = encode_all_i[col] == cat_val
                 if mask.any():
-                    enc_val = float(
-                        encode_all_i.loc[mask, self.out_col].iloc[0]
-                    )
+                    enc_val = float(encode_all_i.loc[mask, "out"].iloc[0])
                 else:
                     enc_val = float(self.mean)
                 feature_encodings.append(enc_val)
             self._encodings_per_feature.append(np.array(feature_encodings))
 
-            # Merge encoding into train for this feature
-            train = train.merge(
-                encode_all_i.rename(columns={self.out_col: out_col_i}),
+            # Merge encoding into df for this feature
+            df = df.merge(
+                encode_all_i.rename(columns={"out": out_col_i}),
                 on=col,
                 how="left",
             )
-            train[out_col_i] = train[out_col_i].nans_to_nulls()
-            train[out_col_i] = train[out_col_i].fillna(self.y_stat_val)
+            df[out_col_i] = df[out_col_i].nans_to_nulls()
+            df[out_col_i] = df[out_col_i].fillna(self.y_stat_val)
             result_cols.append(out_col_i)
 
-        # Create a combined encode_all for transform() compatibility
-        # This stores the per-feature encodings in a format transform() can use
-        self.encode_all = self._encode_all_per_feature
-        self._independent_mode_fitted = True
-
         # Sort by original index and return results
-        train = train.sort_values(self.id_col)
-        res = train[result_cols].values.copy()
-        return CumlArray(res), train
+        df = df.sort_values("id")
+        res = df[result_cols].to_cupy()
+        return CumlArray(res), df
 
     def _compute_single_feature_encoding(self, train, col, out_col):
         """Compute target encoding for a single feature column."""
-        y_col = self.y_col
-
         # Group by single feature and compute stats
-        df_count = train.groupby(col, as_index=False).agg({y_col: "count"})
-        df_count.columns = [col, f"{y_col}_count"]
+        df_count = train.groupby(col, as_index=False).agg({"y": "count"})
+        df_count.columns = [col, "y_count"]
 
-        df_sum = train.groupby(col, as_index=False).agg({y_col: "sum"})
-        df_sum.columns = [col, f"{y_col}_sum"]
+        df_sum = train.groupby(col, as_index=False).agg({"y": "sum"})
+        df_sum.columns = [col, "y_sum"]
 
         df = df_sum.merge(df_count, on=col, how="left")
 
         # Apply smoothing
         smooth = self.smooth
-        df[self.out_col] = (df[f"{y_col}_sum"] + smooth * self.mean) / (
-            df[f"{y_col}_count"] + smooth
-        )
+        df["out"] = (df.y_sum + smooth * self.mean) / (df.y_count + smooth)
 
-        return df[[col, self.out_col]]
+        return df[[col, "out"]]
 
     def _compute_single_feature_encoding_median(self, train, col):
         """Compute median target encoding for a single feature column."""
-        encode_all = train.groupby(col, as_index=False).agg(
-            {self.y_col: self.stat}
-        )
-        encode_all.columns = [col, self.out_col]
+        encode_all = train.groupby(col, as_index=False).agg({"y": self.stat})
+        encode_all.columns = [col, "out"]
         return encode_all
 
-    def _make_y_column(self, y):
-        """
-        Create a target column given y.
-
-        Handles binary classification targets with string labels by converting
-        them to 0/1 (matching sklearn's behavior).
-        """
-        if isinstance(y, cudf.Series) or isinstance(y, pd.Series):
-            y_vals = y.values
-        elif isinstance(y, cp.ndarray) or isinstance(y, np.ndarray):
-            if len(y.shape) == 1:
-                y_vals = y
-            elif y.shape[1] == 1:
-                y_vals = y[:, 0]
-            else:
-                raise ValueError(
-                    f"Input of shape {y.shape} is not a 1-D array."
-                )
-        elif isinstance(y, list):
-            # Convert Python lists to numpy arrays
-            y_vals = np.asarray(y)
-        else:
-            raise TypeError(
-                f"Input of type {type(y)} is not cudf.Series, "
-                "or pandas.Series"
-                "or numpy.ndarray"
-                "or cupy.ndarray"
-                "or list"
-            )
-
-        # Handle string/object dtype targets (binary classification)
-        # Convert string labels to 0/1 like sklearn does
-        # Check for object dtype OR Unicode/byte string dtypes (U, S kinds)
-        is_string_dtype = hasattr(y_vals, "dtype") and (
-            y_vals.dtype == np.object_ or y_vals.dtype.kind in ("U", "S")
-        )
-        if is_string_dtype:
-            unique_vals = np.unique(y_vals)
-            if len(unique_vals) == 2:
-                # Binary classification - convert to 0/1
-                self._target_classes_ = unique_vals
-                self.target_type_ = "binary"
-                y_vals = (y_vals == unique_vals[1]).astype(np.float64)
-            elif len(unique_vals) == 1:
-                # Constant target - treat as 0
-                self._target_classes_ = unique_vals
-                self.target_type_ = "binary"
-                y_vals = np.zeros(len(y_vals), dtype=np.float64)
-            else:
-                raise ValueError(
-                    f"Target encoding with string labels only supports binary "
-                    f"classification (2 classes), but found {len(unique_vals)} "
-                    f"classes: {unique_vals}"
-                )
-        else:
-            # Detect target type for numeric y
-            # Check if binary (only 0 and 1, or only 2 unique integer values)
-            try:
-                y_arr = np.asarray(y_vals)
-                unique_y = np.unique(y_arr)
-                if len(unique_y) <= 2 and np.issubdtype(
-                    y_arr.dtype, np.integer
-                ):
-                    self.target_type_ = "binary"
-                else:
-                    self.target_type_ = "continuous"
-            except Exception:
-                self.target_type_ = "continuous"
-
-        return y_vals
-
-    def _make_fold_column(self, len_train, fold_ids):
+    def _make_fold_column(self, n_samples, fold_ids):
         """
         Create a fold id column for each split
         """
+        if self.n_folds < 1:
+            raise ValueError("n_folds >= 1 is required")
 
-        if self.split_method == "random":
-            return cp.random.randint(0, self.n_folds, len_train)
-        elif self.split_method == "continuous":
-            return (
-                cp.arange(len_train) / (len_train / self.n_folds)
-            ) % self.n_folds
-        elif self.split_method == "interleaved":
-            return cp.arange(len_train) % self.n_folds
-        elif self.split_method == "customize":
+        n_folds = min(self.n_folds, n_samples)
+
+        if fold_ids is not None or self.split_method == "customize":
             if fold_ids is None:
                 raise ValueError(
-                    "fold_ids can't be None"
-                    "since split_method is set to"
-                    "'customize'."
+                    "`fold_ids` is required if split_method='customize'"
                 )
-            return fold_ids
+            elif self.split_method != "customize":
+                warnings.warn(
+                    "Using `split_method='customize'` since `fold_ids` are provided"
+                )
+            if len(fold_ids) != n_samples:
+                raise ValueError(
+                    f"`fold_ids` length {len(fold_ids)} is different from input "
+                    f"data length {n_samples}"
+                )
+            return cp.asarray(fold_ids)
+        if self.split_method == "random":
+            rng = cp.random.default_rng(check_random_seed(self.seed))
+            return rng.integers(0, n_folds, n_samples)
+        elif self.split_method == "continuous":
+            return (cp.arange(n_samples) / (n_samples / n_folds)) % n_folds
+        elif self.split_method == "interleaved":
+            return cp.arange(n_samples) % n_folds
         else:
-            msg = (
-                "split_method should be either 'random'"
-                " or 'continuous' or 'interleaved', "
-                "got {0}.".format(self.split_method)
+            raise ValueError(
+                f"Expected `split_method` in ['random', 'continuous', "
+                f"'interleaved', 'customize'], got {self.split_method!r}"
             )
-            raise ValueError(msg)
 
-    def _compute_output(self, df_sum, df_count, cols, y_col, y_col2=None):
+    def _compute_output(self, df_sum, df_count, cols, y_col, y_col2):
         """
         Compute the output encoding based on aggregated sum and count
         """
         df_sum = df_sum.merge(df_count, on=cols, how="left")
         smooth = self.smooth
-        df_sum[self.out_col] = (df_sum[f"{y_col}_x"] + smooth * self.mean) / (
+        df_sum["out"] = (df_sum[f"{y_col}_x"] + smooth * self.mean) / (
             df_sum[f"{y_col}_y"] + smooth
         )
         if self.stat == "var":
-            df_sum[self.out_col2] = (
-                df_sum[f"{y_col2}_x"] + smooth * self.mean2
-            ) / (df_sum[f"{y_col2}_y"] + smooth)
-            df_sum[self.out_col] = (
-                df_sum[self.out_col2] - df_sum[self.out_col] ** 2
+            df_sum["out2"] = (df_sum[f"{y_col2}_x"] + smooth * self.mean2) / (
+                df_sum[f"{y_col2}_y"] + smooth
             )
-            df_sum[self.out_col] = (
-                df_sum[self.out_col]
+            df_sum["out"] = df_sum["out2"] - df_sum["out"] ** 2
+            df_sum["out"] = (
+                df_sum["out"]
                 * df_sum[f"{y_col2}_y"]
                 / (df_sum[f"{y_col2}_y"] - 1)
             )
@@ -751,7 +559,7 @@ class TargetEncoder(Base, InteropMixin):
         Compute aggregated value of each fold and overall dataframe
         grouped by `x_cols` and agg by `op`
         """
-        cols = [self.fold_col] + x_cols
+        cols = ["fold", *x_cols]
         df_each_fold = train.groupby(cols, as_index=False).agg(
             {y_col: op for y_col in y_cols}
         )
@@ -772,14 +580,12 @@ class TargetEncoder(Base, InteropMixin):
         is used in `fit_transform`
         """
         # If train is None (e.g., loaded from sklearn), we can't compare
-        if self.train is None:
+        if getattr(self, "train", None) is None:
             return False
         if len(df) != len(self.train):
             return False
-        self.train = self.train.sort_values(self.id_col).reset_index(drop=True)
+        self.train = self.train.sort_values("id").reset_index(drop=True)
         for col in df.columns:
-            if col not in self.train.columns:
-                raise ValueError(f"Input column {col} is not in train data.")
             if not (df[col] == self.train[col]).all():
                 return False
         return True
@@ -789,61 +595,61 @@ class TargetEncoder(Base, InteropMixin):
         Impute and sort the result encoding in the same row order as input.
         """
 
-        df[self.out_col] = df[self.out_col].nans_to_nulls()
-        df[self.out_col] = df[self.out_col].fillna(self.y_stat_val)
-        df = df.sort_values(self.id_col)
-        res = df[self.out_col].values.copy()
-        res = res.reshape(-1, 1)
+        df["out"] = df["out"].nans_to_nulls().fillna(self.y_stat_val)
+        df = df.sort_values("id")
+        res = df["out"].to_cupy().reshape(-1, 1)
         return CumlArray(res)
 
-    def _data_with_strings_to_cudf_dataframe(self, x):
-        """
-        Convert input data with strings to cudf dataframe.
-        Supported data types are:
-            1D or 2D numpy/cupy arrays
-            pandas/cudf Series
-            pandas/cudf DataFrame
-        Input data could have one or more string columns.
-        """
-        if isinstance(x, cudf.DataFrame):
-            df = x.copy()
-        elif isinstance(x, cudf.Series):
-            df = x.to_frame().copy()
-        elif isinstance(x, cp.ndarray) or isinstance(x, np.ndarray):
-            # For string/object arrays, use pandas as intermediate
-            # (cudf.DataFrame doesn't handle numpy string arrays well)
-            if x.dtype.kind in ("U", "S", "O"):
-                if len(x.shape) == 1:
-                    cols = [self.x_col]
-                    x_2d = x.reshape(-1, 1)
-                else:
-                    cols = [f"{self.x_col}_{i}" for i in range(x.shape[1])]
-                    x_2d = x
-                df = cudf.from_pandas(pd.DataFrame(x_2d, columns=cols))
-            else:
-                # Numeric arrays - direct conversion works
-                df = cudf.DataFrame()
-                if len(x.shape) == 1:
-                    df[self.x_col] = x
-                else:
-                    df = cudf.DataFrame(
-                        x,
-                        columns=[
-                            f"{self.x_col}_{i}" for i in range(x.shape[1])
-                        ],
-                    )
-        elif isinstance(x, pd.DataFrame):
-            df = cudf.from_pandas(x)
-        elif isinstance(x, pd.Series):
-            df = cudf.from_pandas(x.to_frame())
-        else:
-            raise TypeError(
-                f"Input of type {type(x)} is not cudf.Series, cudf.DataFrame "
-                "or pandas.Series or pandas.DataFrame"
-                "or cupy.ndarray or numpy.ndarray"
+    def _check_X(self, X, reset=False):
+        # Check features
+        check_features(self, X, reset=reset)
+        # Coerce to a cudf.DataFrame
+        df = check_cudf(X, input_name="X")
+        # Rename columns uniformly
+        df = df.rename({c: f"X_{i}" for i, c in enumerate(df.columns)}, axis=1)
+        # Add an id column
+        df = df.assign(id=cp.arange(len(df)))
+        # Drop the index
+        df = df.reset_index(drop=True)
+        return df
+
+    def _check_X_y(self, X, y):
+        X = self._check_X(X, reset=True)
+        if y is None:
+            raise ValueError(
+                "This estimator requires y to be passed, but the target y is None"
             )
-        df[self.id_col] = cp.arange(len(x))
-        return df.reset_index(drop=True)
+        y = check_cudf(y, ensure_ndim=1, coerce_ndim=True, input_name="y")
+        check_consistent_length(X, y)
+
+        # Drop the index from y
+        y = y.reset_index(drop=True)
+
+        # Infer the type of target and transform y
+        continuous = False
+        if cudf.api.types.is_float_dtype(y):
+            # Floating input. Check if it's a valid classification target.
+            try:
+                check_classification_targets(y)
+            except ValueError:
+                continuous = True
+        if continuous:
+            y = y.astype("float64")
+            self.target_type_ = "continuous"
+            self.classes_ = None
+        elif y.nunique() <= 2:
+            y = y.astype("category")
+            self.target_type_ = "binary"
+            self.classes_ = y.cat.categories.to_numpy()
+            y = y.cat.codes.astype("float64")
+        else:
+            raise ValueError(
+                "TargetEncoder currently only supports 'continuous' and 'binary' "
+                "target types, but got 'multiclass'."
+            )
+
+        df = X.assign(**{"y": y})
+        return df
 
     @classmethod
     def _get_param_names(cls):
@@ -859,21 +665,16 @@ class TargetEncoder(Base, InteropMixin):
     @classmethod
     def _params_from_cpu(cls, model):
         """Convert sklearn TargetEncoder hyperparameters to cuML format."""
-        # Handle random_state - RandomState objects trigger CPU fallback
-        # in the accel wrapper, so here we only handle int/None
-        random_state = model.random_state
-        if random_state is None:
-            seed = 42
-        elif isinstance(random_state, int):
-            seed = random_state
-        else:
-            # For RandomState objects, use a default seed
-            # (the accel wrapper will fall back to CPU anyway)
-            seed = 42
+        if model.categories != "auto":
+            raise UnsupportedOnGPU("Only categories='auto' is supported")
+        if not (
+            model.random_state is None or isinstance(model.random_state, int)
+        ):
+            raise UnsupportedOnGPU("Only integral random seeds are supported")
 
         params = {
             "n_folds": model.cv,
-            "seed": seed,
+            "seed": model.random_state,
             "smooth": 1.0 if model.smooth == "auto" else float(model.smooth),
             "split_method": "random" if model.shuffle else "continuous",
             "stat": "mean",
@@ -887,8 +688,6 @@ class TargetEncoder(Base, InteropMixin):
             "random_state": self.seed,
             "smooth": self.smooth,
             "shuffle": self.split_method == "random",
-            "categories": "auto",
-            "target_type": "continuous",
         }
 
     def _attrs_from_cpu(self, model):
@@ -908,44 +707,33 @@ class TargetEncoder(Base, InteropMixin):
         n_features = len(model.categories_)
 
         # Generate column names matching cuML's internal format
-        # Always use indexed format to match _data_with_strings_to_cudf_dataframe
-        x_cols = [f"{self.x_col}_{i}" for i in range(n_features)]
+        x_cols = [f"X_{i}" for i in range(n_features)]
 
         # sklearn uses independent encoding, so we always use independent mode
         # This gives exact compatibility with no approximation
-        encode_all_per_feature = []
+        encode_all = []
         for i, col in enumerate(x_cols):
             encode_all_i = cudf.DataFrame(
                 {
                     col: model.categories_[i],
-                    self.out_col: model.encodings_[i],
+                    "out": model.encodings_[i],
                 }
             )
-            encode_all_per_feature.append(encode_all_i)
-
-        # For single feature, also set encode_all as DataFrame for compatibility
-        if n_features == 1:
-            encode_all = encode_all_per_feature[0]
-            independent_mode = False
-        else:
-            encode_all = encode_all_per_feature
-            independent_mode = True
+            encode_all.append(encode_all_i)
 
         return {
             "encode_all": encode_all,
-            "_encode_all_per_feature": encode_all_per_feature,
             "_encodings_per_feature": [
                 to_gpu(enc) for enc in model.encodings_
             ],
-            "_independent_mode_fitted": independent_mode,
             "categories_": categories_gpu,
-            "_x_cols": x_cols,
+            "classes_": model.classes_,
             "_n_features_out": n_features,  # sklearn always uses independent mode
             "mean": float(model.target_mean_),
             "y_stat_val": float(model.target_mean_),
             "train": None,
             "train_encode": None,
-            "target_type_": getattr(model, "target_type_", "continuous"),
+            "target_type_": model.target_type_,
             **super()._attrs_from_cpu(model),
         }
 
@@ -981,15 +769,12 @@ class TargetEncoder(Base, InteropMixin):
                     encodings_list.append(to_cpu(enc))
         elif n_features == 1:
             # Single feature: extract encodings directly (exact conversion)
-            col = self._x_cols[0]
             cats = self.categories_[0]
             feature_encodings = []
             for cat_val in cats:
-                mask = self.encode_all[col] == cat_val
+                mask = self.encode_all["X_0"] == cat_val
                 if mask.any():
-                    enc_val = float(
-                        self.encode_all.loc[mask, self.out_col].iloc[0]
-                    )
+                    enc_val = float(self.encode_all.loc[mask, "out"].iloc[0])
                 else:
                     enc_val = float(self.mean)
                 feature_encodings.append(enc_val)
@@ -1003,9 +788,10 @@ class TargetEncoder(Base, InteropMixin):
         return {
             "encodings_": encodings_list,
             "categories_": categories_cpu,
+            "classes_": self.classes_,
             "target_mean_": float(self.mean),
             # sklearn internal attributes needed for transform
             "_infrequent_enabled": False,
-            "target_type_": getattr(self, "target_type_", "continuous"),
+            "target_type_": self.target_type_,
             **super()._attrs_to_cpu(model),
         }

@@ -11,12 +11,11 @@ import cuml.internals.logger as logger
 from cuml.explainer.common import (
     get_cai_ptr,
     get_link_fn_from_str_or_fn,
-    get_tag_from_model_func,
     model_func_call,
     output_list_shap_values,
 )
 from cuml.internals.base import get_handle
-from cuml.internals.input_utils import input_to_cupy_array, input_to_host_array
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -99,10 +98,19 @@ class SHAPBase():
         else:
             self.time_performance = False
 
+        # Bound methods expose their estimator through __self__; tags live on
+        # that estimator rather than on the method object.
+        tag_model = getattr(model, "__self__", model)
+        tag_getter = getattr(tag_model, "__sklearn_tags__", None)
+        model_tags = tag_getter() if callable(tag_getter) else None
+
         if order is None:
-            self.order = get_tag_from_model_func(func=model,
-                                                 tag='preferred_input_order',
-                                                 default=order_default)
+            self.order = (
+                model_tags.preferred_input_order
+                if getattr(model_tags, "preferred_input_order", None)
+                is not None
+                else order_default
+            )
         else:
             self.order = order
 
@@ -112,10 +120,9 @@ class SHAPBase():
         if is_gpu_model is None:
             # todo (dgd): when sparse support is added, use this tag to see if
             # model can accept sparse data
-            self.is_gpu_model = \
-                get_tag_from_model_func(func=model,
-                                        tag='X_types_gpu',
-                                        default=None) is not None
+            self.is_gpu_model = (
+                getattr(model_tags, "X_types_gpu", None) is not None
+            )
         else:
             self.is_gpu_model = is_gpu_model
 
@@ -129,9 +136,10 @@ class SHAPBase():
             raise ValueError("dtype must be either np.float32 or np.float64.")
         self.dtype = dtype
 
-        self.background, self.nrows, self.ncols, _ = \
-            input_to_cupy_array(background, order=self.order,
-                                convert_to_dtype=self.dtype)
+        self.background = check_array(
+            background, order=self.order, dtype=self.dtype, ensure_all_finite=False
+        )
+        self.nrows, self.ncols = self.background.shape
 
         self.random_state = random_state
 
@@ -204,9 +212,13 @@ class SHAPBase():
         """
         self._reset_timers()
 
-        X = input_to_cupy_array(X,
-                                order=self.order,
-                                convert_to_dtype=self.dtype)[0]
+        X = check_array(
+            X,
+            order=self.order,
+            dtype=self.dtype,
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
 
         if X.ndim == 1:
             X = X.reshape((1, self.ncols))
@@ -294,7 +306,9 @@ class SHAPBase():
         out = Explanation(
             values=shap_values,
             base_values=base_values,
-            data=input_to_host_array(X).array,
+            data=check_array(
+                X, mem_type="host", ensure_2d=False, ensure_all_finite=False
+            ),
             feature_names=self.feature_names,
             main_effects=main_effect_values
         )

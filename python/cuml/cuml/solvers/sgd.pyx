@@ -1,14 +1,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import reflect
+from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -98,10 +99,12 @@ _PENALTIES = {
 
 
 def fit_sgd(
+    estimator,
     X,
     y,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
+    return_classes=False,
     loss="squared_loss",
     penalty=None,
     double alpha=0.0001,
@@ -120,19 +123,23 @@ def fit_sgd(
 
     Parameters
     ----------
+    estimator : Base
+        The estimator being fit.
     X : array-like, shape=(n_samples, n_features)
         The training data.
     y : array-like, shape=(n_samples,)
         The target values.
     convert_to_dtype : bool, default=True
         When set to True, will convert array inputs to be of the proper dtypes.
+    return_classes : bool, default=False
+        Whether to preprocess `y` and return the classes. Defaults to False.
     **kwargs
         Remaining keyword arguments match the hyperparameters
         to ``SGD``, see the ``SGD`` docs for more information.
 
     Returns
     -------
-    coef : CumlArray, shape=(n_features,)
+    coef : cupy.ndarray, shape=(n_features,)
         The fit coefficients
     intercept : float
         The fit intercept, or 0 if `fit_intercept=False`
@@ -164,30 +171,37 @@ def fit_sgd(
         )
 
     # Validate X and y
-    cdef int n_rows, n_cols
-    X, n_rows, n_cols, _ = input_to_cuml_array(
+    out = check_inputs(
+        estimator,
         X,
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        check_dtype=[np.float32, np.float64],
-    )
-
-    y = input_to_cuml_array(
         y,
-        check_dtype=X.dtype,
-        convert_to_dtype=(X.dtype if convert_dtype else None),
-        check_rows=X.shape[0],
-        check_cols=1,
-    ).array
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        order="F",
+        return_classes=return_classes,
+        reset=True,
+    )
+    if return_classes:
+        X, y, classes = out
+        if len(classes) > 2:
+            raise ValueError(
+                f"Only binary classification is currently supported, got "
+                f"{len(classes)} classes"
+            )
+    else:
+        X, y = out
 
     # Allocate outputs
-    coef = CumlArray.zeros(n_cols, dtype=X.dtype)
+    coef = cp.zeros(X.shape[1], dtype=X.dtype)
 
     # Perform fit
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef uintptr_t X_ptr = X.ptr
-    cdef uintptr_t y_ptr = y.ptr
-    cdef uintptr_t coef_ptr = coef.ptr
+    cdef int n_rows = X.shape[0]
+    cdef int n_cols = X.shape[1]
+    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t y_ptr = y.data.ptr
+    cdef uintptr_t coef_ptr = coef.data.ptr
     cdef float intercept_f32
     cdef double intercept_f64
     cdef bool use_f32 = X.dtype == np.float32
@@ -241,10 +255,13 @@ def fit_sgd(
             )
     handle.sync()
 
-    return coef, (intercept_f32 if use_f32 else intercept_f64)
+    intercept = intercept_f32 if use_f32 else intercept_f64
+    if return_classes:
+        return coef, intercept, classes
+    return coef, intercept
 
 
-class SGD(Base, FMajorInputTagMixin):
+class SGD(FMajorInputTagMixin, Base):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm
     where one optimizes some cost function via gradient steps. This makes SGD
@@ -273,7 +290,7 @@ class SGD(Base, FMajorInputTagMixin):
         ...                  fit_intercept=True, batch_size=2,
         ...                  tol=0.0, penalty=None, loss='squared_loss')
         >>> cu_sgd.fit(X, y)
-        SGD()
+        SGD(batch_size=2, epochs=2000, eta0=0.005, tol=0.0)
         >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
         >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
         cuML intercept :  0.00418...
@@ -392,12 +409,13 @@ class SGD(Base, FMajorInputTagMixin):
 
     @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "SGD":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "SGD":
         """
         Fit the model with X and y.
 
         """
         coef, intercept = fit_sgd(
+            self,
             X,
             y,
             convert_dtype=convert_dtype,
@@ -415,7 +433,7 @@ class SGD(Base, FMajorInputTagMixin):
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
         )
-        self.coef_ = coef
+        self.coef_ = CumlArray(data=coef)
         self.intercept_ = intercept
         return self
 
@@ -428,27 +446,30 @@ class SGD(Base, FMajorInputTagMixin):
         }
     )
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        cdef int n_rows, n_cols
-        X, n_rows, n_cols, _ = input_to_cuml_array(
+        X, index = check_inputs(
+            self,
             X,
-            check_dtype=self.coef_.dtype,
-            convert_to_dtype=(self.coef_.dtype if convert_dtype else None),
-            check_cols=self.coef_.shape[0],
+            dtype=self.coef_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
         )
 
-        preds = CumlArray.zeros(n_rows, dtype=self.coef_.dtype, index=X.index)
+        preds = cp.zeros(X.shape[0], dtype=self.coef_.dtype)
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef int loss_code = _LOSSES[self.loss]
         cdef bool use_f32 = self.coef_.dtype == np.float32
-        cdef uintptr_t preds_ptr = preds.ptr
-        cdef uintptr_t X_ptr = X.ptr
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
+        cdef uintptr_t preds_ptr = preds.data.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
         cdef double intercept = self.intercept_
 
@@ -477,4 +498,4 @@ class SGD(Base, FMajorInputTagMixin):
                 )
         handle.sync()
 
-        return preds
+        return CumlArray(data=preds, index=index)

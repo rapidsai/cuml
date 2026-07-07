@@ -11,14 +11,7 @@
 # it was since modified to allow GPU acceleration.
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
-
-
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.validation import check_features
-
-from ....internals.base import Base
-from ....thirdparty_adapters import check_array
-from ..utils.validation import check_X_y
+from cuml.internals.base import Base
 
 
 class BaseEstimator(Base):
@@ -42,71 +35,11 @@ class BaseEstimator(Base):
 
         cls.__init__ = init
 
-    def _validate_data(self, X, y=None, reset=True,
-                       validate_separately=False, **check_params):
-        """Validate input data and set or check the `n_features_in_` attribute.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix, dataframe} of shape \
-                (n_samples, n_features)
-            The input samples.
-        y : array-like of shape (n_samples,), default=None
-            The targets. If None, `check_array` is called on `X` and
-            `check_X_y` is called otherwise.
-        reset : bool, default=True
-            Whether to reset the `n_features_in_` attribute.
-            If False, the input will be checked for consistency with data
-            provided when reset was last True.
-        validate_separately : False or tuple of dicts, default=False
-            Only used if y is not None.
-            If False, call validate_X_y(). Else, it must be a tuple of kwargs
-            to be used for calling check_array() on X and y respectively.
-        **check_params : kwargs
-            Parameters passed to :func:`sklearn.utils.check_array` or
-            :func:`sklearn.utils.check_X_y`. Ignored if validate_separately
-            is not False.
-
-        Returns
-        -------
-        out : {ndarray, sparse matrix} or tuple of these
-            The validated input. A tuple is returned if `y` is not None.
-        """
-        if check_params.get('ensure_2d', True) and not reset:
-            # The `reset=True` case is always handled by the mandatory
-            # `reflect(reset=True)` decorators currently. To avoid
-            # duplicate calls, we avoid `check_features(self, X, reset=True)`
-            # for now.
-            check_features(self, X)
-
-        if y is None:
-            if self._get_tags()['requires_y']:
-                raise ValueError(
-                    f"This {self.__class__.__name__} estimator "
-                    f"requires y to be passed, but the target y is None."
-                )
-            X = check_array(X, **check_params)
-            out = X
-        else:
-            if validate_separately:
-                # We need this because some estimators validate X and y
-                # separately, and in general, separately calling check_array()
-                # on X and y isn't equivalent to just calling check_X_y()
-                # :(
-                check_X_params, check_y_params = validate_separately
-                X = check_array(X, **check_X_params)
-                y = check_array(y, **check_y_params)
-            else:
-                X, y = check_X_y(X, y, **check_params)
-            out = X, y
-
-        return out
-
 
 class TransformerMixin:
     """Mixin class for all transformers in scikit-learn."""
 
-    def fit_transform(self, X, y=None, **fit_params) -> SparseCumlArray:
+    def fit_transform(self, X, y=None, **fit_params):
         """
         Fit to data, then transform it.
 

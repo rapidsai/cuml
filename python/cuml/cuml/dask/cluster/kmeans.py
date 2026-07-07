@@ -143,6 +143,24 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         kwargs = self.kwargs.copy()
         kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
 
+        # Validate total sample count before submitting distributed work.
+        # Each rank requests `n_clusters` centroids, but partitions may not
+        # have enough data points. The dask layer should surface a clear
+        # error when n_clusters > total data points across all workers.
+        n_clusters = self.kwargs.get("n_clusters")
+        if n_clusters is not None:
+            data._fetch_worker_sizes()
+            total_rows = sum(
+                total for (_, total) in data._worker_sizes.values()
+            )
+            if total_rows < n_clusters:
+                raise ValueError(
+                    f"n_samples={total_rows} should be >= n_clusters={n_clusters}. "
+                    f"There are fewer data points across all workers than the "
+                    f"number of requested clusters. Please reduce n_clusters or "
+                    f"increase the number of data points."
+                )
+
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)

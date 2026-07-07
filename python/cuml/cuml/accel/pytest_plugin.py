@@ -48,7 +48,7 @@ def _evaluate_single_condition(condition_str: str) -> bool:
 
     Args:
         condition_str: String in format 'package[comparison]version',
-                      e.g. 'scikit-learn>=1.5.2'
+                      e.g. 'scikit-learn>=1.6'
 
     Returns:
         bool: True if the condition is met, False otherwise
@@ -69,7 +69,7 @@ def create_version_condition(condition_str: str) -> bool:
 
     Args:
         condition_str: A version condition string. Examples:
-                      - 'scikit-learn>=1.5.2'
+                      - 'scikit-learn>=1.6'
                       - 'numpy<2.0.0'
                       - 'umap-learn<=0.5.8 and scikit-learn>=1.6'
 

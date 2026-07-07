@@ -312,3 +312,32 @@ def test_score(nrows, ncols, nclusters, n_parts, input_type, client):
     # The score is -1 * inertia. Scoring the training data should result in
     # -1 * model.inertia_
     np.testing.assert_allclose(actual_score, -cumlModel.inertia_, atol=9e-3)
+
+
+@pytest.mark.mg
+def test_nclusters_exceeds_n_samples(client):
+    """Test that n_clusters > n_samples raises a clear ValueError."""
+    from cuml.dask.cluster import KMeans
+    from cuml.dask.datasets import make_blobs
+
+    # Use fewer data points than clusters
+    n_clusters = 11
+    n_samples = 10
+
+    X, _ = make_blobs(
+        n_samples=n_samples,
+        n_features=5,
+        centers=5,
+        n_parts=2,
+        random_state=10,
+    )
+
+    model = KMeans(
+        n_clusters=n_clusters,
+        random_state=10,
+    )
+
+    with pytest.raises(
+        ValueError, match="n_samples=10 should be >= n_clusters=11"
+    ):
+        model.fit(X)

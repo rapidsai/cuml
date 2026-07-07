@@ -2,43 +2,27 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
+import numpy as np
 
-from typing import TYPE_CHECKING
-
+from cuml.common.classification import decode_labels
+from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.validation import check_is_fitted
-
-if TYPE_CHECKING:
-    import cudf
-    import cupy as cp
-    import numpy as np
-else:
-    import cudf
-    import cupy as cp
-    import numpy as np
-    import pandas as pd
+from cuml.internals.interop import InteropMixin, UnsupportedOnCPU
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
+from cuml.internals.validation import check_cudf, check_is_fitted, check_y
 
 
-def _to_cudf_series(y, **kwargs):
-    if isinstance(y, (pd.DataFrame, cudf.DataFrame)):
-        if len(y.columns) != 1:
-            raise ValueError(f"`y` must be 1 dimensional, got {y.shape}")
-        y = y.iloc[:, 0]
-    elif isinstance(y, (np.ndarray, cp.ndarray)):
-        if y.ndim == 2 and y.shape[-1] == 1:
-            y = y.flatten()
-        if not y.dtype.isnative:
-            # cudf doesn't support byte-swapped arrays as inputs, coerce to native
-            y = y.astype(y.dtype.newbyteorder("="))
-    if getattr(y, "dtype", None) == "float16":
-        # Upcast float16 since cudf cannot handle them yet
-        y = y.astype("float32")
-    return cudf.Series(y, **kwargs)
+class LabelEncoder(InteropMixin, Base):
+    """Encode target labels with values between 0 and n_classes - 1.
 
-
-class LabelEncoder(Base):
-    """
-    An nvcategory based implementation of ordinal label encoding
+    This transformer should be used to encode target values (`y`) and not the
+    input `X`.
 
     Parameters
     ----------
@@ -57,69 +41,24 @@ class LabelEncoder(Base):
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    classes_ : numpy.ndarray of shape (n_classes,)
+        Holds the label for each class.
+
     Examples
     --------
-
-    Converting a categorical implementation to a numerical one
-
-    >>> from cudf import DataFrame, Series
+    >>> import numpy as np
     >>> from cuml.preprocessing import LabelEncoder
-    >>> data = DataFrame({'category': ['a', 'b', 'c', 'd']})
-
-    >>> # There are two functionally equivalent ways to do this
+    >>> y = np.array(["apple", "apple", "banana", "grape"])
     >>> le = LabelEncoder()
-    >>> le.fit(data.category)  # le = le.fit(data.category) also works
-    LabelEncoder()
-    >>> encoded = le.transform(data.category)
-
-    >>> print(encoded)
-    0    0
-    1    1
-    2    2
-    3    3
-    dtype: uint8
-
-    >>> # This method is preferred
-    >>> le = LabelEncoder()
-    >>> encoded = le.fit_transform(data.category)
-
-    >>> print(encoded)
-    0    0
-    1    1
-    2    2
-    3    3
-    dtype: uint8
-
-    >>> # We can assign this to a new column
-    >>> data = data.assign(encoded=encoded)
-    >>> print(data.head())
-    category  encoded
-    0         a        0
-    1         b        1
-    2         c        2
-    3         d        3
-
-    >>> # We can also encode more data
-    >>> test_data = Series(['c', 'a'])
-    >>> encoded = le.transform(test_data)
-    >>> print(encoded)
-    0    2
-    1    0
-    dtype: uint8
-
-    >>> # After train, ordinal label can be inverse_transform() back to
-    >>> # string labels
-    >>> ord_label = cudf.Series([0, 0, 1, 2, 1])
-    >>> str_label = le.inverse_transform(ord_label)
-    >>> print(str_label)
-    0    a
-    1    a
-    2    b
-    3    c
-    4    b
-    dtype: object
-
+    >>> le.fit_transform(y)
+    array([0, 0, 1, 2], dtype=uint8)
+    >>> le.classes_
+    array(['apple', 'banana', 'grape'], dtype='<U6')
     """
+
+    _cpu_class_path = "sklearn.preprocessing.LabelEncoder"
 
     def __init__(
         self,
@@ -129,13 +68,38 @@ class LabelEncoder(Base):
         output_type=None,
     ) -> None:
         super().__init__(verbose=verbose, output_type=output_type)
-        self.classes_ = None
-        self.dtype = None
-        self._fitted: bool = False
         self.handle_unknown = handle_unknown
 
+    @classmethod
+    def _get_param_names(cls):
+        return ["handle_unknown", *super()._get_param_names()]
+
     def __sklearn_is_fitted__(self) -> bool:
-        return self.classes_ is not None
+        return hasattr(self, "classes_")
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.one_d_array = False
+        tags.input_tags.two_d_array = False
+        tags.target_tags.one_d_labels = True
+        return tags
+
+    @classmethod
+    def _params_from_cpu(cls, model):
+        return {}
+
+    def _params_to_cpu(self):
+        if self.handle_unknown != "error":
+            raise UnsupportedOnCPU(
+                f"`handle_unknown={self.handle_unknown}` is not supported"
+            )
+        return {}
+
+    def _attrs_from_cpu(self, model):
+        return {"classes_": model.classes_}
+
+    def _attrs_to_cpu(self, model):
+        return {"classes_": self.classes_}
 
     def _validate_keywords(self):
         if self.handle_unknown not in ("error", "ignore"):
@@ -145,53 +109,61 @@ class LabelEncoder(Base):
             )
             raise ValueError(msg)
 
-    def _fit(self, y, classes=None):
+    @reflect(reset=True)
+    @generate_docstring(
+        y="dense_anydtype",
+        y_shape="n_samples",
+        return_values={
+            "name": "y",
+            "type": "dense",
+            "shape": "n_samples",
+            "description": "Encoded labels.",
+        },
+    )
+    def fit_transform(self, y):
         """
-        Fit a LabelEncoder instance to a set of categories.
+        Simultaneously fit and transform an input.
 
-        Parameters
-        ----------
-        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
-            The target values to encode.
-
-        classes: cudf.Series or None
-            The unique classes. If not provided, will be computed.
-
-        Returns
-        -------
-        self : LabelEncoder
+        This is functionally equivalent to (but faster than)
+        ``LabelEncoder().fit(y).transform(y)``.
         """
         self._validate_keywords()
 
-        if classes is None:
-            # dedupe and sort
-            y = (
-                _to_cudf_series(y)
-                .drop_duplicates()
-                .sort_values(ignore_index=True)
-            )
-            self.classes_ = y
-        else:
-            self.classes_ = classes
+        y, classes, index = check_y(
+            y,
+            ensure_discrete_classes=False,
+            return_classes=True,
+            return_index=True,
+        )
+        self.classes_ = classes
+        return CumlArray(data=y, index=index)
 
-        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
+    @reflect(reset=True)
+    @generate_docstring(
+        y="dense_anydtype",
+        y_shape="n_samples",
+        return_values={
+            "name": "self",
+            "type": "LabelEncoder",
+            "description": "Fitted label encoder.",
+        },
+    )
+    def fit(self, y):
+        """Fit a LabelEncoder instance to a set of categories."""
+        self.fit_transform(y)
         return self
 
-    def fit(self, y):
-        """
-        Fit a LabelEncoder instance to a set of categories.
-
-        Parameters
-        ----------
-        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
-            The target values to encode.
-
-        Returns
-        -------
-        self : LabelEncoder
-        """
-        return self._fit(y)
-
+    @reflect
+    @generate_docstring(
+        y="dense_anydtype",
+        y_shape="n_samples",
+        return_values={
+            "name": "y",
+            "type": "dense",
+            "shape": "n_samples",
+            "description": "Encoded labels.",
+        },
+    )
     def transform(self, y):
         """
         Transform an input into its categorical keys.
@@ -199,91 +171,68 @@ class LabelEncoder(Base):
         This is intended for use with small inputs relative to the size of the
         dataset. For fitting and transforming an entire dataset, prefer
         `fit_transform`.
-
-        Parameters
-        ----------
-        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
-            Input keys to be transformed. Its values should match the
-            categories given to `fit`
-
-        Returns
-        -------
-        encoded : cudf.Series
-            The ordinally encoded input series
-
-        Raises
-        ------
-        KeyError
-            if a category appears that was not seen in `fit`
         """
         check_is_fitted(self)
 
-        y = _to_cudf_series(y, dtype="category")
-
+        y = check_cudf(
+            y,
+            ensure_ndim=1,
+            coerce_ndim="warn",
+            ensure_min_samples=0,
+            input_name="y",
+        )
+        y = y.astype("category")
         encoded = y.cat.set_categories(self.classes_).cat.codes
 
-        if encoded.hasnans and self.handle_unknown == "error":
-            raise KeyError("Attempted to encode unseen key")
+        if (
+            encoded.hasnans or encoded.has_nulls
+        ) and self.handle_unknown == "error":
+            y = y.cat.categories
+            diff = y[~y.isin(self.classes_)].to_numpy(dtype=object)
+            raise ValueError(f"y contains previously unseen labels: {diff!s}")
 
-        return encoded
+        return CumlArray(data=encoded.to_cupy(), index=y.index)
 
-    def fit_transform(self, y):
-        """
-        Simultaneously fit and transform an input
-
-        This is functionally equivalent to (but faster than)
-        `LabelEncoder().fit(y).transform(y)`
-        """
-
-        y = _to_cudf_series(y)
-        self.dtype = y.dtype if y.dtype != cp.dtype("O") else str
-
-        y = y.astype("category")
-        self.classes_ = y.cat.categories
-
-        return y.cat.codes
-
-    def inverse_transform(self, y: "cudf.Series"):
-        """
-        Revert ordinal label to original label
-
-        Parameters
-        ----------
-        y : cudf.Series, pandas.Series, cupy.ndarray or numpy.ndarray
-            dtype=int32
-            Ordinal labels to be reverted
-
-        Returns
-        -------
-        reverted : the same type as y
-            Reverted labels
-        """
-        # check LabelEncoder is fitted
+    @run_in_internal_context
+    @generate_docstring(
+        y="dense_anydtype",
+        y_shape="n_samples",
+        return_values={
+            "name": "y_original",
+            "type": "dense",
+            "shape": "n_samples",
+            "description": "Original encoding.",
+        },
+    )
+    def inverse_transform(self, y):
+        """Transform labels back to original encoding."""
         check_is_fitted(self)
 
-        y = _to_cudf_series(y)
+        codes, index = check_y(
+            y, dtype=("i2", "i4", "i8", "u2", "u4", "u8"), return_index=True
+        )
+        classes = self.classes_
+        n_classes = len(self.classes_)
 
-        # check if ord_label out of bound
-        ord_label = y.unique()
-        category_num = len(self.classes_)
-        if self.handle_unknown == "error":
-            if not isinstance(ord_label, (cp.ndarray, np.ndarray)):
-                ord_label = ord_label.to_numpy()
-            for ordi in ord_label:
-                if ordi < 0 or ordi >= category_num:
-                    raise ValueError(
-                        "y contains previously unseen label {}".format(ordi)
-                    )
+        if len(codes) and (codes.min() < 0 or codes.max() >= n_classes):
+            if self.handle_unknown == "error":
+                diff = cp.setdiff1d(
+                    codes, cp.arange(n_classes, dtype=codes.dtype)
+                )
+                raise ValueError(
+                    f"y contains previously unseen labels: {diff!s}"
+                )
+            else:
+                codes = cp.where(
+                    (codes < 0) | (codes >= n_classes),
+                    -1,
+                    codes,
+                )
+                classes = np.concatenate([classes, [None]])
 
-        y = y.astype(self.dtype)
+        with exit_internal_context():
+            output_type = self._get_output_type(y)
 
-        ran_idx = cudf.Index(cp.arange(len(self.classes_))).astype(self.dtype)
-        res = y.replace(ran_idx, self.classes_)
-
-        return res
-
-    @classmethod
-    def _get_param_names(cls):
-        return super()._get_param_names() + [
-            "handle_unknown",
-        ]
+        return decode_labels(
+            codes, classes, output_type=output_type, index=index
+        )

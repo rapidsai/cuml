@@ -7,11 +7,13 @@
 
 #include "params.hpp"
 
+#include <cuml/common/export.hpp>
+
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 void pcaFit(const raft::handle_t& handle,
             float* input,
@@ -21,8 +23,7 @@ void pcaFit(const raft::handle_t& handle,
             float* singular_vals,
             float* mu,
             float* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U);
+            const paramsPCA& prms);
 void pcaFit(const raft::handle_t& handle,
             double* input,
             double* components,
@@ -31,8 +32,7 @@ void pcaFit(const raft::handle_t& handle,
             double* singular_vals,
             double* mu,
             double* noise_vars,
-            const paramsPCA& prms,
-            bool flip_signs_based_on_U);
+            const paramsPCA& prms);
 void pcaFitTransform(const raft::handle_t& handle,
                      float* input,
                      float* trans_input,
@@ -42,8 +42,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      float* singular_vals,
                      float* mu,
                      float* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U);
+                     const paramsPCA& prms);
 void pcaFitTransform(const raft::handle_t& handle,
                      double* input,
                      double* trans_input,
@@ -53,8 +52,7 @@ void pcaFitTransform(const raft::handle_t& handle,
                      double* singular_vals,
                      double* mu,
                      double* noise_vars,
-                     const paramsPCA& prms,
-                     bool flip_signs_based_on_U);
+                     const paramsPCA& prms);
 void pcaInverseTransform(const raft::handle_t& handle,
                          float* trans_input,
                          float* components,
@@ -84,4 +82,4 @@ void pcaTransform(const raft::handle_t& handle,
                   double* mu,
                   const paramsPCA& prms);
 
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

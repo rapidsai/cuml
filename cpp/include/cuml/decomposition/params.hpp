@@ -5,11 +5,13 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 #include <raft/linalg/pca_types.hpp>
 
 #include <cstdint>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 using solver    = raft::linalg::solver;
 using mg_solver = raft::linalg::solver;
@@ -87,4 +89,4 @@ inline raft::linalg::paramsPCA to_raft_params(const paramsPCATemplate<enum_solve
   return prms;
 }
 
-};  // end namespace ML
+};  // end namespace CUML_EXPORT ML

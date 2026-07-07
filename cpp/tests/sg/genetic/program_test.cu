@@ -90,10 +90,12 @@ class GeneticProgramTest : public ::testing::Test {
     d_lY.resize(250, stream);
     d_lunitW.resize(250, stream);
     d_lW.resize(250, stream);
-    d_nodes1 = (node*)rmm::mr::get_current_device_resource_ref().allocate(stream, 7 * sizeof(node));
-    d_nodes2 = (node*)rmm::mr::get_current_device_resource_ref().allocate(stream, 7 * sizeof(node));
-    d_progs =
-      (program_t)rmm::mr::get_current_device_resource_ref().allocate(stream, 2 * sizeof(program));
+    d_nodes1 = (node*)rmm::mr::get_current_device_resource_ref().allocate(
+      stream, 7 * sizeof(node), alignof(node));
+    d_nodes2 = (node*)rmm::mr::get_current_device_resource_ref().allocate(
+      stream, 7 * sizeof(node), alignof(node));
+    d_progs = (program_t)rmm::mr::get_current_device_resource_ref().allocate(
+      stream, 2 * sizeof(program), alignof(program));
 
     RAFT_CUDA_TRY(cudaMemcpyAsync(
       d_lYpred.data(), h_lYpred.data(), 500 * sizeof(float), cudaMemcpyHostToDevice, stream));
@@ -146,9 +148,12 @@ class GeneticProgramTest : public ::testing::Test {
 
   void TearDown() override
   {
-    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_nodes1, 7 * sizeof(node));
-    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_nodes2, 7 * sizeof(node));
-    rmm::mr::get_current_device_resource_ref().deallocate(stream, d_progs, 2 * sizeof(program));
+    rmm::mr::get_current_device_resource_ref().deallocate(
+      stream, d_nodes1, 7 * sizeof(node), alignof(node));
+    rmm::mr::get_current_device_resource_ref().deallocate(
+      stream, d_nodes2, 7 * sizeof(node), alignof(node));
+    rmm::mr::get_current_device_resource_ref().deallocate(
+      stream, d_progs, 2 * sizeof(program), alignof(program));
   }
 
   raft::handle_t handle;

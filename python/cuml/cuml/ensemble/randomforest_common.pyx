@@ -4,7 +4,9 @@
 #
 from __future__ import annotations
 
+import builtins
 import math
+import numbers
 import warnings
 from typing import Literal
 
@@ -12,7 +14,7 @@ import cupy as cp
 import numpy as np
 import treelite.sklearn
 
-from cuml.fil.fil import ForestInference
+from cuml.fil.compat import ForestInference
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import (
     InteropMixin,
@@ -26,6 +28,7 @@ from cuml.metrics import accuracy_score, r2_score
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
+import nvforest
 
 from cuml.internals.logger cimport level_enum
 from cuml.internals.treelite cimport (
@@ -77,7 +80,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        const double* sample_weight
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -90,7 +94,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        const double* sample_weight
     ) except +
 
 
@@ -167,7 +172,7 @@ def compute_max_features(
         )
 
 
-class BaseRandomForestModel(Base, InteropMixin):
+class BaseRandomForestModel(InteropMixin, Base):
 
     @classmethod
     def _get_param_names(cls):
@@ -307,7 +312,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         n_estimators=100,
         bootstrap=True,
         max_samples=1.0,
-        max_depth=16,
+        max_depth=None,
         max_leaves=-1,
         max_features='sqrt',
         n_bins=128,
@@ -316,7 +321,6 @@ class BaseRandomForestModel(Base, InteropMixin):
         min_impurity_decrease=0.0,
         max_batch_size=4096,
         random_state=None,
-        criterion=None,
         n_streams=4,
         oob_score=False,
         verbose=False,
@@ -342,8 +346,8 @@ class BaseRandomForestModel(Base, InteropMixin):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        # FIL model isn't currently pickleable
-        state.pop("_fil_model", None)
+        # nvForest model isn't currently pickleable
+        state.pop("_nvforest_model", None)
         return state
 
     def __setstate__(self, state):
@@ -369,13 +373,17 @@ class BaseRandomForestModel(Base, InteropMixin):
         self, layout="depth_first", default_chunk_size=None, align_bytes=None,
     ):
         """
-        Create a Forest Inference (FIL) model from the trained cuML
-        Random Forest model.
+        Create a Forest Inference (FIL) model from the cuML model.
+
+        .. deprecated:: 26.06
+
+            The ``as_fil`` method is deprecated and will be removed in 26.10.
+            Please use ``as_nvforest`` instead.
 
         Parameters
         ----------
         layout : string (default = 'depth_first')
-            Specifies the in-memory layout of nodes in FIL forests. Options:
+            Specifies the in-memory layout of nodes in forests. Options:
             'depth_first', 'layered', 'breadth_first'.
         default_chunk_size : int, optional (default = None)
             Determines how batches are further subdivided for parallel processing.
@@ -394,7 +402,11 @@ class BaseRandomForestModel(Base, InteropMixin):
             inferencing on the random forest model.
         """
         check_is_fitted(self)
-
+        warnings.warn(
+            "as_fil() method is deprecated and will be removed in 26.10. "
+            "Use the as_nvforest() method instead.",
+            FutureWarning,
+        )
         return ForestInference(
             verbose=self.verbose,
             output_type=self.output_type,
@@ -403,29 +415,74 @@ class BaseRandomForestModel(Base, InteropMixin):
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
+            ensure_all_finite=True,
+            _suppress_deprecation_warning=True,
         )
 
-    def _fit_forest(self, X, y):
+    def as_nvforest(
+        self, layout="depth_first", default_chunk_size=None, align_bytes=None,
+    ):
+        """
+        Create a nvForest model from the cuML model.
+
+        Parameters
+        ----------
+        layout : string (default = 'depth_first')
+            Specifies the in-memory layout of nodes in forests. Options:
+            'depth_first', 'layered', 'breadth_first'.
+        default_chunk_size : int, optional (default = None)
+            Determines how batches are further subdivided for parallel processing.
+            The optimal value depends on hardware, model, and batch size.
+            If None, will be automatically determined.
+        align_bytes : int, optional (default = None)
+            If specified, trees will be padded such that their in-memory size is
+            a multiple of this value. This can improve performance by guaranteeing
+            that memory reads from trees begin on a cache line boundary.
+            Typical values are 0 or 128 on GPU and 0 or 64 on CPU.
+
+        Returns
+        -------
+        nvforest_model : nvforest.ForestInference
+            A forest inference model which can be used to perform
+            inferencing on the random forest model.
+        """
+        check_is_fitted(self)
+
+        return nvforest.load_from_treelite_model(
+            tl_model=treelite.Model.deserialize_bytes(self._treelite_model_bytes),
+            device="gpu",
+            layout=layout,
+            default_chunk_size=default_chunk_size,
+            align_bytes=align_bytes,
+            handle=get_handle(),
+        )
+
+    def _fit_forest(self, X, y, sample_weight=None):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
-        cdef uintptr_t X_ptr = X.ptr
-        cdef uintptr_t y_ptr = y.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t y_ptr = y.data.ptr
+        cdef uintptr_t sample_weight_ptr = (
+            0 if sample_weight is None else sample_weight.data.ptr
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
 
         cdef int max_depth_c
-        if self.max_depth is None:
+        max_depth = self.max_depth
+
+        if max_depth is None:
             max_depth_c = np.iinfo(np.int32).max
-        elif not isinstance(self.max_depth, int) or self.max_depth <= 0:
+        elif not isinstance(max_depth, int) or max_depth <= 0:
             raise ValueError(
                 f"max_depth must be a positive integer or None (unlimited); "
-                f"got {self.max_depth!r}"
+                f"got {max_depth!r}"
             )
         else:
-            max_depth_c = self.max_depth
+            max_depth_c = max_depth
 
         # Validate OOB score parameter
         if callable(self.oob_score):
@@ -437,6 +494,21 @@ class BaseRandomForestModel(Base, InteropMixin):
         # Validate OOB score requirements
         if self.oob_score and not self.bootstrap:
             raise ValueError("Out of bag estimation only available if bootstrap=True")
+
+        n_streams = self.n_streams
+        if (
+            isinstance(n_streams, (builtins.bool, np.bool_))
+            or not isinstance(n_streams, numbers.Integral)
+        ):
+            raise TypeError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+        if n_streams <= 0:
+            raise ValueError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+
+        cdef int n_streams_c = n_streams
 
         cdef float max_features = compute_max_features(self.max_features, n_cols)
         cdef uint64_t seed = (
@@ -474,12 +546,12 @@ class BaseRandomForestModel(Base, InteropMixin):
             self.max_samples,
             seed,
             _normalize_split_criterion(self.split_criterion),
-            self.n_streams,
+            n_streams_c,
             self.max_batch_size,
         )
 
         cdef TreeliteModelHandle tl_handle
-        handle = get_handle(n_streams=self.n_streams)
+        handle = get_handle(n_streams=n_streams_c)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block
@@ -511,7 +583,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr
                     )
                 else:
                     fit_treelite(
@@ -525,7 +598,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr
                     )
             else:
                 if is_float32:
@@ -539,7 +613,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr
                     )
                 else:
                     fit_treelite(
@@ -552,7 +627,8 @@ class BaseRandomForestModel(Base, InteropMixin):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
@@ -579,8 +655,8 @@ class BaseRandomForestModel(Base, InteropMixin):
         )
         self.n_outputs_ = 1
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
-        # Ensure cached fil model is reset
-        self._fil_model = None
+        # Reload nvforest model
+        self._nvforest_model = self.as_nvforest()
 
         # Compute OOB score if requested
         if self.oob_score:
@@ -589,7 +665,7 @@ class BaseRandomForestModel(Base, InteropMixin):
         self.feature_importances_ = feature_importances
         return self
 
-    def _get_inference_fil_model(
+    def _get_inference_nvforest_model(
         self,
         layout="depth_first",
         default_chunk_size=None,
@@ -598,26 +674,26 @@ class BaseRandomForestModel(Base, InteropMixin):
         if (
             layout == "depth_first" and default_chunk_size is None and align_bytes is None
         ):
-            # default parameters, get (or create) the cached fil model
-            if (fil_model := getattr(self, "_fil_model", None)) is None:
-                fil_model = self._fil_model = self.as_fil()
+            # default parameters, get (or create) the cached nvforest model
+            if (nvforest_model := getattr(self, "_nvforest_model", None)) is None:
+                nvforest_model = self._nvforest_model = self.as_nvforest()
         else:
-            fil_model = self.as_fil(
+            nvforest_model = self.as_nvforest(
                 layout=layout,
                 default_chunk_size=default_chunk_size,
                 align_bytes=align_bytes,
             )
-        return fil_model
+        return nvforest_model
 
     def _compute_oob_score(self, X, y, bootstrap_masks_cp):
         """
         Compute OOB score using per-tree predictions and bootstrap masks.
         """
-        # Get per-tree predictions using FIL
-        fil_model = self.as_fil()
+        # Get per-tree predictions using nvForest
+        nvforest_model = self._get_inference_nvforest_model()
         # Per tree predictions shape: (n_samples, n_trees) for regression
         #                          or (n_samples, n_trees, n_classes) for classification
-        per_tree_preds = fil_model.predict_per_tree(X)
+        per_tree_preds = nvforest_model.predict_per_tree(X)
 
         n_samples = X.shape[0]
 

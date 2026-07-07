@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -95,14 +95,14 @@ void build_linkage(const raft::handle_t& handle,
       params.build_params.nn_descent_params.intermediate_graph_degree;
     nn_descent_params.termination_threshold =
       params.build_params.nn_descent_params.termination_threshold;
-    if (static_cast<int>(nn_descent_params.graph_degree) < linkage_params.min_samples) {
+    if (nn_descent_params.graph_degree < static_cast<std::size_t>(linkage_params.min_samples)) {
       // linkage_params.min_samples functions as the k for the knn
       RAFT_LOG_WARN(
-        "NN Descent graph_degree (%d) must be larger than or equal to min_samples + 1 (%zu), "
+        "NN Descent graph_degree (%zu) must be larger than or equal to min_samples + 1 (%zu), "
         "setting graph_degree to min_samples + 1 and scaling intermediate_graph_degree accordingly "
         "to 2*graph_degree",
-        static_cast<int>(nn_descent_params.graph_degree),
-        static_cast<int>(linkage_params.min_samples));
+        static_cast<std::size_t>(nn_descent_params.graph_degree),
+        static_cast<std::size_t>(linkage_params.min_samples));
       nn_descent_params.graph_degree              = linkage_params.min_samples;
       nn_descent_params.intermediate_graph_degree = nn_descent_params.graph_degree * 2;
     }

@@ -203,6 +203,12 @@ intersphinx_mapping = {
     # TODO: re-enable once scipy docs are more reliable
     # "scipy": ("https://docs.scipy.org/doc/scipy", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
+    "cupy": ("https://docs.cupy.dev/en/stable/", None),
+    "cuda.core": (
+        "https://nvidia.github.io/cuda-python/cuda-core/latest/",
+        None,
+    ),
+    "rmm": ("https://docs.rapids.ai/api/rmm/stable/", None),
 }
 
 # Config numpydoc

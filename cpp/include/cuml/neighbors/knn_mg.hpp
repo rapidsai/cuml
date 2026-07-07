@@ -1,10 +1,10 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
-
+#include <cuml/common/export.hpp>
 #include <cuml/prims/opg/matrix/data.hpp>
 #include <cuml/prims/opg/matrix/part_descriptor.hpp>
 
@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace KNN {
 namespace opg {
 
@@ -126,4 +126,4 @@ void knn_regress(raft::handle_t& handle,
 
 };  // END namespace opg
 };  // namespace KNN
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

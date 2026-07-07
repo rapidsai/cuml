@@ -1,35 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.internals.input_utils import input_to_cupy_array
-
-
-def get_tag_from_model_func(func, tag, default=None):
-    """
-    Function returns the tags from the model that function `func` is bound to.
-
-    Parameters
-    ----------
-    func: object
-        Function to check whether the object it is bound to has a _get_tags
-        attribute, and return tags from it.
-    tag: str
-        Tag that will be returned if exists
-    default: object  (default = None)
-        Value that will be returned if tags cannot be fetched.
-    """
-    tags_fn = getattr(getattr(func, "__self__", None), "_get_tags", None)
-
-    if tags_fn is not None:
-        tag_value = tags_fn().get(tag)
-        result = tag_value if tag_value is not None else default
-
-        return result
-
-    return default
+from cuml.internals.validation import check_array
 
 
 def model_func_call(X, model_func, gpu_model=False):
@@ -39,17 +14,17 @@ def model_func_call(X, model_func, gpu_model=False):
     Returns the results as CuPy arrays.
     """
     if gpu_model:
-        y = input_to_cupy_array(X=model_func(X), order="K").array
+        y = model_func(X)
     else:
         try:
-            y = input_to_cupy_array(model_func(cp.asnumpy(X))).array
+            y = model_func(cp.asnumpy(X))
         except TypeError:
             raise TypeError(
                 "Explainer can only explain models that can "
                 "take GPU data or NumPy arrays as input."
             )
 
-    return y
+    return check_array(y, ensure_2d=False, ensure_all_finite=False)
 
 
 def get_cai_ptr(X):

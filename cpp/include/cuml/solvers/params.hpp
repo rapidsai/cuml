@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace ML {
+#include <cuml/common/export.hpp>
+namespace CUML_EXPORT ML {
 
 enum lr_type {
   OPTIMAL,
@@ -22,4 +23,4 @@ enum loss_funct {
 
 enum penalty { NONE, L1, L2, ELASTICNET };
 
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

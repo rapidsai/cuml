@@ -3,17 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupy as cp
 import numpy as np
 
 import cuml.internals
-from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.validation import check_features, check_is_fitted
+from cuml.internals.validation import (
+    check_array,
+    check_inputs,
+    check_is_fitted,
+)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -31,8 +35,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                float *explained_var,
                                float *explained_var_ratio,
                                float *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdFitTransform(handle_t& handle,
                                double *input,
@@ -41,8 +44,7 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                                double *explained_var,
                                double *explained_var_ratio,
                                double *singular_vals,
-                               const paramsTSVD &prms,
-                               bool u_based_decisoin) except +
+                               const paramsTSVD &prms) except +
 
     cdef void tsvdInverseTransform(handle_t& handle,
                                    float *trans_input,
@@ -69,9 +71,9 @@ cdef extern from "cuml/decomposition/tsvd.hpp" namespace "ML" nogil:
                             const paramsTSVD &prms) except +
 
 
-class TruncatedSVD(Base,
-                   InteropMixin,
-                   FMajorInputTagMixin):
+class TruncatedSVD(InteropMixin,
+                   FMajorInputTagMixin,
+                   Base):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a
     large matrix X. It is much faster when n_components is small, such as in
@@ -103,7 +105,7 @@ class TruncatedSVD(Base,
         >>> tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
         ...                           n_iter = 20, tol = 1e-9)
         >>> tsvd_float.fit(gdf_float)
-        TruncatedSVD()
+        TruncatedSVD(algorithm='jacobi', n_components=2, n_iter=20, tol=1e-09)
         >>> print(f'components: {tsvd_float.components_}') # doctest: +SKIP
         components:           0         1         2
         0  0.587259  0.572331  0.572331
@@ -203,7 +205,6 @@ class TruncatedSVD(Base,
     singular_values_ = CumlArrayDescriptor(order='F')
 
     _cpu_class_path = "sklearn.decomposition.TruncatedSVD"
-    _u_based_sign_flip = False
 
     @classmethod
     def _get_param_names(cls):
@@ -286,7 +287,7 @@ class TruncatedSVD(Base,
         return self.components_.shape[0]
 
     @generate_docstring()
-    @cuml.internals.reflect
+    @cuml.internals.reflect(reset=True)
     def fit(self, X, y=None) -> "TruncatedSVD":
         """
         Fit model on training cudf DataFrame X. y is currently ignored.
@@ -300,20 +301,25 @@ class TruncatedSVD(Base,
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect(reset=True)
-    def fit_transform(self, X, y=None, *, convert_dtype=True) -> CumlArray:
+    def fit_transform(self, X, y=None, *, convert_dtype="deprecated") -> CumlArray:
         """
         Fit model to X and perform dimensionality reduction on X.
         y is currently ignored.
 
         """
-        # Validate input
-        X_m, n_rows, n_cols, dtype = input_to_cuml_array(
+        X, index = check_inputs(
+            self,
             X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64]
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
+            reset=True,
         )
 
-        # Validate and initialize parameters
+        n_rows, n_cols = X.shape
+        dtype = X.dtype
+
         if self.n_components > n_cols:
             raise ValueError(
                 f"`n_components` ({self.n_components}) must be <= than the "
@@ -321,7 +327,6 @@ class TruncatedSVD(Base,
             )
 
         cdef paramsTSVD params
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -337,19 +342,19 @@ class TruncatedSVD(Base,
                 f"got {self.algorithm!r}"
             )
 
-        # Allocate output arrays
-        components = CumlArray.zeros((self.n_components, n_cols), dtype=dtype)
-        explained_variance = CumlArray.zeros(self.n_components, dtype=dtype)
-        explained_variance_ratio = CumlArray.zeros(self.n_components, dtype=dtype)
-        singular_values = CumlArray.zeros(self.n_components, dtype=dtype)
-        out = CumlArray.zeros((n_rows, self.n_components), dtype=dtype, index=X_m.index)
+        # Allocate output arrays (F-order expected by libcuml)
+        components = cp.zeros((self.n_components, n_cols), dtype=dtype, order="F")
+        explained_variance = cp.zeros(self.n_components, dtype=dtype)
+        explained_variance_ratio = cp.zeros(self.n_components, dtype=dtype)
+        singular_values = cp.zeros(self.n_components, dtype=dtype)
+        out = cp.zeros((n_rows, self.n_components), dtype=dtype, order="F")
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t components_ptr = components.ptr
-        cdef uintptr_t explained_variance_ptr = explained_variance.ptr
-        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
-        cdef uintptr_t singular_values_ptr = singular_values.ptr
-        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t components_ptr = components.data.ptr
+        cdef uintptr_t explained_variance_ptr = explained_variance.data.ptr
+        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.data.ptr
+        cdef uintptr_t singular_values_ptr = singular_values.data.ptr
+        cdef uintptr_t out_ptr = out.data.ptr
         cdef bool use_float32 = dtype == np.float32
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -365,8 +370,7 @@ class TruncatedSVD(Base,
                     <float*> explained_variance_ptr,
                     <float*> explained_variance_ratio_ptr,
                     <float*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
             else:
                 tsvdFitTransform(
@@ -377,25 +381,24 @@ class TruncatedSVD(Base,
                     <double*> explained_variance_ptr,
                     <double*> explained_variance_ratio_ptr,
                     <double*> singular_values_ptr,
-                    params,
-                    flip_signs_based_on_U
+                    params
                 )
         handle.sync()
 
         # Store results
-        self.components_ = components
-        self.explained_variance_ = explained_variance
-        self.explained_variance_ratio_ = explained_variance_ratio
-        self.singular_values_ = singular_values
+        self.components_ = CumlArray(data=components)
+        self.explained_variance_ = CumlArray(data=explained_variance)
+        self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
+        self.singular_values_ = CumlArray(data=singular_values)
 
-        return out
+        return CumlArray(data=out, index=index)
 
     @generate_docstring(return_values={'name': 'X_original',
                                        'type': 'dense',
                                        'description': 'X in original space',
                                        'shape': '(n_samples, n_features)'})
     @cuml.internals.reflect
-    def inverse_transform(self, X, *, convert_dtype=False) -> CumlArray:
+    def inverse_transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Transform X back to its original space.
         Returns X_original whose transform would be X.
@@ -403,25 +406,31 @@ class TruncatedSVD(Base,
         """
         check_is_fitted(self)
 
-        dtype = self.components_.dtype
-        X_m, n_rows, _, _ = input_to_cuml_array(
+        X, index = check_array(
             X,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_components,
+            dtype=self.components_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
         )
+        if X.shape[1] != self.n_components:
+            raise ValueError(
+                f"X has {X.shape[1]} columns, but TruncatedSVD.inverse_transform "
+                f"expects {self.n_components} (one per fitted component)."
+            )
+
+        n_rows = X.shape[0]
+        dtype = X.dtype
 
         cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_features_in_
 
-        out = CumlArray.zeros(
-            (n_rows, self.n_features_in_), dtype=dtype, index=X_m.index
-        )
+        out = cp.zeros((n_rows, self.n_features_in_), dtype=dtype, order="F")
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t out_ptr = out.data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
         handle = get_handle()
@@ -446,38 +455,41 @@ class TruncatedSVD(Base,
                 )
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=index)
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Reduced version of X',
                                        'shape': '(n_samples, n_components)'})
     @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=True) -> CumlArray:
+    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Perform dimensionality reduction on X.
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        dtype = self.components_.dtype
-        X_m, n_rows, _, _ = input_to_cuml_array(
+        X, index = check_inputs(
+            self,
             X,
-            check_dtype=dtype,
-            convert_to_dtype=(dtype if convert_dtype else None),
-            check_cols=self.n_features_in_,
+            dtype=self.components_.dtype,
+            convert_dtype=convert_dtype,
+            order="F",
+            return_index=True,
         )
+
+        n_rows = X.shape[0]
+        dtype = X.dtype
 
         cdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = self.n_features_in_
 
-        out = CumlArray.zeros((n_rows, self.n_components), dtype=dtype, index=X_m.index)
+        out = cp.zeros((n_rows, self.n_components), dtype=dtype, order="F")
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t out_ptr = out.ptr
+        cdef uintptr_t X_ptr = X.data.ptr
+        cdef uintptr_t out_ptr = out.data.ptr
         cdef uintptr_t components_ptr = self.components_.ptr
         cdef bool use_float32 = dtype == np.float32
         handle = get_handle()
@@ -502,4 +514,4 @@ class TruncatedSVD(Base,
                 )
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=index)

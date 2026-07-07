@@ -322,13 +322,19 @@ def test_spectral_clustering_output_shape_type_and_label_count(
     assert n_unique <= n_clusters
 
 
+def test_spectral_clustering_precomputed_not_square():
+    X = np.ones((10, 5))
+    with pytest.raises(ValueError, match="X must be 2-dimensional and square"):
+        SpectralClustering(affinity="precomputed").fit(X)
+
+
 def test_spectral_clustering_convergence_failure():
     """Ensure spectral clustering raises a convergence error for unsuitable input.
 
     When provided with data lacking clustering structure, the eigensolver
     should fail and raise a RuntimeError indicating lack of convergence.
     """
-    X = np.random.randn(100, 10).astype(np.float32)
+    X = np.random.default_rng(42).normal(size=(100, 100)).astype("float32")
 
     model = SpectralClustering(
         n_clusters=3,

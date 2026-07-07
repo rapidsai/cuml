@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
@@ -16,7 +17,7 @@ namespace raft {
 class handle_t;  // forward decl
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 enum RF_type {
   CLASSIFICATION,
@@ -150,7 +151,8 @@ void fit(const raft::handle_t& user_handle,
          int n_unique_labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
-         bool* bootstrap_masks               = nullptr);
+         bool* bootstrap_masks               = nullptr,
+         const double* sample_weight         = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestClassifierD* forest,
          double* input,
@@ -160,7 +162,8 @@ void fit(const raft::handle_t& user_handle,
          int n_unique_labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
-         bool* bootstrap_masks               = nullptr);
+         bool* bootstrap_masks               = nullptr,
+         const double* sample_weight         = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -173,7 +176,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   bool* bootstrap_masks,
                   T* feature_importances,
-                  rapids_logger::level_enum verbosity);
+                  rapids_logger::level_enum verbosity,
+                  const double* sample_weight = nullptr);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest,
@@ -231,7 +235,8 @@ void fit(const raft::handle_t& user_handle,
          float* labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
-         bool* bootstrap_masks               = nullptr);
+         bool* bootstrap_masks               = nullptr,
+         const double* sample_weight         = nullptr);
 void fit(const raft::handle_t& user_handle,
          RandomForestRegressorD* forest,
          double* input,
@@ -240,7 +245,8 @@ void fit(const raft::handle_t& user_handle,
          double* labels,
          RF_params rf_params,
          rapids_logger::level_enum verbosity = rapids_logger::level_enum::info,
-         bool* bootstrap_masks               = nullptr);
+         bool* bootstrap_masks               = nullptr,
+         const double* sample_weight         = nullptr);
 
 template <typename T, typename L>
 void fit_treelite(const raft::handle_t& user_handle,
@@ -252,7 +258,8 @@ void fit_treelite(const raft::handle_t& user_handle,
                   RF_params rf_params,
                   bool* bootstrap_masks,
                   T* feature_importances,
-                  rapids_logger::level_enum verbosity);
+                  rapids_logger::level_enum verbosity,
+                  const double* sample_weight = nullptr);
 
 void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest,
@@ -281,4 +288,4 @@ RF_metrics score(const raft::handle_t& user_handle,
                  int n_rows,
                  const double* predictions,
                  rapids_logger::level_enum verbosity = rapids_logger::level_enum::info);
-};  // namespace ML
+};  // namespace CUML_EXPORT ML

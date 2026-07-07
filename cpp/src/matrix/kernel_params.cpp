@@ -7,7 +7,8 @@
 
 #include <cuvs/distance/distance.hpp>
 
-namespace ML::matrix {
+namespace ML {
+namespace CUML_EXPORT matrix {
 
 cuvs::distance::kernels::KernelParams KernelParams::to_cuvs() const
 {
@@ -27,4 +28,5 @@ cuvs::distance::kernels::KernelParams KernelParams::to_cuvs() const
   return params;
 }
 
-}  // end namespace ML::matrix
+}  // end namespace CUML_EXPORT matrix
+}  // end namespace ML

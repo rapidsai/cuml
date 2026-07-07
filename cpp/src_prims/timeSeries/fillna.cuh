@@ -109,8 +109,9 @@ namespace TimeSeries {
 template <typename T>
 void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
 {
-  rmm::device_uvector<FillnaTemp> indices_fwd(batch_size * n_obs, stream);
-  rmm::device_uvector<FillnaTemp> indices_bwd(batch_size * n_obs, stream);
+  std::size_t const total = ML::checked_mul<std::size_t>(batch_size, n_obs);
+  rmm::device_uvector<FillnaTemp> indices_fwd(total, stream);
+  rmm::device_uvector<FillnaTemp> indices_bwd(total, stream);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
   thrust::counting_iterator<int> counting(0);
@@ -123,34 +124,27 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveScan(
-    nullptr, temp_storage_bytes, itr_fwd, indices_fwd.data(), scan_op, batch_size * n_obs, stream);
+    nullptr, temp_storage_bytes, itr_fwd, indices_fwd.data(), scan_op, total, stream);
   rmm::device_uvector<char> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute scan (forward)
-  cub::DeviceScan::InclusiveScan(d_temp_storage,
-                                 temp_storage_bytes,
-                                 itr_fwd,
-                                 indices_fwd.data(),
-                                 scan_op,
-                                 batch_size * n_obs,
-                                 stream);
+  cub::DeviceScan::InclusiveScan(
+    d_temp_storage, temp_storage_bytes, itr_fwd, indices_fwd.data(), scan_op, total, stream);
 
   // Execute scan (backward)
-  cub::DeviceScan::InclusiveScan(d_temp_storage,
-                                 temp_storage_bytes,
-                                 itr_bwd,
-                                 indices_bwd.data(),
-                                 scan_op,
-                                 batch_size * n_obs,
-                                 stream);
+  cub::DeviceScan::InclusiveScan(
+    d_temp_storage, temp_storage_bytes, itr_bwd, indices_bwd.data(), scan_op, total, stream);
 
-  const int TPB      = 256;
-  const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
+  // Narrow once for the kernel: fillna_interpolate_kernel takes `int n_elem`.
+  int const total_int = ML::narrow_cast<int>(total);
+  const int TPB       = 256;
+  auto const n_blocks = ML::narrow_cast<ML::cuda_launch_t>(
+    raft::ceildiv<std::size_t>(total, static_cast<std::size_t>(TPB)));
 
   // Interpolate valid values
-  fillna_interpolate_kernel<false><<<n_blocks, TPB, 0, stream>>>(
-    data, batch_size * n_obs, indices_fwd.data(), indices_bwd.data());
+  fillna_interpolate_kernel<false>
+    <<<n_blocks, TPB, 0, stream>>>(data, total_int, indices_fwd.data(), indices_bwd.data());
   RAFT_CUDA_TRY(cudaGetLastError());
 }
 

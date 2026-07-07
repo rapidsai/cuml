@@ -2,23 +2,27 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import math
-import warnings
-
 import cupy as cp
 import cupyx
-import scipy.sparse
+import numpy as np
 
 import cuml.internals.nvtx as nvtx
 from cuml.common import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, input_to_cupy_array
-from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
-from cuml.internals.validation import check_features, check_is_fitted
-from cuml.prims.label.classlabels import make_monotonic
+from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
+from cuml.internals.outputs import (
+    exit_internal_context,
+    reflect,
+    run_in_internal_context,
+)
+from cuml.internals.validation import (
+    check_array,
+    check_inputs,
+    check_is_fitted,
+)
 
 _binarize = cp.ElementwiseKernel(
     "T x, float32 threshold",
@@ -28,13 +32,13 @@ _binarize = cp.ElementwiseKernel(
 )
 
 
-def _count_classes(Y, n_classes, dtype):
+def _count_classes(y, n_classes, dtype):
     """
     Count samples per class.
 
     Parameters
     ----------
-    Y : cupy.ndarray
+    y : cupy.ndarray
         Class labels (monotonic, 0 to n_classes-1)
     n_classes : int
         Number of classes
@@ -46,141 +50,94 @@ def _count_classes(Y, n_classes, dtype):
     class_counts : cupy.ndarray of shape (n_classes,)
         Count of samples per class
     """
-    return cp.bincount(Y, minlength=n_classes).astype(dtype, copy=False)
+    return cp.bincount(y, minlength=n_classes).astype(dtype, copy=False)
 
 
-def _count_features_dense(X, Y, n_classes, categorical=False):
-    """
-    Count feature occurrences per class for dense arrays.
+class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
+    """A base class for all naive-bayes estimators"""
 
-    Parameters
-    ----------
-    X : cupy.ndarray of shape (n_samples, n_features)
-        Feature matrix
-    Y : cupy.ndarray of shape (n_samples,)
-        Class labels (monotonic, 0 to n_classes-1)
-    n_classes : int
-        Number of classes
-    categorical : bool
-        If True, treat features as categorical indices
-
-    Returns
-    -------
-    feature_counts : cupy.ndarray
-        For categorical=False: shape (n_classes, n_features)
-        For categorical=True: shape (n_features, n_classes, max_category+1)
-    """
-    n_samples, n_features = X.shape
-
-    if not categorical:
-        # Standard multinomial/bernoulli counting
-        # Sum features per class: counts[class, feature] = sum of X[i, feature] where Y[i] == class
-        counts = cp.zeros((n_classes, n_features), dtype=X.dtype, order="F")
-
-        # Vectorized approach using advanced indexing
-        for class_idx in range(n_classes):
-            mask = Y == class_idx
-            if cp.any(mask):
-                counts[class_idx] = X[mask].sum(axis=0)
-
-        return counts
-    else:
-        # Categorical counting: count occurrences of each category per class per feature
-        highest_feature = int(X.max()) + 1
-        counts = cp.zeros(
-            (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
-        )
-
-        for feature_idx in range(n_features):
-            feature_vals = X[:, feature_idx].astype(cp.int32)
-
-            # Create flat indices into counts[feature_idx]
-            # Index is: class * highest_feature + category
-            flat_indices = Y.astype(cp.int32) * highest_feature + feature_vals
-
-            flat_counts = cp.bincount(
-                flat_indices, minlength=n_classes * highest_feature
-            )
-
-            counts[feature_idx] = flat_counts.reshape(
-                n_classes, highest_feature
-            ).astype(X.dtype)
-
-        return counts
-
-
-def _count_features_sparse(
-    x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
-):
-    """
-    Count feature occurrences per class for sparse COO matrices.
-
-    Parameters
-    ----------
-    x_coo_rows : cupy.ndarray
-        COO row indices
-    x_coo_cols : cupy.ndarray
-        COO column indices
-    x_coo_data : cupy.ndarray
-        COO data values
-    x_shape : tuple
-        Shape of the sparse matrix (n_rows, n_cols)
-    Y : cupy.ndarray
-        Class labels (monotonic, 0 to n_classes-1)
-    n_classes : int
-        Number of classes
-
-    Returns
-    -------
-    feature_counts : cupy.ndarray of shape (n_classes, n_features)
-        Count of features per class
-    """
-    n_rows, n_cols = x_shape
-    counts = cp.zeros((n_classes, n_cols), dtype=x_coo_data.dtype, order="F")
-
-    # For each non-zero element, add its value to the appropriate (class, feature) bin
-    # Get the class label for each non-zero element
-    labels_for_nnz = Y[x_coo_rows]
-
-    # Create flat indices for the counts array: col * n_classes + label
-    flat_indices = x_coo_cols * n_classes + labels_for_nnz
-
-    # Use bincount to accumulate values - this is the key GPU-efficient operation
-    flat_counts = cp.bincount(
-        flat_indices, weights=x_coo_data, minlength=n_cols * n_classes
-    )
-
-    # Reshape to (n_classes, n_cols) but bincount gives us col-major order
-    # so we need to transpose
-    counts = flat_counts.reshape(n_cols, n_classes).T.astype(x_coo_data.dtype)
-
-    # Convert to F-contiguous as expected by the rest of the code
-    return cp.asfortranarray(counts)
-
-
-def _convert_x_sparse(X):
-    X = X.tocoo()
-
-    if X.dtype not in [cp.float32, cp.float64]:
-        raise ValueError(
-            "Only floating-point dtypes (float32 or "
-            "float64) are supported for sparse inputs."
-        )
-
-    rows = cp.asarray(X.row, dtype=X.row.dtype)
-    cols = cp.asarray(X.col, dtype=X.col.dtype)
-    data = cp.asarray(X.data, dtype=X.data.dtype)
-    return cupyx.scipy.sparse.coo_matrix((data, (rows, cols)), shape=X.shape)
-
-
-class _BaseNB(Base, ClassifierMixin):
-    classes_ = CumlArrayDescriptor()
     class_count_ = CumlArrayDescriptor()
     feature_count_ = CumlArrayDescriptor()
+    # a tuple of dtypes to coerce X to
+    _supported_dtypes = ("float32", "float64")
 
-    def _check_X(self, X):
-        """To be overridden in subclasses with the actual checks."""
+    def _transform_X(self, X):
+        """An optional transform to apply to X after it's been validated"""
         return X
+
+    def _check_predict(self, X, *, convert_dtype="deprecated"):
+        """Validate X and return (X, index) for predict."""
+        X, index = check_inputs(
+            self,
+            X,
+            dtype=self._supported_dtypes,
+            sample_weight_dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            accept_sparse=["coo", "csr"],
+            return_index=True,
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
+        )
+        X = self._transform_X(X)
+        return X, index
+
+    def _check_fit(
+        self,
+        X,
+        y,
+        classes=None,
+        sample_weight=None,
+        *,
+        reset=False,
+        convert_dtype="deprecated",
+    ):
+        """Validate and return (X, y, classes, sample_weight) for fit."""
+        if reset:
+            self._set_output_type(X)
+        X, y, sample_weight, classes = check_inputs(
+            self,
+            X,
+            y,
+            sample_weight=sample_weight,
+            dtype=self._supported_dtypes,
+            y_dtype=None,
+            sample_weight_dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            accept_sparse=["coo", "csr"],
+            ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
+            return_classes=(True if classes is None else classes),
+            reset=reset,
+        )
+        X = self._transform_X(X)
+        y = y.astype(
+            "int32" if len(classes) < (2**31 - 1) else "int64", copy=False
+        )
+        return X, y, classes, sample_weight
+
+    def _check_classes(self, classes, reset=False):
+        """Validate `classes`, and return (classes, reset)."""
+        classes_ = getattr(self, "classes_", None)
+
+        if classes is not None:
+            classes = np.unique(
+                check_array(
+                    classes,
+                    ensure_2d=False,
+                    mem_type="host",
+                    input_name="classes",
+                )
+            )
+            if classes_ is not None:
+                if not np.array_equal(classes_, classes):
+                    raise ValueError(
+                        "`classes=%r` is not the same as on last call "
+                        "to partial_fit, was: %r" % (classes, classes_)
+                    )
+        elif classes_ is None and not reset:
+            raise ValueError(
+                "classes must be passed on the first call to partial_fit."
+            )
+
+        return classes, (reset or classes_ is None)
 
     @generate_docstring(
         X="dense_sparse",
@@ -191,35 +148,24 @@ class _BaseNB(Base, ClassifierMixin):
             "shape": "(n_rows, 1)",
         },
     )
-    @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @run_in_internal_context
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Perform classification on an array of test vectors X.
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
-        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = _convert_x_sparse(X)
-            index = None
-        else:
-            X = input_to_cuml_array(
-                X,
-                order="K",
-                convert_to_dtype=(cp.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64, cp.int32],
-            )
-            index = X.index
-            X = X.array.to_output("cupy")
+        with exit_internal_context():
+            output_type = self._get_output_type(X)
 
-        X = self._check_X(X)
+        X, index = self._check_predict(X, convert_dtype=convert_dtype)
         jll = self._joint_log_likelihood(X)
-        indices = cp.argmax(jll, axis=1).astype(self.classes_.dtype)
+        indices = cp.argmax(jll, axis=1)
 
-        y_hat = self.classes_[indices]
-        y_hat = CumlArray(data=y_hat, index=index)
-        return y_hat
+        return decode_labels(
+            indices, self.classes_, output_type=output_type, index=index
+        )
 
     @generate_docstring(
         X="dense_sparse",
@@ -235,49 +181,26 @@ class _BaseNB(Base, ClassifierMixin):
         },
     )
     @reflect
-    def predict_log_proba(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Return log-probability estimates for the test vector X.
 
         """
         check_is_fitted(self)
-        check_features(self, X)
-
-        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = _convert_x_sparse(X)
-            index = None
-        else:
-            X = input_to_cuml_array(
-                X,
-                order="K",
-                convert_to_dtype=(cp.float32 if convert_dtype else None),
-                check_dtype=[cp.float32, cp.float64, cp.int32],
-            )
-            index = X.index
-            X = X.array.to_output("cupy")
-
-        X = self._check_X(X)
+        X, index = self._check_predict(X, convert_dtype=convert_dtype)
         jll = self._joint_log_likelihood(X)
 
         # normalize by P(X) = P(f_1, ..., f_n)
-
         # Compute log(sum(exp()))
-
         # Subtract max in exp to prevent inf
         a_max = cp.amax(jll, axis=1, keepdims=True)
-
         exp = cp.exp(jll - a_max)
         logsumexp = cp.log(cp.sum(exp, axis=1))
-
-        a_max = cp.squeeze(a_max, axis=1)
-
-        log_prob_x = a_max + logsumexp
-
+        log_prob_x = cp.squeeze(a_max, axis=1) + logsumexp
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
-        result = CumlArray(data=result, index=index)
-        return result
+        return CumlArray(data=result, index=index)
 
     @generate_docstring(
         X="dense_sparse",
@@ -297,8 +220,9 @@ class _BaseNB(Base, ClassifierMixin):
         """
         Return probability estimates for the test vector X.
         """
-        result = cp.exp(self.predict_log_proba(X))
-        return result
+        log_proba = self.predict_log_proba(X)
+        result = cp.exp(log_proba)
+        return CumlArray(data=result, index=log_proba.index)
 
 
 class GaussianNB(_BaseNB):
@@ -337,7 +261,7 @@ class GaussianNB(_BaseNB):
     ...     [[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
     ...     dtype=cp.float32
     ... )
-    >>> y = cp.array([1, 1, 1, 2, 2, 2], dtype=cp.float32)
+    >>> y = cp.array([1, 1, 1, 2, 2, 2])
     >>> clf = GaussianNB().fit(X, y)
     >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
     [1]
@@ -375,8 +299,7 @@ class GaussianNB(_BaseNB):
         return self._partial_fit(
             X,
             y,
-            _classes=cp.unique(y),
-            _refit=True,
+            reset=True,
             sample_weight=sample_weight,
         )
 
@@ -387,71 +310,27 @@ class GaussianNB(_BaseNB):
         self,
         X,
         y,
-        _classes=None,
-        _refit=False,
+        classes=None,
         sample_weight=None,
-        convert_dtype=True,
+        reset=False,
+        convert_dtype="deprecated",
     ) -> "GaussianNB":
-        first_call = _refit or not hasattr(self, "classes_")
-
-        if first_call:
-            if _classes is None:
-                raise ValueError(
-                    "classes must be passed on the first call to partial_fit."
-                )
-            self._set_output_type(X)
-            check_features(self, X, reset=True)
-        else:
-            check_features(self, X)
-
-        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = _convert_x_sparse(X)
-        else:
-            X = input_to_cupy_array(
-                X, order="K", check_dtype=[cp.float32, cp.float64, cp.int32]
-            ).array
-
-        expected_y_dtype = (
-            cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
-        )
-        y = input_to_cupy_array(
+        classes, reset = self._check_classes(classes, reset)
+        X, y, classes, sample_weight = self._check_fit(
+            X,
             y,
-            convert_to_dtype=(expected_y_dtype if convert_dtype else False),
-            check_rows=X.shape[0],
-            check_dtype=expected_y_dtype,
-        ).array
-        if sample_weight is not None:
-            sample_weight = input_to_cupy_array(
-                sample_weight,
-                convert_to_dtype=cp.float32,
-                check_dtype=cp.float32,
-                check_rows=X.shape[0],
-            ).array
-
-        if _classes is not None:
-            _classes, *_ = input_to_cuml_array(
-                _classes,
-                order="K",
-                convert_to_dtype=(
-                    expected_y_dtype if convert_dtype else False
-                ),
-            )
-
-        Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
+            classes=classes,
+            sample_weight=sample_weight,
+            reset=reset,
+            convert_dtype=convert_dtype,
+        )
 
         self.epsilon_ = self.var_smoothing * (
             ((X - X.mean(axis=0)) ** 2).mean(axis=0).max()
         )
 
-        if first_call:
-            if _classes is not None:
-                # Validate that y labels are in _classes
-                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
-                    raise ValueError("Labels contain values not in classes")
-                self.classes_ = _classes
-            else:
-                self.classes_ = label_classes
-
+        if reset:
+            self.classes_ = classes
             n_features = X.shape[1]
             n_classes = len(self.classes_)
 
@@ -464,42 +343,30 @@ class GaussianNB(_BaseNB):
             self.class_count_ = cp.zeros(n_classes, dtype=X.dtype)
 
             if self.priors is not None:
-                if len(self.priors) != n_classes:
+                priors = check_array(
+                    self.priors, dtype=X.dtype, ensure_2d=False
+                )
+                if priors.shape[0] != n_classes:
                     raise ValueError(
                         "Number of priors must match number of classes."
                     )
-                if not cp.isclose(self.priors.sum(), 1):
+                if not cp.isclose(priors.sum(), 1.0):
                     raise ValueError("The sum of the priors should be 1.")
-                if (self.priors < 0).any():
+                if (priors < 0).any():
                     raise ValueError("Priors must be non-negative.")
-                self.class_prior_ = input_to_cupy_array(
-                    self.priors, check_dtype=[cp.float32, cp.float64]
-                ).array
-
+                self.class_prior_ = priors
         else:
             self.sigma_[:, :] -= self.epsilon_
 
-        unique_y = cp.unique(y)
-        classes_array = cp.asarray(self.classes_)
-        unique_y_in_classes = cp.in1d(unique_y, classes_array)
-
-        if not cp.all(unique_y_in_classes):
-            raise ValueError(
-                "The target label(s) %s in y do not exist "
-                "in the initial classes %s"
-                % (unique_y[~unique_y_in_classes], self.classes_)
-            )
-
         # Convert sparse matrices to CSR for efficient row indexing
-        if cupyx.scipy.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.issparse(X):
             X = X.tocsr()
 
         # Update mean and variance for each class
         # Following scikit-learn's approach: iterate through unique labels
-        for y_i in unique_y:
-            i = int(cp.searchsorted(classes_array, y_i))
+        for i in cp.unique(y):
             # Explicit indices can index sparse arrays
-            mask = y == y_i
+            mask = y == i
             indices = cp.where(mask)[0]
 
             # Index X using integer indices (works efficiently with CSR)
@@ -571,7 +438,7 @@ class GaussianNB(_BaseNB):
         self : object
         """
         return self._partial_fit(
-            X, y, classes, _refit=False, sample_weight=sample_weight
+            X, y, classes=classes, sample_weight=sample_weight
         )
 
     @staticmethod
@@ -614,7 +481,7 @@ class GaussianNB(_BaseNB):
                 return mu, var
 
             # Handle sparse vs dense differently for efficiency
-            if cupyx.scipy.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.issparse(X):
                 # Sparse weighted mean - avoid densification
                 # X.T @ sample_weight gives sum of weighted features
                 new_mu = cp.asarray((X.T.dot(sample_weight) / n_new)).ravel()
@@ -637,7 +504,7 @@ class GaussianNB(_BaseNB):
             n_new = X.shape[0]
 
             # Handle sparse vs dense differently for efficiency
-            if cupyx.scipy.sparse.isspmatrix(X):
+            if cupyx.scipy.sparse.issparse(X):
                 # Sparse unweighted - efficient for sparse matrices
                 # mean() works efficiently on sparse matrices
                 new_mu = cp.asarray(X.mean(axis=0)).ravel()
@@ -704,12 +571,13 @@ class GaussianNB(_BaseNB):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + ["priors", "var_smoothing"]
+        return [*super()._get_param_names(), "priors", "var_smoothing"]
 
 
 class _BaseDiscreteNB(_BaseNB):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
+    _supported_dtypes = ("float32", "float64", "int32", "int64")
 
     def __init__(
         self,
@@ -725,60 +593,10 @@ class _BaseDiscreteNB(_BaseNB):
         self.alpha = alpha
         self.fit_prior = fit_prior
 
-    def _check_X_y(self, X, y):
-        """
-        Validate X and y.
-
-        Common validation for all discrete naive bayes estimators.
-        """
-        n_samples_X = X.shape[0]
-
-        n_samples_y = y.shape[0] if len(y.shape) > 0 else 1
-
-        if n_samples_X != n_samples_y:
-            raise ValueError(
-                f"X and y have incompatible shapes. "
-                f"X has {n_samples_X} samples, but y has {n_samples_y} samples."
-            )
-
-        if n_samples_X == 0:
-            raise ValueError("X has 0 samples, cannot fit model on empty data")
-
-        if X.size == 0:
-            raise ValueError("X cannot be empty")
-
-        if len(X.shape) != 2:
-            raise ValueError(f"X must be 2D, got {len(X.shape)}D")
-
-        if X.shape[0] < 1 or X.shape[1] < 1:
-            raise ValueError(
-                f"X must have at least 1 sample and 1 feature, got shape {X.shape}"
-            )
-
-        if y.size == 0:
-            raise ValueError("y cannot be empty")
-
-        # Ensure y is 1D or can be squeezed to 1D
-        if len(y.shape) > 2:
-            raise ValueError(f"y must be 1D or 2D, got {len(y.shape)}D")
-
-        if len(y.shape) == 2 and y.shape[1] != 1:
-            raise ValueError(
-                f"y must be a column vector if 2D, got shape {y.shape}"
-            )
-
-        # Check for NaN or Inf values in floating point data
-        if hasattr(X, "dtype") and cp.issubdtype(X.dtype, cp.floating):
-            if cupyx.scipy.sparse.isspmatrix(X):
-                if X.data.size > 0 and (
-                    cp.any(cp.isnan(X.data)) or cp.any(cp.isinf(X.data))
-                ):
-                    raise ValueError("Input X contains NaN or infinite values")
-            else:
-                if cp.any(cp.isnan(X)) or cp.any(cp.isinf(X)):
-                    raise ValueError("Input X contains NaN or infinite values")
-
-        return X, y
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.classifier_tags.poor_score = True
+        return tags
 
     def _update_class_log_prior(self, class_prior=None):
         if class_prior is not None:
@@ -796,12 +614,15 @@ class _BaseDiscreteNB(_BaseNB):
             )
         else:
             self.class_log_prior_ = cp.full(
-                self.n_classes_, -math.log(self.n_classes_)
+                self.n_classes_, -np.log(self.n_classes_)
             )
 
     @run_in_internal_context
     def partial_fit(
-        self, X, y, classes=None, sample_weight=None
+        self,
+        X,
+        y,
+        classes=None,
     ) -> "_BaseDiscreteNB":
         """
         Incremental fit on a batch of samples.
@@ -828,17 +649,12 @@ class _BaseDiscreteNB(_BaseNB):
             List of all the classes that can possibly appear in the y vector.
             Must be provided at the first call to partial_fit, can be omitted
             in subsequent calls.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples. Currently sample weight is
-            ignored.
 
         Returns
         -------
         self : object
         """
-        return self._partial_fit(
-            X, y, sample_weight=sample_weight, _classes=classes
-        )
+        return self._partial_fit(X, y, classes=classes)
 
     @nvtx.annotate(
         message="naive_bayes._BaseDiscreteNB._partial_fit",
@@ -848,80 +664,40 @@ class _BaseDiscreteNB(_BaseNB):
         self,
         X,
         y,
-        sample_weight=None,
-        _classes=None,
-        _refit=False,
-        convert_dtype=True,
+        classes=None,
+        reset=False,
+        convert_dtype="deprecated",
     ) -> "_BaseDiscreteNB":
-        first_call = _refit or not hasattr(self, "classes_")
-
-        if first_call:
-            self._set_output_type(X)
-            check_features(self, X, reset=True)
-        else:
-            check_features(self, X)
-
         if self.alpha < 0:
             raise ValueError(f"Expected alpha >= 0, got {self.alpha}")
 
-        if scipy.sparse.isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
-            X = _convert_x_sparse(X)
-        else:
-            X = input_to_cupy_array(
-                X,
-                order="K",
-                check_dtype=[cp.float32, cp.float64, cp.int32],
-            ).array
-
-        expected_y_dtype = (
-            cp.int32 if X.dtype in [cp.float32, cp.int32] else cp.int64
-        )
-        y = input_to_cupy_array(
+        classes, reset = self._check_classes(classes, reset)
+        X, y, classes, _ = self._check_fit(
+            X,
             y,
-            convert_to_dtype=(expected_y_dtype if convert_dtype else False),
-            check_dtype=expected_y_dtype,
-        ).array
-        if _classes is not None:
-            _classes, *_ = input_to_cuml_array(
-                _classes,
-                order="K",
-                convert_to_dtype=(
-                    expected_y_dtype if convert_dtype else False
-                ),
-            )
-        Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
+            classes=classes,
+            reset=reset,
+            convert_dtype=convert_dtype,
+        )
 
-        X, Y = self._check_X_y(X, Y)
-
-        if first_call:
-            if _classes is not None:
-                # Validate that y labels are in _classes
-                if not bool(cp.all(cp.isin(y, _classes.to_output("cupy")))):
-                    raise ValueError("Labels contain values not in classes")
-                self.classes_ = _classes
-            else:
-                self.classes_ = label_classes
-
+        if reset:
+            self.classes_ = classes
             self.n_classes_ = self.classes_.shape[0]
             self.n_features_ = X.shape[1]
             self._init_counters(self.n_classes_, self.n_features_, X.dtype)
-        else:
-            # Validate that y labels are in self.classes_
-            if not bool(cp.all(cp.isin(y, cp.asarray(self.classes_)))):
-                raise ValueError("Labels contain values not in classes")
 
-        if cupyx.scipy.sparse.isspmatrix(X):
-            # X is assumed to be a COO here
-            self._count_sparse(X.row, X.col, X.data, X.shape, Y, self.classes_)
+        if cupyx.scipy.sparse.issparse(X):
+            X = X.tocoo()
+            self._count_sparse(X.row, X.col, X.data, X.shape, y)
         else:
-            self._count(X, Y, self.classes_)
+            self._count(X, y)
 
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
         return self
 
     @run_in_internal_context
-    def fit(self, X, y, sample_weight=None) -> "_BaseDiscreteNB":
+    def fit(self, X, y) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y
 
@@ -932,13 +708,8 @@ class _BaseDiscreteNB(_BaseNB):
             n_features is the number of features.
         y : array-like shape (n_samples)
             Target values.
-        sample_weight : array-like of shape (n_samples)
-            Weights applied to individual samples. Currently sample weight is
-            ignored.
         """
-        return self._partial_fit(
-            X, y, _refit=True, sample_weight=sample_weight
-        )
+        return self._partial_fit(X, y, reset=True)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(
@@ -958,39 +729,35 @@ class _BaseDiscreteNB(_BaseNB):
         self._update_feature_log_prob(self.alpha)
         self._update_class_log_prior(class_prior=self.class_prior)
 
-    def _count(self, X, Y, classes):
+    def _count(self, X, y):
         """
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
         X : cupy.ndarray or cupyx.scipy.sparse matrix, shape (n_rows, n_features)
-        Y : cupy.array of monotonic class labels
+        y : cupy.array of monotonic class labels
         """
-        n_classes = classes.shape[0]
+        n_features = X.shape[1]
 
-        if X.ndim != 2:
-            raise ValueError("Input samples should be a 2D array")
+        # Sum features per class
+        # counts[class, feature] = sum of X[i, feature] where y[i] == class
+        counts = cp.zeros(
+            (self.n_classes_, n_features), dtype=X.dtype, order="F"
+        )
 
-        if Y.dtype != classes.dtype:
-            warnings.warn(
-                "Y dtype does not match classes_ dtype. Y will be "
-                "converted, which will increase memory consumption"
-            )
-
-        Y = cp.asarray(Y, dtype=classes.dtype)
-
-        # Count features per class
-        counts = _count_features_dense(X, Y, n_classes, categorical=False)
+        # Vectorized approach using advanced indexing
+        for class_idx in range(self.n_classes_):
+            mask = y == class_idx
+            if cp.any(mask):
+                counts[class_idx] = X[mask].sum(axis=0)
 
         # Count samples per class
-        class_c = _count_classes(Y, n_classes, X.dtype)
+        class_c = _count_classes(y, self.n_classes_, X.dtype)
 
         self.feature_count_ += counts
         self.class_count_ += class_c
 
-    def _count_sparse(
-        self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes
-    ):
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, y):
         """
         Sum feature counts & class prior counts and add to current model.
 
@@ -999,30 +766,42 @@ class _BaseDiscreteNB(_BaseNB):
         x_coo_rows : cupy.ndarray of size (nnz)
         x_coo_cols : cupy.ndarray of size (nnz)
         x_coo_data : cupy.ndarray of size (nnz)
-        Y : cupy.array of monotonic class labels
+        y : cupy.array of monotonic class labels
         """
-        n_classes = classes.shape[0]
-
-        if Y.dtype != classes.dtype:
-            warnings.warn(
-                "Y dtype does not match classes_ dtype. Y will be "
-                "converted, which will increase memory consumption"
-            )
-
-        Y = cp.asarray(Y, dtype=classes.dtype)
-
-        counts = _count_features_sparse(
-            x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, n_classes
+        n_rows, n_cols = x_shape
+        counts = cp.zeros(
+            (self.n_classes_, n_cols), dtype=x_coo_data.dtype, order="F"
         )
 
-        class_c = _count_classes(Y, n_classes, x_coo_data.dtype)
+        # For each non-zero element, add its value to the appropriate (class,
+        # feature) bin. Get the class label for each non-zero element.
+        labels_for_nnz = y[x_coo_rows]
+
+        # Create flat indices for the counts array: col * n_classes + label
+        flat_indices = x_coo_cols * self.n_classes_ + labels_for_nnz
+
+        # Use bincount to accumulate values - this is the key GPU-efficient operation
+        flat_counts = cp.bincount(
+            flat_indices,
+            weights=x_coo_data,
+            minlength=n_cols * self.n_classes_,
+        )
+
+        # Reshape to (n_classes, n_cols) but bincount gives us col-major order
+        # so we need to transpose
+        counts = flat_counts.reshape(n_cols, self.n_classes_).T.astype(
+            x_coo_data.dtype
+        )
+
+        class_c = _count_classes(y, self.n_classes_, x_coo_data.dtype)
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + [
+        return [
+            *super()._get_param_names(),
             "alpha",
             "fit_prior",
             "class_prior",
@@ -1090,6 +869,11 @@ class MultinomialNB(_BaseDiscreteNB):
     >>> model.score(X, y)  # doctest: +SKIP
     0.9245...
     """
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -1173,9 +957,9 @@ class BernoulliNB(_BaseDiscreteNB):
     >>> from cuml.naive_bayes import BernoulliNB
     >>> rng = cp.random.RandomState(1)
     >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> y = cp.array([1, 2, 3, 4, 4, 5])
     >>> clf = BernoulliNB()
-    >>> clf.fit(X, Y)
+    >>> clf.fit(X, y)
     BernoulliNB()
     >>> print(clf.predict(X[2:3]))
     [3]
@@ -1211,41 +995,20 @@ class BernoulliNB(_BaseDiscreteNB):
         )
         self.binarize = binarize
 
-    def _check_X(self, X):
-        X = super()._check_X(X)
-        if self.binarize is not None:
-            if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = _binarize(X.data, float(self.binarize))
-            else:
-                X = _binarize(X, float(self.binarize))
-        return X
-
-    def _check_X_y(self, X, y):
-        """
-        BernoulliNB-specific validation and preprocessing.
-        """
-        # First call parent's validation (includes all common checks)
-        X, y = super()._check_X_y(X, y)
-
-        # Apply binarization with validation (BernoulliNB-specific)
-        if self.binarize is not None:
-            if cupyx.scipy.sparse.isspmatrix(X):
-                X.data = _binarize(X.data, float(self.binarize))
-            else:
-                X = _binarize(X, float(self.binarize))
-
-        return X, y
+    def _transform_X(self, X):
+        if self.binarize is None:
+            return X
+        elif cupyx.scipy.sparse.issparse(X):
+            X = X.copy()
+            X.data = _binarize(X.data, self.binarize)
+            return X
+        else:
+            return _binarize(X, self.binarize)
 
     def _joint_log_likelihood(self, X):
         """Calculate the posterior log probability of the samples X"""
         n_classes, n_features = self.feature_log_prob_.shape
         n_samples, n_features_X = X.shape
-
-        if n_features_X != n_features:
-            raise ValueError(
-                "Expected input with %d features, got %d instead"
-                % (n_features, n_features_X)
-            )
 
         neg_prob = cp.log(1 - cp.exp(self.feature_log_prob_))
 
@@ -1272,7 +1035,7 @@ class BernoulliNB(_BaseDiscreteNB):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + ["binarize"]
+        return [*super()._get_param_names(), "binarize"]
 
 
 class ComplementNB(_BaseDiscreteNB):
@@ -1331,9 +1094,9 @@ class ComplementNB(_BaseDiscreteNB):
     >>> from cuml.naive_bayes import ComplementNB
     >>> rng = cp.random.RandomState(1)
     >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
-    >>> Y = cp.array([1, 2, 3, 4, 4, 5])
+    >>> y = cp.array([1, 2, 3, 4, 4, 5])
     >>> clf = ComplementNB()
-    >>> clf.fit(X, Y)
+    >>> clf.fit(X, y)
     ComplementNB()
     >>> print(clf.predict(X[2:3]))
     [3]
@@ -1365,40 +1128,17 @@ class ComplementNB(_BaseDiscreteNB):
         )
         self.norm = norm
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
-    def _check_X(self, X):
-        X = super()._check_X(X)
-        if cupyx.scipy.sparse.isspmatrix(X):
-            X_min = X.data.min()
-        else:
-            X_min = X.min()
-        if X_min < 0:
-            raise ValueError("Negative values in data passed to ComplementNB")
-        return X
-
-    def _check_X_y(self, X, y):
-        X, y = super()._check_X_y(X, y)
-        if cupyx.scipy.sparse.isspmatrix(X):
-            X_min = X.data.min()
-        else:
-            X_min = X.min()
-        if X_min < 0:
-            raise ValueError("Negative values in data passed to ComplementNB")
-        return X, y
-
-    def _count(self, X, Y, classes):
-        super()._count(X, Y, classes)
+    def _count(self, X, y):
+        super()._count(X, y)
         self.feature_all_ = self.feature_count_.sum(axis=0)
 
-    def _count_sparse(
-        self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes
-    ):
-        super()._count_sparse(
-            x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes
-        )
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, y):
+        super()._count_sparse(x_coo_rows, x_coo_cols, x_coo_data, x_shape, y)
         self.feature_all_ = self.feature_count_.sum(axis=0)
 
     def _joint_log_likelihood(self, X):
@@ -1427,7 +1167,7 @@ class ComplementNB(_BaseDiscreteNB):
 
     @classmethod
     def _get_param_names(cls):
-        return super()._get_param_names() + ["norm"]
+        return [*super()._get_param_names(), "norm"]
 
 
 class CategoricalNB(_BaseDiscreteNB):
@@ -1512,73 +1252,12 @@ class CategoricalNB(_BaseDiscreteNB):
             verbose=verbose,
         )
 
-    @staticmethod
-    def _more_static_tags():
-        return {"requires_positive_X": True}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.input_tags.positive_only = True
+        return tags
 
-    def _check_X_y(self, X, y):
-        """
-        CategoricalNB-specific validation and preprocessing.
-        """
-        # First call parent's validation (includes all common checks)
-        X, y = super()._check_X_y(X, y)
-
-        # CategoricalNB-specific: Convert to int32 and check for negative values
-        if cupyx.scipy.sparse.isspmatrix(X):
-            if X.dtype != cp.int32:
-                warnings.warn(
-                    "X dtype is not int32. X will be "
-                    "converted, which will increase memory consumption"
-                )
-            X.data = X.data.astype(cp.int32)
-            # Check for empty sparse matrix
-            if X.data.size == 0:
-                raise ValueError("Sparse matrix X has no non-zero elements")
-            x_min = X.data.min()
-        else:
-            if X.dtype != cp.int32:
-                warnings.warn(
-                    "X dtype is not int32. X will be "
-                    "converted, which will increase memory "
-                    "consumption"
-                )
-                X = input_to_cupy_array(
-                    X, order="K", convert_to_dtype=cp.int32
-                ).array
-            x_min = X.min()
-
-        if x_min < 0:
-            raise ValueError("Negative values in data passed to CategoricalNB")
-
-        return X, y
-
-    def _check_X(self, X):
-        if cupyx.scipy.sparse.isspmatrix(X):
-            if X.dtype != cp.int32:
-                warnings.warn(
-                    "X dtype is not int32. X will be "
-                    "converted, which will increase memory consumption"
-                )
-                X.data = X.data.astype(cp.int32)
-            x_min = X.data.min()
-        else:
-            if X.dtype not in [cp.int32]:
-                warnings.warn(
-                    "X dtype is not int32. X will be "
-                    "converted, which will increase memory "
-                    "consumption"
-                )
-                X = input_to_cupy_array(
-                    X, order="K", convert_to_dtype=cp.int32
-                ).array
-            x_min = X.min()
-        if x_min < 0:
-            raise ValueError("Negative values in data passed to CategoricalNB")
-        return X
-
-    def _count_sparse(
-        self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes
-    ):
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, y):
         """
         Sum feature counts & class prior counts and add to current model.
 
@@ -1587,22 +1266,15 @@ class CategoricalNB(_BaseDiscreteNB):
         x_coo_rows : cupy.ndarray of size (nnz)
         x_coo_cols : cupy.ndarray of size (nnz)
         x_coo_data : cupy.ndarray of size (nnz)
-        Y : cupy.array of monotonic class labels
+        y : cupy.array of monotonic class labels
         """
-        n_classes = classes.shape[0]
+        n_classes = self.n_classes_
         n_cols = x_shape[1]
         x_coo_nnz = x_coo_rows.shape[0]
-
-        if Y.dtype != classes.dtype:
-            warnings.warn(
-                "Y dtype does not match classes_ dtype. Y will be "
-                "converted, which will increase memory consumption"
-            )
-
-        Y = cp.asarray(Y, dtype=classes.dtype)
+        x_coo_data = x_coo_data.astype("int32", copy=False)
 
         # Count samples per class
-        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
+        class_c = _count_classes(y, n_classes, self.class_count_.dtype)
 
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
@@ -1622,7 +1294,7 @@ class CategoricalNB(_BaseDiscreteNB):
         # For each non-zero element at (row, col) with value val:
         # - Get the class label for that row
         # - Create an entry at (col + n_cols * label, val)
-        labels_for_nnz = Y[x_coo_rows]
+        labels_for_nnz = y[x_coo_rows]
         counts_rows = x_coo_cols + n_cols * labels_for_nnz
         counts_cols = x_coo_data
 
@@ -1634,15 +1306,16 @@ class CategoricalNB(_BaseDiscreteNB):
 
         # Adjust with the missing (zeros) data of the sparse matrix
         for i in range(n_classes):
-            counts[i * n_cols : (i + 1) * n_cols, 0] = (Y == i).sum() - counts[
+            counts[i * n_cols : (i + 1) * n_cols, 0] = (y == i).sum() - counts[
                 i * n_cols : (i + 1) * n_cols
             ].sum(1)
         self.category_count_ = (self.category_count_ + counts).tocoo()
         self.class_count_ = self.class_count_ + class_c
 
-    def _count(self, X, Y, classes):
-        Y = cp.asarray(Y)
-        n_classes = classes.shape[0]
+    def _count(self, X, y):
+        n_classes = self.n_classes_
+        n_features = X.shape[1]
+        X = X.astype("int32", copy=False)
 
         highest_feature = int(X.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[2]
@@ -1655,7 +1328,22 @@ class CategoricalNB(_BaseDiscreteNB):
             )
         highest_feature = self.category_count_.shape[2]
 
-        counts_raw = _count_features_dense(X, Y, n_classes, categorical=True)
+        # Categorical counting
+        # count occurrences of each category per class per feature
+        counts_raw = cp.zeros(
+            (n_features, n_classes, highest_feature), dtype=X.dtype, order="F"
+        )
+        for feature_idx in range(n_features):
+            feature_vals = X[:, feature_idx].astype(cp.int32)
+            # Create flat indices into counts_raw[feature_idx]
+            # Index is: class * highest_feature + category
+            flat_indices = y.astype(cp.int32) * highest_feature + feature_vals
+            flat_counts = cp.bincount(
+                flat_indices, minlength=n_classes * highest_feature
+            )
+            counts_raw[feature_idx] = flat_counts.reshape(
+                n_classes, highest_feature
+            ).astype(X.dtype)
 
         # Pad or trim to match expected highest_feature size
         if counts_raw.shape[2] < highest_feature:
@@ -1670,7 +1358,7 @@ class CategoricalNB(_BaseDiscreteNB):
 
         self.category_count_ += counts
 
-        class_c = _count_classes(Y, n_classes, self.class_count_.dtype)
+        class_c = _count_classes(y, n_classes, self.class_count_.dtype)
         self.class_count_ += class_c
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
@@ -1678,7 +1366,7 @@ class CategoricalNB(_BaseDiscreteNB):
             n_effective_classes, order="F", dtype=cp.float64
         )
         self.category_count_ = cp.zeros(
-            (n_features, n_effective_classes, 0), order="F", dtype=dtype
+            (n_features, n_effective_classes, 0), order="F", dtype="int32"
         )
 
     def _update_feature_log_prob(self, alpha):
@@ -1717,13 +1405,8 @@ class CategoricalNB(_BaseDiscreteNB):
             )
 
     def _joint_log_likelihood(self, X):
-        if not X.shape[1] == self.n_features_:
-            raise ValueError(
-                "Expected input with %d features, got %d instead"
-                % (self.n_features_, X.shape[1])
-            )
         n_rows = X.shape[0]
-        if cupyx.scipy.sparse.isspmatrix(X):
+        if cupyx.scipy.sparse.issparse(X):
             # For sparse data we assume that most categories will be zeros,
             # so we first compute the jll for categories 0
             features_zeros = self.smoothed_cat_count[:, 0].todense()
@@ -1740,13 +1423,14 @@ class CategoricalNB(_BaseDiscreteNB):
 
             X = X.tocoo()
             col_indices = X.col
+            X_data = X.data.astype("int32", copy=False)
 
             # Adjust with the non-zeros data by adding jll_data (non-zeros)
             # and subtracting jll_zeros which are the zeros
             # that were first computed
             for i in range(self.n_classes_):
                 jll_data = self.smoothed_cat_count[
-                    col_indices + i * self.n_features_, X.data
+                    col_indices + i * self.n_features_, X_data
                 ].ravel()
                 jll_zeros = self.smoothed_cat_count[
                     col_indices + i * self.n_features_, 0
@@ -1759,7 +1443,9 @@ class CategoricalNB(_BaseDiscreteNB):
 
         else:
             col_indices = cp.indices(X.shape)[1].flatten()
-            jll = self.feature_log_prob_[col_indices, :, X.ravel()]
+            jll = self.feature_log_prob_[
+                col_indices, :, X.ravel().astype("int32", copy=False)
+            ]
             jll = jll.reshape((n_rows, self.n_features_, self.n_classes_))
             jll = jll.sum(1)
         jll += self.class_log_prior_

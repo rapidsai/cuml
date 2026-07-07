@@ -1,8 +1,8 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
+import numpy as np
 import pytest
 
 from cuml import KernelExplainer as cuKE
@@ -95,7 +95,9 @@ def test_summary(explainer, exact_shap_regression_dataset):
         api_type="raw_shap_values",
     )
 
-    shap.summary_plot(shap_values, show=show_plots)
+    shap.summary_plot(
+        shap_values, show=show_plots, rng=np.random.default_rng(42)
+    )
 
 
 def test_violin(explainer, exact_shap_regression_dataset):

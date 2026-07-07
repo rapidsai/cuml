@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -10,25 +10,25 @@ import pytest
 
 
 def find_libcuml_so():
-    """Find libcuml++.so in the installation directory.
+    """Find libcuml.so in the installation directory.
 
     Returns tuple of (libcuml_so_path, installation_root)
     """
-    # Try to find libcuml++.so using the libcuml module location first
+    # Try to find libcuml.so using the libcuml module location first
     try:
         import libcuml
 
         libcuml_module_path = Path(libcuml.__file__).parent
-        # libcuml++.so should be in lib64 subdirectory
-        libcuml_so = libcuml_module_path / "lib64" / "libcuml++.so"
+        # libcuml.so should be in lib64 subdirectory
+        libcuml_so = libcuml_module_path / "lib64" / "libcuml.so"
 
-        # If libcuml++.so doesn't exist at the module location, it means we're importing
+        # If libcuml.so doesn't exist at the module location, it means we're importing
         # the source code instead of the installed wheel. Try site-packages directly.
         if not libcuml_so.exists():
             for site_pkg in sys.path:
                 if "site-packages" in site_pkg:
                     potential_path = (
-                        Path(site_pkg) / "libcuml" / "lib64" / "libcuml++.so"
+                        Path(site_pkg) / "libcuml" / "lib64" / "libcuml.so"
                     )
                     if potential_path.exists():
                         libcuml_so = potential_path
@@ -55,11 +55,11 @@ def find_libcuml_so():
     venv = os.environ.get("VIRTUAL_ENV")
     if venv:
         venv_path = Path(venv)
-        libcuml_paths = list(venv_path.rglob("libcuml++.so"))
+        libcuml_paths = list(venv_path.rglob("libcuml.so"))
         if libcuml_paths:
             return libcuml_paths[0], venv_path
 
-    pytest.fail("libcuml++.so not found. Please ensure libcuml is installed.")
+    pytest.fail("libcuml.so not found. Please ensure libcuml is installed.")
 
 
 def parse_ldd_output(ldd_output):
@@ -82,9 +82,9 @@ def parse_ldd_output(ldd_output):
 
 
 def test_libcuml_linkage():
-    """Test that libcuml++.so links to the correct library paths."""
+    """Test that libcuml.so links to the correct library paths."""
     libcuml_so_path, installation_root = find_libcuml_so()
-    print(f"Found libcuml++.so at: {libcuml_so_path}")
+    print(f"Found libcuml.so at: {libcuml_so_path}")
     print(f"Installation root: {installation_root}")
 
     import libcuml  # noqa: F401
@@ -106,9 +106,9 @@ def test_libcuml_linkage():
     is_ctk_13_plus = cuda_major_version >= 13
 
     # Define expected library paths
-    # For CTK 13: nvidia/cu13/lib and nvidia/nccl/lib
+    # For CTK 13: nvidia/cu13/lib
     # For CTK 12: individual nvidia/{library}/lib directories
-    # The libcuml++.so is at: site-packages/libcuml/lib64/libcuml++.so
+    # The libcuml.so is at: site-packages/libcuml/lib64/libcuml.so
     # So relative paths from lib64 are: ../../nvidia/{cu13|library}/lib
     if is_ctk_13_plus:
         expected_libs = {
@@ -120,8 +120,6 @@ def test_libcuml_linkage():
             "libcusparse.so.12": "nvidia/cu13/lib",
             "libnvJitLink.so.13": "nvidia/cu13/lib",
             "libcurand.so.10": "nvidia/cu13/lib",
-            # NCCL (in nvidia/nccl/lib)
-            "libnccl.so.2": "nvidia/nccl/lib",
         }
     else:
         expected_libs = {
@@ -133,8 +131,6 @@ def test_libcuml_linkage():
             "libcusparse.so.12": "nvidia/cusparse/lib",
             "libnvJitLink.so.12": "nvidia/nvjitlink/lib",
             "libcurand.so.10": "nvidia/curand/lib",
-            # NCCL (in nvidia/nccl/lib)
-            "libnccl.so.2": "nvidia/nccl/lib",
         }
 
     failures = []
@@ -147,10 +143,6 @@ def test_libcuml_linkage():
         actual_path = linked_libs[lib_name]
 
         if actual_path == "not found":
-            # librmm.so and librapids_logger.so may not be found
-            # but are loaded dynamically at runtime, skip these
-            if lib_name in ["librmm.so", "librapids_logger.so"]:
-                continue
             failures.append(f"Library {lib_name} => not found")
             continue
 

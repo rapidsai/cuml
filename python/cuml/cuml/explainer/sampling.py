@@ -1,15 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cudf
 import cupy as cp
-from scipy.sparse import issparse
+import pandas as pd
 
 import cuml
 from cuml import KMeans
-from cuml.internals.input_utils import (
-    determine_array_type,
-    get_supported_input_type,
-)
+from cuml.internals.array import CumlArray
+from cuml.internals.validation import check_array
 from cuml.preprocessing import SimpleImputer
 
 
@@ -43,58 +42,42 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     labels : Cluster labels of the data points in the original dataset,
              shape (n_samples, 1)
     """
-    output_dtype = get_supported_input_type(X)
-    _output_dtype_str = determine_array_type(X)
-
-    if output_dtype is None:
-        raise TypeError(
-            f"Type of input {type(X)} is not supported. Supported \
-                        dtypes: cuDF DataFrame, cuDF Series, cupy, numba,\
-                        numpy, pandas DataFrame, pandas Series"
-        )
-
-    if "DataFrame" in str(output_dtype):
-        group_names = X.columns
-        X = cp.array(X.values, copy=False)
-    if "Series" in str(output_dtype):
-        group_names = X.name
-        X = cp.array(X.values.reshape(-1, 1), copy=False)
+    if isinstance(X, (cudf.DataFrame, pd.DataFrame)):
+        group_names = [str(c) for c in X.columns]
+    elif isinstance(X, (cudf.Series, pd.Series)):
+        group_names = [str(X.name)]
+    elif len(X.shape) == 2:
+        group_names = [str(i) for i in range(X.shape[1])]
     else:
-        # it's either numpy, cupy or numba
-        X = cp.array(X, copy=False)
-        try:
-            # more than one column
-            group_names = [str(i) for i in range(X.shape[1])]
-        except IndexError:
-            # one column
-            X = X.reshape(-1, 1)
-            group_names = ["0"]
+        group_names = ["0"]
 
-    # in case there are any missing values in data impute them
-    imp = SimpleImputer(
-        missing_values=cp.nan, strategy="mean", output_type=_output_dtype_str
+    X, index = check_array(
+        X, ensure_2d=False, ensure_all_finite=False, return_index=True
     )
-    X = imp.fit_transform(X)
+    if X.ndim == 1:
+        X = X.reshape(-1, 1)
 
-    kmeans = KMeans(
-        n_clusters=k,
-        random_state=random_state,
-        output_type=_output_dtype_str,
-        n_init="auto",
-    ).fit(X)
+    with cuml.using_output_type("cupy"):
+        # in case there are any missing values in data impute them
+        imp = SimpleImputer(missing_values=cp.nan, strategy="mean")
+        X = imp.fit_transform(X)
 
-    if round_values:
-        for i in range(k):
-            for j in range(X.shape[1]):
-                xj = (
-                    X[:, j].toarray().flatten() if issparse(X) else X[:, j]
-                )  # sparse support courtesy of @PrimozGodec
-                ind = cp.argmin(cp.abs(xj - kmeans.cluster_centers_[i, j]))
-                kmeans.cluster_centers_[i, j] = X[ind, j]
-    summary = kmeans.cluster_centers_
-    labels = kmeans.labels_
+        kmeans = KMeans(n_clusters=k, random_state=random_state, n_init="auto")
+        kmeans.fit(X)
+        summary = kmeans.cluster_centers_
 
-    if detailed:
-        return summary, group_names, labels
-    else:
-        return summary
+        if round_values:
+            for i in range(k):
+                for j in range(X.shape[1]):
+                    xj = X[:, j]
+                    ind = cp.argmin(cp.abs(xj - summary[i, j]))
+                    summary[i, j] = X[ind, j]
+
+        if detailed:
+            return (
+                CumlArray(data=summary),
+                group_names,
+                CumlArray(kmeans.labels_, index=index),
+            )
+        else:
+            return CumlArray(data=summary)

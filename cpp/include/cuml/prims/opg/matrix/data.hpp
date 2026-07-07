@@ -1,11 +1,13 @@
+#pragma once
+
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+#include <cuml/common/export.hpp>
 
-namespace MLCommon {
+namespace CUML_EXPORT MLCommon {
 namespace Matrix {
 
 /**
@@ -41,4 +43,4 @@ typedef Data<float> floatData_t;
 typedef Data<double> doubleData_t;
 
 };  // end namespace Matrix
-};  // end namespace MLCommon
+};  // namespace CUML_EXPORT MLCommon

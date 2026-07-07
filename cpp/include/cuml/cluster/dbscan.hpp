@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <cstddef>
@@ -15,7 +16,7 @@ namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 namespace Dbscan {
 
 enum EpsNnMethod { BRUTE_FORCE, RBC };
@@ -110,4 +111,4 @@ void fit(const raft::handle_t& handle,
 /** @} */
 
 }  // namespace Dbscan
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

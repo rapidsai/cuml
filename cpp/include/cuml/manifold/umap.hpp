@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/manifold/umapparams.h>
 
 #include <raft/core/host_coo_matrix.hpp>
@@ -20,7 +21,7 @@ namespace raft {
 class handle_t;
 }  // namespace raft
 
-namespace ML {
+namespace CUML_EXPORT ML {
 class UMAPParams;
 namespace UMAP {
 
@@ -256,4 +257,4 @@ void inverse_transform(const raft::handle_t& handle,
                        int n_epochs);
 
 }  // namespace UMAP
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

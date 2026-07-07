@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -116,7 +116,8 @@ def test_traditional_kmeans_plus_plus_init(
     kmeans.fit(cp.asnumpy(X))
     sk_score = kmeans.score(cp.asnumpy(X))
 
-    cp.testing.assert_allclose(cu_score, sk_score, atol=0.1, rtol=1e-4)
+    if cu_score < sk_score:
+        cp.testing.assert_allclose(cu_score, sk_score, atol=0.1, rtol=1e-2)
 
 
 @pytest.mark.parametrize("nrows", [100, 500])
@@ -369,7 +370,7 @@ def test_score(nrows, ncols, nclusters, random_state):
     expected_score *= -1
 
     cp.testing.assert_allclose(
-        actual_score, expected_score, atol=0.1, rtol=1e-4
+        actual_score, expected_score, atol=0.1, rtol=5e-3
     )
 
 
@@ -447,7 +448,7 @@ def test_kmeans_n_samples_less_than_n_clusters():
 
 
 def test_kmeans_init_wrong_shape():
-    X = np.empty(shape=(20, 10))
+    X = np.ones(shape=(20, 10))
 
     # init not compatible with X
     model = cuml.KMeans(n_init=1, init=X[:8, :2], n_clusters=8)

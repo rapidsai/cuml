@@ -67,8 +67,8 @@ def cython_v_measure(labels_true, labels_pred, beta=1.0) -> float:
         labels_pred
     )
 
-    cdef uintptr_t ground_truth_ptr = y_true.ptr
-    cdef uintptr_t preds_ptr = y_pred.ptr
+    cdef uintptr_t ground_truth_ptr = y_true.data.ptr
+    cdef uintptr_t preds_ptr = y_pred.data.ptr
 
     v_measure_value = v_measure(handle_[0],
                                 <int*> ground_truth_ptr,

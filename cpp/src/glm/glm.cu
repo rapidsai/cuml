@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -141,32 +141,32 @@ void qnFit(const raft::handle_t& cuml_handle,
     cuml_handle, pams, X, X_col_major, y, N, D, C, w0, f, num_iters, sample_weight, svr_eps);
 }
 
-template void qnFit<float>(const raft::handle_t&,
-                           const qn_params&,
-                           float*,
-                           bool,
-                           float*,
-                           int,
-                           int,
-                           int,
-                           float*,
-                           float*,
-                           int*,
-                           float*,
-                           float);
-template void qnFit<double>(const raft::handle_t&,
-                            const qn_params&,
-                            double*,
-                            bool,
-                            double*,
-                            int,
-                            int,
-                            int,
-                            double*,
-                            double*,
-                            int*,
-                            double*,
-                            double);
+template CUML_EXPORT void qnFit<float>(const raft::handle_t&,
+                                       const qn_params&,
+                                       float*,
+                                       bool,
+                                       float*,
+                                       int,
+                                       int,
+                                       int,
+                                       float*,
+                                       float*,
+                                       int*,
+                                       float*,
+                                       float);
+template CUML_EXPORT void qnFit<double>(const raft::handle_t&,
+                                        const qn_params&,
+                                        double*,
+                                        bool,
+                                        double*,
+                                        int,
+                                        int,
+                                        int,
+                                        double*,
+                                        double*,
+                                        int*,
+                                        double*,
+                                        double);
 
 template <typename T, typename I>
 void qnFitSparse(const raft::handle_t& cuml_handle,
@@ -202,36 +202,36 @@ void qnFitSparse(const raft::handle_t& cuml_handle,
                          svr_eps);
 }
 
-template void qnFitSparse<float>(const raft::handle_t&,
-                                 const qn_params&,
-                                 float*,
-                                 int*,
-                                 int*,
-                                 int,
-                                 float*,
-                                 int,
-                                 int,
-                                 int,
-                                 float*,
-                                 float*,
-                                 int*,
-                                 float*,
-                                 float);
-template void qnFitSparse<double>(const raft::handle_t&,
-                                  const qn_params&,
-                                  double*,
-                                  int*,
-                                  int*,
-                                  int,
-                                  double*,
-                                  int,
-                                  int,
-                                  int,
-                                  double*,
-                                  double*,
-                                  int*,
-                                  double*,
-                                  double);
+template CUML_EXPORT void qnFitSparse<float>(const raft::handle_t&,
+                                             const qn_params&,
+                                             float*,
+                                             int*,
+                                             int*,
+                                             int,
+                                             float*,
+                                             int,
+                                             int,
+                                             int,
+                                             float*,
+                                             float*,
+                                             int*,
+                                             float*,
+                                             float);
+template CUML_EXPORT void qnFitSparse<double>(const raft::handle_t&,
+                                              const qn_params&,
+                                              double*,
+                                              int*,
+                                              int*,
+                                              int,
+                                              double*,
+                                              int,
+                                              int,
+                                              int,
+                                              double*,
+                                              double*,
+                                              int*,
+                                              double*,
+                                              double);
 
 template <typename T, typename I>
 void qnDecisionFunction(const raft::handle_t& cuml_handle,
@@ -247,9 +247,9 @@ void qnDecisionFunction(const raft::handle_t& cuml_handle,
   detail::qnDecisionFunction<T>(cuml_handle, pams, X, X_col_major, N, D, C, params, scores);
 }
 
-template void qnDecisionFunction<float>(
+template CUML_EXPORT void qnDecisionFunction<float>(
   const raft::handle_t&, const qn_params&, float*, bool, int, int, int, float*, float*);
-template void qnDecisionFunction<double>(
+template CUML_EXPORT void qnDecisionFunction<double>(
   const raft::handle_t&, const qn_params&, double*, bool, int, int, int, double*, double*);
 
 template <typename T, typename I>
@@ -269,19 +269,19 @@ void qnDecisionFunctionSparse(const raft::handle_t& cuml_handle,
     cuml_handle, pams, X_values, X_cols, X_row_ids, X_nnz, N, D, C, params, scores);
 }
 
-template void qnDecisionFunctionSparse<float>(
+template CUML_EXPORT void qnDecisionFunctionSparse<float>(
   const raft::handle_t&, const qn_params&, float*, int*, int*, int, int, int, int, float*, float*);
-template void qnDecisionFunctionSparse<double>(const raft::handle_t&,
-                                               const qn_params&,
-                                               double*,
-                                               int*,
-                                               int*,
-                                               int,
-                                               int,
-                                               int,
-                                               int,
-                                               double*,
-                                               double*);
+template CUML_EXPORT void qnDecisionFunctionSparse<double>(const raft::handle_t&,
+                                                           const qn_params&,
+                                                           double*,
+                                                           int*,
+                                                           int*,
+                                                           int,
+                                                           int,
+                                                           int,
+                                                           int,
+                                                           double*,
+                                                           double*);
 
 template <typename T, typename I>
 void qnPredict(const raft::handle_t& cuml_handle,
@@ -297,9 +297,9 @@ void qnPredict(const raft::handle_t& cuml_handle,
   detail::qnPredict<T>(cuml_handle, pams, X, X_col_major, N, D, C, params, scores);
 }
 
-template void qnPredict<float>(
+template CUML_EXPORT void qnPredict<float>(
   const raft::handle_t&, const qn_params&, float*, bool, int, int, int, float*, float*);
-template void qnPredict<double>(
+template CUML_EXPORT void qnPredict<double>(
   const raft::handle_t&, const qn_params&, double*, bool, int, int, int, double*, double*);
 
 template <typename T, typename I>
@@ -319,19 +319,19 @@ void qnPredictSparse(const raft::handle_t& cuml_handle,
     cuml_handle, pams, X_values, X_cols, X_row_ids, X_nnz, N, D, C, params, preds);
 }
 
-template void qnPredictSparse<float>(
+template CUML_EXPORT void qnPredictSparse<float>(
   const raft::handle_t&, const qn_params&, float*, int*, int*, int, int, int, int, float*, float*);
-template void qnPredictSparse<double>(const raft::handle_t&,
-                                      const qn_params&,
-                                      double*,
-                                      int*,
-                                      int*,
-                                      int,
-                                      int,
-                                      int,
-                                      int,
-                                      double*,
-                                      double*);
+template CUML_EXPORT void qnPredictSparse<double>(const raft::handle_t&,
+                                                  const qn_params&,
+                                                  double*,
+                                                  int*,
+                                                  int*,
+                                                  int,
+                                                  int,
+                                                  int,
+                                                  int,
+                                                  double*,
+                                                  double*);
 
 }  // namespace GLM
 }  // namespace ML

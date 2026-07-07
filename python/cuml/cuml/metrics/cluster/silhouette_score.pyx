@@ -5,8 +5,8 @@
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.internals import get_handle
+from cuml.internals.validation import check_array, check_consistent_length
 from cuml.metrics.pairwise_distances import _determine_metric
 
 from libc.stdint cimport uintptr_t
@@ -41,7 +41,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched" nog
 
 def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
-        convert_dtype=True):
+        convert_dtype="deprecated"):
     """Function wrapped by silhouette_score and silhouette_samples to compute
     silhouette coefficients.
 
@@ -72,62 +72,69 @@ def _silhouette_coeff(
     if chunksize is None:
         chunksize = 40000
 
-    data, n_rows, n_cols, dtype = input_to_cuml_array(
+    data = check_array(
         X,
         order='C',
-        convert_to_dtype=(np.float32 if convert_dtype
-                          else None),
-        check_dtype=[np.float32, np.float64],
+        dtype=[np.float32, np.float64],
+        convert_dtype=convert_dtype,
+        input_name='X',
     )
+    cdef int n_rows = data.shape[0]
+    cdef int n_cols = data.shape[1]
+    dtype = data.dtype
 
-    labels, _, _, _ = input_to_cuml_array(
+    labels = check_array(
         labels,
+        ensure_2d=False,
         order='C',
-        convert_to_dtype=np.int32
+        dtype=np.int32,
+        input_name='labels',
     )
+    if labels.ndim != 1:
+        raise ValueError(
+            f"labels must be a 1D array, got shape {labels.shape}"
+        )
+    check_consistent_length(data, labels)
 
-    # Use cp.unique with return_inverse to get monotonic labels efficiently
-    labels_cupy = labels.to_output(output_type='cupy', output_dtype='int')
-    unique_labels, inverse = cp.unique(labels_cupy, return_inverse=True)
-    n_labels = unique_labels.shape[0]
-
-    mono_labels, _, _, _ = input_to_cuml_array(
-        inverse,
-        order='C',
-        convert_to_dtype=np.int32
-    )
+    # Use cp.unique with return_inverse to get monotonic labels efficiently.
+    unique_labels, inverse = cp.unique(labels, return_inverse=True)
+    cdef int n_labels = unique_labels.shape[0]
+    mono_labels = cp.ascontiguousarray(inverse, dtype=np.int32)
 
     cdef uintptr_t scores_ptr
     if sil_scores is None:
         scores_ptr = <uintptr_t> NULL
     else:
-        sil_scores = input_to_cuml_array(
+        sil_scores = check_array(
             sil_scores,
-            convert_to_dtype=(dtype if convert_dtype
-                              else None),
-            check_dtype=dtype)[0]
-
-        scores_ptr = sil_scores.ptr
+            ensure_2d=False,
+            order='C',
+            dtype=[dtype],
+            convert_dtype=convert_dtype,
+            input_name='sil_scores',
+            ensure_all_finite=False,  # output buffer may be uninitialized
+        )
+        scores_ptr = sil_scores.data.ptr
 
     metric = _determine_metric(metric)
 
     if dtype == np.float32:
         return silhouette_score(handle_[0],
-                                <float*> <uintptr_t> data.ptr,
-                                <int> n_rows,
-                                <int> n_cols,
-                                <int*> <uintptr_t> mono_labels.ptr,
-                                <int> n_labels,
+                                <float*> <uintptr_t> data.data.ptr,
+                                n_rows,
+                                n_cols,
+                                <int*> <uintptr_t> mono_labels.data.ptr,
+                                n_labels,
                                 <float*> scores_ptr,
                                 <int> chunksize,
                                 <DistanceType> metric)
     elif dtype == np.float64:
         return silhouette_score(handle_[0],
-                                <double*> <uintptr_t> data.ptr,
-                                <int> n_rows,
-                                <int> n_cols,
-                                <int*> <uintptr_t> mono_labels.ptr,
-                                <int> n_labels,
+                                <double*> <uintptr_t> data.data.ptr,
+                                n_rows,
+                                n_cols,
+                                <int*> <uintptr_t> mono_labels.data.ptr,
+                                n_labels,
                                 <double*> scores_ptr,
                                 <int> chunksize,
                                 <DistanceType> metric)
@@ -138,7 +145,7 @@ def cython_silhouette_score(
     labels,
     metric='euclidean',
     chunksize=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
 ):
     """Calculate the mean silhouette coefficient for the provided data.
 
@@ -177,7 +184,7 @@ def cython_silhouette_samples(
     labels,
     metric='euclidean',
     chunksize=None,
-    convert_dtype=True,
+    convert_dtype="deprecated",
 ):
     """Calculate the silhouette coefficient for each sample in the provided data.
 

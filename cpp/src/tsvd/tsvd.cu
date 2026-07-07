@@ -18,8 +18,7 @@ void tsvd_fit_impl(const raft::handle_t& handle,
                    math_t* input,
                    math_t* components,
                    math_t* singular_vals,
-                   const paramsTSVD& prms,
-                   bool flip_signs_based_on_U)
+                   const paramsTSVD& prms)
 {
   auto raft_prms = to_raft_params(prms);
   raft::linalg::tsvd_fit(
@@ -30,7 +29,7 @@ void tsvd_fit_impl(const raft::handle_t& handle,
     raft::make_device_matrix_view<math_t, std::size_t, raft::col_major>(
       components, prms.n_components, prms.n_cols),
     raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
-    flip_signs_based_on_U);
+    false);
 }
 
 template <typename math_t>
@@ -41,8 +40,7 @@ void tsvd_fit_transform_impl(const raft::handle_t& handle,
                              math_t* explained_var,
                              math_t* explained_var_ratio,
                              math_t* singular_vals,
-                             const paramsTSVD& prms,
-                             bool flip_signs_based_on_U)
+                             const paramsTSVD& prms)
 {
   auto raft_prms = to_raft_params(prms);
   raft::linalg::tsvd_fit_transform(
@@ -57,7 +55,7 @@ void tsvd_fit_transform_impl(const raft::handle_t& handle,
     raft::make_device_vector_view<math_t, std::size_t>(explained_var, prms.n_components),
     raft::make_device_vector_view<math_t, std::size_t>(explained_var_ratio, prms.n_components),
     raft::make_device_vector_view<math_t, std::size_t>(singular_vals, prms.n_components),
-    flip_signs_based_on_U);
+    false);
 }
 
 template <typename math_t>
@@ -103,20 +101,18 @@ void tsvdFit(const raft::handle_t& handle,
              float* input,
              float* components,
              float* singular_vals,
-             const paramsTSVD& prms,
-             bool flip_signs_based_on_U)
+             const paramsTSVD& prms)
 {
-  tsvd_fit_impl(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
+  tsvd_fit_impl(handle, input, components, singular_vals, prms);
 }
 
 void tsvdFit(const raft::handle_t& handle,
              double* input,
              double* components,
              double* singular_vals,
-             const paramsTSVD& prms,
-             bool flip_signs_based_on_U)
+             const paramsTSVD& prms)
 {
-  tsvd_fit_impl(handle, input, components, singular_vals, prms, flip_signs_based_on_U);
+  tsvd_fit_impl(handle, input, components, singular_vals, prms);
 }
 
 void tsvdFitTransform(const raft::handle_t& handle,
@@ -126,8 +122,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       float* explained_var,
                       float* explained_var_ratio,
                       float* singular_vals,
-                      const paramsTSVD& prms,
-                      bool flip_signs_based_on_U)
+                      const paramsTSVD& prms)
 {
   tsvd_fit_transform_impl(handle,
                           input,
@@ -136,8 +131,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                           explained_var,
                           explained_var_ratio,
                           singular_vals,
-                          prms,
-                          flip_signs_based_on_U);
+                          prms);
 }
 
 void tsvdFitTransform(const raft::handle_t& handle,
@@ -147,8 +141,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       double* explained_var,
                       double* explained_var_ratio,
                       double* singular_vals,
-                      const paramsTSVD& prms,
-                      bool flip_signs_based_on_U)
+                      const paramsTSVD& prms)
 {
   tsvd_fit_transform_impl(handle,
                           input,
@@ -157,8 +150,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
                           explained_var,
                           explained_var_ratio,
                           singular_vals,
-                          prms,
-                          flip_signs_based_on_U);
+                          prms);
 }
 
 void tsvdTransform(const raft::handle_t& handle,

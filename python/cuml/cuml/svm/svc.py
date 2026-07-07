@@ -3,23 +3,11 @@
 #
 import cupy as cp
 import numpy as np
-from sklearn.exceptions import NotFittedError
-from sklearn.utils.metaestimators import available_if
 
-from cuml.common.classification import (
-    decode_labels,
-    preprocess_labels,
-    process_class_weight,
-)
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import (
-    input_to_cuml_array,
-    input_to_host_array,
-    input_to_host_array_with_sparse_support,
-)
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
@@ -28,16 +16,12 @@ from cuml.internals.outputs import (
     reflect,
     run_in_internal_context,
 )
-from cuml.internals.validation import (
-    check_features,
-    check_is_fitted,
-    check_random_seed,
-)
+from cuml.internals.validation import check_inputs, check_is_fitted
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
 
 
-class SVC(SVMBase, ClassifierMixin):
+class SVC(ClassifierMixin, SVMBase):
     """
     SVC (C-Support Vector Classification)
 
@@ -54,7 +38,7 @@ class SVC(SVMBase, ClassifierMixin):
         >>> y = cp.array([-1, -1, 1, -1, 1, 1], dtype=cp.float32)
         >>> clf = SVC(kernel='poly', degree=2, gamma='auto', C=1)
         >>> clf.fit(X, y)
-        SVC()
+        SVC(C=1, degree=2, gamma='auto', kernel='poly')
         >>> print("Predicted labels:", clf.predict(X))
         Predicted labels: [-1. -1.  1. -1.  1.  1.]
 
@@ -114,11 +98,6 @@ class SVC(SVMBase, ClassifierMixin):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    probability : bool (default = False)
-        Set to ``True`` to enable probability estimates
-        (``predict_proba``/``predict_log_proba``). Note that
-        ``probability=True`` requires your training data have at least 5
-        samples per class.
     random_state: int (default = None)
         Seed for random number generator (used only when ``probability=True``).
     verbose : int or boolean, default=False
@@ -183,28 +162,24 @@ class SVC(SVMBase, ClassifierMixin):
     @classmethod
     def _get_param_names(cls):
         params = super()._get_param_names()
-        params.remove(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
+        # SVC doesn't expose `epsilon` in the constructor
+        params.remove("epsilon")
         params.extend(
-            [
-                "probability",
-                "random_state",
-                "class_weight",
-                "decision_function_shape",
-            ]
+            ["random_state", "class_weight", "decision_function_shape"]
         )
         return params
 
     @classmethod
     def _params_from_cpu(cls, model):
+        # TODO: remove when we only support sklearn >= 1.9
+        if getattr(model, "probability", None) is True:
+            raise UnsupportedOnGPU("`probability=True` is not supported")
+
         params = super()._params_from_cpu(model)
-        params.pop(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
+        # SVC doesn't expose `epsilon` in the constructor
+        params.pop("epsilon")
         params.update(
             {
-                "probability": model.probability,
                 "random_state": model.random_state,
                 "class_weight": model.class_weight,
                 "decision_function_shape": model.decision_function_shape,
@@ -214,12 +189,10 @@ class SVC(SVMBase, ClassifierMixin):
 
     def _params_to_cpu(self):
         params = super()._params_to_cpu()
-        params.pop(
-            "epsilon"
-        )  # SVC doesn't expose `epsilon` in the constructor
+        # SVC doesn't expose `epsilon` in the constructor
+        params.pop("epsilon")
         params.update(
             {
-                "probability": self.probability,
                 "random_state": self.random_state,
                 "class_weight": self.class_weight,
                 "decision_function_shape": self.decision_function_shape,
@@ -270,7 +243,6 @@ class SVC(SVMBase, ClassifierMixin):
         nochange_steps=1000,
         verbose=False,
         output_type=None,
-        probability=False,
         random_state=None,
         class_weight=None,
         decision_function_shape="ovo",
@@ -288,7 +260,6 @@ class SVC(SVMBase, ClassifierMixin):
             verbose=verbose,
             output_type=output_type,
         )
-        self.probability = probability
         self.random_state = random_state
         self.class_weight = class_weight
         self.decision_function_shape = decision_function_shape
@@ -347,7 +318,6 @@ class SVC(SVMBase, ClassifierMixin):
         # if using one-vs-one we align support_ indices to those of
         # full dataset
         if decision_function_shape == "ovo":
-            y = cp.array(y)
             classes = cp.unique(y)
             n_classes = len(classes)
             estimator_index = 0
@@ -375,67 +345,11 @@ class SVC(SVMBase, ClassifierMixin):
         )
         return self
 
-    def _fit_proba(self, X, y, sample_weight):
-        from sklearn.calibration import CalibratedClassifierCV
-        from sklearn.model_selection import StratifiedKFold
-
-        params = {
-            **self.get_params(),
-            "probability": False,
-            "output_type": "numpy",
-            "class_weight": None,
-        }
-
-        # Currently CalibratedClassifierCV expects data on the host, see
-        # https://github.com/rapidsai/cuml/issues/2608
-        X = input_to_host_array_with_sparse_support(X)
-
-        if sample_weight is not None:
-            sample_weight = sample_weight.to_output("numpy")
-
-        y = input_to_host_array(y).array
-
-        cv = StratifiedKFold(
-            n_splits=5,
-            random_state=check_random_seed(self.random_state),
-            shuffle=True,
-        )
-        cccv = CalibratedClassifierCV(SVC(**params), cv=cv, ensemble=False)
-
-        with exit_internal_context():
-            cccv.fit(X, y, sample_weight=sample_weight)
-
-        cal_clf = cccv.calibrated_classifiers_[0]
-        svc = cal_clf.estimator
-
-        self._probA = np.array([cal.a_ for cal in cal_clf.calibrators])
-        self._probB = np.array([cal.b_ for cal in cal_clf.calibrators])
-
-        if hasattr(svc, "_multiclass"):
-            attrs = ["_multiclass", "fit_status_", "shape_fit_"]
-        else:
-            attrs = [
-                "support_",
-                "support_vectors_",
-                "dual_coef_",
-                "intercept_",
-                "n_support_",
-                "fit_status_",
-                "shape_fit_",
-                "n_iter_",
-                "_gamma",
-                "_sparse",
-            ]
-
-        # Forward on inner attributes
-        for attr in attrs:
-            setattr(self, attr, getattr(svc, attr))
-
-        return self
-
     @generate_docstring(y="dense_anydtype")
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVC":
         """
         Fit the model with X and y.
 
@@ -443,12 +357,35 @@ class SVC(SVMBase, ClassifierMixin):
         if hasattr(self, "_multiclass"):
             del self._multiclass
 
-        y, classes = preprocess_labels(y)
+        if self.kernel == "precomputed" and is_sparse(X):
+            raise TypeError("Sparse precomputed kernels are not supported.")
+
+        X, y, sample_weight, classes = check_inputs(
+            self,
+            X,
+            y,
+            sample_weight,
+            dtype=("float32", "float64"),
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_sparse="csr",
+            ensure_min_samples=2,
+            y_dtype=None,
+            return_classes=True,
+            reset=True,
+        )
+
         if len(classes) == 1:
             raise ValueError(
                 "This solver needs samples of at least 2 classes in the data, but "
                 "the data contains only 1 class"
             )
+
+        if self.kernel == "precomputed" and X.shape[0] != X.shape[1]:
+            raise ValueError(
+                f"Precomputed kernel matrix must be square, got shape {X.shape}"
+            )
+
         self.n_classes_ = len(classes)
         self.classes_ = classes
         self.class_weight_, sample_weight = process_class_weight(
@@ -456,57 +393,16 @@ class SVC(SVMBase, ClassifierMixin):
             y,
             class_weight=self.class_weight,
             sample_weight=sample_weight,
-            float64=(getattr(X, "dtype", np.float32) == np.float64),
+            dtype=X.dtype,
             balanced_with_sample_weight=False,
         )
-
-        if self.probability:
-            return self._fit_proba(X, y, sample_weight)
 
         if len(classes) > 2:
             return self._fit_multiclass(X, y, sample_weight)
 
-        # Handle precomputed kernels
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                check_rows=y.shape[0],
-                order="F",
-            ).array
-            # Validate that X is square for precomputed kernels
-            if X.shape[0] != X.shape[1]:
-                raise ValueError(
-                    f"Precomputed kernel matrix must be square, "
-                    f"got shape ({X.shape[0]}, {X.shape[1]})"
-                )
-        elif is_sparse(X):
-            X = SparseCumlArray(
-                X,
-                convert_to_dtype=(
-                    None if X.dtype in (np.float32, np.float64) else np.float32
-                ),
-                check_rows=y.shape[0],
-            )
-        else:
-            X = input_to_cuml_array(
-                X,
-                convert_to_dtype=(np.float32 if convert_dtype else None),
-                check_dtype=[np.float32, np.float64],
-                check_rows=y.shape[0],
-                order="F",
-            ).array
-
         # Encode y to -1/1 (like [0, 1, 0, 1] -> [-1, 1, -1, 1])
-        y = CumlArray(data=cp.array([-1, 1], dtype=X.dtype).take(y))
-
+        y = cp.array([-1, 1], dtype=X.dtype).take(y)
         self._fit(X, y, sample_weight)
-
         return self
 
     @generate_docstring(
@@ -518,106 +414,27 @@ class SVC(SVMBase, ClassifierMixin):
         }
     )
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
         """
         check_is_fitted(self)
-        check_features(self, X)
 
         if hasattr(self, "_multiclass"):
-            inds = self._multiclass.predict(X).to_output("cupy")
-        elif self.probability:
-            probs = self.predict_proba(X).to_output("cupy")
-            inds = cp.argmax(probs, axis=1)
+            inds = self._multiclass.predict(X)
+            index = inds.index
+            inds = inds.to_output("cupy")
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
+            index = res.index
             inds = (res.to_output("cupy") >= 0).view(cp.int8)
 
         with exit_internal_context():
             output_type = self._get_output_type(X)
-        return decode_labels(inds, self.classes_, output_type=output_type)
-
-    @available_if(lambda self: self.probability)
-    @generate_docstring(
-        skip_parameters_heading=True,
-        return_values={
-            "name": "preds",
-            "type": "dense",
-            "description": "Predicted probabilities",
-            "shape": "(n_samples, n_classes)",
-        },
-    )
-    @reflect
-    def predict_proba(self, X, *, log=False) -> CumlArray:
-        """
-        Predicts the class probabilities for X.
-
-        The model has to be trained with probability=True to use this method.
-
-        Parameters
-        ----------
-        log: boolean (default = False)
-             Whether to return log probabilities.
-
-        """
-        check_is_fitted(self)
-        check_features(self, X)
-
-        if self._probA.size == 0 or self._probB.size == 0:
-            raise NotFittedError(
-                "predict_proba is not available when fitted with probability=False"
-            )
-
-        from cupyx.scipy.special import expit
-
-        preds = self.decision_function(X).to_output("cupy")
-        if preds.ndim == 1:
-            preds = preds[:, None]
-
-        n_classes = len(self.classes_)
-
-        proba = cp.zeros((preds.shape[0], n_classes))
-        for i in range(preds.shape[1]):
-            a = self._probA[i]
-            b = self._probB[i]
-            ind = i + 1 if n_classes == 2 else i
-            proba[:, ind] = expit(-(a * preds[:, i] + b))
-
-        if n_classes == 2:
-            proba[:, 0] = 1.0 - proba[:, 1]
-        else:
-            den = cp.sum(proba, axis=1)
-            cp.divide(proba, den[:, None], out=proba)
-            # If all probabilities are 0, use a uniform distribution
-            proba[den == 0] = 1 / n_classes
-            # Clip to between 0 and 1 to handle rounding error
-            cp.clip(proba, 0, 1, out=proba)
-
-        if log:
-            proba = cp.log(proba)
-
-        return CumlArray(data=proba)
-
-    @available_if(lambda self: self.probability)
-    @generate_docstring(
-        return_values={
-            "name": "preds",
-            "type": "dense",
-            "description": "Log of predicted probabilities",
-            "shape": "(n_samples, n_classes)",
-        }
-    )
-    @reflect
-    def predict_log_proba(self, X) -> CumlArray:
-        """
-        Predicts the log probabilities for X (returns log(predict_proba(x)).
-
-        The model has to be trained with probability=True to use this method.
-
-        """
-        return self.predict_proba(X, log=True)
+        return decode_labels(
+            inds, self.classes_, output_type=output_type, index=index
+        )
 
     @generate_docstring(
         return_values={
@@ -628,7 +445,7 @@ class SVC(SVMBase, ClassifierMixin):
         }
     )
     @reflect
-    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Calculates the decision function values for X.
 
@@ -638,35 +455,8 @@ class SVC(SVMBase, ClassifierMixin):
 
         """
         check_is_fitted(self)
-        check_features(self, X)
 
         if hasattr(self, "_multiclass"):
             return self._multiclass.decision_function(X)
 
-        dtype = self.support_vectors_.dtype
-
-        # For precomputed kernels, check that columns match training set size
-        if self.kernel == "precomputed":
-            if is_sparse(X):
-                raise TypeError(
-                    "Sparse precomputed kernels are not supported."
-                )
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[0],  # Number of training samples
-            ).array
-        elif is_sparse(X):
-            X = SparseCumlArray(X, convert_to_dtype=dtype)
-        else:
-            X = input_to_cuml_array(
-                X,
-                check_dtype=[dtype],
-                convert_to_dtype=(dtype if convert_dtype else None),
-                order="F",
-                check_cols=self.shape_fit_[1],  # Number of features
-            ).array
-
-        return self._predict(X)
+        return self._predict(X, convert_dtype=convert_dtype)

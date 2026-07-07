@@ -1,12 +1,10 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import numpy as np
 import pytest
-import sklearn
-from packaging.version import Version
 from sklearn.datasets import make_regression
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
@@ -163,9 +161,7 @@ def test_ridge_solver_attribute_after_fit(solver):
 
     expected = "cholesky" if solver == "auto" else solver
     assert model.solver == solver
-    # Old versions of scikit-learn don't have the solver_ attribute
-    if Version(sklearn.__version__) >= Version("1.5.0"):
-        assert model.solver_ == expected
+    assert model.solver_ == expected
 
 
 def test_ridge_solver_attribute_invalid(regression_data):

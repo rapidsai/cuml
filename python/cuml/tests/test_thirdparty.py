@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -43,7 +43,6 @@ from cuml._thirdparty.sklearn.utils.sparsefuncs import (
 from cuml._thirdparty.sklearn.utils.sparsefuncs import (
     min_max_axis as cu_min_max_axis,
 )
-from cuml._thirdparty.sklearn.utils.validation import check_X_y
 from cuml.testing.test_preproc_utils import assert_allclose
 
 
@@ -65,23 +64,6 @@ def sparse_random_dataset(request, random_seed):
     elif request.param == "cupy-csc":
         X_sparse = cpx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
-
-
-def test_check_X_y():
-    X = np.ones((100, 10))
-    y1 = np.ones((100,))
-    y2 = np.ones((100, 1))
-    y3 = np.ones((100, 2))
-    y4 = np.ones((101,))
-
-    check_X_y(X, y1, multi_output=False)
-    check_X_y(X, y2, multi_output=False)
-    with pytest.raises(Exception):
-        check_X_y(X, y3, multi_output=False)
-    with pytest.raises(Exception):
-        check_X_y(X, y4, multi_output=False)
-    with pytest.raises(Exception):
-        check_X_y(X, y4, multi_output=True)
 
 
 @pytest.mark.parametrize("square", [False, True])

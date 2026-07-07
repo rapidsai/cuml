@@ -217,8 +217,14 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  out.knn_indices = inputsA.knn_graph.knn_indices;
-  out.knn_dists   = inputsA.knn_graph.knn_dists;
+  if (inputsA.needs_device_knn_graph()) {
+    size_t num_elements = static_cast<size_t>(inputsA.n) * n_neighbors;
+    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, num_elements, stream);
+    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, num_elements, stream);
+  } else {
+    out.knn_indices = inputsA.knn_graph.knn_indices;
+    out.knn_dists   = inputsA.knn_graph.knn_dists;
+  }
 }
 
 // Instantiation for precomputed inputs, int indices
@@ -231,8 +237,14 @@ inline void launcher(const raft::handle_t& handle,
                      const ML::UMAPParams* params,
                      cudaStream_t stream)
 {
-  out.knn_indices = inputsA.knn_graph.knn_indices;
-  out.knn_dists   = inputsA.knn_graph.knn_dists;
+  if (inputsA.needs_device_knn_graph()) {
+    size_t num_elements = static_cast<size_t>(inputsA.n) * n_neighbors;
+    raft::copy(out.knn_indices, inputsA.knn_graph.knn_indices, num_elements, stream);
+    raft::copy(out.knn_dists, inputsA.knn_graph.knn_dists, num_elements, stream);
+  } else {
+    out.knn_indices = inputsA.knn_graph.knn_indices;
+    out.knn_dists   = inputsA.knn_graph.knn_dists;
+  }
 }
 
 }  // namespace Algo

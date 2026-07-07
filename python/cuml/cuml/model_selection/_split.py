@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-from __future__ import annotations
-
-from abc import ABC, abstractmethod
-
 import cudf
 import cupy as cp
 from numba import cuda as numba_cuda
@@ -12,9 +8,13 @@ from sklearn.model_selection import (
     train_test_split as sklearn_train_test_split,
 )
 
-from cuml.common import input_to_cuml_array
-from cuml.internals.input_utils import input_to_host_array
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import (
+    _get_n_samples,
+    check_array,
+    check_consistent_length,
+    check_cudf,
+    check_random_seed,
+)
 
 
 def train_test_split(
@@ -68,27 +68,17 @@ def train_test_split(
 
     Examples
     --------
-    .. code-block:: python
-
-        >>> import cupy as cp
-        >>> from cuml.model_selection import train_test_split
-        >>> X = cp.arange(10).reshape((5, 2))
-        >>> y = cp.array([0, 0, 1, 1, 1])
-        >>> X_train, X_test, y_train, y_test = train_test_split(
-        ...     X, y, test_size=0.2, random_state=42
-        ... )
+    >>> import cupy as cp
+    >>> from cuml.model_selection import train_test_split
+    >>> X = cp.arange(10).reshape((5, 2))
+    >>> y = cp.array([0, 0, 1, 1, 1])
+    >>> X_train, X_test, y_train, y_test = train_test_split(
+    ...     X, y, test_size=0.2, random_state=42
+    ... )
     """
     if len(arrays) == 0:
         raise ValueError("At least one array required as input")
-
-    # Validate arrays have consistent first dimension
-    n_samples = arrays[0].shape[0]
-    for i, arr in enumerate(arrays[1:], 1):
-        if arr.shape[0] != n_samples:
-            raise ValueError(
-                f"Found input variables with inconsistent numbers of samples: "
-                f"{[a.shape[0] for a in arrays]}"
-            )
+    check_consistent_length(*arrays)
 
     # CuPy RandomState isn't supported by sklearn, so extract an int seed.
     # int, None, and np.random.RandomState are all accepted by sklearn as-is.
@@ -100,7 +90,7 @@ def train_test_split(
 
     # Convert stratify to numpy, other arrays types are not supported by scikit-learn
     if stratify is not None:
-        stratify = input_to_host_array(stratify).array
+        stratify = check_array(stratify, ensure_2d=False, mem_type="host")
 
     # Check for numba device arrays, scikit-learn can't handle them directly
     original_types = []
@@ -136,24 +126,58 @@ def train_test_split(
     return final_results
 
 
-class _KFoldBase(ABC):
+class _KFoldBase:
     """Base class for k-fold split."""
 
     def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
-        if n_splits < 2 or not isinstance(n_splits, int):
+        if not (isinstance(n_splits, int) and n_splits >= 2):
             raise ValueError(
-                f"n_splits {n_splits} is not a integer at least 2"
+                f"Expected an integral n_splits >= 2, got {n_splits=!r}"
             )
 
         self.n_splits = n_splits
         self.shuffle = shuffle
         self.seed = random_state
 
-    @abstractmethod
-    def split(self, X, y):
-        raise NotImplementedError()
+    def split(self, X, y=None):
+        """Generate indices to split data into training and test set.
 
-    @abstractmethod
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training data, where `n_samples` is the number of samples
+            and `n_features` is the number of features.
+
+        y : array-like of shape (n_samples,), default=None
+            The target variable for supervised learning problems.
+
+        Yields
+        ------
+        train : CuPy ndarray
+            The training set indices for that split.
+
+        test : CuPy ndarray
+            The testing set indices for that split.
+        """
+        check_consistent_length(X, y)
+        n_samples = _get_n_samples(X)
+        if n_samples < self.n_splits:
+            raise ValueError(
+                f"Cannot have number of splits n_splits={self.n_splits} greater "
+                f"than the number of samples: {n_samples=}"
+            )
+        indices = cp.arange(n_samples)
+
+        if self.shuffle:
+            cp.random.RandomState(check_random_seed(self.seed)).shuffle(
+                indices
+            )
+        yield from self._split(X, y, indices)
+
+    def _split(self, X, y, indices):
+        """Generate the split indices given X, y, and indices"""
+        raise NotImplementedError
+
     def get_n_splits(self, X=None, y=None):
         """Returns the number of splitting iterations in the cross-validator.
 
@@ -170,7 +194,7 @@ class _KFoldBase(ABC):
         n_splits : int
             Returns the number of splitting iterations in the cross-validator.
         """
-        raise NotImplementedError()
+        return self.n_splits
 
 
 class KFold(_KFoldBase):
@@ -194,51 +218,32 @@ class KFold(_KFoldBase):
     random_state : int, CuPy RandomState, NumPy RandomState, or None, default=None
         When `shuffle` is True, `random_state` affects the ordering of the
         indices, which controls the randomness of each fold. Otherwise, this
-        parameter has no effect.
-        Pass an int for reproducible output across multiple function calls.
+        parameter has no effect. Pass an int for reproducible output across
+        multiple function calls.
 
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.model_selection import KFold
+    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = cp.array([0, 0, 1, 1])
+    >>> kf = KFold(n_splits=2)
+    >>> kf.get_n_splits()
+    2
+    >>> for i, (train_index, test_index) in enumerate(kf.split(X, y)):
+    ...     print(f"Fold{i}:")
+    ...     print(f"  Train: index={train_index}")
+    ...     print(f"  Test:  index={test_index}")
+    Fold 0:
+      Train: index=[2 3]
+      Test:  index=[0 1]
+    Fold 1:
+      Train: index=[0 1]
+      Test:  index=[2 3]
     """
 
-    def __init__(self, n_splits=5, *, shuffle=False, random_state=None):
-        super().__init__(
-            n_splits=n_splits, shuffle=shuffle, random_state=random_state
-        )
-
-    def split(self, X, y=None):
-        """Generate indices to split data into training and test set.
-
-        Parameters
-        ----------
-        X : array-like of shape (n_samples, n_features)
-            Training data, where `n_samples` is the number of samples
-            and `n_features` is the number of features.
-
-        y : array-like of shape (n_samples,), default=None
-            The target variable for supervised learning problems.
-
-        Yields
-        ------
-        train : CuPy ndarray
-            The training set indices for that split.
-
-        test : CuPy ndarray
-            The testing set indices for that split.
-        """
-        n_samples = X.shape[0]
-        if y is not None and n_samples != len(y):
-            raise ValueError("Expecting same length of x and y")
-        if n_samples < self.n_splits:
-            raise ValueError(
-                f"n_splits: {self.n_splits} must be smaller than the number of samples: {n_samples}."
-            )
-
-        indices = cp.arange(n_samples)
-
-        if self.shuffle:
-            cp.random.RandomState(check_random_seed(self.seed)).shuffle(
-                indices
-            )
-
+    def _split(self, X, y, indices):
+        n_samples = len(indices)
         fold_sizes = cp.full(
             self.n_splits, n_samples // self.n_splits, dtype=cp.int64
         )
@@ -256,98 +261,68 @@ class KFold(_KFoldBase):
             yield train, test
             current = stop
 
-    def get_n_splits(self, X=None, y=None):
-        return self.n_splits
-
 
 class StratifiedKFold(_KFoldBase):
-    """
-    A cudf based implementation of Stratified K-Folds cross-validator.
+    """Class-wise stratified K-fold cross-validator.
 
-    Provides train/test indices to split data into stratified K folds.
-    The percentage of samples for each class are maintained in each
-    fold.
+    Provides train/test indices to split data into stratified K folds. The
+    percentage of samples for each class are maintained in each fold.
 
     Parameters
     ----------
     n_splits : int, default=5
         Number of folds. Must be at least 2.
-    shuffle : boolean, default=False
-        Whether to shuffle each class's samples before splitting.
-    random_state : int (default=None)
-        Random seed
+
+    shuffle : bool, default=False
+        Whether to shuffle the samples before splitting. Note that the samples within
+        each split will not be shuffled.
+
+    random_state : int, CuPy RandomState, NumPy RandomState, or None, default=None
+        When `shuffle` is True, `random_state` affects the ordering of the
+        indices, which controls the randomness of each fold. Otherwise, this
+        parameter has no effect. Pass an int for reproducible output across
+        multiple function calls.
 
     Examples
     --------
-    Splitting X,y into stratified K folds
-    .. code-block:: python
-        import cupy
-        X = cupy.random.rand(12,10)
-        y = cupy.arange(12)%4
-        kf = StratifiedKFold(n_splits=3)
-        for tr,te in kf.split(X,y):
-            print(tr, te)
-    Output:
-    .. code-block:: python
-        [ 4  5  6  7  8  9 10 11] [0 1 2 3]
-        [ 0  1  2  3  8  9 10 11] [4 5 6 7]
-        [0 1 2 3 4 5 6 7] [ 8  9 10 11]
-
+    >>> import cupy as cp
+    >>> from cuml.model_selection import StratifiedKFold
+    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = cp.array([0, 0, 1, 1])
+    >>> kf = StratifiedKFold(n_splits=2)
+    >>> kf.get_n_splits()
+    2
+    >>> for i, (train_index, test_index) in enumerate(kf.split(X, y)):
+    ...     print(f"Fold{i}:")
+    ...     print(f"  Train: index={train_index}")
+    ...     print(f"  Test:  index={test_index}")
+    Fold 0:
+      Train: index=[1 3]
+      Test:  index=[0 2]
+    Fold 1:
+      Train: index=[0 2]
+      Test:  index=[1 3]
     """
 
-    def __init__(self, n_splits=5, shuffle=False, random_state=None):
-        super().__init__(
-            n_splits=n_splits, shuffle=shuffle, random_state=random_state
-        )
-
-        if random_state is not None and not isinstance(random_state, int):
-            raise ValueError(f"random_state {random_state} is not an integer")
-
-    def get_n_splits(self, X=None, y=None):
-        return self.n_splits
-
-    def split(self, X, y):
-        if len(X) != len(y):
-            raise ValueError("Expecting same length of x and y")
-        y = input_to_cuml_array(y).array.to_output("cupy")
-        if len(cp.unique(y)) < 2:
+    def _split(self, X, y, indices):
+        y = check_cudf(y, ensure_ndim=1)
+        if y.nunique() < 2:
             raise ValueError("number of unique classes cannot be less than 2")
-        df = cudf.DataFrame()
-        ids = cp.arange(y.shape[0])
 
-        if self.shuffle:
-            cp.random.seed(self.seed)
-            cp.random.shuffle(ids)
-            y = y[ids]
+        df = cudf.DataFrame({"y": y[indices], "ids": indices})
+        gb = df.groupby(["y"])
 
-        df["y"] = y
-        df["ids"] = ids
-        grpby = df.groupby(["y"])
+        if self.n_splits > gb.y.count().min():
+            raise ValueError(
+                f"n_splits={self.n_splits} cannot be greater "
+                f"than the number of members in each class."
+            )
 
-        dg = grpby.agg({"y": "count"})
-        col = dg.columns[0]
-        msg = (
-            f"n_splits={self.n_splits} cannot be greater "
-            + "than the number of members in each class."
-        )
-        if self.n_splits > dg[col].min():
-            raise ValueError(msg)
-
-        got = grpby.apply(lambda df: df.assign(order=range(len(df))))
-        got = got.sort_values("ids")
+        df = df.assign(order=gb.cumcount()).sort_values("ids")
+        ids = df["ids"].to_cupy()
 
         for i in range(self.n_splits):
-            mask = got["order"] % self.n_splits == i
-            train = got.loc[~mask, "ids"].values
-            test = got.loc[mask, "ids"].values
-            if len(test) == 0:
-                break
+            mask = (df["order"] % self.n_splits == i).to_cupy()
+            train = ids[~mask]
+            test = ids[mask]
             yield train, test
-
-    def _check_array_shape(self, y):
-        if y is None:
-            raise ValueError("Expecting 1D array, got None")
-        elif hasattr(y, "shape") and len(y.shape) > 1 and y.shape[1] > 1:
-            raise ValueError(f"Expecting 1D array, got {y.shape}")
-        else:
-            pass

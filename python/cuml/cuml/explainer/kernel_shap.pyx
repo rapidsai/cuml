@@ -13,7 +13,7 @@ import numpy as np
 from cuml.explainer.base import SHAPBase
 from cuml.explainer.common import get_cai_ptr, model_func_call
 from cuml.internals import get_handle
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_array
 from cuml.linear_model import Lasso, LinearRegression
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -279,8 +279,9 @@ class KernelExplainer(SHAPBase):
                                            self.randind,
                                            self.dtype)
 
-        row, _, _, _ = \
-            input_to_cupy_array(row, order=self.order)
+        row = check_array(
+            row, order=self.order, ensure_2d=False, ensure_all_finite=False
+        )
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()

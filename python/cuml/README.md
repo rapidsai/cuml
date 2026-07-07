@@ -21,7 +21,7 @@ The environment variables are:
 | Environment variable | Possible values | Default behavior if not set | Behavior |
 | --- | --- | --- | --- |
 | CUDA_HOME | path/to/cuda_toolkit | Inferred by location of `nvcc` | Optional variable allowing to manually specify location of the CUDA toolkit. |
-| CUML_BUILD_PATH | path/to/libcuml_build_folder | Looked for in path_to_cuml_repo/cpp/build | Optional variable allowing to manually specify location of libcuml++ build folder. |
+| CUML_BUILD_PATH | path/to/libcuml_build_folder | Looked for in path_to_cuml_repo/cpp/build | Optional variable allowing to manually specify location of libcuml build folder. |
 | RAFT_PATH | path/to/raft |  Looked for in path_to_cuml_repo/cpp/build, if not found clone  | Optional variable allowing to manually specify location of the RAFT Repository. |
 
 The command line arguments (i.e. passed alongside `setup.py` when invoking, for
@@ -57,11 +57,11 @@ To build cuML's Python package, the following dependencies are required:
 - cudatoolkit version corresponding to system CUDA toolkit
 - cython >=3.2.2
 - numpy
-- cmake >=3.30.4
+- cmake >=4.0
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}
-- cupy >=13.6.0
+- cupy >=14.0.1
 - joblib >=0.11
 
 Packages required for multigpu algorithms*:

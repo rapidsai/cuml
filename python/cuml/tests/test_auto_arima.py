@@ -1,12 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cupy as cp
 import numpy as np
 import pytest
 
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.tsa import auto_arima
 
 ###############################################################################
@@ -47,9 +47,9 @@ def test_divide_by_mask(batch_size, n_obs, prop_true, dtype):
         [False] * (batch_size - nb_true) + [True] * nb_true
     )
     b_id_np = np.array(range(batch_size), dtype=np.int32)
-    data, *_ = input_to_cuml_array(data_np)
-    mask, *_ = input_to_cuml_array(mask_np)
-    b_id, *_ = input_to_cuml_array(b_id_np)
+    data = cp.asarray(data_np, order="F")
+    mask = cp.asarray(mask_np, order="F")
+    b_id = cp.asarray(b_id_np, order="F")
 
     # Call the tested function
     sub_data, sub_id = [None, None], [None, None]
@@ -74,12 +74,8 @@ def test_divide_by_mask(batch_size, n_obs, prop_true, dtype):
             assert sub_id[i] is None
         # When the sub-batch is not empty, compare to the reference
         else:
-            np.testing.assert_allclose(
-                sub_data[i].to_output("numpy"), sub_data_ref[i]
-            )
-            np.testing.assert_array_equal(
-                sub_id[i].to_output("numpy"), sub_id_ref[i]
-            )
+            np.testing.assert_allclose(sub_data[i].get(), sub_data_ref[i])
+            np.testing.assert_array_equal(sub_id[i].get(), sub_id_ref[i])
 
 
 @pytest.mark.parametrize("batch_size", [10, 100])
@@ -102,9 +98,9 @@ def test_divide_by_min(batch_size, n_obs, n_sub, dtype):
         .transpose()
     )
     b_id_np = np.array(range(batch_size), dtype=np.int32)
-    data, *_ = input_to_cuml_array(data_np)
-    crit, *_ = input_to_cuml_array(crit_np)
-    b_id, *_ = input_to_cuml_array(b_id_np)
+    data = cp.asarray(data_np, order="F")
+    crit = cp.asarray(crit_np, order="F")
+    b_id = cp.asarray(b_id_np)
 
     # Call the tested function
     sub_batches, sub_id = auto_arima._divide_by_min(data, crit, b_id)
@@ -128,11 +124,9 @@ def test_divide_by_min(batch_size, n_obs, n_sub, dtype):
         # When the sub-batch is not empty, compare to the reference
         else:
             np.testing.assert_allclose(
-                sub_batches[i].to_output("numpy"), sub_batches_ref[i]
+                sub_batches[i].get(), sub_batches_ref[i]
             )
-            np.testing.assert_array_equal(
-                sub_id[i].to_output("numpy"), sub_id_ref[i]
-            )
+            np.testing.assert_array_equal(sub_id[i].get(), sub_id_ref[i])
 
 
 @pytest.mark.parametrize("batch_size", [25, 103, 1001])
@@ -145,10 +139,7 @@ def test_build_division_map(batch_size, n_sub):
     # Note: in the real use case the individual id arrays are sorted but the
     # helper function doesn't require that
     tracker_np = np.array_split(np.random.permutation(batch_size), n_sub)
-    tracker = [
-        input_to_cuml_array(tr, convert_to_dtype=np.int32)[0]
-        for tr in tracker_np
-    ]
+    tracker = [cp.asarray(tr, dtype="int32") for tr in tracker_np]
 
     # Call the tested function
     id_to_model, id_to_pos = auto_arima._build_division_map(
@@ -161,10 +152,8 @@ def test_build_division_map(batch_size, n_sub):
     )
 
     # Compare the results
-    np.testing.assert_array_equal(
-        id_to_model.to_output("numpy"), id_to_model_ref
-    )
-    np.testing.assert_array_equal(id_to_pos.to_output("numpy"), id_to_pos_ref)
+    np.testing.assert_array_equal(id_to_model.get(), id_to_model_ref)
+    np.testing.assert_array_equal(id_to_pos.get(), id_to_pos_ref)
 
 
 @pytest.mark.parametrize("batch_size", [10, 100])
@@ -180,12 +169,8 @@ def test_merge_series(batch_size, n_obs, n_sub, dtype):
     id_to_sub_np, id_to_pos_np = _build_division_map_ref(
         tracker_np, batch_size, n_sub
     )
-    id_to_sub, *_ = input_to_cuml_array(
-        id_to_sub_np, convert_to_dtype=np.int32
-    )
-    id_to_pos, *_ = input_to_cuml_array(
-        id_to_pos_np, convert_to_dtype=np.int32
-    )
+    id_to_sub = cp.asarray(id_to_sub_np, dtype="int32", order="F")
+    id_to_pos = cp.asarray(id_to_pos_np, dtype="int32", order="F")
 
     # Generate the final dataset (expected result)
     data_np = (
@@ -202,10 +187,10 @@ def test_merge_series(batch_size, n_obs, n_sub, dtype):
         )
         for j in range(len(tracker_np[i])):
             data_piece[:, j] = data_np[:, tracker_np[i][j]]
-        data_div.append(input_to_cuml_array(data_piece)[0])
+        data_div.append(cp.asarray(data_piece, order="F"))
 
     # Call the tested function
     data = auto_arima._merge_series(data_div, id_to_sub, id_to_pos, batch_size)
 
     # Compare the results
-    np.testing.assert_allclose(data.to_output("numpy"), data_np)
+    np.testing.assert_allclose(data.get(), data_np)

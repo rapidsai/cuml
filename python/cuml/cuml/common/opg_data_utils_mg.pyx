@@ -1,235 +1,166 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import numpy as np
-
-from cuml.common import input_to_cuml_array
-from cuml.internals.array import CumlArray
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free, malloc
+from libcpp.vector cimport vector
 
-from cuml.common.opg_data_utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport (
+    PartDescriptor,
+    RankSizePair,
+    doubleData_t,
+    floatData_t,
+)
 
 
-def build_data_t(arys):
+def build_data_t(parts):
     """
-    Function to create a floatData_t** or doubleData_t** from a list of
-    cumlArrays
+    Build a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``
 
     Parameters
     ----------
-
-    arys: list of cumlArrays of the same dtype, np.float32 or np.float64
+    parts: list[cp.ndarray]
+        A list of cupy arrays, all with the same dtype (float32 or float64).
 
     Returns
     -------
-    ptr: vector pointer of either a floatData_t* or doubleData_t*,
-         depending on dtype of input
-
+    ptr: int
+        Pointer to a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``.
     """
-    cdef vector[floatData_t *] *data_f32 = new vector[floatData_t *]()
-    cdef vector[doubleData_t *] *data_f64 = new vector[doubleData_t *]()
+    cdef vector[floatData_t *] *data_f32
+    cdef vector[doubleData_t *] *data_f64
 
-    cdef uintptr_t ary_ptr
-    cdef floatData_t *data_f
-    cdef doubleData_t *data_d
-    cdef uintptr_t data_ptr
+    if parts[0].dtype == np.float32:
+        data_f32 = new vector[floatData_t *]()
+        for part in parts:
+            data_f32.push_back(
+                new floatData_t(<float*><uintptr_t>(part.data.ptr), part.size)
+            )
+        return <uintptr_t> data_f32
 
-    if arys[0].dtype == np.float32:
+    elif parts[0].dtype == np.float64:
+        data_f64 = new vector[doubleData_t *]()
+        for part in parts:
+            data_f64.push_back(
+                new doubleData_t(<double*><uintptr_t>(part.data.ptr), part.size)
+            )
+        return <uintptr_t> data_f64
 
-        for idx in range(len(arys)):
-            data_f = <floatData_t*> malloc(sizeof(floatData_t))
-            ary_ptr = arys[idx].ptr
-            data_f.ptr = <float*> ary_ptr
-            data_f.totalSize = len(arys[idx])
-            data_f32.push_back(data_f)
-
-        data_ptr = <uintptr_t> data_f32
-        return data_ptr
-
-    elif arys[0].dtype == np.float64:
-
-        for idx in range(len(arys)):
-            data_d = <doubleData_t*> malloc(sizeof(doubleData_t))
-            ary_ptr = arys[idx].ptr
-            data_d.ptr = <double*> ary_ptr
-            data_d.totalSize = len(arys[idx])
-            data_f64.push_back(data_d)
-
-        data_ptr = <uintptr_t> data_f64
-        return data_ptr
-
-    else:
-        raise TypeError('build_data_t: Arrays passed must be np.float32 or \
-                        np.float64')
+    raise TypeError("Arrays passed must be np.float32 or np.float64")
 
 
-def free_data_t(data_t, dtype):
+def free_data_t(uintptr_t data_ptr, dtype):
     """
-    Function to free a vector of floatData_t* or doubleData_t*
+    Free a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``
 
     Parameters
     ----------
-    data_t: a vector of floatData_t* or doubleData_t*
-    dtype: np.float32 or np.float64 indicating whether data_t is a
-        floatData_t* or doubleData_t*
+    data_ptr: int
+        A pointer to a ``vector<floatData_t*>`` or ``vector<doubleData_t*>``.
+    dtype: dtype
+        The dtype (float32 or float64).
     """
-    cdef uintptr_t data_ptr = data_t
-
     cdef vector[floatData_t*] *d32
     cdef vector[doubleData_t*] *d64
+    cdef floatData_t* ptr_32
+    cdef doubleData_t* ptr_64
 
     if dtype == np.float32:
         d32 = <vector[floatData_t*]*> data_ptr
         for x_i in range(d32.size()):
-            free(d32.at(x_i))
-        free(d32)
+            ptr_32 = d32.at(x_i)
+            del ptr_32
+        del d32
     else:
         d64 = <vector[doubleData_t*]*> data_ptr
         for x_i in range(d64.size()):
-            free(d64.at(x_i))
-        free(d64)
+            ptr_64 = d64.at(x_i)
+            del ptr_64
+        del d64
 
 
-def build_rank_size_pair(parts_to_sizes, rank):
+def build_rank_size_pair(parts_to_sizes):
     """
-    Function to build a vector<rankSizePair*> mapping the rank to the
-    sizes of partitions
+    Build a ``vector<rankSizePair*>`` mapping ranks to partition sizes
 
     Parameters
     ----------
-    parts_to_sizes: array of tuples in the format: [(rank,size)]
-    rank: rank to be mapped
+    parts_to_sizes: list[tuple[int, int]]
+        List of tuples in the format: [(rank,size)]
 
     Returns
     --------
-    ptr: vector pointer of the RankSizePair*
+    ptr: int
+        Pointer to a ``vector<RankSizePair*>``
     """
     cdef vector[RankSizePair*] *rsp_vec = new vector[RankSizePair*]()
 
-    for idx, rankToSize in enumerate(parts_to_sizes):
-        rank, size = rankToSize
-        rsp = <RankSizePair*> malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
+    for idx, (rank, size) in enumerate(parts_to_sizes):
+        rsp_vec.push_back(new RankSizePair(rank, size))
 
-        rsp_vec.push_back(rsp)
-
-    cdef uintptr_t rsp_ptr = <uintptr_t> rsp_vec
-    return rsp_ptr
+    return <uintptr_t>rsp_vec
 
 
-def free_rank_size_pair(rank_size_t):
+def free_rank_size_pair(uintptr_t rank_size_ptr):
     """
-    Function to free a vector of rankSizePair*
+    Free a ``vector<RankSizePair*>``
 
     Parameters
     ----------
-    rank_size_t: vector of rankSizePair* to be freed.
+    rank_size_ptr: int
+        Pointer to a ``vector<RankSizePair*>``
     """
-    cdef uintptr_t rank_size_ptr = rank_size_t
-
-    cdef vector[RankSizePair *] *rsp_vec \
-        = <vector[RankSizePair *]*> rank_size_ptr
+    cdef vector[RankSizePair*] *rsp_vec = <vector[RankSizePair*]*>rank_size_ptr
+    cdef RankSizePair *rsp_ptr
 
     for x_i in range(rsp_vec.size()):
-        free(rsp_vec.at(x_i))
-    free(rsp_vec)
+        rsp_ptr = rsp_vec.at(x_i)
+        del rsp_ptr
+    del rsp_vec
 
 
-def build_part_descriptor(m, n, rank_size_t, rank):
+def build_part_descriptor(m, n, uintptr_t rank_size_ptr, rank):
     """
-    Function to build a shared PartDescriptor object
+    Build a ``PartDescriptor``
 
     Parameters
     ----------
-    m: total number of rows across all workers
-    n: number of cols
-    rank_size_t: vector of rankSizePair * to be used for
-        building the part descriptor
-    rank: rank to be mapped
+    m: int
+        Total number of rows across all workers
+    n: int
+        Number of cols
+    rank_size_ptr: int
+        Pointer to a ``vector<RankSizePair*>``.
+    rank: int
+        Rank to be mapped
 
     Returns
     --------
-    ptr: PartDescriptor object
+    ptr: int
+        Pointer to a ``PartDescriptor``.
     """
-    cdef uintptr_t rank_size_ptr = rank_size_t
+    cdef vector[RankSizePair *] *rsp_vec = <vector[RankSizePair *]*>rank_size_ptr
 
-    cdef vector[RankSizePair *] *rsp_vec \
-        = <vector[RankSizePair *]*> rank_size_ptr
-
-    cdef PartDescriptor *descriptor \
-        = new PartDescriptor(<size_t>m,
-                             <size_t>n,
-                             <vector[RankSizePair*]>deref(rsp_vec),
-                             <int>rank)
-
-    cdef uintptr_t desc_ptr = <uintptr_t>descriptor
-    return desc_ptr
+    cdef PartDescriptor *descriptor = new PartDescriptor(
+        <size_t>m,
+        <size_t>n,
+        <vector[RankSizePair*]>deref(rsp_vec),
+        <int>rank,
+    )
+    return <uintptr_t>descriptor
 
 
-def free_part_descriptor(descriptor_ptr):
+def free_part_descriptor(uintptr_t descriptor_ptr):
     """
-    Function to free a PartDescriptor*
+    Free a ``PartDescriptor``
+
     Parameters
     ----------
-    descriptor_ptr: PartDescriptor* to be freed
+    descriptor_ptr: int
+        Pointer to a ``PartDescriptor``.
     """
-    cdef PartDescriptor *desc_c \
-        = <PartDescriptor*><size_t>descriptor_ptr
-    free(desc_c)
-
-
-def build_pred_or_trans_arys(arys, order, dtype):
-    output_arys = []
-    for i in range(len(arys)):
-        out = CumlArray.zeros(arys[i].shape,
-                              order=order,
-                              dtype=dtype)
-
-        output_arys.append(out)
-
-    return output_arys
-
-
-def _build_part_inputs(cuda_arr_ifaces,
-                       parts_to_ranks,
-                       m, n, local_rank,
-                       convert_dtype):
-
-    cuml_arr_ifaces = []
-    for arr in cuda_arr_ifaces:
-        X_m, _, _, _ = \
-            input_to_cuml_array(arr, order="F",
-                                convert_to_dtype=(np.float32
-                                                  if convert_dtype
-                                                  else None),
-                                check_dtype=[np.float32])
-        cuml_arr_ifaces.append(X_m)
-
-    cdef vector[floatData_t*] *local_parts = new vector[floatData_t*]()
-    for arr in cuml_arr_ifaces:
-        data = <floatData_t*>malloc(sizeof(floatData_t))
-        data.ptr = <float*><uintptr_t>arr.ptr
-        data.totalSize = <size_t>arr.shape[0]*arr.shape[1]*sizeof(float)
-        local_parts.push_back(data)
-
-    cdef vector[RankSizePair*] partsToRanks
-    for idx, rankToSize in enumerate(parts_to_ranks):
-        rank, size = rankToSize
-        rsp = <RankSizePair*>malloc(sizeof(RankSizePair))
-        rsp.rank = <int>rank
-        rsp.size = <size_t>size
-        partsToRanks.push_back(rsp)
-
-    cdef PartDescriptor *descriptor = \
-        new PartDescriptor(<size_t>m,
-                           <size_t>n,
-                           <vector[RankSizePair*]>partsToRanks,
-                           <int>local_rank)
-
-    return cuml_arr_ifaces, <uintptr_t>local_parts, <uintptr_t>descriptor
+    cdef PartDescriptor *desc_c = <PartDescriptor*>descriptor_ptr
+    del desc_c

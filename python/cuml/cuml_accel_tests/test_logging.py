@@ -1,7 +1,9 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import re
+
 import pytest
 from sklearn.datasets import make_classification, make_regression
 from sklearn.linear_model import Ridge
@@ -28,6 +30,17 @@ def get_logs(capsys):
         ]
 
     return get_logs
+
+
+def test_set_level_error():
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "level should be one of ['error', 'warn', 'info', 'debug']; "
+            "got 'invalid' instead."
+        ),
+    ):
+        logger.set_level("invalid")
 
 
 @pytest.mark.parametrize(

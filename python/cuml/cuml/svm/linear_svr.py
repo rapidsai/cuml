@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
+import cupy as cp
 
 import cuml.svm.linear
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -21,7 +21,7 @@ from cuml.linear_model.base import LinearPredictMixin
 __all__ = ["LinearSVR"]
 
 
-class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
+class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
     """
     Linear Support Vector Regression.
 
@@ -154,9 +154,9 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
 
     def _attrs_from_cpu(self, model):
         return {
-            "coef_": to_gpu(model.coef_, order="F", dtype=np.float64),
+            "coef_": to_gpu(model.coef_, order="F", dtype=cp.float64),
             "intercept_": to_gpu(
-                model.intercept_, order="F", dtype=np.float64
+                model.intercept_, order="F", dtype=cp.float64
             ),
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
@@ -164,8 +164,8 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
 
     def _attrs_to_cpu(self, model):
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=np.float64),
-            "intercept_": to_cpu(self.intercept_, order="C", dtype=np.float64),
+            "coef_": to_cpu(self.coef_, order="C", dtype=cp.float64),
+            "intercept_": to_cpu(self.intercept_, order="C", dtype=cp.float64),
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -202,37 +202,15 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
     @generate_docstring()
     @reflect(reset=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LinearSVR":
         """Fit the model according to the given training data."""
-        X = input_to_cuml_array(
-            X,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-            check_dtype=[np.float32, np.float64],
-            order="F",
-        ).array
-
-        y = input_to_cuml_array(
-            y,
-            check_dtype=X.dtype,
-            convert_to_dtype=(X.dtype if convert_dtype else None),
-            check_rows=X.shape[0],
-            check_cols=1,
-        ).array
-
-        if sample_weight is not None:
-            sample_weight = input_to_cuml_array(
-                sample_weight,
-                check_dtype=X.dtype,
-                convert_to_dtype=(X.dtype if convert_dtype else None),
-                check_rows=X.shape[0],
-                check_cols=1,
-            ).array
-
         coef, intercept, n_iter, _ = cuml.svm.linear.fit(
+            self,
             X,
             y,
             sample_weight=sample_weight,
+            convert_dtype=convert_dtype,
             loss=self.loss,
             penalty=self.penalty,
             fit_intercept=self.fit_intercept,
@@ -245,7 +223,9 @@ class LinearSVR(Base, InteropMixin, LinearPredictMixin, RegressorMixin):
             epsilon=self.epsilon,
             verbose=self._verbose_level,
         )
-        self.coef_ = coef
-        self.intercept_ = intercept
+        self.coef_ = CumlArray(data=coef)
+        self.intercept_ = (
+            intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
+        )
         self.n_iter_ = n_iter
         return self

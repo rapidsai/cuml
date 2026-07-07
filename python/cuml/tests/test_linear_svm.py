@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 import sklearn.svm
 from sklearn.datasets import make_classification, make_regression
-from sklearn.exceptions import NotFittedError
 from sklearn.model_selection import train_test_split
 
 import cuml
@@ -70,6 +69,29 @@ def test_linear_svc_input_constraints():
 
     with pytest.raises(ValueError, match="only 1 class"):
         cuml.LinearSVC().fit(X, np.ones_like(y))
+
+
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+        (np.bool_(True), TypeError),
+    ],
+)
+def test_linear_svc_invalid_n_streams(n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        cuml.LinearSVC(n_streams=n_streams).fit(X, y)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -210,57 +232,6 @@ def test_linear_svc_decision_function(
     res = cu_model.decision_function(X_test)
 
     np.testing.assert_allclose(res, sol, atol=1e-4)
-
-
-@pytest.mark.parametrize("fit_intercept", [True, False])
-@pytest.mark.parametrize("n_classes", [2, 3, 5])
-def test_linear_svc_predict_proba(fit_intercept, n_classes):
-    n_rows, n_cols = 500, 20
-    X_train, X_test, y_train, y_test = make_classification_dataset(
-        n_rows, n_cols, n_classes
-    )
-
-    cu_model = cuml.LinearSVC(fit_intercept=fit_intercept, probability=True)
-    cu_model.fit(X_train, y_train)
-    cu_score = cu_model.score(X_test, y_test)
-
-    sk_model = sklearn.svm.LinearSVC(fit_intercept=fit_intercept)
-    sk_model.fit(X_train, y_train)
-    sk_score = sk_model.score(X_test, y_test)
-
-    assert cu_score >= sk_score - 0.05
-
-    proba = cu_model.predict_proba(X_test)
-    log_proba = cu_model.predict_log_proba(X_test)
-
-    # log_proba is log(proba)
-    np.testing.assert_allclose(np.log(proba), log_proba, rtol=1e-4)
-
-    # Probabilities sum to 1
-    np.testing.assert_allclose(
-        proba.sum(axis=1), np.ones(len(proba)), rtol=1e-4
-    )
-
-    # Predictions are argmax(proba)
-    y_pred = cu_model.predict(X_test)
-    y_pred_proba = cu_model.classes_.take(proba.argmax(axis=1).astype("int32"))
-    np.testing.assert_array_equal(y_pred, y_pred_proba)
-
-
-def test_linear_svc_predict_proba_not_available():
-    X, y = make_classification()
-    model = cuml.LinearSVC().fit(X, y)
-
-    assert not hasattr(model, "predict_proba")
-    assert not hasattr(model, "predict_log_proba")
-
-    # Setting `probability=True` makes the attribute available, but
-    # calling it raises a NotFittedError until refit
-    model.probability = True
-    assert hasattr(model, "predict_proba")
-
-    with pytest.raises(NotFittedError, match="fitted with probability=False"):
-        model.predict_proba(X)
 
 
 @pytest.mark.parametrize("kind", ["numpy", "pandas", "cupy", "cudf"])

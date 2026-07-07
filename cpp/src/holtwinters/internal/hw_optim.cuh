@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,6 +7,8 @@
 
 #include "hw_eval.cuh"
 #include "hw_utils.cuh"
+
+#include <cuml/common/checked_arithmetic.hpp>
 
 #include <raft/util/cudart_utils.hpp>
 
@@ -866,7 +868,7 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
   bool single_param = (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
-    rmm::device_uvector<Dtype> pseason(batch_size * frequency, stream);
+    rmm::device_uvector<Dtype> pseason(ML::checked_mul<std::size_t>(batch_size, frequency), stream);
     holtwinters_optim_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(ts,
                                                        n,

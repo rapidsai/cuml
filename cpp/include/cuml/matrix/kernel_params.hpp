@@ -5,13 +5,16 @@
 
 #pragma once
 
+#include <cuml/common/export.hpp>
+
 namespace cuvs::distance::kernels {
 
 struct KernelParams;
 
 }  // end namespace cuvs::distance::kernels
 
-namespace ML::matrix {
+namespace CUML_EXPORT ML {
+namespace matrix {
 
 enum class KernelType { LINEAR, POLYNOMIAL, RBF, TANH, PRECOMPUTED };
 
@@ -31,4 +34,5 @@ struct KernelParams {
   cuvs::distance::kernels::KernelParams to_cuvs() const;
 };
 
-}  // end namespace ML::matrix
+}  // end namespace matrix
+}  // end namespace CUML_EXPORT ML

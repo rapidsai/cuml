@@ -4,13 +4,10 @@
 #
 import cupy as cp
 import cupyx.scipy.sparse as cp_sp
-import numpy as np
-import scipy.sparse as sp
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cupy_array
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnGPU,
@@ -19,7 +16,7 @@ from cuml.internals.interop import (
 )
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport int64_t, uint64_t, uintptr_t
 from libcpp cimport bool
@@ -60,202 +57,7 @@ cdef extern from "cuml/manifold/spectral_embedding.hpp" \
         device_matrix_view[float, int, col_major] embedding) except +
 
 
-@reflect
-def spectral_embedding(
-    A,
-    *,
-    int n_components=8,
-    affinity="nearest_neighbors",
-    random_state=None,
-    n_neighbors=None,
-    norm_laplacian=True,
-    drop_first=True,
-):
-    """Project the sample on the first eigenvectors of the graph Laplacian.
-
-    The adjacency matrix is used to compute a normalized graph Laplacian
-    whose spectrum (especially the eigenvectors associated to the
-    smallest eigenvalues) has an interpretation in terms of minimal
-    number of cuts necessary to split the graph into comparably sized
-    components.
-
-    Note : Laplacian Eigenmaps is the actual algorithm implemented here.
-
-    Parameters
-    ----------
-    A : array-like or sparse matrix of shape (n_samples, n_features) or \
-        (n_samples, n_samples)
-        If affinity is 'nearest_neighbors', this is the input data and a k-NN
-        graph will be constructed. If affinity is 'precomputed', this is the
-        affinity matrix. Supported formats for precomputed affinity: scipy
-        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
-        arrays, or dense cupy arrays.
-    n_components : int, default=8
-        The dimension of the projection subspace.
-    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
-        How to construct the affinity matrix.
-         - 'nearest_neighbors' : construct the affinity matrix by computing a
-           graph of nearest neighbors.
-         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
-    random_state : int, RandomState instance or None, default=None
-        A pseudo random number generator used for the initialization.
-        Use an int to make the results deterministic across calls.
-    n_neighbors : int or None, default=None
-        Number of nearest neighbors for nearest_neighbors graph building.
-        If None, n_neighbors will be set to max(n_samples/10, 1).
-        Only used when A has shape (n_samples, n_features).
-    norm_laplacian : bool, default=True
-        If True, then compute symmetric normalized Laplacian.
-    drop_first : bool, default=True
-        Whether to drop the first eigenvector. For spectral embedding, this
-        should be True as the first eigenvector should be constant vector for
-        connected graph, but for spectral clustering, this should be kept as
-        False to retain the first eigenvector.
-
-    Returns
-    -------
-    embedding : cupy.ndarray of shape (n_samples, n_components)
-        The reduced samples.
-
-    Notes
-    -----
-    Spectral Embedding (Laplacian Eigenmaps) is most useful when the graph
-    has one connected component. If there graph has many components, the first
-    few eigenvectors will simply uncover the connected components of the graph.
-
-    Examples
-    --------
-    >>> import cupy as cp
-    >>> from cuml.manifold import spectral_embedding
-    >>> X = cp.random.rand(100, 20, dtype=cp.float32)
-    >>> embedding = spectral_embedding(X, n_components=2, random_state=42)
-    >>> embedding.shape
-    (100, 2)
-    """
-    cdef float* affinity_data_ptr = NULL
-    cdef int* affinity_rows_ptr = NULL
-    cdef int* affinity_cols_ptr = NULL
-    cdef int64_t affinity_nnz = 0
-
-    if affinity == "nearest_neighbors":
-        A = input_to_cupy_array(
-            A, order="C", check_dtype=np.float32, convert_to_dtype=cp.float32
-        ).array
-
-        affinity_data_ptr = <float*><uintptr_t>A.data.ptr
-
-        isfinite = cp.isfinite(A).all()
-    elif affinity == "precomputed":
-        # Coerce `A` to a canonical float32 COO sparse matrix
-        if cp_sp.issparse(A):
-            A = A.tocoo()
-            if A.dtype != np.float32:
-                A = A.astype("float32")
-        elif sp.issparse(A):
-            A = cp_sp.coo_matrix(A, dtype="float32")
-        else:
-            A = cp_sp.coo_matrix(cp.asarray(A, dtype="float32"))
-        A.sum_duplicates()
-
-        affinity_data = A.data
-        affinity_rows = A.row
-        affinity_cols = A.col
-        affinity_nnz = A.nnz
-
-        # laplacian kernel expects diagonal to be zero
-        # remove diagonal elements since they are ignored in laplacian calculation anyway
-        valid = affinity_rows != affinity_cols
-        if not valid.all():
-            affinity_data = affinity_data[valid]
-            affinity_rows = affinity_rows[valid]
-            affinity_cols = affinity_cols[valid]
-            affinity_nnz = len(affinity_data)
-
-        affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
-        affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
-        affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
-
-        isfinite = cp.isfinite(affinity_data).all()
-    else:
-        raise ValueError(
-            f"`affinity={affinity!r}` is not supported, expected one of "
-            "['nearest_neighbors', 'precomputed']"
-        )
-
-    cdef int n_samples, n_features
-    n_samples, n_features = A.shape
-
-    if not isfinite:
-        raise ValueError(
-            "Input contains NaN or inf; nonfinite values are not supported"
-        )
-
-    if n_samples < 2:
-        raise ValueError(
-            f"Found array with {n_samples} sample(s) (shape={A.shape}) while a "
-            f"minimum of 2 is required."
-        )
-    if n_features < 2:
-        raise ValueError(
-            f"Found array with {n_features} feature(s) (shape={A.shape}) while "
-            f"a minimum of 2 is required."
-        )
-
-    # Allocate output array
-    eigenvectors = CumlArray.empty(
-        (A.shape[0], n_components), dtype=np.float32, order='F'
-    )
-
-    cdef params config
-    cdef uint64_t seed_value
-    # No seed use nullopt (non-deterministic) or set user seed (deterministic)
-    if random_state is None:
-        config.seed = nullopt
-    else:
-        seed_value = check_random_seed(random_state)
-        config.seed = seed_value
-    config.norm_laplacian = norm_laplacian
-    config.drop_first = drop_first
-    config.n_components = n_components + 1 if drop_first else n_components
-    config.n_neighbors = (
-        n_neighbors
-        if n_neighbors is not None
-        else max(int(A.shape[0] / 10), 1)
-    )
-    cdef float* eigenvectors_ptr = <float *><uintptr_t>eigenvectors.ptr
-    cdef bool precomputed = affinity == "precomputed"
-    handle = get_handle()
-    cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
-
-    with nogil:
-        if precomputed:
-            transform(
-                handle_[0],
-                config,
-                make_device_vector_view[int, int64_t](affinity_rows_ptr, affinity_nnz),
-                make_device_vector_view[int, int64_t](affinity_cols_ptr, affinity_nnz),
-                make_device_vector_view[float, int64_t](affinity_data_ptr, affinity_nnz),
-                make_device_matrix_view[float, int, col_major](
-                    eigenvectors_ptr, n_samples, n_components,
-                )
-            )
-        else:
-            transform(
-                handle_[0],
-                config,
-                make_device_matrix_view[float, int, row_major](
-                    affinity_data_ptr, n_samples, n_features,
-                ),
-                make_device_matrix_view[float, int, col_major](
-                    eigenvectors_ptr, n_samples, n_components,
-                )
-            )
-    handle.sync()
-
-    return eigenvectors
-
-
-class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
+class SpectralEmbedding(InteropMixin, CMajorInputTagMixin, Base):
     """Spectral embedding for non-linear dimensionality reduction.
 
     Forms an affinity matrix given by the specified function and
@@ -315,6 +117,10 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
     """
     _cpu_class_path = "sklearn.manifold.SpectralEmbedding"
     embedding_ = CumlArrayDescriptor(order="F")
+
+    # Private so that `spectral_embedding` can share the same code
+    _drop_first = True
+    _norm_laplacian = True
 
     def __init__(
         self,
@@ -420,20 +226,194 @@ class SpectralEmbedding(Base, InteropMixin, CMajorInputTagMixin):
         self : object
             Returns the instance itself.
         """
+        X = check_inputs(
+            self,
+            X,
+            dtype="float32",
+            order="C",
+            accept_sparse="coo" if self.affinity == "precomputed" else False,
+            ensure_min_samples=2,
+            ensure_min_features=2,
+            reset=True,
+        )
 
-        # Store n_neighbors_ for sklearn compatibility
+        cdef float* affinity_data_ptr = NULL
+        cdef int* affinity_rows_ptr = NULL
+        cdef int* affinity_cols_ptr = NULL
+        cdef int64_t affinity_nnz = 0
+
+        if self.affinity == "nearest_neighbors":
+            affinity_data_ptr = <float*><uintptr_t>X.data.ptr
+        elif self.affinity == "precomputed":
+            # Coerce `X` to a canonical float32 COO sparse matrix
+            if isinstance(X, cp.ndarray):
+                X = cp_sp.coo_matrix(X)
+            X.sum_duplicates()
+
+            if X.shape[0] != X.shape[1]:
+                raise ValueError(
+                    f"Expected precomputed `X` to be square, got shape = {X.shape}"
+                )
+
+            affinity_data = X.data
+            affinity_rows = X.row
+            affinity_cols = X.col
+            affinity_nnz = X.nnz
+
+            # laplacian kernel expects diagonal to be zero
+            # remove diagonal elements since they are ignored in laplacian calculation anyway
+            valid = affinity_rows != affinity_cols
+            if not valid.all():
+                affinity_data = affinity_data[valid]
+                affinity_rows = affinity_rows[valid]
+                affinity_cols = affinity_cols[valid]
+                affinity_nnz = len(affinity_data)
+
+            affinity_data_ptr = <float*><uintptr_t>affinity_data.data.ptr
+            affinity_rows_ptr = <int*><uintptr_t>affinity_rows.data.ptr
+            affinity_cols_ptr = <int*><uintptr_t>affinity_cols.data.ptr
+        else:
+            raise ValueError(
+                f"`affinity={self.affinity!r}` is not supported, expected one of "
+                "['nearest_neighbors', 'precomputed']"
+            )
+
         self.n_neighbors_ = (
             self.n_neighbors
             if self.n_neighbors is not None
             else max(int(X.shape[0] / 10), 1)
         )
 
-        self.embedding_ = spectral_embedding(
-            X,
-            n_components=self.n_components,
-            affinity=self.affinity,
-            random_state=self.random_state,
-            n_neighbors=self.n_neighbors_,
-        )
+        cdef int n_samples = X.shape[0]
+        cdef int n_features = X.shape[1]
+        cdef int n_components = self.n_components
+
+        # Allocate output array
+        embedding = cp.empty((n_samples, n_components), dtype="float32", order="F")
+
+        cdef params config
+        # No seed use nullopt (non-deterministic) or set user seed (deterministic)
+        if self.random_state is None:
+            config.seed = nullopt
+        else:
+            config.seed = <uint64_t>check_random_seed(self.random_state)
+        config.norm_laplacian = self._norm_laplacian
+        config.drop_first = self._drop_first
+        config.n_components = n_components + 1 if self._drop_first else n_components
+        config.n_neighbors = self.n_neighbors_
+        cdef float* embedding_ptr = <float *><uintptr_t>embedding.data.ptr
+        cdef bool precomputed = self.affinity == "precomputed"
+        handle = get_handle()
+        cdef device_resources *handle_ = <device_resources*><size_t>handle.getHandle()
+
+        with nogil:
+            if precomputed:
+                transform(
+                    handle_[0],
+                    config,
+                    make_device_vector_view[int, int64_t](affinity_rows_ptr, affinity_nnz),
+                    make_device_vector_view[int, int64_t](affinity_cols_ptr, affinity_nnz),
+                    make_device_vector_view[float, int64_t](affinity_data_ptr, affinity_nnz),
+                    make_device_matrix_view[float, int, col_major](
+                        embedding_ptr, n_samples, n_components,
+                    )
+                )
+            else:
+                transform(
+                    handle_[0],
+                    config,
+                    make_device_matrix_view[float, int, row_major](
+                        affinity_data_ptr, n_samples, n_features,
+                    ),
+                    make_device_matrix_view[float, int, col_major](
+                        embedding_ptr, n_samples, n_components,
+                    )
+                )
+        handle.sync()
+
+        self.embedding_ = CumlArray(data=embedding)
 
         return self
+
+
+@reflect
+def spectral_embedding(
+    A,
+    *,
+    int n_components=8,
+    affinity="nearest_neighbors",
+    random_state=None,
+    n_neighbors=None,
+    norm_laplacian=True,
+    drop_first=True,
+):
+    """Project the sample on the first eigenvectors of the graph Laplacian.
+
+    The adjacency matrix is used to compute a normalized graph Laplacian
+    whose spectrum (especially the eigenvectors associated to the
+    smallest eigenvalues) has an interpretation in terms of minimal
+    number of cuts necessary to split the graph into comparably sized
+    components.
+
+    Note : Laplacian Eigenmaps is the actual algorithm implemented here.
+
+    Parameters
+    ----------
+    A : array-like or sparse matrix of shape (n_samples, n_features) or \
+        (n_samples, n_samples)
+        If affinity is 'nearest_neighbors', this is the input data and a k-NN
+        graph will be constructed. If affinity is 'precomputed', this is the
+        affinity matrix. Supported formats for precomputed affinity: scipy
+        sparse (CSR, CSC, COO), cupy sparse (CSR, CSC, COO), dense numpy
+        arrays, or dense cupy arrays.
+    n_components : int, default=8
+        The dimension of the projection subspace.
+    affinity : {'nearest_neighbors', 'precomputed'}, default='nearest_neighbors'
+        How to construct the affinity matrix.
+         - 'nearest_neighbors' : construct the affinity matrix by computing a
+           graph of nearest neighbors.
+         - 'precomputed' : interpret ``A`` as a precomputed affinity matrix.
+    random_state : int, RandomState instance or None, default=None
+        A pseudo random number generator used for the initialization.
+        Use an int to make the results deterministic across calls.
+    n_neighbors : int or None, default=None
+        Number of nearest neighbors for nearest_neighbors graph building.
+        If None, n_neighbors will be set to max(n_samples/10, 1).
+        Only used when A has shape (n_samples, n_features).
+    norm_laplacian : bool, default=True
+        If True, then compute symmetric normalized Laplacian.
+    drop_first : bool, default=True
+        Whether to drop the first eigenvector. For spectral embedding, this
+        should be True as the first eigenvector should be constant vector for
+        connected graph, but for spectral clustering, this should be kept as
+        False to retain the first eigenvector.
+
+    Returns
+    -------
+    embedding : cupy.ndarray of shape (n_samples, n_components)
+        The reduced samples.
+
+    Notes
+    -----
+    Spectral Embedding (Laplacian Eigenmaps) is most useful when the graph
+    has one connected component. If there graph has many components, the first
+    few eigenvectors will simply uncover the connected components of the graph.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> from cuml.manifold import spectral_embedding
+    >>> X = cp.random.rand(100, 20, dtype=cp.float32)
+    >>> embedding = spectral_embedding(X, n_components=2, random_state=42)
+    >>> embedding.shape
+    (100, 2)
+    """
+    model = SpectralEmbedding(
+        n_components=n_components,
+        affinity=affinity,
+        random_state=random_state,
+        n_neighbors=n_neighbors,
+    )
+    model._drop_first = drop_first
+    model._norm_laplacian = norm_laplacian
+    return model.fit_transform(A)

@@ -3,16 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import itertools
-import typing
 
 import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array, using_output_type
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
+from cuml.internals.validation import check_array
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -119,9 +117,12 @@ class AutoARIMA(Base):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    convert_dtype : boolean
-        When set to True, the model will automatically convert the inputs to
-        np.float64.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
     Notes
     -----
@@ -162,16 +163,22 @@ class AutoARIMA(Base):
                  simple_differencing=True,
                  verbose=False,
                  output_type=None,
-                 convert_dtype=True):
+                 convert_dtype="deprecated"):
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
 
         # Get device array. Float64 only for now.
-        self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(
-                endog, check_dtype=np.float64,
-                convert_to_dtype=(np.float64 if convert_dtype else None))
+        self.d_y = d_y = check_array(
+            endog,
+            dtype="float64",
+            convert_dtype=convert_dtype,
+            order="F",
+            ensure_2d=False,
+            ensure_all_finite=False,
+        )
+        self.n_obs = d_y.shape[0]
+        self.batch_size = d_y.shape[1] if d_y.ndim == 2 else 1
 
         self.simple_differencing = simple_differencing
 
@@ -179,7 +186,7 @@ class AutoARIMA(Base):
 
     @run_in_internal_context
     def _initial_calc(self):
-        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef uintptr_t d_y_ptr = self.d_y.data.ptr
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
@@ -272,8 +279,7 @@ class AutoARIMA(Base):
             method = "css" if self.n_obs >= 100 and s >= 4 else "ml"
 
         # Original index
-        d_index, *_ = input_to_cuml_array(np.r_[:self.batch_size],
-                                          convert_to_dtype=np.int32)
+        d_index = cp.arange(self.batch_size, dtype="int32")
 
         #
         # Choose the hyper-parameter D
@@ -292,19 +298,13 @@ class AutoARIMA(Base):
                 raise ValueError("Unknown seasonal diff test: {}"
                                  .format(seasonal_test))
 
-            with using_output_type("cupy"):
-                mask_cp = tests_map[seasonal_test](self.d_y, s)
-
-            mask = input_to_cuml_array(mask_cp)[0]
-            del mask_cp
+            mask = tests_map[seasonal_test](self.d_y, s)
             data_D = {}
-            out0, index0, out1, index1 = _divide_by_mask(self.d_y, mask,
-                                                         d_index)
+            out0, index0, out1, index1 = _divide_by_mask(self.d_y, mask, d_index)
             if out0 is not None:
                 data_D[0] = (out0, index0)
             if out1 is not None:
                 data_D[1] = (out1, index1)
-            del mask, out0, index0, out1, index1
 
         #
         # Choose the hyper-parameter d
@@ -323,12 +323,10 @@ class AutoARIMA(Base):
                                      .format(test))
                 data_temp, id_temp = data_D[D_]
                 for d_ in d_options[:-1]:
-                    mask_cp = tests_map[test](data_temp.to_output("cupy"),
-                                              d_, D_, s)
-                    mask = input_to_cuml_array(mask_cp)[0]
-                    del mask_cp
-                    out0, index0, out1, index1 \
-                        = _divide_by_mask(data_temp, mask, id_temp)
+                    mask = tests_map[test](data_temp, d_, D_, s)
+                    out0, index0, out1, index1 = _divide_by_mask(
+                        data_temp, mask, id_temp
+                    )
                     if out1 is not None:
                         data_dD[(d_, D_)] = (out1, index1)
                     if out0 is not None:
@@ -338,8 +336,6 @@ class AutoARIMA(Base):
                 else:  # (when the for loop reaches its end naturally)
                     # The remaining series are assigned the max possible d
                     data_dD[(d_options[-1], D_)] = (data_temp, id_temp)
-                del data_temp, id_temp, mask, out0, index0, out1, index1
-        del data_D
 
         #
         # Choose the hyper-parameters p, q, P, Q, k
@@ -367,7 +363,7 @@ class AutoARIMA(Base):
                 if p_ + q_ + P_ + Q_ + k_ == 0:
                     continue
                 s_ = s if (P_ + D_ + Q_) else 0
-                model = ARIMA(endog=data_temp.to_output("cupy"),
+                model = ARIMA(endog=data_temp,
                               order=(p_, d_, q_),
                               seasonal_order=(P_, D_, Q_, s_),
                               fit_intercept=k_,
@@ -378,13 +374,12 @@ class AutoARIMA(Base):
                           truncate=truncate)
                 all_ic.append(model._ic(ic))
                 all_orders.append((p_, q_, P_, Q_, s_, k_))
-                del model
 
             # Organize the results into a matrix
             n_models = len(all_orders)
-            ic_matrix, *_ = input_to_cuml_array(
-                cp.concatenate([ic_arr.to_output('cupy').reshape(batch_size, 1)
-                                for ic_arr in all_ic], 1))
+            ic_matrix = cp.concatenate(
+                [ic_arr.reshape(batch_size, 1) for ic_arr in all_ic], axis=1
+            )
 
             # Divide the batch, choosing the best model for each series
             sub_batches, sub_id = _divide_by_min(data_temp, ic_matrix, id_temp)
@@ -394,7 +389,7 @@ class AutoARIMA(Base):
                 p_, q_, P_, Q_, s_, k_ = all_orders[i]
                 self.models.append(
                     ARIMA(
-                        sub_batches[i].to_output("cupy"),
+                        sub_batches[i],
                         order=(p_, d_, q_),
                         seasonal_order=(P_, D_, Q_, s_),
                         fit_intercept=k_,
@@ -404,13 +399,12 @@ class AutoARIMA(Base):
                 )
                 id_tracker.append(sub_id[i])
 
-            del all_ic, all_orders, ic_matrix, sub_batches, sub_id
-
         # Build a map to match each series to its model and position in the
         # sub-batch
         logger.info("Finalizing...")
-        self.id_to_model, self.id_to_pos = _build_division_map(id_tracker,
-                                                               self.batch_size)
+        self.id_to_model, self.id_to_pos = _build_division_map(
+            id_tracker, self.batch_size
+        )
 
     @run_in_internal_context
     def fit(self,
@@ -445,8 +439,7 @@ class AutoARIMA(Base):
         start=0,
         end=None,
         level=None
-    ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray,
-                                              CumlArray]]:
+    ):
         """Compute in-sample and/or out-of-sample prediction for each series
 
         Parameters
@@ -476,13 +469,13 @@ class AutoARIMA(Base):
         upper_list = []
         for model in self.models:
             if level is None:
-                pred, *_ = input_to_cuml_array(model.predict(start, end))
+                pred, *_ = model.predict(start, end)
                 pred_list.append(pred)
             else:
                 pred, low, upp = model.predict(start, end, level=level)
-                pred_list.append(input_to_cuml_array(pred)[0])
-                lower_list.append(input_to_cuml_array(low)[0])
-                upper_list.append(input_to_cuml_array(upp)[0])
+                pred_list.append(pred)
+                lower_list.append(low)
+                upper_list.append(upp)
 
         # Put all the predictions together
         y_p = _merge_series(pred_list, self.id_to_model, self.id_to_pos,
@@ -500,12 +493,7 @@ class AutoARIMA(Base):
             return y_p, lower, upper
 
     @reflect(array=None)
-    def forecast(self,
-                 nsteps: int,
-                 level=None) -> typing.Union[CumlArray,
-                                             typing.Tuple[CumlArray,
-                                                          CumlArray,
-                                                          CumlArray]]:
+    def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
         Parameters
@@ -563,23 +551,23 @@ def _divide_by_mask(original, mask, batch_id):
 
     Parameters
     ----------
-    original : CumlArray (float32 or float64)
+    original : cp.ndarray (float32 or float64)
         Original batch
-    mask : CumlArray (bool)
+    mask : cp.ndarray (bool)
         Boolean mask: False for the 1st sub-batch and True for the second
-    batch_id : CumlArray (int)
+    batch_id : cp.ndarray (int)
         Integer array to track the id of each member in the initial batch
 
     Returns
     -------
-    out0 : CumlArray (float32 or float64)
+    out0 : cp.ndarray (float32 or float64)
         Sub-batch 0, or None if empty
-    batch0_id : CumlArray (int)
+    batch0_id : cp.ndarray (int)
         Indices of the members of the sub-batch 0 in the initial batch,
         or None if empty
-    out1 : CumlArray (float32 or float64)
+    out1 : cp.ndarray (float32 or float64)
         Sub-batch 1, or None if empty
-    batch1_id : CumlArray (int)
+    batch1_id : cp.ndarray (int)
         Indices of the members of the sub-batch 1 in the initial batch,
         or None if empty
     """
@@ -592,9 +580,9 @@ def _divide_by_mask(original, mask, batch_id):
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    index = CumlArray.empty(batch_size, np.int32)
-    cdef uintptr_t d_index = index.ptr
-    cdef uintptr_t d_mask = mask.ptr
+    index = cp.empty(batch_size, np.int32)
+    cdef uintptr_t d_index = index.data.ptr
+    cdef uintptr_t d_mask = mask.data.ptr
 
     # Compute the index of each series in their new batch
     nb_true = divide_by_mask_build_index(handle_[0],
@@ -602,13 +590,13 @@ def _divide_by_mask(original, mask, batch_id):
                                          <int*> d_index,
                                          <int> batch_size)
 
-    out0 = CumlArray.empty((n_obs, batch_size - nb_true), dtype)
-    out1 = CumlArray.empty((n_obs, nb_true), dtype)
+    out0 = cp.empty((n_obs, batch_size - nb_true), dtype, order="F")
+    out1 = cp.empty((n_obs, nb_true), dtype, order="F")
 
     # Type declarations (can't be in if-else statements)
     cdef uintptr_t d_out0
     cdef uintptr_t d_out1
-    cdef uintptr_t d_original = original.ptr
+    cdef uintptr_t d_original = original.data.ptr
     cdef uintptr_t d_batch0_id
     cdef uintptr_t d_batch1_id
     cdef uintptr_t d_batch_id
@@ -629,10 +617,10 @@ def _divide_by_mask(original, mask, batch_id):
 
     # If both sub-batches have elements
     else:
-        out0 = CumlArray.empty((n_obs, batch_size - nb_true), dtype)
-        out1 = CumlArray.empty((n_obs, nb_true), dtype)
-        d_out0 = out0.ptr
-        d_out1 = out1.ptr
+        out0 = cp.empty((n_obs, batch_size - nb_true), dtype, order="F")
+        out1 = cp.empty((n_obs, nb_true), dtype, order="F")
+        d_out0 = out0.data.ptr
+        d_out1 = out1.data.ptr
 
         # Build the two sub-batches
         if dtype == np.float32:
@@ -655,11 +643,11 @@ def _divide_by_mask(original, mask, batch_id):
                                    <int> n_obs)
 
         # Also keep track of the original id of the series in the batch
-        batch0_id = CumlArray.empty(batch_size - nb_true, np.int32)
-        batch1_id = CumlArray.empty(nb_true, np.int32)
-        d_batch0_id = batch0_id.ptr
-        d_batch1_id = batch1_id.ptr
-        d_batch_id = batch_id.ptr
+        batch0_id = cp.empty(batch_size - nb_true, np.int32)
+        batch1_id = cp.empty(nb_true, np.int32)
+        d_batch0_id = batch0_id.data.ptr
+        d_batch1_id = batch1_id.data.ptr
+        d_batch_id = batch_id.data.ptr
 
         divide_by_mask_execute(handle_[0],
                                <int*> d_batch_id,
@@ -679,18 +667,18 @@ def _divide_by_min(original, metrics, batch_id):
 
     Parameters:
     ----------
-    original : CumlArray (float32 or float64)
+    original : cp.ndarray (float32 or float64)
         Original batch
-    metrics : CumlArray (float32 or float64)
+    metrics : cp.ndarray (float32 or float64)
         Matrix of shape (batch_size, n_sub) containing the metrics to minimize
-    batch_id : CumlArray (int)
+    batch_id : cp.ndarray (int)
         Integer array to track the id of each member in the initial batch
 
     Returns
     -------
-    sub_batches : List[CumlArray] (float32 or float64)
+    sub_batches : List[cp.ndarray] (float32 or float64)
         List of arrays containing each sub-batch, or None if empty
-    sub_id : List[CumlArray] (int)
+    sub_id : List[cp.ndarray] (int)
         List of arrays containing the indices of each member in the initial
         batch, or None if empty
     """
@@ -704,14 +692,14 @@ def _divide_by_min(original, metrics, batch_id):
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    batch_buffer = CumlArray.empty(batch_size, np.int32)
-    index_buffer = CumlArray.empty(batch_size, np.int32)
+    batch_buffer = cp.empty(batch_size, np.int32)
+    index_buffer = cp.empty(batch_size, np.int32)
     cdef vector[int] size_buffer
     size_buffer.resize(n_sub)
 
-    cdef uintptr_t d_metrics = metrics.ptr
-    cdef uintptr_t d_batch = batch_buffer.ptr
-    cdef uintptr_t d_index = index_buffer.ptr
+    cdef uintptr_t d_metrics = metrics.data.ptr
+    cdef uintptr_t d_batch = batch_buffer.data.ptr
+    cdef uintptr_t d_index = index_buffer.data.ptr
 
     # Compute which sub-batch each series belongs to, its position in
     # the sub-batch, and the size of each sub-batch
@@ -734,18 +722,20 @@ def _divide_by_min(original, metrics, batch_id):
 
     # Build a list of cuML arrays for the sub-batches and a vector of pointers
     # to be passed to the next C++ step
-    sub_batches = [CumlArray.empty((n_obs, s), dtype) if s else None
-                   for s in size_buffer]
+    sub_batches = [
+        cp.empty((n_obs, s), dtype, order="F") if s else None
+        for s in size_buffer
+    ]
     cdef vector[uintptr_t] sub_ptr
     sub_ptr.resize(n_sub)
     for i in range(n_sub):
         if size_buffer[i]:
-            sub_ptr[i] = <uintptr_t> sub_batches[i].ptr
+            sub_ptr[i] = <uintptr_t> sub_batches[i].data.ptr
         else:
             sub_ptr[i] = <uintptr_t> NULL
 
     # Execute the batch sub-division
-    cdef uintptr_t d_original = original.ptr
+    cdef uintptr_t d_original = original.data.ptr
     if dtype == np.float32:
         divide_by_min_execute(handle_[0],
                               <float*> d_original,
@@ -767,16 +757,18 @@ def _divide_by_min(original, metrics, batch_id):
 
     # Keep track of the id of the series if requested
     cdef vector[uintptr_t] id_ptr
-    sub_id = [CumlArray.empty(s, np.int32) if s else None
-              for s in size_buffer]
+    sub_id = [
+        cp.empty(s, np.int32, order="F") if s else None
+        for s in size_buffer
+    ]
     id_ptr.resize(n_sub)
     for i in range(n_sub):
         if size_buffer[i]:
-            id_ptr[i] = <uintptr_t> sub_id[i].ptr
+            id_ptr[i] = <uintptr_t> sub_id[i].data.ptr
         else:
             id_ptr[i] = <uintptr_t> NULL
 
-    cdef uintptr_t d_batch_id = batch_id.ptr
+    cdef uintptr_t d_batch_id = batch_id.data.ptr
     divide_by_min_execute(handle_[0],
                           <int*> d_batch_id,
                           <int*> d_batch,
@@ -795,16 +787,16 @@ def _build_division_map(id_tracker, batch_size):
 
     Parameters
     ----------
-    id_tracker : List[CumlArray] (int)
+    id_tracker : List[cp.ndarray] (int)
         List of the index arrays of each sub-batch
     batch_size : int
         Size of the initial batch
 
     Returns
     -------
-    id_to_model : CumlArray (int)
+    id_to_model : cp.ndarray (int)
         Associates each batch member with a model
-    id_to_pos : CumlArray (int)
+    id_to_pos : cp.ndarray (int)
         Position of each member in the respective sub-batch
     """
     handle = get_handle()
@@ -812,21 +804,21 @@ def _build_division_map(id_tracker, batch_size):
 
     n_sub = len(id_tracker)
 
-    id_to_pos = CumlArray.empty(batch_size, np.int32)
-    id_to_model = CumlArray.empty(batch_size, np.int32)
+    id_to_pos = cp.empty(batch_size, np.int32)
+    id_to_model = cp.empty(batch_size, np.int32)
 
     cdef vector[uintptr_t] id_ptr
     cdef vector[int] size_vec
     id_ptr.resize(n_sub)
     size_vec.resize(n_sub)
     for i in range(n_sub):
-        id_ptr[i] = id_tracker[i].ptr
+        id_ptr[i] = id_tracker[i].data.ptr
         size_vec[i] = len(id_tracker[i])
 
     cdef uintptr_t hd_id = <uintptr_t> id_ptr.data()
     cdef uintptr_t h_size = <uintptr_t> size_vec.data()
-    cdef uintptr_t d_id_to_pos = id_to_pos.ptr
-    cdef uintptr_t d_id_to_model = id_to_model.ptr
+    cdef uintptr_t d_id_to_pos = id_to_pos.data.ptr
+    cdef uintptr_t d_id_to_model = id_to_model.data.ptr
 
     cpp_build_division_map(handle_[0],
                            <const int**> hd_id,
@@ -846,18 +838,18 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size):
 
     Parameters
     ----------
-    data_in : List[CumlArray] (float32 or float64)
+    data_in : List[cp.ndarray] (float32 or float64)
         List of sub-batches to merge
-    id_to_model : CumlArray (int)
+    id_to_model : cp.ndarray (int)
         Associates each member of the batch with a sub-batch
-    id_to_pos : CumlArray (int)
+    id_to_pos : cp.ndarray (int)
         Position of each member of the batch in its respective sub-batch
     batch_size : int
         Size of the initial batch
 
     Returns
     -------
-    data_out : CumlArray (float32 or float64)
+    data_out : cp.ndarray (float32 or float64)
         Merged batch
     """
     dtype = data_in[0].dtype
@@ -870,14 +862,14 @@ def _merge_series(data_in, id_to_sub, id_to_pos, batch_size):
     cdef vector[uintptr_t] in_ptr
     in_ptr.resize(n_sub)
     for i in range(n_sub):
-        in_ptr[i] = data_in[i].ptr
+        in_ptr[i] = data_in[i].data.ptr
 
-    data_out = CumlArray.empty((n_obs, batch_size), dtype)
+    data_out = cp.empty((n_obs, batch_size), dtype, order="F")
 
     cdef uintptr_t hd_in = <uintptr_t> in_ptr.data()
-    cdef uintptr_t d_id_to_pos = id_to_pos.ptr
-    cdef uintptr_t d_id_to_sub = id_to_sub.ptr
-    cdef uintptr_t d_out = data_out.ptr
+    cdef uintptr_t d_id_to_pos = id_to_pos.data.ptr
+    cdef uintptr_t d_id_to_sub = id_to_sub.data.ptr
+    cdef uintptr_t d_out = data_out.data.ptr
 
     if dtype == np.float32:
         cpp_merge_series(handle_[0],

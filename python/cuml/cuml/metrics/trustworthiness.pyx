@@ -5,7 +5,7 @@
 import numpy as np
 
 from cuml.internals import get_handle
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_array, check_consistent_length
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -40,7 +40,7 @@ def trustworthiness(
     X_embedded,
     n_neighbors=5,
     metric='euclidean',
-    convert_dtype=True,
+    convert_dtype="deprecated",
     batch_size=512,
 ) -> float:
     """
@@ -64,9 +64,12 @@ def trustworthiness(
             Metric used to compute the trustworthiness. For the moment only
             'euclidean' is supported.
 
-        convert_dtype : bool, optional (default=False)
-            When set to True, the trustworthiness method will automatically
-            convert the inputs to np.float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         batch_size : int (default=512)
             The number of samples to use for each batch.
@@ -77,43 +80,54 @@ def trustworthiness(
             Trustworthiness of the low-dimensional embedding
     """
 
-    if n_neighbors > X.shape[0]:
-        raise ValueError("n_neighbors must be <= the number of rows.")
-
-    if n_neighbors > X.shape[0]:
-        raise ValueError("n_neighbors must be <= the number of rows.")
-
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
-    X_m, n_samples, n_features, _ = \
-        input_to_cuml_array(X, order='C', check_dtype=np.float32,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None))
-    d_X_ptr = X_m.ptr
+    if metric != 'euclidean':
+        raise ValueError(
+            "Unsupported metric {!r}. Supported metrics are: "
+            "'euclidean'.".format(metric)
+        )
 
-    X_m2, _, n_components, _ = \
-        input_to_cuml_array(X_embedded, order='C',
-                            check_dtype=np.float32,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None))
-    d_X_embedded_ptr = X_m2.ptr
+    X_m = check_array(
+        X,
+        order='C',
+        dtype=np.float32,
+        convert_dtype=convert_dtype,
+        input_name='X',
+    )
+    cdef int n_samples = X_m.shape[0]
+    cdef int n_features = X_m.shape[1]
+    d_X_ptr = X_m.data.ptr
+
+    X_m2 = check_array(
+        X_embedded,
+        order='C',
+        dtype=np.float32,
+        convert_dtype=convert_dtype,
+        input_name='X_embedded',
+    )
+    check_consistent_length(X_m, X_m2)
+    cdef int n_components = X_m2.shape[1]
+    d_X_embedded_ptr = X_m2.data.ptr
+
+    if n_neighbors < 1 or 2 * n_neighbors >= n_samples:
+        raise ValueError(
+            "n_neighbors ({}) must be >= 1 and < n_samples / 2; "
+            "n_samples is {}.".format(n_neighbors, n_samples)
+        )
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    if metric == 'euclidean':
-        ret = trustworthiness_score[float, euclidean](handle_[0],
-                                                      <float*>d_X_ptr,
-                                                      <float*>d_X_embedded_ptr,
-                                                      n_samples,
-                                                      n_features,
-                                                      n_components,
-                                                      n_neighbors,
-                                                      batch_size)
-        handle.sync()
-
-    else:
-        raise Exception("Unknown metric")
+    ret = trustworthiness_score[float, euclidean](handle_[0],
+                                                  <float*>d_X_ptr,
+                                                  <float*>d_X_embedded_ptr,
+                                                  n_samples,
+                                                  n_features,
+                                                  n_components,
+                                                  n_neighbors,
+                                                  batch_size)
+    handle.sync()
 
     return ret

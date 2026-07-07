@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "decisiontree.cuh"
 
+#include <cuml/common/export.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <cuml/tree/flatnode.h>
 
@@ -96,20 +97,20 @@ std::string get_tree_json(const TreeMetaDataNode<T, L>* tree)
 }
 
 // Functions' specializations
-template std::string get_tree_summary_text<float, int>(const TreeClassifierF* tree);
-template std::string get_tree_summary_text<double, int>(const TreeClassifierD* tree);
-template std::string get_tree_summary_text<float, float>(const TreeRegressorF* tree);
-template std::string get_tree_summary_text<double, double>(const TreeRegressorD* tree);
+template CUML_EXPORT std::string get_tree_summary_text<float, int>(const TreeClassifierF* tree);
+template CUML_EXPORT std::string get_tree_summary_text<double, int>(const TreeClassifierD* tree);
+template CUML_EXPORT std::string get_tree_summary_text<float, float>(const TreeRegressorF* tree);
+template CUML_EXPORT std::string get_tree_summary_text<double, double>(const TreeRegressorD* tree);
 
-template std::string get_tree_text<float, int>(const TreeClassifierF* tree);
-template std::string get_tree_text<double, int>(const TreeClassifierD* tree);
-template std::string get_tree_text<float, float>(const TreeRegressorF* tree);
-template std::string get_tree_text<double, double>(const TreeRegressorD* tree);
+template CUML_EXPORT std::string get_tree_text<float, int>(const TreeClassifierF* tree);
+template CUML_EXPORT std::string get_tree_text<double, int>(const TreeClassifierD* tree);
+template CUML_EXPORT std::string get_tree_text<float, float>(const TreeRegressorF* tree);
+template CUML_EXPORT std::string get_tree_text<double, double>(const TreeRegressorD* tree);
 
-template std::string get_tree_json<float, int>(const TreeClassifierF* tree);
-template std::string get_tree_json<double, int>(const TreeClassifierD* tree);
-template std::string get_tree_json<float, float>(const TreeRegressorF* tree);
-template std::string get_tree_json<double, double>(const TreeRegressorD* tree);
+template CUML_EXPORT std::string get_tree_json<float, int>(const TreeClassifierF* tree);
+template CUML_EXPORT std::string get_tree_json<double, int>(const TreeClassifierD* tree);
+template CUML_EXPORT std::string get_tree_json<float, float>(const TreeRegressorF* tree);
+template CUML_EXPORT std::string get_tree_json<double, double>(const TreeRegressorD* tree);
 
 }  // End namespace DT
 }  // End namespace ML

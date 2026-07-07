@@ -2,10 +2,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cupy as cp
+import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.internals import get_handle
+from cuml.internals.validation import check_array, check_consistent_length
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -19,7 +19,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
+def adjusted_rand_score(labels_true, labels_pred, convert_dtype="deprecated") -> float:
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.
@@ -38,19 +38,35 @@ def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    labels_true, n_rows, _, _ = \
-        input_to_cuml_array(labels_true, order='C', check_dtype=cp.int32,
-                            convert_to_dtype=(cp.int32 if convert_dtype
-                                              else None))
-
-    labels_pred, _, _, _ = \
-        input_to_cuml_array(labels_pred, order='C', check_dtype=cp.int32,
-                            convert_to_dtype=(cp.int32 if convert_dtype
-                                              else None))
+    labels_true = check_array(
+        labels_true,
+        ensure_2d=False,
+        ensure_min_samples=0,
+        order='C',
+        dtype=np.int32,
+        convert_dtype=convert_dtype,
+        input_name='labels_true',
+    )
+    labels_pred = check_array(
+        labels_pred,
+        ensure_2d=False,
+        ensure_min_samples=0,
+        order='C',
+        dtype=np.int32,
+        convert_dtype=convert_dtype,
+        input_name='labels_pred',
+    )
+    if labels_true.ndim != 1 or labels_pred.ndim != 1:
+        raise ValueError(
+            "labels_true and labels_pred must be 1D arrays, got shapes "
+            f"{labels_true.shape} and {labels_pred.shape}"
+        )
+    check_consistent_length(labels_true, labels_pred)
+    cdef int n_rows = labels_true.shape[0]
 
     rand_score = adjusted_rand_index(handle_[0],
-                                     <int*><uintptr_t> labels_true.ptr,
-                                     <int*><uintptr_t> labels_pred.ptr,
-                                     <int> n_rows)
+                                     <int*><uintptr_t> labels_true.data.ptr,
+                                     <int*><uintptr_t> labels_pred.data.ptr,
+                                     n_rows)
 
     return rand_score

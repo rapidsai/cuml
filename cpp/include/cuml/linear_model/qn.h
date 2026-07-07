@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -7,7 +7,9 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
-namespace ML::GLM {
+#include <cuml/common/export.hpp>
+namespace CUML_EXPORT ML {
+namespace GLM {
 
 extern "C" {
 #endif
@@ -108,5 +110,6 @@ typedef struct qn_params qn_params;
 
 #ifdef __cplusplus
 }
-}
+}  // end namespace GLM
+}  // end namespace CUML_EXPORT ML
 #endif

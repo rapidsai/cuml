@@ -2,14 +2,15 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 
-from cuml.common import input_to_cuml_array
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import get_handle, reflect
 from cuml.internals.array import CumlArray
-from cuml.internals.interop import UnsupportedOnGPU, to_cpu, to_gpu
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
+from cuml.internals.validation import check_consistent_length, check_y
 from cuml.neighbors.nearest_neighbors import NeighborsBase
 from cuml.neighbors.weights import compute_weights
 
@@ -75,6 +76,36 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         - [callable] : a user-defined function which accepts an
           array of distances, and returns an array of the same shape
           containing the weights.
+    p : float (default=2)
+        Parameter for the Minkowski metric. When p = 1, this is equivalent to
+        manhattan distance (l1), and euclidean distance (l2) for p = 2. For
+        arbitrary p, minkowski distance (lp) is used.
+    algo_params : dict, optional (default=None)
+        Used to configure the nearest neighbor algorithm to be used.
+        If set to None, parameters will be generated automatically.
+        Parameters for algorithm ``'brute'`` when inputs are sparse:
+
+            - batch_size_index : (int) number of rows in each batch of \
+                                 index array
+            - batch_size_query : (int) number of rows in each batch of \
+                                 query array
+
+        Parameters for algorithm ``'ivfflat'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+
+        Parameters for algorithm ``'ivfpq'``:
+
+            - nlist: (int) number of cells to partition dataset into
+            - nprobe: (int) at query time, number of cells used for search
+            - M: (int) number of subquantizers
+            - n_bits: (int) bits allocated per subquantizer
+            - usePrecomputedTables : (bool) whether to use precomputed tables
+    metric_params : dict, optional (default = None)
+        Additional keyword arguments for the metric function.
+    n_jobs : int (default = None)
+        Ignored, here for scikit-learn API compatibility.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -101,7 +132,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         >>> knn = KNeighborsRegressor(n_neighbors=10)
         >>> knn.fit(X_train, y_train)
-        KNeighborsRegressor()
+        KNeighborsRegressor(n_neighbors=10)
         >>> knn.predict(X_test) # doctest: +SKIP
         array([ 14.770798  ,  51.8834    ,  66.15657   ,  46.978275  ,
             21.589611  , -14.519918  , -60.25534   , -20.856869  ,
@@ -142,30 +173,46 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
     def _attrs_from_cpu(self, model):
         return {
-            "_y": to_gpu(model._y, order="F", dtype=np.float32),
+            "_y": cp.asarray(model._y, dtype=np.float32, order="F"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "_y": to_cpu(self._y),
+            "_y": cp.asnumpy(self._y),
             **super()._attrs_to_cpu(model),
         }
 
     def __init__(
         self,
         *,
+        n_neighbors=5,
+        algorithm="auto",
+        metric="euclidean",
         weights="uniform",
+        p=2,
+        algo_params=None,
+        metric_params=None,
+        n_jobs=None,  # Ignored, here for sklearn API compatibility
         verbose=False,
         output_type=None,
-        **kwargs,
     ):
-        super().__init__(verbose=verbose, output_type=output_type, **kwargs)
+        super().__init__(
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            metric=metric,
+            p=p,
+            algo_params=algo_params,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            verbose=verbose,
+            output_type=output_type,
+        )
         self.weights = weights
 
-    @generate_docstring(convert_dtype_cast='np.float32')
+    @generate_docstring()
     @reflect(reset=True)
-    def fit(self, X, y, *, convert_dtype=True) -> "KNeighborsRegressor":
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
@@ -176,23 +223,24 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             )
         super().fit(X, convert_dtype=convert_dtype)
 
-        self._y = input_to_cuml_array(
+        y = check_y(
             y,
-            order='F',
-            check_rows=self.n_samples_fit_,
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
+            dtype="float32",
+            convert_dtype=convert_dtype,
+            order="F",
+            accept_multi_output=True,
+        )
+        check_consistent_length(self._fit_X, y)
+        self._y = y
 
         return self
 
-    @generate_docstring(convert_dtype_cast='np.float32',
-                        return_values={'name': 'X_new',
+    @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
     @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
@@ -203,44 +251,32 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             X, return_distance=True, convert_dtype=convert_dtype
         )
 
-        cdef size_t n_rows
-        inds, n_rows, _, _ = input_to_cuml_array(
-            knn_indices,
-            order='C',
-            check_dtype=np.int64,
-            convert_to_dtype=(np.int64 if convert_dtype else None),
+        inds_cp = cp.ascontiguousarray(
+            knn_indices.to_output("cupy"), dtype=np.int64
         )
-
-        dists = input_to_cuml_array(
-            knn_distances,
-            order='C',
-            check_dtype=np.float32,
-            convert_to_dtype=(np.float32 if convert_dtype else None),
-        ).array
-
-        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds.ptr
+        dists_cp = knn_distances.to_output("cupy")
+        cdef size_t n_rows = inds_cp.shape[0]
+        cdef int64_t* inds_ctype = <int64_t*><uintptr_t>inds_cp.data.ptr
 
         res_cols = 1 if self._y.ndim == 1 else self._y.shape[1]
         res_shape = n_rows if res_cols == 1 else (n_rows, res_cols)
 
-        out = CumlArray.zeros(
-            res_shape, dtype=np.float32, order="C", index=inds.index
-        )
+        out = cp.zeros(res_shape, dtype=np.float32, order="C")
 
-        cdef float* out_ptr = <float*><uintptr_t>out.ptr
+        cdef float* out_ptr = <float*><uintptr_t>out.data.ptr
 
         cdef vector[float*] y_vec
         cdef float* y_ptr
         for col_num in range(res_cols):
             col = self._y if res_cols == 1 else self._y[:, col_num]
-            y_ptr = <float*><uintptr_t>col.ptr
+            y_ptr = <float*><uintptr_t>col.data.ptr
             y_vec.push_back(y_ptr)
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
         # Compute weights (returns None for uniform weights)
-        weights_cp = compute_weights(dists.to_output('cupy'), self.weights)
+        weights_cp = compute_weights(dists_cp, self.weights)
         cdef float* weights_ctype = <float*><uintptr_t>(
             0 if weights_cp is None else weights_cp.data.ptr
         )
@@ -261,4 +297,4 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
         handle.sync()
 
-        return out
+        return CumlArray(data=out, index=knn_indices.index)

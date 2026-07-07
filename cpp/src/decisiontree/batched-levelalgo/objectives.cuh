@@ -1,64 +1,67 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include "bins.cuh"
 #include "dataset.h"
 #include "split.cuh"
 
-#include <cub/cub.cuh>
+#include <cuml/tree/algo_helper.h>
 
 #include <limits>
+#include <type_traits>
 
 namespace ML {
 namespace DT {
-
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class GiniObjectiveFunction {
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
+class ClassificationObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+  using BinT   = std::conditional_t<weighted_, WeightedClassificationBin, ClassificationBin>;
+  static constexpr bool weighted = weighted_;
 
  private:
   IdxT nclasses;
   IdxT min_samples_leaf;
+  CRITERION criterion;
 
- public:
-  using BinT = CountBin;
-  GiniObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : nclasses(nclasses), min_samples_leaf(min_samples_leaf)
+  HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
+    double weight = 0.0;
+    for (IdxT j = 0; j < nclasses; ++j) {
+      weight += hist[n_bins * j + i].Weight();
+    }
+    return weight;
   }
 
-  DI IdxT NumClasses() const { return nclasses; }
-
-  /**
-   * @brief compute the gini impurity reduction for each split
-   */
-  HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
+  HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
-    IdxT nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
-    auto invLen         = One / len;
-    auto invLeft        = One / nLeft;
-    auto invRight       = One / nRight;
-    auto gain           = DataT(0.0);
+    auto total_weight   = WeightAt(hist, n_bins - 1, n_bins);
+    auto left_weight    = WeightAt(hist, i, n_bins);
+    auto right_weight   = total_weight - left_weight;
 
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (total_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
       return -std::numeric_limits<DataT>::max();
 
+    auto invLen   = One / DataT(total_weight);
+    auto invLeft  = One / DataT(left_weight);
+    auto invRight = One / DataT(right_weight);
+    auto gain     = DataT(0.0);
+
     for (IdxT j = 0; j < nclasses; ++j) {
-      int val_i   = 0;
-      auto lval_i = hist[n_bins * j + i].x;
-      auto lval   = DataT(lval_i);
+      double val_i = 0.0;
+      auto lval_i  = hist[n_bins * j + i].Weight();
+      auto lval    = DataT(lval_i);
       gain += lval * invLeft * lval * invLen;
 
       val_i += lval_i;
-      auto total_sum = hist[n_bins * j + n_bins - 1].x;
+      auto total_sum = hist[n_bins * j + n_bins - 1].Weight();
       auto rval_i    = total_sum - lval_i;
       auto rval      = DataT(rval_i);
       gain += rval * invRight * rval * invLen;
@@ -71,421 +74,284 @@ class GiniObjectiveFunction {
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
+  HDI DataT EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      IdxT nLeft = 0;
-      for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += shist[n_bins * j + i].x;
+    auto total_weight = WeightAt(hist, n_bins - 1, n_bins);
+    auto left_weight  = WeightAt(hist, i, n_bins);
+    auto right_weight = total_weight - left_weight;
+
+    if (total_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
+    auto gain{DataT(0.0)};
+    auto invLeft{DataT(1.0) / DataT(left_weight)};
+    auto invRight{DataT(1.0) / DataT(right_weight)};
+    auto invLen{DataT(1.0) / DataT(total_weight)};
+    for (IdxT c = 0; c < nclasses; ++c) {
+      double val_i = 0.0;
+      auto lval_i  = hist[n_bins * c + i].Weight();
+      if (lval_i != 0) {
+        auto lval = DataT(lval_i);
+        gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
       }
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    // Output probability
-    int total = 0;
-    for (int i = 0; i < nclasses; i++) {
-      total += shist[i].x;
-    }
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = DataT(shist[i].x) / total;
-    }
-  }
-};
 
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class EntropyObjectiveFunction {
- public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
+      val_i += lval_i;
+      auto total_sum = hist[n_bins * c + n_bins - 1].Weight();
+      auto rval_i    = total_sum - lval_i;
+      if (rval_i != 0) {
+        auto rval = DataT(rval_i);
+        gain += raft::log(rval * invRight) / raft::log(DataT(2)) * rval * invLen;
+      }
 
- private:
-  IdxT nclasses;
-  IdxT min_samples_leaf;
+      val_i += rval_i;
+      if (val_i != 0) {
+        auto val = DataT(val_i) * invLen;
+        gain -= val * raft::log(val) / raft::log(DataT(2));
+      }
+    }
+
+    return gain;
+  }
 
  public:
-  using BinT = CountBin;
-  EntropyObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : nclasses(nclasses), min_samples_leaf(min_samples_leaf)
+  HDI DataT
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  {
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
+    switch (criterion) {
+      case CRITERION::GINI: return GiniGain(hist, i, n_bins, len, nLeft, nRight);
+      case CRITERION::ENTROPY: return EntropyGain(hist, i, n_bins, len, nLeft, nRight);
+      default: return -std::numeric_limits<DataT>::max();
+    }
+  }
+
+  HDI ClassificationObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf, CRITERION criterion)
+    : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
   {
   }
+
   DI IdxT NumClasses() const { return nclasses; }
 
-  /**
-   * @brief compute the Entropy (or information gain) for each split
-   */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft)
+  template <typename DatasetT>
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
   {
-    IdxT nRight{len - nLeft};
-    auto gain{DataT(0.0)};
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-      return -std::numeric_limits<DataT>::max();
-    } else {
-      auto invLeft{DataT(1.0) / nLeft};
-      auto invRight{DataT(1.0) / nRight};
-      auto invLen{DataT(1.0) / len};
-      for (IdxT c = 0; c < nclasses; ++c) {
-        int val_i   = 0;
-        auto lval_i = hist[n_bins * c + i].x;
-        if (lval_i != 0) {
-          auto lval = DataT(lval_i);
-          gain += raft::log(lval * invLeft) / raft::log(DataT(2)) * lval * invLen;
-        }
-
-        val_i += lval_i;
-        auto total_sum = hist[n_bins * c + n_bins - 1].x;
-        auto rval_i    = total_sum - lval_i;
-        if (rval_i != 0) {
-          auto rval = DataT(rval_i);
-          gain += raft::log(rval * invRight) / raft::log(DataT(2)) * rval * invLen;
-        }
-
-        val_i += rval_i;
-        if (val_i != 0) {
-          auto val = DataT(val_i) * invLen;
-          gain -= val * raft::log(val) / raft::log(DataT(2));
-        }
-      }
-
-      return gain;
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
     }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* squantiles, IdxT col, IdxT len, IdxT n_bins)
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      IdxT nLeft = 0;
-      for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += scdf_labels[n_bins * j + i].x;
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
+      auto nRight = len - nLeft;
+      auto gain   = -std::numeric_limits<DataT>::max();
+      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, GainPerSplit(scdf_labels, i, n_bins, len, nLeft), nLeft});
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     // Output probability
-    int total = 0;
+    double total = 0.0;
     for (int i = 0; i < nclasses; i++) {
-      total += shist[i].x;
+      total += shist[i].Weight();
+    }
+    if (total <= 0.0) {
+      for (int i = 0; i < nclasses; i++) {
+        out[i] = DataT(0);
+      }
+      return;
     }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = DataT(shist[i].x) / total;
+      out[i] = DataT(shist[i].Weight()) / total;
     }
   }
 };
 
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class MSEObjectiveFunction {
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
+class RegressionObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
-  using BinT   = AggregateBin;
+  using BinT   = std::conditional_t<weighted_, WeightedRegressionBin, RegressionBin>;
+  static constexpr bool weighted = weighted_;
 
  private:
   IdxT min_samples_leaf;
-
- public:
-  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
-  {
-  }
-
-  /**
-   * @brief compute the Mean squared error impurity reduction (or purity gain) for each split
-   *
-   * @note This method is used to speed up the search for the best split
-   *       by calculating the gain using a proxy mean squared error reduction.
-   *       It is a proxy quantity such that the split that maximizes this value
-   *       also maximizes the impurity improvement. It neglects all constant terms
-   *       of the impurity decrease for a given split.
-   *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children
-   *       and is mathematically equivalent to the respective differences of
-   *       mean-squared errors.
-   */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
-  {
-    auto gain{DataT(0)};
-    IdxT nRight{len - nLeft};
-    auto invLen = DataT(1.0) / len;
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-      return -std::numeric_limits<DataT>::max();
-    } else {
-      auto label_sum        = hist[n_bins - 1].label_sum;
-      DataT parent_obj      = -label_sum * label_sum * invLen;
-      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
-      DataT right_label_sum = hist[i].label_sum - label_sum;
-      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain                  = parent_obj - (left_obj + right_obj);
-      gain *= DataT(0.5) * invLen;
-
-      return gain;
-    }
-  }
-
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
-  {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
-
-  DI IdxT NumClasses() const { return 1; }
-
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
-    }
-  }
-};
-
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class PoissonObjectiveFunction {
- public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
-  using BinT   = AggregateBin;
-
- private:
-  IdxT min_samples_leaf;
-
- public:
+  CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
+  HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
+    auto parent_weight = hist[n_bins - 1].Weight();
+    auto left_weight   = hist[i].Weight();
+    auto right_weight  = parent_weight - left_weight;
+
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
+      return -std::numeric_limits<DataT>::max();
+
+    auto invLen           = DataT(1.0) / DataT(parent_weight);
+    auto label_sum        = DataT(hist[n_bins - 1].LabelSum());
+    auto left_label_sum   = DataT(hist[i].LabelSum());
+    DataT parent_obj      = -label_sum * label_sum * invLen;
+    DataT left_obj        = -(left_label_sum * left_label_sum) / DataT(left_weight);
+    DataT right_label_sum = label_sum - left_label_sum;
+    DataT right_obj       = -(right_label_sum * right_label_sum) / DataT(right_weight);
+    DataT gain            = parent_obj - (left_obj + right_obj);
+    gain *= DataT(0.5) * invLen;
+
+    return gain;
   }
 
-  /**
-   * @brief compute the poisson impurity reduction (or purity gain) for each split
-   *
-   * @note This method is used to speed up the search for the best split
-   *       by calculating the gain using a proxy poisson half deviance reduction.
-   *       It is a proxy quantity such that the split that maximizes this value
-   *       also maximizes the impurity improvement. It neglects all constant terms
-   *       of the impurity decrease for a given split.
-   *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children
-   *       and is mathematically equivalent to the respective differences of
-   *       poisson half deviances.
-   */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
+  HDI DataT PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
-    // get the lens'
-    IdxT nRight = len - nLeft;
-    auto invLen = DataT(1) / len;
+    auto parent_weight = hist[n_bins - 1].Weight();
+    auto left_weight   = hist[i].Weight();
+    auto right_weight  = parent_weight - left_weight;
 
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
       return -std::numeric_limits<DataT>::max();
 
-    auto label_sum       = hist[n_bins - 1].label_sum;
-    auto left_label_sum  = (hist[i].label_sum);
-    auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
+    auto invLen          = DataT(1) / DataT(parent_weight);
+    auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
+    auto left_label_sum  = DataT(hist[i].LabelSum());
+    auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
     DataT parent_obj = -label_sum * raft::log(label_sum * invLen);
-    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / nRight);
+    DataT left_obj   = -left_label_sum * raft::log(left_label_sum / DataT(left_weight));
+    DataT right_obj  = -right_label_sum * raft::log(right_label_sum / DataT(right_weight));
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  HDI DataT GammaGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
+    auto parent_weight = hist[n_bins - 1].Weight();
+    auto left_weight   = hist[i].Weight();
+    auto right_weight  = parent_weight - left_weight;
 
-  DI IdxT NumClasses() const { return 1; }
-
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
-    }
-  }
-};
-
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class GammaObjectiveFunction {
- public:
-  using DataT                = DataT_;
-  using LabelT               = LabelT_;
-  using IdxT                 = IdxT_;
-  using BinT                 = AggregateBin;
-  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
-
- private:
-  IdxT min_samples_leaf;
-
- public:
-  HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf{min_samples_leaf}
-  {
-  }
-
-  /**
-   * @brief compute the gamma impurity reduction (or purity gain) for each split
-   *
-   * @note This method is used to speed up the search for the best split
-   *       by calculating the gain using a proxy gamma half deviance reduction.
-   *       It is a proxy quantity such that the split that maximizes this value
-   *       also maximizes the impurity improvement. It neglects all constant terms
-   *       of the impurity decrease for a given split.
-   *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children
-   *       and is mathematically equivalent to the respective differences of
-   *       gamma half deviances.
-   */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
-  {
-    IdxT nRight = len - nLeft;
-    auto invLen = DataT(1) / len;
-
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
       return -std::numeric_limits<DataT>::max();
 
-    DataT label_sum       = hist[n_bins - 1].label_sum;
-    DataT left_label_sum  = (hist[i].label_sum);
-    DataT right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
+    auto invLen          = DataT(1) / DataT(parent_weight);
+    auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
+    auto left_label_sum  = DataT(hist[i].LabelSum());
+    auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
-    DataT parent_obj = len * raft::log(label_sum * invLen);
-    DataT left_obj   = nLeft * raft::log(left_label_sum / nLeft);
-    DataT right_obj  = nRight * raft::log(right_label_sum / nRight);
+    DataT parent_obj = DataT(parent_weight) * raft::log(label_sum * invLen);
+    DataT left_obj   = DataT(left_weight) * raft::log(left_label_sum / DataT(left_weight));
+    DataT right_obj  = DataT(right_weight) * raft::log(right_label_sum / DataT(right_weight));
     DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain * invLen;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+  HDI DataT InverseGaussianGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
   {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
-  DI IdxT NumClasses() const { return 1; }
+    auto parent_weight = hist[n_bins - 1].Weight();
+    auto left_weight   = hist[i].Weight();
+    auto right_weight  = parent_weight - left_weight;
 
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
-    }
-  }
-};
-
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class InverseGaussianObjectiveFunction {
- public:
-  using DataT                = DataT_;
-  using LabelT               = LabelT_;
-  using IdxT                 = IdxT_;
-  using BinT                 = AggregateBin;
-  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
-
- private:
-  IdxT min_samples_leaf;
-
- public:
-  HDI InverseGaussianObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf{min_samples_leaf}
-  {
-  }
-
-  /**
-   * @brief compute the inverse gaussian impurity reduction (or purity gain) for each split
-   *
-   * @note This method is used to speed up the search for the best split
-   *       by calculating the gain using a proxy inverse gaussian half deviance reduction.
-   *       It is a proxy quantity such that the split that maximizes this value
-   *       also maximizes the impurity improvement. It neglects all constant terms
-   *       of the impurity decrease for a given split.
-   *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children
-   *       and is mathematically equivalent to the respective differences of
-   *       inverse gaussian deviances.
-   */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft) const
-  {
-    // get the lens'
-    IdxT nRight = len - nLeft;
-
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (parent_weight <= 0.0 || left_weight <= 0.0 || right_weight <= 0.0)
       return -std::numeric_limits<DataT>::max();
 
-    auto label_sum       = hist[n_bins - 1].label_sum;
-    auto left_label_sum  = (hist[i].label_sum);
-    auto right_label_sum = (hist[n_bins - 1].label_sum - hist[i].label_sum);
+    auto label_sum       = DataT(hist[n_bins - 1].LabelSum());
+    auto left_label_sum  = DataT(hist[i].LabelSum());
+    auto right_label_sum = DataT(hist[n_bins - 1].LabelSum() - hist[i].LabelSum());
 
     // label sum cannot be non-positive
-    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+    if (label_sum <= eps_ || left_label_sum <= eps_ || right_label_sum <= eps_)
       return -std::numeric_limits<DataT>::max();
 
-    // compute the gain to be
-    DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
-    DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
-    DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
+    DataT parent_obj = -DataT(parent_weight) * DataT(parent_weight) / label_sum;
+    DataT left_obj   = -DataT(left_weight) * DataT(left_weight) / left_label_sum;
+    DataT right_obj  = -DataT(right_weight) * DataT(right_weight) / right_label_sum;
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain / (2 * len);
+    gain             = gain / (2 * DataT(parent_weight));
 
     return gain;
   }
 
+ public:
+  HDI DataT
+  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  {
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
+    switch (criterion) {
+      case CRITERION::MSE: return MSEGain(hist, i, n_bins, len, nLeft, nRight);
+      case CRITERION::POISSON: return PoissonGain(hist, i, n_bins, len, nLeft, nRight);
+      case CRITERION::GAMMA: return GammaGain(hist, i, n_bins, len, nLeft, nRight);
+      case CRITERION::INVERSE_GAUSSIAN:
+        return InverseGaussianGain(hist, i, n_bins, len, nLeft, nRight);
+      default: return -std::numeric_limits<DataT>::max();
+    }
+  }
+
+  HDI RegressionObjectiveFunction(IdxT, IdxT min_samples_leaf, CRITERION criterion)
+    : min_samples_leaf(min_samples_leaf), criterion(criterion)
+  {
+  }
+
+  DI IdxT NumClasses() const { return 1; }
+
+  template <typename DatasetT>
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
+  {
+    double weight = 1.0;
+    if constexpr (weighted) {
+      weight = dataset.sample_weight == nullptr ? 1.0 : double(dataset.sample_weight[row]);
+    }
+    BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
+  }
+
   DI Split<DataT, IdxT> Gain(
     BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({squantiles[i], col, GainPerSplit(shist, i, n_bins, len, nLeft), nLeft});
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
+      auto nRight = len - nLeft;
+      auto gain   = -std::numeric_limits<DataT>::max();
+      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+      }
+      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }
-  DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
+      auto weight = shist[i].Weight();
+      out[i]      = weight > 0.0 ? shist[i].LabelSum() / weight : DataT(0);
     }
   }
 };

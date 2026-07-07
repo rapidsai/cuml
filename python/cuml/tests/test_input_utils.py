@@ -2,22 +2,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import cudf
 import cupy as cp
+import numba.cuda
 import numpy as np
 import pandas as pd
 import pytest
-from cudf.pandas import LOADED as cudf_pandas_active
-from numba import cuda as nbcuda
-from pandas import Series as pdSeries
 
-from cuml.common import CumlArray, input_to_cuml_array, input_to_host_array
-from cuml.internals.input_utils import (
-    convert_dtype,
-    input_to_cupy_array,
-    is_array_like,
-)
+from cuml.internals.array import CumlArray
 from cuml.manifold import umap
 
 ###############################################################################
@@ -48,6 +40,54 @@ test_num_cols = [1, 100]
 
 
 ###############################################################################
+#                           Utility Functions                                 #
+###############################################################################
+
+
+def get_input(
+    type, nrows, ncols, dtype, order="C", out_dtype=False, index=None
+):
+    rand_mat = cp.random.rand(nrows, ncols) * 10
+    rand_mat = cp.array(rand_mat, dtype=dtype, order=order)
+
+    if type == "numpy":
+        result = np.array(cp.asnumpy(rand_mat), order=order)
+
+    if type == "cupy":
+        result = rand_mat
+
+    if type == "numba":
+        result = numba.cuda.as_cuda_array(rand_mat)
+
+    if type == "cudf":
+        result = cudf.DataFrame(rand_mat, index=index)
+
+    if type == "cudf-series":
+        result = cudf.Series(rand_mat.reshape(nrows), index=index)
+
+    if type == "pandas":
+        result = pd.DataFrame(cp.asnumpy(rand_mat), index=index)
+
+    if type == "pandas-series":
+        result = pd.Series(
+            cp.asnumpy(rand_mat).reshape(
+                nrows,
+            ),
+            index=index,
+        )
+
+    if type == "cuml":
+        result = CumlArray(data=rand_mat)
+
+    if out_dtype:
+        return result, np.array(
+            cp.asnumpy(rand_mat).astype(out_dtype), order=order
+        )
+    else:
+        return result, np.array(cp.asnumpy(rand_mat), order=order)
+
+
+###############################################################################
 #                                    Tests                                    #
 ###############################################################################
 
@@ -62,40 +102,13 @@ def test_input_to_cuml_array(dtype, input_type, num_rows, num_cols, order):
         input_type, num_rows, num_cols, dtype, order=order
     )
 
-    if input_type == "cupy" and input_data is None:
-        pytest.skip("cupy not installed")
-
-    X, n_rows, n_cols, res_dtype = input_to_cuml_array(input_data, order=order)
+    X = CumlArray.from_input(input_data, order=order)
 
     np.testing.assert_equal(X.to_output("numpy"), real_data)
 
-    assert n_rows == num_rows == X.shape[0] == len(X)
-    assert n_cols == num_cols == X.shape[1]
-    assert dtype == res_dtype == X.dtype
-
-    del input_data
-    del real_data
-
-
-@pytest.mark.parametrize("dtype", test_dtypes_acceptable)
-@pytest.mark.parametrize("input_type", ["numba", "cupy"])
-@pytest.mark.parametrize("order", ["C", "F"])
-@pytest.mark.parametrize("order_check", ["C", "F"])
-def test_fail_on_order(dtype, input_type, order, order_check):
-    # this is tested only for non cudf dataframe or numpy arrays
-    # those are converted form order by their respective libraries
-    input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
-
-    if input_type == "cupy" and input_data is None:
-        pytest.skip("cupy not installed")
-
-    if order == order_check:
-        input_to_cuml_array(input_data, fail_on_order=False, order=order)
-    else:
-        with pytest.raises(ValueError):
-            input_to_cuml_array(
-                input_data, fail_on_order=True, order=order_check
-            )
+    assert X.shape[0] == num_rows
+    assert X.shape[1] == num_cols
+    assert X.dtype == dtype
 
 
 @pytest.mark.parametrize("dtype", test_dtypes_acceptable)
@@ -114,9 +127,7 @@ def test_convert_matrix_order_cuml_array(
 
     # conv_data = np.array(real_data, order=to_order, copy=True)
     if from_order == to_order or to_order == "K":
-        conv_data, *_ = input_to_cuml_array(
-            input_data, fail_on_order=False, order=to_order
-        )
+        conv_data = CumlArray.from_input(input_data, order=to_order)
     else:
         # Warning is raised for non cudf dataframe or numpy arrays
         # those are converted form order by their respective libraries
@@ -124,13 +135,9 @@ def test_convert_matrix_order_cuml_array(
             # with pytest.warns(UserWarning):
             # warning disabled due to using cuml logger, need to
             # adapt tests for that.
-            conv_data, *_ = input_to_cuml_array(
-                input_data, fail_on_order=False, order=to_order
-            )
+            conv_data = CumlArray.from_input(input_data, order=to_order)
         else:
-            conv_data, *_ = input_to_cuml_array(
-                input_data, fail_on_order=False, order=to_order
-            )
+            conv_data = CumlArray.from_input(input_data, order=to_order)
 
     if to_order == "K":
         if input_type in ["cudf", "pandas"]:
@@ -155,52 +162,9 @@ def test_convert_vector_order_cuml_array(
     )
 
     # conv_data = np.array(real_data, order=to_order, copy=True)
-    conv_data, *_ = input_to_cuml_array(
-        input_data, fail_on_order=False, order=to_order
-    )
+    conv_data = CumlArray.from_input(input_data, order=to_order)
 
     np.testing.assert_equal(real_data, conv_data.to_output("numpy"))
-
-
-@pytest.mark.parametrize("dtype", test_dtypes_acceptable)
-@pytest.mark.parametrize("input_type", test_input_types)
-@pytest.mark.parametrize("num_rows", test_num_rows)
-@pytest.mark.parametrize("num_cols", test_num_cols)
-@pytest.mark.parametrize("order", ["C", "F"])
-def test_input_to_host_array(dtype, input_type, num_rows, num_cols, order):
-    input_data, real_data = get_input(
-        input_type, num_rows, num_cols, dtype, order=order
-    )
-
-    if input_type == "cupy" and input_data is None:
-        pytest.skip("cupy not installed")
-
-    X, n_rows, n_cols, out_dtype = input_to_host_array(input_data, order=order)
-
-    np.testing.assert_equal(X, real_data)
-
-    assert n_rows == num_rows
-    assert n_cols == num_cols
-    assert out_dtype == dtype
-
-    del input_data
-    del real_data
-
-
-@pytest.mark.parametrize("dtype", test_dtypes_acceptable)
-@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
-@pytest.mark.parametrize("order", ["C", "F", "K"])
-def test_non_contiguous_input_to_host_array(dtype, input_type, order):
-    input_data, real_data = get_input(input_type, 10, 8, dtype)
-    input_data = input_data[:-3]
-    real_data = real_data[:-3]
-
-    res = input_to_host_array(input_data, order=order).array
-    np.testing.assert_equal(real_data, res)
-    if order == "F":
-        assert res.flags.f_contiguous
-    else:
-        assert res.flags.c_contiguous
 
 
 @pytest.mark.parametrize("dtype", test_dtypes_all)
@@ -211,78 +175,24 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
     if (
         dtype == np.float16 or check_dtype == np.float16
     ) and input_type != "numpy":
-        pytest.xfail("float16 not yet supported by numba/cuDF")
+        pytest.skip("float16 not yet supported by numba/cuDF")
 
     if dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
         if input_type in ["cudf", "pandas"]:
-            pytest.xfail("unsigned int types not yet supported")
+            pytest.skip("unsigned int types not yet supported")
 
     input_data, real_data = get_input(input_type, 10, 10, dtype, order=order)
 
-    if input_type == "cupy" and input_data is None:
-        pytest.skip("cupy not installed")
-
     if dtype == check_dtype:
-        _, _, _, got_dtype = input_to_cuml_array(
+        array = CumlArray.from_input(
             input_data, check_dtype=check_dtype, order=order
         )
-        assert got_dtype == check_dtype
+        assert array.dtype == check_dtype
     else:
         with pytest.raises(TypeError):
-            _, _, _, got_dtype = input_to_cuml_array(
+            CumlArray.from_input(
                 input_data, check_dtype=check_dtype, order=order
             )
-
-
-@pytest.mark.parametrize("num_rows", test_num_rows)
-@pytest.mark.parametrize("num_cols", test_num_cols)
-@pytest.mark.parametrize("to_dtype", test_dtypes_acceptable)
-@pytest.mark.parametrize("from_dtype", test_dtypes_all)
-@pytest.mark.parametrize("input_type", test_input_types)
-@pytest.mark.parametrize("order", ["C", "F"])
-def test_convert_input_dtype(
-    from_dtype, to_dtype, input_type, num_rows, num_cols, order
-):
-    if from_dtype == np.float16 and input_type != "numpy":
-        pytest.xfail("float16 not yet supported by numba/cuDF")
-
-    if from_dtype in [np.uint8, np.uint16, np.uint32, np.uint64]:
-        if input_type == "cudf":
-            pytest.xfail(
-                "unsigned int types not yet supported by \
-                         cuDF"
-            )
-
-    input_data, real_data = get_input(
-        input_type,
-        num_rows,
-        num_cols,
-        from_dtype,
-        out_dtype=to_dtype,
-        order=order,
-    )
-
-    if input_type == "cupy" and input_data is None:
-        pytest.skip("cupy not installed")
-
-    converted_data = convert_dtype(input_data, to_dtype=to_dtype)
-
-    if input_type == "numpy":
-        np.testing.assert_equal(converted_data, real_data)
-    elif input_type == "cudf":
-        np.testing.assert_equal(converted_data.to_numpy(), real_data)
-    elif input_type == "pandas":
-        np.testing.assert_equal(converted_data.to_numpy(), real_data)
-    else:
-        np.testing.assert_equal(converted_data.copy_to_host(), real_data)
-
-    # we cannot guarantee that with wrapped dataframes,
-    # such as with cudf.pandas the returned pointer is the same
-    if not hasattr(input_data, "_fsproxy_slow_type") and not hasattr(
-        input_data, "_fsproxy_fast_type"
-    ):
-        if from_dtype == to_dtype:
-            check_ptr(converted_data, input_data, input_type)
 
 
 @pytest.mark.parametrize("dtype", test_dtypes_acceptable)
@@ -306,7 +216,7 @@ def test_non_contiguous_to_contiguous_input(
     else:
         data_view = input_data
 
-    cumlary, *_ = input_to_cuml_array(
+    cumlary = CumlArray.from_input(
         data_view, force_contiguous=force_contiguous
     )
 
@@ -330,7 +240,7 @@ def test_indexed_inputs(input_type, num_rows, num_cols, order):
         input_type, num_rows, num_cols, np.float32, index=index
     )
 
-    X, n_rows, n_cols, res_dtype = input_to_cuml_array(input_data, order=order)
+    X = CumlArray.from_input(input_data, order=order)
 
     # testing the index in the cuml array
     np.testing.assert_equal(X.index.to_numpy(), index)
@@ -341,110 +251,6 @@ def test_indexed_inputs(input_type, num_rows, num_cols, order):
 
     pandas_output = X.to_output("pandas")
     np.testing.assert_equal(pandas_output.index.to_numpy(), index)
-
-
-###############################################################################
-#                           Utility Functions                                 #
-###############################################################################
-
-
-def check_numpy_order(ary, order):
-    if order == "F":
-        return ary.flags.f_contiguous
-    else:
-        return ary.flags.c_contiguous
-
-
-def check_ptr(a, b, input_type):
-    if input_type == "cudf":
-        for col_a, col_b in zip(a._columns, b._columns, strict=True):
-            assert (
-                col_a.to_pylibcudf().data().ptr
-                == col_b.to_pylibcudf().data().ptr
-            )
-    else:
-
-        def get_ptr(x):
-            try:
-                return x.__cuda_array_interface__["data"][0]
-            except AttributeError:
-                return x.__array_interface__["data"][0]
-
-        if input_type == "pandas":
-            a = a.values
-            b = b.values
-
-        assert get_ptr(a) == get_ptr(b)
-
-
-def get_input(
-    type, nrows, ncols, dtype, order="C", out_dtype=False, index=None
-):
-    rand_mat = cp.random.rand(nrows, ncols) * 10
-    rand_mat = cp.array(rand_mat, dtype=dtype, order=order)
-
-    if type == "numpy":
-        result = np.array(cp.asnumpy(rand_mat), order=order)
-
-    if type == "cupy":
-        result = rand_mat
-
-    if type == "numba":
-        result = nbcuda.as_cuda_array(rand_mat)
-
-    if type == "cudf":
-        result = cudf.DataFrame(rand_mat, index=index)
-
-    if type == "cudf-series":
-        result = cudf.Series(rand_mat.reshape(nrows), index=index)
-
-    if type == "pandas":
-        result = pd.DataFrame(cp.asnumpy(rand_mat), index=index)
-
-    if type == "pandas-series":
-        result = pdSeries(
-            cp.asnumpy(rand_mat).reshape(
-                nrows,
-            ),
-            index=index,
-        )
-
-    if type == "cuml":
-        result = CumlArray(data=rand_mat)
-
-    if out_dtype:
-        return result, np.array(
-            cp.asnumpy(rand_mat).astype(out_dtype), order=order
-        )
-    else:
-        return result, np.array(cp.asnumpy(rand_mat), order=order)
-
-
-def test_tocupy_missing_values_handling():
-    df = cudf.DataFrame(data=[[7, 2, 3], [4, 5, 6], [10, 5, 9]])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
-    assert isinstance(array, cp.ndarray)
-    assert str(array.dtype) == "int64"
-
-    df = cudf.DataFrame(data=[[7, 2, 3], [4, None, 6], [10, 5, 9]])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
-    assert isinstance(array, cp.ndarray)
-    assert str(array.dtype) == "float64"
-    assert cp.isnan(array[1, 1])
-
-    df = cudf.Series(data=[7, None, 3])
-    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
-    assert str(array.dtype) == "float64"
-    assert cp.isnan(array[1])
-
-    # cudf.pandas now mimics pandas better for handling None, so we don't
-    # need to fail and raise this error when cudf.pandas is active.
-    if not cudf_pandas_active:
-        with pytest.raises(ValueError):
-            df = cudf.Series(data=[7, None, 3])
-            array, n_rows, n_cols, dtype = input_to_cupy_array(
-                df, fail_on_null=True
-            )
 
 
 @pytest.mark.cudf_pandas
@@ -460,35 +266,3 @@ def test_numpy_output():
     # Check that this is a cudf.pandas wrapped array
     assert hasattr(X, "_fsproxy_fast_type")
     assert isinstance(reducer.fit_transform(X), np.ndarray)
-
-
-def test_is_array_like_with_lists():
-    """Test is_array_like function with list/tuple inputs."""
-    # Test lists and tuples are accepted when accept_lists=True
-    assert is_array_like([1, 2, 3], accept_lists=True)
-    assert is_array_like((1, 2, 3), accept_lists=True)
-
-    # Test lists and tuples are rejected when accept_lists=False
-    assert not is_array_like([1, 2, 3], accept_lists=False)
-    assert not is_array_like((1, 2, 3), accept_lists=False)
-
-    # Test numpy arrays are always accepted
-    assert is_array_like(np.array([1, 2, 3]), accept_lists=True)
-    assert is_array_like(np.array([1, 2, 3]), accept_lists=False)
-
-
-@pytest.mark.parametrize("input_type", ["numpy", "cupy", "cuml"])
-def test_complex_data_rejected_by_input_to_cuml_array(input_type):
-    """Complex dtype inputs should be rejected regardless of input type."""
-    X_np = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
-
-    if input_type == "numpy":
-        X = X_np
-    elif input_type == "cupy":
-        X = cp.asarray(X_np)
-    elif input_type == "cuml":
-        # CumlArray fast-path: ensure complex data is still rejected
-        X = CumlArray(cp.asarray(X_np))
-
-    with pytest.raises(ValueError, match="Complex data not supported"):
-        input_to_cuml_array(X)

@@ -1,17 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 #include <cuml/tsa/arima_common.h>
 
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 /**
  * An ARIMA specialized batched kalman filter to evaluate ARMA parameters and
@@ -78,4 +79,4 @@ void batched_jones_transform(raft::handle_t& handle,
                              bool isInv,
                              const double* h_params,
                              double* h_Tparams);
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

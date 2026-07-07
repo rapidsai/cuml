@@ -1,13 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import time
 
 import cudf
+import cupy as cp
 import numpy as np
 import pandas as pd
 import pytest
-from numba import cuda
 from sklearn import metrics
 
 from cuml.benchmark import algorithms, datagen
@@ -33,7 +33,7 @@ def test_data_generators(dataset):
 
 
 @pytest.mark.parametrize(
-    "input_type", ["numpy", "cudf", "pandas", "gpuarray", "gpuarray-c"]
+    "input_type", ["numpy", "cudf", "pandas", "cupy", "cupy-c"]
 )
 def test_data_generator_types(input_type):
     X, *_ = datagen.gen_data("blobs", input_type, n_samples=100, n_features=10)
@@ -43,10 +43,8 @@ def test_data_generator_types(input_type):
         assert isinstance(X, cudf.DataFrame)
     elif input_type == "pandas":
         assert isinstance(X, pd.DataFrame)
-    elif input_type == "gpuarray":
-        assert cuda.is_cuda_array(X)
-    elif input_type == "gpuarray-c":
-        assert cuda.is_cuda_array(X)
+    elif input_type in ("cupy", "cupy-c"):
+        assert isinstance(X, cp.ndarray)
     else:
         assert False
 
@@ -176,7 +174,6 @@ def test_accuracy_runner():
         "DBSCAN",
         "LogisticRegression",
         "ElasticNet",
-        "FIL",
         "xgboost-classification",
         "xgboost-regression",
     ],
@@ -184,7 +181,7 @@ def test_accuracy_runner():
 def test_real_algos_runner(algo_name):
     pair = algorithms.algorithm_by_name(algo_name)
 
-    if algo_name in ["FIL", "xgboost-classification", "xgboost-regression"]:
+    if algo_name in ["xgboost-classification", "xgboost-regression"]:
         pytest.importorskip("xgboost")
 
     # Use appropriate dataset for regression algorithms
@@ -201,27 +198,9 @@ def test_real_algos_runner(algo_name):
     assert results["cuml_acc"] is not None
 
 
-# Test FIL with several input types
 @pytest.mark.parametrize(
-    "input_type", ["numpy", "cudf", "gpuarray", "gpuarray-c"]
+    "input_type", ["numpy", "cudf", "pandas", "cupy", "cupy-c"]
 )
-def test_fil_input_types(input_type):
-    pair = algorithms.algorithm_by_name("FIL")
-
-    pytest.importorskip("xgboost")
-
-    runner = AccuracyComparisonRunner(
-        [20],
-        [5],
-        dataset_name="classification",
-        test_fraction=0.5,
-        input_type=input_type,
-    )
-    results = runner.run(pair, run_cpu=False)[0]
-    assert results["cuml_acc"] is not None
-
-
-@pytest.mark.parametrize("input_type", ["numpy", "cudf", "pandas", "gpuarray"])
 def test_training_data_to_numpy(input_type):
     X, y, *_ = datagen.gen_data(
         "blobs", input_type, n_samples=100, n_features=10

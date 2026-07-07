@@ -8,10 +8,12 @@
 #include "algo_helper.h"
 #include "flatnode.h"
 
+#include <cuml/common/export.hpp>
+
 #include <string>
 #include <vector>
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace DT {
 
@@ -134,4 +136,4 @@ typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
 }  // End namespace DT
-}  // End namespace ML
+}  // End namespace CUML_EXPORT ML

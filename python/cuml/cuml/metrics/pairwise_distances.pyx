@@ -4,18 +4,13 @@
 #
 import warnings
 
-import cudf
 import cupy as cp
-import numpy as np
-import pandas as pd
-import scipy.sparse
+import cupyx.scipy.sparse as cp_sp
+from sklearn.exceptions import DataConversionWarning
 
-from cuml.common import CumlArray, input_to_cuml_array
-from cuml.common.sparse_utils import is_sparse
 from cuml.internals import get_handle, reflect
-from cuml.internals.array_sparse import SparseCumlArray
-from cuml.internals.input_utils import sparse_scipy_to_cp
-from cuml.thirdparty_adapters import _get_mask
+from cuml.internals.outputs import using_output_type
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -87,42 +82,32 @@ PAIRWISE_DISTANCE_SPARSE_METRICS = {
 }
 
 
-def _determine_metric(metric_str, is_sparse_=False):
-    # Available options in scikit-learn and their pairs. See
-    # sklearn.metrics.pairwise.PAIRWISE_DISTANCE_FUNCTIONS:
-    # 'cityblock': L1
-    # 'cosine': CosineExpanded
-    # 'euclidean': L2SqrtUnexpanded
-    # 'haversine': N/A
-    # 'l2': L2SqrtUnexpanded
-    # 'l1': L1
-    # 'manhattan': L1
-    # 'nan_euclidean': N/A
-    # 'sqeuclidean': L2Unexpanded
-    # Note: many are duplicates following this:
-    # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/metrics/pairwise.py#L1321
-
-    if metric_str == 'haversine':
-        raise ValueError(" The metric: '{}', is not supported at this time."
-                         .format(metric_str))
-
-    if not is_sparse_ and (metric_str not in PAIRWISE_DISTANCE_METRICS):
-        if metric_str in PAIRWISE_DISTANCE_SPARSE_METRICS:
-            raise ValueError(" The metric: '{}', is only available on "
-                             "sparse data.".format(metric_str))
-        else:
-            raise ValueError("Unknown metric: {}".format(metric_str))
-    elif is_sparse_ and (metric_str not in PAIRWISE_DISTANCE_SPARSE_METRICS):
-        raise ValueError("Unknown metric: {}".format(metric_str))
-
-    if is_sparse_:
-        return PAIRWISE_DISTANCE_SPARSE_METRICS[metric_str]
+def _determine_metric(metric, is_sparse=False):
+    if is_sparse:
+        metrics = PAIRWISE_DISTANCE_SPARSE_METRICS
+        other = PAIRWISE_DISTANCE_METRICS
+        kind = "sparse"
     else:
-        return PAIRWISE_DISTANCE_METRICS[metric_str]
+        metrics = PAIRWISE_DISTANCE_METRICS
+        other = PAIRWISE_DISTANCE_SPARSE_METRICS
+        kind = "dense"
+
+    if metric not in metrics:
+        if metric in other:
+            raise ValueError(f"`{metric=!r}` is not supported on {kind} data")
+        raise ValueError(f"`{metric=!r}` is not supported")
+    return metrics[metric]
 
 
+@reflect
 def nan_euclidean_distances(
-    X, Y=None, *, squared=False, missing_values=cp.nan, convert_dtype=True
+    X,
+    Y=None,
+    *,
+    squared=False,
+    missing_values=cp.nan,
+    copy=True,
+    convert_dtype="deprecated",
 ):
     """Calculate the euclidean distances in the presence of missing values.
 
@@ -147,13 +132,15 @@ def nan_euclidean_distances(
 
     Parameters
     ----------
-    X : Dense matrix of shape (n_samples_X, n_features)
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    X : array-like (device or host) of shape (n_samples_X, n_features)
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
-    Y : Dense matrix of shape (n_samples_Y, n_features), default=None
-        Acceptable formats: cuDF DataFrame, Pandas DataFrame, NumPy ndarray,
-        cuda array interface compliant array like CuPy.
+    Y : array-like (device or host) of shape (n_samples_Y, n_features), \
+        default=None
+        A second feature array. If ``None``, ``Y`` is assumed to be ``X``.
+        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+        ndarray, cuda array interface compliant array like CuPy.
 
     squared : bool, default=False
         Return squared Euclidean distances.
@@ -161,83 +148,91 @@ def nan_euclidean_distances(
     missing_values : np.nan or int, default=np.nan
         Representation of missing value.
 
+    copy : bool, default=True,
+        Whether to make a copy of X and Y when necessary. Setting to
+        False can reduce memory usage, but may result in mutation
+        of X and Y.
+
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
     Returns
     -------
-    distances : ndarray of shape (n_samples_X, n_samples_Y)
-        Returns the distances between the row vectors of `X`
-        and the row vectors of `Y`.
+    distances : array of shape (n_samples_X, n_samples_Y)
+        Returns the distances between the row vectors of ``X``
+        and the row vectors of ``Y``.
     """
+    Y_is_X = Y is None or Y is X
 
-    if isinstance(X, cudf.DataFrame) or isinstance(X, pd.DataFrame):
-        if (X.isnull().any()).any():
-            X.fillna(0, inplace=True)
+    X = check_array(
+        X,
+        order="A",
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        ensure_all_finite="allow-nan",
+        input_name="X",
+        copy=copy,
+    )
 
-    if isinstance(Y, cudf.DataFrame) or isinstance(Y, pd.DataFrame):
-        if (Y.isnull().any()).any():
-            Y.fillna(0, inplace=True)
-
-    X_m, _n_samples_x, _n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
-
-    if Y is None:
-        Y = X_m
-
-    Y_m, _n_samples_y, _n_features_y, _dtype_y = \
-        input_to_cuml_array(
-            Y, order=X_m.order, convert_to_dtype=dtype_x,
-            check_dtype=[dtype_x])
-
-    X_m = cp.asarray(X_m)
-    Y_m = cp.asarray(Y_m)
-
-    # Get missing mask for X
-    missing_X = _get_mask(X_m, missing_values)
-
-    # Get missing mask for Y
-    missing_Y = missing_X if Y is X else _get_mask(Y_m, missing_values)
-
-    # set missing values to zero
-    X_m[missing_X] = 0
-    Y_m[missing_Y] = 0
-
-    # Adjust distances for squared
-    if X_m.shape == Y_m.shape:
-        if (X_m == Y_m).all():
-            distances = cp.asarray(pairwise_distances(
-                X_m, metric="sqeuclidean"))
-        else:
-            distances = cp.asarray(pairwise_distances(
-                X_m, Y_m, metric="sqeuclidean"))
+    if Y_is_X:
+        Y = X
     else:
-        distances = cp.asarray(pairwise_distances(
-            X_m, Y_m, metric="sqeuclidean"))
+        Y = check_array(
+            Y,
+            # If X is both C and F contiguous, let Y decide contiguity
+            order=(
+                "C" if not X.flags.f_contiguous else
+                "F" if not X.flags.c_contiguous else
+                "A"
+            ),
+            dtype=X.dtype,
+            convert_dtype=convert_dtype,
+            ensure_all_finite="allow-nan",
+            input_name="Y",
+            copy=copy,
+        )
+
+    # Set missing values to zero
+    missing_X = cp.isnan(X) if cp.isnan(missing_values) else (X == missing_values)
+    X[missing_X] = 0
+    if not Y_is_X:
+        missing_Y = cp.isnan(Y) if cp.isnan(missing_values) else (Y == missing_values)
+        Y[missing_Y] = 0
+
+    with using_output_type("cupy"):
+        distances = pairwise_distances(X, Y, metric="sqeuclidean")
 
     # Adjust distances for missing values
-    XX = X_m * X_m
-    YY = Y_m * Y_m
-    distances -= cp.dot(XX, missing_Y.T)
-    distances -= cp.dot(missing_X, YY.T)
+    if Y_is_X:
+        XX = X * X
+        distances -= cp.dot(XX, missing_X.T)
+        distances -= cp.dot(missing_X, XX.T)
+    else:
+        XX = X * X
+        YY = Y * Y
+        distances -= cp.dot(XX, missing_Y.T)
+        distances -= cp.dot(missing_X, YY.T)
 
     cp.clip(distances, 0, None, out=distances)
 
-    if X_m is Y_m:
+    if Y_is_X:
         # Ensure that distances between vectors and themselves are set to 0.0.
         # This may not be the case due to floating point rounding errors.
         cp.fill_diagonal(distances, 0.0)
 
     present_X = 1 - missing_X
-    present_Y = present_X if Y_m is X_m else ~missing_Y
+    present_Y = present_X if Y_is_X else ~missing_Y
     present_count = cp.dot(present_X, present_Y.T)
     distances[present_count == 0] = cp.nan
 
     # avoid divide by zero
     cp.maximum(1, present_count, out=present_count)
     distances /= present_count
-    distances *= X_m.shape[1]
+    distances *= X.shape[1]
 
     if not squared:
         cp.sqrt(distances, out=distances)
@@ -245,210 +240,279 @@ def nan_euclidean_distances(
     return distances
 
 
+_all_boolean = cp.ReductionKernel(
+    "T x",
+    "uint8 out",
+    "x == 0 || x == 1",
+    "a && b",
+    "out = a",
+    "1",
+    "_all_boolean",
+)
+
+
+def _ensure_boolean(X, metric):
+    """Ensure X is bool-like (all 0 or 1), warning if conversion performed."""
+    if not _all_boolean(X):
+        warnings.warn(
+            f"Data was converted to boolean for metric {metric}",
+            DataConversionWarning,
+            stacklevel=2,
+        )
+        out = cp.zeros_like(X)
+        out[X != 0] = 1
+        return out
+    return X
+
+
 @reflect
 def pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+    X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
 ):
-    """
-    Compute the distance matrix from a vector array `X` and optional `Y`.
+    """Compute the distance matrix from a feature array X and optional Y.
 
-    This method takes either one or two vector arrays, and returns a distance
-    matrix.
-
-    If `Y` is given (default is `None`), then the returned matrix is the
-    pairwise distance between the arrays from both `X` and `Y`.
-
-    Valid values for metric are:
-
-    - From scikit-learn: ['cityblock', 'cosine', 'euclidean', 'l1', 'l2', \
-        'manhattan'].
-        Sparse matrices are supported, see 'sparse_pairwise_distances'.
-    - From scipy.spatial.distance: ['sqeuclidean']
-        See the documentation for scipy.spatial.distance for details on this
-        metric. Sparse matrices are supported.
+    This function takes either one or two feature arrays, and returns
+    a distance matrix.
 
     Parameters
     ----------
-    X : Dense or sparse matrix (device or host) of shape
-        (n_samples_x, n_features)
-        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy, or
-        cupyx.scipy.sparse for sparse input
+    X : {array-like, sparse matrix}, shape=(n_samples_X, n_features)
+        A feature array.
 
-    Y : array-like (device or host) of shape (n_samples_y, n_features),\
-        optional
-        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-        ndarray, cuda array interface compliant array like CuPy
+    Y : {array-like, sparse matrix}, shape=(n_samples_y, n_features), default=None
+        A second feature array. If None, Y=X will be used.
 
-    metric : {"cityblock", "cosine", "euclidean", "l1", "l2", "manhattan", \
-        "sqeuclidean"}
+    metric : str, default="euclidean"
         The metric to use when calculating distance between instances in a
-        feature array.
+        feature array. Valid options are:
 
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, when necessary, convert
-        Y to be the same data type as X if they differ. This
-        will increase memory used for the method.
+        - Supports both dense and sparse data: ['canberra', 'chebyshev',
+          'cityblock', 'cosine', 'euclidean', 'hellinger', 'l1', 'l2',
+          'manhattan', 'minkowski', 'sqeuclidean'].
+
+        - Supports dense only: ['correlation', 'hamming', 'jensenshannon',
+          'kldivergence', 'nan_euclidean', 'russellrao'].
+
+        - Supports sparse only: ['dice', 'inner_product', 'jaccard'].
+
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
+    **kwds : optional keyword parameters
+        Any additional metric-specific parameters. For example, with
+        ``metric="minkowski"``, passing ``p`` sets the norm used.
 
     Returns
     -------
-    D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
-        A distance matrix D such that D_{i, j} is the distance between the
-        ith and jth vectors of the given matrix `X`, if `Y` is None.
-        If `Y` is not `None`, then D_{i, j} is the distance between the ith
-        array from `X` and the jth array from `Y`.
+    D : array, shape=(n_samples_X, n_samples_X) or (n_samples_X, n_samples_Y)
+        A distance matrix D such that D_{i, j} is the distance between the ith
+        and jth vectors of the given matrix X, if Y is None. If Y is not None,
+        then D_{i, j} is the distance between the ith array from X and the jth
+        array from Y.
 
     Examples
     --------
     >>> import cupy as cp
     >>> from cuml.metrics import pairwise_distances
 
-    >>> X = cp.array([[2.0, 3.0], [3.0, 5.0], [5.0, 8.0]])
-    >>> Y = cp.array([[1.0, 0.0], [2.0, 1.0]])
+    >>> X = cp.array([[0., 0., 0.], [1., 1., 1.]])
+    >>> Y = cp.array([[1., 0., 0.], [1., 1., 0.]])
 
-    >>> # Euclidean Pairwise Distance, Single Input:
-    >>> pairwise_distances(X, metric='euclidean')
-    array([[0.        , 2.236..., 5.830...],
-        [2.236..., 0.        , 3.605...],
-        [5.830..., 3.605..., 0.        ]])
+    >>> pairwise_distances(X, metric="sqeuclidean")
+    array([[0., 3.],
+           [3., 0.]])
 
-    >>> # Cosine Pairwise Distance, Multi-Input:
-    >>> pairwise_distances(X, Y, metric='cosine')
-    array([[0.445... , 0.131...],
-        [0.485..., 0.156...],
-        [0.470..., 0.146...]])
-
-    >>> # Manhattan Pairwise Distance, Multi-Input:
-    >>> pairwise_distances(X, Y, metric='manhattan')
-    array([[ 4.,  2.],
-        [ 7.,  5.],
-        [12., 10.]])
+    >>> pairwise_distances(X, Y, metric="sqeuclidean")
+    array([[1., 2.],
+           [2., 1.]])
     """
-
-    if is_sparse(X):
-        return sparse_pairwise_distances(
-            X,
-            Y,
-            metric=metric,
-            convert_dtype=convert_dtype,
-            metric_arg=metric_arg,
-            **kwds
+    cdef double p = 2
+    if "metric_arg" in kwds:
+        warnings.warn(
+            "The `metric_arg` keyword was deprecated in version 26.08 and will "
+            "be removed in version 26.10. Please use `p` instead.",
+            FutureWarning,
         )
+        p = kwds.pop("metric_arg")
+    elif metric == "minkowski":
+        p = kwds.pop("p", 2)
+
+    if metric == "nan_euclidean":
+        return nan_euclidean_distances(X, Y, **kwds)
+
+    if kwds:
+        raise TypeError(f"Unknown parameters {sorted(kwds)}")
+
+    Y_is_X = Y is None or Y is X
+
+    X = check_array(
+        X,
+        order="A",
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        input_name="X",
+        accept_sparse="csr",
+    )
+    cdef bool is_sparse = cp_sp.issparse(X)
+
+    if Y_is_X:
+        Y = X
+    else:
+        Y = check_array(
+            Y,
+            # If X is both C and F contiguous, let Y decide contiguity
+            order=(
+                "A" if is_sparse else
+                "C" if not X.flags.f_contiguous else
+                "F" if not X.flags.c_contiguous else
+                "A"
+            ),
+            dtype=X.dtype,
+            convert_dtype=convert_dtype,
+            input_name="Y",
+            accept_sparse="csr",
+        )
+
+    if is_sparse != cp_sp.issparse(Y):
+        raise NotImplementedError(
+            "Support for a mix of sparse and dense arrays is not implemented"
+        )
+
+    if X.shape[1] != Y.shape[1]:
+        raise ValueError(
+            f"Incompatible dimension for X and Y matrices: "
+            f"X.shape[1] == {X.shape[1]} while Y.shape[1] == {Y.shape[1]}"
+        )
+
+    cdef DistanceType distance_type = _determine_metric(metric, is_sparse=is_sparse)
+
+    # Decompose X and Y into components
+    cdef int X_n_rows = X.shape[0]
+    cdef int Y_n_rows = Y.shape[0]
+    cdef int n_cols = X.shape[1]
+    cdef int X_nnz, Y_nnz
+    cdef uintptr_t X_indptr_ptr, X_indices_ptr, Y_indptr_ptr, Y_indices_ptr
+    if is_sparse:
+        X_data = X.data
+        X_indptr_ptr = X.indptr.data.ptr
+        X_indices_ptr = X.indices.data.ptr
+        X_nnz = X.nnz
+
+        Y_data = Y.data
+        Y_indptr_ptr = Y.indptr.data.ptr
+        Y_indices_ptr = Y.indices.data.ptr
+        Y_nnz = Y.nnz
+    else:
+        X_data = X
+        Y_data = Y
+
+    # Maybe transform original data values before extracting value pointers
+    if metric in ["jaccard", "dice", "russellrao"]:
+        X_data = _ensure_boolean(X_data, metric)
+        Y_data = X_data if Y_is_X else _ensure_boolean(Y_data, metric)
+
+    cdef uintptr_t X_ptr = X_data.data.ptr
+    cdef uintptr_t Y_ptr = Y_data.data.ptr
+    cdef bool is_row_major = False if is_sparse else Y.flags.c_contiguous
+    cdef bool is_float32 = X_data.dtype == "float32"
+
+    # Create the output array
+    out = cp.zeros(
+        (X_n_rows, Y_n_rows),
+        dtype=X.dtype,
+        order="C" if is_row_major else "F"
+    )
+    cdef uintptr_t out_ptr = out.data.ptr
 
     handle = get_handle()
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    if metric in ['nan_euclidean']:
-        return nan_euclidean_distances(X, Y, **kwds)
-
-    if metric in ['russellrao'] and not np.all(X.data == 1.):
-        warnings.warn("X was converted to boolean for metric {}"
-                      .format(metric))
-        X = np.where(X != 0., 1.0, 0.0)
-
-    # Get the input arrays, preserve order and type where possible
-    X_m, n_samples_x, n_features_x, dtype_x = \
-        input_to_cuml_array(X,
-                            order="K",
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
-
-    # Get the order from the CumlArray
-    input_order = X_m.order
-
-    cdef uintptr_t d_X_ptr
-    cdef uintptr_t d_Y_ptr
-    cdef uintptr_t d_dest_ptr
-
-    if (Y is not None):
-
-        # Check for the odd case where one dimension of X is 1. In this case,
-        # CumlArray always returns order=="C" so instead get the order from Y
-        if (n_samples_x == 1 or n_features_x == 1):
-            input_order = "K"
-
-        if metric in ['russellrao'] and not np.all(Y.data == 1.):
-            warnings.warn("Y was converted to boolean for metric {}"
-                          .format(metric))
-            Y = np.where(Y != 0., 1.0, 0.0)
-
-        Y_m, n_samples_y, n_features_y, dtype_y = \
-            input_to_cuml_array(Y, order=input_order,
-                                convert_to_dtype=(dtype_x if convert_dtype
-                                                  else None),
-                                check_dtype=[dtype_x])
-        # Get the order from Y if necessary (It's possible to set order="F" in
-        # input_to_cuml_array and have Y_m.order=="C")
-        if (input_order == "K"):
-            input_order = Y_m.order
-    else:
-        # Shallow copy X variables
-        Y_m = X_m
-        n_samples_y = n_samples_x
-        n_features_y = n_features_x
-        dtype_y = dtype_x
-
-    is_row_major = input_order == "C"
-
-    # Check feature sizes are equal
-    if (n_features_x != n_features_y):
-        raise ValueError("Incompatible dimension for X and Y matrices: \
-                         X.shape[1] == {} while Y.shape[1] == {}"
-                         .format(n_features_x, n_features_y))
-
-    # Get the metric string to int
-    metric_val = _determine_metric(metric)
-
-    # Create the output array
-    dest_m = CumlArray.zeros((n_samples_x, n_samples_y), dtype=dtype_x,
-                             order=input_order)
-
-    d_X_ptr = X_m.ptr
-    d_Y_ptr = Y_m.ptr
-    d_dest_ptr = dest_m.ptr
-
-    # Now execute the functions
-    if (dtype_x == np.float32):
-        pairwise_distance(handle_[0],
-                          <float*> d_X_ptr,
-                          <float*> d_Y_ptr,
-                          <float*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
-                          <DistanceType> metric_val,
-                          <bool> is_row_major,
-                          <float> metric_arg)
-    elif (dtype_x == np.float64):
-        pairwise_distance(handle_[0],
-                          <double*> d_X_ptr,
-                          <double*> d_Y_ptr,
-                          <double*> d_dest_ptr,
-                          <int> n_samples_x,
-                          <int> n_samples_y,
-                          <int> n_features_x,
-                          <DistanceType> metric_val,
-                          <bool> is_row_major,
-                          <double> metric_arg)
-    else:
-        raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
-
-    # Sync on the stream before exiting. pairwise_distance does not sync.
+    with nogil:
+        if is_sparse:
+            if is_float32:
+                pairwiseDistance_sparse(
+                    handle_[0],
+                    <float*>X_ptr,
+                    <float*>Y_ptr,
+                    <float*>out_ptr,
+                    X_n_rows,
+                    Y_n_rows,
+                    n_cols,
+                    X_nnz,
+                    Y_nnz,
+                    <int*>X_indptr_ptr,
+                    <int*>Y_indptr_ptr,
+                    <int*>X_indices_ptr,
+                    <int*>Y_indices_ptr,
+                    distance_type,
+                    p,
+                )
+            else:
+                pairwiseDistance_sparse(
+                    handle_[0],
+                    <double*>X_ptr,
+                    <double*>Y_ptr,
+                    <double*>out_ptr,
+                    X_n_rows,
+                    Y_n_rows,
+                    n_cols,
+                    X_nnz,
+                    Y_nnz,
+                    <int*>X_indptr_ptr,
+                    <int*>Y_indptr_ptr,
+                    <int*>X_indices_ptr,
+                    <int*>Y_indices_ptr,
+                    distance_type,
+                    p,
+                )
+        else:
+            if is_float32:
+                pairwise_distance(
+                    handle_[0],
+                    <float*>X_ptr,
+                    <float*>Y_ptr,
+                    <float*>out_ptr,
+                    X_n_rows,
+                    Y_n_rows,
+                    n_cols,
+                    distance_type,
+                    is_row_major,
+                    p,
+                )
+            else:
+                pairwise_distance(
+                    handle_[0],
+                    <double*>X_ptr,
+                    <double*>Y_ptr,
+                    <double*>out_ptr,
+                    X_n_rows,
+                    Y_n_rows,
+                    n_cols,
+                    distance_type,
+                    is_row_major,
+                    p,
+                )
     handle.sync()
 
-    del X_m
-    del Y_m
-
-    return dest_m
+    return out
 
 
 @reflect
 def sparse_pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype=True, metric_arg=2, **kwds
+    X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
 ):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
+
+    .. deprecated:: 26.08
+
+       The ``sparse_pairwise_distances`` function was deprecated in version
+       26.08 and will be removed in version 26.10. Please use
+       ``pairwise_distances`` instead.
 
     This method takes either one or two sparse vector arrays, and returns a
     dense distance matrix.
@@ -481,14 +545,16 @@ def sparse_pairwise_distances(
         The metric to use when calculating distance between instances in a
         feature array.
 
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, when necessary, convert
-        Y to be the same data type as X if they differ. This
-        will increase memory used for the method.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
-    metric_arg : float, optional (default = 2)
-        Additional metric-specific argument.
-        For Minkowski it's the p-norm to apply.
+    **kwds : optional keyword parameters
+        Any additional metric-specific parameters. For example, with
+        ``metric="minkowski"``, passing ``p`` sets the norm used.
 
     Returns
     -------
@@ -525,103 +591,16 @@ def sparse_pairwise_distances(
         array([[2.   ],
             [2.333...]])
     """
-    handle = get_handle()
-    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-    if (not is_sparse(X)) or (Y is not None and not is_sparse(Y)):
-        raise ValueError("Input matrices are not sparse.")
-
-    dtype_x = X.data.dtype
-    if dtype_x not in [cp.float32, cp.float64]:
-        raise TypeError("Unsupported dtype: {}".format(dtype_x))
-
-    if scipy.sparse.issparse(X):
-        X = sparse_scipy_to_cp(X, dtype=None)
-
-    if metric in ['jaccard', 'dice'] and not cp.all(X.data == 1.):
-        warnings.warn("X was converted to boolean for metric {}"
-                      .format(metric))
-        X.data = (X.data != 0.).astype(dtype_x)
-
-    X_m = SparseCumlArray(X)
-    n_samples_x, n_features_x = X_m.shape
-    if Y is None:
-        Y_m = X_m
-        dtype_y = dtype_x
-    else:
-        if scipy.sparse.issparse(Y):
-            Y = sparse_scipy_to_cp(Y, dtype=dtype_x if convert_dtype else None)
-        if convert_dtype:
-            Y = Y.astype(dtype_x)
-        elif dtype_x != Y.data.dtype:
-            raise TypeError("Different data types unsupported when "
-                            "convert_dtypes=False")
-
-        if metric in ['jaccard', 'dice'] and not cp.all(Y.data == 1.):
-            dtype_y = Y.data.dtype
-            warnings.warn("Y was converted to boolean for metric {}"
-                          .format(metric))
-            Y.data = (Y.data != 0.).astype(dtype_y)
-        Y_m = SparseCumlArray(Y)
-
-    n_samples_y, n_features_y = Y_m.shape
-
-    # Check feature sizes are equal
-    if n_features_x != n_features_y:
-        raise ValueError("Incompatible dimension for X and Y matrices: \
-                         X.shape[1] == {} while Y.shape[1] == {}"
-                         .format(n_features_x, n_features_y))
-
-    # Get the metric string to a distance enum
-    metric_val = _determine_metric(metric, is_sparse_=True)
-
-    x_nrows, y_nrows = X_m.indptr.shape[0] - 1, Y_m.indptr.shape[0] - 1
-    dest_m = CumlArray.zeros((x_nrows, y_nrows), dtype=dtype_x)
-    cdef uintptr_t d_dest_ptr = dest_m.ptr
-
-    cdef uintptr_t d_X_ptr = X_m.data.ptr
-    cdef uintptr_t X_m_indptr = X_m.indptr.ptr
-    cdef uintptr_t X_m_indices = X_m.indices.ptr
-
-    cdef uintptr_t d_Y_ptr = Y_m.data.ptr
-    cdef uintptr_t Y_m_indptr = Y_m.indptr.ptr
-    cdef uintptr_t Y_m_indices = Y_m.indices.ptr
-
-    if (dtype_x == np.float32):
-        pairwiseDistance_sparse(handle_[0],
-                                <float*> d_X_ptr,
-                                <float*> d_Y_ptr,
-                                <float*> d_dest_ptr,
-                                <int> x_nrows,
-                                <int> y_nrows,
-                                <int> n_features_x,
-                                <int> X_m.nnz,
-                                <int> Y_m.nnz,
-                                <int*> X_m_indptr,
-                                <int*> Y_m_indptr,
-                                <int*> X_m_indices,
-                                <int*> Y_m_indices,
-                                <DistanceType> metric_val,
-                                <float> metric_arg)
-    elif (dtype_x == np.float64):
-        pairwiseDistance_sparse(handle_[0],
-                                <double*> d_X_ptr,
-                                <double*> d_Y_ptr,
-                                <double*> d_dest_ptr,
-                                <int> n_samples_x,
-                                <int> n_samples_y,
-                                <int> n_features_x,
-                                <int> X_m.nnz,
-                                <int> Y_m.nnz,
-                                <int*> X_m_indptr,
-                                <int*> Y_m_indptr,
-                                <int*> X_m_indices,
-                                <int*> Y_m_indices,
-                                <DistanceType> metric_val,
-                                <float> metric_arg)
-
-    # Sync on the stream before exiting.
-    handle.sync()
-
-    del X_m
-    del Y_m
-    return dest_m
+    warnings.warn(
+        "The ``sparse_pairwise_distances`` function was deprecated "
+        "in version 26.08 and will be removed in version 26.10. "
+        "Please use ``pairwise_distances`` instead.",
+        FutureWarning,
+    )
+    return pairwise_distances(
+        X,
+        Y,
+        metric=metric,
+        convert_dtype=convert_dtype,
+        **kwds,
+    )

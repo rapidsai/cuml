@@ -25,8 +25,7 @@ VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean              - remove all existing build artifacts and configuration (start over)
-   libcuml            - build the cuml C++ code only. Also builds the C-wrapper library
-                       around the C++ code.
+   libcuml            - build the cuml C++ code only.
    cuml               - build the cuml Python package
    cpp-mgtests        - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
    prims              - build the ml-prims tests
@@ -57,8 +56,7 @@ HELP="$0 [<target> ...] [<flag> ...]
  The following environment variables are also accepted to allow further customization:
    PARALLEL_LEVEL         - Number of parallel threads to use in compilation.
    CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
-                            variable will override existing arguments. Example:
-                            CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
+                            variable will override existing arguments.
    CUML_EXTRA_PYTHON_ARGS - Extra arguments to pass directly to pip install
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
@@ -96,10 +94,8 @@ PYTHON_ARGS_FOR_INSTALL=(
 # Default to Ninja if generator is not specified
 export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 
-# Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
-# values listed here will override existing arguments. For example:
-# CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
-# Will disable building the C library even though it is hard coded to ON
+# Allow setting arbitrary cmake args via CUML_EXTRA_CMAKE_ARGS. Any
+# values listed there will override existing arguments.
 CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
 
 read -ra CUML_EXTRA_CMAKE_ARGS <<< "$CUML_EXTRA_CMAKE_ARGS"
@@ -275,7 +271,6 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     cmake -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
           -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
           -DCUML_ALGORITHMS="ALL" \
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
@@ -332,9 +327,9 @@ if (! hasArg --configure-only) && (completeBuild || hasArg libcuml || hasArg pri
           fi
         fi
         MSG="${MSG}<br/>parallel setting: $PARALLEL_LEVEL"
-        if [[ -f "${LIBCUML_BUILD_DIR}/libcuml++.so" ]]; then
-            LIBCUML_FS=$(find "${LIBCUML_BUILD_DIR}" -name libcuml++.so -printf '%s'| awk '{printf "%.2f MB", $1/1024/1024}')
-            MSG="${MSG}<br/>libcuml++.so size: $LIBCUML_FS"
+        if [[ -f "${LIBCUML_BUILD_DIR}/libcuml.so" ]]; then
+            LIBCUML_FS=$(find "${LIBCUML_BUILD_DIR}" -name libcuml.so -printf '%s'| awk '{printf "%.2f MB", $1/1024/1024}')
+            MSG="${MSG}<br/>libcuml.so size: $LIBCUML_FS"
         fi
         BMR_DIR=${RAPIDS_ARTIFACTS_DIR:-"${LIBCUML_BUILD_DIR}"}
         echo "The HTML report can be found at [${BMR_DIR}/ninja_log.html]. In CI, this report"

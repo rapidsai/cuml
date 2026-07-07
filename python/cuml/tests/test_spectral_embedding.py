@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -194,7 +194,8 @@ def test_spectral_embedding_invalid_affinity():
 def test_spectral_embedding_nonfinite(value, affinity):
     X = np.array([[0, 1], [2, 3], [0, value]], dtype="float32")
 
-    with pytest.raises(ValueError, match="nonfinite"):
+    msg = "contains NaN" if np.isnan(value) else "contains infinity"
+    with pytest.raises(ValueError, match=msg):
         spectral_embedding(X, affinity=affinity)
 
 
@@ -320,3 +321,12 @@ def test_precomputed_no_sparsity():
     )
     out = embedding_precomp.fit_transform(affinity_matrix)
     assert out.shape == (200, 2)
+
+
+def test_precomputed_not_square():
+    model = SpectralEmbedding(affinity="precomputed")
+    X = np.random.default_rng(42).random((20, 25))
+    with pytest.raises(
+        ValueError, match="Expected precomputed `X` to be square"
+    ):
+        model.fit(X)

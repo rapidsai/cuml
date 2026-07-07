@@ -173,7 +173,7 @@ void _get_strengths(const raft::handle_t& handle,
   std::unique_ptr<rmm::device_uvector<value_t>> knn_dists_b     = nullptr;
   knn_graph<value_idx, value_t> knn_graph(inputs.n, n_neighbors);
   /* If not given precomputed knn graph, compute it */
-  if (inputs.alloc_knn_graph()) {
+  if (inputs.needs_device_knn_graph()) {
     /* Allocate workspace for kNN graph */
     knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(n_x_n_neighbors, stream);
     knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(n_x_n_neighbors, stream);
@@ -444,7 +444,7 @@ void _transform(const raft::handle_t& handle,
    * If not given precomputed knn graph, compute it
    */
 
-  if (inputs.alloc_knn_graph()) {
+  if (inputs.needs_device_knn_graph()) {
     /**
      * Allocate workspace for kNN graph
      */

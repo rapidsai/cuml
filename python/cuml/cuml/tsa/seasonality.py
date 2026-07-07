@@ -1,32 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 import numpy as np
 
 from cuml.internals import reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array, input_to_host_array
-
-
-def python_seas_test(y, batch_size, n_obs, s, threshold=0.64):
-    """Python prototype to be ported later in CUDA"""
-    # TODO: our own implementation of STL
-    from statsmodels.tsa.seasonal import STL
-
-    results = []
-    for i in range(batch_size):
-        stlfit = STL(y[:, i], s).fit()
-        seasonal = stlfit.seasonal
-        residual = stlfit.resid
-        heuristics = max(
-            0, min(1, 1 - np.var(residual) / np.var(residual + seasonal))
-        )
-        results.append(heuristics > threshold)
-
-    return results
+from cuml.internals.validation import check_array
 
 
 @reflect
-def seas_test(y, s, convert_dtype=True) -> CumlArray:
+def seas_test(y, s, convert_dtype="deprecated"):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
@@ -45,6 +27,9 @@ def seas_test(y, s, convert_dtype=True) -> CumlArray:
     stationarity : List[bool]
         For each series in the batch, whether it needs seasonal differencing
     """
+    # TODO: our own implementation of STL
+    from statsmodels.tsa.seasonal import STL
+
     if s <= 1:
         raise ValueError(
             "ERROR: Invalid period for the seasonal differencing test: {}".format(
@@ -52,17 +37,25 @@ def seas_test(y, s, convert_dtype=True) -> CumlArray:
             )
         )
 
-    # At the moment we use a host array
-    h_y, n_obs, batch_size, _ = input_to_host_array(
+    y = check_array(
         y,
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        check_dtype=[np.float32, np.float64],
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        mem_type="host",
+        ensure_all_finite=False,
+        input_name="y",
     )
+    n_obs, batch_size = y.shape
 
-    python_res = python_seas_test(h_y, batch_size, n_obs, s)
-    d_res, *_ = input_to_cuml_array(
-        np.array(python_res),
-        convert_to_dtype=(bool if convert_dtype else None),
-        check_dtype=bool,
-    )
-    return d_res
+    threshold = 0.64
+    results = []
+    for i in range(batch_size):
+        stlfit = STL(y[:, i], s).fit()
+        seasonal = stlfit.seasonal
+        residual = stlfit.resid
+        heuristics = max(
+            0, min(1, 1 - np.var(residual) / np.var(residual + seasonal))
+        )
+        results.append(heuristics > threshold)
+
+    return cp.asarray(results)

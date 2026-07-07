@@ -2,9 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
 import copy
-import operator
 from functools import cached_property
 from typing import Tuple
 
@@ -438,59 +436,15 @@ class CumlArray:
             )
         return self._array_interface
 
-    def __getitem__(self, slice):
-        return CumlArray(
-            data=self._mem_type.xpy.asarray(self).__getitem__(slice)
-        )
-
     def __iter__(self):
         arr = self._mem_type.xpy.asarray(self)
         yield from arr
-
-    def __setitem__(self, slice, value):
-        self._mem_type.xpy.asarray(self).__setitem__(slice, value)
 
     def __len__(self):
         try:
             return self.shape[0]
         except IndexError:
             return 0
-
-    def _operator_overload(self, other, fn):
-        return CumlArray(fn(self.to_output("array"), other))
-
-    def __add__(self, other):
-        return self._operator_overload(other, operator.add)
-
-    def __sub__(self, other):
-        return self._operator_overload(other, operator.sub)
-
-    def __lt__(self, other):
-        return self._operator_overload(other, operator.lt)
-
-    def __le__(self, other):
-        return self._operator_overload(other, operator.le)
-
-    def __gt__(self, other):
-        return self._operator_overload(other, operator.gt)
-
-    def __ge__(self, other):
-        return self._operator_overload(other, operator.ge)
-
-    def __eq__(self, other):
-        try:
-            return self._operator_overload(other, operator.eq)
-        except TypeError:
-            return False
-
-    def __or__(self, other):
-        return self._operator_overload(other, operator.or_)
-
-    def any(self):
-        return self.to_output("array").any()
-
-    def all(self):
-        return self.to_output("array").all()
 
     def item(self):
         return self._mem_type.xpy.asarray(self).item()
@@ -730,27 +684,15 @@ class CumlArray:
         assert header["frame_count"] == 1, (
             "Only expecting to deserialize CumlArray with a single frame."
         )
-        ary = cls(data=frames[0], **header["constructor-kwargs"])
+        self = cls(data=frames[0], **header["constructor-kwargs"])
 
-        if header["desc"]["shape"] != ary._array_interface["shape"]:
+        if header["desc"]["shape"] != self._array_interface["shape"]:
             raise ValueError(
                 "Received a `Buffer` with the wrong size."
                 f" Expected {header['desc']['shape']}, "
-                f"but got {ary._array_interface['shape']}"
+                f"but got {self._array_interface['shape']}"
             )
-        return ary.to_mem_type(mem_type)
-
-    def __reduce_ex__(self, protocol):
-        header, frames = self.host_serialize()
-        return self.host_deserialize, (header, frames)
-
-    @nvtx.annotate(
-        message="common.CumlArray.to_host_array",
-        category="utils",
-        domain="cuml_python",
-    )
-    def to_mem_type(self, mem_type):
-        return self.__class__(
+        return cls(
             data=self.to_output("array", output_mem_type=mem_type),
             index=self.index,
             order=self.order,
@@ -758,130 +700,9 @@ class CumlArray:
             validate=False,
         )
 
-    @nvtx.annotate(
-        message="common.CumlArray.to_host_array",
-        category="utils",
-        domain="cuml_python",
-    )
-    def to_host_array(self):
-        return self.to_output("numpy")
-
-    @nvtx.annotate(
-        message="common.CumlArray.to_host_array",
-        category="utils",
-        domain="cuml_python",
-    )
-    def to_device_array(self):
-        return self.to_output("cupy")
-
-    @classmethod
-    @nvtx.annotate(
-        message="common.CumlArray.empty",
-        category="utils",
-        domain="cuml_python",
-    )
-    def empty(cls, shape, dtype, order="F", index=None, mem_type="device"):
-        """
-        Create an empty Array with an allocated but uninitialized DeviceBuffer
-
-        Parameters
-        ----------
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-        shape : int or tuple of ints, optional
-            Shape of created array.
-        order: string, optional
-            Whether to create a F-major or C-major array.
-        """
-        mem_type = MemoryType.from_str(mem_type)
-        return CumlArray(mem_type.xpy.empty(shape, dtype, order), index=index)
-
-    @classmethod
-    @nvtx.annotate(
-        message="common.CumlArray.full", category="utils", domain="cuml_python"
-    )
-    def full(
-        cls, shape, value, dtype, order="F", index=None, mem_type="device"
-    ):
-        """
-        Create an Array with an allocated DeviceBuffer initialized to value.
-
-        Parameters
-        ----------
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-        shape : int or tuple of ints, optional
-            Shape of created array.
-        order: string, optional
-            Whether to create a F-major or C-major array.
-        """
-        mem_type = MemoryType.from_str(mem_type)
-        return CumlArray(
-            mem_type.xpy.full(shape, value, dtype, order), index=index
-        )
-
-    @classmethod
-    @nvtx.annotate(
-        message="common.CumlArray.zeros",
-        category="utils",
-        domain="cuml_python",
-    )
-    def zeros(
-        cls,
-        shape,
-        dtype="float32",
-        order="F",
-        index=None,
-        mem_type="device",
-    ):
-        """
-        Create an Array with an allocated DeviceBuffer initialized to zeros.
-
-        Parameters
-        ----------
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-        shape : int or tuple of ints, optional
-            Shape of created array.
-        order: string, optional
-            Whether to create a F-major or C-major array.
-        """
-        return CumlArray.full(
-            value=0,
-            shape=shape,
-            dtype=dtype,
-            order=order,
-            index=index,
-            mem_type=mem_type,
-        )
-
-    @classmethod
-    @nvtx.annotate(
-        message="common.CumlArray.ones", category="utils", domain="cuml_python"
-    )
-    def ones(
-        cls, shape, dtype="float32", order="F", index=None, mem_type="device"
-    ):
-        """
-        Create an Array with an allocated DeviceBuffer initialized to zeros.
-
-        Parameters
-        ----------
-        dtype : data-type, optional
-            Any object that can be interpreted as a numpy or cupy data type.
-        shape : int or tuple of ints, optional
-            Shape of created array.
-        order: string, optional
-            Whether to create a F-major or C-major array.
-        """
-        return CumlArray.full(
-            value=1,
-            shape=shape,
-            dtype=dtype,
-            order=order,
-            index=index,
-            mem_type=mem_type,
-        )
+    def __reduce_ex__(self, protocol):
+        header, frames = self.host_serialize()
+        return self.host_deserialize, (header, frames)
 
     @classmethod
     @nvtx.annotate(
@@ -986,7 +807,7 @@ class CumlArray:
         """
         # Local to workaround circular imports
         import cuml.accel
-        from cuml.common.sparse_utils import is_sparse
+        from cuml.common.sparse import is_sparse
 
         if is_sparse(X):
             # We don't support coercing sparse arrays to dense via this method.
@@ -1231,18 +1052,6 @@ def array_to_memory_order(arr, default="C"):
         array_interface["typestr"],
         default=default,
     )
-
-
-def is_array_contiguous(arr):
-    """Return true if array is C or F contiguous"""
-    try:  # Fast path for CumlArray
-        return arr.is_contiguous
-    except AttributeError:
-        pass
-    try:  # Fast path for cupy/numpy arrays
-        return arr.flags["C_CONTIGUOUS"] or arr.flags["F_CONTIGUOUS"]
-    except (AttributeError, KeyError):
-        return array_to_memory_order(arr) is not None
 
 
 def cuda_ptr(X):

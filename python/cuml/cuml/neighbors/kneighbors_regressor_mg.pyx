@@ -2,20 +2,18 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import typing
+import cupy as cp
 
 from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
 from cython.operator cimport dereference as deref
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport free
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from pylibraft.common.handle cimport handle_t
 
-from cuml.common.opg_data_utils_mg cimport *
+from cuml.common.opg_data_utils_mg cimport PartDescriptor, floatData_t
 
 
 cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
@@ -27,7 +25,7 @@ cdef extern from "cuml/neighbors/knn_mg.hpp" namespace "ML::KNN::opg" nogil:
         PartDescriptor &idx_desc,
         vector[floatData_t*] &query_data,
         PartDescriptor &query_desc,
-        vector[float_ptr_vector] &y,
+        vector[vector[float*]] &y,
         bool rowMajorIndex,
         bool rowMajorQuery,
         int k,
@@ -58,7 +56,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         n_outputs,
         rank,
         convert_dtype
-    ) -> typing.List[CumlArray]:
+    ):
         """
         Predict outputs for a query from previously stored index
         and index labels.
@@ -75,8 +73,7 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         ncols: number of columns
         n_outputs: number of outputs columns
         rank: rank of current worker
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------
@@ -86,26 +83,27 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.get_out_type(index, query)
 
         # Build input arrays and descriptors for native code interfacing
-        input = type(self).gen_local_input(
+        input = self.gen_local_input(
             index, index_parts_to_ranks, index_nrows, query,
             query_parts_to_ranks, query_nrows, ncols, rank, convert_dtype)
 
         # Build input labels arrays and descriptors for native code interfacing
-        labels = type(self).gen_local_labels(index, convert_dtype, dtype='float32')
+        labels = self.gen_local_labels(index, convert_dtype, dtype='float32')
 
-        query_cais = input['cais']['query']
-        local_query_rows = list(map(lambda x: x.shape[0], query_cais))
+        local_query_rows = [x.shape[0] for x in input['arrays']['query']]
 
         # Build labels output array for native code interfacing
-        cdef vector[floatData_t*] *out_result_local_parts \
-            = new vector[floatData_t*]()
-        output_cais = []
+        cdef vector[floatData_t*] out_result_local_parts
+        outputs = []
         for n_rows in local_query_rows:
-            o_cai = CumlArray.zeros(shape=(n_rows, n_outputs),
-                                    order="C", dtype='float32')
-            output_cais.append(o_cai)
-            out_result_local_parts.push_back(new floatData_t(
-                <float*><uintptr_t>o_cai.ptr, n_rows * n_outputs))
+            output = cp.zeros(shape=(n_rows, n_outputs), order="C", dtype='float32')
+            outputs.append(output)
+            out_result_local_parts.push_back(
+                new floatData_t(
+                    <float*><uintptr_t>output.data.ptr,
+                    n_rows * n_outputs
+                )
+            )
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         is_verbose = logger.should_log_for(logger.level_enum.debug)
@@ -113,14 +111,14 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         # Launch distributed operations
         knn_regress(
             handle_[0],
-            out_result_local_parts,
+            &out_result_local_parts,
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['index']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['index']['desc']),
             deref(<vector[floatData_t*]*><uintptr_t>
                   input['query']['local_parts']),
             deref(<PartDescriptor*><uintptr_t>input['query']['desc']),
-            deref(<vector[float_ptr_vector]*><uintptr_t>labels['labels']),
+            deref(<vector[vector[float*]]*><uintptr_t>labels['labels']),
             <bool>False,  # column-major index
             <bool>False,  # column-major query
             <int>self.n_neighbors,
@@ -131,10 +129,10 @@ class KNeighborsRegressorMG(NearestNeighborsMG):
         self.handle.sync()
 
         # Release memory
-        type(self).free_mem(input)
-        free(<void*><uintptr_t>labels['labels'])
+        self.free_mem(input, labels=labels)
+        cdef floatData_t *f_ptr
         for i in range(out_result_local_parts.size()):
-            free(<void*>out_result_local_parts.at(i))
-        free(<void*><uintptr_t>out_result_local_parts)
+            f_ptr = out_result_local_parts.at(i)
+            del f_ptr
 
-        return output_cais
+        return outputs

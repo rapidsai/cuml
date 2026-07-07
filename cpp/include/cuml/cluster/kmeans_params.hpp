@@ -4,8 +4,8 @@
  */
 
 #pragma once
-
 #include <cuml/common/distance_type.hpp>
+#include <cuml/common/export.hpp>
 
 #include <raft/random/rng_state.hpp>
 
@@ -17,7 +17,8 @@ struct params;
 
 }  // end namespace cuvs::cluster::kmeans
 
-namespace ML::kmeans {
+namespace CUML_EXPORT ML {
+namespace kmeans {
 
 struct KMeansParams {
   enum class InitMethod { KMeansPlusPlus, Random, Array };
@@ -32,9 +33,9 @@ struct KMeansParams {
   double oversampling_factor = 2.0;
   int batch_samples          = 1 << 15;
   int batch_centroids        = 0;
-  bool inertia_check         = false;
 
   cuvs::cluster::kmeans::params to_cuvs() const;
 };
 
-}  // end namespace ML::kmeans
+}  // end namespace kmeans
+}  // end namespace CUML_EXPORT ML

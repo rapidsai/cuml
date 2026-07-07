@@ -2,43 +2,30 @@
  * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
-
 #include <common/nvtx.hpp>
 
+#include <cuml/common/checked_arithmetic.hpp>
+#include <cuml/common/export.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/linear_model/glm.hpp>
 #include <cuml/svm/linear.hpp>
-#include <cuml/svm/svm_model.h>
-#include <cuml/svm/svm_parameter.h>
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
-#include <raft/label/classlabels.cuh>
 #include <raft/linalg/gemm.cuh>
-#include <raft/linalg/gemv.cuh>
-#include <raft/linalg/map.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/transpose.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
-#include <rmm/mr/per_device_resource.hpp>
 
 #include <cuda/functional>
 #include <cuda/std/functional>
-#include <cuda/std/tuple>
-#include <thrust/copy.h>
 #include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
-#include <thrust/iterator/counting_iterator.h>
 
-#include <cublas_v2.h>
 #include <omp.h>
-
-#include <random>
-#include <type_traits>
 
 namespace ML {
 namespace SVM {
@@ -51,108 +38,6 @@ inline int narrowDown(std::size_t n)
          n);
   return int(n);
 }
-
-/**  The cuda kernel for classification. Call it via PredictProba::run(..). */
-template <typename T, bool Binary, int BX = 32, int BY = 8>
-CUML_KERNEL void predictProba(T* out, const T* z, const int nRows, const int nClasses)
-{
-  typedef cub::WarpReduce<T, BX> WarpRed;
-  __shared__ typename WarpRed::TempStorage shm[BY];
-  typename WarpRed::TempStorage& warpStore = shm[threadIdx.y];
-
-  const int i = threadIdx.y + blockIdx.y * BY;
-  if (i >= nRows) return;
-  const T* rowIn = z + i * (Binary ? 1 : nClasses);
-  T* rowOut      = out + i * nClasses;
-
-  // the largest 'z' in the row (to subtract it from z for numeric stability).
-  T t      = std::numeric_limits<T>::lowest();
-  T maxVal = t;
-  int j    = threadIdx.x;
-  if constexpr (Binary) {
-    t      = rowIn[0];
-    maxVal = raft::max<T>(t, T{0});
-    t      = T(j) * t;  // set z[0] = 0, z[1] = t
-  } else {
-    for (; j < nClasses; j += BX) {
-      t      = rowIn[j];
-      maxVal = raft::max<T>(maxVal, t);
-    }
-    j -= BX;
-    maxVal = WarpRed(warpStore).Reduce(maxVal, cuda::maximum{});
-    maxVal = cub::ShuffleIndex<BX>(maxVal, 0, 0xFFFFFFFFU);
-  }
-  // At this point, either `j` refers to the last valid column idx worked
-  // by the current thread, or `j` is negative.
-  // We traverse the columns array in the opposite direction in the next
-  // block. This allows us to avoid extra global memory accesses when
-  // BX >= nClasses, which is a very common case.
-
-  T et;         // Numerator of the softmax.
-  T smSum = 0;  // Denominator of the softmax.
-  while (j >= 0) {
-    et = raft::exp<T>(t - maxVal);
-    smSum += et;
-    if (j < BX) break;
-    j -= BX;
-    t = rowIn[j];
-  }
-  smSum = WarpRed(warpStore).Reduce(smSum, cuda::std::plus{});
-  smSum = cub::ShuffleIndex<BX>(smSum, 0, 0xFFFFFFFFU);
-
-  // Now, either `j` refers to the first valid column idx worked by the
-  // current thread, or `j` is negative (no work at all).
-  // Traverse in the forward direction again to save the results.
-  // Note, no extra memory reads when BX >= nClasses!
-  if (j < 0) return;
-  T d = 1 / smSum;
-  while (j < nClasses) {
-    rowOut[j] = et * d;
-    j += BX;
-    if (j >= nClasses) break;
-    t  = rowIn[j];
-    et = raft::exp<T>(t - maxVal);
-  }
-}
-
-/**
- * The wrapper struct on top of predictProba that recursively selects the best BX
- * (largest BX satisfying `BX < coefCols*2`) and then schedules the kernel launch.
- *
- * @tparam T - the data element type (e.g. float/double).
- * @tparam BlockSize - the total size of the cuda thread block (BX * BY).
- * @tparam BX - the size of the block along rows (nClasses dim).
- */
-template <typename T, int BlockSize = 256, int BX = 32>
-struct PredictProba {
-  static_assert(BX <= 32, "BX must be not larger than warpSize");
-  static_assert(BX <= BlockSize, "BX must be not larger than BlockSize");
-  /**
-   * Predict probabilities using the scores.
-   *
-   * @param [out] out - row-major matrix of probabilities (nRows, nClasses).
-   * @param [in] z   - row-major matrix of scores (nRows, Binary ? 1 : nClasses).
-   * @param [in] nRows - number of rows in the data.
-   * @param [in] nClasses - number of classes in the problem.
-   * @param [in] stream - the work stream.
-   */
-  static inline void run(
-    T* out, const T* z, const int nRows, const int nClasses, cudaStream_t stream)
-  {
-    if constexpr (BX > 2) {
-      if (nClasses <= (BX >> 1))
-        return PredictProba<T, BlockSize, std::max<int>(BX >> 1, 2)>::run(
-          out, z, nRows, nClasses, stream);
-    }
-    const int BY      = BlockSize / BX;
-    const bool Binary = BX == 2;
-    const dim3 bs(BX, BY, 1);
-    const dim3 gs(1, raft::ceildiv(nRows, BY), 1);
-    if constexpr (Binary)
-      ASSERT((void*)out != (void*)z, "PredictProba for the binary case cannot be inplace.");
-    predictProba<T, Binary, BX, BY><<<gs, bs, 0, stream>>>(out, z, nRows, nClasses);
-  }
-};
 
 /** The loss function is the main hint for whether we solve classification or regression. */
 inline bool isRegression(Params::Loss loss)
@@ -247,12 +132,10 @@ int fit(const raft::handle_t& handle,
         const T* X,
         const T* y,
         const T* sampleWeight,
-        T* w,
-        T* probScale)
+        T* w)
 {
   if (isRegression(params.loss)) {
     ASSERT(nClasses == 0 && classes == nullptr, "Regression fit takes no classes");
-    ASSERT(probScale == nullptr, "probability scaling not allowed for regressions");
   } else {
     ASSERT(nClasses > 1 && classes != nullptr, "Must have > 1 class for classification");
   }
@@ -270,10 +153,12 @@ int fit(const raft::handle_t& handle,
   T* X1 = (T*)X;
   rmm::device_uvector<T> X1Buf(0, stream);
   if (params.fit_intercept && params.penalized_intercept) {
-    X1Buf.resize(nCols1 * nRows, stream);
+    std::size_t const x1_count = checked_mul<std::size_t>(nCols1, nRows);
+    std::size_t const x_count  = checked_mul<std::size_t>(nCols, nRows);
+    X1Buf.resize(x1_count, stream);
     X1 = X1Buf.data();
-    raft::copy(X1, X, nCols * nRows, stream);
-    thrust::device_ptr<T> p(X1 + nCols * nRows);
+    raft::copy(X1, X, x_count, stream);
+    thrust::device_ptr<T> p(X1 + x_count);
     thrust::fill(thrust::cuda::par.on(stream), p, p + nRows, 1.0);
   }
 
@@ -296,18 +181,10 @@ int fit(const raft::handle_t& handle,
   qn_pams.lbfgs_memory        = params.lbfgs_memory;
   qn_pams.verbose             = static_cast<int>(params.verbose);
 
-  ML::GLM::qn_params qn_pams_logistic = qn_pams;
-  qn_pams_logistic.loss               = ML::GLM::QN_LOSS_LOGISTIC;
-  qn_pams_logistic.fit_intercept      = true;
-  qn_pams_logistic.penalty_l1         = 0;
-  qn_pams_logistic.penalty_l2 = 1 / T(1 + nRows);  // L2 regularization reflects the flat prior.
-
-  T* y1  = (T*)y;
-  T* w1  = w;
-  T* ps1 = probScale;
+  T* y1 = (T*)y;
+  T* w1 = w;
   rmm::device_uvector<T> y1Buf(0, stream);
   rmm::device_uvector<T> w1Buf(0, stream);
-  rmm::device_uvector<T> psBuf(0, stream);
   if (nClasses > 1) {
     y1Buf.resize(nRows * coefCols, stream);
     y1 = y1Buf.data();
@@ -315,16 +192,8 @@ int fit(const raft::handle_t& handle,
   if (coefCols > 1) {
     w1Buf.resize(coefCols * coefRows, stream);
     w1 = w1Buf.data();
-    if (probScale != nullptr) {
-      psBuf.resize(2 * coefCols, stream);
-      ps1 = psBuf.data();
-    }
   }
   RAFT_CUDA_TRY(cudaMemsetAsync(w1, 0, coefCols * coefRows * sizeof(T), stream));
-  if (probScale != nullptr) {
-    thrust::device_ptr<cuda::std::tuple<T, T>> p((cuda::std::tuple<T, T>*)ps1);
-    thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, cuda::std::make_tuple(T(1), T(0)));
-  }
 
   // one-vs-rest logic goes over each class
   const int n_streams = coefCols > 1 ? handle.get_stream_pool_size() : 1;
@@ -357,103 +226,35 @@ int fit(const raft::handle_t& handle,
                   (T*)sampleWeight,
                   T(params.epsilon));
     if (n_iter > max_n_iter) { max_n_iter = n_iter; }
-
-    if (probScale == nullptr) continue;
-    // Calibrate probabilities
-    T* psi = ps1 + 2 * class_i;
-    rmm::device_uvector<T> xwBuf(nRows, worker.stream);
-    T* xw = xwBuf.data();
-    predictLinear(worker.handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, worker.stream);
-
-    GLM::qnFit<T>(worker.handle,
-                  qn_pams_logistic,
-                  xw,
-                  false,
-                  yi,
-                  narrowDown(nRows),
-                  1,
-                  2,
-                  psi,
-                  &target,
-                  &n_iter,
-                  (T*)sampleWeight);
-
-    if (n_iter > max_n_iter) { max_n_iter = n_iter; }
   }
   if (parallel) handle.sync_stream_pool();
 
-  if (coefCols > 1) {
-    raft::linalg::transpose(handle, w1, w, coefRows, coefCols, stream);
-    if (probScale != nullptr) {
-      raft::linalg::transpose(handle, ps1, probScale, 2, coefCols, stream);
-    }
-  }
+  if (coefCols > 1) { raft::linalg::transpose(handle, w1, w, coefRows, coefCols, stream); }
 
   return max_n_iter;
 }
 
-template <typename T>
-void computeProbabilities(const raft::handle_t& handle,
-                          const std::size_t nRows,
-                          const int nClasses,
-                          const T* probScale,
-                          T* scores,
-                          T* out)
-{
-  auto stream                = handle.get_stream();
-  const std::size_t coefCols = nClasses == 2 ? 1 : nClasses;
-
-  // probability calibration
-  raft::linalg::matrixVectorOp<true, true>(
-    scores,
-    scores,
-    probScale,
-    probScale + coefCols,
-    coefCols,
-    nRows,
-    [] __device__(const T x, const T a, const T b) { return a * x + b; },
-    stream);
-
-  // apply sigmoid/softmax
-  PredictProba<T>::run(out, scores, nRows, nClasses, stream);
-}
-
 // Explicit instantiations for library
-template int fit<float>(const raft::handle_t& handle,
-                        const Params& params,
-                        const std::size_t nRows,
-                        const std::size_t nCols,
-                        const int nClasses,
-                        const float* classes,
-                        const float* X,
-                        const float* y,
-                        const float* sampleWeight,
-                        float* w,
-                        float* probScale);
-template int fit<double>(const raft::handle_t& handle,
-                         const Params& params,
-                         const std::size_t nRows,
-                         const std::size_t nCols,
-                         const int nClasses,
-                         const double* classes,
-                         const double* X,
-                         const double* y,
-                         const double* sampleWeight,
-                         double* w,
-                         double* probScale);
-template void computeProbabilities<float>(const raft::handle_t& handle,
-                                          const std::size_t nRows,
-                                          const int nClasses,
-                                          const float* probScale,
-                                          float* scores,
-                                          float* out);
-template void computeProbabilities<double>(const raft::handle_t& handle,
-                                           const std::size_t nRows,
-                                           const int nClasses,
-                                           const double* probScale,
-                                           double* scores,
-                                           double* out);
-
+template CUML_EXPORT int fit<float>(const raft::handle_t& handle,
+                                    const Params& params,
+                                    const std::size_t nRows,
+                                    const std::size_t nCols,
+                                    const int nClasses,
+                                    const float* classes,
+                                    const float* X,
+                                    const float* y,
+                                    const float* sampleWeight,
+                                    float* w);
+template CUML_EXPORT int fit<double>(const raft::handle_t& handle,
+                                     const Params& params,
+                                     const std::size_t nRows,
+                                     const std::size_t nCols,
+                                     const int nClasses,
+                                     const double* classes,
+                                     const double* X,
+                                     const double* y,
+                                     const double* sampleWeight,
+                                     double* w);
 }  // namespace linear
 }  // namespace SVM
 }  // namespace ML

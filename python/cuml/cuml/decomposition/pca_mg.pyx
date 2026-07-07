@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import numpy as np
+import cupy as cp
 
 from cuml.decomposition import PCA
 from cuml.decomposition.base_mg import BaseDecompositionMG
@@ -35,8 +35,7 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
                   float *mu,
                   float *noise_vars,
                   paramsPCAMG &prms,
-                  bool verbose,
-                  bool flip_signs_based_on_U) except +
+                  bool verbose) except +
 
     cdef void fit(handle_t& handle,
                   vector[doubleData_t *] input_data,
@@ -48,13 +47,12 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML::PCA::opg" nogil:
                   double *mu,
                   double *noise_vars,
                   paramsPCAMG &prms,
-                  bool verbose,
-                  bool flip_signs_based_on_U) except +
+                  bool verbose) except +
 
 
 class PCAMG(BaseDecompositionMG, PCA):
     @run_in_internal_context
-    def _mg_fit(self, X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
+    def _mg_fit(self, uintptr_t X_ptr, n_rows, n_cols, dtype, input_desc_ptr):
         # Validate and initialize parameters
         cdef paramsPCAMG params
         params.n_components = self.n_components_
@@ -73,32 +71,30 @@ class PCAMG(BaseDecompositionMG, PCA):
             )
 
         # Allocate output arrays
-        components = CumlArray.zeros((self.n_components_, n_cols), dtype=dtype)
-        explained_variance = CumlArray.zeros(self.n_components_, dtype=dtype)
-        explained_variance_ratio = CumlArray.zeros(self.n_components_, dtype=dtype)
-        mean = CumlArray.zeros(n_cols, dtype=dtype)
-        singular_values = CumlArray.zeros(self.n_components_, dtype=dtype)
-        noise_variance = CumlArray.zeros(1, dtype=dtype)
+        components = cp.zeros((self.n_components_, n_cols), dtype=dtype, order="F")
+        explained_variance = cp.zeros(self.n_components_, dtype=dtype)
+        explained_variance_ratio = cp.zeros(self.n_components_, dtype=dtype)
+        mean = cp.zeros(n_cols, dtype=dtype)
+        singular_values = cp.zeros(self.n_components_, dtype=dtype)
+        noise_variance = cp.zeros(1, dtype=dtype)
 
-        cdef uintptr_t c_X_ptr = X_ptr
         cdef PartDescriptor *input_desc = <PartDescriptor*><uintptr_t>input_desc_ptr
 
-        cdef uintptr_t components_ptr = components.ptr
-        cdef uintptr_t explained_variance_ptr = explained_variance.ptr
-        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.ptr
-        cdef uintptr_t singular_values_ptr = singular_values.ptr
-        cdef uintptr_t mean_ptr = mean.ptr
-        cdef uintptr_t noise_variance_ptr = noise_variance.ptr
-        cdef bool use_float32 = (dtype == np.float32)
+        cdef uintptr_t components_ptr = components.data.ptr
+        cdef uintptr_t explained_variance_ptr = explained_variance.data.ptr
+        cdef uintptr_t explained_variance_ratio_ptr = explained_variance_ratio.data.ptr
+        cdef uintptr_t singular_values_ptr = singular_values.data.ptr
+        cdef uintptr_t mean_ptr = mean.data.ptr
+        cdef uintptr_t noise_variance_ptr = noise_variance.data.ptr
+        cdef bool use_float32 = (dtype == cp.float32)
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef bool flip_signs_based_on_U = self._u_based_sign_flip
 
         # Perform fit
         with nogil:
             if use_float32:
                 fit(
                     handle_[0],
-                    deref(<vector[floatData_t*]*>c_X_ptr),
+                    deref(<vector[floatData_t*]*>X_ptr),
                     deref(input_desc),
                     <float*> components_ptr,
                     <float*> explained_variance_ptr,
@@ -107,13 +103,12 @@ class PCAMG(BaseDecompositionMG, PCA):
                     <float*> mean_ptr,
                     <float*> noise_variance_ptr,
                     params,
-                    False,
-                    flip_signs_based_on_U
+                    False
                 )
             else:
                 fit(
                     handle_[0],
-                    deref(<vector[doubleData_t*]*>c_X_ptr),
+                    deref(<vector[doubleData_t*]*>X_ptr),
                     deref(input_desc),
                     <double*> components_ptr,
                     <double*> explained_variance_ptr,
@@ -122,15 +117,14 @@ class PCAMG(BaseDecompositionMG, PCA):
                     <double*> mean_ptr,
                     <double*> noise_variance_ptr,
                     params,
-                    False,
-                    flip_signs_based_on_U
+                    False
                 )
         self.handle.sync()
 
         # Store results
-        self.components_ = components
-        self.explained_variance_ = explained_variance
-        self.explained_variance_ratio_ = explained_variance_ratio
-        self.mean_ = mean
-        self.singular_values_ = singular_values
-        self.noise_variance_ = noise_variance.to_output("numpy").item()
+        self.components_ = CumlArray(data=components)
+        self.explained_variance_ = CumlArray(data=explained_variance)
+        self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
+        self.mean_ = CumlArray(data=mean)
+        self.singular_values_ = CumlArray(data=singular_values)
+        self.noise_variance_ = noise_variance.get().item()

@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
+import cupy as cp
 import numpy as np
 
 from cuml.internals import get_handle, reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cuml_array
+from cuml.internals.validation import check_array
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
@@ -32,7 +32,14 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
 
 
 @reflect
-def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> CumlArray:
+def kpss_test(
+    y,
+    int d=0,
+    int D=0,
+    int s=0,
+    double pval_threshold=0.05,
+    convert_dtype="deprecated",
+):
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
@@ -57,35 +64,49 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05, convert_dtype=True) -> Cuml
     stationarity : List[bool]
         A list of the stationarity test result for each series in the batch
     """
-    d_y, n_obs, batch_size, dtype = \
-        input_to_cuml_array(y,
-                            convert_to_dtype=(np.float32 if convert_dtype
-                                              else None),
-                            check_dtype=[np.float32, np.float64])
-    cdef uintptr_t d_y_ptr = d_y.ptr
+    d_y = check_array(
+        y,
+        dtype=("float32", "float64"),
+        convert_dtype=convert_dtype,
+        order="F",
+        input_name="y",
+        ensure_all_finite=False,
+    )
+    cdef int n_obs = d_y.shape[0]
+    cdef int batch_size = d_y.shape[1]
+
+    cdef uintptr_t d_y_ptr = d_y.data.ptr
 
     handle = get_handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    results = CumlArray.empty(batch_size, dtype=bool)
-    cdef uintptr_t d_results = results.ptr
+    results = cp.empty(batch_size, dtype=bool)
+    cdef uintptr_t d_results = results.data.ptr
 
     # Call C++ function
-    if dtype == np.float32:
-        cpp_kpss(handle_[0],
-                 <float*> d_y_ptr,
-                 <boolcpp*> d_results,
-                 <int> batch_size,
-                 <int> n_obs,
-                 <int> d, <int> D, <int> s,
-                 <float> pval_threshold)
-    elif dtype == np.float64:
-        cpp_kpss(handle_[0],
-                 <double*> d_y_ptr,
-                 <boolcpp*> d_results,
-                 <int> batch_size,
-                 <int> n_obs,
-                 <int> d, <int> D, <int> s,
-                 <double> pval_threshold)
+    if d_y.dtype == np.float32:
+        cpp_kpss(
+            handle_[0],
+            <float*> d_y_ptr,
+            <boolcpp*> d_results,
+            batch_size,
+            n_obs,
+            d,
+            D,
+            s,
+            <float> pval_threshold
+        )
+    elif d_y.dtype == np.float64:
+        cpp_kpss(
+            handle_[0],
+            <double*> d_y_ptr,
+            <boolcpp*> d_results,
+            batch_size,
+            n_obs,
+            d,
+            D,
+            s,
+            pval_threshold
+        )
 
     return results

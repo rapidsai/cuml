@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -11,7 +11,7 @@ import numpy as np
 
 import cuml.internals
 from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cupy_array
+from cuml.internals.validation import check_array, check_consistent_length
 
 
 @cuml.internals.reflect
@@ -76,16 +76,19 @@ def precision_recall_curve(
         [0.35 0.4 0.8 ]
 
     """
-    y_true, n_rows, n_cols, ytype = input_to_cupy_array(
-        y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64]
+    y_true = check_array(
+        y_true,
+        ensure_2d=False,
+        dtype=(np.int32, np.int64, np.float32, np.float64),
+        input_name="y_true",
     )
-
-    y_score, _, _, _ = input_to_cupy_array(
+    y_score = check_array(
         probs_pred,
-        check_dtype=[np.int32, np.int64, np.float32, np.float64],
-        check_rows=n_rows,
-        check_cols=n_cols,
+        ensure_2d=False,
+        dtype=(np.int32, np.int64, np.float32, np.float64),
+        input_name="probs_pred",
     )
+    check_consistent_length(y_true, y_score)
 
     if cp.any(y_true) == 0:
         raise ValueError(
@@ -140,16 +143,19 @@ def roc_auc_score(y_true, y_score):
     0.75
 
     """
-    y_true, n_rows, n_cols, ytype = input_to_cupy_array(
-        y_true, check_dtype=[np.int32, np.int64, np.float32, np.float64]
+    y_true = check_array(
+        y_true,
+        ensure_2d=False,
+        dtype=(np.int32, np.int64, np.float32, np.float64),
+        input_name="y_true",
     )
-
-    y_score, _, _, _ = input_to_cupy_array(
+    y_score = check_array(
         y_score,
-        check_dtype=[np.int32, np.int64, np.float32, np.float64],
-        check_rows=n_rows,
-        check_cols=n_cols,
+        ensure_2d=False,
+        dtype=(np.int32, np.int64, np.float32, np.float64),
+        input_name="y_score",
     )
+    check_consistent_length(y_true, y_score)
     return _binary_roc_auc_score(y_true, y_score)
 
 

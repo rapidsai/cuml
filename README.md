@@ -129,7 +129,7 @@ See the build [guide](BUILD.md).
 
 ## Scikit-learn Compatibility
 
-cuML is compatible with scikit-learn version 1.4 or higher.
+cuML is compatible with scikit-learn version 1.6 or higher.
 
 ## Model serialization and security
 

@@ -3,18 +3,28 @@
 # Labels culled from https://github.com/rapidsai/cuml/labels
 
 Cython / Python:
-  - 'python/**'
-  - 'notebooks/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'python/**'
+      - 'notebooks/**'
 
 CUDA/C++:
-  - 'cpp/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'cpp/**'
 
 CMake:
-  - '**/CMakeLists.txt'
-  - '**/cmake/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/CMakeLists.txt'
+      - '**/cmake/**'
 
 ci:
-  - 'ci/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'ci/**'
 
 conda:
-  - 'conda/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'conda/**'

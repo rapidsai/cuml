@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # This code originates from the Scikit-Learn library,
@@ -10,6 +10,8 @@
 import warnings
 
 import cuml
+from cuml.internals.mixins import _ensure_transformer_tags
+from cuml.internals.validation import check_inputs
 
 from ....internals.array_sparse import SparseCumlArray
 from ....internals.outputs import reflect
@@ -83,8 +85,6 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         self.kw_args = kw_args
         self.inv_kw_args = inv_kw_args
 
-    def _check_input(self, X):
-        return self._validate_data(X, accept_sparse=self.accept_sparse)
 
     def _check_inverse_transform(self, X):
         """Check that func and inverse_func are the inverse."""
@@ -111,7 +111,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         -------
         self
         """
-        X = self._check_input(X)
+        X = check_inputs(self, X, accept_sparse=self.accept_sparse, reset=True)
         if (self.check_inverse and not (self.func is None or
                                         self.inverse_func is None)):
             self._check_inverse_transform(X)
@@ -151,13 +151,16 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
                                kw_args=self.inv_kw_args)
 
     def _transform(self, X, func=None, kw_args=None):
-        X = self._check_input(X)
+        X = check_inputs(self, X, accept_sparse=self.accept_sparse)
 
         if func is None:
             func = _identity
 
         return func(X, **(kw_args if kw_args else {}))
 
-    def _more_tags(self):
-        return {'stateless': True,
-                'requires_y': False}
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        _ensure_transformer_tags(tags)
+        tags.input_tags.sparse = bool(self.accept_sparse)
+        tags.requires_fit = False
+        return tags

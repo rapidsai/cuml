@@ -13,7 +13,7 @@ trap "EXITCODE=1" ERR
 set +e
 
 rapids-logger "pytest cuml integration"
-timeout 1h ./ci/run_cuml_integration_pytests.sh \
+timeout -v --signal=SIGINT --kill-after=60s 1h ./ci/run_cuml_integration_pytests.sh \
   --numprocesses=8 \
   --dist=worksteal \
   --junitxml="${RAPIDS_TESTS_DIR}/junit-cuml.xml"

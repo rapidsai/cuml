@@ -14,10 +14,9 @@ import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
 from numba.cuda.cudadrv.devicearray import DeviceNDArray
-from sklearn.metrics import brier_score_loss, mean_squared_error
 
+from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.input_utils import input_to_cuml_array, is_array_like
 from cuml.internals.mem_type import MemoryType
 
 
@@ -167,12 +166,12 @@ def as_type(type, *args):
                 else:
                     mem_type = None
                 result.append(
-                    input_to_cuml_array(arg).array.to_output(
+                    CumlArray.from_input(arg).to_output(
                         output_type="dataframe", output_mem_type=mem_type
                     )
                 )
             else:
-                result.append(input_to_cuml_array(arg).array.to_output(type))
+                result.append(CumlArray.from_input(arg).to_output(type))
     if len(result) == 1:
         return result[0]
     return tuple(result)
@@ -458,7 +457,7 @@ def generate_inputs_from_categories(
         return df, ary
 
 
-def assert_inverse_equal(ours, ref):
+def assert_inverse_equal(ours, ref, **kwargs):
     if isinstance(ours, cp.ndarray):
         cp.testing.assert_array_equal(ours, ref)
     else:
@@ -466,7 +465,7 @@ def assert_inverse_equal(ours, ref):
             ours = ours.to_pandas()
         if hasattr(ref, "to_pandas"):
             ref = ref.to_pandas()
-        pd.testing.assert_frame_equal(ours, ref)
+        pd.testing.assert_frame_equal(ours, ref, **kwargs)
 
 
 def from_df_to_numpy(df):
@@ -566,7 +565,7 @@ def compare_svm(
     # We skip this test for multiclass (when intercept_ is an array). Apart
     # from the larger discrepancies in multiclass case, sklearn also uses a
     # different sign convention for intercept in that case.
-    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
+    if cp.isscalar(svm2.intercept_) or svm2.intercept_.shape[0] == 1:
         if abs(svm2.intercept_) > 1e-6:
             assert (
                 abs((svm1.intercept_ - svm2.intercept_) / svm2.intercept_)
@@ -612,22 +611,6 @@ def compare_svm(
     intersection_len = len(support1.intersection(support2))
     average_len = (len(support1) + len(support2)) / 2
     assert intersection_len > average_len / 8
-
-
-def compare_probabilistic_svm(
-    svc1, svc2, X_test, y_test, tol=1e-3, brier_tol=1e-3
-):
-    """Compare the probability output from two support vector classifiers."""
-
-    prob1 = svc1.predict_proba(X_test)
-    prob2 = svc2.predict_proba(X_test)
-    assert mean_squared_error(prob1, prob2) <= tol
-
-    if svc1.n_classes_ == 2:
-        brier1 = brier_score_loss(y_test, prob1[:, 1])
-        brier2 = brier_score_loss(y_test, prob2[:, 1])
-        # Brier score - smaller is better
-        assert brier1 - brier2 <= brier_tol
 
 
 def svm_array_equal(a, b, tol=1e-6, relative_diff=True, report_summary=False):

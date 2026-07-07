@@ -1,3 +1,136 @@
+# cuml 26.06.00 (3 Jun 2026)
+
+### 🚨 Breaking Changes
+* Migrate RMM usage to CCCL MR design by @bdice in https://github.com/rapidsai/cuml/pull/7951
+* Remove unused C API by @divyegala in https://github.com/rapidsai/cuml/pull/8011
+* Cleanup and apply new validation to `cuml.naive_bayes` by @jcrist in https://github.com/rapidsai/cuml/pull/8051
+* Apply new validation to metrics.hinge_loss by @csadorf in https://github.com/rapidsai/cuml/pull/8060
+* Cleanup `LabelEncoder` by @jcrist in https://github.com/rapidsai/cuml/pull/8039
+* Use the PTDS for (most) cupy operations by @jcrist in https://github.com/rapidsai/cuml/pull/8086
+* Deprecate `probability` parameter on `SVC` and `LinearSVC` by @switch527 in https://github.com/rapidsai/cuml/pull/8089
+* Adopt nvForest for random forest inference by @hcho3 in https://github.com/rapidsai/cuml/pull/8048
+### 🐛 Bug Fixes
+* Fixes for CCCL 3.4 update by @dantegd in https://github.com/rapidsai/cuml/pull/7949
+* Set unique CUDA cache path for each pytest-xdist worker by @divyegala in https://github.com/rapidsai/cuml/pull/7948
+* Fix IncrementalPCA: handle missing batch_size_ in sparse transform after partial_fit by @csadorf in https://github.com/rapidsai/cuml/pull/8010
+* Drop `__firstlineno__` on `ProxyBase` instances by @jcrist in https://github.com/rapidsai/cuml/pull/8045
+* Fix KMeans int32 index overflow check by @csadorf in https://github.com/rapidsai/cuml/pull/8067
+* Add early validation for n_clusters > n_samples in dask KMeans by @csadorf in https://github.com/rapidsai/cuml/pull/8071
+* Fix CI by changing SVC intercept selection kernel dispatch by @dantegd in https://github.com/rapidsai/cuml/pull/8077
+* Fix FIL buffer bounds assertions by @csadorf in https://github.com/rapidsai/cuml/pull/8069
+* Fix KMeans score test tolerances by @csadorf in https://github.com/rapidsai/cuml/pull/8099
+* Add vertex-parallel kernels to UMAP to enforce sequential behavior  by @jinsolp in https://github.com/rapidsai/cuml/pull/7974
+* Fix wrapping metaestimators in `Pipeline` in `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/8115
+### 📖 Documentation
+* DOC Add third-party app example for cuml.accel by @betatim in https://github.com/rapidsai/cuml/pull/8094
+* DOC Add hyper-parameter search example by @betatim in https://github.com/rapidsai/cuml/pull/8095
+* DOC Add note about onnxruntime bug by @betatim in https://github.com/rapidsai/cuml/pull/8162
+### 🚀 New Features
+* Add LSMR solver to Ridge by @jcrist in https://github.com/rapidsai/cuml/pull/7922
+* Add LSMR solver to `LinearRegression` by @jcrist in https://github.com/rapidsai/cuml/pull/7927
+* Add sparse input support to `ElasticNet`/`Lasso` by @jcrist in https://github.com/rapidsai/cuml/pull/7943
+* Support LabelEncoder in `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/8082
+* Add EmpiricalCovariance estimator by @csadorf in https://github.com/rapidsai/cuml/pull/8074
+### 🛠️ Improvements
+* Remove `PoolMemoryResource` wrapper by @jcrist in https://github.com/rapidsai/cuml/pull/7878
+* fix more verify-hardcoded-version findings by @jameslamb in https://github.com/rapidsai/cuml/pull/7891
+* Forward-merge release/26.04 into main by @csadorf in https://github.com/rapidsai/cuml/pull/7888
+* Forward-merge release/26.04 into main by @csadorf in https://github.com/rapidsai/cuml/pull/7894
+* Forward merge from release/26.04 by @jcrist in https://github.com/rapidsai/cuml/pull/7910
+* Update CODEOWNERS by @jcrist in https://github.com/rapidsai/cuml/pull/7919
+* Forward-merge release/26.04 into main by @gforsyth in https://github.com/rapidsai/cuml/pull/7914
+* Forward merge `release/26.04` into `main` by @jcrist in https://github.com/rapidsai/cuml/pull/7936
+* Forward-merge release/26.04 into main by @jameslamb in https://github.com/rapidsai/cuml/pull/7937
+* Remove deprecations from 26.04 by @jcrist in https://github.com/rapidsai/cuml/pull/7928
+* update pip devcontainers' base image tags by @trxcllnt in https://github.com/rapidsai/cuml/pull/7947
+* chore: bump `codespell` version for Python 3.14+ compatibility by @gforsyth in https://github.com/rapidsai/cuml/pull/7925
+* Restart xdist workers on corrupted CUDA context by @jcrist in https://github.com/rapidsai/cuml/pull/7954
+* chore: remove comment in devcontainer.json that breaks jq by @gforsyth in https://github.com/rapidsai/cuml/pull/7952
+* A few linear model test cleanups by @jcrist in https://github.com/rapidsai/cuml/pull/7957
+* Support recent hdbscan by @jcrist in https://github.com/rapidsai/cuml/pull/7956
+* Re-enabling precomputed kNN on host for UMAP by @viclafargue in https://github.com/rapidsai/cuml/pull/7915
+* Add `-v` option to `timeout` in CI scripts by @jcrist in https://github.com/rapidsai/cuml/pull/7966
+* Mark a few cuml-accel upstream tests as flaky by @jcrist in https://github.com/rapidsai/cuml/pull/7967
+* Update to clang 20.1.8 by @bdice in https://github.com/rapidsai/cuml/pull/7968
+* Run all scikit-learn examples under cuml.accel in nightlies by @csadorf in https://github.com/rapidsai/cuml/pull/7960
+* xfail ARIMA test on 'endog_hourly_earnings_by_industry_missing_exog' dataset by @jameslamb in https://github.com/rapidsai/cuml/pull/7972
+* New input validation utilities by @jcrist in https://github.com/rapidsai/cuml/pull/7973
+* Improve timeout verbosity and graceful shutdown for pytest CI jobs by @csadorf in https://github.com/rapidsai/cuml/pull/7979
+* Use new input validation in `cuml.linear_models`/`cuml.solvers` by @jcrist in https://github.com/rapidsai/cuml/pull/7978
+* Apply new validation to `cuml.cluster` by @jcrist in https://github.com/rapidsai/cuml/pull/7984
+* Apply new validation to `cuml.random_projection` by @jcrist in https://github.com/rapidsai/cuml/pull/8009
+* Use new input validation infrastructure for cuml.decomposition. by @csadorf in https://github.com/rapidsai/cuml/pull/8006
+* Apply new input validation to `cuml.multiclass` by @mgrauer in https://github.com/rapidsai/cuml/pull/8017
+* Deprecate max_depth=16 in RandomForest and add None support by @Nzouh in https://github.com/rapidsai/cuml/pull/7958
+* Migrate _classification and _ranking metrics to new input validation infrastructure by @csadorf in https://github.com/rapidsai/cuml/pull/8012
+* CI Fix cuml.svm compatibility with scikit-learn 1.9 deprecation of `probability=` by @betatim in https://github.com/rapidsai/cuml/pull/7981
+* Use scikit-learn's array-api to accelerate `StandardScaler` by @jcrist in https://github.com/rapidsai/cuml/pull/8020
+* Apply new input validation to `cuml.kernel_ridge` by @jcrist in https://github.com/rapidsai/cuml/pull/8007
+* Apply new validation to `cuml.covariance` by @jcrist in https://github.com/rapidsai/cuml/pull/8008
+* [FIL] Validate Treelite model input to prevent integer overflow and OOB memory access by @hcho3 in https://github.com/rapidsai/cuml/pull/8016
+* Cleanup Lars, apply new validation by @jcrist in https://github.com/rapidsai/cuml/pull/8024
+* Add `MinMaxScaler`, `MaxAbsScaler`, and `PolynomialFeatures` to `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/8032
+* Several `ensemble` scikit-learn compatibility improvements by @jcrist in https://github.com/rapidsai/cuml/pull/8023
+* Remove inertia_check Param from KMeans by @tarang-jain in https://github.com/rapidsai/cuml/pull/8033
+* Fix sample_weight handling in `KernelRidge` by @jcrist in https://github.com/rapidsai/cuml/pull/8040
+* Apply new validation to `cuml.svm` by @jcrist in https://github.com/rapidsai/cuml/pull/8029
+* Support subclassing proxy estimators by @jcrist in https://github.com/rapidsai/cuml/pull/8041
+* fix(ci): resolve all zizmor findings and add zizmor pre-commit checks by @gforsyth in https://github.com/rapidsai/cuml/pull/8046
+* Add `check_cudf`, and a few other validation changes by @jcrist in https://github.com/rapidsai/cuml/pull/8038
+* Fix labeler config by @jcrist in https://github.com/rapidsai/cuml/pull/8047
+* Apply new validation to `cuml.explainer` by @jcrist in https://github.com/rapidsai/cuml/pull/8043
+* Apply new validation to metrics.pairwise_kernels by @csadorf in https://github.com/rapidsai/cuml/pull/8050
+* Apply new validation to `cuml.neighbors` by @viclafargue in https://github.com/rapidsai/cuml/pull/8019
+* Apply new input validation to metrics.regression by @csadorf in https://github.com/rapidsai/cuml/pull/8044
+* Ensure output of classifier `predict` has aligned index by @jcrist in https://github.com/rapidsai/cuml/pull/8056
+* Fix explainer hypothesis test by @jcrist in https://github.com/rapidsai/cuml/pull/8054
+* Apply new validation to metrics.confusion_matrix by @csadorf in https://github.com/rapidsai/cuml/pull/8049
+* Apply new validation to metrics.kl_divergence by @csadorf in https://github.com/rapidsai/cuml/pull/8057
+* Use `token.rapids.nvidia.com` when issuing S3 bucket creds in devcontainers by @trxcllnt in https://github.com/rapidsai/cuml/pull/8036
+* Apply new input validation to cuml.metrics.cluster by @csadorf in https://github.com/rapidsai/cuml/pull/8059
+* Apply new validation to `cuml.manifold` by @jinsolp in https://github.com/rapidsai/cuml/pull/8042
+* Cleanup and apply new validation to `cuml._thirdparty` and `cuml.preprocessing` by @jcrist in https://github.com/rapidsai/cuml/pull/8052
+* Apply new validation to metrics.pairwise_distances by @csadorf in https://github.com/rapidsai/cuml/pull/8065
+* Apply new input validation to metrics.trustworthiness by @csadorf in https://github.com/rapidsai/cuml/pull/8058
+* A few validation fixups by @jcrist in https://github.com/rapidsai/cuml/pull/8066
+* Use cudaStream_t instead of cuda_stream_view in cuml Cython by @vyasr in https://github.com/rapidsai/cuml/pull/8072
+* Fix failing `IncrementalPCA` test by @jcrist in https://github.com/rapidsai/cuml/pull/8080
+* Fallback on `ensure_all_finite` in `UMAP` on `cuml.accel` by @jcrist in https://github.com/rapidsai/cuml/pull/8076
+* Cleanup TargetEncoder by @jcrist in https://github.com/rapidsai/cuml/pull/8075
+* Use static cudart by @KyleFromNVIDIA in https://github.com/rapidsai/cuml/pull/8078
+* Build and test with CUDA 13.2.0 by @bdice in https://github.com/rapidsai/cuml/pull/8081
+* Support umap-learn 0.5.12 by @csadorf in https://github.com/rapidsai/cuml/pull/8073
+* fix(ci): add explicit `actions: write` permission for `telemetry-summarize`
+ by @gforsyth in https://github.com/rapidsai/cuml/pull/8088
+* ci: add informational PR release target validation by @csadorf in https://github.com/rapidsai/cuml/pull/8083
+* A few cudf fixups by @jcrist in https://github.com/rapidsai/cuml/pull/8105
+* Require CMake 4.0 by @KyleFromNVIDIA in https://github.com/rapidsai/cuml/pull/8096
+* Mark upstream umap test as flaky by @jcrist in https://github.com/rapidsai/cuml/pull/8107
+* Update `libcuml` wheel to depend on `librmm` by @jcrist in https://github.com/rapidsai/cuml/pull/8110
+* Numpy 1.x compatibility fixes by @jcrist in https://github.com/rapidsai/cuml/pull/8118
+* loosen threshold in test_mbsgd_regressor test by @jameslamb in https://github.com/rapidsai/cuml/pull/8122
+* xfail `test_onnx[RandomForestClassifier]` by @jcrist in https://github.com/rapidsai/cuml/pull/8127
+* Mark `test_precomputed_sparse_transform_on_iris` as flaky by @jcrist in https://github.com/rapidsai/cuml/pull/8130
+* A few fixes for sklearn 1.9 pre-release by @jcrist in https://github.com/rapidsai/cuml/pull/8126
+* Cleanup LabelBinarizer by @jcrist in https://github.com/rapidsai/cuml/pull/8101
+* Further relax `test_nearest_neighbors_pickle` tolerance by @jcrist in https://github.com/rapidsai/cuml/pull/8136
+* Add cuml.accel support for IncrementalPCA by @JohnZed in https://github.com/rapidsai/cuml/pull/7785
+* Add "Advanced Topics" doc by @jcrist in https://github.com/rapidsai/cuml/pull/8134
+* Avoid deprecated functionality in cupy 14.1 by @jcrist in https://github.com/rapidsai/cuml/pull/8148
+* Fix BERTopic integration tests by @jcrist in https://github.com/rapidsai/cuml/pull/8167
+* Refactor kernel_density to use less memory by @Intron7 in https://github.com/rapidsai/cuml/pull/7833
+* skip CuPy 14.1.0 by @jameslamb in https://github.com/rapidsai/cuml/pull/8179
+* Xfail sklearn example requiring plotly by @csadorf in https://github.com/rapidsai/cuml/pull/8193
+* Fixes for sklearn 1.9 release by @jcrist in https://github.com/rapidsai/cuml/pull/8208
+* Handle sklearn example OpenML network failures by @csadorf in https://github.com/rapidsai/cuml/pull/8205
+* Handle sklearn example OpenML dataset lookup failures by @csadorf in https://github.com/rapidsai/cuml/pull/8216
+
+## New Contributors
+* @mgrauer made their first contribution in https://github.com/rapidsai/cuml/pull/8017
+* @Nzouh made their first contribution in https://github.com/rapidsai/cuml/pull/7958
+
+**Full Changelog**: https://github.com/rapidsai/cuml/compare/v26.06.00a...release/26.06
+
 # cuml 26.04.00 (8 Apr 2026)
 
 ### 🚨 Breaking Changes

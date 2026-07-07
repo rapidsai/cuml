@@ -1,16 +1,16 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx
 import numpy as np
 
-from cuml.common import input_to_cuml_array, using_output_type
-from cuml.internals.array import CumlArray
-from cuml.internals.input_utils import input_to_cupy_array
-from cuml.metrics.utils import sorted_unique_labels
-from cuml.prims.label import make_monotonic
+from cuml.internals.validation import (
+    check_array,
+    check_consistent_length,
+    check_sample_weight,
+)
 
 
 def confusion_matrix(
@@ -19,17 +19,15 @@ def confusion_matrix(
     labels=None,
     sample_weight=None,
     normalize=None,
-    convert_dtype=False,
-) -> CumlArray:
+    convert_dtype="deprecated",
+) -> cp.ndarray:
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
     ----------
     y_true : array-like (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Ground truth (correct) target values.
     y_pred : array-like (device or host) shape = (n_samples,)
-        or (n_samples, n_outputs)
         Estimated target values.
     labels : array-like (device or host) shape = (n_classes,), optional
         List of labels to index the matrix. This may be used to reorder or
@@ -41,70 +39,89 @@ def confusion_matrix(
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
-    convert_dtype : bool, optional (default=False)
-        When set to True, the confusion matrix method will automatically
-        convert the predictions, ground truth, and labels arrays to np.int32.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
     Returns
     -------
-    C : array-like (device or host) shape = (n_classes, n_classes)
-        Confusion matrix.
+    C : cupy.ndarray of shape (n_classes, n_classes)
+        Confusion matrix on device.
     """
-    y_true, n_rows, n_cols, dtype = input_to_cuml_array(
+    y_true = check_array(
         y_true,
-        check_dtype=[cp.int32, cp.int64],
-        convert_to_dtype=(cp.int32 if convert_dtype else None),
+        ensure_2d=False,
+        dtype=("int32", "int64"),
+        convert_dtype=convert_dtype,
+        input_name="y_true",
     )
-
-    y_pred, _, _, _ = input_to_cuml_array(
+    y_pred = check_array(
         y_pred,
-        check_dtype=[cp.int32, cp.int64],
-        check_rows=n_rows,
-        check_cols=n_cols,
-        convert_to_dtype=(cp.int32 if convert_dtype else None),
+        ensure_2d=False,
+        dtype=("int32", "int64"),
+        convert_dtype=convert_dtype,
+        input_name="y_pred",
     )
+    if y_true.ndim != 1 or y_pred.ndim != 1:
+        raise ValueError(
+            f"y_true and y_pred must be 1D arrays, got shapes "
+            f"{y_true.shape} and {y_pred.shape}"
+        )
+    sample_weight = check_sample_weight(
+        sample_weight,
+        dtype=("float32", "float64", "int32", "int64"),
+        convert_dtype=convert_dtype,
+    )
+    check_consistent_length(y_true, y_pred, sample_weight)
 
-    if labels is None:
-        labels = sorted_unique_labels(y_true, y_pred)
-        n_labels = len(labels)
-    else:
-        labels, n_labels, _, _ = input_to_cupy_array(
+    if labels is not None:
+        labels = check_array(
             labels,
-            check_dtype=[cp.int32, cp.int64],
-            convert_to_dtype=(cp.int32 if convert_dtype else None),
-            check_cols=1,
+            ensure_2d=False,
+            dtype=("int32", "int64"),
+            convert_dtype=convert_dtype,
+            input_name="labels",
+            ensure_min_samples=0,
         )
-    if sample_weight is None:
-        sample_weight = cp.ones(n_rows, dtype=dtype)
+        if labels.ndim != 1:
+            raise ValueError(
+                f"labels must be a 1D array, got shape {labels.shape}"
+            )
+        if len(labels) == 0:
+            raise ValueError("'labels' should contain at least one label")
     else:
-        sample_weight, _, _, _ = input_to_cupy_array(
-            sample_weight,
-            check_dtype=[cp.float32, cp.float64, cp.int32, cp.int64],
-            check_rows=n_rows,
-            check_cols=n_cols,
+        labels = cp.unique(
+            cp.concatenate([cp.unique(y_true), cp.unique(y_pred)])
         )
 
-    if normalize not in ["true", "pred", "all", None]:
-        msg = (
-            "normalize must be one of "
-            f"{{'true', 'pred', 'all', None}}, got {normalize}."
-        )
-        raise ValueError(msg)
+    if sample_weight is None:
+        sample_weight = cp.ones(y_true.shape[0], dtype=y_true.dtype)
 
-    with using_output_type("cupy"):
-        y_true, _ = make_monotonic(y_true, labels, copy=True)
-        y_pred, _ = make_monotonic(y_pred, labels, copy=True)
+    # Sort provided labels for binary search, but keep track of
+    # original indices to maintain provided order.
+    sort_indices = cp.argsort(labels)
+    sorted_labels = labels[sort_indices]
 
-    # intersect y_pred, y_true with labels, eliminate items not in labels
-    ind = cp.logical_and(y_pred < n_labels, y_true < n_labels)
-    y_pred = y_pred[ind]
-    y_true = y_true[ind]
-    sample_weight = sample_weight[ind]
+    valid = cp.in1d(y_true, sorted_labels) & cp.in1d(y_pred, sorted_labels)
+    if not valid.all():
+        y_true = y_true[valid]
+        y_pred = y_pred[valid]
+        sample_weight = sample_weight[valid]
+
+    # Map each label to its index in sorted labels using binary search
+    true_indices = cp.searchsorted(sorted_labels, y_true)
+    pred_indices = cp.searchsorted(sorted_labels, y_pred)
+
+    # Map valid labels to their indices in original labels
+    y_true = sort_indices[true_indices]
+    y_pred = sort_indices[pred_indices]
 
     cm = cupyx.scipy.sparse.coo_matrix(
-        (sample_weight, (y_true, y_pred)),
-        shape=(n_labels, n_labels),
-        dtype=np.float64,
+        (sample_weight.astype("float64", copy=False), (y_true, y_pred)),
+        shape=(labels.shape[0], labels.shape[0]),
     ).toarray()
 
     # Choose the accumulator dtype to always have high precision
@@ -118,6 +135,11 @@ def confusion_matrix(
             cm = cp.divide(cm, cm.sum(axis=0, keepdims=True))
         elif normalize == "all":
             cm = cp.divide(cm, cm.sum())
+        elif normalize is not None:
+            raise ValueError(
+                "normalize must be one of "
+                f"{{'true', 'pred', 'all', None}}, got {normalize}."
+            )
         cm = cp.nan_to_num(cm)
 
     return cm

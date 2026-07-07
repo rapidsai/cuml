@@ -5,14 +5,14 @@ import inspect
 
 import cupy as cp
 from cupyx.scipy.sparse import issparse as is_cp_sparse
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.utils.metaestimators import available_if
 
 from cuml.accel.estimator_proxy import is_proxy
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import using_output_type
 
-__all__ = ("Pipeline",)
+__all__ = ("Pipeline", "FeatureUnion")
 
 
 def get_output_type(pipeline, reverse=False):
@@ -54,7 +54,7 @@ def get_output_type(pipeline, reverse=False):
     return "cupy"
 
 
-def patch_method(name):
+def patch_pipeline_method(name):
     """Patch a sklearn Pipeline method to reduce device<->host transfers."""
     orig_method = inspect.getattr_static(Pipeline, name)
     # Unwrap @available_if decorated methods
@@ -105,4 +105,20 @@ for method_name in [
     "score_samples",
     "transform",
 ]:
-    patch_method(method_name)
+    patch_pipeline_method(method_name)
+
+
+def patch_feature_union_method(name):
+    """Patch a FeatureUnion method to ensure results returned as numpy."""
+    orig_method = getattr(FeatureUnion, name)
+
+    @functools.wraps(orig_method)
+    def method(self, *args, **kwargs):
+        with using_output_type("numpy"):
+            return orig_method(self, *args, **kwargs)
+
+    setattr(FeatureUnion, name, method)
+
+
+for method_name in ["fit", "fit_transform", "transform"]:
+    patch_feature_union_method(method_name)

@@ -1,130 +1,114 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cudf
 import cupy as cp
+import numpy as np
 
-from cuml.internals.input_utils import determine_array_type
-from cuml.preprocessing import LabelBinarizer, LabelEncoder
+from cuml.internals.validation import (
+    check_array,
+    check_consistent_length,
+    check_sample_weight,
+    check_y,
+)
 
 
 def hinge_loss(
-    y_true, pred_decision, labels=None, sample_weights=None
+    y_true,
+    pred_decision,
+    labels=None,
+    sample_weight=None,
 ) -> float:
     """
-    Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss
+    Calculates non-regularized hinge loss. Adapted from scikit-learn hinge loss.
 
     Parameters
     ----------
-    y_true: cuDF Series or cuPy array of shape (n_samples,)
-        True labels, consisting of labels for the classes.
-        In binary classification, the positive label must be
-        greater than negative class
+    y_true : array-like of shape (n_samples,)
+        True labels, consisting of labels for the classes. In binary
+        classification, the positive label must be greater than the negative
+        label.
 
-    pred_decision: cuDF DataFrame or cuPy array of shape (n_samples,) or \
-            (n_samples, n_classes)
-        Predicted decisions, as output by decision_function (floats)
+    pred_decision : array-like of shape (n_samples,) or (n_samples, n_classes)
+        Predicted decisions, as output by ``decision_function`` (floats).
 
-    labels: cuDF Series or cuPy array, default=None
+    labels : array-like, default=None
         In multiclass problems, this must include all class labels.
 
-    sample_weight: cupy array of shape (n_samples,), default=None
-        Sample weights to be used for computing the average
+    sample_weight : array-like of shape (n_samples,), default=None
+        Sample weights to be used for computing the average.
 
     Returns
     -------
     loss : float
-           The average hinge loss.
+        The average hinge loss.
     """
-
-    yt_type = determine_array_type(y_true)
-    pd_type = determine_array_type(pred_decision)
-    labels_type = determine_array_type(labels)
-
-    if yt_type not in ["cupy", "numba", "cudf"]:
-        raise TypeError(
-            "y_true needs to be either a cuDF Series or \
-                        a cuPy/numba array."
+    pred_decision = check_array(
+        pred_decision,
+        ensure_2d=False,
+        dtype=(np.float32, np.float64),
+        input_name="pred_decision",
+    )
+    if labels is not None:
+        labels = check_array(
+            labels,
+            ensure_2d=False,
+            ensure_all_finite=False,
+            input_name="labels",
         )
+        classes = np.unique(cp.asnumpy(labels))
+    else:
+        classes = None
 
-    if pd_type not in ["cupy", "numba", "cudf"]:
-        raise TypeError(
-            "pred_decision needs to be either a cuDF DataFrame or \
-                        a cuPy/numba array."
-        )
+    if classes is None:
+        y_true, classes = check_y(y_true, return_classes=True)
+    elif classes.size > 2:
+        # For multiclass hinge loss, supplied labels define the column order
+        # for pred_decision and should be used to encode y_true.
+        y_true, classes = check_y(y_true, return_classes=classes)
+    else:
+        # For sklearn-compatible binary hinge loss, supplied labels select the
+        # binary branch, but the sign transform is fit from observed y_true.
+        y_true, _ = check_y(y_true, return_classes=True)
 
-    if labels_type not in ["cupy", "numba", "cudf"]:
-        raise TypeError(
-            "labels needs to be either a cuDF Series or \
-                        a cuPy/numba array."
-        )
+    sample_weight = check_sample_weight(sample_weight, dtype=np.float64)
+    check_consistent_length(y_true, pred_decision, sample_weight)
 
-    if y_true.shape[0] != pred_decision.shape[0]:
-        raise ValueError(
-            "y_true and pred_decision must have the same"
-            " number of rows(found {} and {})".format(
-                y_true.shape[0], pred_decision.shape[0]
-            )
-        )
-
-    if sample_weights and sample_weights.shape[0] != y_true.shape[0]:
-        raise ValueError(
-            "y_true and sample_weights must have the same "
-            "number of rows (found {} and {})".format(
-                y_true.shape[0], sample_weights.shape[0]
-            )
-        )
-
-    if not isinstance(labels, cudf.Series):
-        labels = cudf.Series(labels)
-
-    if not isinstance(y_true, cudf.Series):
-        y_true = cudf.Series(y_true)
-
-    y_true_unique = cp.unique(labels if labels is not None else y_true)
-
-    if y_true_unique.size > 2:
+    if classes.size > 2:
+        # Multiclass case
         if (
             labels is None
             and pred_decision.ndim > 1
-            and (cp.size(y_true_unique) != pred_decision.shape[1])
+            and classes.size != pred_decision.shape[1]
         ):
             raise ValueError(
                 "Please include all labels in y_true "
                 "or pass labels as third argument"
             )
-        if labels is None:
-            labels = y_true_unique
-        le = LabelEncoder(output_type="cudf")
-        le.fit(labels)
-        y_true = le.transform(y_true)
-        if isinstance(pred_decision, cudf.DataFrame):
-            pred_decision = pred_decision.values
+        if pred_decision.ndim != 2:
+            raise ValueError(
+                "pred_decision must be 2D for multiclass hinge loss, "
+                f"got a {pred_decision.ndim}D array instead."
+            )
 
+        # `y_true` is already encoded as column indices into `classes`.
+        n_samples = y_true.shape[0]
         mask = cp.ones_like(pred_decision, dtype=bool)
-        mask[cp.arange(y_true.shape[0]), y_true.values] = False
+        mask[cp.arange(n_samples), y_true] = False
         margin = pred_decision[~mask]
-        margin -= cp.max(
-            pred_decision[mask].reshape(y_true.shape[0], -1), axis=1
-        )
+        margin -= cp.max(pred_decision[mask].reshape(n_samples, -1), axis=1)
     else:
-        # Handles binary class case
-        # this code assumes that positive and negative labels
-        # are encoded as +1 and -1 respectively
-        if isinstance(pred_decision, cudf.DataFrame):
-            pred_decision = pred_decision.values
-        pred_decision = cp.ravel(pred_decision)
-
-        lbin = LabelBinarizer(neg_label=-1, output_type="cupy")
-        y_true = lbin.fit_transform(y_true)[:, 1]
-
-        try:
-            margin = y_true * pred_decision
-        except TypeError:
-            raise TypeError("pred_decision should be an array of floats.")
+        # Binary case. Codes are 0/1 with `classes` sorted, so code 1
+        # corresponds to the larger class (positive label), matching the
+        # convention used by sklearn's LabelBinarizer.
+        if pred_decision.ndim > 1:
+            pred_decision = cp.ravel(pred_decision)
+        y_signed = cp.where(y_true == 1, 1, -1).astype(
+            pred_decision.dtype, copy=False
+        )
+        margin = y_signed * pred_decision
 
     losses = 1 - margin
     # The hinge_loss doesn't penalize good enough predictions.
     cp.clip(losses, 0, None, out=losses)
-    return cp.average(losses, weights=sample_weights)
+    return float(cp.average(losses, weights=sample_weight))

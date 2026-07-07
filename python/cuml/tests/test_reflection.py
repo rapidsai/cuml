@@ -19,6 +19,8 @@ from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
+from cuml.internals.outputs import infer_output_type
+from cuml.internals.validation import check_inputs
 
 OUTPUT_TYPES = ["numpy", "numba", "cupy", "cudf", "pandas"]
 
@@ -60,12 +62,39 @@ def rand_array(output_type, *, shape=(8, 4), seed=42):
         return cudf.DataFrame(X)
 
 
+class ImplementsArray:
+    def __init__(self, x):
+        self.x = x
+
+    def __array__(self, dtype=None, copy=None):
+        return self.x
+
+
+class ImplementsArrayInterface:
+    def __init__(self, x):
+        self.x = x
+
+    @property
+    def __array_interface__(self):
+        return self.x.__array_interface__
+
+
+class ImplementsCudaArrayInterface:
+    def __init__(self, x):
+        self.x = x
+
+    @property
+    def __cuda_array_interface__(self):
+        return self.x.__cuda_array_interface__
+
+
 class DummyEstimator(Base):
     X_ = CumlArrayDescriptor()
 
     @reflect(reset=True)
     def fit(self, X, y=None):
-        self.X_ = CumlArray.from_input(X)
+        X = check_inputs(self, X, reset=True)
+        self.X_ = CumlArray(data=X)
         return self
 
     @reflect
@@ -134,6 +163,68 @@ def test_using_output_type():
     with pytest.raises(ValueError, match="`output_type` must be one of"):
         with cuml.using_output_type("bad"):
             pass
+
+
+@pytest.mark.parametrize("input_type", OUTPUT_TYPES)
+def test_infer_output_type(input_type):
+    X = rand_array(input_type)
+    output_type = infer_output_type(X)
+    assert output_type == input_type
+
+
+def test_infer_output_type_cuml():
+    a = CumlArray(cp.array([[1, 2], [3, 4]]))
+    b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
+    assert infer_output_type(a) == "cuml"
+    assert infer_output_type(b) == "cuml"
+
+
+@pytest.mark.parametrize("kind", ["cudf", "pandas"])
+def test_infer_output_type_dataframes(kind):
+    ns = cudf if kind == "cudf" else pd
+    df = ns.DataFrame({"x": [1, 2, 3]}, index=[10, 20, 30])
+    assert infer_output_type(df) == kind
+    assert infer_output_type(df.x) == kind
+    assert infer_output_type(df.index) == kind
+
+
+def test_infer_output_type_cuda_array_interface():
+    x = ImplementsCudaArrayInterface(cp.array([1, 2, 3]))
+    assert infer_output_type(x) == "cupy"
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param([1, 2], id="list"),
+        pytest.param((1, 2), id="tuple"),
+        pytest.param([[1, 2], [3, 4]], id="nested-list"),
+        pytest.param(ImplementsArray(np.array([1, 2])), id="__array__"),
+        pytest.param(
+            ImplementsArrayInterface(np.array([1, 2])),
+            id="__array_interface__",
+        ),
+    ],
+)
+def test_infer_output_type_array_like(obj):
+    assert infer_output_type(obj) == "numpy"
+    assert infer_output_type(obj, array_like="fizz") == "fizz"
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param(None, id="none"),
+        pytest.param(1, id="scalar"),
+        pytest.param(np.int32(1), id="numpy-scalar"),
+        pytest.param("abc", id="string"),
+        pytest.param(b"abc", id="bytes"),
+        pytest.param({"a": 1, "b": 2}, id="dict"),
+        pytest.param(object(), id="arbitrary-object"),
+    ],
+)
+def test_infer_output_type_non_arrays(obj):
+    assert infer_output_type(obj) is None
 
 
 @pytest.mark.parametrize("input_type", OUTPUT_TYPES)
@@ -270,6 +361,24 @@ def test_convert_sparse_outputs(sparse_type, output_type):
         assert scipy.sparse.issparse(res)
 
 
+@pytest.mark.parametrize(
+    "obj",
+    [
+        pytest.param([1, 2, 3], id="list"),
+        pytest.param((1, 2, 3), id="tuple"),
+        pytest.param(ImplementsArray(np.array([1, 2, 3])), id="__array__"),
+    ],
+)
+def test_dont_convert_array_like(obj):
+    @reflect
+    def make_array_like():
+        return obj
+
+    cuml.set_global_output_type("numpy")
+    res = make_array_like()
+    assert type(res) is type(obj)
+
+
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
 def test_functions(output_type):
     cuml.set_global_output_type(output_type)
@@ -351,6 +460,25 @@ def test_estimator_method_with_array_input():
         assert_output_type(model.example(X2), "cupy")
 
 
+def test_array_like_inputs_treated_as_numpy_by_reflection():
+    X_cupy = rand_array("cupy", shape=(10, 5))
+    X_list = rand_array("numpy", shape=(10, 5)).tolist()
+
+    model_fit_list = DummyEstimator().fit(X_list)
+    model_fit_cupy = DummyEstimator().fit(X_cupy)
+
+    # Fitting on array-likes stores `numpy` as input-type
+    assert model_fit_list._input_type == "numpy"
+
+    # Inferring on array-likes uses `numpy` as output type
+    assert_output_type(model_fit_list.example(X_list), "numpy")
+    assert_output_type(model_fit_cupy.example(X_list), "numpy")
+
+    # Methods with no args use input type
+    assert_output_type(model_fit_list.example_no_args(), "numpy")
+    assert_output_type(model_fit_cupy.example_no_args(), "cupy")
+
+
 def test_estimator_method_with_no_array_input():
     X = rand_array("numpy", shape=(10, 5))
     model = DummyEstimator().fit(X)
@@ -394,3 +522,43 @@ def test_array_descriptor_cache_behavior():
     assert b"pandas" not in msg
     assert_output_type(model2.X_, "cupy")
     assert len(model2.__dict__["X_"].values) == 2  # cuml + cupy
+
+
+def test_decorators_set_cupy_ptds():
+    class MyEstimator(Base):
+        @reflect(reset=True)
+        def fit(self, X, y=None):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return self
+
+        @reflect
+        def direct_call(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return cp.zeros(3)
+
+        @reflect
+        def nested_call(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return self.direct_call(X)
+
+        @run_in_internal_context
+        def no_reflection(self, X):
+            assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
+            return cp.zeros(3)
+
+    X = cp.ones(3)
+
+    # Check that ptds is used instead of the default stream
+    model = MyEstimator()
+    model.fit(X)
+    model.direct_call(X)
+    model.nested_call(X)
+    model.no_reflection(X)
+
+    # Check that ptds is used instead of a custom stream
+    with cp.cuda.Stream():
+        model = MyEstimator()
+        model.fit(X)
+        model.direct_call(X)
+        model.nested_call(X)
+        model.no_reflection(X)

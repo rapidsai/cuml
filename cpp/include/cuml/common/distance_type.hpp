@@ -1,11 +1,14 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
-namespace ML::distance {
+#include <cuml/common/export.hpp>
+
+namespace CUML_EXPORT ML {
+namespace distance {
 
 enum class DistanceType {
   L2Expanded          = 0,
@@ -32,4 +35,5 @@ enum class DistanceType {
   Precomputed         = 100
 };
 
-}  // end namespace ML::distance
+}  // end namespace distance
+}  // end namespace CUML_EXPORT ML

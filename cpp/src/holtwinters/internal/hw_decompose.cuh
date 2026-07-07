@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/handle.hpp>
@@ -254,9 +255,19 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
   cudaStream_t stream     = handle.get_stream();
   cublasHandle_t cublas_h = handle.get_cublas_handle();
 
-  const int end         = start_periods * frequency;
+  const int end         = ML::checked_mul<int>(start_periods, frequency);
   const int filter_size = (frequency / 2) * 2 + 1;
-  const int trend_len   = end - filter_size + 1;
+  if (end < filter_size) {
+    RAFT_FAIL(
+      "HoltWintersDecompose: start_periods*frequency (%d) must be >= filter_size (%d); "
+      "increase start_periods or decrease frequency",
+      end,
+      filter_size);
+  }
+  // end >= filter_size guaranteed by the check above, so the subtraction is safe;
+  // checked_sub makes the underflow guard explicit.
+  const int trend_len             = ML::checked_sub<int>(end, filter_size - 1);
+  std::size_t const batch_trend_n = ML::checked_mul<std::size_t>(batch_size, trend_len);
 
   // Set filter
   std::vector<Dtype> filter_h(filter_size, 1. / frequency);
@@ -269,10 +280,10 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
   raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
-  rmm::device_uvector<Dtype> trend_d(batch_size * trend_len, stream);
+  rmm::device_uvector<Dtype> trend_d(batch_trend_n, stream);
   conv1d<Dtype>(handle, ts, batch_size, filter_d.data(), filter_size, trend_d.data(), trend_len);
 
-  rmm::device_uvector<Dtype> season_d(batch_size * trend_len, stream);
+  rmm::device_uvector<Dtype> season_d(batch_trend_n, stream);
 
   const int ts_offset = (filter_size / 2) * batch_size;
   if (seasonal == ML::SeasonalType::ADDITIVE) {

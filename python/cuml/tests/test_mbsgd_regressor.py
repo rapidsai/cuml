@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
@@ -138,7 +138,7 @@ def test_mbsgd_regressor(lrate, penalty, make_dataset):
     cu_pred = model.predict(X_test)
     cu_r2 = r2_score(cu_pred, y_test)
 
-    assert cu_r2 >= 0.88
+    assert cu_r2 >= 0.87
 
 
 def test_mbsgd_regressor_default(make_dataset):

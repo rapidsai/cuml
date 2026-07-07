@@ -1,15 +1,16 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include <cuml/common/export.hpp>
 namespace raft {
 class handle_t;
 }
 
-namespace ML {
+namespace CUML_EXPORT ML {
 
 namespace Stationarity {
 
@@ -48,4 +49,4 @@ void kpss_test(const raft::handle_t& handle,
                double pval_threshold);
 
 }  // namespace Stationarity
-}  // namespace ML
+}  // namespace CUML_EXPORT ML

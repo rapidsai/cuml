@@ -11,7 +11,7 @@
 
 #include <random>
 
-namespace cuml {
+namespace CUML_EXPORT cuml {
 namespace genetic {
 
 /**
@@ -276,4 +276,4 @@ void subtree_mutation(const program& prog, program& p_out, const param& params, 
  */
 void hoist_mutation(const program& prog, program& p_out, const param& params, std::mt19937& rng);
 }  // namespace genetic
-}  // namespace cuml
+}  // namespace CUML_EXPORT cuml

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
+from importlib.metadata import version as package_version
+
 import cupy as cp
 import numba
 import numpy as np
@@ -34,15 +36,20 @@ def correctness_sparse(a, b, atol=0.1, rtol=0.2, threshold=0.95):
     return correctness >= threshold
 
 
-numba_gte62 = pytest.mark.xfail(
-    Version(numba.__version__) >= Version("0.62.0"),
-    reason="Upstream regression in umap with numba >= 0.62.0",
+UMAP_VERSION = Version(package_version("umap-learn"))
+UMAP_NUMBA_REGRESSION = Version(numba.__version__) >= Version(
+    "0.62.0"
+) and UMAP_VERSION < Version("0.5.12")
+
+umap_numba_regression = pytest.mark.xfail(
+    UMAP_NUMBA_REGRESSION,
+    reason="Upstream regression in umap<0.5.12 with numba >= 0.62.0",
     strict=True,
 )
 
 
 @pytest.mark.parametrize(
-    "n_rows", [pytest.param(800, marks=[numba_gte62]), 5000]
+    "n_rows", [pytest.param(800, marks=[umap_numba_regression]), 5000]
 )
 @pytest.mark.parametrize("n_features", [8, 32])
 @pytest.mark.parametrize("n_neighbors", [8, 16])
@@ -50,15 +57,17 @@ numba_gte62 = pytest.mark.xfail(
 def test_fuzzy_simplicial_set(
     n_rows, n_features, n_neighbors, precomputed_nearest_neighbors
 ):
-    # TODO: remove once upstream `numba` issues ar sorted out
-    if Version(numba.__version__) >= Version("0.62.0"):
+    # TODO: remove once upstream `numba` issues are sorted out
+    if UMAP_NUMBA_REGRESSION:
         if (
             n_rows == 5000
             and n_features == 32
             and n_neighbors == 8
             and not precomputed_nearest_neighbors
         ):
-            pytest.xfail("Upstream regression in umap with numba >= 0.62.0")
+            pytest.xfail(
+                "Upstream regression in umap<0.5.12 with numba >= 0.62.0"
+            )
 
     n_clusters = 30
     random_state = 42
