@@ -214,6 +214,7 @@ class Lars(RegressorMixin, Base):
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
+            ensure_min_samples=2,
             reset=True,
         )
         gram = self._calc_gram(X)
