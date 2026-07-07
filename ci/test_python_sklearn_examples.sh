@@ -29,7 +29,6 @@ timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/u
     -n 4 --dist worksteal \
     --example-timeout=300 \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
-TEST_EXITCODE=$?
 
 # Per-example timeouts and network failures are reported as xfails. The
 # examples tests still require a healthy majority of examples to pass so
@@ -38,13 +37,6 @@ rapids-logger "scikit-learn examples: require >=90% pass rate"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
     --fail-below 90 \
     "${SKLEARN_EXAMPLES_JUNITXML}"
-SUMMARY_EXITCODE=$?
-
-if [ "${TEST_EXITCODE}" != "0" ]; then
-    EXITCODE="${TEST_EXITCODE}"
-elif [ "${SUMMARY_EXITCODE}" != "0" ]; then
-    EXITCODE="${SUMMARY_EXITCODE}"
-fi
 
 rapids-logger "Test script exiting with value: $EXITCODE"
 exit ${EXITCODE}
