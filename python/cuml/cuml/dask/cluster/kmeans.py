@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+from numbers import Integral
+
 import cupy as cp
 import dask.array as da
 import dask.dataframe as dd
@@ -21,6 +23,19 @@ from cuml.internals.validation import check_random_seed
 
 def _get_inertia_and_n_samples(estimator):
     return (estimator.inertia_, len(estimator.labels_))
+
+
+def _get_local_n_rows(objs, has_weights):
+    if not has_weights:
+        return sum(len(X) for X in objs)
+    return sum(len(X) for X, _ in objs)
+
+
+def _validate_n_clusters(n_clusters):
+    if not isinstance(n_clusters, Integral) or n_clusters <= 0:
+        raise ValueError(
+            f"n_clusters={n_clusters} should be a positive integer."
+        )
 
 
 class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
@@ -79,8 +94,31 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, *, client=None, verbose=False, **kwargs):
-        super().__init__(client=client, verbose=verbose, **kwargs)
+    def __init__(self, *, client=None, verbose=False, n_clusters=8, **kwargs):
+        super().__init__(
+            client=client, verbose=verbose, n_clusters=n_clusters, **kwargs
+        )
+
+    @staticmethod
+    @mnmg_import
+    def _func_preflight_fit(sessionId, objs, datatype, has_weights, **kwargs):
+        from cuml.cluster.kmeans_mg import KMeansMG
+
+        comm_state = get_raft_comm_state(sessionId, get_worker())
+        n_rows = _get_local_n_rows(objs, has_weights)
+
+        try:
+            KMeansMG(
+                handle=comm_state["handle"],
+                output_type=datatype,
+                rank=comm_state.get("wid"),
+                n_workers=comm_state.get("nworkers"),
+                **kwargs,
+            )._validate_mg_fit_constraints(n_rows)
+        except ValueError as exc:
+            return str(exc)
+
+        return None
 
     @staticmethod
     @mnmg_import
@@ -143,45 +181,66 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         kwargs = self.kwargs.copy()
         kwargs["random_state"] = check_random_seed(kwargs.get("random_state"))
 
-        # Validate total sample count before submitting distributed work.
-        # Each rank requests `n_clusters` centroids, but partitions may not
-        # have enough data points. The dask layer should surface a clear
-        # error when n_clusters > total data points across all workers.
-        n_clusters = self.kwargs.get("n_clusters")
-        if n_clusters is not None:
-            data._fetch_worker_sizes()
-            total_rows = sum(
-                total for (_, total) in data._worker_sizes.values()
+        # Validate predictable global failures before submitting distributed
+        # work. MG-specific parameter and rank-local row checks are performed
+        # in the all-worker preflight after the communicator is initialized.
+        n_clusters = kwargs["n_clusters"]
+        _validate_n_clusters(n_clusters)
+        data._fetch_worker_sizes()
+        total_rows = sum(total for (_, total) in data._worker_sizes.values())
+        if total_rows < n_clusters:
+            raise ValueError(
+                f"n_samples={total_rows} should be >= n_clusters={n_clusters}. "
+                f"There are fewer data points across all workers than the "
+                f"number of requested clusters. Please reduce n_clusters or "
+                f"increase the number of data points."
             )
-            if total_rows < n_clusters:
-                raise ValueError(
-                    f"n_samples={total_rows} should be >= n_clusters={n_clusters}. "
-                    f"There are fewer data points across all workers than the "
-                    f"number of requested clusters. Please reduce n_clusters or "
-                    f"increase the number of data points."
-                )
 
         # This needs to happen on the scheduler
         comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
 
-        kmeans_fit = [
-            self.client.submit(
-                KMeans._func_fit,
-                comms.sessionId,
-                wf[1],
-                self.datatype,
-                data.multiple,
-                **kwargs,
-                workers=[wf[0]],
-                pure=False,
-            )
-            for idx, wf in enumerate(data.worker_to_parts.items())
-        ]
+        kmeans_fit = []
+        try:
+            preflight_futures = [
+                self.client.submit(
+                    KMeans._func_preflight_fit,
+                    comms.sessionId,
+                    parts,
+                    self.datatype,
+                    data.multiple,
+                    **kwargs,
+                    workers=[worker],
+                    pure=False,
+                )
+                for worker, parts in data.worker_to_parts.items()
+            ]
+            wait_and_raise_from_futures(preflight_futures)
+            preflight_errors = [
+                err
+                for err in self.client.gather(preflight_futures)
+                if err is not None
+            ]
+            if preflight_errors:
+                raise ValueError(preflight_errors[0])
 
-        wait_and_raise_from_futures(kmeans_fit)
+            kmeans_fit = [
+                self.client.submit(
+                    KMeans._func_fit,
+                    comms.sessionId,
+                    wf[1],
+                    self.datatype,
+                    data.multiple,
+                    **kwargs,
+                    workers=[wf[0]],
+                    pure=False,
+                )
+                for idx, wf in enumerate(data.worker_to_parts.items())
+            ]
 
-        comms.destroy()
+            wait_and_raise_from_futures(kmeans_fit)
+        finally:
+            comms.destroy()
 
         # Collect the full model from only the first worker (for
         # cluster_centers_ etc). Since cluster centers are synchronized

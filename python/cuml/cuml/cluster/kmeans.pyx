@@ -1,7 +1,8 @@
 #
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-#
+from numbers import Integral
+
 import cupy as cp
 
 from cuml.common.array_descriptor import CumlArrayDescriptor
@@ -551,10 +552,7 @@ class KMeans(InteropMixin,
         if sample_weight is None:
             sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
 
-        if n_rows < self.n_clusters:
-            raise ValueError(
-                f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
-            )
+        self._validate_fit_row_constraints(n_rows)
 
         # Allocate output cluster_centers_
         if isinstance(self.init, str):
@@ -597,6 +595,17 @@ class KMeans(InteropMixin,
         self.n_iter_ = n_iter
 
         return self
+
+    def _validate_fit_row_constraints(self, n_rows):
+        if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
+            raise ValueError(
+                f"n_clusters={self.n_clusters} should be a positive integer."
+            )
+
+        if not self._multi_gpu and n_rows < self.n_clusters:
+            raise ValueError(
+                f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
+            )
 
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
