@@ -564,8 +564,9 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     ):
         raise TypeError(
             f"Cannot return objects of type {type(obj).__name__} directly "
-            f"from an `mlfunc`-decorated function. Please convert to `cupy`, "
-            f"`cupyx.scipy.sparse`, `ArrayIndexPair`, or `ClassLabels` instead."
+            f"from an `mlfunc`-decorated function. Please return a "
+            f"`cupy.ndarray`, `cupyx.scipy.sparse.spmatrix`, `ArrayIndexPair`, "
+            f"or `ClassLabels` instead."
         )
 
     elif isinstance(obj, list):
