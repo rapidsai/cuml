@@ -13,6 +13,8 @@ PYLIBRAFT_WHEELHOUSE=$(rapids-get-pr-artifact raft 3052 python wheel --pkg_name 
 RAFT_DASK_WHEELHOUSE=$(rapids-get-pr-artifact raft 3052 python wheel --pkg_name raft_dask)
 LIBCUVS_WHEELHOUSE=$(rapids-get-pr-artifact cuvs 2227 cpp wheel)
 CUVS_WHEELHOUSE=$(rapids-get-pr-artifact cuvs 2227 python wheel)
+LIBNVFOREST_WHEELHOUSE=$(rapids-get-pr-artifact nvforest 156 cpp wheel)
+NVFOREST_WHEELHOUSE=$(rapids-get-pr-artifact nvforest 156 python wheel)
 
 # write a pip constraints file saying e.g. "whenever you encounter a requirement for 'librmm-cu12', use this wheel"
 cat > "${PIP_CONSTRAINT}" <<EOF
@@ -21,4 +23,6 @@ pylibraft-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${PYLIBRAFT_WHEELHOUSE}"/pyl
 raft-dask-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${RAFT_DASK_WHEELHOUSE}"/raft_dask_*.whl)
 libcuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBCUVS_WHEELHOUSE}"/libcuvs_*.whl)
 cuvs-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${CUVS_WHEELHOUSE}"/cuvs_*.whl)
+libnvforest-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${LIBNVFOREST_WHEELHOUSE}"/libnvforest_*.whl)
+nvforest-${RAPIDS_PY_CUDA_SUFFIX} @ file://$(echo "${NVFOREST_WHEELHOUSE}"/nvforest_*.whl)
 EOF

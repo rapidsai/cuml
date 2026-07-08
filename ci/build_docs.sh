@@ -22,6 +22,12 @@ rapids-dependency-file-generator \
   --output conda \
   --file-key docs \
   --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION}" \
+  --prepend-channel "${LIBRAFT_CHANNEL}" \
+  --prepend-channel "${RAFT_CHANNEL}" \
+  --prepend-channel "${LIBCUVS_CHANNEL}" \
+  --prepend-channel "${CUVS_CHANNEL}" \
+  --prepend-channel "${LIBNVFOREST_CHANNEL}" \
+  --prepend-channel "${NVFOREST_CHANNEL}" \
   --prepend-channel "${CPP_CHANNEL}" \
   --prepend-channel "${PYTHON_CHANNEL}" \
   | tee env.yaml
