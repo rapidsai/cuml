@@ -784,6 +784,36 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            sample_weight,
                                                                            double_precision)));
 
+TEST(RfTests, FeatureImportancesHandleInfiniteMetrics)
+{
+  // This direct metadata fixture covers the old inf / inf normalization path,
+  // which returned NaN feature importances even though the splits were valid.
+  auto forest        = std::make_shared<RandomForestMetaData<float, float>>();
+  forest->n_features = 2;
+
+  auto tree           = std::make_shared<DT::TreeMetaDataNode<float, float>>();
+  tree->treeid        = 0;
+  tree->depth_counter = 2;
+  tree->leaf_counter  = 3;
+  tree->train_time    = 0.0;
+  tree->num_outputs   = 1;
+  tree->sparsetree    = {DT::SparseTreeNode<float, float>::CreateSplitNode(
+                        0, 0.5f, std::numeric_limits<float>::infinity(), 1, 8),
+                         DT::SparseTreeNode<float, float>::CreateSplitNode(
+                        1, 1.5f, std::numeric_limits<float>::infinity(), 3, 4),
+                         DT::SparseTreeNode<float, float>::CreateLeafNode(4),
+                         DT::SparseTreeNode<float, float>::CreateLeafNode(2),
+                         DT::SparseTreeNode<float, float>::CreateLeafNode(2)};
+  forest->trees.push_back(tree);
+
+  std::vector<float> importances(forest->n_features);
+  ML::compute_feature_importances(forest.get(), importances.data());
+  EXPECT_TRUE(std::isfinite(importances[0]));
+  EXPECT_TRUE(std::isfinite(importances[1]));
+  EXPECT_FLOAT_EQ(importances[0], 0.5f);
+  EXPECT_FLOAT_EQ(importances[1], 0.5f);
+}
+
 TEST(RfTests, InvalidNStreams)
 {
   for (auto n_streams : {0, -1}) {
