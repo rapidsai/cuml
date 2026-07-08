@@ -348,6 +348,10 @@ class ClassLabels:
         self.indices = indices
         self.classes = classes
 
+    @property
+    def dtype(self):
+        return self.classes.dtype
+
     def to_output(self, output_type, index=None):
         """Convert this instance to a specific `output_type`.
 
