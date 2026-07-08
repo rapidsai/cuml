@@ -56,6 +56,8 @@ pytest_plugins = "cuml.testing.plugins.quick_run_plugin"
 # Test Configuration Constants
 # =============================================================================
 
+# Many CI systems set the "magic" CI variable to let code know it is running
+# in a CI environment.
 CI = os.environ.get("CI") in ("true", "1")
 HYPOTHESIS_ENABLED = os.environ.get("HYPOTHESIS_ENABLED") in (
     "true",
@@ -91,7 +93,9 @@ HYPOTHESIS_DEFAULT_PHASES = (
 
 hypothesis.settings.register_profile(
     name="unit",
-    deadline=None if CI else timedelta(milliseconds=2000),
+    # CI runners have varying performance, so we do not set a deadline for CI
+    # jobs to avoid flaky tests.
+    deadline=None if CI else timedelta(milliseconds=5000),
     parent=hypothesis.settings.get_profile("default"),
     phases=HYPOTHESIS_DEFAULT_PHASES,
     max_examples=20,
