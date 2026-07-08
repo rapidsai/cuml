@@ -83,7 +83,7 @@ authors = [
 license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
-    "cuda-python>=13.0.1,<14.0",
+    "cuda-bindings>=13.0.1,<14.0",
     "cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*",
     "cudf==26.8.*,>=0.0.0a0",
     "cupy-cuda13x[ctk]>=14.0.1,!=14.1.0",
@@ -188,7 +188,7 @@ dependencies-file = "../../dependencies.yaml"
 matrix-entry = "cuda_suffixed=true;use_cuda_wheels=true"
 requires = [
     "cmake>=4.0",
-    "cuda-python>=13.0.1,<14.0",
+    "cuda-bindings>=13.0.1,<14.0",
     "cython>=3.2.2,!=3.2.7",
     "libcuml==26.8.*,>=0.0.0a0",
     "libnvforest==26.8.*,>=0.0.0a0",

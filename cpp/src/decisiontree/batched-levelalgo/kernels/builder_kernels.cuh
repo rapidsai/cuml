@@ -126,7 +126,7 @@ void launchLeafKernel(ObjectiveT objective,
 // Values outside the quantile range are clamped to the edge bins: values below the
 // first quantile return 0, and values above the last quantile return len - 1.
 template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
+HDI IdxT lower_bound(DataT const* array, IdxT len, DataT element)
 {
   IdxT start = 0;
   IdxT end   = len - 1;
@@ -159,6 +159,7 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              bool use_global_memory_histogram,
                               dim3 grid,
                               size_t smem_size,
                               cudaStream_t builder_stream);
