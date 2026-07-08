@@ -54,7 +54,7 @@ struct Split {
   /** last quantile index in an inclusive range of training-equivalent splits */
   IdxT split_end;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, std::int64_t nLeft, IdxT bin = -1)
+  HDI Split(DataT quesval, IdxT colid, DataT best_metric_val, std::int64_t nLeft, IdxT bin = -1)
     : quesval(quesval),
       colid(colid),
       best_metric_val(best_metric_val),
@@ -65,12 +65,12 @@ struct Split {
     split_end   = bin;
   }
 
-  DI Split(DataT quesval,
-           IdxT colid,
-           DataT best_metric_val,
-           std::int64_t global_nLeft,
-           std::int64_t local_nLeft,
-           IdxT bin)
+  HDI Split(DataT quesval,
+            IdxT colid,
+            DataT best_metric_val,
+            std::int64_t global_nLeft,
+            std::int64_t local_nLeft,
+            IdxT bin)
     : quesval(quesval),
       colid(colid),
       best_metric_val(best_metric_val),
@@ -81,7 +81,7 @@ struct Split {
     split_end   = bin;
   }
 
-  DI Split()
+  HDI Split()
   {
     quesval = best_metric_val = Min;
     colid                     = -1;
@@ -98,7 +98,7 @@ struct Split {
    *
    * @return the reference to the copied object (typically useful for chaining)
    */
-  DI SplitT& operator=(const SplitT& other)
+  HDI SplitT& operator=(const SplitT& other)
   {
     quesval         = other.quesval;
     colid           = other.colid;
