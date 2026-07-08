@@ -22,6 +22,7 @@
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/scan.h>
 
+#include <cstdint>
 #include <cstdio>
 
 namespace ML {
@@ -29,17 +30,15 @@ namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
 
-template <typename IdxT>
 struct NodeSplitPartitionState {
-  IdxT left_count;
+  std::int64_t left_count;
   bool valid_row;
   bool goes_left;
 };
 
-template <typename IdxT>
 struct NodeSplitPartitionScanOp {
-  __host__ __device__ NodeSplitPartitionState<IdxT> operator()(
-    const NodeSplitPartitionState<IdxT>& lhs, const NodeSplitPartitionState<IdxT>& rhs) const
+  __host__ __device__ NodeSplitPartitionState operator()(const NodeSplitPartitionState& lhs,
+                                                         const NodeSplitPartitionState& rhs) const
   {
     return {lhs.left_count + rhs.left_count, rhs.valid_row, rhs.goes_left};
   }
@@ -57,8 +56,7 @@ struct NodeSplitPartitionWriter {
   const WorkloadInfo<IdxT>* workload_info;
   IdxT* partition_row_ids;
 
-  __host__ __device__ void operator()(std::ptrdiff_t index,
-                                      NodeSplitPartitionState<IdxT> state) const
+  __host__ __device__ void operator()(std::ptrdiff_t index, NodeSplitPartitionState state) const
   {
     if (!state.valid_row) { return; }
 
@@ -71,11 +69,12 @@ struct NodeSplitPartitionWriter {
     const auto range_start = work_item.instances.begin;
     const auto range_pos   = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
 
-    const auto row = dataset.row_ids[range_start + range_pos];
-    const auto rank =
-      state.goes_left ? state.left_count - IdxT(1) : IdxT(range_pos) - state.left_count;
-    const auto out_idx         = range_start + (state.goes_left ? rank : split.nLeft + rank);
-    partition_row_ids[out_idx] = row;
+    const auto row              = dataset.row_ids[range_start + range_pos];
+    const auto rank             = state.goes_left ? std::size_t(state.left_count - std::int64_t{1})
+                                                  : range_pos - std::size_t(state.left_count);
+    const auto local_left_count = std::size_t(split.local_nLeft);
+    const auto out_idx          = range_start + (state.goes_left ? rank : local_left_count + rank);
+    partition_row_ids[out_idx]  = row;
   }
 };
 
@@ -135,18 +134,18 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
     if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
+      return NodeSplitPartitionState{std::int64_t{0}, false, false};
     }
 
     const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
     if (range_pos >= work_item.instances.count) {
-      return NodeSplitPartitionState<IdxT>{IdxT(0), false, false};
+      return NodeSplitPartitionState{std::int64_t{0}, false, false};
     }
 
     const auto row       = dataset.row_ids[work_item.instances.begin + range_pos];
     const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
     const auto goes_left = dataset.data[col_idx] <= split.quesval;
-    return NodeSplitPartitionState<IdxT>{goes_left ? IdxT(1) : IdxT(0), true, goes_left};
+    return NodeSplitPartitionState{goes_left ? std::int64_t{1} : std::int64_t{0}, true, goes_left};
   };
 
   // The scan input is a stream of per-slot partition states keyed by node id.
@@ -163,7 +162,7 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                 partition_states,
                                 partition_writer,
                                 thrust::equal_to<IdxT>{},
-                                NodeSplitPartitionScanOp<IdxT>{});
+                                NodeSplitPartitionScanOp{});
 
   // The original row_ids buffer remains the source during the scan, so copy back after it finishes.
   nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>

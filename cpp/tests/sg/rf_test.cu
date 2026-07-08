@@ -1320,21 +1320,13 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
                                                          n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  struct HostSplit {
-    DataT quesval;
-    IdxT colid;
-    DataT best_metric_val;
-    int nLeft;
-    IdxT split_start;
-    IdxT split_end;
-  };
-  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
-  HostSplit h_split;
+  DT::Split<DataT, IdxT> h_split;
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();
 
-  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.global_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 4);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
@@ -1376,21 +1368,13 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
                                                          n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  struct HostSplit {
-    DataT quesval;
-    IdxT colid;
-    DataT best_metric_val;
-    int nLeft;
-    IdxT split_start;
-    IdxT split_end;
-  };
-  static_assert(sizeof(HostSplit) == sizeof(DT::Split<DataT, IdxT>));
-  HostSplit h_split;
+  DT::Split<DataT, IdxT> h_split;
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();
 
-  EXPECT_EQ(h_split.nLeft, 4);
+  EXPECT_EQ(h_split.global_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 4);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);

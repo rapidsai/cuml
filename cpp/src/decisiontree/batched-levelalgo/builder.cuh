@@ -23,6 +23,7 @@
 #include <cub/cub.cuh>
 
 #include <algorithm>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <utility>
@@ -107,8 +108,9 @@ class NodeQueue {
                                                              parent_range.count);
       tree->leaf_counter++;
       // left
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(split.nLeft));
-      node_instances_.emplace_back(InstanceRange{parent_range.begin, std::size_t(split.nLeft)});
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(split.global_nLeft));
+      node_instances_.emplace_back(
+        InstanceRange{parent_range.begin, std::size_t(split.local_nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
       if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {
@@ -117,9 +119,11 @@ class NodeQueue {
       }
 
       // right
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(parent_range.count - split.nLeft));
+      tree->sparsetree.emplace_back(
+        NodeT::CreateLeafNode(tree->sparsetree.at(item.idx).InstanceCount() - split.global_nLeft));
       node_instances_.emplace_back(
-        InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
+        InstanceRange{parent_range.begin + std::size_t(split.local_nLeft),
+                      parent_range.count - std::size_t(split.local_nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
       if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {
@@ -401,21 +405,10 @@ struct Builder {
            "n_sampled_cols must be in [1, n_cols]");
     const std::size_t max_sampling_rounds =
       std::size_t((dataset.N + original_n_sampled_cols - 1) / original_n_sampled_cols);
-    struct HostSplit {
-      DataT quesval;
-      IdxT colid;
-      DataT best_metric_val;
-      int nLeft;
-      IdxT split_start;
-      IdxT split_end;
-    };
-    static_assert(sizeof(HostSplit) == sizeof(SplitT));
-    static_assert(alignof(HostSplit) == alignof(SplitT));
-
     // The final split chosen for each original work item. Nodes that need
     // additional feature samples are compacted in active_items, so successful
     // splits must be copied back to their original batch position.
-    std::vector<HostSplit> final_splits(work_items.size());
+    std::vector<SplitT> final_splits(work_items.size());
     // Current retry batch. It starts as the full batch and shrinks to only
     // nodes whose sampled features did not produce a valid split.
     std::vector<NodeWorkItem> active_items(work_items);
@@ -437,12 +430,7 @@ struct Builder {
       std::vector<std::size_t> retry_to_original;
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
-        final_splits[original_idx] = HostSplit{h_splits[i].quesval,
-                                               h_splits[i].colid,
-                                               h_splits[i].best_metric_val,
-                                               h_splits[i].nLeft,
-                                               h_splits[i].split_start,
-                                               h_splits[i].split_end};
+        final_splits[original_idx] = h_splits[i];
         if (SplitPartitionNotValid(
               h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
           retry_items.push_back(active_items[i]);
