@@ -165,7 +165,7 @@ class ClassificationObjectiveFunction {
           nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
+      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
@@ -361,7 +361,7 @@ class RegressionObjectiveFunction {
           nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
+      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
