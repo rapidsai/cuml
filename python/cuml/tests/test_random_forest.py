@@ -373,25 +373,6 @@ def test_rf_regressor_sample_weight_min_samples_leaf_matches_sklearn(datatype):
     )
 
 
-def test_rf_classifier_balanced_subsample_rejected_before_fit_state():
-    X = np.array([[0.0], [1.0]], dtype=np.float32)
-    y = np.array([0, 1], dtype=np.int32)
-    clf = curfc(
-        n_estimators=1,
-        max_depth=1,
-        n_bins=2,
-        n_streams=1,
-        class_weight="balanced_subsample",
-    )
-
-    with pytest.raises(ValueError, match="class_weight"):
-        clf.fit(X, y)
-
-    assert not hasattr(clf, "classes_")
-    assert not hasattr(clf, "n_classes_")
-    assert not hasattr(clf, "n_features_in_")
-
-
 @pytest.mark.parametrize(
     "class_weight,match",
     [

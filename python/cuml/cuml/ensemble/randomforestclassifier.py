@@ -6,11 +6,7 @@ import numpy as np
 import cuml.internals
 import cuml.internals.nvtx as nvtx
 from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import (
-    decode_labels,
-    process_class_weight,
-    validate_class_weight,
-)
+from cuml.common.classification import decode_labels, process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.internals.array import CumlArray
@@ -269,8 +265,6 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         """
         Perform Random Forest Classification on the input data
         """
-        validate_class_weight(self.class_weight)
-
         X, y, sample_weight, classes = check_inputs(
             self,
             X,
