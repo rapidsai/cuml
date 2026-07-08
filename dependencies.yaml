@@ -491,7 +491,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - &ctk_cu13 cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
-              - &nvjitlink_cu13 nvidia-nvjitlink>=13.0,<14
+              - &nvjitlink_cu13 nvidia-nvjitlink>=13.3,<14
           # if no matching matrix selectors passed, list the CUDA 13 requirement
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:

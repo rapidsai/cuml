@@ -93,7 +93,7 @@ dependencies = [
     "numba>=0.60.0,<0.65.0",
     "numpy>=2.0,<3.0",
     "nvforest==26.8.*,>=0.0.0a0",
-    "nvidia-nvjitlink>=13.0,<14",
+    "nvidia-nvjitlink>=13.3,<14",
     "packaging",
     "pylibraft==26.8.*,>=0.0.0a0",
     "rich",
