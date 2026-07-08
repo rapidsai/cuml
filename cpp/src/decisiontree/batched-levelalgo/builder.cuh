@@ -100,17 +100,26 @@ class NodeQueue {
 
       if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
+      using NodeCountT             = decltype(std::declval<NodeT>().InstanceCount());
+      auto const parent_node_count = ML::narrow_cast<NodeCountT>(parent_range.count);
+      auto const global_left_count = ML::narrow_cast<NodeCountT>(split.global_nLeft);
+      auto const local_left_count  = ML::narrow_cast<std::size_t>(split.local_nLeft);
+      auto const global_right_count =
+        ML::checked_sub<NodeCountT>(parent_node_count, global_left_count);
+      auto const local_right_count =
+        ML::checked_sub<std::size_t>(parent_range.count, local_left_count);
+      auto const right_begin = ML::checked_add<std::size_t>(parent_range.begin, local_left_count);
+
       // parent
       tree->sparsetree.at(item.idx) = NodeT::CreateSplitNode(split.colid,
                                                              split.quesval,
                                                              split.best_metric_val,
                                                              int64_t(tree->sparsetree.size()),
-                                                             parent_range.count);
+                                                             parent_node_count);
       tree->leaf_counter++;
       // left
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(split.global_nLeft));
-      node_instances_.emplace_back(
-        InstanceRange{parent_range.begin, std::size_t(split.local_nLeft)});
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(global_left_count));
+      node_instances_.emplace_back(InstanceRange{parent_range.begin, local_left_count});
 
       // Do not add a work item if this child is definitely a leaf
       if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {
@@ -119,11 +128,8 @@ class NodeQueue {
       }
 
       // right
-      tree->sparsetree.emplace_back(
-        NodeT::CreateLeafNode(tree->sparsetree.at(item.idx).InstanceCount() - split.global_nLeft));
-      node_instances_.emplace_back(
-        InstanceRange{parent_range.begin + std::size_t(split.local_nLeft),
-                      parent_range.count - std::size_t(split.local_nLeft)});
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(global_right_count));
+      node_instances_.emplace_back(InstanceRange{right_begin, local_right_count});
 
       // Do not add a work item if this child is definitely a leaf
       if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {

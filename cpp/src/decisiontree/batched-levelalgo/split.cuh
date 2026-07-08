@@ -80,24 +80,7 @@ struct Split {
     split_end                 = -1;
   }
 
-  /**
-   * @brief Assignment operator overload
-   *
-   * @param[in] other source object from where to copy
-   *
-   * @return the reference to the copied object (typically useful for chaining)
-   */
-  HDI SplitT& operator=(const SplitT& other)
-  {
-    quesval         = other.quesval;
-    colid           = other.colid;
-    best_metric_val = other.best_metric_val;
-    global_nLeft    = other.global_nLeft;
-    local_nLeft     = other.local_nLeft;
-    split_start     = other.split_start;
-    split_end       = other.split_end;
-    return *this;
-  }
+  HDI SplitT& operator=(const SplitT& other) = default;
 
   DI bool has_valid_split_range() const
   {
@@ -265,15 +248,15 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
 {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
     printf(
-      "quesval = %e, colid = %d, best_metric_val = %e, global_nLeft = %lld, "
-      "local_nLeft = %lld, split_range = [%d, %d]\n",
+      "quesval = %e, colid = %lld, best_metric_val = %e, global_nLeft = %lld, "
+      "local_nLeft = %lld, split_range = [%lld, %lld]\n",
       ptr->quesval,
-      ptr->colid,
+      static_cast<long long>(ptr->colid),
       ptr->best_metric_val,
       static_cast<long long>(ptr->global_nLeft),
       static_cast<long long>(ptr->local_nLeft),
-      ptr->split_start,
-      ptr->split_end);
+      static_cast<long long>(ptr->split_start),
+      static_cast<long long>(ptr->split_end));
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
