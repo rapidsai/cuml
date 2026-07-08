@@ -4,18 +4,11 @@
 import cupy as cp
 
 import cuml.svm.linear
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearPredictMixin
 
 __all__ = ["LinearSVR"]
@@ -101,8 +94,8 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
     Predicted values: [1.8993504 3.3995128 4.899675  6.399837  7.899999]
     """
 
-    coef_ = CumlArrayDescriptor(order="F")
-    intercept_ = CumlArrayDescriptor(order="F")
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.svm.LinearSVR"
 
@@ -154,9 +147,11 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
 
     def _attrs_from_cpu(self, model):
         return {
-            "coef_": to_gpu(model.coef_, order="F", dtype=cp.float64),
-            "intercept_": to_gpu(
-                model.intercept_, order="F", dtype=cp.float64
+            "coef_": cp.asarray(model.coef_, order="A", dtype="float64"),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_, dtype="float64")
             ),
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
@@ -164,8 +159,12 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
 
     def _attrs_to_cpu(self, model):
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=cp.float64),
-            "intercept_": to_cpu(self.intercept_, order="C", dtype=cp.float64),
+            "coef_": self.coef_.get(order="A").astype("f8", copy=False),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else self.intercept_.get(order="A").astype("f8", copy=False)
+            ),
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -200,7 +199,7 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
         self.lbfgs_memory = lbfgs_memory
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LinearSVR":
@@ -223,9 +222,7 @@ class LinearSVR(InteropMixin, LinearPredictMixin, RegressorMixin, Base):
             epsilon=self.epsilon,
             verbose=self._verbose_level,
         )
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = (
-            intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
-        )
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_iter_ = n_iter
         return self
