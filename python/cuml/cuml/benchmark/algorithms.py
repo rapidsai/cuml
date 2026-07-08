@@ -15,6 +15,7 @@ import sklearn.cluster
 import sklearn.covariance
 import sklearn.decomposition
 import sklearn.ensemble
+import sklearn.impute
 import sklearn.kernel_ridge
 import sklearn.linear_model
 import sklearn.manifold
@@ -33,6 +34,7 @@ try:
         fit,
         fit_kneighbors,
         fit_predict,
+        fit_score_samples,
         fit_transform,
         transform,
     )
@@ -45,6 +47,7 @@ except ImportError:
         fit,
         fit_kneighbors,
         fit_predict,
+        fit_score_samples,
         fit_transform,
         transform,
     )
@@ -62,17 +65,22 @@ _build_mnmg_umap = None
 # cuML preprocessing classes (fallback to sklearn if not available)
 Binarizer = sklearn.preprocessing.Binarizer
 KBinsDiscretizer = sklearn.preprocessing.KBinsDiscretizer
+KernelCenterer = sklearn.preprocessing.KernelCenterer
 LabelBinarizer = sklearn.preprocessing.LabelBinarizer
 LabelEncoder = sklearn.preprocessing.LabelEncoder
 MaxAbsScaler = sklearn.preprocessing.MaxAbsScaler
 MinMaxScaler = sklearn.preprocessing.MinMaxScaler
+MissingIndicator = sklearn.impute.MissingIndicator
 Normalizer = sklearn.preprocessing.Normalizer
+OneHotEncoder = sklearn.preprocessing.OneHotEncoder
+OrdinalEncoder = sklearn.preprocessing.OrdinalEncoder
 PolynomialFeatures = sklearn.preprocessing.PolynomialFeatures
 PowerTransformer = sklearn.preprocessing.PowerTransformer
 QuantileTransformer = sklearn.preprocessing.QuantileTransformer
 RobustScaler = sklearn.preprocessing.RobustScaler
 SimpleImputer = skSimpleImputer
 StandardScaler = sklearn.preprocessing.StandardScaler
+TargetEncoder = sklearn.preprocessing.TargetEncoder
 
 if is_cuml_available():
     import cuml as _cuml
@@ -84,17 +92,22 @@ if is_cuml_available():
     from cuml.preprocessing import (
         Binarizer,
         KBinsDiscretizer,
+        KernelCenterer,
         LabelBinarizer,
         LabelEncoder,
         MaxAbsScaler,
         MinMaxScaler,
+        MissingIndicator,
         Normalizer,
+        OneHotEncoder,
+        OrdinalEncoder,
         PolynomialFeatures,
         PowerTransformer,
         QuantileTransformer,
         RobustScaler,
         SimpleImputer,
         StandardScaler,
+        TargetEncoder,
     )
 
     cuml = _cuml
@@ -319,6 +332,31 @@ def _labels_as_features_hook(data):
     return data[1], None
 
 
+def _as_array_for_matmul(X):
+    """Convert dataframe-like inputs to an array while preserving device type."""
+    if hasattr(X, "to_cupy"):
+        return X.to_cupy()
+    if hasattr(X, "to_numpy"):
+        return X.to_numpy()
+    return X
+
+
+def _linear_kernel(X, Y=None):
+    """Compute a linear kernel matrix for KernelCenterer benchmarks."""
+    X_arr = _as_array_for_matmul(X)
+    Y_arr = X_arr if Y is None else _as_array_for_matmul(Y)
+    return X_arr @ Y_arr.T
+
+
+def _linear_kernel_hook(data):
+    """Helper function converting feature data into a square kernel matrix."""
+    K_train = _linear_kernel(data[0])
+    if len(data) >= 4 and data[2] is not None:
+        K_test = _linear_kernel(data[2], data[0])
+        return K_train, None, K_test, None
+    return K_train, None
+
+
 @functools.cache
 def all_algorithms():
     """Returns all defined AlgorithmPair objects.
@@ -343,6 +381,7 @@ def all_algorithms():
             cuml.random_projection.SparseRandomProjection
         )
         cuml_NearestNeighbors = cuml.neighbors.NearestNeighbors
+        cuml_KernelDensity = cuml.neighbors.KernelDensity
         cuml_DBSCAN = cuml.DBSCAN
         cuml_HDBSCAN = cuml.cluster.HDBSCAN
         cuml_LinearRegression = cuml.linear_model.LinearRegression
@@ -362,6 +401,14 @@ def all_algorithms():
         cuml_KNeighborsRegressor = cuml.neighbors.KNeighborsRegressor
         cuml_GaussianNB = cuml.naive_bayes.GaussianNB
         cuml_MultinomialNB = cuml.naive_bayes.MultinomialNB
+        cuml_BernoulliNB = cuml.naive_bayes.BernoulliNB
+        cuml_ComplementNB = cuml.naive_bayes.ComplementNB
+        cuml_CategoricalNB = cuml.naive_bayes.CategoricalNB
+        cuml_TargetEncoder = TargetEncoder
+        cuml_OneHotEncoder = OneHotEncoder
+        cuml_OrdinalEncoder = OrdinalEncoder
+        cuml_MissingIndicator = MissingIndicator
+        cuml_KernelCenterer = KernelCenterer
         cuml_UMAP = cuml.manifold.UMAP
         accuracy_fn = cuml_metrics.accuracy_score
         r2_fn = cuml_metrics.r2_score
@@ -382,7 +429,11 @@ def all_algorithms():
             None
         )
         cuml_KNeighborsClassifier = cuml_KNeighborsRegressor = None
-        cuml_GaussianNB = cuml_MultinomialNB = cuml_UMAP = None
+        cuml_KernelDensity = None
+        cuml_GaussianNB = cuml_MultinomialNB = None
+        cuml_BernoulliNB = cuml_ComplementNB = cuml_CategoricalNB = None
+        cuml_TargetEncoder = cuml_OneHotEncoder = cuml_OrdinalEncoder = None
+        cuml_MissingIndicator = cuml_KernelCenterer = cuml_UMAP = None
         accuracy_fn = metrics.accuracy_score
         r2_fn = metrics.r2_score
         trustworthiness_fn = None
@@ -474,6 +525,14 @@ def all_algorithms():
             name="NearestNeighbors",
             accepts_labels=False,
             bench_func=fit_kneighbors,
+        ),
+        AlgorithmPair(
+            sklearn.neighbors.KernelDensity,
+            cuml_KernelDensity,
+            shared_args=dict(kernel="gaussian", bandwidth=1.0),
+            name="KernelDensity",
+            accepts_labels=False,
+            bench_func=fit_score_samples,
         ),
         AlgorithmPair(
             sklearn.cluster.DBSCAN,
@@ -668,6 +727,33 @@ def all_algorithms():
             accuracy_function=accuracy_fn,
         ),
         AlgorithmPair(
+            sklearn.naive_bayes.BernoulliNB,
+            cuml_BernoulliNB,
+            shared_args={},
+            cuml_args={},
+            name="BernoulliNB",
+            accepts_labels=True,
+            accuracy_function=accuracy_fn,
+        ),
+        AlgorithmPair(
+            sklearn.naive_bayes.ComplementNB,
+            cuml_ComplementNB,
+            shared_args={},
+            cuml_args={},
+            name="ComplementNB",
+            accepts_labels=True,
+            accuracy_function=accuracy_fn,
+        ),
+        AlgorithmPair(
+            sklearn.naive_bayes.CategoricalNB,
+            cuml_CategoricalNB,
+            shared_args={},
+            cuml_args={},
+            name="CategoricalNB",
+            accepts_labels=True,
+            accuracy_function=accuracy_fn,
+        ),
+        AlgorithmPair(
             sklearn.naive_bayes.GaussianNB,
             cuml_GaussianNB,
             shared_args={},
@@ -763,6 +849,55 @@ def all_algorithms():
             shared_args=dict(),
             name="QuantileTransformer",
             accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.TargetEncoder,
+            cuml_TargetEncoder,
+            shared_args=dict(smooth=0.0),
+            cpu_args=dict(cv=4, random_state=42),
+            cuml_args=dict(
+                n_folds=4,
+                seed=42,
+                split_method="interleaved",
+                multi_feature_mode="independent",
+            ),
+            name="TargetEncoder",
+            accepts_labels=True,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.OneHotEncoder,
+            cuml_OneHotEncoder,
+            shared_args=dict(sparse_output=False, handle_unknown="ignore"),
+            name="OneHotEncoder",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.OrdinalEncoder,
+            cuml_OrdinalEncoder,
+            shared_args=dict(),
+            name="OrdinalEncoder",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.impute.MissingIndicator,
+            cuml_MissingIndicator,
+            shared_args=dict(features="all", sparse=False),
+            name="MissingIndicator",
+            accepts_labels=False,
+            bench_func=fit_transform,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.KernelCenterer,
+            cuml_KernelCenterer,
+            shared_args=dict(),
+            name="KernelCenterer",
+            accepts_labels=False,
+            cpu_data_prep_hook=_linear_kernel_hook,
+            cuml_data_prep_hook=_linear_kernel_hook,
             bench_func=fit_transform,
         ),
         AlgorithmPair(

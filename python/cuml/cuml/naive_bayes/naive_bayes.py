@@ -93,6 +93,13 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         """Validate and return (X, y, classes, sample_weight) for fit."""
         if reset:
             self._set_output_type(X)
+        elif classes is None:
+            # Not the first call, and no `classes` passed: encode `y`
+            # against the already-established `self.classes_` rather than
+            # letting `check_inputs` derive classes from just this batch,
+            # which would silently corrupt updates for any class not
+            # present in the current batch.
+            classes = self.classes_
         X, y, sample_weight, classes = check_inputs(
             self,
             X,

@@ -9,10 +9,10 @@ dependencies:
 - ccache
 - certifi
 - cmake>=4.0
+- cuda-bindings>=12.9.2,<13.0
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-python>=12.9.2,<13.0
 - cuda-version=12.9
 - cudf==26.8.*,>=0.0.0a0
 - cupy>=14.0.1,!=14.1.0

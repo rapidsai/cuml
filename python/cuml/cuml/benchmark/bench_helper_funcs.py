@@ -66,6 +66,10 @@ def kneighbors(m, x, y=None):
     call(m, "kneighbors", x)
 
 
+def score_samples(m, x, y=None):
+    call(m, "score_samples", x[: min(x.shape[0], 1024)])
+
+
 def fit_predict(m, x, y=None):
     if hasattr(m, "predict"):
         fit(m, x, y)
@@ -88,6 +92,11 @@ def fit_kneighbors(m, x, y=None):
         kneighbors(m, x)
     else:
         call(m, "fit_kneighbors", x, y)
+
+
+def fit_score_samples(m, x, y=None):
+    fit(m, x, y)
+    score_samples(m, x)
 
 
 def _training_data_to_numpy(X, y):
