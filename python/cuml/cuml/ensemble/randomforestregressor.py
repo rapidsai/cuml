@@ -1,14 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cuml.internals.nvtx as nvtx
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
-from cuml.metrics import r2_score
 
 
 class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
@@ -152,7 +149,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
 
     _cpu_class_path = "sklearn.ensemble.RandomForestRegressor"
 
-    oob_prediction_ = CumlArrayDescriptor(order="C")
+    oob_prediction_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -200,7 +197,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         domain="cuml_python",
     )
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "RandomForestRegressor":
@@ -229,7 +226,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict(
         self,
         X,
@@ -238,7 +235,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts the values for X.
 
@@ -274,14 +271,13 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
         preds = nvforest_model.predict(X)
 
@@ -289,7 +285,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         # the output shape behavior of scikit-learn.
         if len(preds.shape) == 2 and preds.shape[1] == 1:
             preds = preds.reshape(-1)
-        return CumlArray(preds, index=index)
+        return preds
 
     @nvtx.annotate(
         message="score RF-Regressor @randomforestclassifier.pyx",
@@ -301,7 +297,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             ("dense", "(n_samples, 1)"),
         ]
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(
         self,
         X,
@@ -346,11 +342,12 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
         -------
         r2_score : float
         """
-        y_pred = self.predict(
+        return super().score(
             X,
+            y,
+            sample_weight=sample_weight,
             convert_dtype=convert_dtype,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return r2_score(y, y_pred, sample_weight=sample_weight)
