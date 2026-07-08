@@ -1,286 +1,309 @@
 # Upstream Acceleration Tests
 
-This suite provides infrastructure to run and analyze the test suites of
-upstream libraries (scikit-learn, ...) with cuML acceleration support.
+This directory contains wrappers for running upstream project test suites under
+`cuml.accel`. Each upstream integration has a wrapper script under
+`python/cuml/cuml_accel_tests/upstream/<suite>/`, and pytest arguments passed to
+the wrapper are forwarded to pytest.
 
-Most examples in this README use scikit-learn as a reference, but the instructions apply to all supported upstream test suites.
+Most test suites use a suite-local `xfail-list.yaml` file. The scikit-learn
+examples runner is separate from the scikit-learn test-suite runner: it collects
+example scripts as pytest tests and uses `scikit-learn/xfail-examples.yaml`.
 
-## Components
+Run commands below from `python/cuml/cuml_accel_tests/upstream` in an environment
+where `cuml.accel` and the target upstream package are importable.
 
-- `run-tests.sh`
-  Executes scikit-learn tests using GPU-accelerated paths. Any arguments passed to the script are forwarded directly to pytest.
+## Run upstream tests
 
-  Example usage:
-  ```bash
-  ./scikit-learn/run-tests.sh                     # Run all tests
-  ./scikit-learn/run-tests.sh -v -k test_kmeans   # Run specific test with verbosity
-  ./scikit-learn/run-tests.sh -x --pdb            # Stop on first failure and debug
-  ```
-
-- `summarize-results.py`
-  Analyzes test results from an XML report file and prints a summary or generates an xfail list.
-  Options:
-  - `-v, --verbose`          : Display detailed failure information
-  - `-f, --fail-below VALUE` : Set a minimum pass rate threshold (0-100)
-  - `--format FORMAT`        : Output format (summary, xfail_list, or traceback)
-  - `--limit N`              : Limit output to first N entries
-  - `--test-id-prefix PREFIX`: Prefix to add to test IDs (e.g., 'sklearn.')
-  - `-k, --filter PATTERN`   : Filter tests by ID pattern (substring match)
-
-- `xfail_manager.py`
-  Tool for managing xfail lists with consistent formatting and batch modifications.
-  Commands:
-  - `format`: Apply consistent formatting and sorting to xfail list files
-  - `set`: Modify metadata (reason, condition, marker, strict, run) for specified tests
-
-  Example usage:
-  ```bash
-  # Format an xfail list
-  ./xfail_manager.py format xfail-list.yaml
-
-  # Set a new reason for specific tests
-  ./xfail_manager.py set xfail-list.yaml "test_foo" "test_bar" --reason "Known issue #123"
-
-  # Mark tests as non-strict (flaky)
-  ./xfail_manager.py set xfail-list.yaml "test_flaky" --no-strict
-  ```
-
-## Usage
-
-### 1. Run tests and generate report
-Run tests and save the report:
 ```bash
-./scikit-learn/run-tests.sh --junitxml=report.xml
+./scikit-learn/run-tests.sh --junitxml=report-sklearn.xml
+./umap/run-tests.sh --junitxml=report-umap.xml
+./hdbscan/run-tests.sh --junitxml=report-hdbscan.xml
+./scikit-learn/run-examples.sh --junitxml=report-sklearn-examples.xml
 ```
 
-**Tip**: Run tests in parallel with `-n auto` to use all available CPU cores:
+Available runners:
+
+| Suite | Runner | Xfail file |
+| ----- | ------ | ---------- |
+| scikit-learn tests | `scikit-learn/run-tests.sh` | `scikit-learn/xfail-list.yaml` |
+| UMAP tests | `umap/run-tests.sh` | `umap/xfail-list.yaml` |
+| HDBSCAN tests | `hdbscan/run-tests.sh` | `hdbscan/xfail-list.yaml` |
+| scikit-learn examples | `scikit-learn/run-examples.sh` | `scikit-learn/xfail-examples.yaml` |
+
+The UMAP and scikit-learn examples runners clone the matching upstream project
+tag into their suite directory when needed.
+
+## CI-like runs
+
+Use bounded xdist parallelism for GPU-backed test runs. Avoid `-n auto` on large
+machines because it can spawn too many workers and exhaust GPU memory.
+
+### scikit-learn tests
+
 ```bash
-./scikit-learn/run-tests.sh --junitxml=report.xml -n auto
+./scikit-learn/run-tests.sh \
+    --numprocesses=8 \
+    --dist=worksteal \
+    --junitxml=report-sklearn.xml
 ```
 
-**Common pytest options:**
-- `-n auto --dist worksteal`: Parallel execution using all CPUs
-- `-k "pattern"`: Run only tests matching pattern
-- `-x`: Stop on first failure
-- `--tb=short`: Shorter tracebacks
-- `--runxfail`: Run xfailed tests to see actual failures
-- `--junitxml=FILE`: Save results to XML file
+CI summarizes this report with the scikit-learn test config:
 
-### 2. Analyze results
-Generate a summary from the report:
+```bash
+./summarize-results.py \
+    --config scikit-learn/test_config.yaml \
+    report-sklearn.xml
+```
+
+### scikit-learn examples
+
+```bash
+./scikit-learn/run-examples.sh \
+    -vv --durations=0 --durations-min=0 \
+    -n 4 --dist worksteal \
+    --junitxml=report-sklearn-examples.xml
+```
+
+### UMAP tests
+
+```bash
+./umap/run-tests.sh --junitxml=report-umap.xml
+```
+
+The current CI wrapper runs UMAP with a 15-minute outer timeout. Add local pytest
+filters or bounded xdist options as needed while debugging.
+
+### HDBSCAN tests
+
+```bash
+./hdbscan/run-tests.sh --junitxml=report-hdbscan.xml
+```
+
+This repository has a local HDBSCAN upstream runner. At the time this README was
+updated, there was no dedicated CI script invoking it.
+
+## Debugging runners
+
+All wrappers forward arguments to pytest, so the same basic debugging options
+work across the pytest-based runners:
+
+```bash
+./scikit-learn/run-tests.sh -k "pattern" --junitxml=report.xml
+./umap/run-tests.sh -x --tb=short --junitxml=report.xml
+./hdbscan/run-tests.sh --runxfail --junitxml=report.xml
+./scikit-learn/run-examples.sh -n 4 --dist worksteal --junitxml=report.xml
+```
+
+Useful options:
+
+- `-k "pattern"`: Run tests or examples whose pytest node ID matches a pattern.
+- `-x --tb=short`: Stop at the first failure with shorter tracebacks.
+- `--runxfail`: Run xfailed tests as ordinary tests to see current behavior.
+- `--junitxml=FILE`: Save a JUnit XML report for later analysis.
+- `-n N --dist worksteal`: Run with bounded xdist parallelism. Prefer a small
+  fixed `N`, especially for GPU-backed tests or when the selected subset is
+  small.
+
+The examples runner also supports `--example-timeout=SECONDS` to bound each
+example subprocess runtime. Examples that exceed the timeout are reported as
+xfailed instead of failed. The default timeout is 1200 seconds.
+
+## scikit-learn examples environment
+
+The scikit-learn examples runner assumes a standard cuML test environment with
+`cuml.accel`, scikit-learn, pytest, pytest-xdist, and the usual cuML test
+dependencies already installed. The examples suite needs a few additional
+plotting and data-loading dependencies that are not required by every upstream
+test runner.
+
+After activating the cuML test environment, install the additional dependencies:
+
+```bash
+mamba install -c conda-forge "plotly>=6,<7" "polars>=1,<2" "pooch>=1,<2" scikit-image
+```
+
+`scikit-learn/run-examples.sh` clones `scikit-learn` into
+`scikit-learn/sklearn-upstream` if needed, checks out the tag matching the
+installed scikit-learn version, and collects upstream example files as pytest
+tests. Expected example failures are read from
+`scikit-learn/xfail-examples.yaml`.
+
+To debug expected example failures as ordinary failures:
+
+```bash
+./scikit-learn/run-examples.sh \
+    --runxfail \
+    --example-timeout=1200 \
+    --junitxml=report-sklearn-examples-runxfail.xml
+```
+
+## Analyze results
+
+Generate a summary from any wrapper's JUnit XML report:
+
 ```bash
 ./summarize-results.py -v -f 80 report.xml
 ```
 
 View tracebacks for specific failures:
+
 ```bash
 ./summarize-results.py --format=traceback -k "logistic" report.xml
 ```
 
-## Xfail List
+Useful `summarize-results.py` options:
 
-The xfail list (`xfail-list.yaml`) is used to mark tests that are expected to fail. This is useful for:
-- Tracking known issues
-- Managing test failures during development
-- Handling version-specific test failures
-- Managing flaky tests that occasionally fail
+- `-v, --verbose`: Display detailed failure information.
+- `-f, --fail-below VALUE`: Set a minimum pass-rate threshold from 0 to 100.
+- `--format FORMAT`: Output `summary`, `xfail_list`, or `traceback`.
+- `--limit N`: Limit output to the first `N` entries.
+- `--test-id-prefix PREFIX`: Prefix added to test IDs in generated output.
+- `-k, --filter PATTERN`: Filter tests by ID substring, case-insensitively.
+- `--config FILE`: Load summary defaults from a config file, such as
+  `scikit-learn/test_config.yaml` for scikit-learn tests.
 
-### Automatic Usage
-The `run-tests.sh` script automatically uses an `xfail-list.yaml` file if present in the same directory.
+## Xfail lists
 
-### Generating an Xfail List
-Generate a new xfail list from test results:
+Xfail lists mark tests that are expected to fail. They are used to track known
+issues, manage version-specific failures, and identify tests that are flaky or
+not currently expected to match upstream behavior.
+
+The upstream wrappers pass the relevant xfail file to pytest:
+
+- `scikit-learn/xfail-list.yaml` for scikit-learn tests.
+- `umap/xfail-list.yaml` for UMAP tests.
+- `hdbscan/xfail-list.yaml` for HDBSCAN tests.
+- `scikit-learn/xfail-examples.yaml` for scikit-learn examples.
+
+### Generate an xfail list
+
+Generate xfail YAML from a report:
+
 ```bash
-./summarize-results.py --format=xfail_list report.xml > xfail-list.yaml
+./summarize-results.py --format=xfail_list report.xml > umap/xfail-list.yaml
 ```
 
+Review generated entries before using them. Use `xfail_manager.py` for
+formatting and bulk metadata changes so xfail files stay consistently sorted.
+
 ### Format
-The xfail list is a YAML file containing groups of tests to mark as xfail. Each group can include:
-- `reason`: Description of why the tests in this group are expected to fail
-- `marker`: Optional pytest marker name for selecting/filtering tests (e.g., for `-m` flag)
-- `strict`: Whether to enforce xfail (default: true)
-- `tests`: List of test IDs in format "module::test_name"
-- `condition`: Optional version requirement (e.g., "scikit-learn>=1.5.2")
+
+An xfail list is a YAML file containing groups of related expected failures.
+Each group can include:
+
+- `reason`: Description of why the tests in this group are expected to fail.
+- `marker`: Optional pytest marker name for selecting or filtering tests.
+- `condition`: Optional version requirement, such as `scikit-learn>=1.5.2`.
+- `strict`: Whether to enforce xfail. The default is `true`.
+- `run`: Whether pytest should run the xfailed tests. The default is `true`.
+- `tests`: Test IDs in pytest node ID format.
 
 Example:
+
 ```yaml
 - reason: "Known issues with sparse inputs"
   marker: cuml_accel_sparse_inputs
-  strict: true
   tests:
-    - "sklearn.linear_model.tests.test_logistic::test_logistic_regression"
-    - "sklearn.linear_model.tests.test_ridge::test_ridge_sparse"
+    - "upstream_package.tests.test_sparse::test_sparse_input"
+    - "upstream_package.tests.test_sparse::test_sparse_precomputed"
 
-- reason: "Unsupported hyperparameters for older scikit-learn version"
+- reason: "Unsupported hyperparameters for older dependency versions"
   condition: "scikit-learn<1.5.2"
   tests:
-    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-elkan]"
-    - "sklearn.cluster.tests.test_k_means::test_kmeans_convergence[42-lloyd]"
+    - "upstream_package.tests.test_estimator::test_old_version_behavior"
 
 - reason: "Flaky tests due to random seed sensitivity"
   strict: false
   tests:
-    - "sklearn.ensemble.tests.test_forest::test_random_forest_classifier"
-    - "sklearn.ensemble.tests.test_forest::test_random_forest_regressor"
+    - "upstream_package.tests.test_randomized::test_random_seed_sensitive"
 ```
 
-**Note on `strict: false`**:
-The `strict` flag should be set to `true` by default. Use `strict: false` only for:
-- Tests that are genuinely non-deterministic (e.g., due to floating-point arithmetic)
-- Tests that fail intermittently due to external factors (e.g., network timeouts)
-- Tests that are known to be flaky but cannot be fixed immediately
+Use `strict: false` only for tests that are genuinely non-deterministic or
+intermittent. Each non-strict group should have a clear reason and should be
+reviewed periodically.
 
-Ideally, Each use of `strict: false` should include:
-- A clear explanation of why the test is non-deterministic
-- A plan to fix the underlying issue
-- Regular review to ensure the flag is still necessary
+### Modify an xfail list
 
-### Modifying an Xfail List
-Use `xfail_manager.py` to modify existing xfail lists.
-
-**Check existing groups first**: Before adding tests, check what reasons and markers already exist to reuse them where appropriate. Tests with matching metadata are automatically merged into the same group.
+Use `xfail_manager.py` from this directory:
 
 ```bash
-# List existing reasons
-grep "^- reason:" scikit-learn/xfail-list.yaml | sort -u
+# Format an xfail list
+./xfail_manager.py format umap/xfail-list.yaml
 
-# List existing markers
+# Format the scikit-learn examples xfail file
+./xfail_manager.py format scikit-learn/xfail-examples.yaml
+
+# Set metadata for specific tests
+./xfail_manager.py set hdbscan/xfail-list.yaml \
+    "hdbscan.tests.test_hdbscan::test_missing_data" \
+    --reason "Known issue with missing-data handling"
+
+# Mark an existing test as flaky
+./xfail_manager.py set scikit-learn/xfail-list.yaml \
+    "sklearn.tests.test_example::test_flaky" \
+    --no-strict
+
+# Add a version condition
+./xfail_manager.py set umap/xfail-list.yaml \
+    "umap.tests.test_umap_ops::test_new_behavior" \
+    --reason "Version-specific upstream behavior" \
+    --condition "umap-learn>=0.5.8"
+```
+
+Before adding tests, check existing reasons and markers so related failures stay
+grouped:
+
+```bash
+grep "^- reason:" scikit-learn/xfail-list.yaml | sort -u
 grep "marker:" scikit-learn/xfail-list.yaml | sort -u
 ```
 
-**Common operations:**
-```bash
-# Set metadata for specific tests
-./xfail_manager.py set xfail-list.yaml "test_id_1" "test_id_2" --reason "New reason"
+### Version-conditional xfails
 
-# Mark tests as flaky (non-strict)
-./xfail_manager.py set xfail-list.yaml "flaky_test" --no-strict
-
-# Add a condition
-./xfail_manager.py set xfail-list.yaml "test_id" --condition "scikit-learn<1.8"
-```
-
-### Version-Conditional Xfails
-When tests fail only on specific versions of a dependency, use the `--condition` flag to scope the xfail:
+Use `--condition` when failures apply only to specific dependency versions:
 
 ```bash
-# Tests that fail only on sklearn 1.8+
-./xfail_manager.py set xfail-list.yaml \
-    "sklearn.test::test_new_api" \
-    --reason "Test uses new sklearn 1.8 API" \
+./xfail_manager.py set scikit-learn/xfail-list.yaml \
+    "sklearn.tests.test_new_api::test_behavior" \
+    --reason "Test uses behavior introduced in scikit-learn 1.8" \
     --condition "scikit-learn>=1.8"
 
-# Tests that fail only on older sklearn versions
-./xfail_manager.py set xfail-list.yaml \
-    "sklearn.test::test_old_behavior" \
-    --reason "Test expects old sklearn behavior" \
-    --condition "scikit-learn<1.8"
+./xfail_manager.py set umap/xfail-list.yaml \
+    "umap.tests.test_umap_ops::test_version_specific" \
+    --reason "Version-specific upstream behavior" \
+    --condition "umap-learn<=0.5.8 and scikit-learn>=1.6"
 ```
 
-This ensures xfails only apply to the relevant versions, keeping the test suite accurate across different dependency combinations.
+Conditions can combine multiple version requirements with `and`.
 
-You can combine multiple version requirements in a condition using "and". For example: `umap-learn<=0.5.8 and scikit-learn>=1.6` will only xfail tests when both package constraints are met.
+### Handling unmatched test IDs
 
-### Handling Unmatched Test IDs
+The pytest plugin validates that xfail entries correspond to collected tests.
+When tests do not exist, an `UnmatchedXfailTests` warning is issued and the
+shared pytest config treats that warning as an error.
 
-The pytest plugin validates that all test IDs in the xfail list correspond to actual tests. When tests don't exist, a `UnmatchedXfailTests` warning is issued.
+Common causes:
 
-#### Common Causes
-- **Version-specific tests**: Tests that only exist in certain dependency versions
-- **Renamed/removed tests**: Tests changed across versions
-- **Typographical errors**: Misspelled test IDs
+- Version-specific tests that only exist for some dependency versions.
+- Tests renamed or removed upstream.
+- Typographical errors in test IDs.
 
-You can suppress the warning during development by removing the pytest argument that
-elevates the warning to an error within `run-tests.sh`.
+For temporary local investigation, remove the pytest argument or warning filter
+that elevates unmatched xfails to an error. Do not leave stale unmatched IDs in a
+committed xfail list.
 
-## Recommended workflow for fixing parity issues
+## Parity workflow
 
-### 1. Initial Triage
-Start by identifying and categorizing test failures:
+1. Run the relevant upstream wrapper and write a JUnit XML report for the current
+   branch.
+2. Summarize the report with `summarize-results.py`.
+3. Group failures by root cause, estimator, upstream feature, or dependency
+   version.
+4. Fix one group at a time, or update the relevant suite-local xfail list when a
+   failure is known and intentionally tracked.
+5. Re-run the focused test selection, then re-run the broader suite when the
+   focused group is resolved.
 
-```bash
-# Get current commit hash
-alias gitsha='git rev-parse --short HEAD'
-
-# Run all untriaged tests with --runxfail to actually see all failures
-./scikit-learn/run-tests.sh -m cuml_accel_bugs --runxfail --junitxml="report-bugs-$(gitsha).xml" | tee report-bugs-$(gitsha).log
-```
-
-### 2. Analyze and Group Failures
-Use the summarize-results script to analyze failures:
-```bash
-# Select the first 10 failures
-./summarize-results.py report-bugs-$(gitsha).xml --limit 10 --format=traceback
-```
-
-Group similar failures together based on:
-- Common error messages
-- Related functionality
-- Similar root causes
-
-### 3. Update Xfail List with Detailed Markers
-
-Add detailed markers and reasons for each failure group:
-
-```yaml
-# Example of a bug that needs fixing
-- reason: "Missing scikit-learn interface attributes (components_ and _parameter_constraints)"
-  marker: cuml_accel_dbscan_missing_interface
-  tests:
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_array]"
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_no_core_samples[csr_matrix]"
-    - "sklearn.tests.test_public_functions::test_class_wrapper_param_validation[sklearn.cluster.dbscan-sklearn.cluster.DBSCAN]"
-
-# Example of a bug in sparse matrix handling
-- reason: "Incomplete sparse precomputed distances implementation in NearestNeighbors"
-  marker: cuml_accel_dbscan_sparse_precomputed
-  tests:
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[False]"
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed[True]"
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_sparse_precomputed_different_eps"
-
-# Example of expected divergence (not a bug)
-- reason: "GPU-optimized implementation produces different but valid results"
-  marker: cuml_accel_dbscan_expected_divergence
-  strict: false
-  tests:
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_cluster_assignments[float32]"
-    - "sklearn.cluster.tests.test_dbscan::test_dbscan_cluster_assignments[float64]"
-```
-
-### 4. Debug and Fix Issues
-For each failure group:
-
-1. Run tests with the specific marker:
-```bash
-SELECT=cuml_accel_dbscan_missing_interface
-./scikit-learn/run-tests.sh -m "${SELECT}" --runxfail --junitxml="report-${SELECT}-$(gitsha).xml" | tee "test-${SELECT}-$(gitsha).log"
-```
-
-2. Investigate the root cause.
-3. Implement fixes.
-
-### 5. Verify and Update Xfail List
-After fixing issues and committing them, run
-
-1. Run tests again to verify fixes:
-```bash
-./scikit-learn/run-tests.sh -m "${SELECT}" --junitxml="report-${SELECT}-$(gitsha).xml"
-```
-
-2. Update the xfail list:
-   - Remove fixed tests from the list
-   - Move flaky tests to a separate group with `strict: false`
-   - Update reasons for remaining failures
-
-### 6. Document Changes
-For each fix:
-- Update relevant documentation
-- Add comments explaining the fix
-- Document any known limitations or trade-offs
-
-### Best Practices
-- Keep test groups small and focused
-- Use descriptive markers and reasons
-- Document root causes and fixes
-- Use `strict: false` only for genuinely non-deterministic (flaky) tests
+Keep xfail groups small and descriptive. Prefer suite-local commands and paths
+in notes and PR descriptions so it is clear which upstream integration is being
+changed.
