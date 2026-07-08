@@ -264,6 +264,16 @@ def test_column_transformer_sklearn_clone_default_transformers():
     assert cloned.transformers is None
 
 
+def test_column_transformer_set_transformers_from_empty_list():
+    transformer = cuColumnTransformer([])
+
+    transformer._transformers = [("one_hot_encoder", skOneHotEncoder())]
+
+    assert len(transformer.transformers) == 1
+    assert isinstance(transformer.transformers[0][1], skOneHotEncoder)
+    assert transformer.transformers[0][2] is None
+
+
 def test_make_column_selector():
     X_np = pd.DataFrame(
         {

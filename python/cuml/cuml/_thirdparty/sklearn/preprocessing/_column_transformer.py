@@ -597,7 +597,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
     @_transformers.setter
     def _transformers(self, value):
-        if self.transformers is None:
+        if not self.transformers:
             self.transformers = [(name, trans, None) for name, trans in value]
         else:
             self.transformers = [
