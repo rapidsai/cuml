@@ -1068,6 +1068,24 @@ def test_json_result_preserves_zero_accuracy():
     assert result["backends"]["cpu"]["accuracy"] == 0.0
 
 
+def test_progress_line_omits_metric_when_accuracy_is_missing():
+    from cuml.benchmark.run_benchmarks import _progress_line
+
+    row = pd.Series(
+        {
+            "algo": "LogisticRegression",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+        }
+    )
+
+    line = _progress_line(row, 1, 1, "fp32")
+
+    assert "cpu_acc" not in line
+    assert "acc=" not in line
+
+
 def test_write_json_atomic_replaces_existing_file(tmp_path):
     from cuml.benchmark.run_benchmarks import _write_json_atomic
 
