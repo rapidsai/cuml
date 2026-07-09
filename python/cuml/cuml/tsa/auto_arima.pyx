@@ -117,9 +117,12 @@ class AutoARIMA(Base):
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
         :ref:`output-data-type-configuration` for more info.
-    convert_dtype : boolean
-        When set to True, the model will automatically convert the inputs to
-        np.float64.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
 
     Notes
     -----
@@ -160,7 +163,7 @@ class AutoARIMA(Base):
                  simple_differencing=True,
                  verbose=False,
                  output_type=None,
-                 convert_dtype=True):
+                 convert_dtype="deprecated"):
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)

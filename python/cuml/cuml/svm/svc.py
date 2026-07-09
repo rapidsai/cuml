@@ -347,7 +347,9 @@ class SVC(ClassifierMixin, SVMBase):
 
     @generate_docstring(y="dense_anydtype")
     @reflect(reset=True)
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVC":
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVC":
         """
         Fit the model with X and y.
 
@@ -412,7 +414,7 @@ class SVC(ClassifierMixin, SVMBase):
         }
     )
     @run_in_internal_context
-    def predict(self, X, *, convert_dtype=True):
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the class labels for X. The returned y values are the class
         labels associated to sign(decision_function(X)).
@@ -443,7 +445,7 @@ class SVC(ClassifierMixin, SVMBase):
         }
     )
     @reflect
-    def decision_function(self, X, *, convert_dtype=True) -> CumlArray:
+    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
         """
         Calculates the decision function values for X.
 
