@@ -31,7 +31,7 @@ class UnmatchedXfailTests(UserWarning):
 def pytest_load_initial_conftests(early_config, parser, args):
     # https://docs.pytest.org/en/7.1.x/reference/\
     # reference.html#pytest.hookspec.pytest_load_initial_conftests
-    install()
+    install(log_level="error")
 
 
 def pytest_addoption(parser):

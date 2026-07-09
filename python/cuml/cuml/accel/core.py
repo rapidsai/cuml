@@ -4,11 +4,9 @@
 #
 from __future__ import annotations
 
-import contextlib
 import enum
 import importlib.metadata
 import os
-import sys
 from typing import Literal
 
 from cuda.bindings import runtime
@@ -265,9 +263,3 @@ def install(
     set_global_output_type("numpy")
 
     logger.info("Accelerator installed.")
-
-
-def _install_from_pth() -> None:
-    """Enable ``cuml.accel`` without writing startup output to stdout."""
-    with contextlib.redirect_stdout(sys.stderr):
-        install()
