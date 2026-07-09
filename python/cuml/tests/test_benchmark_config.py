@@ -55,11 +55,7 @@ def _make_args(**overrides):
         "print_datasets": False,
         "print_status": False,
         "verbose": True,
-        "hardware_label": None,
-        "hardware_gpu_name": None,
-        "hardware_gpu_memory_gb": None,
-        "hardware_cpu_name": None,
-        "hardware_cpu_cores": None,
+        "metadata_override": [],
     }
     args.update(overrides)
     return Namespace(**args)
@@ -961,16 +957,16 @@ def test_main_writes_grouped_json_output(monkeypatch, tmp_path):
             "--skip-gpu",
             "--output",
             str(output_path),
-            "--hardware-label",
-            "test-node",
-            "--hardware-gpu-name",
-            "Test GPU",
-            "--hardware-gpu-memory-gb",
-            "80",
-            "--hardware-cpu-name",
-            "Test CPU",
-            "--hardware-cpu-cores",
-            "16",
+            "--metadata-override",
+            "hardware.label=test-node",
+            "--metadata-override",
+            "hardware.gpu.effective.name=Test GPU",
+            "--metadata-override",
+            "hardware.gpu.effective.total_memory_bytes=80000000000",
+            "--metadata-override",
+            "hardware.cpu.effective.model=Test CPU",
+            "--metadata-override",
+            "hardware.cpu.effective.logical_cores=16",
         ]
     )
 
@@ -1050,6 +1046,28 @@ def test_json_result_marks_requested_missing_backend_as_skipped():
     }
 
 
+def test_json_result_preserves_zero_accuracy():
+    from cuml.benchmark.run_benchmarks import _result_record
+
+    row = pd.Series(
+        {
+            "benchmark_id": "zero-acc-bench",
+            "algo": "LogisticRegression",
+            "dataset": "classification",
+            "operation": "fit",
+            "input": "numpy",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+            "cpu_acc": 0.0,
+        }
+    )
+
+    result = _result_record(row, "fp32")
+
+    assert result["backends"]["cpu"]["accuracy"] == 0.0
+
+
 def test_write_json_atomic_replaces_existing_file(tmp_path):
     from cuml.benchmark.run_benchmarks import _write_json_atomic
 
@@ -1082,11 +1100,11 @@ def test_write_json_atomic_preserves_existing_file_on_failure(
 
 
 def test_collect_package_snapshot_prefers_conda(monkeypatch):
-    from cuml.benchmark import run_benchmarks
+    from cuml.benchmark import _metadata
 
     monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
     monkeypatch.setattr(
-        run_benchmarks,
+        _metadata,
         "_run_json_command",
         lambda command: (
             [
@@ -1103,7 +1121,7 @@ def test_collect_package_snapshot_prefers_conda(monkeypatch):
         ),
     )
 
-    snapshot = run_benchmarks._collect_package_snapshot()
+    snapshot = _metadata.collect_package_snapshot()
 
     assert snapshot == {
         "package_snapshot_source": "conda",
@@ -1120,7 +1138,7 @@ def test_collect_package_snapshot_prefers_conda(monkeypatch):
 
 
 def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
-    from cuml.benchmark import run_benchmarks
+    from cuml.benchmark import _metadata
 
     monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
 
@@ -1135,11 +1153,9 @@ def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
             }
         ], None
 
-    monkeypatch.setattr(
-        run_benchmarks, "_run_json_command", fake_run_json_command
-    )
+    monkeypatch.setattr(_metadata, "_run_json_command", fake_run_json_command)
 
-    snapshot = run_benchmarks._collect_package_snapshot()
+    snapshot = _metadata.collect_package_snapshot()
 
     assert snapshot == {
         "package_snapshot_source": "pip",

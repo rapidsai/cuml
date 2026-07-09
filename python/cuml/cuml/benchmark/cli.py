@@ -201,30 +201,13 @@ def build_parser():
         help="RMM memory resource to use (default: cuda). Ignored if --skip-gpu.",
     )
     parser.add_argument(
-        "--hardware-label",
-        default=None,
-        help="Optional human-readable hardware label to store in benchmark metadata",
-    )
-    parser.add_argument(
-        "--hardware-gpu-name",
-        default=None,
-        help="Override the effective GPU name stored in benchmark metadata",
-    )
-    parser.add_argument(
-        "--hardware-gpu-memory-gb",
-        type=float,
-        default=None,
-        help="Override the effective GPU memory size in GB stored in metadata",
-    )
-    parser.add_argument(
-        "--hardware-cpu-name",
-        default=None,
-        help="Override the effective CPU name stored in benchmark metadata",
-    )
-    parser.add_argument(
-        "--hardware-cpu-cores",
-        type=int,
-        default=None,
-        help="Override the effective CPU core count stored in metadata",
+        "--metadata-override",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "Override a JSON metadata field using dotted KEY=VALUE syntax. "
+            "VALUE is parsed as JSON when possible. May be repeated."
+        ),
     )
     return parser

@@ -149,9 +149,7 @@ python -m cuml.benchmark --skip-cpu --dataset classification LogisticRegression
 | `--csv [FILE]` | Save a legacy flat CSV export. |
 | `--min-rows`, `--max-rows`, `--num-sizes` | Control sample sizes for scaling benchmarks. |
 | `--input-dimensions` | Feature dimensions to test (e.g. `16 256`). |
-| `--hardware-label` | Override the effective hardware label stored in JSON metadata. |
-| `--hardware-gpu-name`, `--hardware-gpu-memory-gb` | Override effective GPU metadata labels. |
-| `--hardware-cpu-name`, `--hardware-cpu-cores` | Override effective CPU metadata labels. |
+| `--metadata-override KEY=VALUE` | Override a JSON metadata field using dotted paths, e.g. `hardware.label=test-node`. May be repeated. |
 | `--print-algorithms` | List available algorithms and exit. |
 | `--print-datasets` | List available datasets and exit. |
 | `--print-status` | Print GPU/cuML availability and exit. |
@@ -227,6 +225,19 @@ The JSON file contains:
 
 - `metadata`: run context, command, Python/platform info, cuML/git identity, GPU availability, hardware details, and config/profile provenance
 - `results`: grouped benchmark results, with raw backend timings and statuses under each logical benchmark variation
+
+For lab or CI machines where detected hardware names need a stable display label,
+use repeated metadata overrides:
+
+```bash
+python -m cuml.benchmark \
+  --config python/cuml/cuml/benchmark/configs/single_gpu.yaml \
+  --profile default \
+  --backends gpu \
+  --output results.json \
+  --metadata-override hardware.label=dgx-ci-01 \
+  --metadata-override hardware.gpu.effective.name=H100
+```
 
 Example shape:
 
@@ -308,11 +319,12 @@ Backend result records use these fields:
 Run metadata includes:
 
 - `command`: argv and current working directory
+- `host`: hostname captured with `platform.node()`
 - `python`: Python executable, version, and platform
-- `cuml`: cuML version, git SHA, and dirty-state flag when available
+- `cuml`: cuML version, current Git repo path, SHA, and dirty-state flag when available
 - `runtime`: GPU/cuML availability status
 - `config`: selected config path, profile, and backend override
-- `hardware`: detected CPU/GPU/OS/memory metadata plus optional effective labels from CLI overrides
+- `hardware`: detected CPU/GPU/OS/memory metadata plus optional effective labels from metadata overrides
 - `environment`: package snapshot from `conda list` or `pip list`
 
 The environment package snapshot is intentionally compact. Conda entries include only `name`, `version`, `build`, and `channel`; pip entries include only `name` and `version`.
