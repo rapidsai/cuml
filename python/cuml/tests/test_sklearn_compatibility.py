@@ -28,6 +28,7 @@ from cuml.linear_model import (
     MBSGDClassifier,
     MBSGDRegressor,
     Ridge,
+    RidgeCV,
 )
 from cuml.manifold import TSNE, UMAP, SpectralEmbedding
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
@@ -106,6 +107,7 @@ ESTIMATORS = [
     LedoitWolf(),
     Lars(),
     Ridge(),
+    RidgeCV(),
     ElasticNet(),
     Lasso(),
     LinearRegression(),
@@ -192,6 +194,7 @@ XFAILS = {
     Ridge: {
         "check_non_transformer_estimators_n_iter": "Ridge `n_iter_` may be `None`",
     },
+    RidgeCV: {},
     RandomForestClassifier: {
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
