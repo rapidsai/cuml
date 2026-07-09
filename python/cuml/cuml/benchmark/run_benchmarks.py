@@ -322,9 +322,7 @@ class BenchmarkJSONEncoder(json.JSONEncoder):
         return super().encode(_json_compatible(value))
 
     def iterencode(self, value, _one_shot=False):
-        return super().iterencode(
-            _json_compatible(value), _one_shot=_one_shot
-        )
+        return super().iterencode(_json_compatible(value), _one_shot=_one_shot)
 
 
 def _collect_run_metadata(args):
