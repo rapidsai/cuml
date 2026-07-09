@@ -3,6 +3,8 @@
 import importlib
 import importlib.metadata
 import multiprocessing
+import subprocess
+import sys
 from inspect import Parameter, signature
 
 import pytest
@@ -10,6 +12,7 @@ import sklearn
 from packaging.version import Version
 
 import cuml.accel
+from cuml.accel import core
 from cuml.accel.core import _CONSTRAINTS, CheckConstraint
 from cuml.accel.estimator_proxy import ProxyBase
 
@@ -77,6 +80,35 @@ def test_log_level_forwarded_to_subprocesses(monkeypatch):
     with ctx.Pool(processes=1) as pool:
         log_level = pool.apply(get_level)
     assert log_level == "debug"
+
+
+def test_install_from_pth_redirects_stdout_to_stderr(monkeypatch, capsys):
+    monkeypatch.setattr(core, "install", lambda: print("startup output"))
+
+    core._install_from_pth()
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "startup output\n"
+
+
+def test_pth_install_does_not_write_to_stdout(monkeypatch):
+    monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
+    monkeypatch.setenv("CUML_ACCEL_LOG_LEVEL", "info")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import cuml.accel, sys; "
+            "sys.stdout.buffer.write(b'1' if cuml.accel.enabled() else b'0')",
+        ],
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout == b"1"
+    assert b"[cuml.accel]" in result.stderr
 
 
 def iter_proxy_class_methods():
