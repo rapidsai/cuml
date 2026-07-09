@@ -508,8 +508,6 @@ dependencies:
           - nbsphinx
           - numpydoc
           - &onnxruntime onnxruntime
-          # https://github.com/pydata/pydata-sphinx-theme/issues/1539
-          - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
           - &skl2onnx skl2onnx
@@ -520,9 +518,12 @@ dependencies:
         packages:
           - doxygen=1.9.1
           - matplotlib-base
+          - pip:
+              - nvidia-sphinx-theme
       - output_types: requirements
         packages:
           - matplotlib
+          - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
@@ -618,6 +619,20 @@ dependencies:
               arch: aarch64
             packages:
               - libopenblas<=0.3.30
+          - matrix:
+            packages:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              dependencies: "oldest"
+              cuda: "12.*"
+            packages:
+              - cuda-bindings==12.9.2
+          - matrix:
+              dependencies: "oldest"
+              cuda: "13.*"
+            packages:
+              - cuda-bindings==13.0.1
           - matrix:
             packages:
     common:
@@ -735,11 +750,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.9.2,<13.0
+              - cuda-bindings>=12.9.2,<13.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cuda-python>=13.0.1,<14.0
+              - cuda-bindings>=13.0.1,<14.0
   depends_on_cudf:
     common:
       - output_types: conda

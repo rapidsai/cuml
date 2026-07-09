@@ -223,14 +223,14 @@ void launchLeafKernel(ObjectiveT objective,
 }
 
 /**
- * @brief For every threadblock, converts the smem pdf-histogram to
+ * @brief For every threadblock, converts a pdf-histogram to a
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
  *        the total_sum
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
  */
 template <typename BinT, typename IdxT, int TPB>
-DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT n_bins)
+DI BinT pdf_to_cdf(BinT* histogram, IdxT n_bins)
 {
   // Blockscan instance preparation
   typedef cub::BlockScan<BinT, TPB> BlockScan;
@@ -242,10 +242,10 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT n_bins)
   for (IdxT tix = threadIdx.x; tix < raft::ceildiv(n_bins, TPB) * TPB; tix += blockDim.x) {
     BinT result;
     BinT block_aggregate;
-    BinT element = tix < n_bins ? shared_histogram[tix] : BinT();
+    BinT element = tix < n_bins ? histogram[tix] : BinT();
     BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
     __syncthreads();
-    if (tix < n_bins) { shared_histogram[tix] = result + total_aggregate; }
+    if (tix < n_bins) { histogram[tix] = result + total_aggregate; }
     total_aggregate += block_aggregate;
   }
   // return the total sum
@@ -268,7 +268,8 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
                                           ObjectiveT objective,
                                           IdxT treeid,
                                           const WorkloadInfo<IdxT>* workload_info,
-                                          uint64_t seed)
+                                          uint64_t seed,
+                                          bool use_global_memory_histogram)
 {
   using BinT = typename ObjectiveT::BinT;
   // dynamic shared memory
@@ -296,24 +297,35 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
   // getting the n_bins for that feature
   int n_bins = quantiles.n_bins_array[col];
 
+  auto n_classes            = objective.NumClasses();
   auto end                  = range_start + range_len;
-  auto shared_histogram_len = n_bins * objective.NumClasses();
-  auto* shared_histogram    = alignPointer<BinT>(smem);
-  auto* shared_quantiles    = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* shared_done         = alignPointer<int>(shared_quantiles + n_bins);
+  auto histogram_len        = n_bins * n_classes;
+  auto* histogram           = static_cast<BinT*>(nullptr);
+  auto* shared_done         = static_cast<int*>(nullptr);
+  auto* quantiles_for_split = quantiles.quantiles_array + std::size_t(max_n_bins) * col;
   IdxT stride               = blockDim.x * num_blocks;
   IdxT tid                  = threadIdx.x + offset_blockid * blockDim.x;
 
-  // populating shared memory with initial values
-  for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
-    shared_histogram[i] = BinT();
-  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
-    shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
+  if (use_global_memory_histogram) {
+    auto histograms_offset = (std::size_t(nid) * gridDim.y + blockIdx.y) * max_n_bins * n_classes;
+    histogram              = histograms + histograms_offset;
+    shared_done            = alignPointer<int>(smem);
+  } else {
+    histogram              = alignPointer<BinT>(smem);
+    auto* shared_quantiles = alignPointer<DataT>(histogram + histogram_len);
+    shared_done            = alignPointer<int>(shared_quantiles + n_bins);
+    quantiles_for_split    = shared_quantiles;
+    for (IdxT i = threadIdx.x; i < histogram_len; i += blockDim.x) {
+      histogram[i] = BinT();
+    }
+    for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
+      shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
+    }
+  }
 
-  // synchronizing above changes across block
   __syncthreads();
 
-  // compute pdf shared histogram for all bins for all classes in shared mem
+  // compute pdf histogram for all bins for all classes
 
   // Must be 64 bit - can easily grow larger than a 32 bit int
   std::size_t col_offset = std::size_t(col) * dataset.M;
@@ -323,20 +335,28 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
     auto data  = dataset.data[row + col_offset];
     auto label = dataset.labels[row];
 
-    // `start` is lowest index such that data <= shared_quantiles[start]
-    IdxT start = lower_bound(shared_quantiles, n_bins, data);
-    // ++shared_histogram[start]
-    objective.IncrementHistogram(shared_histogram, n_bins, start, label, dataset, row);
+    // `start` is lowest index such that data <= quantiles_for_split[start]
+    IdxT start = lower_bound(quantiles_for_split, n_bins, data);
+    // ++histogram[start]
+    objective.IncrementHistogram(histogram, n_bins, start, label, dataset, row);
   }
 
-  // synchronizing above changes across block
   __syncthreads();
-  if (num_blocks > 1) {
+  if (use_global_memory_histogram) {
+    __threadfence();  // for commit guarantee before the last block scores the split
+    __syncthreads();
+
+    bool last = MLCommon::signalDone(
+      done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, shared_done);
+    if (!last) return;
+  } else if (num_blocks > 1) {
+    // Shared-memory histogram path: each block built a partial histogram, so unify those
+    // partial histograms in global memory before scoring the split.
     // update the corresponding global location
     auto histograms_offset =
-      ((large_nid * gridDim.y) + blockIdx.y) * max_n_bins * objective.NumClasses();
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x) {
-      BinT::AtomicAdd(histograms + histograms_offset + i, shared_histogram[i]);
+      (std::size_t(large_nid) * gridDim.y + blockIdx.y) * max_n_bins * n_classes;
+    for (IdxT i = threadIdx.x; i < histogram_len; i += blockDim.x) {
+      BinT::AtomicAdd(histograms + histograms_offset + i, histogram[i]);
     }
 
     __threadfence();  // for commit guarantee
@@ -349,34 +369,34 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
     if (!last) return;
 
     // store the complete global histogram in shared memory of last block
-    for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
-      shared_histogram[i] = histograms[histograms_offset + i];
+    for (IdxT i = threadIdx.x; i < histogram_len; i += blockDim.x) {
+      histogram[i] = histograms[histograms_offset + i];
+    }
 
     __syncthreads();
   }
 
-  // PDF to CDF inplace in `shared_histogram`
-  for (IdxT c = 0; c < objective.NumClasses(); ++c) {
+  // PDF to CDF inplace in `histogram`
+  for (IdxT c = 0; c < n_classes; ++c) {
     // left to right scan operation for scanning
     // "lesser-than-or-equal" counts
-    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(shared_histogram + n_bins * c, n_bins);
-    // now, `shared_histogram[n_bins * c + i]` will have count of datapoints of class `c`
-    // that are less than or equal to `shared_quantiles[i]`.
+    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(histogram + n_bins * c, n_bins);
+    // now, `histogram[n_bins * c + i]` will have count of datapoints of class `c`
+    // that are less than or equal to `quantiles_for_split[i]`.
   }
 
   __syncthreads();
 
   // calculate the best candidate bins (one for each thread in the block) in current feature and
   // corresponding information gain for splitting
-  Split<DataT, IdxT> sp =
-    objective.Gain(shared_histogram, shared_quantiles, col, range_len, n_bins);
+  Split<DataT, IdxT> sp = objective.Gain(histogram, quantiles_for_split, col, range_len, n_bins);
 
   __syncthreads();
 
   // calculate best bins among candidate bins per feature using warp reduce
   // then atomically update across features to get best split per node
   // (in split[nid])
-  sp.evalBestSplit(split_scratch, splits + nid, mutex + nid, shared_quantiles, n_bins);
+  sp.evalBestSplit(split_scratch, splits + nid, mutex + nid, quantiles_for_split, n_bins);
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
@@ -396,6 +416,7 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              bool use_global_memory_histogram,
                               dim3 grid,
                               size_t smem_size,
                               cudaStream_t builder_stream)
@@ -416,7 +437,8 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                                                objective,
                                                treeid,
                                                workload_info,
-                                               seed);
+                                               seed,
+                                               use_global_memory_histogram);
 }
 
 }  // namespace DT
