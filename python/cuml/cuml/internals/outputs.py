@@ -348,17 +348,14 @@ class ClassLabels:
         self.indices = indices
         self.classes = classes
 
-    @property
-    def dtype(self):
-        return self.classes.dtype
-
-    def to_output(self, output_type, index=None):
+    def to_output(self, output_type=None, index=None):
         """Convert this instance to a specific `output_type`.
 
         Parameters
         ----------
-        output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'}
-            The output type to convert to.
+        output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'} or None
+            The output type to convert to. If `None`, `cupy` will be used when
+            possible, falling back to `cudf` if necessary.
         index : pandas.Index, cudf.Index, or None, default=None
             An optional index to attach to arrays when returning dataframe-like
             outputs.
@@ -434,14 +431,18 @@ class ClassLabels:
                 if index is not None:
                     out.index = index
 
+        if output_type is None:
+            # cupy when possible, cudf otherwise
+            return out
+
         # Coerce result to requested output_type
         if isinstance(out, cp.ndarray):
             return convert_arrays(out, output_type, index=index)
-        elif (
-            output_type in ("cudf", "df_obj")
-            or (output_type == "dataframe" and isinstance(out, cudf.DataFrame))
-            or (output_type == "series" and isinstance(out, cudf.Series))
-        ):
+        elif output_type in ("cudf", "df_obj"):
+            return out
+        elif output_type == "dataframe":
+            return out.to_frame() if isinstance(out, cudf.Series) else out
+        elif output_type == "series" and isinstance(out, cudf.Series):
             return out
         elif output_type == "pandas":
             if cudf.pandas.LOADED:

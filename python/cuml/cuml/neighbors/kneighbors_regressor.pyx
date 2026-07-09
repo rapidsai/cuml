@@ -24,8 +24,8 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML" nogil:
         float *out,
         int64_t *knn_indices,
         vector[float *] &y,
-        size_t n_rows,
-        size_t n_samples,
+        size_t n_index_rows,
+        size_t n_query_rows,
         int k,
         float *sample_weight
     ) except +

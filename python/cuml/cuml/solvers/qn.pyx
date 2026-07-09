@@ -551,11 +551,9 @@ class QN(Base):
         )
 
         if self.warm_start and hasattr(self, "coef_"):
-            init_coef = self.coef_.to_output("cupy").T
+            init_coef = self.coef_.T
             if self.fit_intercept:
-                init_coef = cp.concatenate(
-                    [init_coef, self.intercept_.to_output("cupy")[None, :]]
-                )
+                init_coef = cp.concatenate([init_coef, self.intercept_[None, :]])
         else:
             init_coef = None
 

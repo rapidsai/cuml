@@ -119,10 +119,7 @@ class ClassifierMixin:
 
         preds = self.predict(X, **kwargs)
         if isinstance(preds, ClassLabels):
-            if preds.dtype.kind in "iufb":
-                preds = preds.to_output("cupy")
-            else:
-                preds = preds.to_output("cudf")
+            preds = preds.to_output()
         return accuracy_score(y, preds, sample_weight=sample_weight)
 
     def __sklearn_tags__(self):
