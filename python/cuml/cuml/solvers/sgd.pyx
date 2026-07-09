@@ -7,7 +7,7 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import FMajorInputTagMixin
 from cuml.internals.outputs import ReflectedAttr, mlfunc
-from cuml.internals.validation import check_inputs
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -449,6 +449,8 @@ class SGD(FMajorInputTagMixin, Base):
         Predicts the y for X.
 
         """
+        check_is_fitted(self)
+
         X = check_inputs(
             self,
             X,

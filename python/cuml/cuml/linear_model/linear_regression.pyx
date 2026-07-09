@@ -194,14 +194,22 @@ class LinearRegression(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": cp.asarray(model.intercept_),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_)
+            ),
             "coef_": cp.asarray(model.coef_),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "intercept_": cp.asnumpy(self.intercept_, order="A"),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else cp.asnumpy(self.intercept_)
+            ),
             "coef_": cp.asnumpy(self.coef_, order="A"),
             **super()._attrs_to_cpu(model),
         }
