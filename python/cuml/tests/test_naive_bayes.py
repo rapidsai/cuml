@@ -119,6 +119,45 @@ def test_multinomial_partial_fit(x_dtype, y_dtype, sparse_text_dataset):
     assert accuracy_score(y, y_hat) >= 0.924
 
 
+@pytest.mark.parametrize(
+    "model_cls,sk_cls",
+    [
+        (MultinomialNB, skNB),
+        (BernoulliNB, skBNB),
+        (ComplementNB, skComplementNB),
+        (GaussianNB, skGNB),
+        (CategoricalNB, skCNB),
+    ],
+)
+def test_partial_fit_new_class_in_later_batch(model_cls, sk_cls):
+    """A partial_fit call after the first must label-encode `y` against
+    the already-established `classes_`, not just the unique labels
+    present in that batch, or updates silently land on the wrong class
+    row. Regression test for
+    https://github.com/rapidsai/cuml/issues/7203
+    """
+    X1 = cp.array([[0, 1], [1, 0]], dtype=cp.float32)
+    y1 = cp.array([0, 1], dtype=cp.int32)
+    X_add = cp.array([[1, 1]], dtype=cp.float32)
+    y_add = cp.array([2], dtype=cp.int32)
+    classes = cp.array([0, 1, 2], dtype=cp.int32)
+
+    model = model_cls()
+    model.partial_fit(X1, y1, classes=classes)
+    # Second call omits `classes=`; class 2 is unseen until this batch.
+    model.partial_fit(X_add, y_add)
+
+    sk_model = sk_cls()
+    sk_model.partial_fit(X1.get(), y1.get(), classes=classes.get())
+    sk_model.partial_fit(X_add.get(), y_add.get())
+
+    X_test = cp.array([[0, 1], [1, 0], [1, 1]], dtype=cp.float32)
+    y_hat = cp.asnumpy(model.predict(X_test))
+    y_sk = sk_model.predict(X_test.get())
+
+    assert_array_equal(y_hat, y_sk)
+
+
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_multinomial(x_dtype, y_dtype, sparse_text_dataset):
