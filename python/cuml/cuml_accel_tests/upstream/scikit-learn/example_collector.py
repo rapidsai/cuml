@@ -147,7 +147,7 @@ def pytest_addoption(parser):
         action="store",
         default=300,
         type=int,
-        help="Timeout per example script in seconds (default: 300)",
+        help=("Timeout per example script in seconds (default: 300)"),
     )
 
 

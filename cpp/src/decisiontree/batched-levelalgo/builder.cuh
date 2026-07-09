@@ -149,6 +149,11 @@ struct Builder {
 
   /** default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 128;
+  // Tunable performance heuristic for the shared-memory histogram path. Large per-block
+  // histograms, usually from large n_classes, can reduce occupancy enough that global memory is
+  // faster even when the histogram fits in shared memory. 16 KiB keeps small/default histograms in
+  // shared memory while avoiding the large-class shared-memory slowdown measured locally.
+  static constexpr size_t tunable_split_histogram_dynamic_smem_limit_bytes = 16 * 1024;
   /** handle to get device properties */
   const raft::handle_t& handle;
   /** stream to launch kernels */
@@ -487,11 +492,12 @@ struct Builder {
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
+    auto split_smem_config              = computeSplitSharedMemoryConfig();
 
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
     for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
-      computeSplit(c, n_blocks_dimx, n_large_nodes);
+      computeSplit(c, n_blocks_dimx, n_large_nodes, work_items.size(), split_smem_config);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -515,72 +521,100 @@ struct Builder {
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
-  auto computeSplitSmemSize()
+  struct SplitSharedMemoryConfig {
+    bool use_global_memory_histogram;
+    size_t dynamic_smem_size;
+  };
+
+  SplitSharedMemoryConfig computeSplitSharedMemoryConfig() const
   {
+    // Dynamic shared memory for the fast path: histogram, copied quantiles, and
+    // alignment padding for the kernel's shared-memory layout.
     auto shared_histogram_size =
       ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
     auto shared_quantiles_size = ML::checked_mul<std::size_t>(params.max_n_bins, sizeof(DataT));
-    auto dynamic_smem_size =
+    auto shared_dynamic_smem_size =
       ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size, sizeof(int));
-
-    // Extra room for alignment (see alignPointer in
-    // computeSplitKernel)
     auto alignment_smem_size =
       ML::checked_add<std::size_t>(sizeof(DataT), ML::checked_mul<std::size_t>(3, sizeof(int)));
-    dynamic_smem_size = ML::checked_add<std::size_t>(dynamic_smem_size, alignment_smem_size);
+    shared_dynamic_smem_size =
+      ML::checked_add<std::size_t>(shared_dynamic_smem_size, alignment_smem_size);
 
-    // computeSplitKernel also reserves static shared memory for CUB's scan temp
-    // storage and the per-warp split reduction scratch.
+    // Dynamic shared memory for the fallback path only needs the per-block done
+    // flag used by the inter-block completion handshake.
+    auto global_dynamic_smem_size = ML::checked_add<std::size_t>(sizeof(int), sizeof(int));
+
+    // Static shared memory is reserved by the kernel regardless of where the
+    // histogram lives.
     auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
     auto split_scratch_smem_size =
       ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
-    auto total_smem_size =
-      ML::checked_add<std::size_t>(dynamic_smem_size, cdf_scan_smem_size, split_scratch_smem_size);
-    auto available_smem = handle.get_device_properties().sharedMemPerBlock;
-    ASSERT(available_smem >= total_smem_size,
-           "Not enough shared memory. Consider reducing max_n_bins.");
-    return dynamic_smem_size;
+    auto static_smem_size =
+      ML::checked_add<std::size_t>(cdf_scan_smem_size, split_scratch_smem_size);
+
+    auto available_smem = size_t(handle.get_device_properties().sharedMemPerBlock);
+    auto global_total_smem_size =
+      ML::checked_add<std::size_t>(global_dynamic_smem_size, static_smem_size);
+    ASSERT(available_smem >= global_total_smem_size,
+           "Not enough shared memory for RF split bookkeeping.");
+
+    // Prefer shared memory when it fits and stays small enough for good occupancy;
+    // otherwise use the global histogram path to avoid launch failure or slowdown.
+    auto shared_total_smem_size =
+      ML::checked_add<std::size_t>(shared_dynamic_smem_size, static_smem_size);
+    bool use_global_memory_histogram =
+      shared_total_smem_size > available_smem ||
+      shared_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
+
+    return {use_global_memory_histogram,
+            use_global_memory_histogram ? global_dynamic_smem_size : shared_dynamic_smem_size};
   }
 
-  void computeSplit(IdxT col, size_t n_blocks_dimx, size_t n_large_nodes)
+  void computeSplit(IdxT col,
+                    size_t n_blocks_dimx,
+                    size_t n_large_nodes,
+                    size_t n_work_items,
+                    const SplitSharedMemoryConfig& split_smem_config)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
     raft::common::nvtx::range fun_scope("Builder::computeSplit @builder.cuh [batched-levelalgo]");
-    auto n_bins    = params.max_n_bins;
-    auto n_classes = dataset.num_outputs;
+    auto n_bins                      = params.max_n_bins;
+    auto n_classes                   = dataset.num_outputs;
+    auto use_global_memory_histogram = split_smem_config.use_global_memory_histogram;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
-    // compute required dynamic shared memory
-    auto smem_size = computeSplitSmemSize();
     dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
-    // required total length (in bins) of the global segmented histograms over all
-    // classes, features and (large)nodes.
-    int len_histograms = n_bins * n_classes * n_blocks_dimy * n_large_nodes;
-    RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, sizeof(BinT) * len_histograms, builder_stream));
+    auto histogram_node_count = use_global_memory_histogram ? n_work_items : n_large_nodes;
+    auto len_histograms =
+      ML::checked_mul<std::size_t>(n_bins, n_classes, n_blocks_dimy, histogram_node_count);
+    auto histograms_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), len_histograms);
+    RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, histograms_bytes, builder_stream));
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     // call the computeSplitKernel
     raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
-                                                                           params.max_n_bins,
-                                                                           params.min_samples_split,
-                                                                           params.max_leaves,
-                                                                           dataset,
-                                                                           quantiles,
-                                                                           d_work_items,
-                                                                           col,
-                                                                           column_samples,
-                                                                           done_count,
-                                                                           mutex,
-                                                                           splits,
-                                                                           objective,
-                                                                           treeid,
-                                                                           workload_info,
-                                                                           seed,
-                                                                           grid,
-                                                                           smem_size,
-                                                                           builder_stream);
+    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+      histograms,
+      params.max_n_bins,
+      params.min_samples_split,
+      params.max_leaves,
+      dataset,
+      quantiles,
+      d_work_items,
+      col,
+      column_samples,
+      done_count,
+      mutex,
+      splits,
+      objective,
+      treeid,
+      workload_info,
+      seed,
+      use_global_memory_histogram,
+      grid,
+      split_smem_config.dynamic_smem_size,
+      builder_stream);
   }
 
   // Set the leaf value predictions in batch
