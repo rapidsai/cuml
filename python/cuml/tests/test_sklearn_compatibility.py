@@ -228,10 +228,6 @@ XFAILS = {
         "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
         "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
-    PCA: {
-        "check_fit2d_1sample": "PCA does not handle single sample",
-        "check_fit2d_1feature": "PCA does not handle single feature",
-    },
     TSNE: {
         "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",

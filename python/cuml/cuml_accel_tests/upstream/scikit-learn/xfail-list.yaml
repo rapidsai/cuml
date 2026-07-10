@@ -813,8 +813,6 @@
   marker: cuml_accel_test_estimators
   tests:
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_decision_function]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_data_not_an_array]"
 - reason: test_estimators checks fail
