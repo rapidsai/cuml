@@ -9,6 +9,7 @@
 #include <raft/core/handle.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
+#include <kmeans/kmeans_params.hpp>
 
 namespace ML {
 namespace kmeans {
@@ -28,7 +29,7 @@ void transform_impl(const raft::handle_t& handle,
     raft::make_device_matrix_view<const value_t, int>(centroids, params.n_clusters, n_features);
   auto rX_new = raft::make_device_matrix_view<value_t, int>(X_new, n_samples, n_features);
 
-  cuvs::cluster::kmeans::transform(handle, params.to_cuvs(), X_view, centroids_view, rX_new);
+  cuvs::cluster::kmeans::transform(handle, to_cuvs(params), X_view, centroids_view, rX_new);
 }
 
 void transform(const raft::handle_t& handle,
