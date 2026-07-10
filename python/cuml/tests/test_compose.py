@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,6 +7,7 @@ import cudf
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.base import clone as sk_clone
 from sklearn.compose import ColumnTransformer as skColumnTransformer
 from sklearn.compose import make_column_selector as sk_make_column_selector
 from sklearn.compose import (
@@ -240,6 +241,37 @@ def test_column_transformer_named_transformers_(clf_dataset):  # noqa: F811
     sk_named_transformers = transformer.named_transformers_
 
     assert cu_named_transformers.keys() == sk_named_transformers.keys()
+
+
+def test_column_transformer_sklearn_clone_preserves_transformers():
+    transformer = cuColumnTransformer(
+        [("one_hot_encoder", skOneHotEncoder(), ["a", "b"])]
+    )
+
+    cloned = sk_clone(transformer)
+
+    assert len(cloned.transformers) == 1
+    assert isinstance(cloned.transformers[0][1], skOneHotEncoder)
+    assert cloned.transformers[0][2] == ["a", "b"]
+
+
+def test_column_transformer_sklearn_clone_default_transformers():
+    transformer = cuColumnTransformer()
+
+    assert transformer.get_params(deep=True)["transformers"] is None
+    cloned = sk_clone(transformer)
+
+    assert cloned.transformers is None
+
+
+def test_column_transformer_set_transformers_from_empty_list():
+    transformer = cuColumnTransformer([])
+
+    transformer._transformers = [("one_hot_encoder", skOneHotEncoder())]
+
+    assert len(transformer.transformers) == 1
+    assert isinstance(transformer.transformers[0][1], skOneHotEncoder)
+    assert transformer.transformers[0][2] is None
 
 
 def test_make_column_selector():

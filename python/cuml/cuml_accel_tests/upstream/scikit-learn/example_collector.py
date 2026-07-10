@@ -43,6 +43,7 @@ _NETWORK_ERROR_PATTERNS = (
     "requests.exceptions.ConnectionError",
     "requests.exceptions.Timeout",
     "sklearn.datasets._openml.OpenMLError",
+    "md5 checksum of local file for https://openml.org/",
     "socket.gaierror",
     "socket.timeout",
     "ssl.SSLError",
@@ -147,7 +148,7 @@ def pytest_addoption(parser):
         action="store",
         default=300,
         type=int,
-        help="Timeout per example script in seconds (default: 300)",
+        help=("Timeout per example script in seconds (default: 300)"),
     )
 
 
