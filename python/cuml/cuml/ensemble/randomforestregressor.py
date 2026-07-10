@@ -215,7 +215,7 @@ class RandomForestRegressor(RegressorMixin, BaseRandomForestModel):
             sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
-            order="F",
+            order="A",
             sample_weight_dtype="float64",
             reset=True,
         )
