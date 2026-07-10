@@ -802,6 +802,10 @@ def test_random_forest_classifier(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_decision_function_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_decision_function_, cp.ndarray)
+            assert isinstance(cu_model2.oob_decision_function_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -870,6 +874,10 @@ def test_random_forest_regressor(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_prediction_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_prediction_, cp.ndarray)
+            assert isinstance(cu_model2.oob_prediction_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7

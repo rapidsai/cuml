@@ -18,6 +18,8 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cstdint>
+
 namespace ML {
 namespace DT {
 
@@ -51,8 +53,10 @@ struct WorkloadInfo {
 template <typename SplitT, typename IdxT>
 HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
 {
-  return split.colid == IdxT(-1) || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
+  const auto local_count = static_cast<std::int64_t>(num_rows);
+  const auto min_leaf    = static_cast<std::int64_t>(min_samples_leaf);
+  return split.colid == IdxT(-1) || split.local_nLeft > local_count ||
+         split.local_nLeft < min_leaf || (local_count - split.local_nLeft) < min_leaf;
 }
 
 template <typename SplitT, typename DataT, typename IdxT>
@@ -126,7 +130,7 @@ void launchLeafKernel(ObjectiveT objective,
 // Values outside the quantile range are clamped to the edge bins: values below the
 // first quantile return 0, and values above the last quantile return len - 1.
 template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* array, IdxT len, DataT element)
+HDI IdxT lower_bound(DataT const* array, IdxT len, DataT element)
 {
   IdxT start = 0;
   IdxT end   = len - 1;
@@ -159,6 +163,7 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              bool use_global_memory_histogram,
                               dim3 grid,
                               size_t smem_size,
                               cudaStream_t builder_stream);

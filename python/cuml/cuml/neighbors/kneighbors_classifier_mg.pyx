@@ -4,7 +4,7 @@
 #
 import cupy as cp
 
-from cuml.internals import logger, reflect
+from cuml.internals import logger, mlfunc
 from cuml.internals.validation import check_array
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -51,7 +51,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         index,
@@ -168,7 +168,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return outputs
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,

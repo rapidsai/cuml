@@ -244,7 +244,8 @@ class DecisionTree {
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
     int treeid,
-    const double* sample_weight = nullptr)
+    const double* sample_weight = nullptr,
+    bool row_major              = false)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -269,7 +270,8 @@ class DecisionTree {
                                                                                    ncols,
                                                                                    row_ids,
                                                                                    unique_labels,
-                                                                                   quantiles)
+                                                                                   quantiles,
+                                                                                   row_major)
           .train();
       }
       return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -284,7 +286,8 @@ class DecisionTree {
                                                                            ncols,
                                                                            row_ids,
                                                                            unique_labels,
-                                                                           quantiles)
+                                                                           quantiles,
+                                                                           row_major)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                (params.split_criterion == CRITERION::MSE ||
@@ -304,7 +307,8 @@ class DecisionTree {
                                                                                ncols,
                                                                                row_ids,
                                                                                unique_labels,
-                                                                               quantiles)
+                                                                               quantiles,
+                                                                               row_major)
           .train();
       }
       return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -319,7 +323,8 @@ class DecisionTree {
                                                                        ncols,
                                                                        row_ids,
                                                                        unique_labels,
-                                                                       quantiles)
+                                                                       quantiles,
+                                                                       row_major)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

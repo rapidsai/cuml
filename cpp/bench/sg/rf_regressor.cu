@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -45,18 +45,20 @@ class RFRegressor : public RegressionFixture<D> {
   void runBenchmark(::benchmark::State& state) override
   {
     using MLCommon::Bench::CudaEventTimer;
-    if (this->params.rowMajor) {
-      state.SkipWithError("RFRegressor only supports col-major inputs");
-    }
     this->loopOnState(state, [this]() {
       auto* mPtr = &model.model;
+      mPtr->trees.clear();
       fit(*this->handle,
           mPtr,
-          this->data.X,
+          this->data.X.data(),
           this->params.nrows,
           this->params.ncols,
-          this->data.y,
-          rfParams);
+          this->data.y.data(),
+          rfParams,
+          rapids_logger::level_enum::info,
+          nullptr,
+          nullptr,
+          this->params.rowMajor);
       handle->sync_stream(this->stream);
     });
   }
@@ -107,6 +109,9 @@ std::vector<RegParams> getInputs()
     p.rf.tree_params.max_features = 1.f;
     for (auto max_depth : std::vector<int>({7, 11, 15})) {
       p.rf.tree_params.max_depth = max_depth;
+      p.data.rowMajor            = false;
+      out.push_back(p);
+      p.data.rowMajor = true;
       out.push_back(p);
     }
   }

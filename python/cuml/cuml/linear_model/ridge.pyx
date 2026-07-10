@@ -6,22 +6,16 @@ import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import (
     FMajorInputTagMixin,
     RegressorMixin,
     SparseInputTagMixin,
 )
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
@@ -165,8 +159,8 @@ class Ridge(InteropMixin,
     0 15.999...
     1 14.999...
     """
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.linear_model.Ridge"
 
@@ -222,8 +216,12 @@ class Ridge(InteropMixin,
     def _attrs_from_cpu(self, model):
         solver = {"svd": "svd", "lsqr": "lsmr"}.get(model.solver_, "eig")
         return {
-            "intercept_": to_gpu(model.intercept_),
-            "coef_": to_gpu(model.coef_),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_)
+            ),
+            "coef_": cp.asarray(model.coef_),
             "n_iter_": model.n_iter_,
             "solver_": solver,
             **super()._attrs_from_cpu(model),
@@ -236,8 +234,12 @@ class Ridge(InteropMixin,
             solver = model.solver
 
         return {
-            "intercept_": to_cpu(self.intercept_),
-            "coef_": to_cpu(self.coef_),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else cp.asnumpy(self.intercept_)
+            ),
+            "coef_": cp.asnumpy(self.coef_, order="A"),
             "solver_": solver,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
@@ -356,7 +358,7 @@ class Ridge(InteropMixin,
         return coef, intercept, None
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, sample_weight=None, *, convert_dtype="deprecated") -> "Ridge":
         """
         Fit the model with X and y.
@@ -455,12 +457,10 @@ class Ridge(InteropMixin,
                 solver=solver,
             )
 
-        if not cp.isscalar(intercept):
-            intercept = CumlArray(intercept)
         if y.ndim == 2 and y.shape[1] == 1:
             coef = coef.ravel()
 
-        self.coef_ = CumlArray(coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = n_iter
         self.solver_ = solver

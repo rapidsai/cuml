@@ -3,9 +3,8 @@
 #
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.svm.svm_base import SVMBase
 
@@ -132,7 +131,7 @@ class SVR(RegressorMixin, SVMBase):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "SVR":
@@ -172,8 +171,8 @@ class SVR(RegressorMixin, SVMBase):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the values for X.
 

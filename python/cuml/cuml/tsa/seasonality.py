@@ -5,13 +5,19 @@ import numpy as np
 
 from cuml.internals import reflect
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import deprecated_tsa_api
 
 
+@deprecated_tsa_api("cuml.tsa.seasonality.seas_test")
 @reflect
 def seas_test(y, s, convert_dtype="deprecated"):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal
     differencing is needed
+
+    .. deprecated:: 26.08
+        ``cuml.tsa.seasonality.seas_test`` is deprecated and will be removed
+        in the cuML 26.12 release.
 
     Parameters
     ----------

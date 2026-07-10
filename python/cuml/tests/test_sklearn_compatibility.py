@@ -21,6 +21,7 @@ from cuml.feature_extraction.text import TfidfTransformer
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
+    Lars,
     Lasso,
     LinearRegression,
     LogisticRegression,
@@ -103,6 +104,7 @@ ESTIMATORS = [
     KernelDensity(),
     EmpiricalCovariance(),
     LedoitWolf(),
+    Lars(),
     Ridge(),
     ElasticNet(),
     Lasso(),
@@ -190,8 +192,24 @@ XFAILS = {
     Ridge: {
         "check_non_transformer_estimators_n_iter": "Ridge `n_iter_` may be `None`",
     },
+    RandomForestClassifier: {
+        "check_sample_weight_equivalence_on_dense_data": (
+            "RandomForest uses quantile-binned splits, so sample weighting is "
+            "not equivalent to duplicating rows"
+        ),
+        "check_sample_weight_equivalence_on_sparse_data": (
+            "RandomForestClassifier does not handle sparse data"
+        ),
+    },
     RandomForestRegressor: {
         "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
+        "check_sample_weight_equivalence_on_dense_data": (
+            "RandomForest uses quantile-binned splits, so sample weighting is "
+            "not equivalent to duplicating rows"
+        ),
+        "check_sample_weight_equivalence_on_sparse_data": (
+            "RandomForestRegressor does not handle sparse data"
+        ),
     },
     KNeighborsRegressor: {
         "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
