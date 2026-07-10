@@ -1,10 +1,65 @@
-Logging and Profiling
-=====================
+Understanding Acceleration
+==========================
+
+``cuml.accel`` intercepts supported Scikit-Learn, UMAP, and HDBSCAN estimator
+operations and dispatches them to GPU implementations. When an operation
+cannot run on the GPU, it transparently uses the original CPU implementation
+instead. A fallback may depend on the estimator, method, parameter values,
+input data, or installed library version. See :doc:`supported-functionality`
+for the accelerated estimator inventory and :doc:`limitations` for the exact
+fallback conditions.
+
+CPU fallback preserves compatibility, but frequent transitions between CPU
+and GPU execution may reduce the overall speedup. The logging and profiling
+tools below show which operations ran on the GPU, which fell back to the CPU,
+and why.
+
+What Results to Expect
+----------------------
+
+GPU and CPU results should be equivalent in model quality, but they are not
+guaranteed to be numerically identical. Parallel floating-point operations may
+run in a different order, and some GPU algorithms use implementations designed
+for highly parallel hardware. Compare appropriate quality metrics, such as
+``score`` or accuracy, instead of requiring identical fitted coefficients.
+Estimator-specific differences are documented in :doc:`limitations`. Please
+`report a bug`_ if acceleration causes an error or measurably worse model
+quality.
+
+Performance depends on the estimator and workload. Larger datasets generally
+benefit most; on small inputs, initialization and data-transfer costs can make
+GPU execution no faster, or even slower. Some GPU operations use
+runtime-compiled kernels, so their first invocation may include compilation
+overhead. Warm up the operation before timing it and compare end-to-end runtime
+with and without ``cuml.accel``. See :doc:`benchmarks` for representative
+results.
+
+Memory Management
+-----------------
+
+When the platform supports it and RMM has not already been configured,
+``cuml.accel`` enables `managed memory`_. Managed memory can use host memory in
+addition to GPU memory and migrates data as needed, reducing the risk of GPU
+out-of-memory errors. It does not prevent exhaustion of combined host and
+device memory, and heavy oversubscription can slow execution. Managed memory
+is not enabled on WSL2 or when RMM was configured before ``cuml.accel``.
+If managed-memory oversubscription causes unexpectedly slow execution, use the
+CLI's ``--disable-uvm`` flag to disable it and compare performance.
+
+For workloads that always run on NVIDIA GPUs, using cuML directly may provide
+more control over GPU-specific parameters and device-memory usage. Direct cuML
+can also expose functionality beyond the compatible APIs provided through
+``cuml.accel``. Start with ``cuml.accel`` when retaining an existing codebase
+matters; consider direct cuML when GPU-specific tuning and control are more
+important.
 
 ``cuml.accel`` provides logging and profiling support to help you understand
 which operations are being accelerated on GPU and which are falling back to CPU
 execution. This can be particularly useful for debugging performance issues or
 understanding why certain operations might not be accelerated.
+
+.. _report a bug: https://github.com/rapidsai/cuml/issues/new?template=bug_report.md
+.. _managed memory: https://developer.nvidia.com/blog/unified-memory-cuda-beginners/
 
 Logging
 ^^^^^^^
@@ -67,7 +122,7 @@ The log level may be set in Jupyter notebooks or IPython through the
    %cuml.accel.log_level info
 
 Environment Variable
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 The log level may also be configured by setting the ``CUML_ACCEL_LOG_LEVEL``
 environment variable to ``warn``, ``info`` or ``debug`` (case insensitive).

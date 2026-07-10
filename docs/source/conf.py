@@ -228,7 +228,10 @@ REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
     "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
-    "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
+    "zero-code-change-logging/index.html": "cuml-accel/understanding-acceleration/",
+    "cuml-accel/logging-and-profiling/index.html": (
+        "cuml-accel/understanding-acceleration/"
+    ),
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
     ),

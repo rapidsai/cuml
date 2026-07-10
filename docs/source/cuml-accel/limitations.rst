@@ -1,26 +1,18 @@
 Limitations
 ===========
 
-The ``cuml.accel`` zero code change accelerator is currently a beta feature. As
-such, it has a number of known limitations and bugs. The team is working to
-address these, and expect the number of limitations to reduce with every
-release.
+This page documents estimator-specific CPU fallback conditions, missing fitted
+attributes, and behavioral differences. Start with
+:doc:`supported-functionality` for the complete estimator inventory. Then use
+:doc:`understanding-acceleration` to see which operations in your workload ran
+on the GPU and why others fell back to the CPU.
 
-These limitations fall into a few categories:
+Estimators not listed on the support page remain on the CPU. Listed estimators
+may also fall back for particular methods, hyperparameters, input types, or
+dependency versions, as documented below. These fallbacks should be
+transparent and preserve the original workflow.
 
-- Estimators that are fully unaccelerated. For example, while we currently
-  provide GPU acceleration for models like ``sklearn.linear_model.Ridge``, we
-  don't accelerate other models like ``sklearn.linear_model.BayesianRidge``.
-  Unaccelerated estimators won't result in bugs or failures, but also won't run
-  any faster than they would under ``sklearn``. If you don't see an estimator on
-  listed on this page, we do not provide acceleration for it.
-
-- Estimators that are only partially accelerated. ``cuml.accel`` will fall back
-  to using the CPU implementations for some algorithms in the presence of
-  certain hyperparameters or input types. These cases are documented below in
-  estimator-specific sections. See :doc:`logging-and-profiling` for how to
-  enable logging to gain insight into when ``cuml.accel`` needs to fall back to
-  CPU.
+Other known differences include:
 
 - Missing fitted attributes. ``cuml.accel`` does not currently generate the
   full set of fitted attributes that ``sklearn`` does. In _most_ cases this is
@@ -29,7 +21,7 @@ These limitations fall into a few categories:
   inference. Like unsupported parameters, missing fitted attributes are
   documented in algorithm-specific sections below.
 
-- Differences between fit models. The algorithms and implementations used in
+- Differences between fitted models. The algorithms and implementations used in
   ``cuml`` naturally differ from those used in ``sklearn``, this may result in
   differences between fit models. This is to be expected. To compare results
   between models fit with ``cuml.accel`` and those fit without, you should
@@ -37,30 +29,31 @@ These limitations fall into a few categories:
   values of the fitted coefficients.
 
 None of the above should result in bugs (exceptions, failures, poor model
-quality, ...). That said, as a beta feature there are likely bugs. If you find
-a case that errors or results in a model with measurably worse quality when
-run under ``cuml.accel``, please `open an issue`_.
+quality, ...). If you find a case that errors or results in a model with
+measurably worse quality when run under ``cuml.accel``, please `open an issue`_.
 
-A few additional general notes:
+General notes:
 
 - Performance improvements will be most apparent when running on larger data.
   On very small datasets you might see only a small speedup (or even
   potentially a slowdown).
 
-- The accelerator is tested to be compatible with scikit-learn versions 1.5
-  through 1.8. This ensures that cuML's implementation of scikit-learn
+- The accelerator is tested to be compatible with Scikit-Learn versions 1.6
+  through 1.9. This ensures that cuML's implementation of Scikit-Learn
   compatible APIs works as expected.
 
-- Some estimators are accelerated using scikit-learn's experimental
+- Some estimators are accelerated using Scikit-Learn's experimental
   `array-api`_ support. These estimators are only accelerated by ``cuml.accel``
-  when running with scikit-learn versions >= 1.8. Running with an older
-  version of scikit-learn will use an unaccelerated estimator.
+  when running with Scikit-Learn versions >= 1.8. Running with an older
+  version of Scikit-Learn will use an unaccelerated estimator.
 
 - Error and warning messages and formats may differ from scikit-learn. Some
   errors might present as C++ stacktraces instead of python errors.
 
-For notes on each algorithm, please refer to its specific section on this file.
+For notes on each algorithm, refer to its section below.
 
+
+.. _hdbscan-limitations:
 
 hdbscan
 -------
@@ -85,6 +78,8 @@ Additional notes:
   reachability graph.
 - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
+
+.. _sklearn-limitations:
 
 sklearn.cluster
 ---------------
@@ -560,6 +555,8 @@ Additional notes:
 
 - Use of sample weights may not produce exactly equivalent results when
   compared to replicating data according to weights.
+
+.. _umap-limitations:
 
 umap
 ----
