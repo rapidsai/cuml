@@ -14,6 +14,48 @@ and GPU execution may reduce the overall speedup. The logging and profiling
 tools below show which operations ran on the GPU, which fell back to the CPU,
 and why.
 
+.. _activation-methods:
+
+Activation Methods
+------------------
+
+Enable ``cuml.accel`` before importing Scikit-Learn, UMAP, or HDBSCAN. When
+running a script, use the ``cuml.accel`` command-line interface:
+
+.. code-block:: console
+
+   python -m cuml.accel script.py
+
+In Jupyter or IPython, load the extension before other imports:
+
+.. code-block:: python
+
+   %load_ext cuml.accel
+
+.. _cuml-accel-env-var:
+
+For third-party applications whose code you do not control, set
+``CUML_ACCEL_ENABLED`` to ``1`` or ``true`` (case insensitive):
+
+.. code-block:: console
+
+   CUML_ACCEL_ENABLED=1 python script.py
+
+This loads the accelerator for every Python program launched with the variable
+set and may add startup overhead. If cuML is not installed correctly, the
+environment variable is silently ignored and execution remains on the CPU, so
+the CLI or notebook extension is usually easier to validate. See
+:doc:`examples/third-party-apps` for more.
+
+You can also install the accelerator programmatically before importing the
+libraries it will accelerate:
+
+.. code-block:: python
+
+   import cuml
+
+   cuml.accel.install()
+
 What Results to Expect
 ----------------------
 

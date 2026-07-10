@@ -31,38 +31,15 @@ Or load the extension at the top of a Jupyter notebook, before other imports:
 
    %load_ext cuml.accel
 
+See :ref:`activation-methods` for a complete overview of the command-line,
+Jupyter, environment-variable, and programmatic activation options.
+
 ``cuml.accel`` transparently falls back to the original CPU implementation
 when an estimator or operation cannot be accelerated. Fallback can depend on
 parameters, input types, methods, or library versions, so existing workflows
 continue to run even when only part of a pipeline is GPU accelerated. Use the
 :doc:`logging and profiling tools <understanding-acceleration>` to see exactly
 where execution occurs.
-
-.. _cuml-accel-env-var:
-
-Other Activation Methods
-------------------------
-
-For third-party applications whose code you do not control, set
-``CUML_ACCEL_ENABLED`` to ``1`` or ``true`` (case insensitive):
-
-.. code-block:: console
-
-   CUML_ACCEL_ENABLED=1 python script.py
-
-This loads the accelerator for every Python program launched with the variable
-set and may add startup overhead. If cuML is not installed correctly, this
-environment variable is silently ignored, so the CLI or notebook extension is
-usually easier to validate. See :doc:`examples/third-party-apps` for more.
-
-You can also enable the accelerator programmatically before importing
-Scikit-Learn, UMAP, or HDBSCAN:
-
-.. code-block:: python
-
-   import cuml
-
-   cuml.accel.install()
 
 Where to Go Next
 ----------------
