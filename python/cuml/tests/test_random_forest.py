@@ -285,6 +285,46 @@ def _cuml_preds(model, X):
     return cp.asnumpy(cp.asarray(model.predict(X)))
 
 
+@pytest.mark.parametrize(
+    "estimator", [curfc, curfr], ids=["classifier", "regressor"]
+)
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_fit_input_order_parity(datatype, input_type, estimator):
+    X, y = make_classification(
+        n_samples=128,
+        n_features=8,
+        n_informative=5,
+        n_redundant=0,
+        n_clusters_per_class=1,
+        n_classes=3,
+        class_sep=2.0,
+        random_state=7,
+    )
+    xp = cp if input_type == "cupy" else np
+    X_c = xp.asarray(X, dtype=datatype, order="C")
+    X_f = xp.asarray(X, dtype=datatype, order="F")
+
+    params = dict(
+        n_estimators=3,
+        bootstrap=False,
+        max_depth=4,
+        max_features=1.0,
+        n_bins=16,
+        random_state=11,
+        n_streams=1,
+    )
+    c_model = estimator(**params).fit(X_c, y)
+    f_model = estimator(**params).fit(X_f, y)
+
+    X_pred = np.array(X, dtype=datatype, order="C")
+    c_preds = _cuml_preds(c_model, X_pred)
+    f_preds = _cuml_preds(f_model, X_pred)
+
+    np.testing.assert_allclose(c_preds, f_preds, rtol=1e-6, atol=1e-6)
+    assert c_model.as_treelite().num_feature == X.shape[1]
+
+
 def _sklearn_fit_params(cuml_model):
     params = cuml_model._params_to_cpu()
     if params["max_samples"] == 1.0:

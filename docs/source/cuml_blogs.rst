@@ -1,5 +1,5 @@
-Blogs and other references
-==========================
+References
+==========
 
 The RAPIDS team blogs at https://medium.com/rapids-ai, and many of
 these blog posts provide deeper dives into models or key features from

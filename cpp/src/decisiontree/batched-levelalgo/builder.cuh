@@ -212,7 +212,8 @@ struct Builder {
           IdxT n_cols,
           rmm::device_uvector<IdxT>* row_ids,
           IdxT n_classes,
-          const QuantilesT& q)
+          const QuantilesT& q,
+          bool row_major = false)
     : handle(handle),
       builder_stream(s),
       treeid(treeid),
@@ -223,6 +224,8 @@ struct Builder {
               sample_weight,
               n_rows,
               n_cols,
+              row_major ? n_cols : IdxT{1},
+              row_major ? IdxT{1} : n_rows,
               int(row_ids->size()),
               max(1, IdxT(params.max_features * n_cols)),
               row_ids->data(),
@@ -397,10 +400,10 @@ struct Builder {
     RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
 
     const IdxT original_n_sampled_cols = dataset.n_sampled_cols;
-    ASSERT(original_n_sampled_cols > 0 && original_n_sampled_cols <= dataset.N,
+    ASSERT(original_n_sampled_cols > 0 && original_n_sampled_cols <= dataset.n_cols,
            "n_sampled_cols must be in [1, n_cols]");
     const std::size_t max_sampling_rounds =
-      std::size_t((dataset.N + original_n_sampled_cols - 1) / original_n_sampled_cols);
+      std::size_t((dataset.n_cols + original_n_sampled_cols - 1) / original_n_sampled_cols);
     struct HostSplit {
       DataT quesval;
       IdxT colid;
@@ -429,8 +432,9 @@ struct Builder {
     // Match sklearn's behavior of searching beyond max_features when the
     // sampled features do not yield a valid split.
     for (std::size_t round = 0; !active_items.empty() && round < max_sampling_rounds; ++round) {
-      IdxT sample_offset     = IdxT(round) * original_n_sampled_cols;
-      dataset.n_sampled_cols = std::min(original_n_sampled_cols, dataset.N - sample_offset);
+      IdxT sample_offset = IdxT(round) * original_n_sampled_cols;
+      dataset.n_sampled_cols =
+        std::min(original_n_sampled_cols, static_cast<IdxT>(dataset.n_cols) - sample_offset);
       computeBestSplits(active_items, seed, sample_offset);
 
       std::vector<NodeWorkItem> retry_items;
@@ -515,7 +519,7 @@ struct Builder {
                           treeid,
                           sampling_seed,
                           sample_offset,
-                          dataset.N,
+                          static_cast<IdxT>(dataset.n_cols),
                           dataset.n_sampled_cols,
                           builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
