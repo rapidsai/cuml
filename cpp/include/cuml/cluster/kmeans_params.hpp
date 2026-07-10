@@ -11,12 +11,6 @@
 
 #include <rapids_logger/logger.hpp>
 
-namespace cuvs::cluster::kmeans {
-
-struct params;
-
-}  // end namespace cuvs::cluster::kmeans
-
 namespace CUML_EXPORT ML {
 namespace kmeans {
 
@@ -33,8 +27,6 @@ struct KMeansParams {
   double oversampling_factor = 2.0;
   int batch_samples          = 1 << 15;
   int batch_centroids        = 0;
-
-  cuvs::cluster::kmeans::params to_cuvs() const;
 };
 
 }  // end namespace kmeans

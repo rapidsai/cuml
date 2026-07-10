@@ -46,6 +46,7 @@ template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, Objecti
   IdxT treeid,
   const WorkloadInfo<IdxT>* workload_info,
   uint64_t seed,
+  bool use_global_memory_histogram,
   dim3 grid,
   size_t smem_size,
   cudaStream_t builder_stream);

@@ -1,7 +1,7 @@
-Welcome to cuML's documentation!
-=================================
+NVIDIA cuML Documentation
+=========================
 
-cuML is a suite of fast, GPU-accelerated machine learning algorithms
+NVIDIA cuML is a suite of fast, GPU-accelerated machine learning algorithms
 designed for data science and analytical tasks. Our API mirrors scikit-learn,
 providing practitioners with the familiar fit-predict-transform paradigm
 without requiring GPU programming expertise. With `cuml.accel`, cuML can also
