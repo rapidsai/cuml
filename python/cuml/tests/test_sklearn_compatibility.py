@@ -182,11 +182,11 @@ EXCLUDED = {
 
 XFAILS = {
     KMeans: {
-        "check_sample_weight_equivalence_on_dense_data": "KMeans sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     LogisticRegression: {
-        "check_sample_weight_equivalence_on_dense_data": "LogisticRegression sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "LogisticRegression does not handle sparse data",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
         "check_class_weight_classifiers": "LogisticRegression does not handle class weights properly",
     },
     Ridge: {
@@ -215,18 +215,18 @@ XFAILS = {
         ),
     },
     LinearSVC: {
-        "check_sample_weight_equivalence_on_dense_data": "LinearSVC sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     LinearSVR: {
-        "check_sample_weight_equivalence_on_dense_data": "LinearSVR sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     SVC: {
-        "check_sample_weight_equivalence_on_dense_data": "SVC sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "SVC does not handle sparse data",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     SVR: {
-        "check_sample_weight_equivalence_on_dense_data": "SVR sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "SVR does not handle sparse data",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     PCA: {
         "check_fit2d_1sample": "PCA does not handle single sample",
@@ -253,10 +253,10 @@ XFAILS = {
         "check_transformer_preserve_dtypes": "UMAP returns float32 embeddings",
     },
     Lasso: {
-        "check_sample_weight_equivalence_on_sparse_data": "Lasso QN solver has issues with sample weights",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     ElasticNet: {
-        "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     StandardScaler: {
         "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
