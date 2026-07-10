@@ -1,5 +1,5 @@
-FIL - RAPIDS Forest Inference Library
-=====================================
+FIL
+===
 
 .. note::
 
