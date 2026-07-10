@@ -421,13 +421,13 @@ Time Series
      - Description
      - Module
    * - :obj:`~cuml.tsa.ARIMA`
-     - ARIMA time series model.
+     - Deprecated ARIMA time series model.
      - :mod:`cuml.tsa`
    * - :obj:`~cuml.tsa.auto_arima.AutoARIMA`
-     - Automatic ARIMA model selection.
+     - Deprecated automatic ARIMA model selection.
      - :mod:`cuml.tsa`
    * - :obj:`~cuml.tsa.ExponentialSmoothing`
-     - Holt-Winters Exponential Smoothing.
+     - Deprecated Holt-Winters Exponential Smoothing.
      - :mod:`cuml.tsa`
 
 
