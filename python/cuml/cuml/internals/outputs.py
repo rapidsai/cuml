@@ -431,6 +431,7 @@ class ClassLabels:
                 if index is not None:
                     out.index = index
 
+        # At this point `out` is either a cupy or cudf object
         if output_type is None:
             # cupy when possible, cudf otherwise
             return out
