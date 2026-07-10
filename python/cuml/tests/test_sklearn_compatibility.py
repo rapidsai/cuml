@@ -236,7 +236,11 @@ XFAILS = {
         "check_fit2d_predict1d": "TSNE only supports n_components = 2",
     },
     UMAP: {
-        "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
+        "check_transformer_data_not_an_array": (
+            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
+            "float64). Our float32 and float64 results differ _just enough_ that "
+            "this test fails on tolerances."
+        ),
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
         "check_methods_subset_invariance": "UMAP results depend on data subset",
