@@ -11,6 +11,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals import logger, reflect, run_in_internal_context
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -92,6 +93,10 @@ class AutoARIMA(Base):
     Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
+    .. deprecated:: 26.08
+        ``cuml.tsa.auto_arima.AutoARIMA`` and ``cuml.AutoARIMA`` are
+        deprecated and will be removed in the cuML 26.12 release.
+
     This interface offers a highly customizable search, with functionality
     similar to the `forecast` and `fable` packages in R. It provides an
     abstraction around the underlying ARIMA models to predict and forecast as
@@ -164,6 +169,9 @@ class AutoARIMA(Base):
                  verbose=False,
                  output_type=None,
                  convert_dtype="deprecated"):
+
+        warn_deprecated_tsa_api("cuml.tsa.auto_arima.AutoARIMA")
+
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
