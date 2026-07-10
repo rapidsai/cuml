@@ -14,7 +14,8 @@ from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
 
 TSA_DEPRECATION_PATTERN = (
-    "was deprecated in version 26\\.08 and will be removed in version 26\\.12"
+    "along with the entire `cuml\\.tsa` module, was deprecated in version "
+    "26\\.08 and will be removed in version 26\\.12"
 )
 
 

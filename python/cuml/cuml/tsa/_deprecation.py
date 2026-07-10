@@ -10,8 +10,7 @@ from cuml.internals.outputs import in_internal_context
 def warn_deprecated_tsa_api(api_name, *, stacklevel=2):
     warnings.warn(
         (
-            f"`{api_name}` was deprecated in version 26.08 and will be "
-            "removed in version 26.12. `cuml.tsa` was "
+            f"`{api_name}`, along with the entire `cuml.tsa` module, was "
             "deprecated in version 26.08 and will be removed in version 26.12."
         ),
         FutureWarning,

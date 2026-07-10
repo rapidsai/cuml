@@ -14,7 +14,8 @@ from cuml.tsa import stationarity
 stattools = pytest.importorskip("statsmodels.tsa.stattools")
 
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:`cuml.tsa.stationarity.kpss_test` was deprecated:FutureWarning"
+    "ignore:`cuml.tsa.stationarity.kpss_test`, along with the entire "
+    "`cuml.tsa` module, was deprecated:FutureWarning"
 )
 
 ###############################################################################

@@ -11,7 +11,8 @@ holtwinters = pytest.importorskip("statsmodels.tsa.holtwinters")
 sm_ES = holtwinters.ExponentialSmoothing
 
 pytestmark = pytest.mark.filterwarnings(
-    "ignore:`cuml.tsa.ExponentialSmoothing` was deprecated:FutureWarning"
+    "ignore:`cuml.tsa.ExponentialSmoothing`, along with the entire `cuml.tsa` "
+    "module, was deprecated:FutureWarning"
 )
 
 airpassengers = [
