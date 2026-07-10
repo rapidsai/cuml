@@ -308,12 +308,14 @@ def main():
 
     # Extract test statistics
     total_tests = int(testsuite.get("tests", 0))
-    total_errors = int(testsuite.get("errors", 0))
-    total_skipped = int(testsuite.get("skipped", 0))
     time = float(testsuite.get("time", 0))
 
-    # Count failures, xfails, and xpasses separately
+    # Count non-passing outcomes separately. Pytest records xfails as skipped
+    # in JUnit XML, so count regular skips from testcase elements to avoid
+    # subtracting xfails twice from the pass rate.
     regular_failures = 0
+    regular_errors = 0
+    regular_skipped = 0
     xfailed = 0
     xpassed_strict = 0
     xpassed_non_strict = 0
@@ -339,22 +341,22 @@ def main():
             elif "XPASS" in msg:
                 xpassed_non_strict += 1
             else:
-                regular_failures += 1
-        elif (
-            skipped_elem is not None
-            and skipped_elem.get("type") == "pytest.xfail"
-        ):
-            xfailed += 1
+                regular_errors += 1
+        elif skipped_elem is not None:
+            if skipped_elem.get("type") == "pytest.xfail":
+                xfailed += 1
+            else:
+                regular_skipped += 1
 
     # Calculate passed tests and pass rate
     passed = (
         total_tests
         - regular_failures
+        - regular_errors
+        - regular_skipped
         - xfailed
         - xpassed_strict
         - xpassed_non_strict
-        - total_errors
-        - total_skipped
     )
     pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
 
@@ -407,8 +409,8 @@ def main():
         ["XFailed:", str(xfailed)],
         ["XPassed (strict):", str(xpassed_strict)],
         ["XPassed (non-strict):", str(xpassed_non_strict)],
-        ["Errors:", str(total_errors)],
-        ["Skipped:", str(total_skipped)],
+        ["Errors:", str(regular_errors)],
+        ["Skipped:", str(regular_skipped)],
         ["Pass Rate:", f"{pass_rate:.2f}%"],
         ["Total Time:", f"{time:.2f}s"],
     ]
@@ -416,7 +418,7 @@ def main():
         print(f"  {row}")
 
     # List failed tests in verbose mode
-    if (regular_failures + total_errors) > 0 and args.verbose:
+    if (regular_failures + regular_errors) > 0 and args.verbose:
         print("\nFailed Tests:")
         count = 0
         for testcase in testsuite.findall(".//testcase"):
@@ -467,7 +469,6 @@ def main():
                     print(f'  "{test_id}"')
                     count += 1
 
-    # Check threshold
     if pass_rate < args.fail_below:
         print(
             f"\nError: Pass rate {pass_rate:.2f}% is below threshold "
