@@ -14,14 +14,21 @@ from cuml.accel import install
 from cuml.accel.core import logger
 
 # Install the accelerator
-install(log_level="error")
+install()
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_setupnodes(config, specs):
+    """Suppress startup logs while xdist creates execnet gateways."""
+    os.environ["CUML_ACCEL_LOG_LEVEL"] = "error"
 
 
 @pytest.fixture(scope="session", autouse=True)
 def restore_log_level():
-    """Restore normal logging after xdist workers have started."""
-    logger.set_level("warn")
-    os.environ["CUML_ACCEL_LOG_LEVEL"] = "warn"
+    """Restore normal logging in xdist workers after startup."""
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        logger.set_level("warn")
+        os.environ["CUML_ACCEL_LOG_LEVEL"] = "warn"
 
 
 # Ignore the upstream directory, those tests need to be invoked separately
