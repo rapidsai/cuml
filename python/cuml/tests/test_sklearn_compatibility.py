@@ -232,10 +232,6 @@ XFAILS = {
         "check_fit2d_1sample": "PCA does not handle single sample",
         "check_fit2d_1feature": "PCA does not handle single feature",
     },
-    TruncatedSVD: {
-        "check_fit2d_1sample": "TruncatedSVD does not handle single sample",
-        "check_fit2d_1feature": "TruncatedSVD does not handle single feature",
-    },
     TSNE: {
         "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",
