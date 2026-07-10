@@ -797,13 +797,13 @@ TEST(RfTests, FeatureImportancesHandleInfiniteMetrics)
   tree->leaf_counter  = 3;
   tree->train_time    = 0.0;
   tree->num_outputs   = 1;
-  tree->sparsetree    = {DT::SparseTreeNode<float, float>::CreateSplitNode(
+  tree->sparsetree    = {SparseTreeNode<float, float>::CreateSplitNode(
                         0, 0.5f, std::numeric_limits<float>::infinity(), 1, 8),
-                         DT::SparseTreeNode<float, float>::CreateSplitNode(
+                         SparseTreeNode<float, float>::CreateSplitNode(
                         1, 1.5f, std::numeric_limits<float>::infinity(), 3, 4),
-                         DT::SparseTreeNode<float, float>::CreateLeafNode(4),
-                         DT::SparseTreeNode<float, float>::CreateLeafNode(2),
-                         DT::SparseTreeNode<float, float>::CreateLeafNode(2)};
+                         SparseTreeNode<float, float>::CreateLeafNode(4),
+                         SparseTreeNode<float, float>::CreateLeafNode(2),
+                         SparseTreeNode<float, float>::CreateLeafNode(2)};
   forest->trees.push_back(tree);
 
   std::vector<float> importances(forest->n_features);
