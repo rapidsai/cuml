@@ -43,6 +43,7 @@ _NETWORK_ERROR_PATTERNS = (
     "requests.exceptions.ConnectionError",
     "requests.exceptions.Timeout",
     "sklearn.datasets._openml.OpenMLError",
+    "md5 checksum of local file for https://openml.org/",
     "socket.gaierror",
     "socket.timeout",
     "ssl.SSLError",

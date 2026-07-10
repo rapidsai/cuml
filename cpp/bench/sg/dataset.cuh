@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -223,6 +223,7 @@ namespace {
 std::ostream& operator<<(std::ostream& os, const DatasetParams& d)
 {
   os << "/" << d.nrows << "x" << d.ncols;
+  os << "/" << (d.rowMajor ? "row" : "col");
   return os;
 }
 }  // namespace
