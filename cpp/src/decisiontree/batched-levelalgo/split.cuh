@@ -80,7 +80,17 @@ struct Split {
     split_end                 = -1;
   }
 
-  HDI SplitT& operator=(const SplitT& other) = default;
+  HDI SplitT& operator=(const SplitT& other)
+  {
+    quesval         = other.quesval;
+    colid           = other.colid;
+    best_metric_val = other.best_metric_val;
+    global_nLeft    = other.global_nLeft;
+    local_nLeft     = other.local_nLeft;
+    split_start     = other.split_start;
+    split_end       = other.split_end;
+    return *this;
+  }
 
   DI bool has_valid_split_range() const
   {
