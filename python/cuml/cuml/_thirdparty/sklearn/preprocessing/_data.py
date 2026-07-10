@@ -24,7 +24,6 @@
 # This code is under BSD 3 clause license.
 # Authors mentioned above do not endorse or promote this production.
 
-import numbers
 import warnings
 from itertools import chain, combinations
 from itertools import combinations_with_replacement as combinations_w_r
@@ -772,10 +771,10 @@ class StandardScaler(TransformerMixin,
         # if n_samples_seen_ is an integer (i.e. no missing values), we need to
         # transform it to a NumPy array of shape (n_features,) required by
         # incr_mean_variance_axis and _incremental_variance_axis
-        if (hasattr(self, 'n_samples_seen_') and
-                isinstance(self.n_samples_seen_, numbers.Integral)):
-            self.n_samples_seen_ = np.repeat(
-                self.n_samples_seen_, X.shape[1]).astype(np.int64, copy=False)
+        if hasattr(self, 'n_samples_seen_') and np.isscalar(self.n_samples_seen_):
+            self.n_samples_seen_ = np.full(
+                X.shape[1], self.n_samples_seen_, dtype="int64"
+            )
 
         if sparse.issparse(X):
             if self.with_mean:
