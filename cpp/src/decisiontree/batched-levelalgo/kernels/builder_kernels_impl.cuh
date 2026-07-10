@@ -144,8 +144,7 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     }
 
     const auto row       = dataset.row_ids[work_item.instances.begin + range_pos];
-    const auto col_idx   = std::size_t(split.colid) * dataset.M + row;
-    const auto goes_left = dataset.data[col_idx] <= split.quesval;
+    const auto goes_left = dataset.value(row, split.colid) <= split.quesval;
     return NodeSplitPartitionState<IdxT>{goes_left ? IdxT(1) : IdxT(0), true, goes_left};
   };
 
@@ -328,11 +327,10 @@ static __global__ void computeSplitKernel(typename ObjectiveT::BinT* histograms,
   // compute pdf histogram for all bins for all classes
 
   // Must be 64 bit - can easily grow larger than a 32 bit int
-  std::size_t col_offset = std::size_t(col) * dataset.M;
   for (auto i = range_start + tid; i < end; i += stride) {
     // each thread works over a data point and strides to the next
     auto row   = dataset.row_ids[i];
-    auto data  = dataset.data[row + col_offset];
+    auto data  = dataset.value(row, col);
     auto label = dataset.labels[row];
 
     // `start` is lowest index such that data <= quantiles_for_split[start]

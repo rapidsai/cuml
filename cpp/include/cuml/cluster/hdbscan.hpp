@@ -150,8 +150,7 @@ namespace graph_build_params {
  * longer to converge.
  */
 struct nn_descent_params_hdbscan {
-  // not directly using cuvs::neighbors::nn_descent::index_params to distinguish HDBSCAN-exposed NN
-  // Descent parameters
+  // cuML-owned params distinguish HDBSCAN-exposed NN Descent parameters.
   size_t graph_degree              = 64;
   size_t intermediate_graph_degree = 128;
   size_t max_iterations            = 20;

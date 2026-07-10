@@ -278,7 +278,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
-            order="F",
+            order="A",
             y_dtype="int32",
             sample_weight_dtype="float64",
             return_classes=True,
