@@ -197,22 +197,22 @@ XFAILS = {
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
         ),
-        "check_sample_weight_equivalence_on_sparse_data": (
-            "RandomForestClassifier does not handle sparse data"
-        ),
     },
     RandomForestRegressor: {
-        "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
+        "check_regressor_data_not_an_array": (
+            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
+            "float64). Our float32 and float64 results differ _just enough_ that "
+            "this test fails on tolerances."
+        ),
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
         ),
-        "check_sample_weight_equivalence_on_sparse_data": (
-            "RandomForestRegressor does not handle sparse data"
-        ),
     },
     KNeighborsRegressor: {
-        "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
+        "check_regressor_multioutput": (
+            "predict returns float32 output, but the test expects float64"
+        ),
     },
     LinearSVC: {
         "check_sample_weight_equivalence_on_dense_data": "LinearSVC sample weight equivalence not implemented",
