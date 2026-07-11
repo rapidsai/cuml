@@ -5,6 +5,7 @@ import numpy as np
 
 from cuml.internals import get_handle, reflect
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import deprecated_tsa_api
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as boolcpp
@@ -31,6 +32,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
         double pval_threshold) except +
 
 
+@deprecated_tsa_api("cuml.tsa.stationarity.kpss_test")
 @reflect
 def kpss_test(
     y,
@@ -43,6 +45,10 @@ def kpss_test(
     """
     Perform the KPSS stationarity test on the data differenced according
     to the given order
+
+    .. deprecated:: 26.08
+        ``cuml.tsa.stationarity.kpss_test`` is deprecated and will be removed
+        in the cuML 26.12 release.
 
     Parameters
     ----------

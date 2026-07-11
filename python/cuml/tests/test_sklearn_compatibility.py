@@ -21,6 +21,7 @@ from cuml.feature_extraction.text import TfidfTransformer
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
     ElasticNet,
+    Lars,
     Lasso,
     LinearRegression,
     LogisticRegression,
@@ -103,6 +104,7 @@ ESTIMATORS = [
     KernelDensity(),
     EmpiricalCovariance(),
     LedoitWolf(),
+    Lars(),
     Ridge(),
     ElasticNet(),
     Lasso(),

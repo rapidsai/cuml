@@ -5,16 +5,10 @@
 import cupy as cp
 import numpy as np
 
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnCPU
-from cuml.internals.outputs import (
-    exit_internal_context,
-    reflect,
-    run_in_internal_context,
-)
+from cuml.internals.outputs import ClassLabels, mlfunc
 from cuml.internals.validation import check_cudf, check_is_fitted, check_y
 
 
@@ -109,7 +103,6 @@ class LabelEncoder(InteropMixin, Base):
             )
             raise ValueError(msg)
 
-    @reflect(reset=True)
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",
@@ -120,6 +113,7 @@ class LabelEncoder(InteropMixin, Base):
             "description": "Encoded labels.",
         },
     )
+    @mlfunc(set_input_type=True, preserve_index=True)
     def fit_transform(self, y):
         """
         Simultaneously fit and transform an input.
@@ -129,16 +123,14 @@ class LabelEncoder(InteropMixin, Base):
         """
         self._validate_keywords()
 
-        y, classes, index = check_y(
+        y, classes = check_y(
             y,
             ensure_discrete_classes=False,
             return_classes=True,
-            return_index=True,
         )
         self.classes_ = classes
-        return CumlArray(data=y, index=index)
+        return y
 
-    @reflect(reset=True)
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",
@@ -148,12 +140,12 @@ class LabelEncoder(InteropMixin, Base):
             "description": "Fitted label encoder.",
         },
     )
+    @mlfunc(set_input_type=True)
     def fit(self, y):
         """Fit a LabelEncoder instance to a set of categories."""
         self.fit_transform(y)
         return self
 
-    @reflect
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",
@@ -164,6 +156,7 @@ class LabelEncoder(InteropMixin, Base):
             "description": "Encoded labels.",
         },
     )
+    @mlfunc(preserve_index=True)
     def transform(self, y):
         """
         Transform an input into its categorical keys.
@@ -191,9 +184,8 @@ class LabelEncoder(InteropMixin, Base):
             diff = y[~y.isin(self.classes_)].to_numpy(dtype=object)
             raise ValueError(f"y contains previously unseen labels: {diff!s}")
 
-        return CumlArray(data=encoded.to_cupy(), index=y.index)
+        return encoded.to_cupy()
 
-    @run_in_internal_context
     @generate_docstring(
         y="dense_anydtype",
         y_shape="n_samples",
@@ -204,6 +196,7 @@ class LabelEncoder(InteropMixin, Base):
             "description": "Original encoding.",
         },
     )
+    @mlfunc(preserve_index=True)
     def inverse_transform(self, y):
         """Transform labels back to original encoding."""
         check_is_fitted(self)
@@ -230,9 +223,4 @@ class LabelEncoder(InteropMixin, Base):
                 )
                 classes = np.concatenate([classes, [None]])
 
-        with exit_internal_context():
-            output_type = self._get_output_type(y)
-
-        return decode_labels(
-            codes, classes, output_type=output_type, index=index
-        )
+        return ClassLabels(codes, classes)

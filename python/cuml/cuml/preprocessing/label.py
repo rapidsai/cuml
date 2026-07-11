@@ -7,11 +7,9 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 import scipy.sparse as sp
 
-import cuml.internals
-from cuml.common.classification import decode_labels
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin
+from cuml.internals.outputs import ClassLabels, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_classification_targets,
@@ -198,7 +196,7 @@ def _label_binarize(
     return out, classes, y_type, sparse_input
 
 
-@cuml.internals.reflect
+@mlfunc(preserve_index=True)
 def label_binarize(y, classes, neg_label=0, pos_label=1, sparse_output=False):
     """
     Binarize labels in a one-vs-all fashion.
@@ -377,7 +375,7 @@ class LabelBinarizer(InteropMixin, Base):
             "classes_": self.classes_,
         }
 
-    @cuml.internals.run_in_internal_context
+    @mlfunc(set_input_type=True)
     def fit(self, y) -> "LabelBinarizer":
         """
         Fit label binarizer.
@@ -396,7 +394,7 @@ class LabelBinarizer(InteropMixin, Base):
         self.fit_transform(y)
         return self
 
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True, preserve_index=True)
     def fit_transform(self, y):
         """
         Fit label binarizer and transform labels to binary labels.
@@ -425,7 +423,7 @@ class LabelBinarizer(InteropMixin, Base):
         self.sparse_input_ = sparse_input
         return out
 
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def transform(self, y):
         """
         Transform labels to binary labels.
@@ -456,7 +454,7 @@ class LabelBinarizer(InteropMixin, Base):
         )
         return out
 
-    @cuml.internals.run_in_internal_context
+    @mlfunc(preserve_index=True)
     def inverse_transform(self, y, *, threshold=None):
         """
         Transform binary labels back to original labels.
@@ -477,17 +475,12 @@ class LabelBinarizer(InteropMixin, Base):
         """
         check_is_fitted(self)
 
-        # Determine output type
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(y)
-
         # Validate and normalize y to a cupy array or csr_matrix
-        y, index = check_array(
+        y = check_array(
             y,
             ensure_2d=False,
             ensure_min_samples=0,
             accept_sparse="csr",
-            return_index=True,
         )
         if y.ndim == 1:
             y = y[:, None]
@@ -533,16 +526,8 @@ class LabelBinarizer(InteropMixin, Base):
                     indices = indices.flatten()
 
         if self.y_type_ in ("binary", "multiclass"):
-            return decode_labels(
-                indices, self.classes_, output_type=output_type, index=index
-            )
-
-        # For multilabel-indicator we need to handle the conversion manually
-        if self.sparse_input_:
-            out = cp_sp.csr_matrix(indices.astype("float32", copy=False))
-            if output_type in ("numpy", "pandas"):
-                out = out.get()
-            return out
+            return ClassLabels(indices, self.classes_)
+        elif self.sparse_input_:
+            return cp_sp.csr_matrix(indices.astype("float32", copy=False))
         else:
-            out = indices.astype("int32", copy=False)
-            return CumlArray(out, index=index).to_output(output_type)
+            return indices.astype("int32", copy=False)

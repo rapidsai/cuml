@@ -567,6 +567,26 @@ def test_completeness_score_big_array(input_range):
     np.testing.assert_almost_equal(score, ref, decimal=4)
 
 
+@pytest.mark.parametrize("dtype", [np.int32, np.int64, np.float32])
+@pytest.mark.parametrize(
+    "cu_metric, sk_metric",
+    [
+        (cuml.metrics.homogeneity_score, sk_homogeneity_score),
+        (cuml.metrics.completeness_score, sk_completeness_score),
+        (cuml.metrics.mutual_info_score, sk_mutual_info_score),
+        (cuml.metrics.v_measure_score, sklearn_v_measure_score),
+    ],
+)
+def test_cluster_metric_label_permutation_invariance(
+    cu_metric, sk_metric, dtype
+):
+    y_true = cp.array([0, 0, 0, 1, 1, 0, 1], dtype=dtype)
+    y_pred = cp.array([1, 0, 1, 0, 1, 1, 0], dtype=dtype)
+    ref = sk_metric([0, 0, 0, 1, 1, 0, 1], [1, 0, 1, 0, 1, 1, 0])
+    assert_almost_equal(cu_metric(y_true, y_pred), ref, decimal=4)
+    assert_almost_equal(cu_metric(y_true, 1 - y_pred), ref, decimal=4)
+
+
 @pytest.mark.parametrize("n_samples", [50, stress_param(500000)])
 @pytest.mark.parametrize(
     "y_dtype", [np.int32, np.int64, np.float32, np.float64]
