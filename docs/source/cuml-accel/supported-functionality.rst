@@ -12,13 +12,13 @@ General Behavior
 ----------------
 
 **Compatibility**
-   The accelerator is tested with Scikit-Learn versions 1.6 through 1.9,
+   The accelerator is tested with ``scikit-learn`` versions 1.6 through 1.9,
    ``umap-learn`` versions 0.5.7 through 0.5.12, and ``hdbscan`` versions 0.8.39
    through 0.8.44. When ``cuml.accel`` detects a version outside these ranges,
    it issues a runtime warning and continues. The untested version will likely
    still work, but it has not been validated and may have subtle compatibility
-   issues. Some estimators use Scikit-Learn's experimental `array-api`_ support
-   and require Scikit-Learn 1.8 or newer for GPU acceleration.
+   issues. Some estimators use scikit-learn's experimental `Array API`_ support
+   and require ``scikit-learn`` 1.8 or newer for GPU acceleration.
 
 **CPU fallback**
    Estimators not listed below remain on the CPU. Listed estimators may also
@@ -32,7 +32,7 @@ General Behavior
    they are not guaranteed to be numerically identical. Parallel floating-point
    operations may run in a different order, and some GPU algorithms use
    implementations designed for highly parallel hardware. ``cuml.accel`` also
-   does not always generate the full set of fitted attributes that ``sklearn``
+   does not always generate the full set of fitted attributes that scikit-learn
    does. Missing attributes are typically inspection aids, such as ``n_iters_``,
    rather than values required for inference. Compare appropriate model-quality
    metrics, such as ``model.score`` or accuracy, instead of comparing fitted
@@ -48,20 +48,20 @@ General Behavior
    representative results.
 
 **Errors and warnings**
-   Error and warning messages may differ from Scikit-Learn, and some errors may
+   Error and warning messages may differ from scikit-learn, and some errors may
    include C++ stack traces. Exceptions, failures, or measurably worse model
    quality are bugs and should be reported by `opening an issue <open an issue_>`_.
 
 
 .. _sklearn-limitations:
 
-Scikit-Learn
+scikit-learn
 ------------
 
 sklearn.cluster
 ~~~~~~~~~~~~~~~
 
-The algorithms used in ``cuml`` differ from those in ``sklearn``. As such, you
+The algorithms used in ``cuml`` differ from those in scikit-learn. As such, you
 shouldn't expect the fitted attributes (e.g. ``labels_``) to numerically match
 an estimator fitted without ``cuml.accel``.
 
@@ -128,7 +128,7 @@ sklearn.decomposition
 ~~~~~~~~~~~~~~~~~~~~~
 
 The ``sklearn.decomposition`` implementations used by ``cuml.accel`` uses
-different SVD solvers than the ones in Scikit-Learn, which may result in
+different SVD solvers than the ones in scikit-learn, which may result in
 numeric differences in the ``components_`` and ``explained_variance_`` values.
 These differences should be small for most algorithms, but may be larger for
 randomized or less-numerically-stable solvers like ``"randomized"`` or
@@ -177,7 +177,7 @@ sklearn.ensemble
 ~~~~~~~~~~~~~~~~
 
 The random forest implementation used by ``cuml.accel`` algorithmically
-differs from the one in ``sklearn``. As such, you
+differs from the one in scikit-learn. As such, you
 shouldn't expect the fitted attributes (e.g. ``estimators_``) to numerically match
 an estimator fitted without ``cuml.accel``.
 
@@ -233,7 +233,7 @@ sklearn.kernel_ridge
    - If ``X`` is sparse.
    - If ``kernel`` is not a string.
 
-   ``KernelRidge`` results should be almost identical to those of Scikit-Learn
+   ``KernelRidge`` results should be almost identical to those of scikit-learn
    when running with ``cuml.accel`` enabled. In particular, the fitted
    ``dual_coef_`` should be close enough that they may be compared via
    ``np.allclose``.
@@ -243,7 +243,7 @@ sklearn.linear_model
 ~~~~~~~~~~~~~~~~~~~~
 
 The linear model solvers used by ``cuml.accel`` differ from those used in
-``sklearn``. As such, you shouldn't expect the fitted attributes (e.g.
+scikit-learn. As such, you shouldn't expect the fitted attributes (e.g.
 ``coef_``) to numerically match an estimator fitted without ``cuml.accel``. For
 some estimators (e.g. ``LinearRegression``) you might get a close match, but
 for others there may larger numeric differences.
@@ -501,7 +501,7 @@ sklearn.preprocessing
 
    Additional notes:
 
-   - cuML and sklearn use different cross-validation fold assignment strategies
+   - cuML and scikit-learn use different cross-validation fold assignment strategies
      during ``fit_transform``. Both are valid target encoding implementations, but
      samples are assigned to different folds, resulting in different leave-fold-out
      encodings for training data. The ``transform`` method on test data produces
@@ -512,7 +512,7 @@ sklearn.preprocessing
 sklearn.svm
 ~~~~~~~~~~~
 
-The SVM used by ``cuml.accel`` differ from those used in ``sklearn``. As such,
+The SVM used by ``cuml.accel`` differ from those used in scikit-learn. As such,
 you shouldn't expect the fitted attributes (e.g. ``coef_`` or
 ``support_vectors_``) to numerically match an estimator fitted without
 ``cuml.accel``.
@@ -640,4 +640,4 @@ HDBSCAN
 
 
 .. _open an issue: https://github.com/rapidsai/cuml/issues
-.. _array-api: https://scikit-learn.org/stable/modules/array_api.html
+.. _Array API: https://scikit-learn.org/stable/modules/array_api.html

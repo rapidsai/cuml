@@ -1,7 +1,7 @@
 Acceleration Setup and Diagnostics
 ==================================
 
-``cuml.accel`` intercepts supported Scikit-Learn, UMAP, and HDBSCAN estimator
+``cuml.accel`` intercepts supported scikit-learn, UMAP, and HDBSCAN estimator
 operations and dispatches them to GPU implementations. When an operation
 cannot run on the GPU, it transparently uses the original CPU implementation
 instead. A fallback may depend on the estimator, method, parameter values,
@@ -18,7 +18,7 @@ and why.
 Activation Methods
 ------------------
 
-Enable ``cuml.accel`` before importing Scikit-Learn, UMAP, or HDBSCAN. When
+Enable ``cuml.accel`` before importing scikit-learn, UMAP, or HDBSCAN. When
 running a script, use the ``cuml.accel`` command-line interface:
 
 .. code-block:: console
@@ -68,7 +68,7 @@ When the platform supports it and RMM has not already been configured,
 addition to GPU memory and migrates data as needed, reducing the risk of GPU
 out-of-memory errors. It does not prevent exhaustion of combined host and
 device memory, and heavy oversubscription can slow execution. Managed memory
-is not enabled on WSL2 or when RMM was configured before ``cuml.accel``.
+is not enabled on WSL 2 or when RMM was configured before ``cuml.accel``.
 If managed-memory oversubscription causes unexpectedly slow execution, use the
 CLI's ``--disable-uvm`` flag to disable it and compare performance.
 

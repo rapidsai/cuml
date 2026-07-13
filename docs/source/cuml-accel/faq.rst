@@ -4,7 +4,7 @@ Frequently Asked Questions
 How does ``cuml.accel`` work with ``cudf.pandas``?
 --------------------------------------------------
 
-``cuml.accel`` provides zero-code-change acceleration for Scikit-Learn and
+``cuml.accel`` provides zero-code-change acceleration for scikit-learn and
 similar packages, while ``cudf.pandas`` does the same for pandas. They can be
 used together from the command line:
 
@@ -24,7 +24,7 @@ Can I load a serialized model without ``cuml.accel``?
 -----------------------------------------------------
 
 Models serialized while ``cuml.accel`` is active may be loaded without the
-accelerator. They are then restored as their normal Scikit-Learn, UMAP, or
+accelerator. They are then restored as their normal scikit-learn, UMAP, or
 HDBSCAN counterparts. If loaded while ``cuml.accel`` is active, they are
 restored as accelerated proxy models.
 

@@ -1,7 +1,7 @@
 Benchmarks
 ==========
 
-cuML offers accelerated inference and training for classical ML models using NVIDIA GPUs. With cuml.accel, you can get the benefit of similar acceleration in existing Scikit-Learn, UMAP, and HDBScan scripts without changing a line of code. While the exact speedup depends on the model, dataset size, and hyperparameters, the following benchmarks should give a general sense of the benefit you're likely to observe when using `cuml.accel.`
+cuML offers accelerated inference and training for classical ML models using NVIDIA GPUs. With cuml.accel, you can get the benefit of similar acceleration in existing scikit-learn, UMAP, and HDBSCAN scripts without changing a line of code. While the exact speedup depends on the model, dataset size, and hyperparameters, the following benchmarks should give a general sense of the benefit you're likely to observe when using `cuml.accel.`
 
 Training
 --------
@@ -48,7 +48,7 @@ While the accelerator also speeds up inference, the gains tend to be smaller in 
    :alt: Inference Speedup
 
 
-For smaller datasets, the data transfer becomes a bigger slice of the total runtime, which means that especially for many tiny batches, the overhead might eat up most (or all!) of the benefit from running an accelerated algorithm on the GPU. In those cases it becomes especially important to avoid unnecessary data transfers, e.g., by explicitly keeping inputs and outputs on the GPU, for instance in the form of cupy arrays. This is not possible in the accelerator mode which is why, for these workflows, it might be more advisable to invoke cuML directly with GPU native data types to preserve those speedups.
+For smaller datasets, the data transfer becomes a bigger slice of the total runtime, which means that especially for many tiny batches, the overhead might eat up most (or all!) of the benefit from running an accelerated algorithm on the GPU. In those cases it becomes especially important to avoid unnecessary data transfers, e.g., by explicitly keeping inputs and outputs on the GPU, for instance in the form of CuPy arrays. This is not possible in the accelerator mode which is why, for these workflows, it might be more advisable to invoke cuML directly with GPU native data types to preserve those speedups.
 
 .. image:: ../img/inference_overhead.png
    :alt: Inference overhead
