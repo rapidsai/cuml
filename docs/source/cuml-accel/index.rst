@@ -41,6 +41,12 @@ continue to run even when only part of a pipeline is GPU accelerated. Use the
 :doc:`logging and profiling tools <setup-and-diagnostics>` to see exactly
 where execution occurs.
 
+We have validated ``cuml.accel`` against the complete scikit-learn example
+gallery: every runnable example completes successfully with ``cuml.accel``
+enabled. This does not mean that every operation runs on the GPU. Unsupported
+operations transparently fall back to the CPU. The result demonstrates broad
+compatibility with realistic, complex scikit-learn workflows.
+
 Where to Go Next
 ----------------
 
