@@ -128,7 +128,7 @@ sklearn.covariance
 sklearn.decomposition
 ~~~~~~~~~~~~~~~~~~~~~
 
-The ``sklearn.decomposition`` implementations used by ``cuml.accel`` uses
+The ``sklearn.decomposition`` implementations used by ``cuml.accel`` use
 different SVD solvers than the ones in scikit-learn, which may result in
 numeric differences in the ``components_`` and ``explained_variance_`` values.
 These differences should be small for most algorithms, but may be larger for
@@ -195,7 +195,7 @@ To compare results between estimators, we recommend comparing scores like
    - If ``oob_score`` is a callable.
    - If ``warm_start=True``.
    - If ``monotonic_cst`` is not ``None``.
-   - If ``max_values`` is an integer.
+   - If ``max_samples`` is an integer.
    - If ``min_weight_fraction_leaf`` is not ``0``.
    - If ``ccp_alpha`` is not ``0``.
    - If ``class_weight`` is not ``None``.
@@ -214,7 +214,7 @@ To compare results between estimators, we recommend comparing scores like
    - If ``oob_score`` is a callable.
    - If ``warm_start=True``.
    - If ``monotonic_cst`` is not ``None``.
-   - If ``max_values`` is an integer.
+   - If ``max_samples`` is an integer.
    - If ``min_weight_fraction_leaf`` is not ``0``.
    - If ``ccp_alpha`` is not ``0``.
    - If ``sample_weight`` is passed to ``fit`` or ``score``.
@@ -247,7 +247,7 @@ The linear model solvers used by ``cuml.accel`` differ from those used in
 scikit-learn. As such, you shouldn't expect the fitted attributes (e.g.
 ``coef_``) to numerically match an estimator fitted without ``cuml.accel``. For
 some estimators (e.g. ``LinearRegression``) you might get a close match, but
-for others there may larger numeric differences.
+for others there may be larger numeric differences.
 
 To compare results between estimators, we recommend comparing model quality
 scores like ``sklearn.metrics.r2_score`` (for regression) or
@@ -513,7 +513,7 @@ sklearn.preprocessing
 sklearn.svm
 ~~~~~~~~~~~
 
-The SVM used by ``cuml.accel`` differ from those used in scikit-learn. As such,
+The SVM used by ``cuml.accel`` differs from those used in scikit-learn. As such,
 you shouldn't expect the fitted attributes (e.g. ``coef_`` or
 ``support_vectors_``) to numerically match an estimator fitted without
 ``cuml.accel``.
@@ -602,7 +602,7 @@ UMAP
 
    - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
-   - We have observed compatibility isuess with UMAP for numba versions 0.62.0 and
+   - We have observed compatibility issues with UMAP for numba versions 0.62.0 and
      above. For best stability, we recommend using numba versions earlier than
      0.62.0 when accelerating UMAP with cuml.accel.
 
