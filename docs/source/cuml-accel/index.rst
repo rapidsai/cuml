@@ -4,8 +4,8 @@ Zero Code Change Acceleration
 ``cuml.accel`` runs supported Scikit-Learn, UMAP, and HDBSCAN workloads on an
 NVIDIA GPU without changing the Python code that uses those libraries. It is a
 good fit when you want to accelerate an existing workflow, keep the familiar
-APIs, or quickly evaluate the benefit of GPU acceleration before considering a
-direct cuML migration.
+APIs, or quickly evaluate the benefit of GPU acceleration before using cuML
+directly.
 
 Enable ``cuml.accel`` before importing the libraries you want to accelerate.
 Your existing code then remains unchanged:
