@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import pickle
 
@@ -331,10 +331,14 @@ def test_global_input_with_estimator_output_type():
     assert_output_type(model.components_, "pandas")
 
 
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
 @pytest.mark.parametrize("output_type", ["numpy", "cupy"])
 @pytest.mark.parametrize("order", ["C", "F"])
-def test_convert_arrays_dense_array(output_type, order):
-    X = cp.asarray(rand_array("cupy"), order=order)
+def test_convert_arrays_dense_array(input_type, output_type, order):
+    if input_type == "cupy":
+        X = cp.asarray(rand_array("cupy"), order=order)
+    else:
+        X = np.asarray(rand_array("numpy"), order=order)
 
     out = convert_arrays(X, output_type)
     assert_output_type(out, output_type)
@@ -342,15 +346,27 @@ def test_convert_arrays_dense_array(output_type, order):
     assert out.flags.c_contiguous if order == "C" else out.flags.f_contiguous
 
 
+@pytest.mark.parametrize("input_type", ["scipy", "cupyx"])
+@pytest.mark.parametrize("format", ["coo", "csc", "csr"])
 @pytest.mark.parametrize("output_type", OUTPUT_TYPES)
-def test_convert_arrays_sparse_array(output_type):
-    X = cupyx.scipy.sparse.random(5, 5, random_state=42, density=0.5)
+def test_convert_arrays_sparse_array(input_type, output_type, format):
+    if input_type == "cupyx":
+        X = cupyx.scipy.sparse.random(
+            5, 5, random_state=42, density=0.5, format=format
+        )
+    else:
+        X = scipy.sparse.random(
+            5, 5, random_state=42, density=0.5, format=format
+        )
+
     out = convert_arrays(X, output_type)
 
     if output_type in ["cupy", "cudf", "numba"]:
         assert cupyx.scipy.sparse.issparse(out)
     else:
         assert scipy.sparse.issparse(out)
+
+    assert out.format == format
 
     np.testing.assert_array_equal(
         cp.asnumpy(X.todense()),
@@ -359,9 +375,10 @@ def test_convert_arrays_sparse_array(output_type):
 
 
 @pytest.mark.parametrize("kind", ["dataframe", "series"])
+@pytest.mark.parametrize("input_type", ["cupy", "numpy"])
 @pytest.mark.parametrize("output_type", ["pandas", "cudf"])
-def test_convert_arrays_dataframe(kind, output_type):
-    arr = rand_array("cupy", shape=((8, 4) if kind == "dataframe" else 8))
+def test_convert_arrays_dataframe(kind, input_type, output_type):
+    arr = rand_array(input_type, shape=((8, 4) if kind == "dataframe" else 8))
     res = convert_arrays(arr, output_type)
     assert_output_type(res, output_type)
 
@@ -376,9 +393,12 @@ def test_convert_arrays_dataframe(kind, output_type):
 @pytest.mark.parametrize("xdf", [pd, cudf])
 @pytest.mark.parametrize("kind", ["dataframe", "series"])
 @pytest.mark.parametrize("use_pair", [False, True])
+@pytest.mark.parametrize("input_type", ["cupy", "numpy"])
 @pytest.mark.parametrize("output_type", ["pandas", "cudf"])
-def test_convert_arrays_dataframe_with_index(xdf, kind, use_pair, output_type):
-    arr = rand_array("cupy", shape=((8, 4) if kind == "dataframe" else 8))
+def test_convert_arrays_dataframe_with_index(
+    xdf, kind, use_pair, input_type, output_type
+):
+    arr = rand_array(input_type, shape=((8, 4) if kind == "dataframe" else 8))
     index = xdf.Index(["a", "b", "c", "d", "e", "f", "g", "h"])
 
     if use_pair:
