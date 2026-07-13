@@ -51,7 +51,6 @@ struct WorkloadInfo {
 struct SharedMemoryConfig {
   bool use_global_memory_histogram;
   size_t histogram_dynamic_smem_size;
-  size_t split_dynamic_smem_size;
 };
 
 template <typename SplitT, typename IdxT>

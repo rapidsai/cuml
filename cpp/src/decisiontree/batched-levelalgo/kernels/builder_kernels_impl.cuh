@@ -323,11 +323,9 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
                                             const IdxT* column_samples,
                                             int* mutex,
                                             volatile Split<DataT, IdxT>* splits,
-                                            ObjectiveT objective,
-                                            bool use_global_memory_histogram)
+                                            ObjectiveT objective)
 {
-  using BinT = typename ObjectiveT::BinT;
-  extern __shared__ char smem[];
+  using BinT                  = typename ObjectiveT::BinT;
   constexpr int n_split_warps = (TPB + raft::WarpSize - 1) / raft::WarpSize;
   __shared__ __align__(alignof(Split<DataT, IdxT>)) unsigned char
     split_scratch_storage[sizeof(Split<DataT, IdxT>) * n_split_warps];
@@ -345,15 +343,6 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
   auto histograms_offset    = (std::size_t(nid) * gridDim.y + blockIdx.y) * max_n_bins * n_classes;
   auto* histogram           = histograms + histograms_offset;
   auto* quantiles_for_split = quantiles.quantiles_array + std::size_t(max_n_bins) * col;
-
-  if (!use_global_memory_histogram) {
-    auto* shared_quantiles = alignPointer<DataT>(smem);
-    quantiles_for_split    = shared_quantiles;
-    for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x) {
-      shared_quantiles[b] = quantiles.quantiles_array[max_n_bins * col + b];
-    }
-    __syncthreads();
-  }
 
   for (IdxT c = 0; c < n_classes; ++c) {
     pdf_to_cdf<BinT, IdxT, TPB>(histogram + n_bins * c, n_bins);
@@ -399,18 +388,16 @@ void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
       split_smem_config.use_global_memory_histogram);
 
   findBestSplitsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
-    <<<split_grid, TPB, split_smem_config.split_dynamic_smem_size, builder_stream>>>(
-      histograms,
-      max_n_bins,
-      dataset,
-      quantiles,
-      work_items,
-      colStart,
-      column_samples,
-      mutex,
-      splits,
-      objective,
-      split_smem_config.use_global_memory_histogram);
+    <<<split_grid, TPB, 0, builder_stream>>>(histograms,
+                                             max_n_bins,
+                                             dataset,
+                                             quantiles,
+                                             work_items,
+                                             colStart,
+                                             column_samples,
+                                             mutex,
+                                             splits,
+                                             objective);
 }
 
 }  // namespace DT

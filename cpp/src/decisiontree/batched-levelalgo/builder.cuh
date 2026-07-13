@@ -506,7 +506,7 @@ struct Builder {
 
   SharedMemoryConfig computeSharedMemoryConfig() const
   {
-    // Dynamic shared memory for the fast path: histogram, copied quantiles, and
+    // Dynamic shared memory for the histogram fast path: histogram, copied quantiles, and
     // alignment padding for the kernel's shared-memory layout.
     auto shared_histogram_size =
       ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
@@ -516,17 +516,11 @@ struct Builder {
     auto histogram_alignment_smem_size = ML::checked_add<std::size_t>(sizeof(BinT), sizeof(DataT));
     histogram_dynamic_smem_size =
       ML::checked_add<std::size_t>(histogram_dynamic_smem_size, histogram_alignment_smem_size);
-    auto split_dynamic_smem_size =
-      ML::checked_add<std::size_t>(shared_quantiles_size, sizeof(DataT));
-
     auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
     auto split_scratch_smem_size =
       ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
     auto split_static_smem_size =
       ML::checked_add<std::size_t>(cdf_scan_smem_size, split_scratch_smem_size);
-    auto split_total_smem_size =
-      ML::checked_add<std::size_t>(split_dynamic_smem_size, split_static_smem_size);
-
     auto available_smem = size_t(handle.get_device_properties().sharedMemPerBlock);
     ASSERT(available_smem >= split_static_smem_size,
            "Not enough shared memory for RF split bookkeeping.");
@@ -534,12 +528,11 @@ struct Builder {
     // Prefer shared memory when it fits and stays small enough for good occupancy;
     // otherwise use the global histogram path to avoid launch failure or slowdown.
     bool use_global_memory_histogram =
-      histogram_dynamic_smem_size > available_smem || split_total_smem_size > available_smem ||
+      histogram_dynamic_smem_size > available_smem || split_static_smem_size > available_smem ||
       histogram_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
 
     return {use_global_memory_histogram,
-            use_global_memory_histogram ? 0 : histogram_dynamic_smem_size,
-            use_global_memory_histogram ? 0 : split_dynamic_smem_size};
+            use_global_memory_histogram ? 0 : histogram_dynamic_smem_size};
   }
 
   void computeSplit(IdxT col,
