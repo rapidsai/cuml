@@ -573,8 +573,6 @@ struct Builder {
     launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
       histograms,
       params.max_n_bins,
-      params.min_samples_split,
-      params.max_leaves,
       dataset,
       quantiles,
       d_work_items,
@@ -583,9 +581,7 @@ struct Builder {
       mutex,
       splits,
       objective,
-      treeid,
       workload_info,
-      seed,
       n_work_items,
       use_global_memory_histogram,
       grid,

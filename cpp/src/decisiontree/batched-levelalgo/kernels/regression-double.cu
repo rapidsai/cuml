@@ -32,8 +32,6 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
 template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   IdxT n_bins,
-  IdxT min_samples_split,
-  IdxT max_leaves,
   const DatasetT& dataset,
   const Quantiles<DataT, IdxT>& quantiles,
   const NodeWorkItem* work_items,
@@ -42,9 +40,7 @@ template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, Objecti
   int* mutex,
   volatile Split<DataT, IdxT>* splits,
   ObjectiveT& objective,
-  IdxT treeid,
   const WorkloadInfo<IdxT>* workload_info,
-  uint64_t seed,
   size_t n_work_items,
   bool use_global_memory_histogram,
   dim3 grid,

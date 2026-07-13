@@ -371,8 +371,6 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
 void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               IdxT max_n_bins,
-                              IdxT min_samples_split,
-                              IdxT max_leaves,
                               const Dataset<DataT, LabelT, IdxT>& dataset,
                               const Quantiles<DataT, IdxT>& quantiles,
                               const NodeWorkItem* work_items,
@@ -381,9 +379,7 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               int* mutex,
                               volatile Split<DataT, IdxT>* splits,
                               ObjectiveT& objective,
-                              IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
-                              uint64_t seed,
                               size_t n_work_items,
                               bool use_global_memory_histogram,
                               dim3 grid,
@@ -391,11 +387,6 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               size_t split_smem_size,
                               cudaStream_t builder_stream)
 {
-  (void)min_samples_split;
-  (void)max_leaves;
-  (void)treeid;
-  (void)seed;
-
   buildHistogramsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
     <<<grid, TPB, histogram_smem_size, builder_stream>>>(histograms,
                                                          max_n_bins,
