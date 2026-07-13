@@ -25,7 +25,7 @@ General Behavior
    Estimators not listed below remain on the CPU. Listed estimators may also
    fall back for particular methods, hyperparameters, input types, or dependency
    versions. These fallbacks should be transparent and preserve the original
-   workflow. :doc:`setup-and-diagnostics` explains how to identify which
+   workflow. :doc:`logging-and-profiling` explains how to identify which
    operations ran on the GPU and why others fell back to the CPU.
 
 **Results**

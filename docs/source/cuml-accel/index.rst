@@ -1,5 +1,5 @@
-Zero Code Change Acceleration
-=============================
+cuml.accel Overview
+===================
 
 ``cuml.accel`` runs supported scikit-learn, UMAP, and HDBSCAN workloads on an
 NVIDIA GPU without changing the Python code that uses those libraries. It is a
@@ -38,7 +38,7 @@ Jupyter, environment-variable, and programmatic activation options.
 when an estimator or operation cannot be accelerated. Fallback can depend on
 parameters, input types, methods, or library versions, so existing workflows
 continue to run even when only part of a pipeline is GPU accelerated. Use the
-:doc:`logging and profiling tools <setup-and-diagnostics>` to see exactly
+:doc:`logging and profiling tools <logging-and-profiling>` to see exactly
 where execution occurs.
 
 We have validated ``cuml.accel`` against the complete scikit-learn example
@@ -52,8 +52,9 @@ Where to Go Next
 
 * :doc:`supported-functionality` lists the estimators that can be accelerated,
   including estimator-specific fallback conditions and behavioral differences.
-* :doc:`setup-and-diagnostics` explains activation, fallback, memory
-  management, logging, and profiling.
+* :doc:`usage` explains activation, fallback, and memory management.
+* :doc:`logging-and-profiling` explains how to identify which operations ran on
+  the GPU and why others fell back to the CPU.
 * :doc:`benchmarks` provides representative performance results.
 * :doc:`examples/index` contains complete examples and notebook workflows.
 * :doc:`faq` covers interoperability, serialization, and bug reporting.
@@ -63,7 +64,8 @@ Where to Go Next
 
    self
    supported-functionality
-   setup-and-diagnostics
+   usage
+   logging-and-profiling
    benchmarks
    examples/index
    faq

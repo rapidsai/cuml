@@ -77,7 +77,7 @@ Community & Support
 
    cuml_intro.rst
    user_guide.rst
-   cuml-accel/index.rst
+   Zero Code Change Acceleration <cuml-accel/index.rst>
    api/index
    FIL.rst
    cuml_blogs.rst

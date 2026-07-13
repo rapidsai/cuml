@@ -232,13 +232,7 @@ REDIRECTS = {
         "cuml-accel/supported-functionality/"
     ),
     "cuml-accel/limitations/index.html": "cuml-accel/supported-functionality/",
-    "zero-code-change-logging/index.html": "cuml-accel/setup-and-diagnostics/",
-    "cuml-accel/logging-and-profiling/index.html": (
-        "cuml-accel/setup-and-diagnostics/"
-    ),
-    "cuml-accel/understanding-acceleration/index.html": (
-        "cuml-accel/setup-and-diagnostics/"
-    ),
+    "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
     ),
