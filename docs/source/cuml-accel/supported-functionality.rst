@@ -5,6 +5,7 @@ Accelerated Estimator Support
 
 ``cuml.accel`` accelerates the estimators listed below. Unsupported estimators
 and operations continue to use their original CPU implementations.
+Click an estimator name to display its full list of limitations.
 
 .. _general-behavior:
 
