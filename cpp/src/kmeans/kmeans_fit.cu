@@ -7,6 +7,7 @@
 #include <cuml/cluster/kmeans_params.hpp>
 
 #include <raft/core/handle.hpp>
+#include <raft/core/resource/comms.hpp>
 
 #include <cuvs/cluster/kmeans.hpp>
 #include <kmeans/kmeans_params.hpp>
@@ -35,8 +36,13 @@ void fit_impl(const raft::handle_t& handle,
   auto inertia_view = raft::make_host_scalar_view<value_t>(&inertia);
   auto n_iter_view  = raft::make_host_scalar_view<idx_t>(&n_iter);
 
-  cuvs::cluster::kmeans::fit(
-    handle, to_cuvs(params), X_view, sw, centroids_view, inertia_view, n_iter_view);
+  if (raft::resource::comms_initialized(handle)) {
+    cuvs::cluster::kmeans::mg::fit(
+      handle, to_cuvs(params), X_view, sw, centroids_view, inertia_view, n_iter_view);
+  } else {
+    cuvs::cluster::kmeans::fit(
+      handle, to_cuvs(params), X_view, sw, centroids_view, inertia_view, n_iter_view);
+  }
 }
 
 void fit(const raft::handle_t& handle,
