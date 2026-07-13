@@ -1,7 +1,15 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+// SPDX-License-Identifier: Apache-2.0
+
 function openTargetDropdown() {
-  const target = document.getElementById(
-    decodeURIComponent(window.location.hash.slice(1)),
-  );
+  let targetId;
+  try {
+    targetId = decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    return;
+  }
+
+  const target = document.getElementById(targetId);
   const dropdown = target?.matches("details")
     ? target
     : target?.closest("details");
