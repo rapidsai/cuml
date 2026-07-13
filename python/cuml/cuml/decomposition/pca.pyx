@@ -1,24 +1,17 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse
 import numpy as np
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse, sparse_cov_and_mean
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -236,11 +229,11 @@ class PCA(InteropMixin,
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    components_ = CumlArrayDescriptor(order='F')
-    explained_variance_ = CumlArrayDescriptor(order='F')
-    explained_variance_ratio_ = CumlArrayDescriptor(order='F')
-    singular_values_ = CumlArrayDescriptor(order='F')
-    mean_ = CumlArrayDescriptor(order='F')
+    components_ = ReflectedAttr()
+    explained_variance_ = ReflectedAttr()
+    explained_variance_ratio_ = ReflectedAttr()
+    singular_values_ = ReflectedAttr()
+    mean_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.decomposition.PCA"
 
@@ -296,11 +289,11 @@ class PCA(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "components_": to_gpu(model.components_, order="F"),
-            "explained_variance_": to_gpu(model.explained_variance_, order="F"),
-            "explained_variance_ratio_": to_gpu(model.explained_variance_ratio_, order="F"),
-            "singular_values_": to_gpu(model.singular_values_, order="F"),
-            "mean_": to_gpu(model.mean_, order="F"),
+            "components_": cp.asarray(model.components_, order="F"),
+            "explained_variance_": cp.asarray(model.explained_variance_),
+            "explained_variance_ratio_": cp.asarray(model.explained_variance_ratio_),
+            "singular_values_": cp.asarray(model.singular_values_),
+            "mean_": cp.asarray(model.mean_),
             "n_components_": model.n_components_,
             "n_samples_": model.n_samples_,
             "noise_variance_": model.noise_variance_,
@@ -309,11 +302,11 @@ class PCA(InteropMixin,
 
     def _attrs_to_cpu(self, model):
         return {
-            "components_": to_cpu(self.components_),
-            "explained_variance_": to_cpu(self.explained_variance_),
-            "explained_variance_ratio_": to_cpu(self.explained_variance_ratio_),
-            "singular_values_": to_cpu(self.singular_values_),
-            "mean_": to_cpu(self.mean_),
+            "components_": self.components_.get(order="A"),
+            "explained_variance_": self.explained_variance_.get(),
+            "explained_variance_ratio_": self.explained_variance_ratio_.get(),
+            "singular_values_": self.singular_values_.get(),
+            "mean_": self.mean_.get(),
             "n_components_": self.n_components_,
             "n_samples_": self.n_samples_,
             "noise_variance_": self.noise_variance_,
@@ -422,11 +415,11 @@ class PCA(InteropMixin,
         handle.sync()
 
         # Store results
-        self.components_ = CumlArray(data=components)
-        self.explained_variance_ = CumlArray(data=explained_variance)
-        self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean)
-        self.singular_values_ = CumlArray(data=singular_values)
+        self.components_ = components
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.mean_ = mean
+        self.singular_values_ = singular_values
         self.noise_variance_ = float(noise_variance.item())
 
     def _fit_sparse(self, X):
@@ -458,15 +451,15 @@ class PCA(InteropMixin,
         )
 
         # Store results
-        self.components_ = CumlArray(data=cp.asfortranarray(components))
-        self.explained_variance_ = CumlArray(data=explained_variance)
-        self.explained_variance_ratio_ = CumlArray(data=explained_variance_ratio)
-        self.mean_ = CumlArray(data=mean)
-        self.singular_values_ = CumlArray(data=singular_values)
+        self.components_ = cp.asfortranarray(components)
+        self.explained_variance_ = explained_variance
+        self.explained_variance_ratio_ = explained_variance_ratio
+        self.mean_ = mean
+        self.singular_values_ = singular_values
         self.noise_variance_ = noise_variance
 
     @generate_docstring(X='dense_sparse')
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated") -> "PCA":
         """
         Fit the model with X. y is currently ignored.
@@ -509,8 +502,8 @@ class PCA(InteropMixin,
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect(reset=True)
-    def fit_transform(self, X, y=None) -> CumlArray:
+    @mlfunc(set_input_type=True, preserve_index=True)
+    def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -518,15 +511,12 @@ class PCA(InteropMixin,
         return self.fit(X).transform(X)
 
     def _inverse_transform_sparse(self, X, return_sparse=False, sparse_tol=1e-10):
-        components = self.components_.to_output("cupy")
-        explained_variance = self.explained_variance_.to_output("cupy")
-        mean = self.mean_.to_output("cupy")
-
+        components = self.components_
         if self.whiten:
-            components = cp.sqrt(explained_variance[:, None]) * components
+            components = cp.sqrt(self.explained_variance_[:, None]) * components
 
         out = X @ components
-        out += mean
+        out += self.mean_
 
         if return_sparse:
             out[out < sparse_tol] = 0
@@ -534,7 +524,7 @@ class PCA(InteropMixin,
 
         return out
 
-    def _inverse_transform_dense(self, X, *, index=None):
+    def _inverse_transform_dense(self, X):
         dtype = X.dtype
         n_rows = X.shape[0]
 
@@ -548,9 +538,9 @@ class PCA(InteropMixin,
 
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t X_inv_ptr = out.data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-        cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
-        cdef uintptr_t mean_ptr = self.mean_.ptr
+        cdef uintptr_t components_ptr = self.components_.data.ptr
+        cdef uintptr_t singular_values_ptr = self.singular_values_.data.ptr
+        cdef uintptr_t mean_ptr = self.mean_.data.ptr
         cdef bool use_float32 = dtype == np.float32
         handle = get_handle()
         cdef handle_t* h_ = <handle_t*><size_t>handle.getHandle()
@@ -574,14 +564,14 @@ class PCA(InteropMixin,
                                     params)
         handle.sync()
 
-        return CumlArray(data=out, index=index)
+        return out
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'X_inv',
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def inverse_transform(
         self,
         X,
@@ -589,7 +579,7 @@ class PCA(InteropMixin,
         convert_dtype="deprecated",
         return_sparse=False,
         sparse_tol=1e-10,
-    ) -> CumlArray:
+    ):
         """
         Transform data back to its original space.
 
@@ -597,13 +587,12 @@ class PCA(InteropMixin,
 
         """
         check_is_fitted(self)
-        X, index = check_array(
+        X = check_array(
             X,
             accept_sparse=True,
             dtype=self.components_.dtype,
             convert_dtype=convert_dtype,
             order="F",
-            return_index=True,
         )
         if X.shape[1] != self.n_components_:
             raise ValueError(
@@ -614,23 +603,19 @@ class PCA(InteropMixin,
             return self._inverse_transform_sparse(
                 X, return_sparse=return_sparse, sparse_tol=sparse_tol
             )
-        return self._inverse_transform_dense(X, index=index)
+        return self._inverse_transform_dense(X)
 
     def _transform_sparse(self, X):
-        components = self.components_.to_output("cupy")
-        explained_variance = self.explained_variance_.to_output("cupy")
-        mean = self.mean_.to_output("cupy")
-
-        out = X @ components.T
-        out -= (mean.reshape((1, -1)) @ components.T)
+        out = X @ self.components_.T
+        out -= (self.mean_.reshape((1, -1)) @ self.components_.T)
         if self.whiten:
-            scale = cp.sqrt(explained_variance)
+            scale = cp.sqrt(self.explained_variance_)
             min_scale = cp.finfo(scale.dtype).eps
             scale[scale < min_scale] = min_scale
             out /= scale
         return out
 
-    def _transform_dense(self, X, *, index=None):
+    def _transform_dense(self, X):
         dtype = X.dtype
         n_rows, n_cols = X.shape
 
@@ -644,9 +629,9 @@ class PCA(InteropMixin,
 
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t out_ptr = out.data.ptr
-        cdef uintptr_t components_ptr = self.components_.ptr
-        cdef uintptr_t singular_values_ptr = self.singular_values_.ptr
-        cdef uintptr_t mean_ptr = self.mean_.ptr
+        cdef uintptr_t components_ptr = self.components_.data.ptr
+        cdef uintptr_t singular_values_ptr = self.singular_values_.data.ptr
+        cdef uintptr_t mean_ptr = self.mean_.data.ptr
         cdef bool use_float32 = dtype == np.float32
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -673,15 +658,15 @@ class PCA(InteropMixin,
                     params
                 )
         handle.sync()
-        return CumlArray(data=out, index=index)
+        return out
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'trans',
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X, *, convert_dtype="deprecated"):
         """
         Apply dimensionality reduction to X.
 
@@ -691,15 +676,14 @@ class PCA(InteropMixin,
         """
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             accept_sparse=True,
             dtype=self.components_.dtype,
             convert_dtype=convert_dtype,
             order="F",
-            return_index=True,
         )
         if is_sparse(X):
             return self._transform_sparse(X)
-        return self._transform_dense(X, index=index)
+        return self._transform_dense(X)
