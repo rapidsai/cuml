@@ -22,11 +22,11 @@ General Behavior
    and require ``scikit-learn`` 1.8 or newer for GPU acceleration.
 
 **CPU fallback**
-   Estimators not listed below remain on the CPU. Listed estimators may also
-   fall back for particular methods, hyperparameters, input types, or dependency
-   versions. These fallbacks should be transparent and preserve the original
-   workflow. :doc:`logging-and-profiling` explains how to identify which
-   operations ran on the GPU and why others fell back to the CPU.
+   Estimators not listed below use their original CPU implementations. Listed
+   estimators may also fall back for particular methods, hyperparameters, input
+   types, or dependency versions. These fallbacks should be transparent and
+   preserve the original workflow. :doc:`logging-and-profiling` explains how to
+   identify which operations ran on the GPU and why others fell back to the CPU.
 
 **Results**
    GPU and CPU implementations should provide comparable model quality, but
@@ -41,12 +41,12 @@ General Behavior
 
 **Performance**
    Performance depends on the estimator and workload. Larger datasets generally
-   benefit most; on small inputs, initialization and data-transfer costs can
-   make GPU execution no faster or even slower. Some GPU operations use
-   runtime-compiled kernels, so their first invocation may include compilation
-   overhead. Warm up the operation before timing it, and compare end-to-end
-   runtime with and without ``cuml.accel``. See :doc:`benchmarks` for
-   representative results.
+   benefit most. On small inputs, initialization and data-transfer costs can
+   dominate, limiting the benefit of acceleration or even making execution
+   slower. Some GPU operations use runtime-compiled kernels, so their first
+   invocation may include compilation overhead. Warm up the operation before
+   timing it, and compare end-to-end runtime with and without ``cuml.accel``.
+   See :doc:`benchmarks` for representative results.
 
 **Errors and warnings**
    Error and warning messages may differ from scikit-learn, and some errors may
