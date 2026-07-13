@@ -1,54 +1,40 @@
 Supported Functionality
 =======================
 
-``cuml.accel`` can accelerate the estimators listed below. This page combines
-the complete support inventory with estimator-specific CPU fallback conditions,
-missing fitted attributes, and behavioral differences. Use
-:doc:`understanding-acceleration` to see which operations in your workload ran
-on the GPU and why others fell back to the CPU.
+``cuml.accel`` accelerates the estimators listed below. Unsupported estimators
+and operations continue to use their original CPU implementations.
 
-Estimators not listed on the support page remain on the CPU. Listed estimators
-may also fall back for particular methods, hyperparameters, input types, or
-dependency versions, as documented below. These fallbacks should be
-transparent and preserve the original workflow.
+General Behavior
+----------------
 
-Other known differences include:
+**Compatibility**
+   The accelerator is tested with Scikit-Learn versions 1.6 through 1.9. Some
+   estimators use Scikit-Learn's experimental `array-api`_ support and require
+   Scikit-Learn 1.8 or newer for GPU acceleration.
 
-- Missing fitted attributes. ``cuml.accel`` does not currently generate the
-  full set of fitted attributes that ``sklearn`` does. In *most* cases this is
-  not a problem, the missing attributes are usually minor things like
-  ``n_iters_`` that are useful for inspecting a model fit but not necessary for
-  inference. Like unsupported parameters, missing fitted attributes are
-  documented in algorithm-specific sections below.
+**CPU fallback**
+   Estimators not listed below remain on the CPU. Listed estimators may also
+   fall back for particular methods, hyperparameters, input types, or dependency
+   versions. These fallbacks should be transparent and preserve the original
+   workflow. Use :doc:`understanding-acceleration` to see which operations ran
+   on the GPU and why others fell back to the CPU.
 
-- Differences between fitted models. The algorithms and implementations used in
-  ``cuml`` naturally differ from those used in ``sklearn``, this may result in
-  differences between fit models. This is to be expected. To compare results
-  between models fit with ``cuml.accel`` and those fit without, you should
-  compare the model *quality* (using e.g. ``model.score``) and not the numeric
-  values of the fitted coefficients.
+**Results**
+   GPU and CPU implementations should provide comparable model quality, but
+   their fitted values may differ. ``cuml.accel`` also does not always generate
+   the full set of fitted attributes that ``sklearn`` does. Missing attributes
+   are typically inspection aids, such as ``n_iters_``, rather than values
+   required for inference. Compare model quality, using metrics such as
+   ``model.score``, instead of comparing fitted coefficients directly.
 
-None of the above should result in bugs (exceptions, failures, poor model
-quality, ...). If you find a case that errors or results in a model with
-measurably worse quality when run under ``cuml.accel``, please `open an issue`_.
+**Performance**
+   Performance improvements are most apparent with larger datasets. Very small
+   datasets may see only a small speedup or potentially a slowdown.
 
-General notes:
-
-- Performance improvements will be most apparent when running on larger data.
-  On very small datasets you might see only a small speedup (or even
-  potentially a slowdown).
-
-- The accelerator is tested to be compatible with Scikit-Learn versions 1.6
-  through 1.9. This ensures that cuML's implementation of Scikit-Learn
-  compatible APIs works as expected.
-
-- Some estimators are accelerated using Scikit-Learn's experimental
-  `array-api`_ support. These estimators are only accelerated by ``cuml.accel``
-  when running with Scikit-Learn versions >= 1.8. Running with an older
-  version of Scikit-Learn will use an unaccelerated estimator.
-
-- Error and warning messages and formats may differ from scikit-learn. Some
-  errors might present as C++ stacktraces instead of python errors.
+**Errors and warnings**
+   Error and warning messages may differ from Scikit-Learn, and some errors may
+   include C++ stack traces. Exceptions, failures, or measurably worse model
+   quality are bugs and should be reported by `opening an issue <open an issue_>`_.
 
 
 .. _sklearn-limitations:
