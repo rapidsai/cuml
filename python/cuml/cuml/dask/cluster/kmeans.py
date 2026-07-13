@@ -107,18 +107,13 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         comm_state = get_raft_comm_state(sessionId, get_worker())
         n_rows = _get_local_n_rows(objs, has_weights)
 
-        try:
-            KMeansMG(
-                handle=comm_state["handle"],
-                output_type=datatype,
-                rank=comm_state.get("wid"),
-                n_workers=comm_state.get("nworkers"),
-                **kwargs,
-            )._validate_mg_fit_constraints(n_rows)
-        except ValueError as exc:
-            return str(exc)
-
-        return None
+        KMeansMG(
+            handle=comm_state["handle"],
+            output_type=datatype,
+            rank=comm_state.get("wid"),
+            n_workers=comm_state.get("nworkers"),
+            **kwargs,
+        )._validate_fit_row_constraints(n_rows)
 
     @staticmethod
     @mnmg_import
@@ -215,14 +210,7 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                 )
                 for worker, parts in data.worker_to_parts.items()
             ]
-            wait_and_raise_from_futures(preflight_futures)
-            preflight_errors = [
-                err
-                for err in self.client.gather(preflight_futures)
-                if err is not None
-            ]
-            if preflight_errors:
-                raise ValueError(preflight_errors[0])
+            self.client.gather(preflight_futures)
 
             kmeans_fit = [
                 self.client.submit(

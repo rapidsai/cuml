@@ -39,9 +39,6 @@ class KMeansMG(KMeans):
 
     def _validate_fit_row_constraints(self, n_rows):
         super()._validate_fit_row_constraints(n_rows)
-        self._validate_mg_fit_constraints(n_rows)
-
-    def _validate_mg_fit_constraints(self, n_rows):
         if isinstance(self.init, str):
             if self.init == "k-means++":
                 raise ValueError(
