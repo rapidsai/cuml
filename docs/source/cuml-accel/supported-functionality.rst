@@ -1,5 +1,7 @@
-Supported Functionality
-=======================
+.. _limitations:
+
+Accelerated Estimator Support
+=============================
 
 ``cuml.accel`` accelerates the estimators listed below. Unsupported estimators
 and operations continue to use their original CPU implementations.
