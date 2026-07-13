@@ -39,16 +39,17 @@ template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, Objecti
   const NodeWorkItem* work_items,
   IdxT colStart,
   const IdxT* column_samples,
-  int* done_count,
   int* mutex,
   volatile Split<DataT, IdxT>* splits,
   ObjectiveT& objective,
   IdxT treeid,
   const WorkloadInfo<IdxT>* workload_info,
   uint64_t seed,
+  size_t n_work_items,
   bool use_global_memory_histogram,
   dim3 grid,
-  size_t smem_size,
+  size_t histogram_smem_size,
+  size_t split_smem_size,
   cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML

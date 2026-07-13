@@ -42,9 +42,7 @@ struct NodeWorkItem {
  */
 template <typename IdxT>
 struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
+  IdxT nodeid;          // Node in the batch on which the threadblock needs to work
   IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
                         // working on this node
   IdxT num_blocks;      // Total number of blocks that are working on the node
@@ -156,16 +154,17 @@ void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
                               const NodeWorkItem* work_items,
                               IdxT colStart,
                               const IdxT* column_samples,
-                              int* done_count,
                               int* mutex,
                               volatile Split<DataT, IdxT>* splits,
                               ObjectiveT& objective,
                               IdxT treeid,
                               const WorkloadInfo<IdxT>* workload_info,
                               uint64_t seed,
+                              size_t n_work_items,
                               bool use_global_memory_histogram,
                               dim3 grid,
-                              size_t smem_size,
+                              size_t histogram_smem_size,
+                              size_t split_smem_size,
                               cudaStream_t builder_stream);
 
 }  // namespace DT
