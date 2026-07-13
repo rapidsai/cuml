@@ -7,10 +7,9 @@ import numpy as np
 from cupyx.scipy.special import gammainc
 from sklearn.exceptions import DataConversionWarning
 
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
@@ -212,7 +211,7 @@ class KernelDensity(InteropMixin, Base):
         self.metric = metric
         self.metric_params = metric_params
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "KernelDensity":
@@ -278,8 +277,8 @@ class KernelDensity(InteropMixin, Base):
 
         return self
 
-    @reflect
-    def score_samples(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def score_samples(self, X, *, convert_dtype="deprecated"):
         """Compute the log-likelihood of each sample under the model.
 
         Parameters
@@ -392,9 +391,9 @@ class KernelDensity(InteropMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=output)
+        return output
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X, y=None) -> float:
         """Compute the total log-likelihood under the model.
 
@@ -413,10 +412,10 @@ class KernelDensity(InteropMixin, Base):
             probability density, so the value will be low for high-dimensional
             data.
         """
-        return float(cp.sum(self.score_samples(X).to_output("cupy")))
+        return float(cp.sum(self.score_samples(X)))
 
-    @reflect
-    def sample(self, n_samples=1, random_state=None) -> CumlArray:
+    @mlfunc(array_arg=None)
+    def sample(self, n_samples=1, random_state=None):
         """Generate random samples from the model.
 
         Currently, this is implemented only for gaussian and tophat kernels.

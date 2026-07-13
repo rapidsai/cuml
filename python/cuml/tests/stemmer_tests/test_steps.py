@@ -1,12 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-
-
 import cudf
+import pytest
 
 from cuml.preprocessing.text.stem.porter_stemmer import PorterStemmer
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:`cuml.preprocessing.text.stem.PorterStemmer`:FutureWarning"
+)
 
 
 def test_step1a():

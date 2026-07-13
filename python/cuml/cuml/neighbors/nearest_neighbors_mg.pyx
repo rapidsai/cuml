@@ -4,7 +4,7 @@
 #
 import cupy as cp
 
-from cuml.internals import logger, reflect
+from cuml.internals import logger, mlfunc
 from cuml.internals.validation import check_array
 from cuml.neighbors import NearestNeighbors
 
@@ -80,7 +80,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.batch_size = batch_size
         super().__init__(**kwargs)
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def kneighbors(
         self,
         index,

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import json
 from argparse import Namespace
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from cuml.benchmark.config import (
 )
 from cuml.benchmark.run_benchmarks import (
     _run_config_benchmarks,
+    extract_param_overrides,
     main,
     run_benchmark,
 )
@@ -48,13 +50,26 @@ def _make_args(**overrides):
         "cpu_param_sweep": None,
         "dataset_param_sweep": None,
         "csv": None,
+        "output": None,
         "print_algorithms": False,
         "print_datasets": False,
         "print_status": False,
         "verbose": True,
+        "metadata_override": [],
     }
     args.update(overrides)
     return Namespace(**args)
+
+
+def test_extract_param_overrides_accepts_json_style_lists():
+    assert extract_param_overrides(
+        ["n_classes=[2,8]", "n_estimators=[10,100]"]
+    ) == [
+        {"n_classes": 2, "n_estimators": 10},
+        {"n_classes": 2, "n_estimators": 100},
+        {"n_classes": 8, "n_estimators": 10},
+        {"n_classes": 8, "n_estimators": 100},
+    ]
 
 
 def test_checked_in_benchmark_manifests_match_msgspec_schema():
@@ -895,4 +910,274 @@ def test_main_runs_config_smoke_manifest_end_to_end(monkeypatch, tmp_path):
     assert set(results["benchmark_id"]) == {
         "test_logreg_fit",
         "test_scaler_fittransform",
+    }
+
+
+def test_main_writes_grouped_json_output(monkeypatch, tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "cuml"
+        / "benchmark"
+        / "configs"
+        / "test.yaml"
+    )
+    output_path = tmp_path / "benchmark-results.json"
+
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.algorithms.algorithm_by_name",
+        lambda name: {"name": name},
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.is_gpu_available", lambda: False
+    )
+    monkeypatch.setattr(
+        "cuml.benchmark.run_benchmarks.runners.run_variations",
+        lambda algos, **kwargs: pd.DataFrame(
+            [
+                {
+                    "algo": algos[0]["name"],
+                    "input": kwargs["input_type"],
+                    "cpu_time": 0.5,
+                    "cpu_acc": 0.9,
+                    "cpu_params": {"C": 2.0, "solver": "lbfgs"},
+                    "n_samples": kwargs["bench_rows"][0],
+                    "n_features": kwargs["bench_dims"][0],
+                    **kwargs["param_override_list"][0],
+                }
+            ]
+        ),
+    )
+
+    exit_code = main(
+        [
+            "--config",
+            str(config_path),
+            "--profile",
+            "default",
+            "--skip-gpu",
+            "--output",
+            str(output_path),
+            "--metadata-override",
+            "hardware.label=test-node",
+            "--metadata-override",
+            "hardware.gpu.effective.name=Test GPU",
+            "--metadata-override",
+            "hardware.gpu.effective.total_memory_bytes=80000000000",
+            "--metadata-override",
+            "hardware.cpu.effective.model=Test CPU",
+            "--metadata-override",
+            "hardware.cpu.effective.logical_cores=16",
+        ]
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["metadata"]["result_schema_version"] == 1
+    assert payload["metadata"]["config"]["profile"] == "default"
+    assert payload["metadata"]["hardware"]["label"] == "test-node"
+    assert payload["metadata"]["hardware"]["gpu"]["effective"] == {
+        "name": "Test GPU",
+        "total_memory_bytes": 80000000000,
+    }
+    assert payload["metadata"]["hardware"]["cpu"]["effective"] == {
+        "model": "Test CPU",
+        "logical_cores": 16,
+    }
+    assert [result["benchmark_id"] for result in payload["results"]] == [
+        "test_logreg_fit",
+        "test_scaler_fittransform",
+    ]
+    assert payload["results"][0]["backends"]["cpu"]["time_sec"] == 0.5
+    assert payload["results"][0]["backends"]["cpu"]["accuracy"] == 0.9
+    assert payload["results"][0]["params"]["declared"] == {}
+    assert payload["results"][0]["params"]["effective"]["cpu"] == {
+        "C": 2.0,
+        "solver": "lbfgs",
+    }
+
+
+def test_json_result_preserves_declared_params():
+    from cuml.benchmark.run_benchmarks import _result_record
+
+    row = pd.Series(
+        {
+            "benchmark_id": "param-bench",
+            "algo": "LogisticRegression",
+            "dataset": "classification",
+            "operation": "fit",
+            "input": "numpy",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+            "C": 2.0,
+            "max_iter": 50,
+        }
+    )
+
+    result = _result_record(row, "fp32")
+
+    assert result["params"]["declared"] == {"C": 2.0, "max_iter": 50}
+
+
+def test_json_result_marks_requested_missing_backend_as_skipped():
+    from cuml.benchmark.run_benchmarks import _result_record
+
+    row = pd.Series(
+        {
+            "benchmark_id": "skip-bench",
+            "algo": "LogisticRegression",
+            "dataset": "classification",
+            "operation": "fit",
+            "input": "numpy",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+            "requested_backends": "cpu,gpu",
+            "gpu_available": False,
+        }
+    )
+
+    result = _result_record(row, "fp32")
+
+    assert result["backends"]["cpu"]["status"] == "success"
+    assert result["backends"]["gpu"] == {
+        "status": "skipped",
+        "reason": "GPU unavailable",
+    }
+
+
+def test_json_result_preserves_zero_accuracy():
+    from cuml.benchmark.run_benchmarks import _result_record
+
+    row = pd.Series(
+        {
+            "benchmark_id": "zero-acc-bench",
+            "algo": "LogisticRegression",
+            "dataset": "classification",
+            "operation": "fit",
+            "input": "numpy",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+            "cpu_acc": 0.0,
+        }
+    )
+
+    result = _result_record(row, "fp32")
+
+    assert result["backends"]["cpu"]["accuracy"] == 0.0
+
+
+def test_progress_line_omits_metric_when_accuracy_is_missing():
+    from cuml.benchmark.run_benchmarks import _progress_line
+
+    row = pd.Series(
+        {
+            "algo": "LogisticRegression",
+            "n_samples": 100,
+            "n_features": 8,
+            "cpu_time": 0.1,
+        }
+    )
+
+    line = _progress_line(row, 1, 1, "fp32")
+
+    assert "cpu_acc" not in line
+    assert "acc=" not in line
+
+
+def test_write_json_atomic_replaces_existing_file(tmp_path):
+    from cuml.benchmark.run_benchmarks import _write_json_atomic
+
+    output_path = tmp_path / "results.json"
+    output_path.write_text('{"old": true}\n', encoding="utf-8")
+
+    _write_json_atomic(str(output_path), {"new": True})
+
+    assert json.loads(output_path.read_text(encoding="utf-8")) == {"new": True}
+
+
+def test_write_json_atomic_preserves_existing_file_on_failure(
+    monkeypatch, tmp_path
+):
+    from cuml.benchmark import run_benchmarks
+
+    output_path = tmp_path / "results.json"
+    output_path.write_text('{"old": true}\n', encoding="utf-8")
+
+    def fail_dump(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(run_benchmarks.json, "dump", fail_dump)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        run_benchmarks._write_json_atomic(str(output_path), {"new": True})
+
+    assert json.loads(output_path.read_text(encoding="utf-8")) == {"old": True}
+    assert not list(tmp_path.glob(".benchmark-*.json"))
+
+
+def test_collect_package_snapshot_prefers_conda(monkeypatch):
+    from cuml.benchmark import _metadata
+
+    monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
+    monkeypatch.setattr(
+        _metadata,
+        "_run_json_command",
+        lambda command: (
+            [
+                {
+                    "name": "cuml",
+                    "version": "26.06",
+                    "build_string": "cuda13_py313_0",
+                    "channel": "rapidsai-nightly",
+                    "base_url": "https://conda.anaconda.org/rapidsai-nightly",
+                    "platform": "linux-64",
+                }
+            ],
+            None,
+        ),
+    )
+
+    snapshot = _metadata.collect_package_snapshot()
+
+    assert snapshot == {
+        "package_snapshot_source": "conda",
+        "conda_prefix": "/tmp/conda-env",
+        "packages": [
+            {
+                "name": "cuml",
+                "version": "26.06",
+                "build": "cuda13_py313_0",
+                "channel": "rapidsai-nightly",
+            }
+        ],
+    }
+
+
+def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
+    from cuml.benchmark import _metadata
+
+    monkeypatch.setenv("CONDA_PREFIX", "/tmp/conda-env")
+
+    def fake_run_json_command(command):
+        if command[:2] == ["conda", "list"]:
+            return None, "conda failed"
+        return [
+            {
+                "name": "cuml",
+                "version": "26.06",
+                "editable_project_location": "/tmp",
+            }
+        ], None
+
+    monkeypatch.setattr(_metadata, "_run_json_command", fake_run_json_command)
+
+    snapshot = _metadata.collect_package_snapshot()
+
+    assert snapshot == {
+        "package_snapshot_source": "pip",
+        "conda_prefix": "/tmp/conda-env",
+        "packages": [{"name": "cuml", "version": "26.06"}],
+        "conda_error": "conda failed",
     }

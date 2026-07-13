@@ -7,19 +7,11 @@ import numpy as np
 import sklearn
 from packaging.version import Version
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.qn import fit_qn
 
@@ -130,8 +122,8 @@ class LogisticRegression(
 
     _cpu_class_path = "sklearn.linear_model.LogisticRegression"
 
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -217,8 +209,8 @@ class LogisticRegression(
     def _attrs_from_cpu(self, model):
         return {
             "classes_": model.classes_,
-            "intercept_": to_gpu(model.intercept_, order="F"),
-            "coef_": to_gpu(model.coef_, order="F"),
+            "intercept_": cp.asarray(model.intercept_),
+            "coef_": cp.asarray(model.coef_),
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
@@ -226,8 +218,8 @@ class LogisticRegression(
     def _attrs_to_cpu(self, model):
         return {
             "classes_": self.classes_,
-            "intercept_": to_cpu(self.intercept_),
-            "coef_": to_cpu(self.coef_),
+            "intercept_": cp.asnumpy(self.intercept_, order="A"),
+            "coef_": cp.asnumpy(self.coef_, order="A"),
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -295,7 +287,7 @@ class LogisticRegression(
         return l1_strength, l2_strength
 
     @generate_docstring(X="dense_sparse")
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LogisticRegression":
@@ -325,8 +317,8 @@ class LogisticRegression(
         )
 
         self.classes_ = classes
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = CumlArray(data=intercept)
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_iter_ = np.asarray([n_iter])
 
         return self
@@ -340,26 +332,20 @@ class LogisticRegression(
             "shape": "(n_samples, 1)",
         },
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the y for X.
 
         """
         scores = self.decision_function(X, convert_dtype=convert_dtype)
-        index = scores.index
-        scores = scores.to_output("cupy")
 
         if scores.ndim == 1:
             indices = (scores > 0).view(cp.int8)
         else:
             indices = cp.argmax(scores, axis=1)
 
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            indices, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)
 
     @generate_docstring(
         X="dense_sparse",
@@ -370,13 +356,12 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
-    def predict_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_proba(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the class probabilities for each class in X
         """
         scores = self.decision_function(X, convert_dtype=convert_dtype)
-        scores = scores.to_output("cupy")
 
         n_classes = self.classes_.shape[0]
         if n_classes == 2:
@@ -389,7 +374,7 @@ class LogisticRegression(
             proba = cp.exp(scores)
             row_sum = cp.sum(proba, axis=1).reshape((-1, 1))
             proba /= row_sum
-        return CumlArray(data=proba)
+        return proba
 
     @generate_docstring(
         X="dense_sparse",
@@ -400,13 +385,11 @@ class LogisticRegression(
             "shape": "(n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
-    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_log_proba(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the log class probabilities for each class in X
         """
-        out = self.predict_proba(X, convert_dtype=convert_dtype).to_output(
-            "cupy"
-        )
+        out = self.predict_proba(X, convert_dtype=convert_dtype)
         cp.log(out, out=out)
-        return CumlArray(data=out)
+        return out

@@ -155,7 +155,13 @@ class RandomForestClassifier(
             n_estimators=n_estimators, random_state=random_state, **kwargs
         )
 
-    def fit(self, X, y, convert_dtype="deprecated", broadcast_data=False):
+    def fit(
+        self,
+        X,
+        y,
+        convert_dtype="deprecated",
+        broadcast_data=False,
+    ):
         """
         Fit the input data with a Random Forest classifier
 
@@ -207,7 +213,6 @@ class RandomForestClassifier(
             When set to True, the whole dataset is broadcasted
             to train the workers, otherwise each worker
             is trained on its partition
-
         """
         # Handle both Dask Arrays and Dask Series/DataFrames
         if isinstance(y, dask.array.Array):
