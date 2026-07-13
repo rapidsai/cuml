@@ -183,7 +183,6 @@
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-True-ElasticNet]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-True-Lasso]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
-  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   tests:
