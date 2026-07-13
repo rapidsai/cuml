@@ -4,10 +4,9 @@
 #
 import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals import ReflectedAttr, logger, mlfunc
+from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.validation import (
@@ -127,11 +126,11 @@ class Lars(RegressorMixin, Base):
 
     """
 
-    alphas_ = CumlArrayDescriptor()
-    active_ = CumlArrayDescriptor()
-    beta_ = CumlArrayDescriptor()
-    coef_path_ = CumlArrayDescriptor()
-    coef_ = CumlArrayDescriptor()
+    alphas_ = ReflectedAttr()
+    active_ = ReflectedAttr()
+    beta_ = ReflectedAttr()
+    coef_path_ = ReflectedAttr()
+    coef_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -200,7 +199,7 @@ class Lars(RegressorMixin, Base):
         return gram
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, *, convert_dtype="deprecated") -> "Lars":
         """
         Fit the model with X and y.
@@ -322,11 +321,11 @@ class Lars(RegressorMixin, Base):
         else:
             intercept = X.dtype.type(0.0)
 
-        self.alphas_ = CumlArray(alphas)
-        self.active_ = CumlArray(active)
-        self.beta_ = CumlArray(beta)
-        self.coef_path_ = None if coef_path is None else CumlArray(coef_path)
-        self.coef_ = CumlArray(coef)
+        self.alphas_ = alphas
+        self.active_ = active
+        self.beta_ = beta
+        self.coef_path_ = coef_path
+        self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = n_active
 
@@ -340,18 +339,17 @@ class Lars(RegressorMixin, Base):
             "shape": "(n_samples,)",
         }
     )
-    @reflect
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """Predicts `y` values for `X`."""
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
             order="F",
-            return_index=True,
         )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
@@ -362,8 +360,8 @@ class Lars(RegressorMixin, Base):
         cdef uintptr_t X_ptr = X.data.ptr
         cdef int n_active = self.active_.shape[0]
         cdef double intercept = self.intercept_
-        cdef uintptr_t beta_ptr = self.beta_.ptr
-        cdef uintptr_t active_idx_ptr = self.active_.ptr
+        cdef uintptr_t beta_ptr = self.beta_.data.ptr
+        cdef uintptr_t active_idx_ptr = self.active_.data.ptr
         cdef bool use_float32 = self.coef_.dtype == cp.float32
         cdef uintptr_t preds_ptr = preds.data.ptr
 
@@ -396,4 +394,4 @@ class Lars(RegressorMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=preds, index=index)
+        return preds

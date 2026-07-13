@@ -5,21 +5,29 @@
 
 #pragma once
 
+#include <raft/util/cuda_utils.cuh>
+
+#include <cstdint>
+
 namespace ML {
 namespace DT {
 
 template <typename DataT, typename LabelT, typename IdxT>
 struct Dataset {
-  /** input dataset (assumed to be col-major) */
+  /** input dataset */
   const DataT* data;
   /** input labels */
   const LabelT* labels;
   /** optional input sample weights */
   const double* sample_weight;
   /** total rows in dataset */
-  IdxT M;
+  std::int64_t n_rows;
   /** total cols in dataset */
-  IdxT N;
+  std::int64_t n_cols;
+  /** row stride in input data elements */
+  std::int64_t row_stride;
+  /** column stride in input data elements */
+  std::int64_t col_stride;
   /** total sampled rows in dataset */
   IdxT n_sampled_rows;
   /** total sampled cols in dataset */
@@ -28,6 +36,12 @@ struct Dataset {
   IdxT* row_ids;
   /** Number of classes or regression outputs*/
   IdxT num_outputs;
+
+  HDI DataT value(IdxT row, IdxT col) const
+  {
+    return data[static_cast<std::int64_t>(row) * row_stride +
+                static_cast<std::int64_t>(col) * col_stride];
+  }
 };
 
 }  // namespace DT

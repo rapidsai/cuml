@@ -6,19 +6,11 @@ import numbers
 import cupy as cp
 
 import cuml.svm.linear
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearClassifierMixin
 
 __all__ = ("LinearSVC",)
@@ -112,8 +104,8 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
     Predicted labels: [0 0 1 0 1 1]
     """
 
-    coef_ = CumlArrayDescriptor(order="F")
-    intercept_ = CumlArrayDescriptor(order="F")
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.svm.LinearSVC"
 
@@ -171,9 +163,11 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
 
     def _attrs_from_cpu(self, model):
         return {
-            "coef_": to_gpu(model.coef_, order="F", dtype=cp.float64),
-            "intercept_": to_gpu(
-                model.intercept_, order="F", dtype=cp.float64
+            "coef_": cp.asarray(model.coef_, order="A", dtype="float64"),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_, dtype="float64")
             ),
             "classes_": model.classes_,
             "n_iter_": model.n_iter_,
@@ -182,8 +176,12 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
 
     def _attrs_to_cpu(self, model):
         return {
-            "coef_": to_cpu(self.coef_, order="C", dtype=cp.float64),
-            "intercept_": to_cpu(self.intercept_, order="C", dtype=cp.float64),
+            "coef_": self.coef_.get(order="A").astype("f8", copy=False),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else self.intercept_.get(order="A").astype("f8", copy=False)
+            ),
             "classes_": self.classes_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
@@ -223,7 +221,7 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
         self.multi_class = multi_class
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "LinearSVC":
@@ -262,10 +260,8 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
             epsilon=0.0,
             verbose=self._verbose_level,
         )
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = (
-            intercept if cp.isscalar(intercept) else CumlArray(data=intercept)
-        )
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_iter_ = n_iter
         self.classes_ = classes
         return self
@@ -278,19 +274,13 @@ class LinearSVC(InteropMixin, LinearClassifierMixin, ClassifierMixin, Base):
             "shape": "(n_samples,)",
         },
     )
-    @run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(self, X, *, convert_dtype="deprecated"):
         """Predict class labels for samples in X."""
         scores = self.decision_function(X, convert_dtype=convert_dtype)
-        index = scores.index
-        scores = scores.to_output("cupy")
         if scores.ndim == 1:
-            inds = (scores >= 0).view(cp.int8)
+            indices = (scores >= 0).view(cp.int8)
         else:
-            inds = scores.argmax(axis=1)
+            indices = scores.argmax(axis=1)
 
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            inds, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)

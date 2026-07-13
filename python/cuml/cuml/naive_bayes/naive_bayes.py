@@ -7,17 +7,10 @@ import cupyx
 import numpy as np
 
 import cuml.internals.nvtx as nvtx
-from cuml.common import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, SparseInputTagMixin
-from cuml.internals.outputs import (
-    exit_internal_context,
-    reflect,
-    run_in_internal_context,
-)
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -56,8 +49,8 @@ def _count_classes(y, n_classes, dtype):
 class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
     """A base class for all naive-bayes estimators"""
 
-    class_count_ = CumlArrayDescriptor()
-    feature_count_ = CumlArrayDescriptor()
+    class_count_ = ReflectedAttr()
+    feature_count_ = ReflectedAttr()
     # a tuple of dtypes to coerce X to
     _supported_dtypes = ("float32", "float64")
 
@@ -66,19 +59,17 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         return X
 
     def _check_predict(self, X, *, convert_dtype="deprecated"):
-        """Validate X and return (X, index) for predict."""
-        X, index = check_inputs(
+        """Validate and return X for predict."""
+        X = check_inputs(
             self,
             X,
             dtype=self._supported_dtypes,
             sample_weight_dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_sparse=["coo", "csr"],
-            return_index=True,
             ensure_non_negative=self.__sklearn_tags__().input_tags.positive_only,
         )
-        X = self._transform_X(X)
-        return X, index
+        return self._transform_X(X)
 
     def _check_fit(
         self,
@@ -93,6 +84,13 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         """Validate and return (X, y, classes, sample_weight) for fit."""
         if reset:
             self._set_output_type(X)
+        elif classes is None:
+            # Not the first call, and no `classes` passed: encode `y`
+            # against the already-established `self.classes_` rather than
+            # letting `check_inputs` derive classes from just this batch,
+            # which would silently corrupt updates for any class not
+            # present in the current batch.
+            classes = self.classes_
         X, y, sample_weight, classes = check_inputs(
             self,
             X,
@@ -148,24 +146,18 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @run_in_internal_context
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Perform classification on an array of test vectors X.
 
         """
         check_is_fitted(self)
 
-        with exit_internal_context():
-            output_type = self._get_output_type(X)
-
-        X, index = self._check_predict(X, convert_dtype=convert_dtype)
+        X = self._check_predict(X, convert_dtype=convert_dtype)
         jll = self._joint_log_likelihood(X)
         indices = cp.argmax(jll, axis=1)
-
-        return decode_labels(
-            indices, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)
 
     @generate_docstring(
         X="dense_sparse",
@@ -180,14 +172,14 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @reflect
-    def predict_log_proba(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_log_proba(self, X, *, convert_dtype="deprecated"):
         """
         Return log-probability estimates for the test vector X.
 
         """
         check_is_fitted(self)
-        X, index = self._check_predict(X, convert_dtype=convert_dtype)
+        X = self._check_predict(X, convert_dtype=convert_dtype)
         jll = self._joint_log_likelihood(X)
 
         # normalize by P(X) = P(f_1, ..., f_n)
@@ -199,8 +191,7 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
         log_prob_x = cp.squeeze(a_max, axis=1) + logsumexp
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
-        result = jll - log_prob_x.T
-        return CumlArray(data=result, index=index)
+        return jll - log_prob_x.T
 
     @generate_docstring(
         X="dense_sparse",
@@ -215,14 +206,14 @@ class _BaseNB(ClassifierMixin, SparseInputTagMixin, Base):
             "shape": "(n_rows, 1)",
         },
     )
-    @reflect
-    def predict_proba(self, X) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict_proba(self, X):
         """
         Return probability estimates for the test vector X.
         """
         log_proba = self.predict_log_proba(X)
-        result = cp.exp(log_proba)
-        return CumlArray(data=result, index=log_proba.index)
+        cp.exp(log_proba, out=log_proba)
+        return log_proba
 
 
 class GaussianNB(_BaseNB):
@@ -267,7 +258,7 @@ class GaussianNB(_BaseNB):
     [1]
     """
 
-    class_prior_ = CumlArrayDescriptor()
+    class_prior_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -281,7 +272,7 @@ class GaussianNB(_BaseNB):
         self.priors = priors
         self.var_smoothing = var_smoothing
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
         """
         Fit Gaussian Naive Bayes classifier according to X, y
@@ -399,7 +390,7 @@ class GaussianNB(_BaseNB):
 
         return self
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def partial_fit(
         self, X, y, classes=None, sample_weight=None
     ) -> "GaussianNB":
@@ -575,8 +566,8 @@ class GaussianNB(_BaseNB):
 
 
 class _BaseDiscreteNB(_BaseNB):
-    class_log_prior_ = CumlArrayDescriptor()
-    feature_log_prob_ = CumlArrayDescriptor()
+    class_log_prior_ = ReflectedAttr()
+    feature_log_prob_ = ReflectedAttr()
     _supported_dtypes = ("float32", "float64", "int32", "int64")
 
     def __init__(
@@ -617,7 +608,7 @@ class _BaseDiscreteNB(_BaseNB):
                 self.n_classes_, -np.log(self.n_classes_)
             )
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def partial_fit(
         self,
         X,
@@ -696,7 +687,7 @@ class _BaseDiscreteNB(_BaseNB):
         self._update_class_log_prior(class_prior=self.class_prior)
         return self
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self, X, y) -> "_BaseDiscreteNB":
         """
         Fit Naive Bayes classifier according to X, y

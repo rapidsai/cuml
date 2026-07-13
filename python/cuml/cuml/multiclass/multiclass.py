@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cuml
+import cupy as cp
+
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import exit_internal_context, mlfunc
 from cuml.internals.validation import check_inputs
 
 
@@ -27,12 +28,11 @@ class _BaseMulticlassClassifier(ClassifierMixin, Base):
         return [*super()._get_param_names(), "estimator"]
 
     @property
-    @cuml.internals.reflect
     def classes_(self):
         return self.multiclass_estimator.classes_
 
     @generate_docstring(y="dense_anydtype")
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y) -> "_BaseMulticlassClassifier":
         """
         Fit a multiclass classifier.
@@ -58,7 +58,7 @@ class _BaseMulticlassClassifier(ClassifierMixin, Base):
             mem_type="host",
         )
 
-        with cuml.internals.exit_internal_context():
+        with exit_internal_context():
             wrapper = cls(self.estimator, n_jobs=None).fit(X, y)
 
         self.multiclass_estimator = wrapper
@@ -72,23 +72,21 @@ class _BaseMulticlassClassifier(ClassifierMixin, Base):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.reflect
-    def predict(self, X) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X):
         """
         Predict using multi class classifier.
         """
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=("float32", "float64"),
             accept_sparse=True,
             mem_type="host",
-            return_index=True,
         )
 
-        with cuml.internals.exit_internal_context():
-            out = self.multiclass_estimator.predict(X)
-        return CumlArray(data=out, index=index)
+        with exit_internal_context():
+            return cp.asarray(self.multiclass_estimator.predict(X))
 
     @generate_docstring(
         return_values={
@@ -98,22 +96,20 @@ class _BaseMulticlassClassifier(ClassifierMixin, Base):
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.reflect
-    def decision_function(self, X) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def decision_function(self, X):
         """
         Calculate the decision function.
         """
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=("float32", "float64"),
             accept_sparse=True,
             mem_type="host",
-            return_index=True,
         )
-        with cuml.internals.exit_internal_context():
-            out = self.multiclass_estimator.decision_function(X)
-        return CumlArray(data=out, index=index)
+        with exit_internal_context():
+            return cp.asarray(self.multiclass_estimator.decision_function(X))
 
 
 class OneVsRestClassifier(_BaseMulticlassClassifier):

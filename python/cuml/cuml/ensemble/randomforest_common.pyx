@@ -81,7 +81,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         bool* bootstrap_masks,
         T* feature_importances,
         level_enum verbosity,
-        const double* sample_weight
+        const double* sample_weight,
+        bool input_row_major
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -95,7 +96,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         bool* bootstrap_masks,
         T* feature_importances,
         level_enum verbosity,
-        const double* sample_weight
+        const double* sample_weight,
+        bool input_row_major
     ) except +
 
 
@@ -274,9 +276,9 @@ class BaseRandomForestModel(InteropMixin, Base):
         if hasattr(model, 'oob_score_'):
             attrs["oob_score_"] = model.oob_score_
         if hasattr(model, 'oob_decision_function_'):
-            attrs["oob_decision_function_"] = model.oob_decision_function_
+            attrs["oob_decision_function_"] = cp.asarray(model.oob_decision_function_)
         if hasattr(model, 'oob_prediction_'):
-            attrs["oob_prediction_"] = model.oob_prediction_
+            attrs["oob_prediction_"] = cp.asarray(model.oob_prediction_)
         # Note: feature_importances_ is NOT transferred from sklearn to cuML
         # because cuML caches the impurity decrease directly (BestMetric()) which
         # is not available in sklearn models created via treelite export
@@ -297,9 +299,9 @@ class BaseRandomForestModel(InteropMixin, Base):
         if hasattr(self, 'oob_score_'):
             attrs["oob_score_"] = self.oob_score_
         if hasattr(self, 'oob_decision_function_'):
-            attrs["oob_decision_function_"] = self.oob_decision_function_
+            attrs["oob_decision_function_"] = self.oob_decision_function_.get(order="A")
         if hasattr(self, 'oob_prediction_'):
-            attrs["oob_prediction_"] = self.oob_prediction_
+            attrs["oob_prediction_"] = self.oob_prediction_.get(order="A")
         # Note: feature_importances_ is NOT transferred from cuML to sklearn
         # because sklearn's computation requires tree impurities that aren't
         # available in sklearn models created via treelite export
@@ -470,6 +472,7 @@ class BaseRandomForestModel(InteropMixin, Base):
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
+        cdef bool input_row_major = not X.flags.f_contiguous
 
         cdef int max_depth_c
         max_depth = self.max_depth
@@ -584,7 +587,8 @@ class BaseRandomForestModel(InteropMixin, Base):
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
                         verbose,
-                        <const double*> sample_weight_ptr
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
                 else:
                     fit_treelite(
@@ -599,7 +603,8 @@ class BaseRandomForestModel(InteropMixin, Base):
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
                         verbose,
-                        <const double*> sample_weight_ptr
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
             else:
                 if is_float32:
@@ -614,7 +619,8 @@ class BaseRandomForestModel(InteropMixin, Base):
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
                         verbose,
-                        <const double*> sample_weight_ptr
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
                 else:
                     fit_treelite(
@@ -628,7 +634,8 @@ class BaseRandomForestModel(InteropMixin, Base):
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
                         verbose,
-                        <const double*> sample_weight_ptr
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to
