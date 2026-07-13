@@ -1,12 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
 import cuml.common.opg_data_utils_mg as opg
-from cuml.internals import run_in_internal_context
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import convert_arrays, mlfunc
 from cuml.internals.validation import check_inputs
 
 
@@ -15,7 +14,7 @@ class BaseDecompositionMG:
         self.handle = handle
         super().__init__(**kwargs)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(
         self, X, total_rows, n_cols, parts_rank_size, rank, _transform=False
     ):
@@ -101,7 +100,7 @@ class BaseDecompositionMG:
         if _transform:
             output_type = self._get_output_type(X[0])
             trans_out = [
-                CumlArray(data=part).to_output(output_type)
+                convert_arrays(part, output_type=output_type)
                 for part in trans_arys
             ]
 
