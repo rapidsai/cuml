@@ -31,7 +31,7 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    RAFT_CUDA_TRY(cudaStreamCreate(&stream));
+    if (stream == 0) { RAFT_CUDA_TRY(cudaStreamCreate(&stream)); }
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(numStreams());
     handle.reset(new raft::handle_t{rmm::cuda_stream_view{stream}, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
