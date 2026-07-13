@@ -222,13 +222,10 @@ void launchLeafKernel(ObjectiveT objective,
 
 /**
  * @brief For every threadblock, converts a pdf-histogram to a
- *        cdf-histogram inplace using inclusive block-sum-scan and returns
- *        the total_sum
- * @return The total sum aggregated over the sumscan,
- *         as well as the modified cdf-histogram pointer
+ *        cdf-histogram inplace using inclusive block-sum-scan.
  */
 template <typename BinT, typename IdxT, int TPB>
-DI BinT pdf_to_cdf(BinT* histogram, IdxT n_bins)
+DI void pdf_to_cdf(BinT* histogram, IdxT n_bins)
 {
   // Blockscan instance preparation
   typedef cub::BlockScan<BinT, TPB> BlockScan;
@@ -246,8 +243,6 @@ DI BinT pdf_to_cdf(BinT* histogram, IdxT n_bins)
     if (tix < n_bins) { histogram[tix] = result + total_aggregate; }
     total_aggregate += block_aggregate;
   }
-  // return the total sum
-  return total_aggregate;
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
