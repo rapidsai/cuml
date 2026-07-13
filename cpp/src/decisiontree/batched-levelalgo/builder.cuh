@@ -475,7 +475,7 @@ struct Builder {
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     auto n_blocks_dimx     = this->updateWorkloadInfo(work_items);
-    auto split_smem_config = computeSplitSharedMemoryConfig();
+    auto split_smem_config = computeSharedMemoryConfig();
 
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
@@ -504,13 +504,7 @@ struct Builder {
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
-  struct SplitSharedMemoryConfig {
-    bool use_global_memory_histogram;
-    size_t histogram_dynamic_smem_size;
-    size_t split_dynamic_smem_size;
-  };
-
-  SplitSharedMemoryConfig computeSplitSharedMemoryConfig() const
+  SharedMemoryConfig computeSharedMemoryConfig() const
   {
     // Dynamic shared memory for the fast path: histogram, copied quantiles, and
     // alignment padding for the kernel's shared-memory layout.
@@ -551,43 +545,40 @@ struct Builder {
   void computeSplit(IdxT col,
                     size_t n_blocks_dimx,
                     size_t n_work_items,
-                    const SplitSharedMemoryConfig& split_smem_config)
+                    const SharedMemoryConfig& split_smem_config)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
     raft::common::nvtx::range fun_scope("Builder::computeSplit @builder.cuh [batched-levelalgo]");
-    auto n_bins                      = params.max_n_bins;
-    auto n_classes                   = dataset.num_outputs;
-    auto use_global_memory_histogram = split_smem_config.use_global_memory_histogram;
+    auto n_bins    = params.max_n_bins;
+    auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
-    dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
+    dim3 histogram_grid(n_blocks_dimx, n_blocks_dimy, 1);
+    dim3 split_grid(n_work_items, n_blocks_dimy, 1);
     auto len_histograms =
       ML::checked_mul<std::size_t>(n_bins, n_classes, n_blocks_dimy, n_work_items);
     auto histograms_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), len_histograms);
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, histograms_bytes, builder_stream));
     // create the objective function object
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
-    // call the computeSplitKernel
-    raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
-      histograms,
-      params.max_n_bins,
-      dataset,
-      quantiles,
-      d_work_items,
-      col,
-      column_samples,
-      mutex,
-      splits,
-      objective,
-      workload_info,
-      n_work_items,
-      use_global_memory_histogram,
-      grid,
-      split_smem_config.histogram_dynamic_smem_size,
-      split_smem_config.split_dynamic_smem_size,
-      builder_stream);
+    // call the compute split kernels
+    raft::common::nvtx::range kernel_scope("computeSplitKernels @builder.cuh [batched-levelalgo]");
+    launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
+                                                                            params.max_n_bins,
+                                                                            dataset,
+                                                                            quantiles,
+                                                                            d_work_items,
+                                                                            col,
+                                                                            column_samples,
+                                                                            mutex,
+                                                                            splits,
+                                                                            objective,
+                                                                            workload_info,
+                                                                            histogram_grid,
+                                                                            split_grid,
+                                                                            split_smem_config,
+                                                                            builder_stream);
   }
 
   // Set the leaf value predictions in batch

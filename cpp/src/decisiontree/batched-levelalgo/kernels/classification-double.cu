@@ -29,7 +29,7 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+template void launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   IdxT n_bins,
   const DatasetT& dataset,
@@ -41,11 +41,9 @@ template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, Objecti
   volatile Split<DataT, IdxT>* splits,
   ObjectiveT& objective,
   const WorkloadInfo<IdxT>* workload_info,
-  size_t n_work_items,
-  bool use_global_memory_histogram,
-  dim3 grid,
-  size_t histogram_smem_size,
-  size_t split_smem_size,
+  dim3 histogram_grid,
+  dim3 split_grid,
+  const SharedMemoryConfig& split_smem_config,
   cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML

@@ -48,6 +48,12 @@ struct WorkloadInfo {
   IdxT num_blocks;      // Total number of blocks that are working on the node
 };
 
+struct SharedMemoryConfig {
+  bool use_global_memory_histogram;
+  size_t histogram_dynamic_smem_size;
+  size_t split_dynamic_smem_size;
+};
+
 template <typename SplitT, typename IdxT>
 HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
 {
@@ -145,23 +151,21 @@ HDI IdxT lower_bound(DataT const* array, IdxT len, DataT element)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
-                              IdxT n_bins,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* column_samples,
-                              int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
-                              ObjectiveT& objective,
-                              const WorkloadInfo<IdxT>* workload_info,
-                              size_t n_work_items,
-                              bool use_global_memory_histogram,
-                              dim3 grid,
-                              size_t histogram_smem_size,
-                              size_t split_smem_size,
-                              cudaStream_t builder_stream);
+void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
+                               IdxT n_bins,
+                               const Dataset<DataT, LabelT, IdxT>& dataset,
+                               const Quantiles<DataT, IdxT>& quantiles,
+                               const NodeWorkItem* work_items,
+                               IdxT colStart,
+                               const IdxT* column_samples,
+                               int* mutex,
+                               volatile Split<DataT, IdxT>* splits,
+                               ObjectiveT& objective,
+                               const WorkloadInfo<IdxT>* workload_info,
+                               dim3 histogram_grid,
+                               dim3 split_grid,
+                               const SharedMemoryConfig& split_smem_config,
+                               cudaStream_t builder_stream);
 
 }  // namespace DT
 }  // namespace ML

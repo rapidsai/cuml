@@ -369,49 +369,48 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
-                              IdxT max_n_bins,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* column_samples,
-                              int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
-                              ObjectiveT& objective,
-                              const WorkloadInfo<IdxT>* workload_info,
-                              size_t n_work_items,
-                              bool use_global_memory_histogram,
-                              dim3 grid,
-                              size_t histogram_smem_size,
-                              size_t split_smem_size,
-                              cudaStream_t builder_stream)
+void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
+                               IdxT max_n_bins,
+                               const Dataset<DataT, LabelT, IdxT>& dataset,
+                               const Quantiles<DataT, IdxT>& quantiles,
+                               const NodeWorkItem* work_items,
+                               IdxT colStart,
+                               const IdxT* column_samples,
+                               int* mutex,
+                               volatile Split<DataT, IdxT>* splits,
+                               ObjectiveT& objective,
+                               const WorkloadInfo<IdxT>* workload_info,
+                               dim3 histogram_grid,
+                               dim3 split_grid,
+                               const SharedMemoryConfig& split_smem_config,
+                               cudaStream_t builder_stream)
 {
   buildHistogramsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
-    <<<grid, TPB, histogram_smem_size, builder_stream>>>(histograms,
-                                                         max_n_bins,
-                                                         dataset,
-                                                         quantiles,
-                                                         work_items,
-                                                         colStart,
-                                                         column_samples,
-                                                         objective,
-                                                         workload_info,
-                                                         use_global_memory_histogram);
+    <<<histogram_grid, TPB, split_smem_config.histogram_dynamic_smem_size, builder_stream>>>(
+      histograms,
+      max_n_bins,
+      dataset,
+      quantiles,
+      work_items,
+      colStart,
+      column_samples,
+      objective,
+      workload_info,
+      split_smem_config.use_global_memory_histogram);
 
-  dim3 split_grid(n_work_items, grid.y, 1);
   findBestSplitsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>
-    <<<split_grid, TPB, split_smem_size, builder_stream>>>(histograms,
-                                                           max_n_bins,
-                                                           dataset,
-                                                           quantiles,
-                                                           work_items,
-                                                           colStart,
-                                                           column_samples,
-                                                           mutex,
-                                                           splits,
-                                                           objective,
-                                                           use_global_memory_histogram);
+    <<<split_grid, TPB, split_smem_config.split_dynamic_smem_size, builder_stream>>>(
+      histograms,
+      max_n_bins,
+      dataset,
+      quantiles,
+      work_items,
+      colStart,
+      column_samples,
+      mutex,
+      splits,
+      objective,
+      split_smem_config.use_global_memory_histogram);
 }
 
 }  // namespace DT
