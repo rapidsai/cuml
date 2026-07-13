@@ -6,6 +6,8 @@ Accelerated Estimator Support
 ``cuml.accel`` accelerates the estimators listed below. Unsupported estimators
 and operations continue to use their original CPU implementations.
 
+.. _general-behavior:
+
 General Behavior
 ----------------
 
@@ -18,20 +20,28 @@ General Behavior
    Estimators not listed below remain on the CPU. Listed estimators may also
    fall back for particular methods, hyperparameters, input types, or dependency
    versions. These fallbacks should be transparent and preserve the original
-   workflow. Use :doc:`understanding-acceleration` to see which operations ran
-   on the GPU and why others fell back to the CPU.
+   workflow. :doc:`setup-and-diagnostics` explains how to identify which
+   operations ran on the GPU and why others fell back to the CPU.
 
 **Results**
    GPU and CPU implementations should provide comparable model quality, but
-   their fitted values may differ. ``cuml.accel`` also does not always generate
-   the full set of fitted attributes that ``sklearn`` does. Missing attributes
-   are typically inspection aids, such as ``n_iters_``, rather than values
-   required for inference. Compare model quality, using metrics such as
-   ``model.score``, instead of comparing fitted coefficients directly.
+   they are not guaranteed to be numerically identical. Parallel floating-point
+   operations may run in a different order, and some GPU algorithms use
+   implementations designed for highly parallel hardware. ``cuml.accel`` also
+   does not always generate the full set of fitted attributes that ``sklearn``
+   does. Missing attributes are typically inspection aids, such as ``n_iters_``,
+   rather than values required for inference. Compare appropriate model-quality
+   metrics, such as ``model.score`` or accuracy, instead of comparing fitted
+   coefficients directly.
 
 **Performance**
-   Performance improvements are most apparent with larger datasets. Very small
-   datasets may see only a small speedup or potentially a slowdown.
+   Performance depends on the estimator and workload. Larger datasets generally
+   benefit most; on small inputs, initialization and data-transfer costs can
+   make GPU execution no faster or even slower. Some GPU operations use
+   runtime-compiled kernels, so their first invocation may include compilation
+   overhead. Warm up the operation before timing it, and compare end-to-end
+   runtime with and without ``cuml.accel``. See :doc:`benchmarks` for
+   representative results.
 
 **Errors and warnings**
    Error and warning messages may differ from Scikit-Learn, and some errors may

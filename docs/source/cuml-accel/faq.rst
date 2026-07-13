@@ -49,7 +49,7 @@ time is expected to be longer with ``cuml.accel`` and should be excluded from
 runtime comparisons.
 
 For help determining what ran on the GPU and why an operation fell back, see
-:doc:`understanding-acceleration`. The estimator inventory is in
+:doc:`setup-and-diagnostics`. The estimator inventory is in
 :doc:`supported-functionality`, along with detailed estimator-specific
 conditions.
 

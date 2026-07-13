@@ -38,7 +38,7 @@ Jupyter, environment-variable, and programmatic activation options.
 when an estimator or operation cannot be accelerated. Fallback can depend on
 parameters, input types, methods, or library versions, so existing workflows
 continue to run even when only part of a pipeline is GPU accelerated. Use the
-:doc:`logging and profiling tools <understanding-acceleration>` to see exactly
+:doc:`logging and profiling tools <setup-and-diagnostics>` to see exactly
 where execution occurs.
 
 Where to Go Next
@@ -46,8 +46,8 @@ Where to Go Next
 
 * :doc:`supported-functionality` lists the estimators that can be accelerated,
   including estimator-specific fallback conditions and behavioral differences.
-* :doc:`understanding-acceleration` explains fallback, results, performance,
-  memory management, logging, and profiling.
+* :doc:`setup-and-diagnostics` explains activation, fallback, memory
+  management, logging, and profiling.
 * :doc:`benchmarks` provides representative performance results.
 * :doc:`examples/index` contains complete examples and notebook workflows.
 * :doc:`faq` covers interoperability, serialization, and bug reporting.
@@ -57,7 +57,7 @@ Where to Go Next
 
    self
    supported-functionality
-   understanding-acceleration
+   setup-and-diagnostics
    benchmarks
    examples/index
    faq

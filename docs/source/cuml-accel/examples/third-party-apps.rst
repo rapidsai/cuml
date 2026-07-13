@@ -114,4 +114,4 @@ falls back to CPU execution. To detect this, set the log level to
 
 Lines containing ``ran on GPU`` confirm GPU execution. Lines
 containing ``falling back to CPU`` indicate a fallback, along with
-the reason. See :doc:`../understanding-acceleration` for more detail.
+the reason. See :doc:`../setup-and-diagnostics` for more detail.

@@ -1,5 +1,5 @@
-Understanding Acceleration
-==========================
+Acceleration Setup and Diagnostics
+==================================
 
 ``cuml.accel`` intercepts supported Scikit-Learn, UMAP, and HDBSCAN estimator
 operations and dispatches them to GPU implementations. When an operation
@@ -55,26 +55,10 @@ libraries it will accelerate:
 
    cuml.accel.install()
 
-What Results to Expect
-----------------------
+.. _what-results-to-expect:
 
-GPU and CPU results should be equivalent in model quality, but they are not
-guaranteed to be numerically identical. Parallel floating-point operations may
-run in a different order, and some GPU algorithms use implementations designed
-for highly parallel hardware. Compare appropriate quality metrics, such as
-``score`` or accuracy, instead of requiring identical fitted coefficients.
-Estimator-specific differences are documented in
-:doc:`supported-functionality`. Please
-`report a bug`_ if acceleration causes an error or measurably worse model
-quality.
-
-Performance depends on the estimator and workload. Larger datasets generally
-benefit most; on small inputs, initialization and data-transfer costs can make
-GPU execution no faster, or even slower. Some GPU operations use
-runtime-compiled kernels, so their first invocation may include compilation
-overhead. Warm up the operation before timing it and compare end-to-end runtime
-with and without ``cuml.accel``. See :doc:`benchmarks` for representative
-results.
+For result-equivalence and performance guidance, see
+:ref:`general-behavior`.
 
 Memory Management
 -----------------
@@ -100,7 +84,6 @@ which operations are being accelerated on GPU and which are falling back to CPU
 execution. This can be particularly useful for debugging performance issues or
 understanding why certain operations might not be accelerated.
 
-.. _report a bug: https://github.com/rapidsai/cuml/issues/new?template=bug_report.md
 .. _managed memory: https://developer.nvidia.com/blog/unified-memory-cuda-beginners/
 
 Logging
