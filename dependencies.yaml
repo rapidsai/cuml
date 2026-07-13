@@ -517,6 +517,7 @@ dependencies:
           - &skl2onnx skl2onnx
           - sphinx
           - sphinx-copybutton
+          - sphinx-design
           - sphinx-markdown-tables
       - output_types: conda
         packages:

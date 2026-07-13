@@ -6,8 +6,7 @@ operations and dispatches them to GPU implementations. When an operation
 cannot run on the GPU, it transparently uses the original CPU implementation
 instead. A fallback may depend on the estimator, method, parameter values,
 input data, or installed library version. See :doc:`supported-functionality`
-for the accelerated estimator inventory and :doc:`limitations` for the exact
-fallback conditions.
+for the accelerated estimator inventory and exact fallback conditions.
 
 CPU fallback preserves compatibility, but frequent transitions between CPU
 and GPU execution may reduce the overall speedup. The logging and profiling
@@ -64,7 +63,8 @@ guaranteed to be numerically identical. Parallel floating-point operations may
 run in a different order, and some GPU algorithms use implementations designed
 for highly parallel hardware. Compare appropriate quality metrics, such as
 ``score`` or accuracy, instead of requiring identical fitted coefficients.
-Estimator-specific differences are documented in :doc:`limitations`. Please
+Estimator-specific differences are documented in
+:doc:`supported-functionality`. Please
 `report a bug`_ if acceleration causes an error or measurably worse model
 quality.
 

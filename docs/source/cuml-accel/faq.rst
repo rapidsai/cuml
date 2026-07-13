@@ -50,7 +50,8 @@ runtime comparisons.
 
 For help determining what ran on the GPU and why an operation fell back, see
 :doc:`understanding-acceleration`. The estimator inventory is in
-:doc:`supported-functionality`, with detailed conditions in :doc:`limitations`.
+:doc:`supported-functionality`, along with detailed estimator-specific
+conditions.
 
 .. _Python pickle documentation: https://docs.python.org/3/library/pickle.html
 .. _cuML issue tracker: https://github.com/rapidsai/cuml/issues/new?template=bug_report.md

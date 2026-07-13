@@ -55,6 +55,7 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
 ipython_mplbackend = "str"
@@ -227,7 +228,10 @@ numpydoc_class_members_toctree = False
 REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
-    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-limitations/index.html": (
+        "cuml-accel/supported-functionality/"
+    ),
+    "cuml-accel/limitations/index.html": "cuml-accel/supported-functionality/",
     "zero-code-change-logging/index.html": "cuml-accel/understanding-acceleration/",
     "cuml-accel/logging-and-profiling/index.html": (
         "cuml-accel/understanding-acceleration/"
@@ -246,7 +250,7 @@ def setup_redirects(app, docname):
         <head>
             <meta http-equiv="refresh" content="1; url={new_path}" />
             <script>
-            window.location.href = "{new_path}"
+            window.location.href = "{new_path}" + window.location.hash
             </script>
         </head>
         </html>
@@ -265,6 +269,7 @@ def setup_redirects(app, docname):
 
 def setup(app):
     app.add_css_file("custom.css")
+    app.add_js_file("open-details-on-fragment.js")
     app.connect("build-finished", setup_redirects)
 
 

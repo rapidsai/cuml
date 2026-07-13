@@ -44,9 +44,8 @@ where execution occurs.
 Where to Go Next
 ----------------
 
-* :doc:`supported-functionality` lists the estimators that can be accelerated.
-* :doc:`limitations` documents estimator-specific fallback conditions and
-  behavioral differences.
+* :doc:`supported-functionality` lists the estimators that can be accelerated,
+  including estimator-specific fallback conditions and behavioral differences.
 * :doc:`understanding-acceleration` explains fallback, results, performance,
   memory management, logging, and profiling.
 * :doc:`benchmarks` provides representative performance results.
@@ -58,7 +57,6 @@ Where to Go Next
 
    self
    supported-functionality
-   limitations
    understanding-acceleration
    benchmarks
    examples/index

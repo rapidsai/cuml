@@ -80,6 +80,7 @@ dependencies:
 - skl2onnx
 - sphinx
 - sphinx-copybutton
+- sphinx-design
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-64==2.28
