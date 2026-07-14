@@ -208,6 +208,11 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         )
         self.weights = weights
 
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.multi_output = True
+        return tags
+
     @generate_docstring()
     @mlfunc(set_input_type=True)
     def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsRegressor":
