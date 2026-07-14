@@ -5,7 +5,7 @@
 # SPDX-FileCopyrightText: Eric Martin <eric@ericmart.in>
 # SPDX-FileCopyrightText: Giorgio Patrini <giorgio.patrini@anu.edu.au>
 # SPDX-FileCopyrightText: Eric Chang <ericchang2017@u.northwestern.edu>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 # Original authors from Sckit-Learn:
