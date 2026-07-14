@@ -1,23 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import warnings
 
-import cupy
-import numpy as np
+import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_random_seed
 from cuml.manifold.utils import extract_knn_graph
 
@@ -400,7 +392,7 @@ class TSNE(InteropMixin,
         (https://arxiv.org/abs/1807.11824).
 
     """
-    embedding_ = CumlArrayDescriptor(order="F")
+    embedding_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.manifold.TSNE"
 
@@ -490,8 +482,8 @@ class TSNE(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "embedding_": to_gpu(model.embedding_),
-            "kl_divergence_": to_gpu(model.kl_divergence_),
+            "embedding_": ArrayIndexPair(cp.asarray(model.embedding_, order="F"), None),
+            "kl_divergence_": model.kl_divergence_,
             "learning_rate_": model.learning_rate_,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
@@ -499,8 +491,8 @@ class TSNE(InteropMixin,
 
     def _attrs_to_cpu(self, model):
         return {
-            "embedding_": to_cpu(self.embedding_),
-            "kl_divergence_": to_cpu(self.kl_divergence_),
+            "embedding_": self.embedding_.array.get(order="A"),
+            "kl_divergence_": self.kl_divergence_,
             "learning_rate_": self.learning_rate_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
@@ -566,7 +558,7 @@ class TSNE(InteropMixin,
 
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse')
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -631,10 +623,10 @@ class TSNE(InteropMixin,
             knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
 
         # Allocate output array
-        embedding = cupy.zeros(
+        embedding = cp.zeros(
             (n_samples, self.n_components),
             order="F",
-            dtype=np.float32,
+            dtype=cp.float32,
         )
         cdef uintptr_t embed_ptr = <uintptr_t>embedding.data.ptr
 
@@ -680,7 +672,7 @@ class TSNE(InteropMixin,
         self._kl_divergence_ = kl_divergence
         self.n_iter_ = n_iter
         self.learning_rate_ = params.pre_learning_rate
-        self.embedding_ = CumlArray(data=embedding, index=index)
+        self.embedding_ = ArrayIndexPair(embedding, index)
 
         return self
 
@@ -690,10 +682,10 @@ class TSNE(InteropMixin,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @reflect
+    @mlfunc(preserve_index=True)
     def fit_transform(
         self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
-    ) -> CumlArray:
+    ):
         """
         Fit X into an embedded space and return that transformed output.
         """
