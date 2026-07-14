@@ -64,13 +64,13 @@ scikit-learn
 sklearn.cluster
 ~~~~~~~~~~~~~~~
 
-The algorithms used in ``cuml`` differ from those in scikit-learn. As such, you
+The algorithms used in cuML differ from those in scikit-learn. As such, you
 shouldn't expect the fitted attributes (e.g. ``labels_``) to numerically match
 an estimator fitted without ``cuml.accel``.
 
 To compare results between estimators, we recommend comparing scores like
 ``sklearn.metrics.adjusted_rand_score`` or
-``sklearn.metrics.adjusted_mutual_info_score``. For low dimensional data you
+``sklearn.metrics.adjusted_mutual_info_score``. For low-dimensional data, you
 can also visually inspect the resulting cluster assignments.
 
 .. dropdown:: ``KMeans``
@@ -147,8 +147,8 @@ randomized or less-numerically-stable solvers like ``"randomized"`` or
 
    Additional notes:
 
-   - Parameters for the ``"randomized"`` solver like ``random_state``,
-     ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+   - Parameters for the ``"randomized"`` solver, such as ``random_state``,
+     ``n_oversamples``, and ``power_iteration_normalizer``, are ignored.
 
 
 .. dropdown:: ``IncrementalPCA``
@@ -172,15 +172,15 @@ randomized or less-numerically-stable solvers like ``"randomized"`` or
 
    Additional notes:
 
-   - Parameters for the ``"randomized"`` solver like ``random_state``,
-     ``n_oversamples``, ``power_iteration_normalizer`` are ignored.
+   - Parameters for the ``"randomized"`` solver, such as ``random_state``,
+     ``n_oversamples``, and ``power_iteration_normalizer``, are ignored.
 
 
 sklearn.ensemble
 ~~~~~~~~~~~~~~~~
 
-The random forest implementation used by ``cuml.accel`` algorithmically
-differs from the one in scikit-learn. As such, you
+The random forest implementation used by ``cuml.accel`` differs algorithmically
+from the one in scikit-learn. As such, you
 shouldn't expect the fitted attributes (e.g. ``estimators_``) to numerically match
 an estimator fitted without ``cuml.accel``.
 
@@ -325,8 +325,8 @@ sklearn.manifold
 
    - If ``n_components`` is not ``2``.
    - If ``init`` is an array.
-   - If ``init='pca'`` and X is sparse
-   - If ``metric`` isn't one of the supported metrics ( ``"l2"``, ``"euclidean"``,
+   - If ``init="pca"`` and ``X`` is sparse.
+   - If ``metric`` isn't one of the supported metrics (``"l2"``, ``"euclidean"``,
      ``"sqeuclidean"``, ``"cityblock"``, ``"l1"``, ``"manhattan"``,
      ``"minkowski"``, ``"chebyshev"``, ``"cosine"``, ``"correlation"``).
 
@@ -337,7 +337,7 @@ sklearn.manifold
    - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
    While the exact numerical output for TSNE may differ from that obtained without
-   ``cuml.accel``, we expect the *quality* of results will be approximately as
+   ``cuml.accel``, we expect the result *quality* to be approximately as
    good in most cases. Beyond comparing the visual representation, you may find
    comparing the trustworthiness score (computed via
    ``sklearn.manifold.trustworthiness``) or the ``kl_divergence_`` fitted
@@ -351,7 +351,7 @@ sklearn.manifold
 
    - If ``affinity`` is not ``"nearest_neighbors"`` or ``"precomputed"``.
    - If ``X`` is sparse.
-   - If ``X`` has only 1 feature.
+   - If ``X`` has only one feature.
 
 
    The following fitted attributes are currently not computed:
@@ -371,7 +371,7 @@ sklearn.neighbors
 
    ``NearestNeighbors`` will fall back to CPU in the following cases:
 
-   - If ``metric`` is not one of the supported metrics ( ``"l2"``,
+   - If ``metric`` is not one of the supported metrics (``"l2"``,
      ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
      ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
      ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
@@ -379,11 +379,11 @@ sklearn.neighbors
 
    Additional notes:
 
-   - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
-     implementation in cuml will always be used.
+   - The ``algorithm`` parameter is ignored. cuML always uses the GPU-accelerated
+     ``"brute"`` implementation.
 
-   - The ``radius_neighbors`` method isn't implemented in cuml and will always
-     fall back to CPU.
+   - cuML does not implement ``radius_neighbors``, so this method always falls
+     back to the CPU.
 
    - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
@@ -393,7 +393,7 @@ sklearn.neighbors
 
    ``KNeighborsClassifier`` will fall back to CPU in the following cases:
 
-   - If ``metric`` is not one of the supported metrics ( ``"l2"``,
+   - If ``metric`` is not one of the supported metrics (``"l2"``,
      ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
      ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
      ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
@@ -401,8 +401,8 @@ sklearn.neighbors
 
    Additional notes:
 
-   - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
-     implementation in cuml will always be used.
+   - The ``algorithm`` parameter is ignored. cuML always uses the GPU-accelerated
+     ``"brute"`` implementation.
 
 
 .. dropdown:: ``KNeighborsRegressor``
@@ -410,7 +410,7 @@ sklearn.neighbors
 
    ``KNeighborsRegressor`` will fall back to CPU in the following cases:
 
-   - If ``metric`` is not one of the supported metrics ( ``"l2"``,
+   - If ``metric`` is not one of the supported metrics (``"l2"``,
      ``"euclidean"``, ``"l1"``, ``"cityblock"``, ``"manhattan"``, ``"taxicab"``,
      ``"canberra"``, ``"minkowski"``, ``"lp"``, ``"chebyshev"``, ``"linf"``,
      ``"jensenshannon"``, ``"cosine"``, ``"correlation"``, ``"inner_product"``,
@@ -418,8 +418,8 @@ sklearn.neighbors
 
    Additional notes:
 
-   - The ``algorithm`` parameter is ignored, the GPU accelerated ``"brute"``
-     implementation in cuml will always be used.
+   - The ``algorithm`` parameter is ignored. cuML always uses the GPU-accelerated
+     ``"brute"`` implementation.
 
 
 .. dropdown:: ``KernelDensity``
@@ -437,7 +437,7 @@ sklearn.neighbors
 
    - The ``algorithm``, ``atol``, ``rtol``, ``breadth_first``, and ``leaf_size``
      parameters are ignored. The GPU accelerated pairwise brute-force
-     implementation in cuml will always be used.
+     implementation in cuML will always be used.
 
 
 sklearn.preprocessing
@@ -449,7 +449,7 @@ sklearn.preprocessing
    ``StandardScaler`` will fall back to CPU in the following cases:
 
    - If ``X`` is sparse.
-   - When run on scikit-learn < 1.8.
+   - When run with ``scikit-learn<1.8``.
    - If a callback is configured with ``set_callbacks``.
 
 
@@ -458,7 +458,7 @@ sklearn.preprocessing
 
    ``MinMaxScaler`` will fall back to CPU in the following cases:
 
-   - When run on scikit-learn < 1.8.
+   - When run with ``scikit-learn<1.8``.
 
 
 .. dropdown:: ``MaxAbsScaler``
@@ -467,7 +467,7 @@ sklearn.preprocessing
    ``MaxAbsScaler`` will fall back to CPU in the following cases:
 
    - If ``X`` is sparse.
-   - When run on scikit-learn < 1.8.
+   - When run with ``scikit-learn<1.8``.
 
 
 .. dropdown:: ``PolynomialFeatures``
@@ -477,7 +477,7 @@ sklearn.preprocessing
 
    - If ``X`` is sparse.
    - If ``order`` is ``"F"``.
-   - When run on scikit-learn < 1.8.
+   - When run with ``scikit-learn<1.8``.
 
 
 .. dropdown:: ``LabelEncoder``
@@ -515,7 +515,8 @@ sklearn.preprocessing
 sklearn.svm
 ~~~~~~~~~~~
 
-The SVM used by ``cuml.accel`` differs from those used in scikit-learn. As such,
+The SVM implementations used by ``cuml.accel`` differ from those in scikit-learn.
+As such,
 you shouldn't expect the fitted attributes (e.g. ``coef_`` or
 ``support_vectors_``) to numerically match an estimator fitted without
 ``cuml.accel``.
@@ -532,10 +533,10 @@ scores like ``sklearn.metrics.r2_score`` (for regression) or
    - If ``kernel="precomputed"`` or is a callable.
    - If ``y`` is multiclass.
    - If ``probability=True``. The ``probability`` parameter is deprecated in
-     ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend using
-     wrapping ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV`` like
-     ``CalibratedClassifierCV(SVC(), ensemble=False)`` instead. This will be
-     supported across ``scikit-learn`` versions, and won't require CPU fallback.
+     ``scikit-learn>=1.9``, as well as in ``cuml>=26.06``. We recommend wrapping
+     ``SVC`` with ``sklearn.calibration.CalibratedClassifierCV``, for example
+     ``CalibratedClassifierCV(SVC(), ensemble=False)``. This approach is supported
+     across scikit-learn versions and does not require CPU fallback.
 
 
 .. dropdown:: ``SVR``
@@ -599,17 +600,17 @@ UMAP
    - Reproducibility with the use of a seed (the ``random_state`` parameter) comes
      at the relative expense of performance.
 
-   - Parallelism during the optimization stage implies numerical imprecisions,
-     which can lead to difference in the results between CPU and GPU in general.
+   - Parallelism during the optimization stage introduces numerical imprecision,
+     which can lead to differences between CPU and GPU results.
 
    - ONNX export via ``skl2onnx`` is not supported for this estimator.
 
-   - We have observed compatibility issues with UMAP for numba versions 0.62.0 and
-     above. For best stability, we recommend using numba versions earlier than
-     0.62.0 when accelerating UMAP with cuml.accel.
+   - We have observed compatibility issues with UMAP when using ``numba>=0.62.0``.
+     For best stability, we recommend using ``numba<0.62.0`` when accelerating
+     UMAP with ``cuml.accel``.
 
    While the exact numerical output for UMAP may differ from that obtained without
-   ``cuml.accel``, we expect the *quality* of results will be approximately as
+   ``cuml.accel``, we expect the result *quality* to be approximately as
    good in most cases. Beyond comparing the visual representation, you may find
    comparing the trustworthiness score (computed via
    ``sklearn.manifold.trustworthiness``) useful.
@@ -636,7 +637,7 @@ HDBSCAN
 
    Additional notes:
 
-   - The ``HDBSCAN`` in ``cuml`` uses a parallel MST implementation, which means
+   - cuML's ``HDBSCAN`` implementation uses a parallel MST, which means
      the results are not deterministic when there are duplicates in the mutual
      reachability graph.
    - ONNX export via ``skl2onnx`` is not supported for this estimator.
