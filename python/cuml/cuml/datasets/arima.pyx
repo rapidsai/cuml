@@ -6,7 +6,7 @@ from random import randint
 
 import cupy as cp
 
-from cuml.internals import get_handle, reflect
+from cuml.internals import get_handle, mlfunc
 from cuml.tsa._deprecation import deprecated_tsa_api
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -42,7 +42,7 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
 
 
 @deprecated_tsa_api("cuml.datasets.make_arima")
-@reflect(array=None)
+@mlfunc(array_arg=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype="float64"):

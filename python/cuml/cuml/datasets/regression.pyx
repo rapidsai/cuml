@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 from random import randint
@@ -7,7 +7,7 @@ from random import randint
 import cupy as cp
 
 import cuml.internals.nvtx as nvtx
-from cuml.internals import get_handle, reflect
+from cuml.internals import get_handle, mlfunc
 
 from libc.stdint cimport uint64_t, uintptr_t
 from libcpp cimport bool
@@ -49,7 +49,7 @@ cdef extern from "cuml/datasets/make_regression.hpp" namespace "ML" nogil:
 
 
 @nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
-@reflect(array=None)
+@mlfunc(array_arg=None)
 def make_regression(
     n_samples=100,
     n_features=2,
