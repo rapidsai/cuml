@@ -190,13 +190,13 @@ inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStr
   // exact for current RF problem sizes: integer values up to 2^53 are exactly representable by
   // double, and IdxT row indexing is far below that limit.
   auto op = [in] __device__(double* out, std::size_t i) {
-    auto const buffer = in[i].ToReductionBuffer();
-    auto const offset = i * reduction_buffer_size_v<BinT>;
-    for (std::size_t field = 0; field < reduction_buffer_size_v<BinT>; ++field) {
-      out[offset + field] = buffer[field];
-    }
+    auto const bin_idx = i / reduction_buffer_size_v<BinT>;
+    auto const field   = i % reduction_buffer_size_v<BinT>;
+    auto const buffer  = in[bin_idx].ToReductionBuffer();
+    *out               = buffer[field];
   };
-  raft::linalg::writeOnlyUnaryOp<double, decltype(op), std::size_t, 256>(out, len, op, stream);
+  raft::linalg::writeOnlyUnaryOp<double, decltype(op), std::size_t, 256>(
+    out, len * reduction_buffer_size_v<BinT>, op, stream);
 }
 
 template <typename BinT>
