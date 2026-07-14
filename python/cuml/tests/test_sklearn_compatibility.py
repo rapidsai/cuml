@@ -182,11 +182,11 @@ EXCLUDED = {
 
 XFAILS = {
     KMeans: {
-        "check_sample_weight_equivalence_on_dense_data": "KMeans sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     LogisticRegression: {
-        "check_sample_weight_equivalence_on_dense_data": "LogisticRegression sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "LogisticRegression does not handle sparse data",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
         "check_class_weight_classifiers": "LogisticRegression does not handle class weights properly",
     },
     Ridge: {
@@ -197,70 +197,63 @@ XFAILS = {
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
         ),
-        "check_sample_weight_equivalence_on_sparse_data": (
-            "RandomForestClassifier does not handle sparse data"
-        ),
     },
     RandomForestRegressor: {
-        "check_regressor_data_not_an_array": "RandomForestRegressor does not handle non-array data",
+        "check_regressor_data_not_an_array": (
+            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
+            "float64). Our float32 and float64 results differ _just enough_ that "
+            "this test fails on tolerances."
+        ),
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
         ),
-        "check_sample_weight_equivalence_on_sparse_data": (
-            "RandomForestRegressor does not handle sparse data"
-        ),
     },
     KNeighborsRegressor: {
-        "check_supervised_y_2d": "KNeighborsRegressor does not handle 2D y",
+        "check_regressor_multioutput": (
+            "predict returns float32 output, but the test expects float64"
+        ),
     },
     LinearSVC: {
-        "check_sample_weight_equivalence_on_dense_data": "LinearSVC sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     LinearSVR: {
-        "check_sample_weight_equivalence_on_dense_data": "LinearSVR sample weight equivalence not implemented",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
     SVC: {
-        "check_sample_weight_equivalence_on_dense_data": "SVC sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "SVC does not handle sparse data",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     SVR: {
-        "check_sample_weight_equivalence_on_dense_data": "SVR sample weight equivalence not implemented",
-        "check_sample_weight_equivalence_on_sparse_data": "SVR does not handle sparse data",
-    },
-    PCA: {
-        "check_fit2d_1sample": "PCA does not handle single sample",
-        "check_fit2d_1feature": "PCA does not handle single feature",
-    },
-    TruncatedSVD: {
-        "check_fit2d_1sample": "TruncatedSVD does not handle single sample",
-        "check_fit2d_1feature": "TruncatedSVD does not handle single feature",
+        "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     TSNE: {
         "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
         "check_pipeline_consistency": "TSNE results are not deterministic",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
-        "check_fit2d_1sample": "TSNE does not handle single sample",
-        "check_fit2d_1feature": "TSNE does not handle single feature",
         "check_fit2d_predict1d": "TSNE only supports n_components = 2",
     },
     UMAP: {
-        "check_transformer_data_not_an_array": "UMAP does not handle non-array data",
+        "check_transformer_data_not_an_array": (
+            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
+            "float64). Our float32 and float64 results differ _just enough_ that "
+            "this test fails on tolerances."
+        ),
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
         "check_methods_subset_invariance": "UMAP results depend on data subset",
         "check_transformer_preserve_dtypes": "UMAP returns float32 embeddings",
     },
     Lasso: {
-        "check_sample_weight_equivalence_on_sparse_data": "Lasso QN solver has issues with sample weights",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     ElasticNet: {
-        "check_sample_weight_equivalence_on_sparse_data": "ElasticNet QN solver has issues with sample weights",
+        "check_sample_weight_equivalence_on_sparse_data": "Sample weights not equal to repeating data",
     },
     StandardScaler: {
         "check_no_attributes_set_in_init": "Vendored __init__ sets copy/with_mean/with_std as attributes",
-        "check_fit_score_takes_y": "AttributeError: 'int' object has no attribute 'repeat'",
         "check_do_not_raise_errors_in_init_or_set_params": "StandardScaler(**params) raises an exception",
     },
 }
