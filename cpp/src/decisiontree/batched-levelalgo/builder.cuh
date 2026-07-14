@@ -152,11 +152,10 @@ template <typename ObjectiveT>
 struct Builder {
   typedef typename ObjectiveT::DataT DataT;
   typedef typename ObjectiveT::LabelT LabelT;
-  typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
   typedef SparseTreeNode<DataT, LabelT> NodeT;
-  typedef Split<DataT, IdxT> SplitT;
-  typedef Dataset<DataT, LabelT, IdxT> DatasetT;
+  typedef Split<DataT, std::int64_t> SplitT;
+  typedef Dataset<DataT, LabelT> DatasetT;
   typedef Quantiles<DataT> QuantilesT;
 
   /** default threads per block for most kernels in here */
@@ -177,11 +176,11 @@ struct Builder {
   /** quantiles */
   QuantilesT quantiles;
   /** Tree index */
-  IdxT treeid;
+  std::int64_t treeid;
   /** Seed used for randomization */
   uint64_t seed;
   /** number of nodes created in the current batch */
-  IdxT* n_nodes;
+  std::int64_t* n_nodes;
   /** buffer of segmented histograms*/
   BinT* histograms;
   /** mutex array used for atomically updating best split */
@@ -191,9 +190,9 @@ struct Builder {
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
   /** device AOS to map CTA blocks along dimx to nodes of a batch */
-  WorkloadInfo<IdxT>* workload_info;
+  WorkloadInfo* workload_info;
   /** host AOS to map CTA blocks along dimx to nodes of a batch */
-  WorkloadInfo<IdxT>* h_workload_info;
+  WorkloadInfo* h_workload_info;
   /** maximum CTA blocks along dimx */
   int max_blocks_dimx = 0;
   /** host array of splits */
@@ -202,9 +201,9 @@ struct Builder {
   int n_blks_for_cols = 10;
   /** Memory alignment value */
   const size_t align_value = 512;
-  IdxT* column_samples;
+  std::int64_t* column_samples;
   /** temporary row IDs for row-wise out-of-place partitioning */
-  IdxT* partition_row_ids;
+  std::int64_t* partition_row_ids;
   /** rmm device workspace buffer */
   rmm::device_uvector<char> d_buff;
   /** pinned host buffer to store the trained nodes */
@@ -212,16 +211,16 @@ struct Builder {
 
   Builder(const raft::handle_t& handle,
           cudaStream_t s,
-          IdxT treeid,
+          std::int64_t treeid,
           uint64_t seed,
           const DecisionTreeParams& p,
           const DataT* data,
           const LabelT* labels,
           const double* sample_weight,
-          IdxT n_rows,
-          IdxT n_cols,
-          rmm::device_uvector<IdxT>* row_ids,
-          IdxT n_classes,
+          std::int64_t n_rows,
+          std::int64_t n_cols,
+          rmm::device_uvector<std::int64_t>* row_ids,
+          std::int64_t n_classes,
           const QuantilesT& q,
           bool row_major = false)
     : handle(handle),
@@ -234,10 +233,10 @@ struct Builder {
               sample_weight,
               n_rows,
               n_cols,
-              row_major ? n_cols : IdxT{1},
-              row_major ? IdxT{1} : n_rows,
-              static_cast<IdxT>(row_ids->size()),
-              std::max(IdxT{1}, IdxT(params.max_features * n_cols)),
+              row_major ? n_cols : std::int64_t{1},
+              row_major ? std::int64_t{1} : n_rows,
+              static_cast<std::int64_t>(row_ids->size()),
+              std::max(std::int64_t{1}, std::int64_t(params.max_features * n_cols)),
               row_ids->data(),
               n_classes},
       quantiles(q),
@@ -293,20 +292,21 @@ struct Builder {
     size_t max_len_histograms =
       max_batch * params.max_n_bins * n_blks_for_cols * dataset.num_outputs;
 
-    d_wsize += calculateAlignedBytes(sizeof(IdxT));                       // n_nodes
+    d_wsize += calculateAlignedBytes(sizeof(std::int64_t));               // n_nodes
     d_wsize += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);  // histograms
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);            // mutex
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);         // splits
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);   // d_work_Items
     d_wsize +=                                                            // workload_info
-      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
+      calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
+    d_wsize += calculateAlignedBytes(sizeof(std::int64_t) * max_batch *
+                                     dataset.n_sampled_cols);  // column_samples
     d_wsize +=
-      calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
+      calculateAlignedBytes(sizeof(std::int64_t) * dataset.n_sampled_rows);  // partition row IDs
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
-      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
+      calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
 
     return std::make_pair(d_wsize, h_wsize);
@@ -327,8 +327,8 @@ struct Builder {
     size_t max_len_histograms =
       max_batch * (params.max_n_bins) * n_blks_for_cols * dataset.num_outputs;
     // device
-    n_nodes = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT));
+    n_nodes = reinterpret_cast<std::int64_t*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(std::int64_t));
     histograms = reinterpret_cast<BinT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);
     mutex = reinterpret_cast<int*>(d_wspace);
@@ -337,18 +337,18 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
     d_work_items = reinterpret_cast<NodeWorkItem*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);
-    workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
-    column_samples = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);
-    partition_row_ids = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
+    workload_info = reinterpret_cast<WorkloadInfo*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
+    column_samples = reinterpret_cast<std::int64_t*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(std::int64_t) * max_batch * dataset.n_sampled_cols);
+    partition_row_ids = reinterpret_cast<std::int64_t*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(std::int64_t) * dataset.n_sampled_rows);
 
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, builder_stream));
 
     // host
-    h_workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(h_wspace);
-    h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
+    h_workload_info = reinterpret_cast<WorkloadInfo*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo) * max_blocks_dimx);
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
   }
@@ -397,9 +397,9 @@ struct Builder {
   {
     raft::common::nvtx::range fun_scope("Builder::doSplit @builder.cuh [batched-levelalgo]");
     // start fresh on the number of *new* nodes created in this batch
-    RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), builder_stream));
+    RAFT_CUDA_TRY(cudaMemsetAsync(n_nodes, 0, sizeof(std::int64_t), builder_stream));
 
-    const IdxT original_n_sampled_cols = dataset.n_sampled_cols;
+    const std::int64_t original_n_sampled_cols = dataset.n_sampled_cols;
     ASSERT(original_n_sampled_cols > 0 && original_n_sampled_cols <= dataset.n_cols,
            "n_sampled_cols must be in [1, n_cols]");
     const std::size_t max_sampling_rounds =
@@ -421,9 +421,9 @@ struct Builder {
     // Match sklearn's behavior of searching beyond max_features when the
     // sampled features do not yield a valid split.
     for (std::size_t round = 0; !active_items.empty() && round < max_sampling_rounds; ++round) {
-      IdxT sample_offset = IdxT(round) * original_n_sampled_cols;
-      dataset.n_sampled_cols =
-        std::min(original_n_sampled_cols, static_cast<IdxT>(dataset.n_cols) - sample_offset);
+      std::int64_t sample_offset = std::int64_t(round) * original_n_sampled_cols;
+      dataset.n_sampled_cols     = std::min(original_n_sampled_cols,
+                                        static_cast<std::int64_t>(dataset.n_cols) - sample_offset);
       computeBestSplits(active_items, seed, sample_offset);
 
       std::vector<NodeWorkItem> retry_items;
@@ -454,15 +454,15 @@ struct Builder {
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     const auto n_partition_blocks = this->updateWorkloadInfo(work_items);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
-                                                            params.min_impurity_decrease,
-                                                            dataset,
-                                                            d_work_items,
-                                                            splits,
-                                                            workload_info,
-                                                            n_partition_blocks,
-                                                            partition_row_ids,
-                                                            builder_stream);
+    launchNodeSplitKernel<DataT, LabelT, TPB_DEFAULT>(params.min_samples_leaf,
+                                                      params.min_impurity_decrease,
+                                                      dataset,
+                                                      d_work_items,
+                                                      splits,
+                                                      workload_info,
+                                                      n_partition_blocks,
+                                                      partition_row_ids,
+                                                      builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
     raft::common::nvtx::pop_range();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -472,9 +472,9 @@ struct Builder {
 
   void computeBestSplits(const std::vector<NodeWorkItem>& work_items,
                          uint64_t sampling_seed,
-                         IdxT sample_offset)
+                         std::int64_t sample_offset)
   {
-    initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
+    initSplit<DataT, std::int64_t, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     auto n_blocks_dimx     = this->updateWorkloadInfo(work_items);
@@ -482,7 +482,7 @@ struct Builder {
 
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
-    for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
+    for (std::int64_t c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
       computeSplit(c, n_blocks_dimx, work_items.size(), split_smem_config);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
@@ -492,18 +492,18 @@ struct Builder {
 
   void sampleFeatures(const std::vector<NodeWorkItem>& work_items,
                       uint64_t sampling_seed,
-                      IdxT sample_offset)
+                      std::int64_t sample_offset)
   {
     raft::common::nvtx::range fun_scope("feature-sampling");
-    sample_features<IdxT>(column_samples,
-                          d_work_items,
-                          work_items.size(),
-                          treeid,
-                          sampling_seed,
-                          sample_offset,
-                          static_cast<IdxT>(dataset.n_cols),
-                          dataset.n_sampled_cols,
-                          builder_stream);
+    sample_features(column_samples,
+                    d_work_items,
+                    work_items.size(),
+                    treeid,
+                    sampling_seed,
+                    sample_offset,
+                    static_cast<std::int64_t>(dataset.n_cols),
+                    dataset.n_sampled_cols,
+                    builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
@@ -538,7 +538,7 @@ struct Builder {
             use_global_memory_histogram ? 0 : histogram_dynamic_smem_size};
   }
 
-  void computeSplit(IdxT col,
+  void computeSplit(std::int64_t col,
                     size_t n_blocks_dimx,
                     size_t n_work_items,
                     const SharedMemoryConfig& split_smem_config)
@@ -549,8 +549,8 @@ struct Builder {
     auto n_bins    = params.max_n_bins;
     auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
-    auto n_blocks_dimy =
-      std::min<IdxT>(static_cast<IdxT>(n_blks_for_cols), dataset.n_sampled_cols - col);
+    auto n_blocks_dimy = std::min<std::int64_t>(static_cast<std::int64_t>(n_blks_for_cols),
+                                                dataset.n_sampled_cols - col);
     dim3 histogram_grid(ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimx),
                         ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimy),
                         1);
@@ -565,21 +565,21 @@ struct Builder {
     ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
     // call the compute split kernels
     raft::common::nvtx::range kernel_scope("computeSplitKernels @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
-                                                                            params.max_n_bins,
-                                                                            dataset,
-                                                                            quantiles,
-                                                                            d_work_items,
-                                                                            col,
-                                                                            column_samples,
-                                                                            mutex,
-                                                                            splits,
-                                                                            objective,
-                                                                            workload_info,
-                                                                            histogram_grid,
-                                                                            split_grid,
-                                                                            split_smem_config,
-                                                                            builder_stream);
+    launchComputeSplitKernels<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(histograms,
+                                                                      params.max_n_bins,
+                                                                      dataset,
+                                                                      quantiles,
+                                                                      d_work_items,
+                                                                      col,
+                                                                      column_samples,
+                                                                      mutex,
+                                                                      splits,
+                                                                      objective,
+                                                                      workload_info,
+                                                                      histogram_grid,
+                                                                      split_grid,
+                                                                      split_smem_config,
+                                                                      builder_stream);
   }
 
   // Set the leaf value predictions in batch

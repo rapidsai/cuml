@@ -254,41 +254,40 @@ class DecisionTree {
         (std::numeric_limits<LabelT>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
       params.split_criterion = default_criterion;
     }
-    using IdxT = std::int64_t;
     // Dispatch objective family. The objective object switches on the criterion at runtime.
     if (not std::is_same<DataT, LabelT>::value and (params.split_criterion == CRITERION::GINI ||
                                                     params.split_criterion == CRITERION::ENTROPY)) {
       if (sample_weight != nullptr) {
-        return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
-                                                                                   s,
-                                                                                   treeid,
-                                                                                   seed,
-                                                                                   params,
-                                                                                   data,
-                                                                                   labels,
-                                                                                   sample_weight,
-                                                                                   nrows,
-                                                                                   ncols,
-                                                                                   row_ids,
-                                                                                   unique_labels,
-                                                                                   quantiles,
-                                                                                   row_major)
+        return Builder<ClassificationObjectiveFunction<DataT, LabelT, true>>(handle,
+                                                                             s,
+                                                                             treeid,
+                                                                             seed,
+                                                                             params,
+                                                                             data,
+                                                                             labels,
+                                                                             sample_weight,
+                                                                             nrows,
+                                                                             ncols,
+                                                                             row_ids,
+                                                                             unique_labels,
+                                                                             quantiles,
+                                                                             row_major)
           .train();
       }
-      return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                           s,
-                                                                           treeid,
-                                                                           seed,
-                                                                           params,
-                                                                           data,
-                                                                           labels,
-                                                                           sample_weight,
-                                                                           nrows,
-                                                                           ncols,
-                                                                           row_ids,
-                                                                           unique_labels,
-                                                                           quantiles,
-                                                                           row_major)
+      return Builder<ClassificationObjectiveFunction<DataT, LabelT>>(handle,
+                                                                     s,
+                                                                     treeid,
+                                                                     seed,
+                                                                     params,
+                                                                     data,
+                                                                     labels,
+                                                                     sample_weight,
+                                                                     nrows,
+                                                                     ncols,
+                                                                     row_ids,
+                                                                     unique_labels,
+                                                                     quantiles,
+                                                                     row_major)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                (params.split_criterion == CRITERION::MSE ||
@@ -296,36 +295,36 @@ class DecisionTree {
                 params.split_criterion == CRITERION::GAMMA ||
                 params.split_criterion == CRITERION::INVERSE_GAUSSIAN)) {
       if (sample_weight != nullptr) {
-        return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
-                                                                               s,
-                                                                               treeid,
-                                                                               seed,
-                                                                               params,
-                                                                               data,
-                                                                               labels,
-                                                                               sample_weight,
-                                                                               nrows,
-                                                                               ncols,
-                                                                               row_ids,
-                                                                               unique_labels,
-                                                                               quantiles,
-                                                                               row_major)
+        return Builder<RegressionObjectiveFunction<DataT, LabelT, true>>(handle,
+                                                                         s,
+                                                                         treeid,
+                                                                         seed,
+                                                                         params,
+                                                                         data,
+                                                                         labels,
+                                                                         sample_weight,
+                                                                         nrows,
+                                                                         ncols,
+                                                                         row_ids,
+                                                                         unique_labels,
+                                                                         quantiles,
+                                                                         row_major)
           .train();
       }
-      return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                       s,
-                                                                       treeid,
-                                                                       seed,
-                                                                       params,
-                                                                       data,
-                                                                       labels,
-                                                                       sample_weight,
-                                                                       nrows,
-                                                                       ncols,
-                                                                       row_ids,
-                                                                       unique_labels,
-                                                                       quantiles,
-                                                                       row_major)
+      return Builder<RegressionObjectiveFunction<DataT, LabelT>>(handle,
+                                                                 s,
+                                                                 treeid,
+                                                                 seed,
+                                                                 params,
+                                                                 data,
+                                                                 labels,
+                                                                 sample_weight,
+                                                                 nrows,
+                                                                 ncols,
+                                                                 row_ids,
+                                                                 unique_labels,
+                                                                 quantiles,
+                                                                 row_major)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

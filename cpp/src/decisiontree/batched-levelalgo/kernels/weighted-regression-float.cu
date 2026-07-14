@@ -11,9 +11,9 @@ namespace ML {
 namespace DT {
 using DataT      = float;
 using LabelT     = float;
-using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, std::int64_t, true>;
+using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, true>;
 using BinT       = typename ObjectiveT::BinT;
-using DatasetT   = Dataset<DataT, LabelT, std::int64_t>;
+using DatasetT   = Dataset<DataT, LabelT>;
 using NodeT      = SparseTreeNode<DataT, LabelT>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
@@ -28,7 +28,7 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchComputeSplitKernels<DataT, LabelT, std::int64_t, TPB_DEFAULT, ObjectiveT>(
+template void launchComputeSplitKernels<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   std::int64_t n_bins,
   const DatasetT& dataset,
@@ -39,7 +39,7 @@ template void launchComputeSplitKernels<DataT, LabelT, std::int64_t, TPB_DEFAULT
   int* mutex,
   volatile Split<DataT, std::int64_t>* splits,
   ObjectiveT& objective,
-  const WorkloadInfo<std::int64_t>* workload_info,
+  const WorkloadInfo* workload_info,
   dim3 histogram_grid,
   dim3 split_grid,
   const SharedMemoryConfig& split_smem_config,
