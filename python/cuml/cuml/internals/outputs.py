@@ -48,16 +48,13 @@ OUTPUT_TYPES = (
 
 def check_output_type(output_type: str) -> str:
     """Validate and normalize an ``output_type`` value"""
-    # normalize as lower, keeping original str reference to appease the sklearn
-    # standard estimator checks as much as possible.
-    if output_type != (temp := output_type.lower()):
-        output_type = temp
+    output_type = output_type.lower()
     # Check for allowed types. Allow 'cuml' to support internal estimators
     if output_type != "cuml" and output_type not in OUTPUT_TYPES:
         valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
         raise ValueError(
-            f"`output_type` must be one of {valid_output_types}"
-            f" or None. Got: {output_type!r}"
+            f"`{output_type=!r}` is not supported. "
+            f"Expected one of {valid_output_types}, or None."
         )
     return output_type
 
@@ -486,6 +483,7 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     out : object
         The equivalent output, with arrays coerced to `output_type`.
     """
+    check_output_type(output_type)
     # TODO: legacy output paths, remove once `CumlArray`/`SparseCumlArray`
     # are no longer used anywhere.
     if isinstance(obj, CumlArray):
