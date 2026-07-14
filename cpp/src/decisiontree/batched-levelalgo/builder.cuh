@@ -272,7 +272,7 @@ struct Builder {
   {
     if (!distributed) { return 0; }
 
-    return calculateAlignedBytes(sizeof(double) * packedHistogramElements<BinT>(len_histograms));
+    return calculateAlignedBytes(sizeof(double) * reduction_buffer_size_v<BinT> * len_histograms);
   }
 
   /**
@@ -555,7 +555,7 @@ struct Builder {
   {
     auto const& comm  = handle.get_comms();
     auto* packed      = reinterpret_cast<double*>(packed_histograms);
-    auto packed_count = packedHistogramElements<BinT>(len_histograms);
+    auto packed_count = reduction_buffer_size_v<BinT> * len_histograms;
 
     packHistograms(histograms_to_reduce, packed, len_histograms, builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());

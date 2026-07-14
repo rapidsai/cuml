@@ -180,16 +180,8 @@ void launchFindBestSplitsKernel(typename ObjectiveT::BinT* histograms,
                                 cudaStream_t builder_stream);
 
 template <typename BinT>
-HDI constexpr std::size_t reductionBufferSize()
-{
-  return sizeof(decltype(BinT{}.ToReductionBuffer())) / sizeof(double);
-}
-
-template <typename BinT>
-inline std::size_t packedHistogramElements(std::size_t len)
-{
-  return reductionBufferSize<BinT>() * len;
-}
+inline constexpr std::size_t reduction_buffer_size_v =
+  decltype(BinT{}.ToReductionBuffer()){}.size();
 
 template <typename BinT>
 inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStream_t stream)
@@ -199,8 +191,8 @@ inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStr
   // double, and IdxT row indexing is far below that limit.
   auto op = [in] __device__(double* out, std::size_t i) {
     auto const buffer = in[i].ToReductionBuffer();
-    auto const offset = i * reductionBufferSize<BinT>();
-    for (std::size_t field = 0; field < reductionBufferSize<BinT>(); ++field) {
+    auto const offset = i * reduction_buffer_size_v<BinT>;
+    for (std::size_t field = 0; field < reduction_buffer_size_v<BinT>; ++field) {
       out[offset + field] = buffer[field];
     }
   };
@@ -212,8 +204,8 @@ inline void unpackHistograms(const double* in, BinT* out, std::size_t len, cudaS
 {
   auto op = [in] __device__(BinT * out, std::size_t i) {
     decltype(BinT{}.ToReductionBuffer()) buffer{};
-    auto const offset = i * reductionBufferSize<BinT>();
-    for (std::size_t field = 0; field < reductionBufferSize<BinT>(); ++field) {
+    auto const offset = i * reduction_buffer_size_v<BinT>;
+    for (std::size_t field = 0; field < reduction_buffer_size_v<BinT>; ++field) {
       buffer[field] = in[offset + field];
     }
     *out = BinT::FromReductionBuffer(buffer);
