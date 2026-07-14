@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -59,7 +59,7 @@ class RFRegressor : public RegressionFixture<D> {
           nullptr,
           nullptr,
           this->params.rowMajor);
-      handle->sync_stream(this->stream);
+      this->handle->sync_stream(this->stream);
     });
   }
 
@@ -72,16 +72,18 @@ template <typename D>
 std::vector<RegParams> getInputs()
 {
   struct DimInfo {
-    int nrows, ncols, n_informative;
+    int nrows, ncols, n_informative, n_trees;
+    float max_features;
   };
-  struct std::vector<RegParams> out;
+  std::vector<RegParams> out;
   RegParams p;
   p.data.rowMajor = false;
-  p.regression    = {.shuffle        = true,  // Better to shuffle when n_informative < ncols
-                     .effective_rank = -1,    // dataset generation will be faster
+  p.regression    = {.n_informative  = 0,
+                     .effective_rank = -1,  // dataset generation will be faster
                      .bias           = 4.5,
                      .tail_strength  = 0.5,  // unused when effective_rank = -1
                      .noise          = 1.0,
+                     .shuffle        = true,  // Better to shuffle when n_informative < ncols
                      .seed           = 12345ULL};
 
   p.rf                          = set_rf_params(10,                 /*max_depth */
@@ -99,15 +101,18 @@ std::vector<RegParams> getInputs()
                        8,                  /* n_streams */
                        128                 /* max_batch_size */
   );
-  std::vector<DimInfo> dim_info = {{500000, 500, 400}};
+  std::vector<DimInfo> dim_info = {
+    {160000, 64, 48, 500, 0.5f},
+    {320000, 128, 96, 300, 0.35f},
+    {500000, 500, 400, 100, 0.3f},
+  };
   for (auto& di : dim_info) {
-    // Let's run Bosch only for float type
-    if (!std::is_same<D, float>::value && di.ncols == 968) continue;
     p.data.nrows                  = di.nrows;
     p.data.ncols                  = di.ncols;
     p.regression.n_informative    = di.n_informative;
-    p.rf.tree_params.max_features = 1.f;
-    for (auto max_depth : std::vector<int>({7, 11, 15})) {
+    p.rf.n_trees                  = di.n_trees;
+    p.rf.tree_params.max_features = di.max_features;
+    for (auto max_depth : std::vector<int>({7, 11})) {
       p.rf.tree_params.max_depth = max_depth;
       p.data.rowMajor            = false;
       out.push_back(p);
