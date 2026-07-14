@@ -15,7 +15,7 @@ using IdxT       = std::int64_t;
 using ObjectiveT = ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>;
 using BinT       = typename ObjectiveT::BinT;
 using DatasetT   = Dataset<DataT, LabelT, IdxT>;
-using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
+using NodeT      = SparseTreeNode<DataT, LabelT>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(

@@ -38,7 +38,7 @@ namespace DT {
  */
 template <typename DataT, typename LabelT, typename IdxT>
 class NodeQueue {
-  using NodeT = SparseTreeNode<DataT, LabelT, IdxT>;
+  using NodeT = SparseTreeNode<DataT, LabelT>;
   const DecisionTreeParams params;
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> tree;
   std::vector<InstanceRange> node_instances_;
@@ -151,7 +151,7 @@ struct Builder {
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
-  typedef SparseTreeNode<DataT, LabelT, IdxT> NodeT;
+  typedef SparseTreeNode<DataT, LabelT> NodeT;
   typedef Split<DataT, IdxT> SplitT;
   typedef Dataset<DataT, LabelT, IdxT> DatasetT;
   typedef Quantiles<DataT, IdxT> QuantilesT;

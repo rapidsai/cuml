@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -97,7 +97,7 @@ struct TreeMetaDataNode {
   int leaf_counter;
   double train_time;
   std::vector<T> vector_leaf;
-  std::vector<SparseTreeNode<T, L, std::int64_t>> sparsetree;
+  std::vector<SparseTreeNode<T, L>> sparsetree;
   int num_outputs;
 };
 

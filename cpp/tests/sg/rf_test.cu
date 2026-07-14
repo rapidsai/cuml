@@ -574,11 +574,10 @@ class RfSpecialisedTest {
     }
   }
 
-  void ExpectNodeCountsMatchTrainingData(
-    const std::vector<SparseTreeNode<DataT, LabelT, std::int64_t>>& tree,
-    std::size_t node_id,
-    const std::vector<int>& rows,
-    const thrust::host_vector<DataT>& h_X)
+  void ExpectNodeCountsMatchTrainingData(const std::vector<SparseTreeNode<DataT, LabelT>>& tree,
+                                         std::size_t node_id,
+                                         const std::vector<int>& rows,
+                                         const thrust::host_vector<DataT>& h_X)
   {
     ASSERT_LT(node_id, tree.size());
     const auto& node = tree[node_id];
