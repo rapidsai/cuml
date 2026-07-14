@@ -537,6 +537,8 @@ class KMeans(InteropMixin,
         Compute k-means clustering with X.
 
         """
+        self._validate_fit_params()
+
         # Process input arrays
         X, sample_weight = check_inputs(
             self,
@@ -596,12 +598,13 @@ class KMeans(InteropMixin,
 
         return self
 
-    def _validate_fit_row_constraints(self, n_rows):
+    def _validate_fit_params(self):
         if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
             raise ValueError(
                 f"n_clusters={self.n_clusters} should be a positive integer."
             )
 
+    def _validate_fit_row_constraints(self, n_rows):
         if not self._multi_gpu and n_rows < self.n_clusters:
             raise ValueError(
                 f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."

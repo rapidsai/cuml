@@ -25,12 +25,6 @@ def _get_inertia_and_n_samples(estimator):
     return (estimator.inertia_, len(estimator.labels_))
 
 
-def _get_local_n_rows(objs, has_weights):
-    if not has_weights:
-        return sum(len(X) for X in objs)
-    return sum(len(X) for X, _ in objs)
-
-
 def _validate_n_clusters(n_clusters):
     if not isinstance(n_clusters, Integral) or n_clusters <= 0:
         raise ValueError(
@@ -105,15 +99,15 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         from cuml.cluster.kmeans_mg import KMeansMG
 
         comm_state = get_raft_comm_state(sessionId, get_worker())
-        n_rows = _get_local_n_rows(objs, has_weights)
+        X = objs if not has_weights else [X for X, _ in objs]
 
-        KMeansMG(
+        model = KMeansMG(
             handle=comm_state["handle"],
             output_type=datatype,
-            rank=comm_state.get("wid"),
-            n_workers=comm_state.get("nworkers"),
             **kwargs,
-        )._validate_fit_row_constraints(n_rows)
+        )
+        model._validate_fit_params()
+        model.validate(X, comm_state["wid"], comm_state["nworkers"])
 
     @staticmethod
     @mnmg_import
