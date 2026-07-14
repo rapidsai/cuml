@@ -54,7 +54,7 @@ template <typename DataT, typename LabelT, int TPB>
 struct NodeSplitPartitionWriter {
   Dataset<DataT, LabelT> dataset;
   const NodeWorkItem* work_items;
-  const Split<DataT, std::int64_t>* splits;
+  const Split<DataT>* splits;
   const WorkloadInfo* workload_info;
   std::int64_t* partition_row_ids;
 
@@ -87,7 +87,7 @@ static __global__ void nodeSplitCopyBackKernel(const std::int64_t min_samples_le
                                                const DataT min_impurity_decrease,
                                                const Dataset<DataT, LabelT> dataset,
                                                const NodeWorkItem* work_items,
-                                               const Split<DataT, std::int64_t>* splits,
+                                               const Split<DataT>* splits,
                                                const WorkloadInfo* workload_info,
                                                const std::int64_t* partition_row_ids)
 {
@@ -113,7 +113,7 @@ void launchNodeSplitKernel(const std::int64_t min_samples_leaf,
                            const DataT min_impurity_decrease,
                            const Dataset<DataT, LabelT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, std::int64_t>* splits,
+                           const Split<DataT>* splits,
                            const WorkloadInfo* workload_info,
                            size_t n_blocks_dimx,
                            std::int64_t* partition_row_ids,
@@ -333,14 +333,14 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
                                             std::int64_t colStart,
                                             const std::int64_t* column_samples,
                                             int* mutex,
-                                            volatile Split<DataT, std::int64_t>* splits,
+                                            volatile Split<DataT>* splits,
                                             ObjectiveT objective)
 {
   using BinT                  = typename ObjectiveT::BinT;
   constexpr int n_split_warps = (TPB + raft::WarpSize - 1) / raft::WarpSize;
-  __shared__ __align__(alignof(Split<DataT, std::int64_t>)) unsigned char
-    split_scratch_storage[sizeof(Split<DataT, std::int64_t>) * n_split_warps];
-  auto* split_scratch = reinterpret_cast<Split<DataT, std::int64_t>*>(split_scratch_storage);
+  __shared__ __align__(alignof(
+    Split<DataT>)) unsigned char split_scratch_storage[sizeof(Split<DataT>) * n_split_warps];
+  auto* split_scratch = reinterpret_cast<Split<DataT>*>(split_scratch_storage);
 
   std::int64_t nid = blockIdx.x;
   auto work_item   = work_items[nid];
@@ -361,8 +361,7 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
 
   __syncthreads();
 
-  Split<DataT, std::int64_t> sp =
-    objective.Gain(histogram, quantiles_for_split, col, range_len, n_bins);
+  Split<DataT> sp = objective.Gain(histogram, quantiles_for_split, col, range_len, n_bins);
 
   __syncthreads();
 
@@ -378,7 +377,7 @@ void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
                                std::int64_t colStart,
                                const std::int64_t* column_samples,
                                int* mutex,
-                               volatile Split<DataT, std::int64_t>* splits,
+                               volatile Split<DataT>* splits,
                                ObjectiveT& objective,
                                const WorkloadInfo* workload_info,
                                dim3 histogram_grid,

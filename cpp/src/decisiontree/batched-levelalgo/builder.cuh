@@ -154,7 +154,7 @@ struct Builder {
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::BinT BinT;
   typedef SparseTreeNode<DataT, LabelT> NodeT;
-  typedef Split<DataT, std::int64_t> SplitT;
+  typedef Split<DataT> SplitT;
   typedef Dataset<DataT, LabelT> DatasetT;
   typedef Quantiles<DataT> QuantilesT;
 
@@ -474,7 +474,7 @@ struct Builder {
                          uint64_t sampling_seed,
                          std::int64_t sample_offset)
   {
-    initSplit<DataT, std::int64_t, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
+    initSplit<DataT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     auto n_blocks_dimx     = this->updateWorkloadInfo(work_items);

@@ -166,13 +166,13 @@ class ClassificationObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT, std::int64_t> Gain(BinT const* shist,
-                                     DataT const* squantiles,
-                                     std::int64_t col,
-                                     std::int64_t len,
-                                     std::int64_t n_bins) const
+  DI Split<DataT> Gain(BinT const* shist,
+                       DataT const* squantiles,
+                       std::int64_t col,
+                       std::int64_t len,
+                       std::int64_t n_bins) const
   {
-    Split<DataT, std::int64_t> sp;
+    Split<DataT> sp;
     for (std::int64_t i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
@@ -384,13 +384,13 @@ class RegressionObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT, std::int64_t> Gain(BinT const* shist,
-                                     DataT const* squantiles,
-                                     std::int64_t col,
-                                     std::int64_t len,
-                                     std::int64_t n_bins) const
+  DI Split<DataT> Gain(BinT const* shist,
+                       DataT const* squantiles,
+                       std::int64_t col,
+                       std::int64_t len,
+                       std::int64_t n_bins) const
   {
-    Split<DataT, std::int64_t> sp;
+    Split<DataT> sp;
     for (std::int64_t i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, std::int64_t{1});
       auto nRight = len - nLeft;

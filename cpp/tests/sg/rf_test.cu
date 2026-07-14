@@ -1253,21 +1253,21 @@ class RFSampledQuantileDeterminismTest : public ::testing::TestWithParam<Quantil
   }
 };
 
-template <typename ObjectiveT, typename BinT, typename DataT, typename IdxT>
+template <typename ObjectiveT, typename BinT, typename DataT>
 __global__ void objectiveGainKernel(BinT const* hist,
                                     DataT const* quantiles,
-                                    DT::Split<DataT, IdxT>* out,
+                                    DT::Split<DataT>* out,
                                     int* mutex,
                                     ObjectiveT objective,
-                                    IdxT col,
-                                    IdxT len,
-                                    IdxT n_bins)
+                                    std::int64_t col,
+                                    std::int64_t len,
+                                    std::int64_t n_bins)
 {
-  __shared__ __align__(alignof(
-    DT::Split<DataT, IdxT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT, IdxT>)];
-  auto* split_scratch = reinterpret_cast<DT::Split<DataT, IdxT>*>(split_scratch_storage);
+  __shared__ __align__(
+    alignof(DT::Split<DataT>)) unsigned char split_scratch_storage[sizeof(DT::Split<DataT>)];
+  auto* split_scratch = reinterpret_cast<DT::Split<DataT>*>(split_scratch_storage);
   if (threadIdx.x == 0) {
-    *out   = DT::Split<DataT, IdxT>();
+    *out   = DT::Split<DataT>();
     *mutex = 0;
   }
   __syncthreads();
@@ -1279,10 +1279,9 @@ __global__ void objectiveGainKernel(BinT const* hist,
 
 TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 {
-  using DataT           = float;
-  using IdxT            = std::int64_t;
-  constexpr IdxT len    = 10;
-  constexpr IdxT n_bins = 6;
+  using DataT                   = float;
+  constexpr std::int64_t len    = 10;
+  constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
@@ -1305,7 +1304,7 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 
   thrust::device_vector<DT::ClassificationBin> hist(h_hist.begin(), h_hist.end());
   thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
-  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
   DT::ClassificationObjectiveFunction<DataT, int> objective(2, 1, CRITERION::GINI);
@@ -1314,12 +1313,12 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
                                                          split.data().get(),
                                                          mutex.data().get(),
                                                          objective,
-                                                         IdxT{0},
+                                                         std::int64_t{0},
                                                          len,
                                                          n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  DT::Split<DataT, IdxT> h_split;
+  DT::Split<DataT> h_split;
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();
@@ -1333,10 +1332,9 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 
 TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 {
-  using DataT           = float;
-  using IdxT            = std::int64_t;
-  constexpr IdxT len    = 10;
-  constexpr IdxT n_bins = 6;
+  using DataT                   = float;
+  constexpr std::int64_t len    = 10;
+  constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
@@ -1353,7 +1351,7 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 
   thrust::device_vector<DT::RegressionBin> hist(h_hist.begin(), h_hist.end());
   thrust::device_vector<DataT> quantiles(h_quantiles.begin(), h_quantiles.end());
-  thrust::device_vector<DT::Split<DataT, IdxT>> split(1);
+  thrust::device_vector<DT::Split<DataT>> split(1);
   thrust::device_vector<int> mutex(1);
 
   DT::RegressionObjectiveFunction<DataT, DataT> objective(1, 1, CRITERION::MSE);
@@ -1362,12 +1360,12 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
                                                          split.data().get(),
                                                          mutex.data().get(),
                                                          objective,
-                                                         IdxT{0},
+                                                         std::int64_t{0},
                                                          len,
                                                          n_bins);
   RAFT_CUDA_TRY(cudaGetLastError());
 
-  DT::Split<DataT, IdxT> h_split;
+  DT::Split<DataT> h_split;
   RAFT_CUDA_TRY(cudaMemcpyAsync(
     &h_split, split.data().get(), sizeof(h_split), cudaMemcpyDeviceToHost, handle.get_stream()));
   handle.sync_stream();

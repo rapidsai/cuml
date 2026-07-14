@@ -37,7 +37,7 @@ template void launchComputeSplitKernels<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
   std::int64_t colStart,
   const std::int64_t* column_samples,
   int* mutex,
-  volatile Split<DataT, std::int64_t>* splits,
+  volatile Split<DataT>* splits,
   ObjectiveT& objective,
   const WorkloadInfo* workload_info,
   dim3 histogram_grid,
