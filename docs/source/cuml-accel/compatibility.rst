@@ -1,3 +1,5 @@
+.. _compatibility:
+
 .. _limitations:
 
 Accelerated Estimator Support

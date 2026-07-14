@@ -50,7 +50,7 @@ runtime comparisons.
 
 For help determining what ran on the GPU and why an operation fell back, see
 :doc:`logging-and-profiling`. The estimator inventory is in
-:doc:`supported-functionality`, along with detailed estimator-specific
+:doc:`compatibility`, along with detailed estimator-specific
 conditions.
 
 .. _Python pickle documentation: https://docs.python.org/3/library/pickle.html

@@ -51,7 +51,7 @@ Where to Go Next
 ----------------
 
 * :doc:`usage` explains activation, fallback, and memory management.
-* :doc:`supported-functionality` lists the estimators that can be accelerated,
+* :doc:`compatibility` lists the estimators that can be accelerated,
   including estimator-specific fallback conditions and behavioral differences.
 * :doc:`logging-and-profiling` explains how to identify which operations ran on
   the GPU and why others fell back to the CPU.
@@ -64,7 +64,7 @@ Where to Go Next
 
    self
    usage
-   supported-functionality
+   compatibility
    logging-and-profiling
    benchmarks
    examples/index

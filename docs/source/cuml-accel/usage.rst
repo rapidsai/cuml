@@ -5,7 +5,7 @@ Getting Started with cuml.accel
 operations and dispatches them to GPU implementations. When an operation
 cannot run on the GPU, it transparently uses the original CPU implementation
 instead. A fallback may depend on the estimator, method, parameter values,
-input data, or installed library version. See :doc:`supported-functionality`
+input data, or installed library version. See :doc:`compatibility`
 for the accelerated estimator inventory and exact fallback conditions.
 
 CPU fallback preserves compatibility, but frequent transitions between CPU

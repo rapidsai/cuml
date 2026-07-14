@@ -228,10 +228,8 @@ numpydoc_class_members_toctree = False
 REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
-    "zero-code-change-limitations/index.html": (
-        "cuml-accel/supported-functionality/"
-    ),
-    "cuml-accel/limitations/index.html": "cuml-accel/supported-functionality/",
+    "zero-code-change-limitations/index.html": ("cuml-accel/compatibility/"),
+    "cuml-accel/limitations/index.html": "cuml-accel/compatibility/",
     "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
