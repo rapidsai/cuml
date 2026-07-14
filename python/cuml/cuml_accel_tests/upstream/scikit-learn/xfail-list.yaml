@@ -183,7 +183,6 @@
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-True-ElasticNet]"
   - "sklearn.linear_model.tests.test_sparse_coordinate_descent::test_sparse_dense_equality[csc_matrix-True-6-24-True-Lasso]"
   - "sklearn.utils.tests.test_estimator_checks::test_check_estimator"
-  - "sklearn.utils.tests.test_estimator_checks::test_check_estimator_clones"
 - reason: Test should fail with cuml.accel
   marker: cuml_accel_bugs
   tests:
@@ -813,12 +812,8 @@
   marker: cuml_accel_test_estimators
   tests:
   - "sklearn.tests.test_common::test_estimators[KNeighborsRegressor()-check_supervised_y_no_nan]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[PCA()-check_fit2d_1sample]"
   - "sklearn.tests.test_common::test_estimators[RandomForestClassifier()-check_classifiers_multilabel_output_format_decision_function]"
   - "sklearn.tests.test_common::test_estimators[RandomForestRegressor()-check_regressor_data_not_an_array]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1feature]"
-  - "sklearn.tests.test_common::test_estimators[TruncatedSVD()-check_fit2d_1sample]"
 - reason: test_estimators checks fail
   marker: cuml_accel_test_estimators
   strict: false

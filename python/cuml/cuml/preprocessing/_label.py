@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -47,7 +47,7 @@ class LabelEncoder(InteropMixin, Base):
     >>> y = np.array(["apple", "apple", "banana", "grape"])
     >>> le = LabelEncoder()
     >>> le.fit_transform(y)
-    array([0, 0, 1, 2], dtype=uint8)
+    array([0, 0, 1, 2], dtype=int8)
     >>> le.classes_
     array(['apple', 'banana', 'grape'], dtype='<U6')
     """

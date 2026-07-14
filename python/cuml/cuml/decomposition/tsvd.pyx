@@ -313,6 +313,8 @@ class TruncatedSVD(InteropMixin,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             order="F",
+            ensure_min_samples=2,
+            ensure_min_features=2,
             return_index=True,
             reset=True,
         )
