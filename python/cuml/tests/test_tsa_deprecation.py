@@ -8,7 +8,7 @@ import pytest
 
 import cuml
 from cuml.datasets import make_arima
-from cuml.internals import run_in_internal_context
+from cuml.internals import mlfunc
 from cuml.tsa import ARIMA, ExponentialSmoothing
 from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.seasonality import seas_test
@@ -58,7 +58,7 @@ def test_tsa_functions_warn_on_call(func, args):
         func(*args)
 
 
-@run_in_internal_context
+@mlfunc(convert_output=False)
 def _call_tsa_function(func, args):
     return func(*args)
 
