@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,10 +11,11 @@ namespace ML {
 namespace DT {
 using DataT      = float;
 using LabelT     = float;
-using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT>;
+using IdxT       = std::int64_t;
+using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, IdxT>;
 using BinT       = typename ObjectiveT::BinT;
-using DatasetT   = Dataset<DataT, LabelT>;
-using NodeT      = SparseTreeNode<DataT, LabelT, std::int64_t>;
+using DatasetT   = Dataset<DataT, LabelT, IdxT>;
+using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
@@ -28,25 +29,21 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchComputeSplitKernel<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
+template void launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
-  int n_bins,
-  std::int64_t min_samples_split,
-  std::int64_t max_leaves,
+  IdxT n_bins,
   const DatasetT& dataset,
-  const Quantiles<DataT>& quantiles,
+  const Quantiles<DataT, IdxT>& quantiles,
   const NodeWorkItem* work_items,
-  std::int64_t colStart,
-  const std::int64_t* column_samples,
-  int* done_count,
+  IdxT colStart,
+  const IdxT* column_samples,
   int* mutex,
-  volatile Split<DataT>* splits,
+  volatile Split<DataT, IdxT>* splits,
   ObjectiveT& objective,
-  std::int64_t treeid,
-  const WorkloadInfo* workload_info,
-  uint64_t seed,
-  dim3 grid,
-  size_t smem_size,
+  const WorkloadInfo<IdxT>* workload_info,
+  dim3 histogram_grid,
+  dim3 split_grid,
+  const SharedMemoryConfig& split_smem_config,
   cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML

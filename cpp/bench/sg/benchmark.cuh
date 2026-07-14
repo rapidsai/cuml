@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -13,6 +13,8 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/util/cudart_utils.hpp>
+
+#include <rmm/cuda_stream_view.hpp>
 
 #include <cuda_runtime.h>
 
@@ -29,13 +31,16 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
+    if (stream == 0) { RAFT_CUDA_TRY(cudaStreamCreate(&stream)); }
     auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(numStreams());
-    handle.reset(new raft::handle_t{rmm::cuda_stream_per_thread, stream_pool});
+    handle.reset(new raft::handle_t{rmm::cuda_stream_view{stream}, stream_pool});
     MLCommon::Bench::Fixture::SetUp(state);
   }
 
   void TearDown(const ::benchmark::State& state) override
   {
+    handle->sync_stream_pool();
+    handle->sync_stream();
     MLCommon::Bench::Fixture::TearDown(state);
     handle.reset();
   }

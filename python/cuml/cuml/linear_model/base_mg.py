@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import cuml.common.opg_data_utils_mg as opg
-from cuml.internals import run_in_internal_context
+from cuml.internals import mlfunc
 from cuml.internals.validation import check_inputs
 
 
@@ -12,7 +12,7 @@ class MGFitMixin:
         self.handle = handle
         super().__init__(**kwargs)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self, input_data, n_rows, n_cols, parts_rank_size, rank):
         """
         Fit function for MNMG linear regression classes

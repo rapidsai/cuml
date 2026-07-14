@@ -7,22 +7,16 @@ import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray, cuda_ptr
+from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import (
     FMajorInputTagMixin,
     RegressorMixin,
     SparseInputTagMixin,
 )
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
 
@@ -168,8 +162,8 @@ class LinearRegression(InteropMixin,
     >>> model.predict(X_test)  # doctest: +SKIP
     array([16.      , 14.999999], dtype=float32)
     """
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.linear_model.LinearRegression"
 
@@ -200,15 +194,23 @@ class LinearRegression(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": to_gpu(model.intercept_),
-            "coef_": to_gpu(model.coef_),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_)
+            ),
+            "coef_": cp.asarray(model.coef_),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "intercept_": to_cpu(self.intercept_),
-            "coef_": to_cpu(self.coef_),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else cp.asnumpy(self.intercept_)
+            ),
+            "coef_": cp.asnumpy(self.coef_, order="A"),
             **super()._attrs_to_cpu(model),
         }
 
@@ -309,7 +311,7 @@ class LinearRegression(InteropMixin,
         return coef, intercept
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self,
         X,
@@ -392,9 +394,7 @@ class LinearRegression(InteropMixin,
                 solver=solver,
             )
 
-        if not cp.isscalar(intercept):
-            intercept = CumlArray(data=intercept)
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
 
         return self

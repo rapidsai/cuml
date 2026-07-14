@@ -3,21 +3,14 @@
 import cupy as cp
 import numpy as np
 
-import cuml.internals
 import cuml.internals.nvtx as nvtx
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import (
-    decode_labels,
-    process_class_weight,
-    validate_class_weight,
-)
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
-from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.mixins import ClassifierMixin
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
-from cuml.metrics import accuracy_score
 
 
 class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
@@ -168,7 +161,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
     `importances = cuml_model.feature_importances_`
     """
 
-    oob_decision_function_ = CumlArrayDescriptor(order="C")
+    oob_decision_function_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.ensemble.RandomForestClassifier"
 
@@ -262,15 +255,13 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         domain="cuml_python",
     )
     @generate_docstring(y="dense_intdtype")
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "RandomForestClassifier":
         """
         Perform Random Forest Classification on the input data
         """
-        validate_class_weight(self.class_weight)
-
         X, y, sample_weight, classes = check_inputs(
             self,
             X,
@@ -278,7 +269,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
-            order="F",
+            order="A",
             y_dtype="int32",
             sample_weight_dtype="float64",
             return_classes=True,
@@ -303,7 +294,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(
         self,
         X,
@@ -348,27 +339,22 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X_converted, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
-        inds = nvforest_model.predict(X_converted, threshold=threshold)
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            inds, self.classes_, output_type=output_type, index=index
-        )
+        indices = nvforest_model.predict(X, threshold=threshold)
+        return ClassLabels(indices, self.classes_)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def predict_proba(
         self,
         X,
@@ -377,7 +363,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts class probabilities for X.
 
@@ -413,22 +399,21 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=nvforest_model.forest.get_dtype(),
             convert_dtype=convert_dtype,
             order="C",
             mem_type="device",
-            return_index=True,
         )
-        return CumlArray(nvforest_model.predict_proba(X), index=index)
+        return nvforest_model.predict_proba(X)
 
     @insert_into_docstring(
         parameters=[("dense", "(n_samples, n_features)")],
         return_values=[("dense", "(n_samples, 1)")],
     )
-    @cuml.internals.reflect
+    @mlfunc(preserve_index=True)
     def predict_log_proba(
         self,
         X,
@@ -437,7 +422,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         layout="depth_first",
         default_chunk_size=None,
         align_bytes=None,
-    ) -> CumlArray:
+    ):
         """
         Predicts log class probabilities for X.
 
@@ -468,16 +453,15 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         -------
         y : {}
         """
-        preds = self.predict_proba(
+        out = self.predict_proba(
             X,
             convert_dtype=convert_dtype,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        out = preds.to_output("cupy")
         cp.log(out, out=out)
-        return CumlArray(data=out, index=preds.index)
+        return out
 
     @nvtx.annotate(
         message="score RF-Classifier @randomforestclassifier.pyx",
@@ -489,7 +473,7 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
             ("dense_intdtype", "(n_samples, 1)"),
         ]
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(
         self,
         X,
@@ -538,12 +522,13 @@ class RandomForestClassifier(ClassifierMixin, BaseRandomForestModel):
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
-        y_pred = self.predict(
+        return super().score(
             X,
-            threshold=threshold,
+            y,
+            sample_weight=sample_weight,
             convert_dtype=convert_dtype,
+            threshold=threshold,
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        return accuracy_score(y, y_pred, sample_weight=sample_weight)

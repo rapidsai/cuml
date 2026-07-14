@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
@@ -9,6 +9,11 @@ from cuml.tsa.holtwinters import ExponentialSmoothing as cuml_ES
 
 holtwinters = pytest.importorskip("statsmodels.tsa.holtwinters")
 sm_ES = holtwinters.ExponentialSmoothing
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:`cuml.tsa.ExponentialSmoothing`, along with the entire `cuml.tsa` "
+    "module, was deprecated:FutureWarning"
+)
 
 airpassengers = [
     112,

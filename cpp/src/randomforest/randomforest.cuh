@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -263,8 +263,8 @@ class RandomForest {
   /**
    * @brief Build (i.e., fit, train) random forest for input data.
    * @param[in] user_handle: raft::handle_t
-   * @param[in] input: train data (n_rows samples, n_cols features) in column major format,
-   *   excluding labels. Device pointer.
+   * @param[in] input: train data (n_rows samples, n_cols features), excluding labels.
+   *   Column-major by default, or row-major when `input_row_major` is true. Device pointer.
    * @param[in] n_rows: number of training data samples.
    * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
    * @param[in] labels: 1D array of target predictions/labels. Device Pointer.
@@ -281,6 +281,8 @@ class RandomForest {
   *   enabled, rows are sampled with probability proportional to these weights and the sampled
   *   counts drive tree training. Without bootstrap, zero-weight rows are removed from the tree
   *   row set and remaining weights are used for impurity/objective math.
+  * @param[in] input_row_major: whether train data is row-major instead of the default
+  *   column-major layout.
   */
   void fit(const raft::handle_t& user_handle,
            const T* input,
@@ -290,7 +292,8 @@ class RandomForest {
            int n_unique_labels,
            RandomForestMetaData<T, L>* forest,
            bool* bootstrap_masks       = nullptr,
-           const double* sample_weight = nullptr)
+           const double* sample_weight = nullptr,
+           bool input_row_major        = false)
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
@@ -313,9 +316,15 @@ class RandomForest {
            n_streams,
            handle.get_stream_pool_size());
 
-    auto quantile_result = DT::computeQuantiles(
-      handle, input, this->rf_params.tree_params.max_n_bins, n_rows, n_cols, 4, rf_params.seed);
-    auto quantiles = quantile_result.view();
+    auto quantile_result = DT::computeQuantiles(handle,
+                                                input,
+                                                this->rf_params.tree_params.max_n_bins,
+                                                n_rows,
+                                                n_cols,
+                                                4,
+                                                rf_params.seed,
+                                                input_row_major);
+    auto quantiles       = quantile_result.view();
 
     // n_streams should not be less than n_trees
     if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
@@ -353,7 +362,8 @@ class RandomForest {
                                                this->rf_params.seed,
                                                quantiles,
                                                i,
-                                               row_sampler.tree_sample_weight());
+                                               row_sampler.tree_sample_weight(),
+                                               input_row_major);
     }
     // Cleanup
     handle.sync_stream_pool();

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -17,30 +17,31 @@
 
 namespace ML {
 namespace DT {
-template <typename DataT_, typename LabelT_, bool weighted_ = false>
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class ClassificationObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
+  using IdxT   = IdxT_;
   using BinT   = std::conditional_t<weighted_, WeightedClassificationBin, ClassificationBin>;
   static constexpr bool weighted = weighted_;
 
  private:
-  std::int64_t nclasses;
-  std::int64_t min_samples_leaf;
+  IdxT nclasses;
+  IdxT min_samples_leaf;
   CRITERION criterion;
 
-  HDI double WeightAt(BinT const* hist, int i, int n_bins) const
+  HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
     double weight = 0.0;
-    for (int j = 0; j < nclasses; ++j) {
+    for (IdxT j = 0; j < nclasses; ++j) {
       weight += hist[n_bins * j + i].Weight();
     }
     return weight;
   }
 
   HDI DataT
-  GiniGain(BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+  GiniGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     constexpr DataT One = DataT(1.0);
     auto total_weight   = WeightAt(hist, n_bins - 1, n_bins);
@@ -55,7 +56,7 @@ class ClassificationObjectiveFunction {
     auto invRight = One / DataT(right_weight);
     auto gain     = DataT(0.0);
 
-    for (int j = 0; j < nclasses; ++j) {
+    for (IdxT j = 0; j < nclasses; ++j) {
       double val_i = 0.0;
       auto lval_i  = hist[n_bins * j + i].Weight();
       auto lval    = DataT(lval_i);
@@ -76,7 +77,7 @@ class ClassificationObjectiveFunction {
   }
 
   HDI DataT
-  EntropyGain(BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+  EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto total_weight = WeightAt(hist, n_bins - 1, n_bins);
     auto left_weight  = WeightAt(hist, i, n_bins);
@@ -89,7 +90,7 @@ class ClassificationObjectiveFunction {
     auto invLeft{DataT(1.0) / DataT(left_weight)};
     auto invRight{DataT(1.0) / DataT(right_weight)};
     auto invLen{DataT(1.0) / DataT(total_weight)};
-    for (int c = 0; c < nclasses; ++c) {
+    for (IdxT c = 0; c < nclasses; ++c) {
       double val_i = 0.0;
       auto lval_i  = hist[n_bins * c + i].Weight();
       if (lval_i != 0) {
@@ -117,13 +118,14 @@ class ClassificationObjectiveFunction {
 
  public:
   HDI DataT GainPerSplit(BinT const* hist,
-                         int i,
-                         int n_bins,
+                         IdxT i,
+                         IdxT n_bins,
                          std::int64_t len,
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -133,22 +135,16 @@ class ClassificationObjectiveFunction {
     }
   }
 
-  HDI ClassificationObjectiveFunction(std::int64_t nclasses,
-                                      std::int64_t min_samples_leaf,
-                                      CRITERION criterion)
+  HDI ClassificationObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf, CRITERION criterion)
     : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
   {
   }
 
-  DI std::int64_t NumClasses() const { return nclasses; }
+  DI IdxT NumClasses() const { return nclasses; }
 
   template <typename DatasetT>
-  DI void IncrementHistogram(BinT* histogram,
-                             int n_bins,
-                             int bin,
-                             LabelT label,
-                             const DatasetT& dataset,
-                             std::int64_t row) const
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
@@ -157,21 +153,19 @@ class ClassificationObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT> Gain(BinT const* shist,
-                       DataT const* squantiles,
-                       std::int64_t col,
-                       std::int64_t len,
-                       int n_bins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* squantiles, IdxT col, std::int64_t len, IdxT n_bins) const
   {
-    Split<DataT> sp;
-    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
+      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
@@ -195,21 +189,22 @@ class ClassificationObjectiveFunction {
   }
 };
 
-template <typename DataT_, typename LabelT_, bool weighted_ = false>
+template <typename DataT_, typename LabelT_, typename IdxT_, bool weighted_ = false>
 class RegressionObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
+  using IdxT   = IdxT_;
   using BinT   = std::conditional_t<weighted_, WeightedRegressionBin, RegressionBin>;
   static constexpr bool weighted = weighted_;
 
  private:
-  std::int64_t min_samples_leaf;
+  IdxT min_samples_leaf;
   CRITERION criterion;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI DataT
-  MSEGain(BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+  MSEGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -232,7 +227,7 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT
-  PoissonGain(BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+  PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -260,7 +255,7 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT
-  GammaGain(BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+  GammaGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -288,7 +283,7 @@ class RegressionObjectiveFunction {
   }
 
   HDI DataT InverseGaussianGain(
-    BinT const* hist, int i, int n_bins, std::int64_t, std::int64_t, std::int64_t) const
+    BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -316,13 +311,14 @@ class RegressionObjectiveFunction {
 
  public:
   HDI DataT GainPerSplit(BinT const* hist,
-                         int i,
-                         int n_bins,
+                         IdxT i,
+                         IdxT n_bins,
                          std::int64_t len,
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -335,20 +331,16 @@ class RegressionObjectiveFunction {
     }
   }
 
-  HDI RegressionObjectiveFunction(std::int64_t, std::int64_t min_samples_leaf, CRITERION criterion)
+  HDI RegressionObjectiveFunction(IdxT, IdxT min_samples_leaf, CRITERION criterion)
     : min_samples_leaf(min_samples_leaf), criterion(criterion)
   {
   }
 
-  DI int NumClasses() const { return 1; }
+  DI IdxT NumClasses() const { return 1; }
 
   template <typename DatasetT>
-  DI void IncrementHistogram(BinT* histogram,
-                             int n_bins,
-                             int bin,
-                             LabelT label,
-                             const DatasetT& dataset,
-                             std::int64_t row) const
+  DI void IncrementHistogram(
+    BinT* histogram, IdxT n_bins, IdxT bin, LabelT label, const DatasetT& dataset, IdxT row) const
   {
     double weight = 1.0;
     if constexpr (weighted) {
@@ -357,21 +349,19 @@ class RegressionObjectiveFunction {
     BinT::IncrementHistogram(histogram, n_bins, bin, label, weight);
   }
 
-  DI Split<DataT> Gain(BinT const* shist,
-                       DataT const* squantiles,
-                       std::int64_t col,
-                       std::int64_t len,
-                       int n_bins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* squantiles, IdxT col, std::int64_t len, IdxT n_bins) const
   {
-    Split<DataT> sp;
-    for (int i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      auto nLeft  = detail::CountLeft(shist, i, n_bins, int{1});
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
+      auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
+      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }

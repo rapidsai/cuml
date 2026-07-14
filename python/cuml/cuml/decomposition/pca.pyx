@@ -479,6 +479,8 @@ class PCA(InteropMixin,
             accept_large_sparse=True,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
+            ensure_min_samples=2,
+            ensure_min_features=2,
             order="F",
             reset=True,
         )

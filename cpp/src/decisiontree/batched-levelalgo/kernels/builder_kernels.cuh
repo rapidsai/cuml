@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -40,29 +40,32 @@ struct NodeWorkItem {
  * This struct has information about workload of a single threadblock of
  * computeSplit kernels of classification and regression
  */
+template <typename IdxT>
 struct WorkloadInfo {
-  std::int64_t nodeid;          // Node in the batch on which the threadblock needs to work
-  std::int64_t large_nodeid;    // counts only large nodes (nodes that require more than one block
-                                // along x-dim for histogram calculation)
-  std::int64_t offset_blockid;  // Offset threadblock id among all the blocks that are
-                                // working on this node
-  std::int64_t num_blocks;      // Total number of blocks that are working on the node
+  IdxT nodeid;          // Node in the batch on which the threadblock needs to work
+  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
+                        // working on this node
+  IdxT num_blocks;      // Total number of blocks that are working on the node
 };
 
-template <typename SplitT>
-HDI bool SplitPartitionNotValid(const SplitT& split,
-                                std::int64_t min_samples_leaf,
-                                std::size_t num_rows)
+struct SharedMemoryConfig {
+  bool use_global_memory_histogram;
+  size_t histogram_dynamic_smem_size;
+};
+
+template <typename SplitT, typename IdxT>
+HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
 {
-  auto n_left = static_cast<std::size_t>(split.nLeft);
-  return split.colid == -1 || split.nLeft < min_samples_leaf || n_left > num_rows ||
-         num_rows - n_left < static_cast<std::size_t>(min_samples_leaf);
+  const auto local_count = static_cast<std::int64_t>(num_rows);
+  const auto min_leaf    = static_cast<std::int64_t>(min_samples_leaf);
+  return split.colid == IdxT(-1) || split.local_nLeft > local_count ||
+         split.local_nLeft < min_leaf || (local_count - split.local_nLeft) < min_leaf;
 }
 
-template <typename SplitT, typename DataT>
+template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
-                       std::int64_t min_samples_leaf,
+                       IdxT min_samples_leaf,
                        std::size_t num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease ||
@@ -76,15 +79,16 @@ DI OutT* alignPointer(InT dataset)
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(dataset), sizeof(OutT)));
 }
 
-inline void sample_features(std::int64_t* column_samples,
-                            const NodeWorkItem* work_items,
-                            size_t work_items_size,
-                            std::int64_t treeid,
-                            uint64_t seed,
-                            std::int64_t sample_offset,
-                            std::int64_t n,
-                            std::int64_t k,
-                            cudaStream_t stream)
+template <typename IdxT>
+void sample_features(IdxT* column_samples,
+                     const NodeWorkItem* work_items,
+                     size_t work_items_size,
+                     IdxT treeid,
+                     uint64_t seed,
+                     IdxT sample_offset,
+                     IdxT n,
+                     IdxT k,
+                     cudaStream_t stream)
 {
   auto n_column_samples = work_items_size * size_t(k);
   auto counting         = thrust::make_counting_iterator<size_t>(0);
@@ -94,26 +98,26 @@ inline void sample_features(std::int64_t* column_samples,
                    counting + n_column_samples,
                    [=] __device__(size_t sample_idx) {
                      auto node_idx     = sample_idx / size_t(k);
-                     auto column_index = static_cast<std::int64_t>(sample_idx % size_t(k));
+                     IdxT column_index = static_cast<IdxT>(sample_idx % size_t(k));
 
-                     const auto nodeid = work_items[node_idx].idx;
-                     uint32_t rng_seed = fnv1a32_hash(seed, treeid, nodeid);
+                     const uint32_t nodeid = work_items[node_idx].idx;
+                     uint32_t rng_seed     = fnv1a32_hash(seed, treeid, nodeid);
 
-                     cuda::shuffle_iterator<std::int64_t> shuffled_features(
+                     cuda::shuffle_iterator<IdxT> shuffled_features(
                        n, cuda::std::minstd_rand(rng_seed), sample_offset);
                      column_samples[sample_idx] = shuffled_features[column_index];
                    });
 }
 
-template <typename DataT, typename LabelT, int TPB>
-void launchNodeSplitKernel(const std::int64_t min_samples_leaf,
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+void launchNodeSplitKernel(const IdxT min_samples_leaf,
                            const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT>& dataset,
+                           const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT>* splits,
-                           const WorkloadInfo* workload_info,
+                           const Split<DataT, IdxT>* splits,
+                           const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
-                           std::int64_t* partition_row_ids,
+                           IdxT* partition_row_ids,
                            cudaStream_t builder_stream);
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
@@ -125,26 +129,22 @@ void launchLeafKernel(ObjectiveT objective,
                       int batch_size,
                       size_t smem_size,
                       cudaStream_t builder_stream);
-template <typename DataT, typename LabelT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
-                              int n_bins,
-                              std::int64_t min_samples_split,
-                              std::int64_t max_leaves,
-                              const Dataset<DataT, LabelT>& dataset,
-                              const Quantiles<DataT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              std::int64_t colStart,
-                              const std::int64_t* column_samples,
-                              int* done_count,
-                              int* mutex,
-                              volatile Split<DataT>* splits,
-                              ObjectiveT& objective,
-                              std::int64_t treeid,
-                              const WorkloadInfo* workload_info,
-                              uint64_t seed,
-                              dim3 grid,
-                              size_t smem_size,
-                              cudaStream_t builder_stream);
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
+                               IdxT n_bins,
+                               const Dataset<DataT, LabelT, IdxT>& dataset,
+                               const Quantiles<DataT, IdxT>& quantiles,
+                               const NodeWorkItem* work_items,
+                               IdxT colStart,
+                               const IdxT* column_samples,
+                               int* mutex,
+                               volatile Split<DataT, IdxT>* splits,
+                               ObjectiveT& objective,
+                               const WorkloadInfo<IdxT>* workload_info,
+                               dim3 histogram_grid,
+                               dim3 split_grid,
+                               const SharedMemoryConfig& split_smem_config,
+                               cudaStream_t builder_stream);
 
 }  // namespace DT
 }  // namespace ML
