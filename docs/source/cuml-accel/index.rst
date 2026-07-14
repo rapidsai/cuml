@@ -50,9 +50,9 @@ compatibility with realistic, complex scikit-learn workflows.
 Where to Go Next
 ----------------
 
+* :doc:`usage` explains activation, fallback, and memory management.
 * :doc:`supported-functionality` lists the estimators that can be accelerated,
   including estimator-specific fallback conditions and behavioral differences.
-* :doc:`usage` explains activation, fallback, and memory management.
 * :doc:`logging-and-profiling` explains how to identify which operations ran on
   the GPU and why others fell back to the CPU.
 * :doc:`benchmarks` provides representative performance results.
@@ -63,8 +63,8 @@ Where to Go Next
    :hidden:
 
    self
-   supported-functionality
    usage
+   supported-functionality
    logging-and-profiling
    benchmarks
    examples/index
