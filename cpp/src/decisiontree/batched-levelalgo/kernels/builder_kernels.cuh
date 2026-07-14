@@ -133,7 +133,7 @@ template <typename DataT, typename LabelT, typename IdxT, int TPB, typename Obje
 void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
                                IdxT n_bins,
                                const Dataset<DataT, LabelT, IdxT>& dataset,
-                               const Quantiles<DataT, IdxT>& quantiles,
+                               const Quantiles<DataT>& quantiles,
                                const NodeWorkItem* work_items,
                                IdxT colStart,
                                const IdxT* column_samples,

@@ -36,7 +36,7 @@ namespace DT {
  * Structure that manages the iterative batched-level training and building of nodes
  * in the host.
  */
-template <typename DataT, typename LabelT, typename IdxT>
+template <typename DataT, typename LabelT>
 class NodeQueue {
   using NodeT = SparseTreeNode<DataT, LabelT>;
   const DecisionTreeParams params;
@@ -45,10 +45,13 @@ class NodeQueue {
   std::deque<NodeWorkItem> work_items_;
 
  public:
-  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows, IdxT num_outputs)
+  NodeQueue(DecisionTreeParams params,
+            size_t max_nodes,
+            size_t sampled_rows,
+            std::int64_t num_outputs)
     : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
-    tree->num_outputs = num_outputs;
+    tree->num_outputs = ML::narrow_cast<int>(num_outputs);
     tree->sparsetree.reserve(max_nodes);
     tree->sparsetree.emplace_back(NodeT::CreateLeafNode(sampled_rows));
     tree->leaf_counter  = 1;
@@ -154,7 +157,7 @@ struct Builder {
   typedef SparseTreeNode<DataT, LabelT> NodeT;
   typedef Split<DataT, IdxT> SplitT;
   typedef Dataset<DataT, LabelT, IdxT> DatasetT;
-  typedef Quantiles<DataT, IdxT> QuantilesT;
+  typedef Quantiles<DataT> QuantilesT;
 
   /** default threads per block for most kernels in here */
   static constexpr int TPB_DEFAULT = 128;
@@ -359,7 +362,7 @@ struct Builder {
   {
     raft::common::nvtx::range fun_scope("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
-    NodeQueue<DataT, LabelT, IdxT> queue(
+    NodeQueue<DataT, LabelT> queue(
       params, this->maxNodes(), dataset.n_sampled_rows, dataset.num_outputs);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();

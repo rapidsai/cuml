@@ -243,7 +243,7 @@ class DecisionTree {
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    const Quantiles<DataT, std::int64_t>& quantiles,
+    const Quantiles<DataT>& quantiles,
     std::int64_t treeid,
     const double* sample_weight = nullptr,
     bool row_major              = false)

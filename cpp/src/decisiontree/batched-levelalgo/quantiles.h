@@ -8,7 +8,7 @@
 namespace ML {
 namespace DT {
 
-template <typename DataT, typename IdxT = int>
+template <typename DataT>
 struct Quantiles {
   /** quantiles computed for each feature of dataset in col-major */
   DataT* quantiles_array;

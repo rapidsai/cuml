@@ -11,10 +11,9 @@ namespace ML {
 namespace DT {
 using DataT      = double;
 using LabelT     = int;
-using IdxT       = std::int64_t;
-using ObjectiveT = ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>;
+using ObjectiveT = ClassificationObjectiveFunction<DataT, LabelT, std::int64_t, true>;
 using BinT       = typename ObjectiveT::BinT;
-using DatasetT   = Dataset<DataT, LabelT, IdxT>;
+using DatasetT   = Dataset<DataT, LabelT, std::int64_t>;
 using NodeT      = SparseTreeNode<DataT, LabelT>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
@@ -29,18 +28,18 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+template void launchComputeSplitKernels<DataT, LabelT, std::int64_t, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
-  IdxT n_bins,
+  std::int64_t n_bins,
   const DatasetT& dataset,
-  const Quantiles<DataT, IdxT>& quantiles,
+  const Quantiles<DataT>& quantiles,
   const NodeWorkItem* work_items,
-  IdxT colStart,
-  const IdxT* column_samples,
+  std::int64_t colStart,
+  const std::int64_t* column_samples,
   int* mutex,
-  volatile Split<DataT, IdxT>* splits,
+  volatile Split<DataT, std::int64_t>* splits,
   ObjectiveT& objective,
-  const WorkloadInfo<IdxT>* workload_info,
+  const WorkloadInfo<std::int64_t>* workload_info,
   dim3 histogram_grid,
   dim3 split_grid,
   const SharedMemoryConfig& split_smem_config,
