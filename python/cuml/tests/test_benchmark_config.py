@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -1128,6 +1128,7 @@ def test_collect_package_snapshot_prefers_conda(monkeypatch):
             [
                 {
                     "name": "cuml",
+                    # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                     "version": "26.06",
                     "build_string": "cuda13_py313_0",
                     "channel": "rapidsai-nightly",
@@ -1147,6 +1148,7 @@ def test_collect_package_snapshot_prefers_conda(monkeypatch):
         "packages": [
             {
                 "name": "cuml",
+                # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                 "version": "26.06",
                 "build": "cuda13_py313_0",
                 "channel": "rapidsai-nightly",
@@ -1166,6 +1168,7 @@ def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
         return [
             {
                 "name": "cuml",
+                # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
                 "version": "26.06",
                 "editable_project_location": "/tmp",
             }
@@ -1178,6 +1181,7 @@ def test_collect_package_snapshot_falls_back_to_pip(monkeypatch):
     assert snapshot == {
         "package_snapshot_source": "pip",
         "conda_prefix": "/tmp/conda-env",
+        # rapids-pre-commit-hooks: disable-next-line[verify-hardcoded-version]
         "packages": [{"name": "cuml", "version": "26.06"}],
         "conda_error": "conda failed",
     }
