@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from cuml.accel import profilers
 from cuml.accel.core import logger
 from cuml.internals.base import Base
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, is_fitted
-from cuml.internals.outputs import reflect, using_output_type
+from cuml.internals.outputs import mlfunc, using_output_type
 from cuml.internals.validation import check_inputs
 
 __all__ = ("ProxyBase", "ArrayAPIProxyBase", "is_proxy")
@@ -781,7 +781,7 @@ class _ArrayAPIWrapper(InteropMixin, Base):
             if hasattr(cls._internal_class, name):
                 setattr(cls, name, _make_method(name))
 
-    @reflect(array="X")
+    @mlfunc(array_arg="X")
     def _call_method(self, name, X, *args, **kwargs):
         """Call method `name` on the wrapped sklearn estimator."""
         if name in ("fit", "fit_transform", "fit_predict"):
