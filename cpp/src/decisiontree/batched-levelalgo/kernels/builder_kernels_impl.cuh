@@ -410,48 +410,5 @@ void launchFindBestSplitsKernel(typename ObjectiveT::BinT* histograms,
                                              objective);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
-                               IdxT max_n_bins,
-                               const Dataset<DataT, LabelT, IdxT>& dataset,
-                               const Quantiles<DataT, IdxT>& quantiles,
-                               const NodeWorkItem* work_items,
-                               IdxT colStart,
-                               const IdxT* column_samples,
-                               int* mutex,
-                               volatile Split<DataT, IdxT>* splits,
-                               ObjectiveT& objective,
-                               const WorkloadInfo<IdxT>* workload_info,
-                               dim3 histogram_grid,
-                               dim3 split_grid,
-                               const SharedMemoryConfig& split_smem_config,
-                               cudaStream_t builder_stream)
-{
-  launchBuildHistogramsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>(histograms,
-                                                                    max_n_bins,
-                                                                    dataset,
-                                                                    quantiles,
-                                                                    work_items,
-                                                                    colStart,
-                                                                    column_samples,
-                                                                    objective,
-                                                                    workload_info,
-                                                                    histogram_grid,
-                                                                    split_smem_config,
-                                                                    builder_stream);
-
-  launchFindBestSplitsKernel<DataT, LabelT, IdxT, TPB, ObjectiveT>(histograms,
-                                                                   max_n_bins,
-                                                                   dataset,
-                                                                   quantiles,
-                                                                   colStart,
-                                                                   column_samples,
-                                                                   mutex,
-                                                                   splits,
-                                                                   objective,
-                                                                   split_grid,
-                                                                   builder_stream);
-}
-
 }  // namespace DT
 }  // namespace ML

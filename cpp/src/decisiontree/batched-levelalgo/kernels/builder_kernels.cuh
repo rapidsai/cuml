@@ -179,23 +179,6 @@ void launchFindBestSplitsKernel(typename ObjectiveT::BinT* histograms,
                                 dim3 split_grid,
                                 cudaStream_t builder_stream);
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
-                               IdxT n_bins,
-                               const Dataset<DataT, LabelT, IdxT>& dataset,
-                               const Quantiles<DataT, IdxT>& quantiles,
-                               const NodeWorkItem* work_items,
-                               IdxT colStart,
-                               const IdxT* column_samples,
-                               int* mutex,
-                               volatile Split<DataT, IdxT>* splits,
-                               ObjectiveT& objective,
-                               const WorkloadInfo<IdxT>* workload_info,
-                               dim3 histogram_grid,
-                               dim3 split_grid,
-                               const SharedMemoryConfig& split_smem_config,
-                               cudaStream_t builder_stream);
-
 template <typename BinT>
 HDI constexpr std::size_t reductionBufferSize()
 {
