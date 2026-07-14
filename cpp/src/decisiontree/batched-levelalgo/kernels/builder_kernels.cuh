@@ -22,7 +22,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
 namespace ML {
 namespace DT {
@@ -198,94 +197,45 @@ void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
                                cudaStream_t builder_stream);
 
 template <typename BinT>
-inline constexpr bool has_label_sum_v =
-  std::is_same_v<BinT, RegressionBin> || std::is_same_v<BinT, WeightedRegressionBin>;
+HDI constexpr std::size_t reductionBufferSize()
+{
+  return sizeof(decltype(BinT{}.ToReductionBuffer())) / sizeof(double);
+}
 
 template <typename BinT>
-inline constexpr bool has_weight_v =
-  std::is_same_v<BinT, WeightedClassificationBin> || std::is_same_v<BinT, WeightedRegressionBin>;
+inline std::size_t packedHistogramElements(std::size_t len)
+{
+  return reductionBufferSize<BinT>() * len;
+}
 
 template <typename BinT>
-inline void packHistograms(const BinT* in,
-                           double* label_sums,
-                           std::uint64_t* counts,
-                           double* weights,
-                           std::size_t len,
-                           cudaStream_t stream)
+inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStream_t stream)
 {
-  if constexpr (has_label_sum_v<BinT>) {
-    auto label_sum_op = [in] __device__(double* out, std::size_t i) { *out = in[i].LabelSum(); };
-    raft::linalg::writeOnlyUnaryOp<double, decltype(label_sum_op), std::size_t, 256>(
-      label_sums, len, label_sum_op, stream);
-  }
-
-  auto count_op = [in] __device__(std::uint64_t* out, std::size_t i) { *out = in[i].Count(); };
-  raft::linalg::writeOnlyUnaryOp<std::uint64_t, decltype(count_op), std::size_t, 256>(
-    counts, len, count_op, stream);
-
-  if constexpr (has_weight_v<BinT>) {
-    auto weight_op = [in] __device__(double* out, std::size_t i) { *out = in[i].Weight(); };
-    raft::linalg::writeOnlyUnaryOp<double, decltype(weight_op), std::size_t, 256>(
-      weights, len, weight_op, stream);
-  }
-}
-
-inline void unpackHistograms(const double*,
-                             const std::uint64_t* counts,
-                             const double*,
-                             ClassificationBin* out,
-                             std::size_t len,
-                             cudaStream_t stream)
-{
-  auto op = [counts] __device__(ClassificationBin * out, std::size_t i) { out->count = counts[i]; };
-  raft::linalg::writeOnlyUnaryOp<ClassificationBin, decltype(op), std::size_t, 256>(
-    out, len, op, stream);
-}
-
-inline void unpackHistograms(const double*,
-                             const std::uint64_t* counts,
-                             const double* weights,
-                             WeightedClassificationBin* out,
-                             std::size_t len,
-                             cudaStream_t stream)
-{
-  auto op = [counts, weights] __device__(WeightedClassificationBin * out, std::size_t i) {
-    out->count  = counts[i];
-    out->weight = weights[i];
+  // Counts are packed as doubles so each bin can use one homogeneous arithmetic buffer. This is
+  // exact for current RF problem sizes: integer values up to 2^53 are exactly representable by
+  // double, and IdxT row indexing is far below that limit.
+  auto op = [in] __device__(double* out, std::size_t i) {
+    auto const buffer = in[i].ToReductionBuffer();
+    auto const offset = i * reductionBufferSize<BinT>();
+    for (std::size_t field = 0; field < reductionBufferSize<BinT>(); ++field) {
+      out[offset + field] = buffer[field];
+    }
   };
-  raft::linalg::writeOnlyUnaryOp<WeightedClassificationBin, decltype(op), std::size_t, 256>(
-    out, len, op, stream);
+  raft::linalg::writeOnlyUnaryOp<double, decltype(op), std::size_t, 256>(out, len, op, stream);
 }
 
-inline void unpackHistograms(const double* label_sums,
-                             const std::uint64_t* counts,
-                             const double*,
-                             RegressionBin* out,
-                             std::size_t len,
-                             cudaStream_t stream)
+template <typename BinT>
+inline void unpackHistograms(const double* in, BinT* out, std::size_t len, cudaStream_t stream)
 {
-  auto op = [label_sums, counts] __device__(RegressionBin * out, std::size_t i) {
-    out->label_sum = label_sums[i];
-    out->count     = counts[i];
+  auto op = [in] __device__(BinT * out, std::size_t i) {
+    decltype(BinT{}.ToReductionBuffer()) buffer{};
+    auto const offset = i * reductionBufferSize<BinT>();
+    for (std::size_t field = 0; field < reductionBufferSize<BinT>(); ++field) {
+      buffer[field] = in[offset + field];
+    }
+    *out = BinT::FromReductionBuffer(buffer);
   };
-  raft::linalg::writeOnlyUnaryOp<RegressionBin, decltype(op), std::size_t, 256>(
-    out, len, op, stream);
-}
-
-inline void unpackHistograms(const double* label_sums,
-                             const std::uint64_t* counts,
-                             const double* weights,
-                             WeightedRegressionBin* out,
-                             std::size_t len,
-                             cudaStream_t stream)
-{
-  auto op = [label_sums, counts, weights] __device__(WeightedRegressionBin * out, std::size_t i) {
-    out->label_sum = label_sums[i];
-    out->count     = counts[i];
-    out->weight    = weights[i];
-  };
-  raft::linalg::writeOnlyUnaryOp<WeightedRegressionBin, decltype(op), std::size_t, 256>(
-    out, len, op, stream);
+  raft::linalg::writeOnlyUnaryOp<BinT, decltype(op), std::size_t, 256>(out, len, op, stream);
 }
 
 }  // namespace DT

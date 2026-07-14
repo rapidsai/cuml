@@ -272,18 +272,7 @@ struct Builder {
   {
     if (!distributed) { return 0; }
 
-    size_t workspace_size = 0;
-    if constexpr (has_label_sum_v<BinT>) {
-      workspace_size = ML::checked_add<std::size_t>(
-        workspace_size, calculateAlignedBytes(sizeof(double) * len_histograms));
-    }
-    workspace_size = ML::checked_add<std::size_t>(
-      workspace_size, calculateAlignedBytes(sizeof(std::uint64_t) * len_histograms));
-    if constexpr (has_weight_v<BinT>) {
-      workspace_size = ML::checked_add<std::size_t>(
-        workspace_size, calculateAlignedBytes(sizeof(double) * len_histograms));
-    }
-    return workspace_size;
+    return calculateAlignedBytes(sizeof(double) * packedHistogramElements<BinT>(len_histograms));
   }
 
   /**
@@ -564,51 +553,18 @@ struct Builder {
 
   void allReduceHistograms(BinT* histograms_to_reduce, std::size_t len_histograms)
   {
-    auto const& comm          = handle.get_comms();
-    auto* packed_base         = reinterpret_cast<char*>(packed_histograms);
-    double* packed_label_sums = nullptr;
-    if constexpr (has_label_sum_v<BinT>) {
-      packed_label_sums = reinterpret_cast<double*>(packed_base);
-      packed_base += calculateAlignedBytes(sizeof(double) * len_histograms);
-    }
-    auto* packed_counts = reinterpret_cast<std::uint64_t*>(packed_base);
-    packed_base += calculateAlignedBytes(sizeof(std::uint64_t) * len_histograms);
-    double* packed_weights = nullptr;
-    if constexpr (has_weight_v<BinT>) { packed_weights = reinterpret_cast<double*>(packed_base); }
+    auto const& comm  = handle.get_comms();
+    auto* packed      = reinterpret_cast<double*>(packed_histograms);
+    auto packed_count = packedHistogramElements<BinT>(len_histograms);
 
-    packHistograms(histograms_to_reduce,
-                   packed_label_sums,
-                   packed_counts,
-                   packed_weights,
-                   len_histograms,
-                   builder_stream);
+    packHistograms(histograms_to_reduce, packed, len_histograms, builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
 
-    if constexpr (has_label_sum_v<BinT>) {
-      comm.allreduce(packed_label_sums,
-                     packed_label_sums,
-                     len_histograms,
-                     raft::comms::op_t::SUM,
-                     builder_stream);
-      ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
-             "An error occurred in the distributed RF label-sum histogram all-reduce.");
-    }
-    comm.allreduce(
-      packed_counts, packed_counts, len_histograms, raft::comms::op_t::SUM, builder_stream);
+    comm.allreduce(packed, packed, packed_count, raft::comms::op_t::SUM, builder_stream);
     ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
-           "An error occurred in the distributed RF count histogram all-reduce.");
-    if constexpr (has_weight_v<BinT>) {
-      comm.allreduce(
-        packed_weights, packed_weights, len_histograms, raft::comms::op_t::SUM, builder_stream);
-      ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
-             "An error occurred in the distributed RF weight histogram all-reduce.");
-    }
-    unpackHistograms(packed_label_sums,
-                     packed_counts,
-                     packed_weights,
-                     histograms_to_reduce,
-                     len_histograms,
-                     builder_stream);
+           "An error occurred in the distributed RF histogram all-reduce.");
+
+    unpackHistograms(packed, histograms_to_reduce, len_histograms, builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
