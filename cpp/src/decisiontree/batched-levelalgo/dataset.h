@@ -39,8 +39,7 @@ struct Dataset {
 
   HDI DataT value(std::int64_t row, std::int64_t col) const
   {
-    return data[static_cast<std::int64_t>(row) * row_stride +
-                static_cast<std::int64_t>(col) * col_stride];
+    return data[row * row_stride + col * col_stride];
   }
 };
 

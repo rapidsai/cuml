@@ -312,8 +312,7 @@ static __global__ void buildHistogramsKernel(typename ObjectiveT::BinT* histogra
         return quantiles_for_split[bin] < value;
       });
     auto bin = bin_it == bin_end ? n_bins - 1 : *bin_it;
-    objective.IncrementHistogram(
-      histogram, n_bins, static_cast<std::int64_t>(bin), label, dataset, row);
+    objective.IncrementHistogram(histogram, n_bins, bin, label, dataset, row);
   }
 
   if (!use_global_memory_histogram) {

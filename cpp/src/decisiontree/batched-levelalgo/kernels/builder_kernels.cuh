@@ -58,9 +58,9 @@ HDI bool SplitPartitionNotValid(const SplitT& split,
                                 std::size_t num_rows)
 {
   const auto local_count = static_cast<std::int64_t>(num_rows);
-  const auto min_leaf    = static_cast<std::int64_t>(min_samples_leaf);
   return split.colid == std::int64_t{-1} || split.local_nLeft > local_count ||
-         split.local_nLeft < min_leaf || (local_count - split.local_nLeft) < min_leaf;
+         split.local_nLeft < min_samples_leaf ||
+         (local_count - split.local_nLeft) < min_samples_leaf;
 }
 
 template <typename SplitT, typename DataT>

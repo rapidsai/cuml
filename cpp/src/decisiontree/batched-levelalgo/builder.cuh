@@ -419,8 +419,7 @@ struct Builder {
     // sampled features do not yield a valid split.
     for (std::size_t round = 0; !active_items.empty() && round < max_sampling_rounds; ++round) {
       std::int64_t sample_offset = std::int64_t(round) * original_n_sampled_cols;
-      dataset.n_sampled_cols     = std::min(original_n_sampled_cols,
-                                        static_cast<std::int64_t>(dataset.n_cols) - sample_offset);
+      dataset.n_sampled_cols = std::min(original_n_sampled_cols, dataset.n_cols - sample_offset);
       computeBestSplits(active_items, seed, sample_offset);
 
       std::vector<NodeWorkItem> retry_items;
@@ -498,7 +497,7 @@ struct Builder {
                     treeid,
                     sampling_seed,
                     sample_offset,
-                    static_cast<std::int64_t>(dataset.n_cols),
+                    dataset.n_cols,
                     dataset.n_sampled_cols,
                     builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());

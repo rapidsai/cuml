@@ -131,8 +131,7 @@ class ClassificationObjectiveFunction {
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
-        nRight < static_cast<std::int64_t>(min_samples_leaf))
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -153,8 +152,8 @@ class ClassificationObjectiveFunction {
 
   template <typename DatasetT>
   DI void IncrementHistogram(BinT* histogram,
-                             std::int64_t n_bins,
-                             std::int64_t bin,
+                             int n_bins,
+                             int bin,
                              LabelT label,
                              const DatasetT& dataset,
                              std::int64_t row) const
@@ -177,8 +176,7 @@ class ClassificationObjectiveFunction {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
-          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
       sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
@@ -348,8 +346,7 @@ class RegressionObjectiveFunction {
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
-        nRight < static_cast<std::int64_t>(min_samples_leaf))
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -371,8 +368,8 @@ class RegressionObjectiveFunction {
 
   template <typename DatasetT>
   DI void IncrementHistogram(BinT* histogram,
-                             std::int64_t n_bins,
-                             std::int64_t bin,
+                             int n_bins,
+                             int bin,
                              LabelT label,
                              const DatasetT& dataset,
                              std::int64_t row) const
@@ -395,8 +392,7 @@ class RegressionObjectiveFunction {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, std::int64_t{1});
       auto nRight = len - nLeft;
       auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
-          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
         gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
       }
       sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
