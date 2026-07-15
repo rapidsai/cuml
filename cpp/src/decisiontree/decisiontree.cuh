@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -210,7 +210,8 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
         } else {
           // if rf_tree.num_outputs < num_class, fill the remainder with zero
           // Most likely this happens when a binary classifier is fit with all-0 labels
-          ASSERT(rf_tree.num_outputs <= num_class, "num_class too small");
+          ASSERT(static_cast<unsigned int>(rf_tree.num_outputs) <= num_class,
+                 "num_class too small");
           std::vector<T> leaf_vector(num_class, T(0));
           std::copy(leaf_begin, leaf_begin + rf_tree.num_outputs, leaf_vector.begin());
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
