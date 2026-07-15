@@ -63,14 +63,12 @@ Flexible Inputs, Predictable Outputs
 .. _accept-flexible-input-types-return-predictable-output-types:
 
 cuML estimators can accept NumPy arrays, cuDF dataframes, cuPy arrays,
-2D PyTorch tensors, and really any kind of standards-based Python
-array input you can throw at them. This relies on the ``__array__``
-and ``__cuda_array_interface__`` standards, widely used throughout the
-PyData community.
-
-.. note::
-
-   Array inputs in the form of lists or tuples are only supported when using :doc:`cuml.accel <cuml-accel/index>`.
+2D PyTorch tensors, Python lists and tuples, and really any kind of
+standards-based Python array input you can throw at them. This relies on
+the ``__array__`` and ``__cuda_array_interface__`` standards, widely used
+throughout the PyData community, and on cuML's input validation helpers.
+When you provide a Python list or tuple, cuML validates and converts it
+just like other host-backed array inputs.
 
 By default, outputs will mirror the data type you provided. So, if you
 fit a model with a NumPy array, the ``model.coef_`` property

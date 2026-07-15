@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import warnings
@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 import cuml
+from cuml.datasets import make_arima
 from cuml.internals import run_in_internal_context
 from cuml.tsa import ARIMA, ExponentialSmoothing
 from cuml.tsa.auto_arima import AutoARIMA
@@ -49,6 +50,7 @@ def test_tsa_estimators_warn_on_construction(estimator, args):
             kpss_test,
             (np.arange(12, dtype=np.float64).reshape(-1, 1),),
         ),
+        (make_arima, ()),
     ],
 )
 def test_tsa_functions_warn_on_call(func, args):

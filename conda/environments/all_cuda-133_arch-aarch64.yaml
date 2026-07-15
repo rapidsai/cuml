@@ -81,6 +81,7 @@ dependencies:
 - skl2onnx
 - sphinx
 - sphinx-copybutton
+- sphinx-design
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-aarch64==2.28

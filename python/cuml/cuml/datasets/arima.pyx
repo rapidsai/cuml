@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 from random import randint
@@ -7,6 +7,7 @@ from random import randint
 import cupy as cp
 
 from cuml.internals import get_handle, reflect
+from cuml.tsa._deprecation import deprecated_tsa_api
 
 from libc.stdint cimport uint64_t, uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -40,12 +41,17 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML" nogil:
     ) except +
 
 
+@deprecated_tsa_api("cuml.datasets.make_arima")
 @reflect(array=None)
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
                random_state=None, dtype="float64"):
     """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
+
+    .. deprecated:: 26.08
+        ``cuml.datasets.make_arima`` is deprecated and will be removed
+        in the cuML 26.12 release.
 
     Examples
     --------
