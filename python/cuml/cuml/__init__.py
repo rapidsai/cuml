@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -85,7 +85,9 @@ def _setup_cupy():
     # Enable rmm_cupy_allocator
     cp.cuda.set_allocator(rmm_cupy_allocator)
 
-    # XXX: workaround for https://github.com/cupy/cupy/issues/10084
+    # TODO: this is a workaround for https://github.com/cupy/cupy/issues/10084
+    # It can be conditionally done once the cupy fix is out (see
+    # https://github.com/rapidsai/cuml/issues/8364).
     copyreg.dispatch_table[cp.ndarray] = lambda x: (
         cp.array,
         (x.get(order="A"),),
