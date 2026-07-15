@@ -81,9 +81,7 @@ struct NodeSplitPartitionWriter {
 // Copy back only ranges for nodes that actually split. Leaf/invalid nodes keep
 // their existing row-id order because the scan writer skips them too.
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
-                                               const DataT min_impurity_decrease,
-                                               const Dataset<DataT, LabelT, IdxT> dataset,
+static __global__ void nodeSplitCopyBackKernel(const Dataset<DataT, LabelT, IdxT> dataset,
                                                const NodeWorkItem* work_items,
                                                const Split<DataT, IdxT>* splits,
                                                const WorkloadInfo<IdxT>* workload_info,
@@ -93,9 +91,7 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
   const auto nid               = workload_info_cta.nodeid;
   const auto work_item         = work_items[nid];
   const auto split             = splits[nid];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-    return;
-  }
+  if (!split.IsValid()) { return; }
 
   const auto range_start = work_item.instances.begin;
   const auto range_len   = work_item.instances.count;
@@ -107,9 +103,7 @@ static __global__ void nodeSplitCopyBackKernel(const IdxT min_samples_leaf,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT, IdxT>& dataset,
+void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
                            const Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
@@ -133,9 +127,7 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
     const auto nid               = workload_info_cta.nodeid;
     const auto work_item         = work_items[nid];
     const auto split             = splits[nid];
-    if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
-      return NodeSplitPartitionState{std::int64_t{0}, false, false};
-    }
+    if (!split.IsValid()) { return NodeSplitPartitionState{std::int64_t{0}, false, false}; }
 
     const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * TPB + slot % TPB;
     if (range_pos >= work_item.instances.count) {
@@ -164,14 +156,8 @@ void launchNodeSplitKernel(const IdxT min_samples_leaf,
                                 NodeSplitPartitionScanOp{});
 
   // The original row_ids buffer remains the source during the scan, so copy back after it finishes.
-  nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB>
-    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(min_samples_leaf,
-                                                min_impurity_decrease,
-                                                dataset,
-                                                work_items,
-                                                splits,
-                                                workload_info,
-                                                partition_row_ids);
+  nodeSplitCopyBackKernel<DataT, LabelT, IdxT, TPB><<<n_blocks_dimx, TPB, 0, builder_stream>>>(
+    dataset, work_items, splits, workload_info, partition_row_ids);
 }
 
 template <typename DatasetT, typename NodeT, typename ObjectiveT, typename DataT>
@@ -342,15 +328,16 @@ static __global__ void findBestSplitsKernel(typename ObjectiveT::BinT* histogram
   auto* histogram           = histograms + histograms_offset;
   auto* quantiles_for_split = quantiles.quantiles_array + std::size_t(max_n_bins) * col;
 
-  std::int64_t split_len = 0;
+  std::int64_t global_sample_count = 0;
   for (IdxT c = 0; c < n_classes; ++c) {
-    split_len += static_cast<std::int64_t>(
+    global_sample_count += static_cast<std::int64_t>(
       pdf_to_cdf<BinT, IdxT, TPB>(histogram + n_bins * c, n_bins).Count());
   }
 
   __syncthreads();
 
-  Split<DataT, IdxT> sp = objective.Gain(histogram, quantiles_for_split, col, split_len, n_bins);
+  Split<DataT, IdxT> sp =
+    objective.Gain(histogram, quantiles_for_split, col, global_sample_count, n_bins);
 
   __syncthreads();
 

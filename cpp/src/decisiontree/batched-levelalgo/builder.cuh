@@ -94,10 +94,7 @@ class NodeQueue {
       auto split        = h_splits[i];
       auto item         = work_items[i];
       auto parent_range = node_instances_.at(item.idx);
-      if (SplitNotValid(
-            split, params.min_impurity_decrease, params.min_samples_leaf, parent_range.count)) {
-        continue;
-      }
+      if (!split.IsValid()) { continue; }
 
       if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
@@ -444,8 +441,7 @@ struct Builder {
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
         final_splits[original_idx] = h_splits[i];
-        if (SplitPartitionNotValid(
-              h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
+        if (!h_splits[i].IsValid()) {
           retry_items.push_back(active_items[i]);
           retry_to_original.push_back(original_idx);
         }
@@ -467,9 +463,7 @@ struct Builder {
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
     const auto n_partition_blocks = this->updateWorkloadInfo(work_items);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
-                                                            params.min_impurity_decrease,
-                                                            dataset,
+    launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(dataset,
                                                             d_work_items,
                                                             splits,
                                                             workload_info,
@@ -591,7 +585,10 @@ struct Builder {
     auto histograms_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), len_histograms);
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, histograms_bytes, builder_stream));
     // create the objective function object
-    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
+    ObjectiveT objective(dataset.num_outputs,
+                         params.min_samples_leaf,
+                         params.split_criterion,
+                         params.min_impurity_decrease);
     raft::common::nvtx::range kernel_scope("computeSplitKernels @builder.cuh [batched-levelalgo]");
     launchBuildHistogramsKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
                                                                               params.max_n_bins,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -91,6 +91,8 @@ struct Split {
     split_end       = other.split_end;
     return *this;
   }
+
+  HDI bool IsValid() const { return colid != static_cast<IdxT>(-1); }
 
   DI bool has_valid_split_range() const
   {
@@ -210,7 +212,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0 && this->colid != -1) {
+      if (threadIdx.x == 0 && this->IsValid()) {
         select_split_range_midpoint(quantiles, n_bins);
         while (atomicCAS(mutex, 0, 1))
           ;

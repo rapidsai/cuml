@@ -56,25 +56,6 @@ struct SharedMemoryConfig {
   size_t histogram_dynamic_smem_size;
 };
 
-template <typename SplitT, typename IdxT>
-HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
-{
-  const auto local_count = static_cast<std::int64_t>(num_rows);
-  const auto min_leaf    = static_cast<std::int64_t>(min_samples_leaf);
-  return split.colid == IdxT(-1) || split.local_nLeft > local_count ||
-         split.local_nLeft < min_leaf || (local_count - split.local_nLeft) < min_leaf;
-}
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease ||
-         SplitPartitionNotValid(split, min_samples_leaf, num_rows);
-}
-
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
 DI OutT* alignPointer(InT dataset)
@@ -113,9 +94,7 @@ void sample_features(IdxT* column_samples,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT, IdxT>& dataset,
+void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
                            const Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
