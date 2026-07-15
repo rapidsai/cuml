@@ -595,6 +595,8 @@ class TSNE(InteropMixin,
             convert_dtype=convert_dtype,
             order="F",
             accept_sparse="csr",
+            ensure_min_samples=2,
+            ensure_min_features=2,
             reset=True,
             return_index=True,
         )

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -29,26 +29,21 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+template void launchComputeSplitKernels<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
   IdxT n_bins,
-  IdxT min_samples_split,
-  IdxT max_leaves,
   const DatasetT& dataset,
   const Quantiles<DataT, IdxT>& quantiles,
   const NodeWorkItem* work_items,
   IdxT colStart,
   const IdxT* column_samples,
-  int* done_count,
   int* mutex,
   volatile Split<DataT, IdxT>* splits,
   ObjectiveT& objective,
-  IdxT treeid,
   const WorkloadInfo<IdxT>* workload_info,
-  uint64_t seed,
-  bool use_global_memory_histogram,
-  dim3 grid,
-  size_t smem_size,
+  dim3 histogram_grid,
+  dim3 split_grid,
+  const SharedMemoryConfig& split_smem_config,
   cudaStream_t builder_stream);
 }  // namespace DT
 }  // namespace ML
