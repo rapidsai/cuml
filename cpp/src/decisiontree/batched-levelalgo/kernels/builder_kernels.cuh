@@ -96,9 +96,10 @@ void sample_features(IdxT* column_samples,
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, IdxT>* splits,
+                           Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
+                           size_t n_work_items,
                            IdxT* partition_row_ids,
                            cudaStream_t builder_stream);
 

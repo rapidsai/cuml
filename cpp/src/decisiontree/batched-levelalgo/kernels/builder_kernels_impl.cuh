@@ -44,6 +44,42 @@ struct NodeSplitPartitionScanOp {
   }
 };
 
+template <typename DataT, typename IdxT>
+static __global__ void resetLocalLeftCountsKernel(Split<DataT, IdxT>* splits, std::size_t n_splits)
+{
+  const auto idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
+  if (idx < n_splits) { splits[idx].local_nLeft = 0; }
+}
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
+static __global__ void countLocalLeftKernel(const Dataset<DataT, LabelT, IdxT> dataset,
+                                            const NodeWorkItem* work_items,
+                                            Split<DataT, IdxT>* splits,
+                                            const WorkloadInfo<IdxT>* workload_info)
+{
+  using BlockReduce = cub::BlockReduce<std::int64_t, TPB>;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  const auto workload_info_cta = workload_info[blockIdx.x];
+  const auto nid               = workload_info_cta.nodeid;
+  const auto work_item         = work_items[nid];
+  const auto split             = splits[nid];
+
+  std::int64_t thread_count = 0;
+  const auto range_pos = std::size_t(workload_info_cta.offset_blockid) * blockDim.x + threadIdx.x;
+  if (split.IsValid() && range_pos < work_item.instances.count) {
+    const auto row = dataset.row_ids[work_item.instances.begin + range_pos];
+    thread_count =
+      dataset.value(row, split.colid) <= split.quesval ? std::int64_t{1} : std::int64_t{0};
+  }
+
+  const auto block_count = BlockReduce(temp_storage).Sum(thread_count);
+  if (threadIdx.x == 0 && block_count > 0) {
+    atomicAdd(reinterpret_cast<unsigned long long*>(&splits[nid].local_nLeft),
+              static_cast<unsigned long long>(block_count));
+  }
+}
+
 // Output side of the segmented partition scan. The scan supplies the
 // inclusive left count and current row side for each logical row slot in its
 // node segment; this writer uses that state to place the row into the temporary
@@ -105,13 +141,22 @@ static __global__ void nodeSplitCopyBackKernel(const Dataset<DataT, LabelT, IdxT
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, IdxT>* splits,
+                           Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
+                           size_t n_work_items,
                            IdxT* partition_row_ids,
                            cudaStream_t builder_stream)
 {
   if (n_blocks_dimx == 0) return;
+
+  constexpr int reset_tpb = 128;
+  const auto reset_grid   = raft::ceildiv(n_work_items, std::size_t{reset_tpb});
+  resetLocalLeftCountsKernel<DataT, IdxT>
+    <<<reset_grid, reset_tpb, 0, builder_stream>>>(splits, n_work_items);
+  countLocalLeftKernel<DataT, LabelT, IdxT, TPB>
+    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(dataset, work_items, splits, workload_info);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Each slot corresponds to one thread lane in the tiled workload_info layout.
   // workload_info is grouped by node, so scan-by-key resets ranks at node boundaries.

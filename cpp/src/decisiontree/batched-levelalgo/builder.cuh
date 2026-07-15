@@ -468,6 +468,7 @@ struct Builder {
                                                             splits,
                                                             workload_info,
                                                             n_partition_blocks,
+                                                            work_items.size(),
                                                             partition_row_ids,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());

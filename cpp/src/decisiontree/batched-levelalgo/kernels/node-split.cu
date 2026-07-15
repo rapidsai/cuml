@@ -12,9 +12,10 @@ namespace DT {
 template void launchNodeSplitKernel<float, int, int, TPB_DEFAULT>(
   const Dataset<float, int, int>& dataset,
   const NodeWorkItem* work_items,
-  const Split<float, int>* splits,
+  Split<float, int>* splits,
   const WorkloadInfo<int>* workload_info,
   size_t n_blocks_dimx,
+  size_t n_work_items,
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
@@ -22,9 +23,10 @@ template void launchNodeSplitKernel<float, int, int, TPB_DEFAULT>(
 template void launchNodeSplitKernel<double, int, int, TPB_DEFAULT>(
   const Dataset<double, int, int>& dataset,
   const NodeWorkItem* work_items,
-  const Split<double, int>* splits,
+  Split<double, int>* splits,
   const WorkloadInfo<int>* workload_info,
   size_t n_blocks_dimx,
+  size_t n_work_items,
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
@@ -32,9 +34,10 @@ template void launchNodeSplitKernel<double, int, int, TPB_DEFAULT>(
 template void launchNodeSplitKernel<float, float, int, TPB_DEFAULT>(
   const Dataset<float, float, int>& dataset,
   const NodeWorkItem* work_items,
-  const Split<float, int>* splits,
+  Split<float, int>* splits,
   const WorkloadInfo<int>* workload_info,
   size_t n_blocks_dimx,
+  size_t n_work_items,
   int* partition_row_ids,
   cudaStream_t builder_stream);
 
@@ -42,9 +45,10 @@ template void launchNodeSplitKernel<float, float, int, TPB_DEFAULT>(
 template void launchNodeSplitKernel<double, double, int, TPB_DEFAULT>(
   const Dataset<double, double, int>& dataset,
   const NodeWorkItem* work_items,
-  const Split<double, int>* splits,
+  Split<double, int>* splits,
   const WorkloadInfo<int>* workload_info,
   size_t n_blocks_dimx,
+  size_t n_work_items,
   int* partition_row_ids,
   cudaStream_t builder_stream);
 

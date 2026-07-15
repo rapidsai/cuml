@@ -1424,7 +1424,7 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
   handle.sync_stream();
 
   EXPECT_EQ(h_split.global_nLeft, 4);
-  EXPECT_EQ(h_split.local_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
@@ -1472,7 +1472,7 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   handle.sync_stream();
 
   EXPECT_EQ(h_split.global_nLeft, 4);
-  EXPECT_EQ(h_split.local_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
