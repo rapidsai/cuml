@@ -211,6 +211,14 @@ void testBinReductionRoundTrip(std::vector<BinT> const& input)
 
 TEST(RfTests, BinReductionRoundTrip)
 {
+  testBinReductionRoundTrip<DT::ClassificationBin>({});
+  testBinReductionRoundTrip<DT::ClassificationBin>({{7}});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({{4, 2.5}});
+  testBinReductionRoundTrip<DT::RegressionBin>({});
+  testBinReductionRoundTrip<DT::RegressionBin>({{3.5, 4}});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({{6.75, 3, 2.25}});
   testBinReductionRoundTrip<DT::ClassificationBin>({{0}, {7}, {13}});
   testBinReductionRoundTrip<DT::WeightedClassificationBin>({{0, 0.0}, {4, 2.5}, {11, 8.25}});
   testBinReductionRoundTrip<DT::RegressionBin>({{0.0, 0}, {3.5, 4}, {-2.25, 9}});

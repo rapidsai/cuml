@@ -8,6 +8,8 @@
 
 #include <common/grid_sync.cuh>
 
+#include <cuml/common/checked_arithmetic.hpp>
+
 #include <raft/core/handle.hpp>
 #include <raft/util/cuda_utils.cuh>
 
@@ -153,9 +155,12 @@ void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
   constexpr int reset_tpb = 128;
   const auto reset_grid   = raft::ceildiv(n_work_items, std::size_t{reset_tpb});
   resetLocalLeftCountsKernel<DataT, IdxT>
-    <<<reset_grid, reset_tpb, 0, builder_stream>>>(splits, n_work_items);
+    <<<ML::narrow_cast<ML::cuda_launch_t>(reset_grid), reset_tpb, 0, builder_stream>>>(
+      splits, n_work_items);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
   countLocalLeftKernel<DataT, LabelT, IdxT, TPB>
-    <<<n_blocks_dimx, TPB, 0, builder_stream>>>(dataset, work_items, splits, workload_info);
+    <<<ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimx), TPB, 0, builder_stream>>>(
+      dataset, work_items, splits, workload_info);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
 
   // Each slot corresponds to one thread lane in the tiled workload_info layout.

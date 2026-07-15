@@ -54,22 +54,6 @@ struct Split {
   /** last quantile index in an inclusive range of training-equivalent splits */
   IdxT split_end;
 
-  HDI Split(DataT quesval,
-            IdxT colid,
-            DataT best_metric_val,
-            std::int64_t global_nLeft,
-            std::int64_t local_nLeft,
-            IdxT bin)
-    : quesval(quesval),
-      colid(colid),
-      best_metric_val(best_metric_val),
-      global_nLeft(global_nLeft),
-      local_nLeft(local_nLeft)
-  {
-    split_start = bin;
-    split_end   = bin;
-  }
-
   HDI Split()
   {
     quesval = best_metric_val = Min;
