@@ -2,6 +2,7 @@
  * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
@@ -2582,14 +2583,17 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
   {
     auto stream = handle->get_stream();
 
+    const auto node_count        = ML::narrow_cast<std::size_t>(params.n_nodes);
+    const auto feature_count     = ML::narrow_cast<std::size_t>(params.n_features);
+    const auto sampled_col_count = ML::checked_mul<std::size_t>(params.n_nodes, params.k);
+
     // Allocate device memory
-    rmm::device_uvector<std::int64_t> d_colids(params.n_nodes * params.k, stream);
-    rmm::device_uvector<NodeWorkItem> d_work_items(params.n_nodes, stream);
-    rmm::device_uvector<unsigned long long> d_counts(params.n_features, stream);
+    rmm::device_uvector<std::int64_t> d_colids(sampled_col_count, stream);
+    rmm::device_uvector<NodeWorkItem> d_work_items(node_count, stream);
 
     // Initialize work items on host
-    std::vector<NodeWorkItem> h_work_items(params.n_nodes);
-    for (int i = 0; i < params.n_nodes; ++i) {
+    std::vector<NodeWorkItem> h_work_items(node_count);
+    for (std::size_t i = 0; i < node_count; ++i) {
       h_work_items[i].idx             = i;
       h_work_items[i].depth           = 0;
       h_work_items[i].instances.begin = 0;
@@ -2597,58 +2601,35 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     }
 
     // Copy to device
-    raft::update_device(d_work_items.data(), h_work_items.data(), params.n_nodes, stream);
+    raft::update_device(d_work_items.data(), h_work_items.data(), node_count, stream);
 
-    // Initialize counts to zero
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(d_counts.data(), 0, params.n_features * sizeof(unsigned long long), stream));
-
-    // Calculate n_parallel_samples using the same formula as in builder.cuh
-    const int BLOCK_THREADS          = 128;
-    const int MAX_SAMPLES_PER_THREAD = 1;
-    // Formula: log(1 - k/n) / log(1 - 1/n)
-    // where k = params.k (features to sample), n = params.n_features (total features)
-    int n_parallel_samples = std::ceil(raft::log(1 - double(params.k) / double(params.n_features)) /
-                                       raft::log(1 - 1.0 / double(params.n_features)));
-
-    // Verify that test conditions ensure excess_sample_with_replacement_kernel is used
-    // (instead of falling back to algo_L_sample_kernel)
-    ASSERT_GE(MAX_SAMPLES_PER_THREAD * BLOCK_THREADS, n_parallel_samples)
-      << "Test parameters would trigger reservoir sampling instead of excess sampling. "
-      << "n_parallel_samples=" << n_parallel_samples
-      << ", max capacity=" << (MAX_SAMPLES_PER_THREAD * BLOCK_THREADS);
-
-    // Run the sampling kernel with diagnostics enabled
-    excess_sample_with_replacement_kernel<std::int64_t, MAX_SAMPLES_PER_THREAD, BLOCK_THREADS>
-      <<<params.n_nodes, BLOCK_THREADS, 0, stream>>>(d_colids.data(),
-                                                     d_work_items.data(),
-                                                     params.n_nodes,
-                                                     0,   // treeid
-                                                     42,  // seed
-                                                     params.n_features,
-                                                     params.k,
-                                                     n_parallel_samples,
-                                                     d_counts.data());
-
+    sample_features(d_colids.data(),
+                    d_work_items.data(),
+                    node_count,
+                    std::int64_t{0},  // treeid
+                    std::uint64_t{42},
+                    std::int64_t{0},  // sample_offset
+                    params.n_features,
+                    params.k,
+                    stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-    // Copy counts back to host for verification
-    std::vector<unsigned long long> h_counts(params.n_features);
-    raft::update_host(h_counts.data(), d_counts.data(), params.n_features, stream);
+    // Copy colids back to host for duplicate checking and bias counting
+    std::vector<std::int64_t> h_colids(sampled_col_count);
+    raft::update_host(h_colids.data(), d_colids.data(), sampled_col_count, stream);
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
 
-    // Copy colids back to host for duplicate checking
-    std::vector<std::int64_t> h_colids(params.n_nodes * params.k);
-    raft::update_host(h_colids.data(), d_colids.data(), params.n_nodes * params.k, stream);
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
+    std::vector<unsigned long long> h_counts(feature_count, 0);
 
     // Verify that each node's sampled features are unique and valid
     for (int node = 0; node < params.n_nodes; ++node) {
-      std::vector<bool> feature_seen(params.n_features, false);
+      std::vector<bool> feature_seen(feature_count, false);
       int unique_count = 0;
 
       for (int j = 0; j < params.k; ++j) {
-        auto feature_idx = h_colids[node * params.k + j];
+        const auto sample_idx =
+          ML::checked_add<std::size_t>(ML::checked_mul<std::size_t>(node, params.k), j);
+        auto feature_idx = h_colids[sample_idx];
 
         // Check feature index is within valid range
         EXPECT_GE(feature_idx, 0) << "Node " << node << " has invalid feature index " << feature_idx
@@ -2659,10 +2640,12 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
 
         // Check for duplicates
         if (feature_idx >= 0 && feature_idx < params.n_features) {
-          EXPECT_FALSE(feature_seen[feature_idx]) << "Node " << node << " has duplicate feature "
+          const auto feature_pos = ML::narrow_cast<std::size_t>(feature_idx);
+          h_counts[feature_pos]++;
+          EXPECT_FALSE(feature_seen[feature_pos]) << "Node " << node << " has duplicate feature "
                                                   << feature_idx << " at positions in sampled set";
-          if (!feature_seen[feature_idx]) {
-            feature_seen[feature_idx] = true;
+          if (!feature_seen[feature_pos]) {
+            feature_seen[feature_pos] = true;
             unique_count++;
           }
         }
@@ -2673,8 +2656,8 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
     }
 
     // Verify uniform sampling (no bias)
-    unsigned long long total_samples = params.n_nodes * params.k;
-    double expected_per_feature      = double(total_samples) / params.n_features;
+    auto total_samples          = ML::checked_mul<unsigned long long>(params.n_nodes, params.k);
+    double expected_per_feature = double(total_samples) / params.n_features;
 
     // Check for feature 0 under-sampling
     double feature_0_ratio = h_counts[0] / expected_per_feature;
@@ -2682,12 +2665,12 @@ class FeatureSamplingBiasTest : public ::testing::TestWithParam<FeatureSamplingB
       << "Feature 0 is under-sampled! Ratio: " << feature_0_ratio << " (expected ~1.0)";
 
     // Check for feature n-1 over-sampling
-    double feature_n1_ratio = h_counts[params.n_features - 1] / expected_per_feature;
+    double feature_n1_ratio = h_counts[feature_count - 1] / expected_per_feature;
     EXPECT_LT(feature_n1_ratio, 1.0 + params.tolerance_ratio)
       << "Feature n-1 is over-sampled! Ratio: " << feature_n1_ratio << " (expected ~1.0)";
 
     // Check all features are reasonably sampled
-    for (int i = 0; i < params.n_features; ++i) {
+    for (std::size_t i = 0; i < feature_count; ++i) {
       double ratio = h_counts[i] / expected_per_feature;
       EXPECT_GT(ratio, 1.0 - params.tolerance_ratio)
         << "Feature " << i << " under-sampled. Ratio: " << ratio;

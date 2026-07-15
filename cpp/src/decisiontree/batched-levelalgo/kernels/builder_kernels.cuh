@@ -10,7 +10,10 @@
 #include "../quantiles.h"
 #include "../random_utils.cuh"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
+
+#include <raft/core/error.hpp>
 
 #include <cuda/iterator>
 #include <cuda/std/random>
@@ -18,6 +21,7 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace ML {
@@ -90,18 +94,22 @@ inline void sample_features(std::int64_t* column_samples,
                             std::int64_t k,
                             cudaStream_t stream)
 {
-  auto n_column_samples = work_items_size * size_t(k);
-  auto counting         = thrust::make_counting_iterator<size_t>(0);
+  RAFT_EXPECTS(k >= 0, "k must be non-negative");
+  RAFT_EXPECTS(n >= k, "k must not exceed n");
+
+  auto sampled_cols     = ML::narrow_cast<std::size_t>(k);
+  auto n_column_samples = ML::checked_mul<std::size_t>(work_items_size, sampled_cols);
+  auto counting         = thrust::make_counting_iterator<std::size_t>(0);
 
   thrust::for_each(thrust::cuda::par.on(stream),
                    counting,
                    counting + n_column_samples,
-                   [=] __device__(size_t sample_idx) {
-                     auto node_idx     = sample_idx / size_t(k);
-                     auto column_index = static_cast<std::int64_t>(sample_idx % size_t(k));
+                   [=] __device__(std::size_t sample_idx) {
+                     auto node_idx     = sample_idx / sampled_cols;
+                     auto column_index = static_cast<std::int64_t>(sample_idx % sampled_cols);
 
-                     const uint32_t nodeid = work_items[node_idx].idx;
-                     uint32_t rng_seed     = fnv1a32_hash(seed, treeid, nodeid);
+                     auto nodeid       = work_items[node_idx].idx;
+                     uint32_t rng_seed = fnv1a32_hash(seed, treeid, nodeid);
 
                      cuda::shuffle_iterator<std::int64_t> shuffled_features(
                        n, cuda::std::minstd_rand(rng_seed), sample_offset);
