@@ -45,13 +45,10 @@ class NodeQueue {
   std::deque<NodeWorkItem> work_items_;
 
  public:
-  NodeQueue(DecisionTreeParams params,
-            size_t max_nodes,
-            size_t sampled_rows,
-            std::int64_t num_outputs)
+  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows, int num_outputs)
     : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
-    tree->num_outputs = ML::narrow_cast<int>(num_outputs);
+    tree->num_outputs = num_outputs;
     tree->sparsetree.reserve(max_nodes);
     tree->sparsetree.emplace_back(NodeT::CreateLeafNode(sampled_rows));
     tree->leaf_counter  = 1;
@@ -220,7 +217,7 @@ struct Builder {
           std::int64_t n_rows,
           std::int64_t n_cols,
           rmm::device_uvector<std::int64_t>* row_ids,
-          std::int64_t n_classes,
+          int n_classes,
           const QuantilesT& q,
           bool row_major = false)
     : handle(handle),
@@ -549,8 +546,8 @@ struct Builder {
     auto n_bins    = params.max_n_bins;
     auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
-    auto n_blocks_dimy = std::min<std::int64_t>(static_cast<std::int64_t>(n_blks_for_cols),
-                                                dataset.n_sampled_cols - col);
+    auto remaining_sampled_cols = ML::narrow_cast<int>(dataset.n_sampled_cols - col);
+    auto n_blocks_dimy          = std::min(n_blks_for_cols, remaining_sampled_cols);
     dim3 histogram_grid(ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimx),
                         ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimy),
                         1);

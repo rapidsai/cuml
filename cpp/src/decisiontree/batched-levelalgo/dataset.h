@@ -35,7 +35,7 @@ struct Dataset {
   /** indices of sampled rows */
   std::int64_t* row_ids;
   /** Number of classes or regression outputs*/
-  std::int64_t num_outputs;
+  int num_outputs;
 
   HDI DataT value(std::int64_t row, std::int64_t col) const
   {
