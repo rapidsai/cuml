@@ -545,8 +545,11 @@ struct Builder {
     auto n_bins    = params.max_n_bins;
     auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
-    auto remaining_sampled_cols = ML::narrow_cast<int>(dataset.n_sampled_cols - col);
-    auto n_blocks_dimy          = std::min(n_blks_for_cols, remaining_sampled_cols);
+    auto remaining_sampled_cols = dataset.n_sampled_cols - col;
+    auto n_blocks_dimy          = n_blks_for_cols;
+    if (remaining_sampled_cols < n_blocks_dimy) {
+      n_blocks_dimy = ML::narrow_cast<int>(remaining_sampled_cols);
+    }
     dim3 histogram_grid(ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimx),
                         ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimy),
                         1);

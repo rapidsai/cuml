@@ -1470,8 +1470,6 @@ typedef RFQuantileTest<double> RFQuantileTestD;
 TEST_P(RFQuantileTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
 
-// float type quantile bins lower bounds test
-// double type quantile bins lower bounds test
 // float type quantile variable binning test
 typedef RFQuantileVariableBinsTest<float> RFQuantileVariableBinsTestF;
 TEST_P(RFQuantileVariableBinsTestF, test) {}
