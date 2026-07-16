@@ -2,24 +2,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
-import typing
 import warnings
 
 import cupy as cp
-import cupyx
-import numpy as np
-import scipy.sparse
+import cupyx.scipy.sparse as cp_sp
+import scipy.sparse as sp
 
 import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring, insert_into_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU, to_gpu
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_features,
@@ -195,9 +190,9 @@ void swap_kernel(long long int* I, float* D, int n_rows, int n_cols) {
 ''', 'swap_kernel')
 
 
-def _drop_self_edges(distances_cp, indices_cp):
+def _drop_self_edges(distances, indices):
     """Drop edges between a point and itself in the knn graph"""
-    rows, cols = indices_cp.shape
+    rows, cols = indices.shape
 
     # Launch config
     threads_per_block = 32
@@ -210,7 +205,7 @@ def _drop_self_edges(distances_cp, indices_cp):
     check_zero_kernel(
         (blocks,),
         (threads_per_block,),
-        (distances_cp.ravel(), rows, cols, zero_found.ravel())
+        (distances.ravel(), rows, cols, zero_found.ravel())
     )
 
     # only run kernel if there are multiple zero distances
@@ -220,14 +215,14 @@ def _drop_self_edges(distances_cp, indices_cp):
         swap_kernel(
             (blocks,),
             (threads_per_block,),
-            (indices_cp.ravel(), distances_cp.ravel(), rows, cols)
+            (indices.ravel(), distances.ravel(), rows, cols)
         )
 
     # Drop first column, ensuring C contiguous and correct dtypes
-    indices_cp = cp.ascontiguousarray(indices_cp[:, 1:], dtype=cp.int64)
-    distances_cp = cp.ascontiguousarray(distances_cp[:, 1:], dtype=cp.float32)
+    indices = cp.ascontiguousarray(indices[:, 1:], dtype=cp.int64)
+    distances = cp.ascontiguousarray(distances[:, 1:], dtype=cp.float32)
 
-    return distances_cp, indices_cp
+    return distances, indices
 
 
 METRICS = {
@@ -309,7 +304,7 @@ cdef class RBCIndex:
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef int64_t n_query = X.shape[0]
 
-        indptr = cp.empty(n_query + 1, dtype=np.int64)
+        indptr = cp.empty(n_query + 1, dtype=cp.int64)
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef int64_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
@@ -329,7 +324,7 @@ cdef class RBCIndex:
             )
 
         cdef int64_t nnz = indptr[-1].item()
-        indices = cp.empty(nnz, dtype=np.int64)
+        indices = cp.empty(nnz, dtype=cp.int64)
         cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
 
         with nogil:
@@ -346,7 +341,7 @@ cdef class RBCIndex:
             )
 
         data = cp.ones(nnz)
-        return cupyx.scipy.sparse.csr_matrix(
+        return cp_sp.csr_matrix(
             (data, indices, indptr),
             shape=(n_rows, self.n_samples),
         )
@@ -357,16 +352,16 @@ cdef class RBCIndex:
             raise ValueError(
                 "The rbc algorithm is not supported for >3 dimensions currently."
             )
-        distances_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.float32, order="C")
-        indices_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.int64, order="C")
+        distances = cp.empty((X.shape[0], n_neighbors), dtype=cp.float32, order="C")
+        indices = cp.empty((X.shape[0], n_neighbors), dtype=cp.int64, order="C")
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef uint32_t n_rows = X.shape[0]
         cdef int64_t n_cols = X.shape[1]
-        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices_cp.data.ptr
-        cdef float* distances_ptr = <float*><uintptr_t>distances_cp.data.ptr
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>distances.data.ptr
 
         with nogil:
             rbc_knn_query(
@@ -380,7 +375,7 @@ cdef class RBCIndex:
                 distances_ptr,
             )
         handle.sync()
-        return distances_cp, indices_cp
+        return distances, indices
 
 
 cdef class ApproxIndex:
@@ -456,13 +451,13 @@ cdef class ApproxIndex:
 
     def kneighbors(ApproxIndex self, X, int n_neighbors):
         """Query the index for the k nearest neighbors."""
-        distances_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.float32, order="C")
-        indices_cp = cp.empty((X.shape[0], n_neighbors), dtype=np.int64, order="C")
+        distances = cp.empty((X.shape[0], n_neighbors), dtype=cp.float32, order="C")
+        indices = cp.empty((X.shape[0], n_neighbors), dtype=cp.int64, order="C")
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
-        cdef float* distances_ptr = <float*><uintptr_t>distances_cp.data.ptr
-        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices_cp.data.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>distances.data.ptr
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
         cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef int n_rows = X.shape[0]
 
@@ -477,12 +472,12 @@ cdef class ApproxIndex:
                 n_rows,
             )
         handle.sync()
-        return distances_cp, indices_cp
+        return distances, indices
 
 
 class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
     """Base class for `cuml.neighbors` models"""
-    _fit_X = CumlArrayDescriptor(order='C')
+    _fit_X = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -523,12 +518,10 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         }
 
     def _attrs_from_cpu(self, model):
-        if scipy.sparse.issparse(model._fit_X):
-            fit_X = SparseCumlArray(
-                check_array(model._fit_X, dtype="float32", accept_sparse=["csr"])
-            )
+        if sp.issparse(model._fit_X):
+            fit_X = cp_sp.csr_matrix(model._fit_X, dtype="float32")
         else:
-            fit_X = to_gpu(model._fit_X, order="C", dtype=np.float32)
+            fit_X = cp.asarray(model._fit_X, order="C", dtype="float32")
 
         return {
             "n_samples_fit_": model.n_samples_fit_,
@@ -544,7 +537,11 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             "n_samples_fit_": self.n_samples_fit_,
             "effective_metric_": self.effective_metric_,
             "effective_metric_params_": self.effective_metric_params_,
-            "_fit_X": self._fit_X.to_output("numpy"),
+            "_fit_X": (
+                self._fit_X.get()
+                if cp_sp.issparse(self._fit_X)
+                else self._fit_X.get(order="A")
+            ),
             "_fit_method": "brute",
             "_tree": None,
             **super()._attrs_to_cpu(model),
@@ -591,12 +588,12 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             # TODO: These index types currently aren't pickleable. For now we
             # recreate them on load.
             fit_X = getattr(self, "_fit_X", None)
-            X_cp = cp.asarray(fit_X) if fit_X is not None else None
+            X = cp.asarray(fit_X) if fit_X is not None else None
             if fit_method == "rbc":
-                self._index = RBCIndex.build(X_cp, self.effective_metric_)
+                self._index = RBCIndex.build(X, self.effective_metric_)
             else:
                 self._index = ApproxIndex.build(
-                    X_cp,
+                    X,
                     self.effective_metric_,
                     fit_method,
                     params=self.algo_params,
@@ -604,7 +601,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
                 )
 
     @generate_docstring(X='dense_sparse')
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated") -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -615,22 +612,16 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             cuml.neighbors.VALID_METRICS_SPARSE if sparse else cuml.neighbors.VALID_METRICS
         )
 
-        X_processed, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype="float32",
             accept_sparse=["csr"],
             convert_dtype=convert_dtype,
             order="C",
-            return_index=True,
             reset=True,
         )
-        if sparse:
-            self._fit_X = SparseCumlArray(X_processed)
-            X_cp = None
-        else:
-            X_cp = X_processed
-            self._fit_X = CumlArray(X_cp, index=index)
+        self._fit_X = X
 
         # Normalize metric, and simplify for common cases
         self.effective_metric_ = self.metric
@@ -644,7 +635,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
                 self.effective_metric_ = "manhattan"
             elif p == 2:
                 self.effective_metric_ = "euclidean"
-            elif p == np.inf:
+            elif p == cp.inf:
                 self.effective_metric_ = "chebyshev"
             else:
                 self.effective_metric_params_["p"] = p
@@ -680,14 +671,14 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
 
         if self._fit_method in ('ivfflat', 'ivfpq'):
             self._index = ApproxIndex.build(
-                X_cp,
+                X,
                 self.effective_metric_,
                 self._fit_method,
                 params=self.algo_params,
                 p=self._effective_p,
             )
         elif self._fit_method == "rbc":
-            self._index = RBCIndex.build(X_cp, self.effective_metric_)
+            self._index = RBCIndex.build(X, self.effective_metric_)
 
         return self
 
@@ -695,7 +686,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
                            return_values=[('dense', '(n_samples, n_features)'),
                                           ('dense',
                                            '(n_samples, n_features)')])
-    @reflect
+    @mlfunc(preserve_index=True)
     def kneighbors(
         self,
         X=None,
@@ -704,7 +695,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         *,
         convert_dtype="deprecated",
         two_pass_precision=False
-    ) -> typing.Union[CumlArray, typing.Tuple[CumlArray, CumlArray]]:
+    ):
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -759,10 +750,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         n_neighbors = self.n_neighbors if n_neighbors is None else n_neighbors
 
         if use_training_data := (X is None):
-            if isinstance(self._fit_X, SparseCumlArray):
-                X = self._fit_X.to_output("cupy")
-            else:
-                X = self._fit_X
+            X = self._fit_X
             n_neighbors += 1
         else:
             check_features(self, X)
@@ -773,19 +761,16 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         if n_neighbors > self.n_samples_fit_:
             raise ValueError("n_neighbors must be <= number of samples in index")
 
-        if isinstance(self._fit_X, SparseCumlArray):
-            distances_cp, indices_cp = self._kneighbors_sparse(X, n_neighbors)
-            index = None
+        if cp_sp.issparse(self._fit_X):
+            distances, indices = self._kneighbors_sparse(X, n_neighbors)
         else:
-            distances_cp, indices_cp, index = self._kneighbors_dense(
+            distances, indices = self._kneighbors_dense(
                 X, n_neighbors, convert_dtype, two_pass_precision
             )
 
         if use_training_data:
-            distances_cp, indices_cp = _drop_self_edges(distances_cp, indices_cp)
+            distances, indices = _drop_self_edges(distances, indices)
 
-        distances = CumlArray(distances_cp, index=index)
-        indices = CumlArray(indices_cp, index=index)
         return (distances, indices) if return_distance else indices
 
     def _kneighbors_dense(
@@ -795,18 +780,15 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             raise ValueError("A NearestNeighbors model trained on dense "
                              "data requires dense input to kneighbors()")
 
-        X_cp, index = check_array(
+        X = check_array(
             X,
             dtype="float32",
             convert_dtype=convert_dtype,
             order="C",
-            return_index=True,
             input_name="X",
         )
-        if index is None:  # Special case if X is a CumlArray (self._fit_X forwarded)
-            index = getattr(X, "index", None)
-        cdef int n_rows = X_cp.shape[0]
-        cdef int n_cols = X_cp.shape[1]
+        cdef int n_rows = X.shape[0]
+        cdef int n_cols = X.shape[1]
 
         use_index = self._fit_method != "brute"
         if self._fit_method == "rbc" and n_neighbors > self.n_samples_fit_**0.5:
@@ -818,22 +800,22 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             use_index = False
 
         if use_index:
-            distances_cp, indices_cp = self._index.kneighbors(X_cp, n_neighbors)
-            return distances_cp, indices_cp, index
+            distances, indices = self._index.kneighbors(X, n_neighbors)
+            return distances, indices
 
-        distances_cp = cp.empty((n_rows, n_neighbors), dtype=np.float32, order="C")
-        indices_cp = cp.empty((n_rows, n_neighbors), dtype=np.int64, order="C")
+        distances = cp.empty((n_rows, n_neighbors), dtype=cp.float32, order="C")
+        indices = cp.empty((n_rows, n_neighbors), dtype=cp.int64, order="C")
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
         cdef vector[float*] inputs
         cdef vector[int] sizes
-        inputs.push_back(<float*><uintptr_t>self._fit_X.ptr)
+        inputs.push_back(<float*><uintptr_t>self._fit_X.data.ptr)
         sizes.push_back(<int>self.n_samples_fit_)
         cdef DistanceType distance_type = _metric_to_distance_type(self.effective_metric_)
-        cdef float* X_ptr = <float*><uintptr_t>X_cp.data.ptr
-        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices_cp.data.ptr
-        cdef float* distances_ptr = <float*><uintptr_t>distances_cp.data.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
+        cdef int64_t* indices_ptr = <int64_t*><uintptr_t>indices.data.ptr
+        cdef float* distances_ptr = <float*><uintptr_t>distances.data.ptr
         cdef float metric_arg = self._effective_p
 
         with nogil:
@@ -855,11 +837,11 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         handle.sync()
 
         if two_pass_precision:
-            distances_cp, indices_cp = self._maybe_apply_two_pass_precision(
-                X_cp, distances_cp, indices_cp
+            distances, indices = self._maybe_apply_two_pass_precision(
+                X, distances, indices
             )
 
-        return distances_cp, indices_cp, index
+        return distances, indices
 
     def _maybe_apply_two_pass_precision(self, X, distances, indices):
         # FAISS employs imprecise distance algorithm only for L2-based
@@ -897,31 +879,31 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         cdef DistanceType metric = _metric_to_distance_type(self.effective_metric_)
         cdef float metric_arg = self._effective_p
 
-        X_cp = check_array(
+        X = check_array(
             X,
             dtype="float32",
             accept_sparse=["csr"],
             input_name="X",
         )
-        cdef int* X_indptr = <int *><uintptr_t>X_cp.indptr.data.ptr
-        cdef int* X_indices = <int *><uintptr_t>X_cp.indices.data.ptr
-        cdef float* X_data = <float *><uintptr_t>X_cp.data.data.ptr
-        cdef size_t X_nnz = X_cp.nnz
-        cdef int X_n_rows = X_cp.shape[0]
-        cdef int X_n_cols = X_cp.shape[1]
+        cdef int* X_indptr = <int *><uintptr_t>X.indptr.data.ptr
+        cdef int* X_indices = <int *><uintptr_t>X.indices.data.ptr
+        cdef float* X_data = <float *><uintptr_t>X.data.data.ptr
+        cdef size_t X_nnz = X.nnz
+        cdef int X_n_rows = X.shape[0]
+        cdef int X_n_cols = X.shape[1]
 
-        cdef int* idx_indptr = <int *><uintptr_t>self._fit_X.indptr.ptr
-        cdef int* idx_indices = <int *><uintptr_t>self._fit_X.indices.ptr
-        cdef float* idx_data = <float *><uintptr_t>self._fit_X.data.ptr
+        cdef int* idx_indptr = <int *><uintptr_t>self._fit_X.indptr.data.ptr
+        cdef int* idx_indices = <int *><uintptr_t>self._fit_X.indices.data.ptr
+        cdef float* idx_data = <float *><uintptr_t>self._fit_X.data.data.ptr
         cdef size_t idx_nnz = self._fit_X.nnz
         cdef int idx_n_rows = self._fit_X.shape[0]
         cdef int idx_n_cols = self._fit_X.shape[1]
 
         # Allocate outputs
-        indices_cp = cp.empty((X_n_rows, n_neighbors), dtype=np.int32, order="C")
-        distances_cp = cp.empty((X_n_rows, n_neighbors), dtype=np.float32, order="C")
-        cdef int* indices_ptr = <int *><uintptr_t>indices_cp.data.ptr
-        cdef float* distances_ptr = <float *><uintptr_t>distances_cp.data.ptr
+        indices = cp.empty((X_n_rows, n_neighbors), dtype=cp.int32, order="C")
+        distances = cp.empty((X_n_rows, n_neighbors), dtype=cp.float32, order="C")
+        cdef int* indices_ptr = <int *><uintptr_t>indices.data.ptr
+        cdef float* distances_ptr = <float *><uintptr_t>distances.data.ptr
 
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -950,13 +932,11 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
             )
         handle.sync()
 
-        return distances_cp, indices_cp
+        return distances, indices
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @reflect
-    def kneighbors_graph(
-        self, X=None, n_neighbors=None, mode='connectivity'
-    ) -> SparseCumlArray:
+    @mlfunc
+    def kneighbors_graph(self, X=None, n_neighbors=None, mode='connectivity'):
         """
         Find the k nearest neighbors of column vectors in X and return as
         a sparse matrix in CSR format.
@@ -991,15 +971,12 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
 
         if mode == 'connectivity':
             indices = self.kneighbors(X, n_neighbors, return_distance=False)
-
             n_samples = indices.shape[0]
-            indices = indices.to_output("cupy")
-            distances = cp.ones(n_samples * n_neighbors, dtype=np.float32)
+            distances = cp.ones(n_samples * n_neighbors, dtype=cp.float32)
 
         elif mode == 'distance':
             distances, indices = self.kneighbors(X, n_neighbors)
-            indices = indices.to_output("cupy")
-            distances = cp.ravel(distances.to_output("cupy"))
+            distances = cp.ravel(distances)
 
         else:
             raise ValueError('Unsupported mode, must be one of "connectivity"'
@@ -1011,7 +988,7 @@ class NeighborsBase(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base
         n_nonzero = n_samples * n_neighbors
         rowptr = cp.arange(0, n_nonzero + 1, n_neighbors)
 
-        return cupyx.scipy.sparse.csr_matrix(
+        return cp_sp.csr_matrix(
             (distances, indices, rowptr),
             shape=(n_samples, self.n_samples_fit_)
         )
@@ -1201,8 +1178,8 @@ class NearestNeighbors(NeighborsBase):
         }
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')])
-    @reflect
-    def radius_neighbors_graph(self, X=None, radius=None) -> SparseCumlArray:
+    @mlfunc
+    def radius_neighbors_graph(self, X=None, radius=None):
         """Compute the (weighted) graph of neighbors within a radius.
 
         Parameters
@@ -1243,7 +1220,7 @@ class NearestNeighbors(NeighborsBase):
         """
         check_is_fitted(self)
 
-        if isinstance(self._fit_X, SparseCumlArray) or is_sparse(X):
+        if is_sparse(self._fit_X) or is_sparse(X):
             raise TypeError("`radius_neighbors_graph` doesn't support sparse inputs")
 
         if self.effective_metric_ not in ["l2", "euclidean"]:
@@ -1263,7 +1240,7 @@ class NearestNeighbors(NeighborsBase):
         else:
             check_features(self, X)
 
-        X_cp = check_array(
+        X = check_array(
             X,
             dtype="float32",
             order="C",
@@ -1275,20 +1252,18 @@ class NearestNeighbors(NeighborsBase):
             index = self._index
         else:
             # Fit with another method, build a temporary index
-            index = RBCIndex.build(
-                self._fit_X.to_output("cupy"), self.effective_metric_
-            )
+            index = RBCIndex.build(self._fit_X, self.effective_metric_)
 
-        out = index.radius_neighbors_graph(X_cp, radius)
+        out = index.radius_neighbors_graph(X, radius)
         if using_fit_X:
             # When using the training data, the diagonal elements aren't included
-            out.setdiag(np.int64(0))
+            out.setdiag(cp.int64(0))
             out.eliminate_zeros()
 
         return out
 
 
-@reflect
+@mlfunc
 def kneighbors_graph(
     X=None,
     n_neighbors=5,

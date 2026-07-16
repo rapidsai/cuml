@@ -1,22 +1,14 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
-import cupyx.scipy.sparse
+import cupyx.scipy.sparse as cp_sp
 import numpy as np
-import scipy.sparse
+import scipy.sparse as sp
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals import ReflectedAttr, mlfunc
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, SparseInputTagMixin
 from cuml.internals.validation import check_inputs, check_is_fitted
 
@@ -118,7 +110,7 @@ cdef class _SVMModel:
             indptr = self._ptr_as_cupy(indptr_ptr, (n_support + 1,), np.int32)
             indices = self._ptr_as_cupy(indices_ptr, (nnz,), np.int32)
             data = self._ptr_as_cupy(data_ptr, (nnz,), dtype)
-            support_vectors = cupyx.scipy.sparse.csr_matrix(
+            support_vectors = cp_sp.csr_matrix(
                 (data, indices, indptr),
                 shape=(n_support, n_cols),
             )
@@ -132,10 +124,10 @@ class SVMBase(InteropMixin,
               Base):
     """Base class for Support Vector Machines"""
 
-    support_ = CumlArrayDescriptor(order="F")
-    support_vectors_ = CumlArrayDescriptor(order="F")
-    dual_coef_ = CumlArrayDescriptor(order="F")
-    intercept_ = CumlArrayDescriptor(order="F")
+    support_ = ReflectedAttr()
+    support_vectors_ = ReflectedAttr()
+    dual_coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -198,30 +190,29 @@ class SVMBase(InteropMixin,
             # csr_matrix objects when fit on sparse data.
             # cuml always stores dual_coef_ as dense, and will optionally
             # store support_vectors_ as dense if it's smaller than 1 GiB.
-            dual_coef_ = to_gpu(model.dual_coef_.toarray(), order="F")
+            dual_coef_ = cp.asarray(model.dual_coef_.toarray(), order="F")
             if (n_support * n_cols * 8) < (1 << 30):
                 # support vectors are "small enough", store as dense
-                support_vectors = to_gpu(
-                    model.support_vectors_.toarray(), dtype=np.float64, order="F",
+                support_vectors = cp.asarray(
+                    model.support_vectors_.toarray(), dtype="float64", order="F",
                 )
             else:
-                support_vectors = SparseCumlArray(
+                support_vectors = cp_sp.csr_matrix(
                     model.support_vectors_,
-                    convert_to_dtype=np.float64,
-                    convert_format=True
+                    dtype="float64",
                 )
         else:
-            dual_coef_ = to_gpu(model.dual_coef_, order="F")
-            support_vectors = to_gpu(
-                model.support_vectors_, dtype=np.float64, order="F"
+            dual_coef_ = cp.asarray(model.dual_coef_, order="F")
+            support_vectors = cp.asarray(
+                model.support_vectors_, dtype="float64", order="F"
             )
 
         return {
             "dual_coef_": dual_coef_,
             "support_vectors_": support_vectors,
-            "intercept_": to_gpu(model.intercept_, order="F"),
+            "intercept_": cp.asarray(model.intercept_),
             "n_support_": int(n_support),
-            "support_": to_gpu(model.support_, order="F"),
+            "support_": cp.asarray(model.support_, order="F"),
             "_gamma": float(model._gamma),
             "_sparse": model._sparse,
             "fit_status_": model.fit_status_,
@@ -231,24 +222,23 @@ class SVMBase(InteropMixin,
         }
 
     def _attrs_to_cpu(self, model):
-        intercept_ = to_cpu(self.intercept_, order="C", dtype=np.float64)
+        intercept_ = self.intercept_.get().astype("f8", copy=False)
 
         if self._sparse:
             # sklearn stores dual_coef_ and support_vectors_ as sparse
             # csr_matrix objects when fit on sparse data.
             # cuml always stores dual_coef_ as dense, and will optionally
             # store support_vectors_ as dense if it's smaller than 1 GiB
-            dual_coef_ = scipy.sparse.csr_matrix(
-                self.dual_coef_.to_output("numpy", output_dtype=np.float64)
-            )
-            support_vectors_ = self.support_vectors_.to_output(
-                "numpy", output_dtype=np.float64,
-            )
-            if not scipy.sparse.issparse(support_vectors_):
-                support_vectors_ = scipy.sparse.csr_matrix(support_vectors_)
+            dual_coef_ = sp.csr_matrix(self.dual_coef_.get(order="A"), dtype="f8")
+            if cp_sp.issparse(self.support_vectors_):
+                support_vectors_ = self.support_vectors_.get().astype("f8", copy=False)
+            else:
+                support_vectors_ = sp.csr_matrix(
+                    self.support_vectors_.get(order="A"), dtype="f8"
+                )
         else:
-            dual_coef_ = to_cpu(self.dual_coef_, order="C", dtype=np.float64)
-            support_vectors_ = to_cpu(self.support_vectors_, order="C", dtype=np.float64)
+            dual_coef_ = self.dual_coef_.get(order="C").astype(dtype="f8", copy=False)
+            support_vectors_ = self.support_vectors_.get(order="C").astype("f8", copy=False)
 
         return {
             "dual_coef_": dual_coef_,
@@ -259,7 +249,7 @@ class SVMBase(InteropMixin,
             "shape_fit_": self.shape_fit_,
             "n_iter_": self.n_iter_,
             "_n_support": np.array([self.n_support_, 0], dtype=np.int32),
-            "support_": to_cpu(self.support_, order="C", dtype=np.int32),
+            "support_": self.support_.get(order="C").astype("int32", copy=False),
             "support_vectors_": support_vectors_,
             "_gamma": self._gamma,
             "_probA": np.empty(0, dtype=np.float64),
@@ -300,17 +290,17 @@ class SVMBase(InteropMixin,
         self.nochange_steps = nochange_steps
 
     @property
-    @cuml.internals.reflect
+    @mlfunc
     def coef_(self):
         if self.kernel != "linear":
             raise AttributeError("coef_ is only available for linear kernels")
         # Handle the no-support-vectors case: return zeros with correct shape
         if self.n_support_ == 0:
             n_features = self.shape_fit_[1]
-            return CumlArray(cp.zeros((1, n_features), dtype=self.dual_coef_.dtype))
-        dual_coef = self.dual_coef_.to_output("cupy")
-        support_vectors = self.support_vectors_.to_output("cupy")
-        return CumlArray(data=dual_coef @ support_vectors)
+            return cp.zeros((1, n_features), dtype=self.dual_coef_.dtype)
+        dual_coef = self.dual_coef_
+        support_vectors = self.support_vectors_
+        return dual_coef @ support_vectors
 
     def _get_gamma(self, X):
         if isinstance(self.gamma, str):
@@ -318,7 +308,7 @@ class SVMBase(InteropMixin,
             if self.gamma == "auto":
                 return 1 / n_cols
             elif self.gamma == "scale":
-                if cupyx.scipy.sparse.issparse(X):
+                if cp_sp.issparse(X):
                     data = X.data
                     n = n_cols * n_rows
                     x_mean = data.mean() * X.nnz / n
@@ -359,7 +349,7 @@ class SVMBase(InteropMixin,
         assert sample_weight is None or X.dtype == sample_weight.dtype
 
         cdef bool is_classifier = self._estimator_type == "classifier"
-        cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
+        cdef bool sparse_X = cp_sp.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
 
         cdef double gamma = self._get_gamma(X)
@@ -463,14 +453,10 @@ class SVMBase(InteropMixin,
 
         support, support_vectors, dual_coef, intercept = internal.unpack()
 
-        self.support_ = CumlArray(data=support)
-        self.support_vectors_ = (
-            SparseCumlArray(support_vectors)
-            if cupyx.scipy.sparse.issparse(support_vectors)
-            else CumlArray(support_vectors)
-        )
-        self.dual_coef_ = CumlArray(data=dual_coef)
-        self.intercept_ = CumlArray(data=intercept)
+        self.support_ = support
+        self.support_vectors_ = support_vectors
+        self.dual_coef_ = dual_coef
+        self.intercept_ = intercept
         self.n_support_ = support.shape[0]
         self.fit_status_ = 0
         self.shape_fit_ = X.shape
@@ -478,7 +464,7 @@ class SVMBase(InteropMixin,
         self._gamma = gamma
         self._sparse = sparse_X
 
-    def _predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    def _predict(self, X, *, convert_dtype="deprecated"):
         """Perform `predict`."""
         check_is_fitted(self)
 
@@ -487,31 +473,30 @@ class SVMBase(InteropMixin,
                 "Sparse precomputed kernels are not supported."
             )
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.support_vectors_.dtype,
             convert_dtype=convert_dtype,
             order="F",
             accept_sparse="csr",
-            return_index=True,
         )
 
         support_vectors = self.support_vectors_
-        cdef bool sparse_model = isinstance(support_vectors, SparseCumlArray)
-        cdef bool sparse_X = cupyx.scipy.sparse.issparse(X)
+        cdef bool sparse_model = cp_sp.issparse(support_vectors)
+        cdef bool sparse_X = cp_sp.issparse(X)
         cdef bool is_float32 = X.dtype == np.float32
 
         # Extract support_vectors_
         cdef int support_nnz = support_vectors.nnz if sparse_model else -1
         cdef int* support_indptr = <int*><uintptr_t>(
-            support_vectors.indptr.ptr if sparse_model else 0
+            support_vectors.indptr.data.ptr if sparse_model else 0
         )
         cdef int* support_indices = <int*><uintptr_t>(
-            support_vectors.indices.ptr if sparse_model else 0
+            support_vectors.indices.data.ptr if sparse_model else 0
         )
         cdef uintptr_t support_data_ptr = (
-            support_vectors.data.ptr if sparse_model else support_vectors.ptr
+            support_vectors.data.data.ptr if sparse_model else support_vectors.data.ptr
         )
 
         # Setup SvmModel of proper type
@@ -524,8 +509,8 @@ class SVMBase(InteropMixin,
             model_f.n_support = self.support_.shape[0]
             model_f.n_cols = n_cols_fit
             model_f.b = self.intercept_.item()
-            model_f.dual_coefs = <float*><uintptr_t>self.dual_coef_.ptr
-            model_f.support_idx = <int*><uintptr_t>self.support_.ptr
+            model_f.dual_coefs = <float*><uintptr_t>self.dual_coef_.data.ptr
+            model_f.support_idx = <int*><uintptr_t>self.support_.data.ptr
             model_f.support_matrix.nnz = support_nnz
             model_f.support_matrix.indptr = support_indptr
             model_f.support_matrix.indices = support_indices
@@ -534,8 +519,8 @@ class SVMBase(InteropMixin,
             model_d.n_support = self.support_.shape[0]
             model_d.n_cols = n_cols_fit
             model_d.b = self.intercept_.item()
-            model_d.dual_coefs = <double*><uintptr_t>self.dual_coef_.ptr
-            model_d.support_idx = <int*><uintptr_t>self.support_.ptr
+            model_d.dual_coefs = <double*><uintptr_t>self.dual_coef_.data.ptr
+            model_d.support_idx = <int*><uintptr_t>self.support_.data.ptr
             model_d.support_matrix.nnz = support_nnz
             model_d.support_matrix.indptr = support_indptr
             model_d.support_matrix.indices = support_indices
@@ -630,4 +615,4 @@ class SVMBase(InteropMixin,
                     )
         handle.sync()
 
-        return CumlArray(data=out, index=index)
+        return out

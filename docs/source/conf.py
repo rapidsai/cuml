@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is execfile()d with the current directory set to its
@@ -15,6 +15,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import sys
 import textwrap
@@ -54,6 +55,7 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
 ipython_mplbackend = "str"
@@ -74,8 +76,8 @@ source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 
 # General information about the project.
-project = "cuml"
-copyright = "2020-2023, NVIDIA Corporation"
+project = "NVIDIA cuML"
+copyright = f"2020-{datetime.datetime.today().year}, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -114,7 +116,7 @@ todo_include_todos = False
 # a list of builtin themes.
 #
 
-html_theme = "pydata_sphinx_theme"
+html_theme = "nvidia_sphinx_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -122,12 +124,18 @@ html_theme = "pydata_sphinx_theme"
 #
 html_theme_options = {
     "external_links": [],
-    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
-    "icon_links": [],
-    "github_url": "https://github.com/rapidsai/cuml",
-    "twitter_url": "https://twitter.com/rapidsai",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/rapidsai/cuml",
+            "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+    ],
     "show_toc_level": 1,
     "navbar_align": "right",
+    "navbar_center": "navbar-nav, version-switcher, navbar-external-links",
+    "navigation_with_keys": True,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -166,7 +174,7 @@ latex_documents = [
     (
         master_doc,
         "cuml.tex",
-        "cuml Documentation",
+        f"{project} Documentation",
         "NVIDIA Corporation",
         "manual",
     ),
@@ -176,7 +184,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "cuml", "cuml Documentation", [author], 1)]
+man_pages = [(master_doc, "cuml", f"{project} Documentation", [author], 1)]
 
 # -- Options for Texinfo output -------------------------------------------
 
@@ -187,7 +195,7 @@ texinfo_documents = [
     (
         master_doc,
         "cuml",
-        "cuml Documentation",
+        f"{project} Documentation",
         author,
         "cuml",
         "One line description of project.",
@@ -220,7 +228,8 @@ numpydoc_class_members_toctree = False
 REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
-    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-limitations/index.html": ("cuml-accel/compatibility/"),
+    "cuml-accel/limitations/index.html": "cuml-accel/compatibility/",
     "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
@@ -236,7 +245,7 @@ def setup_redirects(app, docname):
         <head>
             <meta http-equiv="refresh" content="1; url={new_path}" />
             <script>
-            window.location.href = "{new_path}"
+            window.location.href = "{new_path}" + window.location.hash
             </script>
         </head>
         </html>
@@ -255,10 +264,7 @@ def setup_redirects(app, docname):
 
 def setup(app):
     app.add_css_file("custom.css")
-    app.add_css_file("https://docs.rapids.ai/assets/css/custom.css")
-    app.add_js_file(
-        "https://docs.rapids.ai/assets/js/custom.js", loading_method="defer"
-    )
+    app.add_js_file("open-details-on-fragment.js")
     app.connect("build-finished", setup_redirects)
 
 

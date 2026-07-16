@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -120,6 +120,10 @@ files:
       - depends_on_libnvforest
       - test_libcuml
       - test_cpp
+  test_integration_bertopic:
+    output: none
+    includes:
+      - test_bertopic
   test_python:
     output: none
     includes:
@@ -491,7 +495,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - &ctk_cu13 cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
-              - &nvjitlink_cu13 nvidia-nvjitlink>=13.0,<14
+              - &nvjitlink_cu13 nvidia-nvjitlink>=13.3,<14
           # if no matching matrix selectors passed, list the CUDA 13 requirement
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
@@ -508,21 +512,23 @@ dependencies:
           - nbsphinx
           - numpydoc
           - &onnxruntime onnxruntime
-          # https://github.com/pydata/pydata-sphinx-theme/issues/1539
-          - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
           - &skl2onnx skl2onnx
           - sphinx
           - sphinx-copybutton
+          - sphinx-design
           - sphinx-markdown-tables
       - output_types: conda
         packages:
           - doxygen=1.9.1
           - matplotlib-base
+          - pip:
+              - nvidia-sphinx-theme
       - output_types: requirements
         packages:
           - matplotlib
+          - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
@@ -546,6 +552,29 @@ dependencies:
           - matrix:
             packages:
               - python>=3.11
+  test_bertopic:
+    common:
+      - output_types: requirements
+        packages:
+          - bertopic>=0.17.4
+    specific:
+      # The 'pytorch.org' indices referenced in --extra-index-url below host CPU-only variants too,
+      # so requirements like '>=' are not safe.
+      #
+      # Using '==' and a version with the CUDA specifier like '+cu132' is the most reliable way to ensure
+      # the packages we want are pulled (at the expense of needing to maintain this list).
+      - output_types: requirements
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu129
+              - torch==2.10.0+cu129
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu132
+              - torch==2.12.1+cu132
   test_libcuml:
     common:
       - output_types: conda
@@ -618,6 +647,20 @@ dependencies:
               arch: aarch64
             packages:
               - libopenblas<=0.3.30
+          - matrix:
+            packages:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              dependencies: "oldest"
+              cuda: "12.*"
+            packages:
+              - cuda-bindings==12.9.2
+          - matrix:
+              dependencies: "oldest"
+              cuda: "13.*"
+            packages:
+              - cuda-bindings==13.0.1
           - matrix:
             packages:
     common:
@@ -735,11 +778,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.9.2,<13.0
+              - cuda-bindings>=12.9.2,<13.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cuda-python>=13.0.1,<14.0
+              - cuda-bindings>=13.0.1,<14.0
   depends_on_cudf:
     common:
       - output_types: conda

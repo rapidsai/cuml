@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import itertools
@@ -7,10 +7,10 @@ import itertools
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, reflect, run_in_internal_context
+from cuml.internals import ReflectedAttr, logger, mlfunc
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
@@ -92,6 +92,10 @@ class AutoARIMA(Base):
     Implements a batched auto-ARIMA model for in- and out-of-sample
     times-series prediction.
 
+    .. deprecated:: 26.08
+        ``cuml.tsa.auto_arima.AutoARIMA`` and ``cuml.AutoARIMA`` are
+        deprecated and will be removed in the cuML 26.12 release.
+
     This interface offers a highly customizable search, with functionality
     similar to the `forecast` and `fable` packages in R. It provides an
     abstraction around the underlying ARIMA models to predict and forecast as
@@ -155,7 +159,7 @@ class AutoARIMA(Base):
 
     """
 
-    d_y = CumlArrayDescriptor()
+    d_y = ReflectedAttr()
 
     def __init__(self,
                  endog,
@@ -164,6 +168,9 @@ class AutoARIMA(Base):
                  verbose=False,
                  output_type=None,
                  convert_dtype="deprecated"):
+
+        warn_deprecated_tsa_api("cuml.tsa.auto_arima.AutoARIMA")
+
         # Initialize base class
         super().__init__(verbose=verbose, output_type=output_type)
         self._set_output_type(endog)
@@ -184,7 +191,7 @@ class AutoARIMA(Base):
 
         self._initial_calc()
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.data.ptr
         handle = get_handle()
@@ -198,7 +205,7 @@ class AutoARIMA(Base):
             raise ValueError(
                 "Missing observations are not supported in AutoARIMA yet")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def search(self,
                s=None,
                d=range(3),
@@ -406,7 +413,7 @@ class AutoARIMA(Base):
             id_tracker, self.batch_size
         )
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -433,7 +440,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         start=0,
@@ -492,7 +499,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
@@ -517,7 +524,7 @@ class AutoARIMA(Base):
         """
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """

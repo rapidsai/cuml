@@ -109,6 +109,7 @@ ALLOWED_OPERATIONS = {
     "fit_transform",
     "fit_predict",
     "fit_kneighbors",
+    "fit_score_samples",
     "kneighbors",
 }
 ALLOWED_BACKENDS = {"cpu", "gpu"}

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -14,7 +14,7 @@ import cuml
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
 from cuml.internals.output_utils import cudf_to_pandas
-from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_features, check_is_fitted
 from cuml.preprocessing._label import LabelEncoder
 
@@ -327,7 +327,7 @@ class OneHotEncoder(BaseEncoder):
             "type": "sparse matrix if sparse_output=True else a 2-d array",
         }
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def transform(self, X):
         """Transform X using one-hot encoding."""
         check_is_fitted(self)
@@ -405,7 +405,7 @@ class OneHotEncoder(BaseEncoder):
                 "Internal Error: {}".format(input_types_str, repr(e))
             )
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def inverse_transform(self, X):
         """Convert the data back to the original representation. In case unknown
         categories are encountered (all zeros in the one-hot encoding), ``None`` is used
@@ -623,7 +623,7 @@ class OrdinalEncoder(BaseEncoder):
             "type": "Type is specified by the `output_type` parameter.",
         }
     )
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def transform(self, X):
         """Transform X using ordinal encoding."""
         check_is_fitted(self)
@@ -652,7 +652,7 @@ class OrdinalEncoder(BaseEncoder):
         X = self._check_input(X)
         return self.fit(X).transform(X)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def inverse_transform(self, X):
         """Convert the data back to the original representation.
 

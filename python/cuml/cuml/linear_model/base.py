@@ -5,9 +5,8 @@ import cupyx.scipy.sparse
 import cupyx.scipy.sparse.linalg
 import numpy as np
 
-import cuml.internals
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
@@ -20,32 +19,25 @@ class LinearPredictMixin:
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.reflect
-    def predict(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts `y` values for `X`.
         """
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
             order=None,
             accept_sparse=True,
-            return_index=True,
         )
 
-        coef = self.coef_.to_output("cupy")
-        intercept = self.intercept_
-        if isinstance(intercept, CumlArray):
-            intercept = intercept.to_output("cupy")
-
-        out = X @ coef.T
-        out += intercept
-
-        return CumlArray(out, index=index)
+        out = X @ self.coef_.T
+        out += self.intercept_
+        return out
 
 
 class LinearClassifierMixin:
@@ -58,33 +50,27 @@ class LinearClassifierMixin:
             "shape": "(n_samples,) or (n_samples, n_classes)",
         },
     )
-    @cuml.internals.reflect
-    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def decision_function(self, X, *, convert_dtype="deprecated"):
         """Predict confidence scores for samples."""
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
             order=None,
             accept_sparse=True,
-            return_index=True,
         )
 
-        coef = self.coef_.to_output("cupy")
-        intercept = self.intercept_
-        if isinstance(intercept, CumlArray):
-            intercept = intercept.to_output("cupy")
-
-        out = X @ coef.T
-        out += intercept
+        out = X @ self.coef_.T
+        out += self.intercept_
 
         if out.ndim > 1 and out.shape[1] == 1:
             out = out.reshape(-1)
 
-        return CumlArray(out, index=index)
+        return out
 
 
 def center_and_scale(

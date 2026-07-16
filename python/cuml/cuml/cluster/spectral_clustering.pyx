@@ -1,21 +1,14 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import cupyx.scipy.sparse as sp
 
-import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -158,7 +151,7 @@ class SpectralClustering(InteropMixin,
       Stella X. Yu, Jianbo Shi
       https://www1.icsi.berkeley.edu/~stellayu/publication/doc/2003kwayICCV.pdf
     """
-    labels_ = CumlArrayDescriptor()
+    labels_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.cluster.SpectralClustering"
 
@@ -198,13 +191,13 @@ class SpectralClustering(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "labels_": to_gpu(model.labels_, order="C"),
+            "labels_": cp.asarray(model.labels_, order="C"),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "labels_": to_cpu(self.labels_, order="C"),
+            "labels_": self.labels_.get(order="C"),
             **super()._attrs_to_cpu(model),
         }
 
@@ -243,8 +236,8 @@ class SpectralClustering(InteropMixin,
             "affinity",
         ]
 
-    @cuml.internals.reflect
-    def fit_predict(self, X, y=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None):
         """Perform spectral clustering on ``X`` and return cluster labels.
 
         Parameters
@@ -267,7 +260,7 @@ class SpectralClustering(InteropMixin,
         self.fit(X, y=y)
         return self.labels_
 
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "SpectralClustering":
         """Perform spectral clustering on ``X``.
 
@@ -390,11 +383,11 @@ class SpectralClustering(InteropMixin,
             else:
                 raise
 
-        self.labels_ = CumlArray(data=labels)
+        self.labels_ = labels
         return self
 
 
-@cuml.internals.reflect
+@mlfunc(preserve_index=True)
 def spectral_clustering(
     X,
     *,

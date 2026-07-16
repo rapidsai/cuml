@@ -1,23 +1,19 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import math
-import typing
 
 import cupy as cp
 import numpy as np
 
-import cuml.internals
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_array, check_consistent_length
 
 
-@cuml.internals.reflect
-def precision_recall_curve(
-    y_true, probs_pred
-) -> typing.Tuple[CumlArray, CumlArray, CumlArray]:
+@mlfunc
+def precision_recall_curve(y_true, probs_pred):
     """
     Compute precision-recall pairs for different probability thresholds
 

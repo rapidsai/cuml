@@ -1,25 +1,29 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #pragma once
 
+#include "bins.cuh"
+
 #include <raft/linalg/unary_op.cuh>
 #include <raft/util/cuda_utils.cuh>
+
+#include <cstdint>
 
 namespace ML {
 namespace DT {
 namespace detail {
 
 template <typename BinT, typename IdxT>
-DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
+DI std::int64_t CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
 {
   auto nLeft = hist[i].Count();
   for (IdxT j = 1; j < n_outputs; ++j) {
     nLeft += hist[n_bins * j + i].Count();
   }
-  return static_cast<IdxT>(nLeft);
+  return static_cast<std::int64_t>(nLeft);
 }
 
 }  // namespace detail
@@ -32,7 +36,6 @@ DI IdxT CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
 template <typename DataT, typename IdxT>
 struct Split {
   typedef Split<DataT, IdxT> SplitT;
-
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
 
@@ -42,70 +45,78 @@ struct Split {
   IdxT colid;
   /** best info gain on this node */
   DataT best_metric_val;
-  /** number of samples in the left child */
-  int nLeft;
+  /** global number of samples in the left child */
+  std::int64_t global_nLeft;
+  /** rank-local number of samples in the left child */
+  std::int64_t local_nLeft;
   /** first quantile index in an inclusive range of training-equivalent splits */
   IdxT split_start;
   /** last quantile index in an inclusive range of training-equivalent splits */
   IdxT split_end;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft, IdxT bin = -1)
-    : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
-  {
-    split_start = bin;
-    split_end   = bin;
-  }
-
-  DI Split()
+  HDI Split()
   {
     quesval = best_metric_val = Min;
     colid                     = -1;
-    nLeft                     = 0;
+    global_nLeft              = 0;
+    local_nLeft               = 0;
     split_start               = -1;
     split_end                 = -1;
   }
 
-  /**
-   * @brief Assignment operator overload
-   *
-   * @param[in] other source object from where to copy
-   *
-   * @return the reference to the copied object (typically useful for chaining)
-   */
-  DI SplitT& operator=(const SplitT& other)
+  HDI SplitT& operator=(const SplitT& other)
   {
     quesval         = other.quesval;
     colid           = other.colid;
     best_metric_val = other.best_metric_val;
-    nLeft           = other.nLeft;
+    global_nLeft    = other.global_nLeft;
+    local_nLeft     = other.local_nLeft;
     split_start     = other.split_start;
     split_end       = other.split_end;
     return *this;
   }
+
+  HDI bool IsValid() const { return colid != static_cast<IdxT>(-1); }
 
   DI bool has_valid_split_range() const
   {
     return split_start >= IdxT{0} && split_end >= split_start;
   }
 
-  DI bool can_merge_equivalent_split_range(const SplitT& other) const
+  DI bool can_merge_equivalent_split_range(std::int64_t other_global_nLeft,
+                                           IdxT other_split_start,
+                                           IdxT other_split_end) const
   {
-    return nLeft == other.nLeft && has_valid_split_range() && other.has_valid_split_range();
+    return global_nLeft == other_global_nLeft && has_valid_split_range() &&
+           other_split_start >= IdxT{0} && other_split_end >= other_split_start;
   }
 
   // Extend the candidate's inclusive range of training-equivalent split
   // thresholds. `quesval` tracks the upper edge only to preserve the existing
   // threshold tie-break against candidates outside this equivalent range.
-  DI void merge_equivalent_split_range(const SplitT& other)
+  DI void merge_equivalent_split_range(DataT other_quesval,
+                                       IdxT other_split_start,
+                                       IdxT other_split_end)
   {
-    split_start = other.split_start < split_start ? other.split_start : split_start;
-    split_end   = other.split_end > split_end ? other.split_end : split_end;
-    if (other.quesval > quesval) { quesval = other.quesval; }
+    split_start = other_split_start < split_start ? other_split_start : split_start;
+    split_end   = other_split_end > split_end ? other_split_end : split_end;
+    if (other_quesval > quesval) { quesval = other_quesval; }
   }
 
-  DI bool replace_with(const SplitT& other)
+  DI bool replace_with(DataT other_quesval,
+                       IdxT other_colid,
+                       DataT other_best_metric_val,
+                       std::int64_t other_global_nLeft,
+                       IdxT other_split_start,
+                       IdxT other_split_end)
   {
-    *this = other;
+    quesval         = other_quesval;
+    colid           = other_colid;
+    best_metric_val = other_best_metric_val;
+    global_nLeft    = other_global_nLeft;
+    local_nLeft     = 0;
+    split_start     = other_split_start;
+    split_end       = other_split_end;
     return true;
   }
 
@@ -124,30 +135,69 @@ struct Split {
 
   /**
    * @brief updates the current split if the input gain is better
+   *
+   * local_nLeft is intentionally not accepted here: split selection is based
+   * on global counts, and local counts are filled just before partitioning.
    */
-  DI bool update(const SplitT& other)
+  DI bool update(DataT other_quesval,
+                 IdxT other_colid,
+                 DataT other_best_metric_val,
+                 std::int64_t other_global_nLeft,
+                 IdxT other_split_start,
+                 IdxT other_split_end)
   {
     // Primary ordering: higher gain wins; lower or unordered gain loses.
-    if (other.best_metric_val > best_metric_val) { return replace_with(other); }
-    if (other.best_metric_val != best_metric_val) { return false; }
+    if (other_best_metric_val > best_metric_val) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
+    if (other_best_metric_val != best_metric_val) { return false; }
 
     // Equal gain: preserve the existing deterministic feature tie-break.
-    if (other.colid > colid) { return replace_with(other); }
-    if (other.colid != colid) { return false; }
+    if (other_colid > colid) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
+    if (other_colid != colid) { return false; }
 
     // Equal gain and feature: multiple thresholds can send the same training
     // rows left and right. Merge that range and choose its representative after
     // reduction.
-    if (can_merge_equivalent_split_range(other)) {
-      merge_equivalent_split_range(other);
+    if (can_merge_equivalent_split_range(other_global_nLeft, other_split_start, other_split_end)) {
+      merge_equivalent_split_range(other_quesval, other_split_start, other_split_end);
       return true;
     }
 
     // Equal gain and feature, but a different training partition: keep the
     // existing deterministic threshold tie-break.
-    if (other.quesval > quesval) { return replace_with(other); }
+    if (other_quesval > quesval) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
 
     return false;
+  }
+
+  DI bool update(DataT other_quesval,
+                 IdxT other_colid,
+                 DataT other_best_metric_val,
+                 std::int64_t other_global_nLeft,
+                 IdxT other_bin)
+  {
+    return update(
+      other_quesval, other_colid, other_best_metric_val, other_global_nLeft, other_bin, other_bin);
   }
 
   /**
@@ -158,17 +208,14 @@ struct Split {
     auto lane = raft::laneId();
 #pragma unroll
     for (int i = raft::WarpSize / 2; i >= 1; i /= 2) {
-      auto id = lane + i;
-      auto qu = raft::shfl(quesval, id);
-      auto co = raft::shfl(colid, id);
-      auto be = raft::shfl(best_metric_val, id);
-      auto nl = raft::shfl(nLeft, id);
-      auto bs = raft::shfl(split_start, id);
-      auto bn = raft::shfl(split_end, id);
-      SplitT other(qu, co, be, nl, bs);
-      other.split_start = bs;
-      other.split_end   = bn;
-      update(other);
+      auto id  = lane + i;
+      auto qu  = raft::shfl(quesval, id);
+      auto co  = raft::shfl(colid, id);
+      auto be  = raft::shfl(best_metric_val, id);
+      auto gnl = raft::shfl(global_nLeft, id);
+      auto bs  = raft::shfl(split_start, id);
+      auto bn  = raft::shfl(split_end, id);
+      update(qu, co, be, gnl, bs, bn);
     }
   }
 
@@ -199,7 +246,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0 && this->colid != -1) {
+      if (threadIdx.x == 0 && this->IsValid()) {
         select_split_range_midpoint(quantiles, n_bins);
         while (atomicCAS(mutex, 0, 1))
           ;
@@ -207,15 +254,16 @@ struct Split {
         split_reg.quesval         = split->quesval;
         split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
-        split_reg.nLeft           = split->nLeft;
+        split_reg.global_nLeft    = split->global_nLeft;
         split_reg.split_start     = split->split_start;
         split_reg.split_end       = split->split_end;
-        bool update_result        = split_reg.update(*this);
+        bool update_result =
+          split_reg.update(quesval, colid, best_metric_val, global_nLeft, split_start, split_end);
         if (update_result) {
           split->quesval         = split_reg.quesval;
           split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
-          split->nLeft           = split_reg.nLeft;
+          split->global_nLeft    = split_reg.global_nLeft;
           split->split_start     = split_reg.split_start;
           split->split_end       = split_reg.split_end;
         }
@@ -244,13 +292,16 @@ template <typename DataT, typename IdxT, int TPB = 256>
 void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
 {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d, split_range = [%d, %d]\n",
-           ptr->quesval,
-           ptr->colid,
-           ptr->best_metric_val,
-           ptr->nLeft,
-           ptr->split_start,
-           ptr->split_end);
+    printf(
+      "quesval = %e, colid = %lld, best_metric_val = %e, global_nLeft = %lld, "
+      "local_nLeft = %lld, split_range = [%lld, %lld]\n",
+      ptr->quesval,
+      static_cast<long long>(ptr->colid),
+      ptr->best_metric_val,
+      static_cast<long long>(ptr->global_nLeft),
+      static_cast<long long>(ptr->local_nLeft),
+      static_cast<long long>(ptr->split_start),
+      static_cast<long long>(ptr->split_end));
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());

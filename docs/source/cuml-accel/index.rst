@@ -1,110 +1,71 @@
-Zero Code Change Acceleration
-=============================
+cuml.accel Overview
+===================
 
-The ``cuml.accel`` zero code change accelerator provides a mechanism to
-accelerate existing python machine learning code on the GPU, *without requiring
-any changes to that code*. Depending on the data size and algorithms chosen,
-this may result in :doc:`major speedups <benchmarks>`.
+``cuml.accel`` runs supported scikit-learn, UMAP, and HDBSCAN workloads on an
+NVIDIA GPU without changing the Python code that uses those libraries. It is a
+good fit when you want to accelerate an existing workflow, keep the familiar
+APIs, or quickly evaluate the benefit of GPU acceleration before using cuML
+directly.
+
+Enable ``cuml.accel`` before importing the libraries you want to accelerate.
+Your existing code then remains unchanged:
 
 .. code-block:: python
 
-    %load_ext cuml.accel
-    # Certain operations in common ML libraries (sklearn, umap, hdbscan)
-    # are now GPU accelerated
+   from sklearn.datasets import make_regression
+   from sklearn.linear_model import Ridge
 
-    from sklearn.datasets import make_regression
-    from sklearn.linear_model import ElasticNet
+   X, y = make_regression(n_samples=1_000_000, random_state=0)
+   model = Ridge().fit(X, y)
+   predictions = model.predict(X)
 
-    X, y = make_regression(n_samples=1_000_000)
-
-    model = ElasticNet()
-    model.fit(X, y)   # runs on GPU!
-    model.predict(X)  # runs on GPU!
-
-Currently ``cuml.accel`` targets ``sklearn``, ``umap``, and ``hdbscan`` as
-libraries to accelerate. Functionality that isn't yet supported will fallback
-to CPU execution. See :doc:`limitations` for more information on what's
-currently accelerated and what requires a CPU fallback.
-
-Usage
------
-
-``cuml.accel`` comes standard with ``cuml``, no additional installation
-requirements are needed. It's designed to be used with existing code that makes
-use of ``sklearn``, ``umap`` or ``hdbscan``, with the only change being something
-to enable the use of the accelerator.
-
-Command Line Interface (CLI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When executing from the commandline, you can use ``python -m cuml.accel`` in
-place of ``python`` to execute python code with the accelerator enabled.
+Run a script through the ``cuml.accel`` command-line interface:
 
 .. code-block:: console
 
    python -m cuml.accel script.py
 
-
-Jupyter/IPython
-~~~~~~~~~~~~~~~
-
-The same functionality is available in Jupyter notebooks or IPython by
-executing the following line magic at the top (before other imports):
-
-.. code-block::
-
-   %load_ext cuml.accel
-
-You can see an example of this in :doc:`this example
-<examples/plot_kmeans_digits>`.
-
-.. _cuml-accel-env-var:
-
-Environment Variable
-~~~~~~~~~~~~~~~~~~~~
-
-The accelerator may also be enabled by setting the ``CUML_ACCEL_ENABLED``
-environment variable to ``1`` or ``true`` (case insensitive).
-
-.. code-block:: console
-
-   # Define it just for a single command
-   CUML_ACCEL_ENABLED=1 python script.py
-
-   # Or set it to persist in your current shell session
-   export CUML_ACCEL_ENABLED=1
-
-Note that any python program running with the environment defined this way
-will load the accelerator, which may result in a measurable startup overhead.
-
-This approach is especially useful for accelerating
-:doc:`third-party applications <examples/third-party-apps>` whose code you do not
-control.
-
-Additionally, if ``cuml`` is not installed properly in your environment, the
-``CUML_ACCEL_ENABLED`` environment variable will be silently ignored (and
-normal CPU execution will occur). For this reason one of the other methods
-listed here may be preferred, as failure to invoke the accelerator will result
-in a detectable error.
-
-Enabling Programmatically
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When needed, the accelerator may also be enabled programmatically by calling
-`cuml.accel.install`. Note that you'll want to call this early in your code,
-before importing functionality from ``sklearn``/``umap``/``hdbscan``.
+Or load the extension at the top of a Jupyter notebook, before other imports:
 
 .. code-block:: python
 
-   import cuml
-   cuml.accel.install()
+   %load_ext cuml.accel
+
+See :ref:`activation-methods` for a complete overview of the command-line,
+Jupyter, environment-variable, and programmatic activation options.
+
+``cuml.accel`` transparently falls back to the original CPU implementation
+when an estimator or operation cannot be accelerated. Fallback can depend on
+parameters, input types, methods, or library versions, so existing workflows
+continue to run even when only part of a pipeline is GPU accelerated. Use the
+:doc:`logging and profiling tools <logging-and-profiling>` to see exactly
+where execution occurs.
+
+We have validated ``cuml.accel`` against the complete scikit-learn example
+gallery: every runnable example completes successfully with ``cuml.accel``
+enabled. This does not mean that every operation runs on the GPU. Unsupported
+operations transparently fall back to the CPU. The result demonstrates broad
+compatibility with realistic, complex scikit-learn workflows.
+
+Where to Go Next
+----------------
+
+* :doc:`usage` explains activation, fallback, and memory management.
+* :doc:`compatibility` lists the estimators that can be accelerated,
+  including estimator-specific fallback conditions and behavioral differences.
+* :doc:`logging-and-profiling` explains how to identify which operations ran on
+  the GPU and why others fell back to the CPU.
+* :doc:`benchmarks` provides representative performance results.
+* :doc:`examples/index` contains complete examples and notebook workflows.
+* :doc:`faq` covers interoperability, serialization, and bug reporting.
 
 .. toctree::
    :hidden:
 
    self
-   logging-and-profiling.rst
-   limitations.rst
-   faq.rst
-   benchmarks.rst
-   examples/index.rst
+   usage
+   compatibility
+   logging-and-profiling
+   benchmarks
+   examples/index
+   faq

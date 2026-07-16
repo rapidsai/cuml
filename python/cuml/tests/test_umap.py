@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -1506,10 +1506,14 @@ def test_umap_sigmas_rhos():
     ref_model.fit(X)
 
     # With identical KNN inputs, sigmas and rhos should match closely
-    np.testing.assert_allclose(cu_model._rhos, ref_model._rhos, atol=1e-3)
+    np.testing.assert_allclose(
+        cu_model._rhos.get(), ref_model._rhos, atol=1e-3
+    )
 
     # Sigmas are more sensitive to numerical differences
-    np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
+    np.testing.assert_allclose(
+        cu_model._sigmas.get(), ref_model._sigmas, atol=5e-2
+    )
 
 
 @pytest.mark.xfail(

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -34,7 +34,6 @@ from sklearn.base import clone
 from sklearn.utils import Bunch
 
 import cuml
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
 from cuml.internals.validation import check_is_fitted, check_features, check_array
 
@@ -571,6 +570,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.transformer_weights = transformer_weights
         self.verbose = verbose
 
+    @classmethod
+    def _get_param_names(cls):
+        return [
+            "n_jobs",
+            "output_type",
+            "remainder",
+            "sparse_threshold",
+            "transformer_weights",
+            "transformers",
+            "verbose",
+        ]
+
     @property
     def _transformers(self):
         """
@@ -579,13 +590,18 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         of get_params via BaseComposition._get_params which expects lists
         of tuples of len 2.
         """
+        if self.transformers is None:
+            return []
         return [(name, trans) for name, trans, _ in self.transformers]
 
     @_transformers.setter
     def _transformers(self, value):
-        self.transformers = [
-            (name, trans, col) for ((name, trans), (_, _, col))
-            in zip(value, self.transformers)]
+        if not self.transformers:
+            self.transformers = [(name, trans, None) for name, trans in value]
+        else:
+            self.transformers = [
+                (name, trans, col) for ((name, trans), (_, _, col))
+                in zip(value, self.transformers, strict=True)]
 
     def get_params(self, deep=True):
         """Get parameters for this estimator.
@@ -832,7 +848,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             else:
                 raise
 
-    @cuml.internals.reflect
+    @cuml.internals.mlfunc
     def fit(self, X, y=None) -> "ColumnTransformer":
         """Fit all transformers using X.
 
@@ -856,8 +872,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset=True)
-    def fit_transform(self, X, y=None) -> SparseCumlArray:
+    @cuml.internals.mlfunc(set_input_type=True)
+    def fit_transform(self, X, y=None):
         """Fit all transformers, transform the data and concatenate results.
 
         Parameters
@@ -908,8 +924,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         return self._hstack(list(Xs))
 
-    @cuml.internals.reflect
-    def transform(self, X) -> SparseCumlArray:
+    @cuml.internals.mlfunc
+    def transform(self, X):
         """Transform X separately by each transformer, concatenate results.
 
         Parameters
