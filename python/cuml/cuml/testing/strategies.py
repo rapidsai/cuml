@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
@@ -18,8 +18,6 @@ from hypothesis.strategies import (
 )
 from sklearn.datasets import make_classification, make_regression
 from sklearn.model_selection import train_test_split
-
-from cuml.internals.array import CumlArray
 
 _CUML_ARRAY_INPUT_TYPES = ["numpy", "cupy", "series"]
 
@@ -274,43 +272,6 @@ def cuml_array_inputs(
     assume(cai.get("mask") is None)
 
     return ret
-
-
-@composite
-def cuml_arrays(
-    draw,
-    input_types=cuml_array_input_types(),
-    dtypes=cuml_array_dtypes(),
-    shapes=cuml_array_shapes(),
-    orders=cuml_array_orders(),
-    mem_types=cuml_array_mem_types(),
-):
-    """
-    Generates cuml arrays.
-
-    Parameters
-    ----------
-    input_types: SearchStrategy[("numpy", "cupy", "series")], \
-        default=cuml_array_input_tyes()
-        A search strategy for the type of array input.
-    dtypes: SearchStrategy[np.dtype], default=cuml_array_dtypes()
-        A search strategy for a numpy/cupy compatible data type.
-    shapes: SearchStrategy[int | tuple[int]], default=cuml_array_shapes()
-        A search strategy for array shapes.
-    orders : str in {'C', 'F'}, default=cuml_array_orders()
-        A search strategy for array orders.
-
-    Returns
-    -------
-    A strategy for cuml arrays.
-    """
-    array_input = create_cuml_array_input(
-        input_type=draw(input_types),
-        dtype=draw(dtypes),
-        shape=draw(shapes),
-        order=draw(orders),
-    )
-    return CumlArray(data=array_input, mem_type=draw(mem_types))
 
 
 def _get_limits(strategy):
