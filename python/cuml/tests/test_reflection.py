@@ -13,8 +13,6 @@ import scipy.sparse
 from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.outputs import (
@@ -24,8 +22,6 @@ from cuml.internals.outputs import (
     convert_arrays,
     infer_output_type,
     mlfunc,
-    reflect,
-    run_in_internal_context,
 )
 from cuml.internals.validation import check_inputs
 
@@ -176,13 +172,6 @@ def test_infer_output_type(input_type):
     X = rand_array(input_type)
     output_type = infer_output_type(X)
     assert output_type == input_type
-
-
-def test_infer_output_type_cuml():
-    a = CumlArray(cp.array([[1, 2], [3, 4]]))
-    b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
-    assert infer_output_type(a) == "cuml"
-    assert infer_output_type(b) == "cuml"
 
 
 @pytest.mark.parametrize("kind", ["cudf", "pandas"])
@@ -455,28 +444,6 @@ def test_mlfunc_sparse_outputs(output_type):
         assert scipy.sparse.issparse(res)
 
 
-@pytest.mark.parametrize("sparse_type", ["cupy", "cuml"])
-@pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
-def test_reflect_sparse_outputs(sparse_type, output_type):
-    @reflect
-    def make_sparse():
-        arr = cupyx.scipy.sparse.random(5, 5, random_state=42)
-        if sparse_type == "cupy":
-            return arr
-        else:
-            return SparseCumlArray(arr)
-
-    cuml.set_global_output_type(output_type)
-    res = make_sparse()
-
-    if output_type == "cuml":
-        assert isinstance(res, SparseCumlArray)
-    elif output_type in [None, "input", "cupy", "cudf", "numba"]:
-        assert cupyx.scipy.sparse.issparse(res)
-    else:
-        assert scipy.sparse.issparse(res)
-
-
 @pytest.mark.parametrize("output_type", ["input", "cupy", "cudf"])
 def test_mlfunc_nested_output(output_type):
     expected_type = "cupy" if output_type == "input" else output_type
@@ -534,34 +501,6 @@ def test_mlfunc_internal_calls(output_type):
     cuml.set_global_output_type(output_type)
     X = rand_array("pandas")
     res = apply(returns_cupy, X)
-    expected = "pandas" if output_type in (None, "input") else output_type
-    assert_output_type(res, expected)
-
-
-@pytest.mark.parametrize("output_type", [None, "input", "numpy"])
-def test_reflect_internal_calls(output_type):
-    @reflect
-    def myfunc(X):
-        return cp.asarray(X)
-
-    @reflect(array="X")
-    def apply(func, X):
-        result = func(X)
-        # Internal calls return internal types by default
-        assert isinstance(result, CumlArray)
-
-        with cuml.using_output_type("cupy"):
-            temp = func(X)
-
-        # Internal calls can configure output type to get
-        # something specific when needed
-        assert isinstance(temp, cp.ndarray)
-
-        return result
-
-    cuml.set_global_output_type(output_type)
-    X = rand_array("pandas")
-    res = apply(myfunc, X)
     expected = "pandas" if output_type in (None, "input") else output_type
     assert_output_type(res, expected)
 
@@ -629,25 +568,6 @@ def test_mlfunc_convert_output_false():
     cuml.set_global_output_type("cudf")
     X = rand_array("pandas")
     res = always_returns_numpy(X)
-    assert_output_type(res, "numpy")
-
-
-def test_run_in_internal_context():
-    @reflect
-    def myfunc(X):
-        return cp.asarray(X)
-
-    @run_in_internal_context
-    def always_returns_numpy(func, X):
-        result = func(X)
-        # Internal calls return internal types by default
-        assert isinstance(result, CumlArray)
-
-        return result.to_output("numpy")
-
-    cuml.set_global_output_type("cudf")
-    X = rand_array("pandas")
-    res = always_returns_numpy(myfunc, X)
     assert_output_type(res, "numpy")
 
 
