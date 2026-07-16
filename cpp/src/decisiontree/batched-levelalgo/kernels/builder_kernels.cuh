@@ -14,6 +14,7 @@
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/error.hpp>
+#include <raft/linalg/unary_op.cuh>
 
 #include <cuda/iterator>
 #include <cuda/std/random>
@@ -56,27 +57,6 @@ struct SharedMemoryConfig {
   size_t histogram_dynamic_smem_size;
 };
 
-template <typename SplitT>
-HDI bool SplitPartitionNotValid(const SplitT& split,
-                                std::int64_t min_samples_leaf,
-                                std::size_t num_rows)
-{
-  const auto local_count = static_cast<std::int64_t>(num_rows);
-  return split.colid == std::int64_t{-1} || split.local_nLeft > local_count ||
-         split.local_nLeft < min_samples_leaf ||
-         (local_count - split.local_nLeft) < min_samples_leaf;
-}
-
-template <typename SplitT, typename DataT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       std::int64_t min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease ||
-         SplitPartitionNotValid(split, min_samples_leaf, num_rows);
-}
-
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
 DI OutT* alignPointer(InT dataset)
@@ -118,13 +98,12 @@ inline void sample_features(std::int64_t* column_samples,
 }
 
 template <typename DataT, typename LabelT, int TPB>
-void launchNodeSplitKernel(const std::int64_t min_samples_leaf,
-                           const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT>& dataset,
+void launchNodeSplitKernel(const Dataset<DataT, LabelT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT>* splits,
+                           Split<DataT>* splits,
                            const WorkloadInfo* workload_info,
                            size_t n_blocks_dimx,
+                           size_t n_work_items,
                            std::int64_t* partition_row_ids,
                            cudaStream_t builder_stream);
 
@@ -138,21 +117,65 @@ void launchLeafKernel(ObjectiveT objective,
                       size_t smem_size,
                       cudaStream_t builder_stream);
 template <typename DataT, typename LabelT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernels(typename ObjectiveT::BinT* histograms,
-                               std::int64_t n_bins,
-                               const Dataset<DataT, LabelT>& dataset,
-                               const Quantiles<DataT>& quantiles,
-                               const NodeWorkItem* work_items,
-                               std::int64_t colStart,
-                               const std::int64_t* column_samples,
-                               int* mutex,
-                               volatile Split<DataT>* splits,
-                               ObjectiveT& objective,
-                               const WorkloadInfo* workload_info,
-                               dim3 histogram_grid,
-                               dim3 split_grid,
-                               const SharedMemoryConfig& split_smem_config,
-                               cudaStream_t builder_stream);
+void launchBuildHistogramsKernel(typename ObjectiveT::BinT* histograms,
+                                 std::int64_t n_bins,
+                                 const Dataset<DataT, LabelT>& dataset,
+                                 const Quantiles<DataT>& quantiles,
+                                 const NodeWorkItem* work_items,
+                                 std::int64_t colStart,
+                                 const std::int64_t* column_samples,
+                                 ObjectiveT& objective,
+                                 const WorkloadInfo* workload_info,
+                                 dim3 histogram_grid,
+                                 const SharedMemoryConfig& split_smem_config,
+                                 cudaStream_t builder_stream);
+
+template <typename DataT, typename LabelT, int TPB, typename ObjectiveT>
+void launchFindBestSplitsKernel(typename ObjectiveT::BinT* histograms,
+                                std::int64_t n_bins,
+                                const Dataset<DataT, LabelT>& dataset,
+                                const Quantiles<DataT>& quantiles,
+                                std::int64_t colStart,
+                                const std::int64_t* column_samples,
+                                int* mutex,
+                                volatile Split<DataT>* splits,
+                                ObjectiveT& objective,
+                                dim3 split_grid,
+                                cudaStream_t builder_stream);
+
+template <typename BinT>
+inline constexpr std::size_t reduction_buffer_size_v =
+  decltype(BinT{}.ToReductionBuffer()){}.size();
+
+template <typename BinT>
+inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStream_t stream)
+{
+  // Counts are packed as doubles so each bin can use one homogeneous arithmetic buffer. This is
+  // exact for current RF problem sizes: integer values up to 2^53 are exactly representable by
+  // double, and RF row indexing is far below that limit.
+  auto op = [in] __device__(double* out, std::size_t i) {
+    auto const bin_idx = i / reduction_buffer_size_v<BinT>;
+    auto const field   = i % reduction_buffer_size_v<BinT>;
+    auto const buffer  = in[bin_idx].ToReductionBuffer();
+    *out               = buffer[field];
+  };
+  raft::linalg::writeOnlyUnaryOp<double, decltype(op), std::size_t, 256>(
+    out, len * reduction_buffer_size_v<BinT>, op, stream);
+}
+
+template <typename BinT>
+inline void unpackHistograms(const double* in, BinT* out, std::size_t len, cudaStream_t stream)
+{
+  auto op = [in] __device__(BinT * out, std::size_t i) {
+    decltype(BinT{}.ToReductionBuffer()) buffer{};
+    auto const offset = i * reduction_buffer_size_v<BinT>;
+    for (std::size_t field = 0; field < reduction_buffer_size_v<BinT>; ++field) {
+      buffer[field] = in[offset + field];
+    }
+    *out = BinT::FromReductionBuffer(buffer);
+  };
+  raft::linalg::writeOnlyUnaryOp<BinT, decltype(op), std::size_t, 256>(out, len, op, stream);
+}
 
 }  // namespace DT
 }  // namespace ML

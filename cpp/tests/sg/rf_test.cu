@@ -171,6 +171,64 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
   return os;
 }
 
+namespace {
+
+template <typename BinT>
+void expectBinEqual(const BinT& actual, const BinT& expected)
+{
+  EXPECT_EQ(actual.Count(), expected.Count());
+  EXPECT_DOUBLE_EQ(actual.Weight(), expected.Weight());
+  if constexpr (std::is_same_v<BinT, DT::RegressionBin> ||
+                std::is_same_v<BinT, DT::WeightedRegressionBin>) {
+    EXPECT_DOUBLE_EQ(actual.LabelSum(), expected.LabelSum());
+  }
+}
+
+template <typename BinT>
+void testBinReductionRoundTrip(std::vector<BinT> const& input)
+{
+  if (input.empty()) { return; }
+
+  raft::handle_t handle;
+  auto stream = handle.get_stream();
+  rmm::device_uvector<BinT> d_input(input.size(), stream);
+  rmm::device_uvector<double> d_packed(DT::reduction_buffer_size_v<BinT> * input.size(), stream);
+  rmm::device_uvector<BinT> d_output(input.size(), stream);
+
+  raft::update_device(d_input.data(), input.data(), input.size(), stream);
+  DT::packHistograms(d_input.data(), d_packed.data(), input.size(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+  DT::unpackHistograms(d_packed.data(), d_output.data(), input.size(), stream);
+  RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+  std::vector<BinT> output(input.size());
+  raft::update_host(output.data(), d_output.data(), output.size(), stream);
+  handle.sync_stream();
+
+  for (std::size_t i = 0; i < input.size(); ++i) {
+    expectBinEqual(output[i], input[i]);
+  }
+}
+
+}  // namespace
+
+TEST(RfTests, BinReductionRoundTrip)
+{
+  testBinReductionRoundTrip<DT::ClassificationBin>({});
+  testBinReductionRoundTrip<DT::ClassificationBin>({{7}});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({{4, 2.5}});
+  testBinReductionRoundTrip<DT::RegressionBin>({});
+  testBinReductionRoundTrip<DT::RegressionBin>({{3.5, 4}});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>({{6.75, 3, 2.25}});
+  testBinReductionRoundTrip<DT::ClassificationBin>({{0}, {7}, {13}});
+  testBinReductionRoundTrip<DT::WeightedClassificationBin>({{0, 0.0}, {4, 2.5}, {11, 8.25}});
+  testBinReductionRoundTrip<DT::RegressionBin>({{0.0, 0}, {3.5, 4}, {-2.25, 9}});
+  testBinReductionRoundTrip<DT::WeightedRegressionBin>(
+    {{0.0, 0, 0.0}, {6.75, 3, 2.25}, {-1.5, 8, 5.5}});
+}
+
 template <typename DataT, typename LabelT>
 std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
   const raft::handle_t& handle,
@@ -1281,25 +1339,25 @@ __global__ void objectiveGainKernel(BinT const* hist,
 TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 {
   using DataT                   = float;
-  constexpr std::int64_t len    = 10;
+  constexpr std::int64_t len    = 8;
   constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::ClassificationBin> h_hist = {
-    {1},
     {2},
-    {2},
-    {2},
-    {2},
-    {5},
-    {1},
-    {2},
-    {2},
-    {2},
-    {2},
-    {5},
+    {4},
+    {4},
+    {4},
+    {4},
+    {4},
+    {0},
+    {0},
+    {0},
+    {0},
+    {0},
+    {4},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
@@ -1325,7 +1383,7 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
   handle.sync_stream();
 
   EXPECT_EQ(h_split.global_nLeft, 4);
-  EXPECT_EQ(h_split.local_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);
@@ -1334,19 +1392,19 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 {
   using DataT                   = float;
-  constexpr std::int64_t len    = 10;
+  constexpr std::int64_t len    = 8;
   constexpr std::int64_t n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::RegressionBin> h_hist = {
-    {2.0, 2},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {10.0, 10},
+    {0.0, 2},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {8.0, 8},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
@@ -1372,7 +1430,7 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
   handle.sync_stream();
 
   EXPECT_EQ(h_split.global_nLeft, 4);
-  EXPECT_EQ(h_split.local_nLeft, 4);
+  EXPECT_EQ(h_split.local_nLeft, 0);
   EXPECT_EQ(h_split.quesval, DataT{3});
   EXPECT_EQ(h_split.split_start, 3);
   EXPECT_EQ(h_split.split_end, 3);

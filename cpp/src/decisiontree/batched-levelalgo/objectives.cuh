@@ -29,6 +29,7 @@ class ClassificationObjectiveFunction {
   std::int64_t nclasses;
   std::int64_t min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
 
   HDI double WeightAt(BinT const* hist, std::int64_t i, std::int64_t n_bins) const
   {
@@ -131,7 +132,8 @@ class ClassificationObjectiveFunction {
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -143,8 +145,12 @@ class ClassificationObjectiveFunction {
 
   HDI ClassificationObjectiveFunction(std::int64_t nclasses,
                                       std::int64_t min_samples_leaf,
-                                      CRITERION criterion)
-    : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
+                                      CRITERION criterion,
+                                      DataT min_impurity_decrease = DataT{0})
+    : nclasses(nclasses),
+      min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -175,11 +181,11 @@ class ClassificationObjectiveFunction {
     for (std::int64_t i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
@@ -214,6 +220,7 @@ class RegressionObjectiveFunction {
  private:
   std::int64_t min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI DataT MSEGain(BinT const* hist,
@@ -346,7 +353,8 @@ class RegressionObjectiveFunction {
                          std::int64_t nLeft,
                          std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -359,8 +367,13 @@ class RegressionObjectiveFunction {
     }
   }
 
-  HDI RegressionObjectiveFunction(std::int64_t, std::int64_t min_samples_leaf, CRITERION criterion)
-    : min_samples_leaf(min_samples_leaf), criterion(criterion)
+  HDI RegressionObjectiveFunction(std::int64_t,
+                                  std::int64_t min_samples_leaf,
+                                  CRITERION criterion,
+                                  DataT min_impurity_decrease = DataT{0})
+    : min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -391,11 +404,11 @@ class RegressionObjectiveFunction {
     for (std::int64_t i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, std::int64_t{1});
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
