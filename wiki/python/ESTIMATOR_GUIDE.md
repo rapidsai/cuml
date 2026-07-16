@@ -207,11 +207,8 @@ validation helpers for their supported sparse formats or follow the
 sparse-specific validation utilities used by neighboring sparse estimators.
 
 Internally, dense array data should usually be processed as the standard arrays
-returned by validation. Use `CumlArray` at API boundaries, especially for
-descriptor-managed fitted attributes and returned values that need output-type
-reflection or index preservation. Low-level code that needs a specific memory
-location should request it explicitly through validation arguments such as
-`mem_type`.
+returned by validation. Low-level code that needs a specific memory location
+should request it explicitly through validation arguments such as `mem_type`.
 
 Public output type conversion is handled by `@mlfunc` and `ReflectedAttr`.
 Users choose output types in three ways:
