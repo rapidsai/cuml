@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -9,7 +9,6 @@ from packaging.version import Version
 import cuml.linear_model
 from cuml.accel.estimator_proxy import ProxyBase
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnGPU
 from cuml.internals.outputs import using_output_type
 from cuml.internals.validation import check_y
@@ -59,9 +58,7 @@ class Ridge(ProxyBase):
             if len(y_shape) == 2 and y_shape[1] == 1:
                 with using_output_type("cupy"):
                     # Reshape coef_ to be a 2D array
-                    self._gpu.coef_ = CumlArray(
-                        data=self._gpu.coef_.reshape(1, -1)
-                    )
+                    self._gpu.coef_ = self._gpu.coef_.reshape(1, -1)
 
         return self
 

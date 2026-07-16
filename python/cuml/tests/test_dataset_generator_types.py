@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -46,6 +46,10 @@ def test_xy_output_type(generator, output_str, output_types):
 
 
 @pytest.mark.parametrize("output_str,output_types", TEST_OUTPUT_TYPES)
+@pytest.mark.filterwarnings(
+    "ignore:`cuml.datasets.make_arima`, along with the entire `cuml.tsa` module, "
+    "was deprecated:FutureWarning"
+)
 def test_time_series_label_output_type(output_str, output_types):
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):

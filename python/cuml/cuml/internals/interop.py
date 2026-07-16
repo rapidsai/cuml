@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 import cupy as cp
 import numpy as np
 
-from cuml.internals.outputs import using_output_type
+from cuml.internals.outputs import mlfunc
 
 __all__ = (
     "UnsupportedOnGPU",
@@ -191,6 +191,7 @@ class InteropMixin:
                 pass
         return out
 
+    @mlfunc(convert_output=False)
     def _sync_attrs_to_cpu(self, model) -> None:
         """Sync any fitted attributes from ``self`` to ``model``.
 
@@ -203,15 +204,11 @@ class InteropMixin:
             # GPU model not fitted, nothing to do
             return
 
-        # XXX: we use this for now to ensure _attrs_to_cpu can rely on
-        # a consistent type for all fitted attributes, rather than
-        # having things potentially vary based on `self.output_type`.
-        with using_output_type("cuml"):
-            attrs = self._attrs_to_cpu(model)
-
+        attrs = self._attrs_to_cpu(model)
         for name, value in attrs.items():
             setattr(model, name, value)
 
+    @mlfunc(convert_output=False)
     def _sync_attrs_from_cpu(self, model) -> None:
         """Sync any fitted attributes from ``model`` to ``self``.
 

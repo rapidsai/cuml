@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import ctypes
@@ -13,20 +13,13 @@ import numpy as np
 import scipy.sparse
 import scipy.spatial
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
+from cuml.internals import logger
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_consistent_length,
@@ -54,6 +47,8 @@ from cuml.metrics.distance_type cimport DistanceType
 
 def _joblib_hash(X):
     """A thin shim around joblib.hash"""
+    if cupyx.scipy.sparse.issparse(X) or isinstance(X, cp.ndarray):
+        X = X.get()
     if scipy.sparse.issparse(X):
         # XXX: joblib.hash doesn't special case sparse inputs, meaning that
         # it's sensitive to what should be irrelevant internal state. For now
@@ -932,9 +927,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
        Bringing UMAP Closer to the Speed of Light with GPU Acceleration
        <https://arxiv.org/abs/2008.00325>`_
     """
-    embedding_ = CumlArrayDescriptor(order="C")
-    _sigmas = CumlArrayDescriptor(order="C")
-    _rhos = CumlArrayDescriptor(order="C")
+    embedding_ = ReflectedAttr()
 
     _cpu_class_path = "umap.UMAP"
 
@@ -1054,14 +1047,15 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
     def _attrs_from_cpu(self, model):
         if scipy.sparse.issparse(model._raw_data):
-            raw_data = SparseCumlArray(
-                check_array(model._raw_data, dtype="float32", accept_sparse="csr")
-            )
+            raw_data = cupyx.scipy.sparse.csr_matrix(model._raw_data, dtype="float32")
         else:
-            raw_data = to_gpu(model._raw_data)
+            raw_data = cp.asarray(model._raw_data)
 
         attrs = {
-            "embedding_": to_gpu(model.embedding_, order="C"),
+            "embedding_": ArrayIndexPair(
+                cp.asarray(model.embedding_, order="C"),
+                None,
+            ),
             "graph_": model.graph_.tocoo(),
             "_raw_data": raw_data,
             "_input_hash": model._input_hash,
@@ -1075,9 +1069,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         # Transfer _sigmas and _rhos if available (needed for inverse_transform)
         if hasattr(model, "_sigmas") and model._sigmas is not None:
-            attrs["_sigmas"] = to_gpu(model._sigmas)
+            attrs["_sigmas"] = cp.asarray(model._sigmas)
         if hasattr(model, "_rhos") and model._rhos is not None:
-            attrs["_rhos"] = to_gpu(model._rhos)
+            attrs["_rhos"] = cp.asarray(model._rhos)
 
         return attrs
 
@@ -1086,7 +1080,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         disconnection_distance = DISCONNECTION_DISTANCES.get(self.metric, np.inf)
 
-        raw_data = self._raw_data.to_output("numpy")
+        raw_data = self._raw_data
+        if cupyx.scipy.sparse.issparse(raw_data) or isinstance(raw_data, cp.ndarray):
+            raw_data = raw_data.get()
 
         if (input_hash := getattr(self, "_input_hash", None)) is None:
             input_hash = _joblib_hash(raw_data)
@@ -1098,7 +1094,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             knn_indices = cp.asnumpy(knn_indices)
 
         attrs = {
-            "embedding_": to_cpu(self.embedding_),
+            "embedding_": self.embedding_.array.get(order="A"),
             "graph_": self.graph_.tocsr(),
             "graph_dists_": None,
             "_raw_data": raw_data,
@@ -1127,9 +1123,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
 
         # Transfer _sigmas and _rhos if available (needed for inverse_transform)
         if hasattr(self, "_sigmas") and self._sigmas is not None:
-            attrs["_sigmas"] = to_cpu(self._sigmas)
+            attrs["_sigmas"] = self._sigmas.get()
         if hasattr(self, "_rhos") and self._rhos is not None:
-            attrs["_rhos"] = to_cpu(self._rhos)
+            attrs["_rhos"] = self._rhos.get()
 
         return attrs
 
@@ -1205,7 +1201,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         X="dense_sparse",
         skip_parameters_heading=True,
     )
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "UMAP":
         """
         Fit X into an embedded space.
@@ -1281,14 +1277,14 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef size_t X_nnz = 0
 
         if X_is_sparse:
-            X_m = SparseCumlArray(X)
-            X_ptr = X_m.data.ptr
-            X_indices_ptr = X_m.indices.ptr
-            X_indptr_ptr = X_m.indptr.ptr
-            X_nnz = X_m.nnz
+            X_ptr = X.data.data.ptr
+            X_indices_ptr = X.indices.data.ptr
+            X_indptr_ptr = X.indptr.data.ptr
+            X_nnz = X.nnz
+        elif isinstance(X, np.ndarray):
+            X_ptr = X.ctypes.data
         else:
-            X_m = CumlArray(data=X, index=index)
-            X_ptr = X_m.ptr
+            X_ptr = X.data.ptr
 
         cdef uintptr_t y_ptr = 0
         if y is not None:
@@ -1355,13 +1351,13 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         cdef uintptr_t sigmas_ptr = 0
         cdef uintptr_t rhos_ptr = 0
         if not X_is_sparse:
-            sigmas_cp = cp.zeros(n_rows, dtype=np.float32)
-            rhos_cp = cp.zeros(n_rows, dtype=np.float32)
-            sigmas_ptr = <uintptr_t>sigmas_cp.data.ptr
-            rhos_ptr = <uintptr_t>rhos_cp.data.ptr
+            sigmas = cp.zeros(n_rows, dtype=np.float32)
+            rhos = cp.zeros(n_rows, dtype=np.float32)
+            sigmas_ptr = <uintptr_t>sigmas.data.ptr
+            rhos_ptr = <uintptr_t>rhos.data.ptr
         else:
-            sigmas_cp = None
-            rhos_cp = None
+            sigmas = None
+            rhos = None
 
         with nogil:
             if X_is_sparse:
@@ -1406,22 +1402,18 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             ),
             order="C"
         )
-        self.embedding_ = CumlArray(data=embedding, index=index)
+        self.embedding_ = ArrayIndexPair(embedding, index)
         self.graph_ = copy_raft_host_coo_to_scipy_coo(fss_graph)
-        self._raw_data = X_m
+        self._raw_data = X
         self._sparse_data = X_is_sparse
         self._supervised = y is not None
         self._knn_indices = knn_indices
         self._knn_dists = knn_dists
-        self._sigmas = (
-            CumlArray(data=sigmas_cp) if sigmas_cp is not None else None
-        )
-        self._rhos = (
-            CumlArray(data=rhos_cp) if rhos_cp is not None else None
-        )
+        self._sigmas = sigmas
+        self._rhos = rhos
 
         if self.hash_input:
-            self._input_hash = _joblib_hash(X_m.to_output("numpy"))
+            self._input_hash = _joblib_hash(X)
         else:
             self._input_hash = None
 
@@ -1436,10 +1428,10 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_components)"
         }
     )
-    @reflect
+    @mlfunc(preserve_index=True)
     def fit_transform(
         self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
-    ) -> CumlArray:
+    ):
         """
         Fit X into an embedded space and return that transformed
         output.
@@ -1471,8 +1463,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_components)"
         }
     )
-    @reflect
-    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X, *, convert_dtype="deprecated"):
         """
         Transform X into the existing embedded space and return that
         transformed output.
@@ -1486,25 +1478,18 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         """
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype="float32",
             convert_dtype=convert_dtype,
             order="C",
             accept_sparse="csr",
-            return_index=True,
         )
-
         X_input_sparse = is_sparse(X)
 
-        if self.hash_input:
-            if X_input_sparse:
-                X_for_hash = X.get()
-            else:
-                X_for_hash = cp.asnumpy(X)
-            if _joblib_hash(X_for_hash) == self._input_hash:
-                return self.embedding_
+        if self.hash_input and _joblib_hash(X) == self._input_hash:
+            return self.embedding_
 
         if self._sparse_data and not X_input_sparse:
             logger.warn(
@@ -1541,16 +1526,20 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             X_indices_ptr = <uintptr_t>X.indices.data.ptr
             X_ptr = <uintptr_t>X.data.data.ptr
             X_nnz = X.nnz
-            orig_indptr_ptr = self._raw_data.indptr.ptr
-            orig_indices_ptr = self._raw_data.indices.ptr
-            orig_ptr = self._raw_data.data.ptr
+            orig_indptr_ptr = self._raw_data.indptr.data.ptr
+            orig_indices_ptr = self._raw_data.indices.data.ptr
+            orig_ptr = self._raw_data.data.data.ptr
             orig_nnz = self._raw_data.nnz
         else:
             X_ptr = <uintptr_t>X.data.ptr
-            orig_ptr = self._raw_data.ptr
+            orig_ptr = (
+                self._raw_data.data.ptr
+                if isinstance(self._raw_data, cp.ndarray)
+                else self._raw_data.ctypes.data
+            )
 
         cdef uintptr_t out_ptr = <uintptr_t>out.data.ptr
-        cdef uintptr_t embedding_ptr = self.embedding_.ptr
+        cdef uintptr_t embedding_ptr = self.embedding_.array.data.ptr
         handle = get_handle(device_ids=self.device_ids)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
@@ -1589,7 +1578,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=out, index=index)
+        return out
 
     @generate_docstring(
         X_shape="(n_samples, n_components)",
@@ -1600,8 +1589,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             "shape": "(n_samples, n_features)"
         }
     )
-    @reflect
-    def inverse_transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def inverse_transform(self, X, *, convert_dtype="deprecated"):
         """Transform X in the existing embedded space back into the input
         data space and return that transformed output.
         """
@@ -1619,12 +1608,11 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             )
 
         # skip n_features_in_ validation
-        X, index = check_array(
+        X = check_array(
             X,
             dtype="float32",
             convert_dtype=convert_dtype,
             order="C",
-            return_index=True,
         )
 
         n_samples = X.shape[0]
@@ -1635,9 +1623,9 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
             )
 
         # Get numpy arrays for preprocessing
-        embedding_np = self.embedding_.to_output("numpy")
-        X_np = cp.asnumpy(X)
-        raw_data_np = self._raw_data.to_output("numpy")
+        embedding_np = cp.asnumpy(self.embedding_.array, order="A")
+        X_np = cp.asnumpy(X, order="A")
+        raw_data_np = cp.asnumpy(self._raw_data, order="A")
 
         # Phase 1: Compute neighborhoods via Delaunay triangulation + BFS (CPU)
         # Cap neighborhood size to prevent explosion for high-dimensional data.
@@ -1681,8 +1669,8 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
                 "These may be missing if the model was loaded from a CPU UMAP "
                 "model that did not have them, or if the model was not fitted."
             )
-        cdef uintptr_t sigmas_ptr = self._sigmas.ptr
-        cdef uintptr_t rhos_ptr = self._rhos.ptr
+        cdef uintptr_t sigmas_ptr = self._sigmas.data.ptr
+        cdef uintptr_t rhos_ptr = self._rhos.data.ptr
 
         cdef lib.UMAPParams params
         init_params(self, params, n_rows=n_samples, is_sparse=False, is_fit=False)
@@ -1700,7 +1688,7 @@ class UMAP(InteropMixin, CMajorInputTagMixin, SparseInputTagMixin, Base):
         )
         handle.sync()
 
-        return CumlArray(data=inv_transformed_gpu, index=index)
+        return inv_transformed_gpu
 
 
 def fuzzy_simplicial_set(
@@ -1830,7 +1818,7 @@ def fuzzy_simplicial_set(
     return fss_graph.view_cupy_coo()
 
 
-@reflect
+@mlfunc(preserve_index=True)
 def simplicial_set_embedding(
     data,
     graph,
@@ -1938,13 +1926,12 @@ def simplicial_set_embedding(
         The optimized of ``graph`` into an ``n_components`` dimensional
         euclidean space.
     """
-    X, index = check_array(
+    X = check_array(
         data,
         dtype="float32",
         convert_dtype=convert_dtype,
         order="C",
         input_name="X",
-        return_index=True,
     )
 
     cdef int n_rows = X.shape[0]
@@ -2049,4 +2036,4 @@ def simplicial_set_embedding(
             &params,
             <float*> embedding_ptr
         )
-    return CumlArray(data=embedding, index=index)
+    return embedding

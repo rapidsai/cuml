@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import contextlib
@@ -48,16 +48,13 @@ OUTPUT_TYPES = (
 
 def check_output_type(output_type: str) -> str:
     """Validate and normalize an ``output_type`` value"""
-    # normalize as lower, keeping original str reference to appease the sklearn
-    # standard estimator checks as much as possible.
-    if output_type != (temp := output_type.lower()):
-        output_type = temp
+    output_type = output_type.lower()
     # Check for allowed types. Allow 'cuml' to support internal estimators
     if output_type != "cuml" and output_type not in OUTPUT_TYPES:
         valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
         raise ValueError(
-            f"`output_type` must be one of {valid_output_types}"
-            f" or None. Got: {output_type!r}"
+            f"`{output_type=!r}` is not supported. "
+            f"Expected one of {valid_output_types}, or None."
         )
     return output_type
 
@@ -431,6 +428,7 @@ class ClassLabels:
                 if index is not None:
                     out.index = index
 
+        # At this point `out` is either a cupy or cudf object
         if output_type is None:
             # cupy when possible, cudf otherwise
             return out
@@ -467,12 +465,13 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     Parameters
     ----------
     obj : object
-        The object to convert. Any cupy arrays (dense or sparse) or
-        cuml-specific output types (`ClassLabels`, `ArrayIndexPair`) will be
-        converted to the specified `output_type`. Some builtin collections
-        (dict, list, tuple) are traversed recursively to find array-likes.
-        Other array-likes (numpy, pandas, ...) will error as unsupported.
-        Any other type is passed through unchanged.
+        The object to convert. Any cupy arrays, numpy arrays, cupyx sparse
+        matrices, scipy sparse matrices, or cuml-specific output types
+        (`ClassLabels`, `ArrayIndexPair`) will be converted to the specified
+        `output_type`. Some builtin collections (dict, list, tuple) are
+        traversed recursively to find array-likes. Other array-likes (pandas,
+        ...) will error as unsupported. Any other type is passed through
+        unchanged.
     output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'}
         The output type to convert to.
     index : pandas.Index, cudf.Index, or None, default=None
@@ -484,6 +483,7 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     out : object
         The equivalent output, with arrays coerced to `output_type`.
     """
+    check_output_type(output_type)
     # TODO: legacy output paths, remove once `CumlArray`/`SparseCumlArray`
     # are no longer used anywhere.
     if isinstance(obj, CumlArray):
@@ -501,7 +501,23 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     if isinstance(obj, ClassLabels):
         return obj.to_output(output_type, index=index)
 
-    elif isinstance(obj, cp.ndarray):
+    if isinstance(obj, np.ndarray):
+        if output_type == "numpy":
+            return obj
+        elif output_type == "pandas":
+            if hasattr(index, "to_pandas"):
+                index = index.to_pandas()
+            if obj.ndim == 2:
+                if obj.shape[1] == 1:
+                    return pd.Series(obj.flatten(), index=index)
+                return pd.DataFrame(obj, index=index)
+            return pd.Series(obj, index=index)
+        else:
+            # Other output types use device memory, coerce to cupy and take
+            # cupy code path.
+            obj = cp.asarray(obj)
+
+    if isinstance(obj, cp.ndarray):
         if output_type == "numpy":
             return obj.get(order="A")
         elif output_type in (
@@ -563,14 +579,25 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
         else:
             return obj
 
+    elif sp.issparse(obj):
+        if output_type in ("numpy", "pandas"):
+            return obj
+        elif obj.format == "csr":
+            return cp_sp.csr_matrix(obj)
+        elif obj.format == "csc":
+            return cp_sp.csc_matrix(obj)
+        else:
+            # Use coo for coo and all other formats
+            return cp_sp.coo_matrix(obj)
+
     elif isinstance(
-        obj,
-        (np.ndarray, cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame),
+        obj, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)
     ):
         raise TypeError(
             f"Cannot return objects of type {type(obj).__name__} directly "
             f"from an `mlfunc`-decorated function. Please return a "
-            f"`cupy.ndarray`, `cupyx.scipy.sparse.spmatrix`, `ArrayIndexPair`, "
+            f"`cupy.ndarray`, `numpy.ndarray`, `cupyx.scipy.sparse.spmatrix`, "
+            f"`scipy.sparse.spmatrix`, `ArrayIndexPair`, "
             f"or `ClassLabels` instead."
         )
 
@@ -604,14 +631,13 @@ class ReflectedAttr:
 
         def _requires_reflection(self, obj) -> bool:
             """Check if `obj` requires reflection."""
-            if isinstance(obj, (cp.ndarray, ArrayIndexPair)):
+            if isinstance(obj, (cp.ndarray, np.ndarray, ArrayIndexPair)):
                 return True
-            elif cp_sp.issparse(obj):
+            elif cp_sp.issparse(obj) or sp.issparse(obj):
                 return True
             elif isinstance(
                 obj,
                 (
-                    np.ndarray,
                     cudf.Series,
                     cudf.DataFrame,
                     pd.Series,
@@ -619,8 +645,8 @@ class ReflectedAttr:
                 ),
             ):
                 raise TypeError(
-                    "Array-like types other than cupy, cupyx.scipy.sparse, or "
-                    "`ArrayIndexPair` are not supported."
+                    "Array-like types other than cupy, cupyx.scipy.sparse, "
+                    "numpy, scipy.sparse, or `ArrayIndexPair` are not supported."
                 )
             elif isinstance(obj, (list, tuple)):
                 return any(self._requires_reflection(v) for v in obj)

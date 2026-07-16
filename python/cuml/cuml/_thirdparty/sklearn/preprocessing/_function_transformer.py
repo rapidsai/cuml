@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # This code originates from the Scikit-Learn library,
@@ -11,10 +11,9 @@ import warnings
 
 import cuml
 from cuml.internals.mixins import _ensure_transformer_tags
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_inputs
 
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import reflect
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import _allclose_dense_sparse
 
@@ -98,7 +97,7 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
                               " want to proceed regardless, set"
                               " 'check_inverse=False'.", UserWarning)
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "FunctionTransformer":
         """Fit transformer by checking X.
 
@@ -117,8 +116,8 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
             self._check_inverse_transform(X)
         return self
 
-    @reflect
-    def transform(self, X) -> SparseCumlArray:
+    @mlfunc
+    def transform(self, X):
         """Transform X using the forward function.
 
         Parameters
@@ -133,8 +132,8 @@ class FunctionTransformer(TransformerMixin, BaseEstimator):
         """
         return self._transform(X, func=self.func, kw_args=self.kw_args)
 
-    @reflect
-    def inverse_transform(self, X) -> SparseCumlArray:
+    @mlfunc
+    def inverse_transform(self, X):
         """Transform X using the inverse function.
 
         Parameters
