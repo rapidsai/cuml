@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -1052,13 +1052,6 @@ def array_to_memory_order(arr, default="C"):
         array_interface["typestr"],
         default=default,
     )
-
-
-def cuda_ptr(X):
-    """Returns a pointer to a backing device array, or None if not a device array"""
-    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
-        return interface["data"][0]
-    return None
 
 
 def elements_in_representable_range(arr, dtype):
