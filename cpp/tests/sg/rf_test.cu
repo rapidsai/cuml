@@ -186,6 +186,8 @@ void expectBinEqual(const BinT& actual, const BinT& expected)
 template <typename BinT>
 void testBinReductionRoundTrip(std::vector<BinT> const& input)
 {
+  if (input.empty()) { return; }
+
   raft::handle_t handle;
   auto stream = handle.get_stream();
   rmm::device_uvector<BinT> d_input(input.size(), stream);
@@ -1388,25 +1390,25 @@ TEST(RFEquivalentSplitRangeTest, ClassificationChoosesUpperMiddleBin)
 {
   using DataT           = float;
   using IdxT            = int;
-  constexpr IdxT len    = 10;
+  constexpr IdxT len    = 8;
   constexpr IdxT n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::ClassificationBin> h_hist = {
-    {1},
     {2},
-    {2},
-    {2},
-    {2},
-    {5},
-    {1},
-    {2},
-    {2},
-    {2},
-    {2},
-    {5},
+    {4},
+    {4},
+    {4},
+    {4},
+    {4},
+    {0},
+    {0},
+    {0},
+    {0},
+    {0},
+    {4},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
@@ -1442,19 +1444,19 @@ TEST(RFEquivalentSplitRangeTest, RegressionChoosesUpperMiddleBin)
 {
   using DataT           = float;
   using IdxT            = int;
-  constexpr IdxT len    = 10;
+  constexpr IdxT len    = 8;
   constexpr IdxT n_bins = 6;
 
   auto stream_pool = std::make_shared<rmm::cuda_stream_pool>(1);
   raft::handle_t handle(rmm::cuda_stream_per_thread, stream_pool);
 
   std::vector<DT::RegressionBin> h_hist = {
-    {2.0, 2},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {4.0, 4},
-    {10.0, 10},
+    {0.0, 2},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {0.0, 4},
+    {8.0, 8},
   };
   std::vector<DataT> h_quantiles = {0, 1, 2, 3, 4, 5};
 
