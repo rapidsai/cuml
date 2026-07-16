@@ -13,7 +13,6 @@ import scipy.sparse
 from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.array import CumlArray
 from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
@@ -94,34 +93,6 @@ class ImplementsCudaArrayInterface:
     @property
     def __cuda_array_interface__(self):
         return self.x.__cuda_array_interface__
-
-
-class LegacyEstimator(Base):
-    X_ = CumlArrayDescriptor()
-
-    @reflect(reset=True)
-    def fit(self, X, y=None):
-        X = check_inputs(self, X, reset=True)
-        self.X_ = CumlArray(data=X)
-        return self
-
-    @reflect
-    def example(self, X):
-        return cp.zeros(3)
-
-    @reflect
-    def example_no_args(self):
-        return cp.zeros(3)
-
-    @run_in_internal_context
-    def check_descriptor(self):
-        # When run in an internal context, a descriptor returns its original
-        # internal value.
-        assert isinstance(self.X_, CumlArray)
-
-        with cuml.using_output_type("cupy"):
-            # Can override with using_output_type
-            assert_output_type(self.X_, "cupy")
 
 
 class DummyEstimator(Base):
@@ -680,19 +651,17 @@ def test_run_in_internal_context():
     assert_output_type(res, "numpy")
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
-def test_decorator_sets_input_type(cls):
+def test_decorator_sets_input_type():
     X = rand_array("numpy", shape=(10, 5))
-    model = cls().fit(X)
+    model = DummyEstimator().fit(X)
     assert model.n_features_in_ == 5
     assert model._input_type == "numpy"
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
-def test_estimator_method_with_array_input(cls):
+def test_estimator_method_with_array_input():
     X = rand_array("numpy", shape=(10, 5))
     X2 = rand_array("cudf", shape=(10, 5))
-    model = cls().fit(X)
+    model = DummyEstimator().fit(X)
 
     # Reflects method input by default
     assert_output_type(model.example(X2), "cudf")
@@ -706,13 +675,12 @@ def test_estimator_method_with_array_input(cls):
         assert_output_type(model.example(X2), "cupy")
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
-def test_array_like_inputs_treated_as_numpy_by_reflection(cls):
+def test_array_like_inputs_treated_as_numpy_by_reflection():
     X_cupy = rand_array("cupy", shape=(10, 5))
     X_list = rand_array("numpy", shape=(10, 5)).tolist()
 
-    model_fit_list = cls().fit(X_list)
-    model_fit_cupy = cls().fit(X_cupy)
+    model_fit_list = DummyEstimator().fit(X_list)
+    model_fit_cupy = DummyEstimator().fit(X_cupy)
 
     # Fitting on array-likes stores `numpy` as input-type
     assert model_fit_list._input_type == "numpy"
@@ -726,10 +694,9 @@ def test_array_like_inputs_treated_as_numpy_by_reflection(cls):
     assert_output_type(model_fit_cupy.example_no_args(), "cupy")
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
-def test_estimator_method_with_no_array_input(cls):
+def test_estimator_method_with_no_array_input():
     X = rand_array("numpy", shape=(10, 5))
-    model = cls().fit(X)
+    model = DummyEstimator().fit(X)
 
     # Reflects fit input by default
     assert_output_type(model.example_no_args(), "numpy")
@@ -743,13 +710,12 @@ def test_estimator_method_with_no_array_input(cls):
         assert_output_type(model.example_no_args(), "pandas")
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
-def test_reflected_attr(cls, output_type):
+def test_reflected_attr(output_type):
     cuml.set_global_output_type(output_type)
     X = rand_array("pandas")
 
-    model = cls().fit(X)
+    model = DummyEstimator().fit(X)
 
     # Reflected attributes treat None/"input" the same
     assert_output_type(
@@ -764,10 +730,9 @@ def test_reflected_attr(cls, output_type):
     assert_output_type(returns_array_one_arg(3), expected)
 
 
-@pytest.mark.parametrize("cls", [LegacyEstimator, DummyEstimator])
-def test_reflected_attr_type_in_internal_context(cls):
+def test_reflected_attr_type_in_internal_context():
     X = rand_array("numpy")
-    model = cls().fit(X)
+    model = DummyEstimator().fit(X)
     assert_output_type(model.X_, "numpy")
     model.check_descriptor()
 
@@ -799,28 +764,6 @@ def test_reflected_attr_cache_behavior():
     model.X_ = X
     assert_output_type(model.X_, "cupy")
     assert len(model.__dict__["X_"]._cache) == 1  # cupy
-
-
-def test_cuml_array_descriptor_cache_behavior():
-    X = rand_array("cupy")
-    model = LegacyEstimator().fit(X)
-    assert_output_type(model.X_, "cupy")
-    # Instance is cached
-    assert model.X_ is model.X_
-    assert len(model.__dict__["X_"].values) == 2  # cuml + cupy
-
-    with cuml.using_output_type("pandas"):
-        assert_output_type(model.X_, "pandas")
-        # Instance is cached, but original cache isn't wiped
-        assert model.X_ is model.X_
-        assert len(model.__dict__["X_"].values) == 3  # cuml + cupy + pandas
-
-    msg = pickle.dumps(model)
-    model2 = pickle.loads(msg)
-    # Only one array is serialized when pickled, and the cache is reset
-    assert b"pandas" not in msg
-    assert_output_type(model2.X_, "cupy")
-    assert len(model2.__dict__["X_"].values) == 2  # cuml + cupy
 
 
 def test_decorators_set_cupy_ptds():
