@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -37,10 +37,10 @@ from cuml.testing.strategies import (
     cuml_array_shapes,
 )
 from cuml.testing.utils import (
+    as_numpy,
     normalized_shape,
     series_squeezed_shape,
     squeezed_shape,
-    to_nparray,
 )
 
 test_input_types = ["numpy", "numba", "cupy", "series", None]
@@ -248,9 +248,7 @@ def test_output(inp, output_type):
         elif isinstance(res, pd.DataFrame):
             assert pd.DataFrame(inp).equals(res)
         else:
-            assert np.array_equal(
-                to_nparray(inp), to_nparray(res), equal_nan=True
-            )
+            assert np.array_equal(as_numpy(inp), as_numpy(res), equal_nan=True)
 
     assert_data_equal_(res)
 

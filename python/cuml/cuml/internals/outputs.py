@@ -459,7 +459,13 @@ class ClassLabels:
             )
 
 
-def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
+def convert_arrays(
+    obj,
+    output_type="cupy",
+    index=None,
+    _legacy=False,
+    one_col_2d_as_series=True,
+):
     """Convert arrays in `obj` to the specified `output_type`.
 
     Parameters
@@ -477,6 +483,10 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     index : pandas.Index, cudf.Index, or None, default=None
         An optional index to attach to arrays when returning dataframe-like
         outputs.
+    one_col_2d_as_series : bool, default=True
+        Whether to coerce a one column 2D input to a Series. This is a legacy
+        behavior of our conversion machinery. It defaults to true for now, but
+        should be changed to false in the future (and the option going away).
 
     Returns
     -------
@@ -508,7 +518,7 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
             if hasattr(index, "to_pandas"):
                 index = index.to_pandas()
             if obj.ndim == 2:
-                if obj.shape[1] == 1:
+                if one_col_2d_as_series and obj.shape[1] == 1:
                     return pd.Series(obj.flatten(), index=index)
                 return pd.DataFrame(obj, index=index)
             return pd.Series(obj, index=index)
@@ -545,7 +555,11 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
                     obj = obj[None, None]
 
             if obj.ndim == 2:
-                if obj.shape[1] == 1 and output_type != "dataframe":
+                if (
+                    one_col_2d_as_series
+                    and obj.shape[1] == 1
+                    and output_type != "dataframe"
+                ):
                     df = cudf.Series(obj.flatten(), index=index)
                 else:
                     df = cudf.DataFrame(obj, index=index)
