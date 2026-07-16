@@ -13,7 +13,6 @@ from cudf import Index
 import cuml
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
-from cuml.internals.output_utils import cudf_to_pandas
 from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_features, check_is_fitted
 from cuml.preprocessing._label import LabelEncoder
@@ -557,7 +556,11 @@ def _get_output(
     elif output_type == "numpy":
         return cp.asnumpy(out.to_cupy(na_value=np.nan, dtype=dtype))
     elif output_type == "pandas":
-        return cudf_to_pandas(out)
+        import cudf.pandas
+
+        if cudf.pandas.LOADED:
+            return cudf.pandas.as_proxy_object(out)
+        return out.to_pandas()
     else:
         raise ValueError("Unsupported output type.")
 
