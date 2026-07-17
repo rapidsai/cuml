@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -9,18 +9,11 @@ import numpy as np
 from cupy import linalg
 from cupyx import geterr, lapack, seterr
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import RegressorMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_consistent_length,
     check_inputs,
@@ -188,8 +181,8 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
 
     """
 
-    dual_coef_ = CumlArrayDescriptor()
-    X_fit_ = CumlArrayDescriptor()
+    dual_coef_ = ReflectedAttr()
+    X_fit_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.kernel_ridge.KernelRidge"
 
@@ -240,15 +233,15 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
         return {
-            "dual_coef_": to_gpu(model.dual_coef_),
-            "X_fit_": to_gpu(model.X_fit_),
+            "dual_coef_": cp.asarray(model.dual_coef_),
+            "X_fit_": ArrayIndexPair(cp.asarray(model.X_fit_), None),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "dual_coef_": to_cpu(self.dual_coef_),
-            "X_fit_": to_cpu(self.X_fit_),
+            "dual_coef_": self.dual_coef_.get(order="A"),
+            "X_fit_": self.X_fit_.array.get(order="A"),
             **super()._attrs_to_cpu(model),
         }
 
@@ -277,7 +270,7 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         tags.target_tags.multi_output = True
         return tags
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _get_kernel(self, X, Y=None):
         if isinstance(self.kernel, str):
             params = {
@@ -289,10 +282,10 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
             params = self.kernel_params or {}
         return pairwise_kernels(
             X, Y, metric=self.kernel, filter_params=True, **params
-        ).to_output("cupy")
+        )
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "KernelRidge":
@@ -324,11 +317,11 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         if ravel:
             dual_coef = dual_coef.ravel()
 
-        self.X_fit_ = CumlArray(data=X, index=index)
-        self.dual_coef_ = CumlArray(data=dual_coef)
+        self.X_fit_ = ArrayIndexPair(X, index)
+        self.dual_coef_ = dual_coef
         return self
 
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predict using the kernel ridge model.
@@ -350,11 +343,8 @@ class KernelRidge(InteropMixin, RegressorMixin, Base):
         X = check_inputs(
             self,
             X,
-            dtype=self.X_fit_.dtype,
+            dtype=self.X_fit_.array.dtype,
             convert_dtype=convert_dtype,
         )
-        K = self._get_kernel(X, self.X_fit_.to_output("cupy")).astype(
-            X.dtype, copy=False
-        )
-        dual_coef = self.dual_coef_.to_output("cupy")
-        return CumlArray(data=cp.dot(K, dual_coef))
+        K = self._get_kernel(X, self.X_fit_.array).astype(X.dtype, copy=False)
+        return cp.dot(K, self.dual_coef_)

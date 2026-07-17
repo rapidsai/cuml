@@ -1,16 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import cupyx.scipy.sparse as sp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import SparseInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
@@ -51,7 +48,7 @@ def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
 class _BaseRandomProjection(SparseInputTagMixin, Base):
     """Base class for RandomProjection estimators."""
 
-    components_ = CumlArrayDescriptor()
+    components_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -80,7 +77,7 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
         raise NotImplementedError
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated"):
         """Generate a random projection matrix."""
         # Use `mem_type=None` & `order=None` to minimize copies or transfers. We
@@ -124,23 +121,21 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
         return self
 
     @generate_docstring()
-    @reflect
-    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X, *, convert_dtype="deprecated"):
         """Project the data by taking the matrix product with the random matrix."""
         check_is_fitted(self)
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
             accept_sparse=("csr", "csc"),
             accept_large_sparse=True,
-            return_index=True,
         )
-        components = self.components_.to_output("cupy")
 
         # Compute the output
-        out = X @ components.T
+        out = X @ self.components_.T
 
         # Coerce to correct dtype if needed (sparse matrices astype doesn't
         # support copy=False, so we need to use the more verbose version here).
@@ -153,13 +148,11 @@ class _BaseRandomProjection(SparseInputTagMixin, Base):
                 return out
             out = out.toarray()
 
-        return CumlArray(data=out, index=index)
+        return out
 
     @generate_docstring()
-    @reflect
-    def fit_transform(
-        self, X, y=None, *, convert_dtype="deprecated"
-    ) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_transform(self, X, y=None, *, convert_dtype="deprecated"):
         """Fit to data, then transform it."""
         return self.fit(X, convert_dtype=convert_dtype).transform(
             X, convert_dtype=convert_dtype
@@ -241,13 +234,11 @@ class GaussianRandomProjection(_BaseRandomProjection):
     def _gen_random_matrix(self, n_components, n_features, dtype):
         seed = check_random_seed(self.random_state)
         rng = cp.random.RandomState(seed)
-        return CumlArray(
-            data=rng.normal(
-                loc=0.0,
-                scale=1.0 / np.sqrt(n_components),
-                size=(n_components, n_features),
-            ).astype(dtype, copy=False)
-        )
+        return rng.normal(
+            loc=0.0,
+            scale=1.0 / np.sqrt(n_components),
+            size=(n_components, n_features),
+        ).astype(dtype, copy=False)
 
 
 class SparseRandomProjection(_BaseRandomProjection):
@@ -396,10 +387,8 @@ class SparseRandomProjection(_BaseRandomProjection):
             components = (
                 rng.binomial(1, 0.5, (n_components, n_features)) * 2 - 1
             )
-            return CumlArray(
-                data=(1 / np.sqrt(n_components) * components).astype(
-                    dtype, copy=False
-                )
+            return (1 / np.sqrt(n_components) * components).astype(
+                dtype, copy=False
             )
 
         k = int(density * n_features * n_components)
@@ -421,8 +410,6 @@ class SparseRandomProjection(_BaseRandomProjection):
         factor = np.sqrt(1 / density) / np.sqrt(n_components)
         data = cp.multiply(data, factor, dtype=dtype)
 
-        return SparseCumlArray(
-            data=sp.coo_matrix(
-                (data, (i, j)), shape=(n_components, n_features)
-            ).asformat("csr")
-        )
+        return sp.coo_matrix(
+            (data, (i, j)), shape=(n_components, n_features)
+        ).asformat("csr")

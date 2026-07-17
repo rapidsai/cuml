@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Henry Lin <hlin117@gmail.com>
 # SPDX-FileCopyrightText: Tom Dupré la Tour
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 AND BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -24,11 +24,9 @@ import numpy as cpu_np
 from cuml.cluster import KMeans
 from cuml.internals.mixins import SparseInputTagMixin
 from cuml.preprocessing.encoders import OneHotEncoder
+from cuml.internals.outputs import using_output_type, mlfunc, ReflectedAttr
 from cuml.internals.validation import check_is_fitted, check_inputs, check_array
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import using_output_type, reflect
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
 from ..utils.validation import FLOAT_DTYPES
 
@@ -137,7 +135,7 @@ class KBinsDiscretizer(TransformerMixin,
            [ 0.5,  3.5, -1.5,  1.5]])
 
     """
-    n_bins_ = CumlArrayDescriptor()
+    n_bins_ = ReflectedAttr()
 
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins
@@ -152,7 +150,7 @@ class KBinsDiscretizer(TransformerMixin,
             "strategy"
         ]
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "KBinsDiscretizer":
         """
         Fit the estimator.
@@ -279,8 +277,8 @@ class KBinsDiscretizer(TransformerMixin,
                              .format(KBinsDiscretizer.__name__, indices))
         return n_bins
 
-    @reflect
-    def transform(self, X) -> SparseCumlArray:
+    @mlfunc
+    def transform(self, X):
         """
         Discretize the data.
 
@@ -317,8 +315,8 @@ class KBinsDiscretizer(TransformerMixin,
         Xt = self._encoder.transform(Xt)
         return Xt
 
-    @reflect
-    def inverse_transform(self, Xt) -> SparseCumlArray:
+    @mlfunc
+    def inverse_transform(self, Xt):
         """
         Transform discretized data back to original feature space.
 

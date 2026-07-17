@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -54,22 +54,6 @@ struct Split {
   /** last quantile index in an inclusive range of training-equivalent splits */
   IdxT split_end;
 
-  HDI Split(DataT quesval,
-            IdxT colid,
-            DataT best_metric_val,
-            std::int64_t global_nLeft,
-            std::int64_t local_nLeft,
-            IdxT bin)
-    : quesval(quesval),
-      colid(colid),
-      best_metric_val(best_metric_val),
-      global_nLeft(global_nLeft),
-      local_nLeft(local_nLeft)
-  {
-    split_start = bin;
-    split_end   = bin;
-  }
-
   HDI Split()
   {
     quesval = best_metric_val = Min;
@@ -92,30 +76,47 @@ struct Split {
     return *this;
   }
 
+  HDI bool IsValid() const { return colid != static_cast<IdxT>(-1); }
+
   DI bool has_valid_split_range() const
   {
     return split_start >= IdxT{0} && split_end >= split_start;
   }
 
-  DI bool can_merge_equivalent_split_range(const SplitT& other) const
+  DI bool can_merge_equivalent_split_range(std::int64_t other_global_nLeft,
+                                           IdxT other_split_start,
+                                           IdxT other_split_end) const
   {
-    return global_nLeft == other.global_nLeft && local_nLeft == other.local_nLeft &&
-           has_valid_split_range() && other.has_valid_split_range();
+    return global_nLeft == other_global_nLeft && has_valid_split_range() &&
+           other_split_start >= IdxT{0} && other_split_end >= other_split_start;
   }
 
   // Extend the candidate's inclusive range of training-equivalent split
   // thresholds. `quesval` tracks the upper edge only to preserve the existing
   // threshold tie-break against candidates outside this equivalent range.
-  DI void merge_equivalent_split_range(const SplitT& other)
+  DI void merge_equivalent_split_range(DataT other_quesval,
+                                       IdxT other_split_start,
+                                       IdxT other_split_end)
   {
-    split_start = other.split_start < split_start ? other.split_start : split_start;
-    split_end   = other.split_end > split_end ? other.split_end : split_end;
-    if (other.quesval > quesval) { quesval = other.quesval; }
+    split_start = other_split_start < split_start ? other_split_start : split_start;
+    split_end   = other_split_end > split_end ? other_split_end : split_end;
+    if (other_quesval > quesval) { quesval = other_quesval; }
   }
 
-  DI bool replace_with(const SplitT& other)
+  DI bool replace_with(DataT other_quesval,
+                       IdxT other_colid,
+                       DataT other_best_metric_val,
+                       std::int64_t other_global_nLeft,
+                       IdxT other_split_start,
+                       IdxT other_split_end)
   {
-    *this = other;
+    quesval         = other_quesval;
+    colid           = other_colid;
+    best_metric_val = other_best_metric_val;
+    global_nLeft    = other_global_nLeft;
+    local_nLeft     = 0;
+    split_start     = other_split_start;
+    split_end       = other_split_end;
     return true;
   }
 
@@ -134,30 +135,69 @@ struct Split {
 
   /**
    * @brief updates the current split if the input gain is better
+   *
+   * local_nLeft is intentionally not accepted here: split selection is based
+   * on global counts, and local counts are filled just before partitioning.
    */
-  DI bool update(const SplitT& other)
+  DI bool update(DataT other_quesval,
+                 IdxT other_colid,
+                 DataT other_best_metric_val,
+                 std::int64_t other_global_nLeft,
+                 IdxT other_split_start,
+                 IdxT other_split_end)
   {
     // Primary ordering: higher gain wins; lower or unordered gain loses.
-    if (other.best_metric_val > best_metric_val) { return replace_with(other); }
-    if (other.best_metric_val != best_metric_val) { return false; }
+    if (other_best_metric_val > best_metric_val) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
+    if (other_best_metric_val != best_metric_val) { return false; }
 
     // Equal gain: preserve the existing deterministic feature tie-break.
-    if (other.colid > colid) { return replace_with(other); }
-    if (other.colid != colid) { return false; }
+    if (other_colid > colid) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
+    if (other_colid != colid) { return false; }
 
     // Equal gain and feature: multiple thresholds can send the same training
     // rows left and right. Merge that range and choose its representative after
     // reduction.
-    if (can_merge_equivalent_split_range(other)) {
-      merge_equivalent_split_range(other);
+    if (can_merge_equivalent_split_range(other_global_nLeft, other_split_start, other_split_end)) {
+      merge_equivalent_split_range(other_quesval, other_split_start, other_split_end);
       return true;
     }
 
     // Equal gain and feature, but a different training partition: keep the
     // existing deterministic threshold tie-break.
-    if (other.quesval > quesval) { return replace_with(other); }
+    if (other_quesval > quesval) {
+      return replace_with(other_quesval,
+                          other_colid,
+                          other_best_metric_val,
+                          other_global_nLeft,
+                          other_split_start,
+                          other_split_end);
+    }
 
     return false;
+  }
+
+  DI bool update(DataT other_quesval,
+                 IdxT other_colid,
+                 DataT other_best_metric_val,
+                 std::int64_t other_global_nLeft,
+                 IdxT other_bin)
+  {
+    return update(
+      other_quesval, other_colid, other_best_metric_val, other_global_nLeft, other_bin, other_bin);
   }
 
   /**
@@ -173,13 +213,9 @@ struct Split {
       auto co  = raft::shfl(colid, id);
       auto be  = raft::shfl(best_metric_val, id);
       auto gnl = raft::shfl(global_nLeft, id);
-      auto lnl = raft::shfl(local_nLeft, id);
       auto bs  = raft::shfl(split_start, id);
       auto bn  = raft::shfl(split_end, id);
-      SplitT other(qu, co, be, gnl, lnl, bs);
-      other.split_start = bs;
-      other.split_end   = bn;
-      update(other);
+      update(qu, co, be, gnl, bs, bn);
     }
   }
 
@@ -210,7 +246,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0 && this->colid != -1) {
+      if (threadIdx.x == 0 && this->IsValid()) {
         select_split_range_midpoint(quantiles, n_bins);
         while (atomicCAS(mutex, 0, 1))
           ;
@@ -219,16 +255,15 @@ struct Split {
         split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
         split_reg.global_nLeft    = split->global_nLeft;
-        split_reg.local_nLeft     = split->local_nLeft;
         split_reg.split_start     = split->split_start;
         split_reg.split_end       = split->split_end;
-        bool update_result        = split_reg.update(*this);
+        bool update_result =
+          split_reg.update(quesval, colid, best_metric_val, global_nLeft, split_start, split_end);
         if (update_result) {
           split->quesval         = split_reg.quesval;
           split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
           split->global_nLeft    = split_reg.global_nLeft;
-          split->local_nLeft     = split_reg.local_nLeft;
           split->split_start     = split_reg.split_start;
           split->split_end       = split_reg.split_end;
         }

@@ -274,7 +274,7 @@ endif()
 
 if(LINK_NVFOREST)
   include(cmake/thirdparty/get_nvforest.cmake)
-  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest)
 endif()
 
 if(all_algo OR treeshap_algo)

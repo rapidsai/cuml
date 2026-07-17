@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -247,7 +247,8 @@ void build_treelite_forest(TreeliteModelHandle* model_handle,
   tl::ModelPreset<T, T>& model_preset = std::get<tl::ModelPreset<T, T>>(model->variant_);
 
   // Determine number of outputs
-  ASSERT(forest->trees.size() == forest->rf_params.n_trees, "Inconsistent number of trees.");
+  ASSERT(forest->trees.size() == static_cast<std::size_t>(forest->rf_params.n_trees),
+         "Inconsistent number of trees.");
   ASSERT(forest->trees.size() > 0, "Empty forest.");
   int num_outputs = forest->trees.front()->num_outputs;
   ASSERT(num_outputs > 0, "Invalid forest");

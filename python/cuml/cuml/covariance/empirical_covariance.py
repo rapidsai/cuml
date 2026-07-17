@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -7,11 +7,9 @@ import warnings
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import InteropMixin
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
@@ -87,9 +85,9 @@ class EmpiricalCovariance(InteropMixin, Base):
         The scikit-learn CPU implementation.
     """
 
-    covariance_ = CumlArrayDescriptor()
-    location_ = CumlArrayDescriptor()
-    precision_ = CumlArrayDescriptor()
+    covariance_ = ReflectedAttr()
+    location_ = ReflectedAttr()
+    precision_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.covariance.EmpiricalCovariance"
 
@@ -115,21 +113,25 @@ class EmpiricalCovariance(InteropMixin, Base):
 
     def _attrs_from_cpu(self, model):
         return {
-            "covariance_": to_gpu(model.covariance_),
-            "location_": to_gpu(model.location_),
-            "precision_": to_gpu(model.precision_)
-            if self.store_precision
-            else None,
+            "covariance_": cp.asarray(model.covariance_),
+            "location_": cp.asarray(model.location_),
+            "precision_": (
+                None
+                if model.precision_ is None
+                else cp.asarray(model.precision_)
+            ),
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "covariance_": to_cpu(self.covariance_),
-            "location_": to_cpu(self.location_),
-            "precision_": to_cpu(self.precision_)
-            if self.store_precision
-            else None,
+            "covariance_": self.covariance_.get(order="A"),
+            "location_": self.location_.get(order="A"),
+            "precision_": (
+                None
+                if self.precision_ is None
+                else self.precision_.get(order="A")
+            ),
             **super()._attrs_to_cpu(model),
         }
 
@@ -145,7 +147,7 @@ class EmpiricalCovariance(InteropMixin, Base):
         self.store_precision = store_precision
         self.assume_centered = assume_centered
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y=None, *, convert_dtype="deprecated"
     ) -> "EmpiricalCovariance":
@@ -192,17 +194,17 @@ class EmpiricalCovariance(InteropMixin, Base):
             X, assume_centered=self.assume_centered
         )
 
-        self.location_ = CumlArray(data=location)
-        self.covariance_ = CumlArray(data=covariance)
+        self.location_ = location
+        self.covariance_ = covariance
 
         if self.store_precision:
-            self.precision_ = CumlArray(data=cp.linalg.pinv(covariance))
+            self.precision_ = cp.linalg.pinv(covariance)
         else:
             self.precision_ = None
 
         return self
 
-    @reflect
+    @mlfunc
     def get_precision(self):
         """Getter for the precision matrix.
 
@@ -215,12 +217,9 @@ class EmpiricalCovariance(InteropMixin, Base):
 
         if self.store_precision:
             return self.precision_
+        return cp.linalg.pinv(self.covariance_)
 
-        covariance = self.covariance_.to_output("cupy")
-        precision = cp.linalg.pinv(covariance)
-        return precision
-
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X_test, y=None) -> float:
         """Compute the log-likelihood of X_test under the estimated model.
 
@@ -242,16 +241,12 @@ class EmpiricalCovariance(InteropMixin, Base):
             X_test,
             dtype=("float32", "float64"),
         )
-        precision = self.get_precision().to_output("cupy")
-        location = self.location_.to_output("cupy")
-
         test_cov = _empirical_covariance(
-            X_test - location, assume_centered=True
+            X_test - self.location_, assume_centered=True
         )
+        return _log_likelihood(test_cov, self.get_precision())
 
-        return _log_likelihood(test_cov, precision)
-
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def error_norm(
         self, comp_cov, norm="frobenius", scaling=True, squared=True
     ):
@@ -277,8 +272,8 @@ class EmpiricalCovariance(InteropMixin, Base):
         check_is_fitted(self)
 
         comp_cov = check_inputs(self, comp_cov, dtype=("float32", "float64"))
-        self_cov = self.covariance_.to_output("cupy")
-        diff = comp_cov - self_cov
+
+        diff = comp_cov - self.covariance_
 
         if norm == "frobenius":
             error = cp.sum(diff**2)
@@ -290,14 +285,14 @@ class EmpiricalCovariance(InteropMixin, Base):
             )
 
         if scaling:
-            error = error / self_cov.shape[0]
+            error = error / self.covariance_.shape[0]
 
         if not squared:
             error = cp.sqrt(error)
 
         return float(error)
 
-    @reflect
+    @mlfunc
     def mahalanobis(self, X):
         """Compute the squared Mahalanobis distances of given observations.
 
@@ -313,10 +308,10 @@ class EmpiricalCovariance(InteropMixin, Base):
         """
         check_is_fitted(self)
         X = check_inputs(self, X, dtype=("float32", "float64"))
-        precision = self.get_precision().to_output("cupy")
-        location = self.location_.to_output("cupy")
 
-        X_centered = X - location
-        mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
+        X_centered = X - self.location_
+        mahal = cp.sum(
+            cp.dot(X_centered, self.get_precision()) * X_centered, axis=1
+        )
 
         return mahal

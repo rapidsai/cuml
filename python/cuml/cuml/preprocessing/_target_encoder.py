@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -8,16 +8,13 @@ import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.interop import (
     InteropMixin,
     UnsupportedOnCPU,
     UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
 )
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import (
     check_classification_targets,
     check_consistent_length,
@@ -110,7 +107,7 @@ class TargetEncoder(InteropMixin, Base):
         The training DataFrame used during fitting, containing the original
         features, target values, and fold assignments. Set to ``None`` if
         the encoder was loaded from a sklearn model via :meth:`from_sklearn`.
-    train_encode : cuml.internals.array.CumlArray or None
+    train_encode : cupy array or None
         The encoded values for the training data, computed during
         :meth:`fit` or :meth:`fit_transform`. Set to ``None`` if the
         encoder was loaded from a sklearn model via :meth:`from_sklearn`.
@@ -203,7 +200,7 @@ class TargetEncoder(InteropMixin, Base):
         self.stat = stat
         self.multi_feature_mode = multi_feature_mode
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, *, fold_ids=None):
         """
         Fit a TargetEncoder instance to a set of categories
@@ -231,8 +228,8 @@ class TargetEncoder(InteropMixin, Base):
         self.train = train
         return self
 
-    @reflect
-    def fit_transform(self, X, y, *, fold_ids=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_transform(self, X, y, *, fold_ids=None):
         """
         Simultaneously fit and transform an input
 
@@ -261,8 +258,8 @@ class TargetEncoder(InteropMixin, Base):
         self.fit(X, y, fold_ids=fold_ids)
         return self.train_encode
 
-    @reflect
-    def transform(self, X) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X):
         """
         Transform an input into its categorical keys.
 
@@ -313,7 +310,7 @@ class TargetEncoder(InteropMixin, Base):
 
         test = test.sort_values("id")
         res = test[result_cols].to_cupy()
-        return CumlArray(res)
+        return res
 
     def _fit_transform(self, X, y, fold_ids):
         if self.smooth < 0:
@@ -471,7 +468,7 @@ class TargetEncoder(InteropMixin, Base):
         # Sort by original index and return results
         df = df.sort_values("id")
         res = df[result_cols].to_cupy()
-        return CumlArray(res), df
+        return res, df
 
     def _compute_single_feature_encoding(self, train, col, out_col):
         """Compute target encoding for a single feature column."""
@@ -598,7 +595,7 @@ class TargetEncoder(InteropMixin, Base):
         df["out"] = df["out"].nans_to_nulls().fillna(self.y_stat_val)
         df = df.sort_values("id")
         res = df["out"].to_cupy().reshape(-1, 1)
-        return CumlArray(res)
+        return res
 
     def _check_X(self, X, reset=False):
         # Check features
@@ -703,7 +700,7 @@ class TargetEncoder(InteropMixin, Base):
             if cat.dtype == np.object_:
                 categories_gpu.append(cat)  # Keep as numpy array
             else:
-                categories_gpu.append(to_gpu(cat))
+                categories_gpu.append(cp.asarray(cat))
         n_features = len(model.categories_)
 
         # Generate column names matching cuML's internal format
@@ -724,7 +721,7 @@ class TargetEncoder(InteropMixin, Base):
         return {
             "encode_all": encode_all,
             "_encodings_per_feature": [
-                to_gpu(enc) for enc in model.encodings_
+                cp.asarray(enc) for enc in model.encodings_
             ],
             "categories_": categories_gpu,
             "classes_": model.classes_,
@@ -744,29 +741,17 @@ class TargetEncoder(InteropMixin, Base):
         in independent mode, we have exact encodings. Multi-feature combination
         mode cannot be converted to sklearn.
         """
-        # Handle categories that may be numpy arrays, cupy arrays, or CumlArrays
+        # Handle categories that may be numpy arrays or cupy arrays
         categories_cpu = []
         for cat in self.categories_:
-            if isinstance(cat, np.ndarray):
-                categories_cpu.append(cat)
-            elif isinstance(cat, cp.ndarray):
-                # cupy array - convert to numpy directly
-                categories_cpu.append(cp.asnumpy(cat))
-            else:
-                # CumlArray or other - use to_cpu
-                categories_cpu.append(to_cpu(cat))
+            categories_cpu.append(cp.asnumpy(cat))
         n_features = len(self.categories_)
 
         # Use per-feature encodings if available (from independent mode or sklearn)
         if hasattr(self, "_encodings_per_feature"):
             encodings_list = []
             for enc in self._encodings_per_feature:
-                if isinstance(enc, np.ndarray):
-                    encodings_list.append(enc)
-                elif isinstance(enc, cp.ndarray):
-                    encodings_list.append(cp.asnumpy(enc))
-                else:
-                    encodings_list.append(to_cpu(enc))
+                encodings_list.append(cp.asnumpy(enc))
         elif n_features == 1:
             # Single feature: extract encodings directly (exact conversion)
             cats = self.categories_[0]

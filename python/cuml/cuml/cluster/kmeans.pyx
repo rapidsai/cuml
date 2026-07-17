@@ -1,21 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
+from numbers import Integral
+
 import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.outputs import reflect, run_in_internal_context
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_inputs,
@@ -411,8 +405,8 @@ class KMeans(InteropMixin,
     """
     _multi_gpu = False
 
-    labels_ = CumlArrayDescriptor(order="C")
-    cluster_centers_ = CumlArrayDescriptor(order="C")
+    labels_ = ReflectedAttr()
+    cluster_centers_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.cluster.KMeans"
 
@@ -457,7 +451,7 @@ class KMeans(InteropMixin,
     def _params_to_cpu(self):
         init = self.init
         if not isinstance(init, str):
-            init = to_cpu(init)  # array-like
+            init = cp.asnumpy(init)  # array-like
         elif init == "scalable-k-means++":
             init = "k-means++"
         return {
@@ -471,9 +465,9 @@ class KMeans(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "cluster_centers_": to_gpu(model.cluster_centers_, order="C"),
-            "labels_": to_gpu(model.labels_, order="C"),
-            "inertia_": to_gpu(model.inertia_),
+            "cluster_centers_": cp.asarray(model.cluster_centers_, order="C"),
+            "labels_": cp.asarray(model.labels_, order="C"),
+            "inertia_": model.inertia_,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
@@ -489,9 +483,9 @@ class KMeans(InteropMixin,
             n_threads = _openmp_effective_n_threads()
 
         return {
-            "cluster_centers_": to_cpu(self.cluster_centers_),
-            "labels_": to_cpu(self.labels_),
-            "inertia_": to_cpu(self.inertia_),
+            "cluster_centers_": self.cluster_centers_.get(order="A"),
+            "labels_": self.labels_.get(order="A"),
+            "inertia_": self.inertia_,
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
             "_n_features_out": self._n_features_out,
@@ -530,12 +524,14 @@ class KMeans(InteropMixin,
         return self.n_clusters
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, sample_weight=None, *, convert_dtype="deprecated") -> "KMeans":
         """
         Compute k-means clustering with X.
 
         """
+        self._validate_fit_params()
+
         # Process input arrays
         X, sample_weight = check_inputs(
             self,
@@ -551,10 +547,7 @@ class KMeans(InteropMixin,
         if sample_weight is None:
             sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
 
-        if n_rows < self.n_clusters:
-            raise ValueError(
-                f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
-            )
+        self._validate_fit_row_constraints(n_rows)
 
         # Allocate output cluster_centers_
         if isinstance(self.init, str):
@@ -591,19 +584,31 @@ class KMeans(InteropMixin,
         handle.sync()
 
         # Store fitted attributes and return
-        self.cluster_centers_ = CumlArray(data=centers)
-        self.labels_ = CumlArray(data=labels)
+        self.cluster_centers_ = centers
+        self.labels_ = labels
         self.inertia_ = inertia
         self.n_iter_ = n_iter
 
         return self
 
+    def _validate_fit_params(self):
+        if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
+            raise ValueError(
+                f"n_clusters={self.n_clusters} should be a positive integer."
+            )
+
+    def _validate_fit_row_constraints(self, n_rows):
+        if not self._multi_gpu and n_rows < self.n_clusters:
+            raise ValueError(
+                f"n_samples={n_rows} should be >= n_clusters={self.n_clusters}."
+            )
+
     @generate_docstring(return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @reflect
-    def fit_predict(self, X, y=None, sample_weight=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None, sample_weight=None):
         """
         Compute cluster centers and predict cluster index for each sample.
 
@@ -662,7 +667,7 @@ class KMeans(InteropMixin,
             params,
             X,
             sample_weight,
-            self.cluster_centers_.to_output("cupy")
+            self.cluster_centers_
         )
         handle.sync()
         return labels, inertia
@@ -671,26 +676,21 @@ class KMeans(InteropMixin,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    @reflect
-    def predict(
-        self,
-        X,
-        *,
-        convert_dtype="deprecated",
-    ) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predict the closest cluster each sample in X belongs to.
 
         """
         labels, _ = self._predict_labels_inertia(X, convert_dtype=convert_dtype)
-        return CumlArray(data=labels)
+        return labels
 
     @generate_docstring(return_values={'name': 'X_new',
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @reflect
-    def transform(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X, *, convert_dtype="deprecated"):
         """
         Transform X to a cluster-distance space.
 
@@ -723,7 +723,7 @@ class KMeans(InteropMixin,
         )
 
         cdef uintptr_t X_ptr = X.data.ptr
-        cdef uintptr_t centers_ptr = self.cluster_centers_.ptr
+        cdef uintptr_t centers_ptr = self.cluster_centers_.data.ptr
         cdef uintptr_t out_ptr = out.data.ptr
 
         handle = get_handle()
@@ -778,14 +778,14 @@ class KMeans(InteropMixin,
                         <double*>out_ptr,
                     )
         handle.sync()
-        return CumlArray(data=out)
+        return out
 
     @generate_docstring(return_values={'name': 'score',
                                        'type': 'float',
                                        'description': 'Opposite of the value \
                                                         of X on the K-means \
                                                         objective.'})
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"):
         """
         Opposite of the value of X on the K-means objective.
@@ -801,10 +801,10 @@ class KMeans(InteropMixin,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    @reflect
+    @mlfunc(preserve_index=True)
     def fit_transform(
         self, X, y=None, sample_weight=None, *, convert_dtype="deprecated"
-    ) -> CumlArray:
+    ):
         """
         Compute clustering and transform X to cluster-distance space.
 

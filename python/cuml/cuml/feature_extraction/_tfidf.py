@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -160,7 +160,7 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
@@ -177,7 +177,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -229,7 +229,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
-from cuml.internals import get_handle, reflect
+from cuml.internals import get_handle, mlfunc
 from cuml.internals.validation import check_array
 from cuml.tsa._deprecation import deprecated_tsa_api
 
@@ -33,7 +33,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML" nogil:
 
 
 @deprecated_tsa_api("cuml.tsa.stationarity.kpss_test")
-@reflect
+@mlfunc
 def kpss_test(
     y,
     int d=0,

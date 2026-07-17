@@ -176,7 +176,7 @@ def test_set_global_output_type():
     cuml.set_global_output_type(None)
     assert gs.output_type is None
 
-    with pytest.raises(ValueError, match="`output_type` must be one of"):
+    with pytest.raises(ValueError, match="`output_type='bad'`"):
         cuml.set_global_output_type("bad")
 
 
@@ -195,7 +195,7 @@ def test_using_output_type():
         assert gs.output_type is None
     assert gs.output_type == "cupy"
 
-    with pytest.raises(ValueError, match="`output_type` must be one of"):
+    with pytest.raises(ValueError, match="`output_type='bad'`"):
         with cuml.using_output_type("bad"):
             pass
 
@@ -296,9 +296,9 @@ def test_global_output_type(input_type, output_type):
 
 def test_invalid_estimator_output_type():
     X = rand_array("numpy")
-    model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type="invalid")
+    model = cuml.DBSCAN(eps=1.0, min_samples=1)
     model.fit(X)
-    assert model.output_type == "invalid"
+    model.output_type = "invalid"
 
     # Descriptor raises appropriately
     with pytest.raises(ValueError, match="`output_type='invalid'`"):

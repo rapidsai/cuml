@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Nicolas Tresegnie <nicolas.tresegnie@gmail.com>
 # SPDX-FileCopyrightText: Sergey Feldman <sergeyfeldman@gmail.com>
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -29,11 +29,9 @@ from cuml.internals.mixins import (
     StringInputTagMixin,
     _ensure_transformer_tags,
 )
+from cuml.internals.outputs import mlfunc, ReflectedAttr
 from cuml.internals.validation import check_is_fitted, check_inputs
 
-from ....common.array_descriptor import CumlArrayDescriptor
-from ....internals.array_sparse import SparseCumlArray
-from ....internals.outputs import reflect
 from ....thirdparty_adapters import (
     _get_mask,
     _masked_column_mean,
@@ -242,7 +240,7 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
 
     """
 
-    statistics_ = CumlArrayDescriptor()
+    statistics_ = ReflectedAttr()
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
@@ -314,7 +312,7 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
 
         return X
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
@@ -427,8 +425,8 @@ class SimpleImputer(SparseInputTagMixin, AllowNaNTagMixin,
         elif strategy == "constant":
             return np.full(X.shape[1], fill_value, dtype=X.dtype)
 
-    @reflect
-    def transform(self, X) -> SparseCumlArray:
+    @mlfunc
+    def transform(self, X):
         """Impute all missing values in X.
 
         Parameters
@@ -558,7 +556,7 @@ class MissingIndicator(AllowNaNTagMixin,
            [False, False]])
 
     """
-    features_ = CumlArrayDescriptor()
+    features_ = ReflectedAttr()
 
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
@@ -701,7 +699,7 @@ class MissingIndicator(AllowNaNTagMixin,
 
         return missing_features_info[0]
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
@@ -720,8 +718,8 @@ class MissingIndicator(AllowNaNTagMixin,
 
         return self
 
-    @reflect
-    def transform(self, X) -> SparseCumlArray:
+    @mlfunc
+    def transform(self, X):
         """Generate missing values indicator for X.
 
         Parameters
@@ -760,8 +758,8 @@ class MissingIndicator(AllowNaNTagMixin,
 
         return imputer_mask
 
-    @reflect(reset=True)
-    def fit_transform(self, X, y=None) -> SparseCumlArray:
+    @mlfunc(set_input_type=True)
+    def fit_transform(self, X, y=None):
         """Generate missing values indicator for X.
 
         Parameters
