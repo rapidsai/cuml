@@ -64,7 +64,7 @@ flowchart TB
 | ---------- | ------------------------------ | -------------------------------------------------------------- |
 | **Grid**   | `blockIdx.x = p`               | One independent NNLS solve per block; `P` problems in parallel |
 | **Block**  | `threadIdx.x ∈ [0, BlockSize)` | Cooperatively runs Lawson–Hanson for problem `p`               |
-| **Warp**   | 32 threads                     | Warp-shuffle reductions (argmax, min)                          |
+| **Warp**   | 32 threads                     | Lane cooperation inside RAFT block reductions (argmax, min)    |
 | **Thread** | 1 lane                         | Strided loops over `n`, `n²`, `np²` indices                    |
 
 
@@ -119,7 +119,7 @@ Layout from `lawson_smem_layout`:
 | `s`                  | `n`            | `T`                               | Trial solve + Cholesky RHS             |
 | `idx`                | `n`            | `int`                             | Compact active-set indices             |
 | `act`                | `n`            | `int8`                            | 1 = active, 0 = inactive               |
-| `red_val`, `red_idx` | `N_WARPS` each | scratch                           | Reductions + scalar broadcast          |
+| `red_val`, `red_idx` | `WarpSize` each (contiguous) | scratch            | RAFT block-reduction scratch + scalar broadcast |
 
 
 **Memory trick:** `G` and `Gp` are stored in float when `T=double`, roughly halving the
@@ -346,7 +346,7 @@ one signature remains.
 | ------------------------ | ------------------------------------------------------------- | ------------------------ |
 | Load `G`, init `c,x,act` | Strided `for (i=tid; i<N; i+=BlockSize)`                      | `__syncthreads`          |
 | Gradient `w = c - Gx`    | One row per strided thread; inner `k` loop serial             | `__syncthreads`          |
-| Argmax / min / min-α     | Local scan → warp `shfl_xor` → warp-0 cross-warp              | `__syncthreads`          |
+| Argmax / min / min-α     | Local scan → `raft::blockRankedReduce` (min/max) / `raft::blockReduce` (count) | `__syncthreads` |
 | Gather `G_P`             | Strided over `np²`                                            | `__syncthreads`          |
 | Cholesky                 | Per-`k` pivot: t0 diag; parallel column scale + rank-1 update | `__syncthreads` each `k` |
 | Tri-solve                | Per row: t0 divide; parallel axpy                             | `__syncthreads` each row |

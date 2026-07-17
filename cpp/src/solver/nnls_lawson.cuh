@@ -12,6 +12,7 @@
 #include <raft/core/resources.hpp>                  // raft::resources
 #include <raft/util/cuda_rt_essentials.hpp>         // RAFT_CUDA_TRY
 #include <raft/util/cuda_utils.cuh>                 // raft::WarpSize
+#include <raft/util/reduction.cuh>                  // raft::blockReduce / blockRankedReduce
 
 #include <cuda_runtime.h>
 
@@ -51,16 +52,21 @@ using narrow_t = typename Narrowing<T>::type;
  * Compute the dynamic shared-memory footprint of the Lawson-Hanson kernel for
  * a single problem with `n` columns and a block of `BlockSize` threads.  Layout
  * (narrow_t<T> arrays first, then T arrays, then int, then int8):
- *   narrow_t<T> G[n*n]    Gram matrix (read-only after precompute)
- *   narrow_t<T> Gp[n*n]   working copy / Cholesky factor of the active submatrix
- *   T   c[n]              A^T b
- *   T   x[n]              current solution
- *   T   w[n]              gradient
- *   T   s[n]              trial solution (also used as RHS during tri-solve)
- *   T   red_val[N_WARPS]  reduction scratch (also used to broadcast scalars)
- *   int idx[n]            compact list of active-set column indices
- *   int red_idx[N_WARPS]  reduction scratch (also used to broadcast scalars)
- *   int8 act[n]           1 if column is in active set, 0 otherwise
+ *   narrow_t<T> G[n*n]         Gram matrix (read-only after precompute)
+ *   narrow_t<T> Gp[n*n]        working copy / Cholesky factor of the active submatrix
+ *   T   c[n]                   A^T b
+ *   T   x[n]                   current solution
+ *   T   w[n]                   gradient
+ *   T   s[n]                   trial solution (also used as RHS during tri-solve)
+ *   T   red_val[WarpSize]      reduction scratch (also used to broadcast scalars)
+ *   int red_idx[WarpSize]      reduction scratch (also used to broadcast scalars)
+ *   int idx[n]                 compact list of active-set column indices
+ *   int8 act[n]                1 if column is in active set, 0 otherwise
+ *
+ * red_val/red_idx back the RAFT block reductions (raft::blockRankedReduce needs
+ * a value slot followed by an index slot per warp lane, i.e. WarpSize of each,
+ * laid out contiguously with red_idx immediately after red_val); slot 0 of each
+ * doubles as the scalar-broadcast channel.
  *
  * The narrow_t<T> block spans 2*n*n elements = 8*n*n bytes (float), which is a
  * multiple of alignof(double), so the following T block stays aligned.
@@ -68,15 +74,14 @@ using narrow_t = typename Narrowing<T>::type;
 template <typename T, int BlockSize>
 inline std::size_t lawson_smem_bytes(int n)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
-  std::size_t bytes     = 0;
+  std::size_t bytes = 0;
   bytes += sizeof(narrow_t<T>) * static_cast<std::size_t>(n) * n;  // G
   bytes += sizeof(narrow_t<T>) * static_cast<std::size_t>(n) * n;  // Gp
   bytes += sizeof(T) * static_cast<std::size_t>(n) * 4;            // c, x, w, s
-  bytes += sizeof(T) * N_WARPS;                                    // red_val
-  bytes += sizeof(int) * static_cast<std::size_t>(n);             // idx
-  bytes += sizeof(int) * N_WARPS;                                 // red_idx
-  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);     // act
+  bytes += sizeof(T) * raft::WarpSize;                             // red_val
+  bytes += sizeof(int) * raft::WarpSize;                          // red_idx
+  bytes += sizeof(int) * static_cast<std::size_t>(n);            // idx
+  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);    // act
   return bytes;
 }
 
@@ -97,7 +102,6 @@ struct LawsonSmem {
 template <typename T, int BlockSize>
 __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
   LawsonSmem<T> L;
   L.G       = reinterpret_cast<narrow_t<T>*>(smem);
   L.Gp      = L.G + n * n;
@@ -106,9 +110,11 @@ __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
   L.w       = L.x + n;
   L.s       = L.w + n;
   L.red_val = L.s + n;
-  L.idx     = reinterpret_cast<int*>(L.red_val + N_WARPS);
-  L.red_idx = L.idx + n;
-  L.act     = reinterpret_cast<std::int8_t*>(L.red_idx + N_WARPS);
+  // red_idx sits immediately after red_val so a single pointer (red_val) backs
+  // raft::blockRankedReduce, which expects the index slots at &shbuf[WarpSize].
+  L.red_idx = reinterpret_cast<int*>(L.red_val + raft::WarpSize);
+  L.idx     = L.red_idx + raft::WarpSize;
+  L.act     = reinterpret_cast<std::int8_t*>(L.idx + n);
   return L;
 }
 
@@ -128,11 +134,8 @@ __device__ inline void block_argmax_inactive(
   T*                                                  red_val,
   int*                                                red_idx)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
-  const int tid         = threadIdx.x;
-  const int lane        = tid & (raft::WarpSize - 1);
-  const int warp_id     = tid / raft::WarpSize;
-  const bool has_mask   = mask.data_handle() != nullptr;
+  const int  tid      = threadIdx.x;
+  const bool has_mask = mask.data_handle() != nullptr;
 
   T   thread_max = -std::numeric_limits<T>::infinity();
   int thread_idx = -1;
@@ -146,42 +149,12 @@ __device__ inline void block_argmax_inactive(
     }
   }
 
-  // Warp-level reduction
-  for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-    T   v = __shfl_xor_sync(0xffffffff, thread_max, off);
-    int j = __shfl_xor_sync(0xffffffff, thread_idx, off);
-    if (v > thread_max || (v == thread_max && j > thread_idx && j >= 0)) {
-      thread_max = v;
-      thread_idx = j;
-    }
-  }
-  if (lane == 0) {
-    red_val[warp_id] = thread_max;
-    red_idx[warp_id] = thread_idx;
-  }
-  __syncthreads();
-
-  // Cross-warp reduction in warp 0
-  if (warp_id == 0) {
-    if (lane < N_WARPS) {
-      thread_max = red_val[lane];
-      thread_idx = red_idx[lane];
-    } else {
-      thread_max = -std::numeric_limits<T>::infinity();
-      thread_idx = -1;
-    }
-    for (int off = N_WARPS / 2; off > 0; off >>= 1) {
-      T   v = __shfl_xor_sync(0xffffffff, thread_max, off);
-      int j = __shfl_xor_sync(0xffffffff, thread_idx, off);
-      if (v > thread_max || (v == thread_max && j > thread_idx && j >= 0)) {
-        thread_max = v;
-        thread_idx = j;
-      }
-    }
-    if (lane == 0) {
-      red_val[0] = thread_max;
-      red_idx[0] = thread_idx;
-    }
+  // red_val backs the reduction scratch (red_idx is contiguous right after it);
+  // ties resolve to whichever lane RAFT keeps, which is fine for the algorithm.
+  auto res = raft::blockRankedReduce(thread_max, red_val, thread_idx, raft::max_op{});
+  if (tid == 0) {
+    red_val[0] = res.first;
+    red_idx[0] = res.second;
   }
   __syncthreads();
 }
@@ -196,10 +169,7 @@ template <typename T, int BlockSize>
 __device__ inline void block_min_alpha(
   const T* x, const T* s, const int* idx, int np, T* red_val, int* red_idx)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
-  const int tid         = threadIdx.x;
-  const int lane        = tid & (raft::WarpSize - 1);
-  const int warp_id     = tid / raft::WarpSize;
+  const int tid = threadIdx.x;
 
   T   thread_min = std::numeric_limits<T>::infinity();
   int thread_cnt = 0;
@@ -217,35 +187,14 @@ __device__ inline void block_min_alpha(
       }
     }
   }
-  for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-    T v   = __shfl_xor_sync(0xffffffff, thread_min, off);
-    int c = __shfl_xor_sync(0xffffffff, thread_cnt, off);
-    if (v < thread_min) thread_min = v;
-    thread_cnt += c;
-  }
-  if (lane == 0) {
-    red_val[warp_id] = thread_min;
-    red_idx[warp_id] = thread_cnt;
-  }
-  __syncthreads();
-  if (warp_id == 0) {
-    if (lane < N_WARPS) {
-      thread_min = red_val[lane];
-      thread_cnt = red_idx[lane];
-    } else {
-      thread_min = std::numeric_limits<T>::infinity();
-      thread_cnt = 0;
-    }
-    for (int off = N_WARPS / 2; off > 0; off >>= 1) {
-      T v   = __shfl_xor_sync(0xffffffff, thread_min, off);
-      int c = __shfl_xor_sync(0xffffffff, thread_cnt, off);
-      if (v < thread_min) thread_min = v;
-      thread_cnt += c;
-    }
-    if (lane == 0) {
-      red_val[0] = thread_min;
-      red_idx[0] = thread_cnt;
-    }
+  // Two block reductions over the same warp scratch, run back to back: the min
+  // (blockRankedReduce pads absent lanes with +inf) and the binding count (a
+  // plain sum, for which blockReduce's zero padding is the correct identity).
+  auto min_res = raft::blockRankedReduce(thread_min, red_val, tid, raft::min_op{});
+  int  n_bind  = raft::blockReduce<int>(thread_cnt, reinterpret_cast<char*>(red_idx), raft::add_op{});
+  if (tid == 0) {
+    red_val[0] = min_res.first;
+    red_idx[0] = n_bind;
   }
   __syncthreads();
 }
@@ -256,29 +205,16 @@ __device__ inline void block_min_alpha(
 template <typename T, int BlockSize>
 __device__ inline void block_min(const T* s, int np, T* red_val)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
-  const int tid         = threadIdx.x;
-  const int lane        = tid & (raft::WarpSize - 1);
-  const int warp_id     = tid / raft::WarpSize;
-  T thread_min          = std::numeric_limits<T>::infinity();
+  const int tid = threadIdx.x;
+  T thread_min  = std::numeric_limits<T>::infinity();
   for (int i = tid; i < np; i += BlockSize) {
     T v = s[i];
     if (v < thread_min) thread_min = v;
   }
-  for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-    T v = __shfl_xor_sync(0xffffffff, thread_min, off);
-    if (v < thread_min) thread_min = v;
-  }
-  if (lane == 0) red_val[warp_id] = thread_min;
-  __syncthreads();
-  if (warp_id == 0) {
-    thread_min = (lane < N_WARPS) ? red_val[lane] : std::numeric_limits<T>::infinity();
-    for (int off = N_WARPS / 2; off > 0; off >>= 1) {
-      T v = __shfl_xor_sync(0xffffffff, thread_min, off);
-      if (v < thread_min) thread_min = v;
-    }
-    if (lane == 0) red_val[0] = thread_min;
-  }
+  // red_val's WarpSize index scratch (red_idx) is reserved contiguously after
+  // it, so blockRankedReduce is safe even though the index is unused here.
+  auto res = raft::blockRankedReduce(thread_min, red_val, tid, raft::min_op{});
+  if (tid == 0) red_val[0] = res.first;
   __syncthreads();
 }
 
@@ -299,9 +235,8 @@ template <int BlockSize, typename GT, typename T>
 __device__ inline bool block_cholesky(
   raft::device_matrix_view<GT, int, raft::col_major> Gp, T* red_val)
 {
-  constexpr int N_WARPS = BlockSize / raft::WarpSize;
-  const int tid         = threadIdx.x;
-  const int np          = Gp.extent(0);
+  const int tid = threadIdx.x;
+  const int np  = Gp.extent(0);
 
   // Compute trace and add eps_diag * trace / np to each diagonal entry.  The
   // matrix is stored narrowed (GT), but we accumulate/compute in the wider
@@ -309,22 +244,10 @@ __device__ inline bool block_cholesky(
   T thread_tr = T(0);
   for (int k = tid; k < np; k += BlockSize)
     thread_tr += static_cast<T>(Gp(k, k));
-  // Warp reduce
-  for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-    thread_tr += __shfl_xor_sync(0xffffffff, thread_tr, off);
-  const int lane    = tid & (raft::WarpSize - 1);
-  const int warp_id = tid / raft::WarpSize;
-  if (lane == 0) red_val[warp_id] = thread_tr;
+  T trace = raft::blockReduce<T>(thread_tr, reinterpret_cast<char*>(red_val), raft::add_op{});
+  if (tid == 0) red_val[0] = trace;
   __syncthreads();
-  if (warp_id == 0) {
-    thread_tr = (lane < N_WARPS) ? red_val[lane] : T(0);
-    for (int off = N_WARPS / 2; off > 0; off >>= 1)
-      thread_tr += __shfl_xor_sync(0xffffffff, thread_tr, off);
-    if (lane == 0) red_val[0] = thread_tr;
-  }
-  __syncthreads();
-
-  T trace = red_val[0];
+  trace = red_val[0];
   // Regularise at the precision actually stored (GT), not the scalar type T.
   T eps   = (sizeof(GT) == 4 ? T(1e-7) : T(1e-14)) * (trace > T(0) ? trace / T(np) : T(1));
   for (int k = tid; k < np; k += BlockSize)
