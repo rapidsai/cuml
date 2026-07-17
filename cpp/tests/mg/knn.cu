@@ -37,14 +37,9 @@ struct KNNParams {
 
 class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
  public:
-  void generate_partition(Matrix::floatData_t* part,
-                          size_t n_rows,
-                          int n_cols,
-                          int n_clusters,
-                          int part_num,
-                          cudaStream_t stream)
+  void generate_partition(
+    Matrix::floatData_t* part, size_t n_rows, int n_cols, int n_clusters, cudaStream_t stream)
   {
-    (void)part_num;
     auto labels = raft::make_device_vector<int, int64_t>(handle, static_cast<int64_t>(n_rows));
 
     raft::random::make_blobs<float, int>(
@@ -129,7 +124,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
       out_d_parts.push_back(out_d);
       out_i_parts.push_back(out_i);
 
-      generate_partition(query_d, params.min_rows, params.n_cols, 5, i, stream);
+      generate_partition(query_d, params.min_rows, params.n_cols, 5, stream);
     }
 
     std::vector<Matrix::floatData_t*> index_parts;
@@ -145,7 +140,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
       index_parts.push_back(i_d);
 
-      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, stream);
+      generate_partition(i_d, params.min_rows, params.n_cols, 5, stream);
     }
 
     Matrix::PartDescriptor idx_desc(
