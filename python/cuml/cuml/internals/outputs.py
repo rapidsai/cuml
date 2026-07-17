@@ -5,6 +5,7 @@
 import contextlib
 import functools
 import inspect
+import warnings
 
 import cudf
 import cupy as cp
@@ -53,6 +54,18 @@ def check_output_type(output_type: str) -> str:
             f"Expected one of {valid_output_types}, or None."
         )
     return output_type
+
+
+def warn_if_output_type_deprecated(output_type: str):
+    """Warn if the specified `output_type` is deprecated"""
+    if output_type in ("numba", "array", "df_obj", "dataframe", "series"):
+        alt = "cupy" if output_type in ("numba", "array") else "cudf"
+        warnings.warn(
+            f"`output_type={output_type!r}` was deprecated in version 26.08 "
+            "and will be removed in version 26.10. Please use "
+            f"`output_type={alt!r}` instead.",
+            FutureWarning,
+        )
 
 
 def set_global_output_type(output_type):
@@ -132,6 +145,7 @@ def set_global_output_type(output_type):
     """
     if output_type is not None:
         output_type = check_output_type(output_type)
+        warn_if_output_type_deprecated(output_type)
     GlobalSettings().output_type = output_type
 
 

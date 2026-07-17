@@ -6,6 +6,7 @@ import inspect
 import os
 import re
 import threading
+import warnings
 
 import pylibraft.common.handle
 
@@ -15,7 +16,10 @@ import cuml.internals
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.mixins import TagsMixin, _ensure_transformer_tags
-from cuml.internals.outputs import infer_output_type
+from cuml.internals.outputs import (
+    infer_output_type,
+    warn_if_output_type_deprecated,
+)
 
 _THREAD_STATE = threading.local()
 
@@ -49,6 +53,14 @@ def get_handle(*, n_streams=0, device_ids=None):
         )
     else:
         return pylibraft.common.handle.Handle(n_streams=n_streams)
+
+
+class _DeprecatedOutputTypeDescriptor:
+    """A descriptor to warn when a deprecated `output_type` is configured."""
+
+    def __set__(self, obj, value):
+        warn_if_output_type_deprecated(value)
+        obj.__dict__["output_type"] = value
 
 
 class Base(TagsMixin):
@@ -113,6 +125,8 @@ class Base(TagsMixin):
                 # Inference logic goes here...
                 return cp.ones(len(X), dtype="int32")
     """
+
+    output_type = _DeprecatedOutputTypeDescriptor()
 
     def __init__(
         self,
@@ -240,6 +254,15 @@ class Base(TagsMixin):
             else:
                 # Determine the output from the input
                 output_type = infer_output_type(inp)
+            if output_type == "numba":
+                warnings.warn(
+                    "Outputting `numba` arrays was deprecated "
+                    "in version 26.08 and will be removed "
+                    "in version 26.10. In the future this call will return a "
+                    "`cupy` array instead. You may silence this warning by "
+                    "explicitly setting `output_type='cupy'` now.",
+                    FutureWarning,
+                )
 
         return output_type
 
