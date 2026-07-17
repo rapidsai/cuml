@@ -16,8 +16,11 @@
 #include <raft/util/cuda_utils.cuh>                  // raft::WarpSize
 #include <raft/util/reduction.cuh>                   // raft::blockReduce / blockRankedReduce
 
+#include <rmm/device_uvector.hpp>                     // rmm::device_uvector (L scratch)
+
 #include <cuda_runtime.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -30,31 +33,9 @@ namespace detail {
 constexpr int lawson_n_warps(int block_size) { return block_size / raft::WarpSize; }
 
 /**
- * Reduced-precision storage type for the Cholesky working set that lives in
- * shared memory.  The Gram matrix G = A^T A is kept in global memory (read
- * directly, L2-cached across the grid), so the only n*n array in shared memory
- * is the incrementally-maintained Cholesky factor Gp, stored narrowed
- * (double -> float) to halve its footprint.  The O(n) solver state
- * (c, x, w, s, red_val) stays at full precision T; arithmetic still accumulates
- * in T.  For T == float this is the identity, so nothing changes.
- */
-template <typename T>
-struct Narrowing {
-  using type = T;
-};
-
-template <>
-struct Narrowing<double> {
-  using type = float;
-};
-
-template <typename T>
-using narrow_t = typename Narrowing<T>::type;
-
-/**
  * Compute the dynamic shared-memory footprint of the Lawson-Hanson kernel for
  * a single problem with `n` columns and a block of `BlockSize` threads.  Layout
- * (T and int arrays first, then narrow_t<T>, then int8):
+ * (T and int arrays first, then int8):
  *   T   c[n]                   A^T b
  *   T   x[n]                   current solution
  *   T   w[n]                   gradient (also scratch for the removed-index list)
@@ -64,8 +45,6 @@ using narrow_t = typename Narrowing<T>::type;
  *   T   red_val[WarpSize]      reduction scratch (also used to broadcast scalars)
  *   int red_idx[WarpSize]      reduction scratch (also used to broadcast scalars)
  *   int idx[n]                 compact list of active-set column indices
- *   narrow_t<T> Gp[n*n]        Cholesky factor L of the active submatrix
- *                              (leading dimension n), maintained incrementally
  *   int8 act[n]                1 if column is in active set, 0 otherwise
  *
  * red_val/red_idx back the RAFT block reductions (raft::blockRankedReduce needs
@@ -73,19 +52,15 @@ using narrow_t = typename Narrowing<T>::type;
  * laid out contiguously with red_idx immediately after red_val); slot 0 of each
  * doubles as the scalar-broadcast channel.
  *
- * The Gram matrix G lives in global memory (read directly, L2-cached across the
- * grid) and is never staged into shared memory.  The single narrow_t<T> array
- * (Gp) would span 4*n*n bytes, which is not a multiple of alignof(double) for
- * odd n*n, so it is placed after the wider T/int arrays (which start 8-byte
- * aligned off the 16-byte-aligned smem base) and before the 1-byte act[]: its
- * own start offset is then always a multiple of 4, satisfying float alignment
- * without disturbing the double arrays.
+ * Neither the Gram matrix G nor the Cholesky factor L is staged into shared
+ * memory: G is read directly from global memory (L2-cached across the grid) and
+ * L lives in a per-block global scratch slab (also L2-cached).  Shared memory is
+ * therefore only O(n), so occupancy is no longer bound by the n*n factor.
  */
 template <typename T, int BlockSize>
 inline std::size_t lawson_smem_bytes(int n)
 {
   std::size_t bytes = 0;
-  bytes += sizeof(narrow_t<T>) * static_cast<std::size_t>(n) * n;  // Gp (factor L)
   bytes += sizeof(T) * static_cast<std::size_t>(n) * 5;            // c, x, w, s, y
   bytes += sizeof(T) * raft::WarpSize;                             // red_val
   bytes += sizeof(int) * raft::WarpSize;                           // red_idx
@@ -104,7 +79,6 @@ struct LawsonSmem {
   T* red_val;
   int* red_idx;
   int* idx;
-  narrow_t<T>* Gp;
   std::int8_t* act;
 };
 
@@ -113,7 +87,7 @@ __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
 {
   LawsonSmem<T> L;
   // Wider arrays first (double is 8-byte aligned off the 16-byte-aligned base),
-  // then the narrowed factor Gp, then the 1-byte act[]; see lawson_smem_bytes.
+  // then the 1-byte act[]; see lawson_smem_bytes.
   L.c       = reinterpret_cast<T*>(smem);
   L.x       = L.c + n;
   L.w       = L.x + n;
@@ -124,8 +98,7 @@ __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
   // raft::blockRankedReduce, which expects the index slots at &shbuf[WarpSize].
   L.red_idx = reinterpret_cast<int*>(L.red_val + raft::WarpSize);
   L.idx     = L.red_idx + raft::WarpSize;
-  L.Gp      = reinterpret_cast<narrow_t<T>*>(L.idx + n);
-  L.act     = reinterpret_cast<std::int8_t*>(L.Gp + n * n);
+  L.act     = reinterpret_cast<std::int8_t*>(L.idx + n);
   return L;
 }
 
@@ -260,9 +233,10 @@ __device__ inline void block_matvec_gradient(
 }
 
 /**
- * Incremental "bordering" Cholesky update.  On entry L holds the (np-1)x(np-1)
- * lower factor of the previously active submatrix (column-major, leading
- * dimension `ld`); the newly activated column is idx[np-1].  The new Gram column
+ * Incremental "bordering" Cholesky update.  On entry L (a per-block global
+ * scratch slab, column-major, leading dimension `ld`, L2-cached) holds the
+ * (np-1)x(np-1) lower factor of the previously active submatrix; the newly
+ * activated column is idx[np-1].  The new Gram column
  * is read directly from global memory G and the factor is extended in place:
  *   solve L_11 l = a_12   for the new row l = L(np-1, 0:np-1),
  *   new diagonal          L(np-1, np-1) = sqrt(a_22 - l . l).
@@ -288,11 +262,11 @@ __device__ inline void block_matvec_gradient(
  * degenerates to c[j_star] / L_22).  It is written only when the pivot is
  * accepted, so a rejected activation leaves y intact.
  */
-template <int BlockSize, typename GT, typename GG, typename T>
-__device__ inline bool block_chol_append(GT* L,
+template <int BlockSize, typename T>
+__device__ inline bool block_chol_append(T* L,
                                          int ld,
                                          int np,
-                                         raft::device_matrix_view<const GG, int, raft::col_major> G,
+                                         raft::device_matrix_view<const T, int, raft::col_major> G,
                                          const int* idx,
                                          const T* c,
                                          T* y,
@@ -305,7 +279,7 @@ __device__ inline bool block_chol_append(GT* L,
 
   // a_12[i] = G(idx[i], j_star): block-wide gather from global memory.
   for (int i = tid; i < m; i += BlockSize)
-    scratch[i] = static_cast<T>(G(idx[i], j_star));
+    scratch[i] = G(idx[i], j_star);
   __syncthreads();
 
   // Sequential factor extension on warp 0.
@@ -314,10 +288,10 @@ __device__ inline bool block_chol_append(GT* L,
 
     // Forward solve L_11 l = a_12, in place in scratch (pivot folded into row i).
     for (int i = 0; i < m; ++i) {
-      T y_i = scratch[i] / static_cast<T>(L[i + i * ld]);
+      T y_i = scratch[i] / L[i + i * ld];
       __syncwarp();
       for (int j = i + lane; j < m; j += raft::WarpSize)
-        scratch[j] = (j > i) ? scratch[j] - static_cast<T>(L[j + i * ld]) * y_i : y_i;
+        scratch[j] = (j > i) ? scratch[j] - L[j + i * ld] * y_i : y_i;
       __syncwarp();
     }
 
@@ -327,7 +301,7 @@ __device__ inline bool block_chol_append(GT* L,
     T thread_dot_ly = T(0);
     for (int j = lane; j < m; j += raft::WarpSize) {
       T lj                 = scratch[j];
-      L[(np - 1) + j * ld] = static_cast<GT>(lj);
+      L[(np - 1) + j * ld] = lj;
       thread_dot_ll += lj * lj;
       thread_dot_ly += lj * y[j];
     }
@@ -339,12 +313,12 @@ __device__ inline bool block_chol_append(GT* L,
 
     // New diagonal L_22 = sqrt(a_22 + eps - dot_ll); reject a non-positive pivot.
     if (lane == 0) {
-      const T a22 = static_cast<T>(G(j_star, j_star));
-      const T eps = (sizeof(GT) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
+      const T a22 = G(j_star, j_star);
+      const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
       const T d2  = a22 + eps - thread_dot_ll;
       if (d2 > T(0)) {
         const T d                   = std::sqrt(d2);
-        L[(np - 1) + (np - 1) * ld] = static_cast<GT>(d);
+        L[(np - 1) + (np - 1) * ld] = d;
         y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
         red_val[0]                  = T(1);
       } else {
@@ -358,8 +332,9 @@ __device__ inline bool block_chol_append(GT* L,
 
 /**
  * Remove active-set position `p` (0-based, in the current np-ordering) from the
- * np x np lower Cholesky factor L (column-major, leading dimension `ld`),
- * producing the (np-1)x(np-1) factor of the submatrix with row/column p deleted.
+ * np x np lower Cholesky factor L (per-block global scratch slab, column-major,
+ * leading dimension `ld`, L2-cached), producing the (np-1)x(np-1) factor of the
+ * submatrix with row/column p deleted.
  *
  * Deleting an interior row/column reduces to a positive rank-1 Cholesky update
  * of the trailing diagonal block by the below-diagonal part of column p:
@@ -379,8 +354,8 @@ __device__ inline bool block_chol_append(GT* L,
  * shrunken active set.  These are scalar recurrences carried in a lane-0
  * register, so they piggyback on the existing sweep at no extra sync cost.
  */
-template <int BlockSize, typename GT, typename T>
-__device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y, T* v)
+template <int BlockSize, typename T>
+__device__ inline void block_chol_delete_one(T* L, int ld, int np, int p, T* y, T* v)
 {
   if (threadIdx.x < raft::WarpSize) {
     const int lane = threadIdx.x;
@@ -388,7 +363,7 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y,
 
     // Save l3p = L(p+1 : np-1, p) before the compaction overwrites column p.
     for (int i = lane; i < q; i += raft::WarpSize)
-      v[i] = static_cast<T>(L[(p + 1 + i) + p * ld]);
+      v[i] = L[(p + 1 + i) + p * ld];
     __syncwarp();
 
     // Compact: drop row p and column p.  The per-column row shifts move each
@@ -418,12 +393,12 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y,
     for (int k = 0; k < q; ++k) {
       T c = T(0), s = T(0);
       if (lane == 0) {
-        T Lkk                     = static_cast<T>(L[(p + k) + (p + k) * ld]);
+        T Lkk                     = L[(p + k) + (p + k) * ld];
         T vk                      = v[k];
         T r                       = std::sqrt(Lkk * Lkk + vk * vk);
         c                         = (r > T(0)) ? (Lkk / r) : T(1);
         s                         = (r > T(0)) ? (vk / r) : T(0);
-        L[(p + k) + (p + k) * ld] = static_cast<GT>(r);
+        L[(p + k) + (p + k) * ld] = r;
         // Rotate the forward-solve state with the same (c,s): the trailing
         // component y[p+k] pairs with the running partner just like L's
         // column p+k pairs with the v-column.
@@ -435,9 +410,9 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y,
       s = __shfl_sync(0xffffffffu, s, 0);
       for (int t = k + 1 + lane; t < q; t += raft::WarpSize) {
         const int row         = p + t;
-        T lik                 = static_cast<T>(L[row + (p + k) * ld]);
+        T lik                 = L[row + (p + k) * ld];
         T vi                  = v[t];
-        L[row + (p + k) * ld] = static_cast<GT>(c * lik + s * vi);
+        L[row + (p + k) * ld] = c * lik + s * vi;
         v[t]                  = c * vi - s * lik;
       }
       __syncwarp();
@@ -461,15 +436,15 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y,
  * sequential substitution runs on warp 0 alone with the cheap per-row
  * `__syncwarp` (replacing the block barrier that dominated the kernel's stall
  * profile), and a single closing `__syncthreads` publishes the solution to the
- * block.  The pivot divide is done redundantly by every lane; the `__syncwarp`
- * between it and the in-place row update orders the read of `s[i]` before the
- * lane that owns `j == i` overwrites it with the pivot.
+ * block.  The pass is left-looking:
+ *   x_i = (y_i - sum_{j>i} L[j,i] * x_j) / L_ii,
+ * so each row reads column `i` below the diagonal (`L[j + i*ld]`) -- contiguous
+ * in the column-major factor, i.e. a coalesced global read now that L lives in
+ * global memory -- and reduces the partial products across the warp.
  */
-template <int BlockSize, typename GT, typename T>
-__device__ inline void block_chol_backsolve(const GT* L, int ld, int np, const T* y, T* s)
+template <int BlockSize, typename T>
+__device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T* y, T* s)
 {
-  // L is stored narrowed (GT); the state/solution stays at full precision T, so
-  // factors are widened to T on read and the solve accumulates in T.
   for (int j = threadIdx.x; j < np; j += BlockSize)
     s[j] = y[j];
   __syncthreads();
@@ -477,30 +452,36 @@ __device__ inline void block_chol_backsolve(const GT* L, int ld, int np, const T
   if (threadIdx.x < raft::WarpSize) {
     const int lane = threadIdx.x;
 
-    // Back solve: L^T x = y  ->  s holds x on exit.  L^T[i,j] = L[j,i]; rows < i.
+    // Back solve: L^T x = y -> s holds x on exit.  s[j] already holds x_j for
+    // j > i (top-down), and s[i] (= y_i) is read before being overwritten.
     for (int i = np - 1; i >= 0; --i) {
-      T x_i = s[i] / static_cast<T>(L[i + i * ld]);
+      T partial = T(0);
+      for (int j = i + 1 + lane; j < np; j += raft::WarpSize)
+        partial += L[j + i * ld] * s[j];
+#pragma unroll
+      for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
+        partial += __shfl_xor_sync(0xffffffffu, partial, off);
+      T x_i = (s[i] - partial) / L[i + i * ld];
       __syncwarp();
-      for (int j = lane; j <= i; j += raft::WarpSize)
-        s[j] = (j < i) ? s[j] - static_cast<T>(L[i + j * ld]) * x_i : x_i;
+      if (lane == 0) s[i] = x_i;
       __syncwarp();
     }
   }
   __syncthreads();
 }
 
-
-template <int BlockSize>
-constexpr int min_block_count = std::clamp(1024/BlockSize, 1, 8);
-
 /**
  * Batched, masked Lawson-Hanson NNLS kernel -- the single solver kernel used
- * for both batched and single-problem solves.  One CUDA block solves problem
- * `p = blockIdx.x`, reading the Gram matrix `G = A^T A` directly from global
+ * for both batched and single-problem solves.  The grid is persistent: it is
+ * launched with `min(P, resident)` blocks that stride over the problems
+ * (`for p = blockIdx.x; p < P; p += gridDim.x`), so the per-block global scratch
+ * for the Cholesky factor L is bounded by hardware occupancy rather than by the
+ * batch size.  Each block reads the Gram matrix `G = A^T A` directly from global
  * memory (shared by the whole grid, L2-cached) and its own RHS projection from
  * column `p` of `C = A^T B` and active-column support from column `p` of `masks`.
  *
- * The active-set Cholesky factor is maintained incrementally: each outer
+ * The active-set Cholesky factor L is maintained incrementally in a per-block
+ * global scratch slab (L2-cached; slab `blockIdx.x` of `L_scratch`): each outer
  * iteration appends the entering column with a bordering update
  * (block_chol_append), and the inner line search shrinks it with Givens
  * downdates (block_chol_delete_one).  Consequently G is read only once per outer
@@ -524,26 +505,31 @@ constexpr int min_block_count = std::clamp(1024/BlockSize, 1, 8);
  * @param masks  (n, P) column-major uint8 support; column p is problem p's
  *               support.  May be an empty view, meaning "all columns eligible".
  * @param X      (n, P) solutions (column-major); written on exit.
+ * @param L_scratch  global scratch for the Cholesky factor L; `gridDim.x` slabs
+ *                   of `n*n` (column-major, ld = n).  Block `blockIdx.x` owns
+ *                   slab `blockIdx.x`; contents are rebuilt per problem.
  * @param max_iter  outer-iteration cap.
  * @param tol       optimality tolerance on the projected gradient.
  */
 template <typename T, int BlockSize>
-__global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_lawson_batched_kernel(
+__global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
   raft::device_matrix_view<const T, int, raft::col_major> G,
   raft::device_matrix_view<const T, int, raft::col_major> C,
   raft::device_matrix_view<const std::uint8_t, int, raft::col_major> masks,
   raft::device_matrix_view<T, int, raft::col_major> X,
+  T* L_scratch,
   int max_iter,
   T tol)
 {
   const int n = G.extent(0);
-  const int p = blockIdx.x;
+  const int P = C.extent(1);
 
   extern __shared__ unsigned char smem_raw[];
   LawsonSmem<T> S = lawson_smem_layout<T, BlockSize>(smem_raw, n);
-  // The active-set Cholesky factor L is stored narrowed in S.Gp with a fixed
-  // leading dimension n, so incremental append/downdate never repack it.
-  narrow_t<T>* L = S.Gp;
+  // The active-set Cholesky factor L lives in global memory (per-block scratch
+  // slab, L2-cached) with a fixed leading dimension n so incremental
+  // append/downdate never repack it.  Each block owns the slab at blockIdx.x.
+  T* L = L_scratch + static_cast<std::size_t>(blockIdx.x) * n * n;
 
   __shared__ int sm_n_active;
   __shared__ int sm_j_star;
@@ -552,24 +538,26 @@ __global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_la
 
   const int tid = threadIdx.x;
 
-  // Column p of the (possibly empty) support, as a 1-D view for the argmax.
-  auto mask_col = (masks.size() != 0)
-                    ? raft::make_device_vector_view<const std::uint8_t, int>(&masks(0, p), n)
-                    : raft::device_vector_view<const std::uint8_t, int>{};
-
-  // ---- Phase 1+2: load c = C[:, p]; init x and active set ------------------
-  for (int j = tid; j < n; j += BlockSize) {
-    S.c[j]   = C(j, p);
-    S.x[j]   = T(0);
-    S.act[j] = 0;
-  }
-  if (tid == 0) sm_n_active = 0;
-  __syncthreads();
-
   const int inner_budget_total = 3 * n + 1;
 
-  // ---- Phase 3: outer loop (active-set growth) -----------------------------
-  for (int outer = 0; outer < max_iter; ++outer) {
+  // Persistent grid: gridDim.x resident blocks stride over the P problems.
+  for (int p = blockIdx.x; p < P; p += gridDim.x) {
+    // Column p of the (possibly empty) support, as a 1-D view for the argmax.
+    auto mask_col = (masks.size() != 0)
+                      ? raft::make_device_vector_view<const std::uint8_t, int>(&masks(0, p), n)
+                      : raft::device_vector_view<const std::uint8_t, int>{};
+
+    // ---- Phase 1+2: load c = C[:, p]; init x and active set ------------------
+    for (int j = tid; j < n; j += BlockSize) {
+      S.c[j]   = C(j, p);
+      S.x[j]   = T(0);
+      S.act[j] = 0;
+    }
+    if (tid == 0) sm_n_active = 0;
+    __syncthreads();
+
+    // ---- Phase 3: outer loop (active-set growth) -----------------------------
+    for (int outer = 0; outer < max_iter; ++outer) {
     // Projected gradient w = c - G x, reading active columns of G from global.
     block_matvec_gradient<T, BlockSize>(S.w, S.c, G, S.idx, S.x, sm_n_active, n);
 
@@ -666,11 +654,15 @@ __global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_la
       __syncthreads();
 
       if (sm_n_active == 0) break;
+      }
     }
-  }
 
-  for (int j = tid; j < n; j += BlockSize)
-    X(j, p) = S.x[j];
+    for (int j = tid; j < n; j += BlockSize)
+      X(j, p) = S.x[j];
+    // Barrier before the next problem reuses shared memory, so a fast thread's
+    // Phase-1 re-init of S.x cannot clobber a slow thread's writeback read.
+    __syncthreads();
+  }
 }
 
 /**
@@ -705,7 +697,7 @@ inline bool nnls_set_smem_attr(raft::resources const& handle, Kernel kernel, std
 
 // Desired number of co-resident blocks per problem before we keep a larger
 // (lower-occupancy) block size instead of shrinking it.
-constexpr int kResidenceMultiple = 8;
+constexpr int kResidenceMultiple = 2;
 
 /**
  * One block-size candidate for a batched Lawson solve: the kernel to launch,
@@ -719,7 +711,7 @@ struct lawson_selected {
   using GView    = raft::device_matrix_view<const T, int, raft::col_major>;
   using XView    = raft::device_matrix_view<T, int, raft::col_major>;
   using MView    = raft::device_matrix_view<const std::uint8_t, int, raft::col_major>;
-  using kernel_t = void (*)(GView, GView, MView, XView, int, T);
+  using kernel_t = void (*)(GView, GView, MView, XView, T*, int, T);
 
   kernel_t kernel  = nullptr;
   int block_size   = 0;
@@ -795,7 +787,7 @@ struct lawson_kernel_cache {
  * The result is a `lawson_plan<T>` (never launched), so the caller can cache it
  * per `n` and pick a step for any `n_problems` without repeating CUDA API calls.
  */
-template <typename T, int BlockSize = 4 * raft::WarpSize>
+template <typename T, int BlockSize = 16 * raft::WarpSize>
 struct LawsonBlockDispatch {
   // Append this block size to the plan, then -- if the (n_problems-independent)
   // occupancy gate allows -- the smaller ones.  `blocks_per_sm` is this level's
@@ -823,7 +815,7 @@ struct LawsonBlockDispatch {
       const int occ_full = blocks_per_sm * BlockSize;
       const int occ_half = blocks_per_sm_half * half_block;
       // Reuse this query as the next level's occupancy.
-      if ((occ_half >= occ_full) || (half_block >= n * 2)) {
+      if ((occ_half >= occ_full) || (half_block >= n)) {
         LawsonBlockDispatch<T, half_block>::build(handle, n, blocks_per_sm_half, plan);
       }
     }
@@ -893,9 +885,19 @@ inline void nnls_lawson_batched_dispatch(
   const lawson_selected<T>& sel = plan.pick(n_problems);
 
   cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+
+  // Persistent grid: launch min(n_problems, resident) co-resident blocks that
+  // stride over the problems, so the per-block global scratch for the Cholesky
+  // factor L is bounded by hardware occupancy (resident * n*n) rather than by
+  // the batch size.  Each block owns the slab at blockIdx.x.
+  int grid = static_cast<int>(std::min<long long>(n_problems, sel.resident));
+  grid     = std::max(grid, 1);
+  rmm::device_uvector<T> L_scratch(static_cast<std::size_t>(grid) * n * n, stream);
+
   // Empty view => "all columns eligible" inside the kernel.
   MView mv = masks.has_value() ? *masks : MView{};
-  sel.kernel<<<n_problems, sel.block_size, sel.smem, stream>>>(G, C, mv, X, max_iter, tol);
+  sel.kernel<<<grid, sel.block_size, sel.smem, stream>>>(
+    G, C, mv, X, L_scratch.data(), max_iter, tol);
 }
 
 }  // namespace detail

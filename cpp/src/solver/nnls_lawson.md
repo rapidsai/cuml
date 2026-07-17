@@ -68,7 +68,10 @@ flowchart TB
 | **Thread** | 1 lane                         | Strided loops over `n`, `n²`, `np²` indices                    |
 
 
-**Launch:** `<<<n_problems, BlockSize, smem_bytes, stream>>>`
+**Launch:** `<<<min(n_problems, resident), BlockSize, smem_bytes, stream>>>` -- a **persistent
+grid**: `resident` (= max active blocks per SM x SM count) co-resident blocks stride over the `P`
+problems (`for p = blockIdx.x; p < P; p += gridDim.x`). This bounds the per-block global scratch for
+the Cholesky factor `L` (`gridDim.x * n*n`) by hardware occupancy instead of by the batch size.
 
 **Block size:** occupancy-driven, starting at 1024 threads (32 warps), halving down to 32 if
 needed (`LawsonBlockDispatch`). Because both the shared-memory footprint and the per-SM occupancy
@@ -119,6 +122,9 @@ raft::linalg::gemm(handle, At_view, B_view, C.view());
 grid shares it, so the L2 cache absorbs the reuse. Because the active-set Cholesky factor is
 maintained incrementally, each block touches `G` only once per outer iteration: the active
 columns for the projected gradient plus the single entering column for the factor append.
+The Cholesky factor `L` **also lives in global memory** (a per-block scratch slab), so shared
+memory is only `O(n)`; `L`'s `n²` working set stays L2-resident and its accesses are coalesced
+column reads (see §3.2).
 
 ### 3.2 Inside One Block (Dynamic Shared Memory)
 
@@ -134,20 +140,20 @@ Layout from `lawson_smem_layout`:
 | `y`                  | `n`            | `T`                               | Forward-solve state `L⁻¹ c_P` (maintained incrementally) |
 | `red_val`, `red_idx` | `WarpSize` each (contiguous) | scratch            | RAFT block-reduction scratch + scalar broadcast |
 | `idx`                | `n`            | `int`                             | Compact active-set indices             |
-| `Gp`                 | `n×n` (ld = n) | `narrow_t<T>` (float if T=double) | Incrementally-maintained Cholesky factor `L` |
 | `act`                | `n`            | `int8`                            | 1 = active, 0 = inactive               |
 
-The Gram matrix `G` is **not** in this list — it lives in global memory only.
+Neither the Gram matrix `G` nor the Cholesky factor `L` is in this list — both live in global
+memory. `L` is a per-block scratch slab (column-major, `ld = n`, at full precision `T`).
 
-**Memory trick:** `Gp` (the factor `L`) is stored in float when `T=double`, halving its
-`n²` footprint; arithmetic still accumulates in `T`. `Gp` is placed after the wider `T`/`int`
-arrays and before the 1-byte `act[]` so its 4-byte float alignment holds without misaligning
-the `double` arrays (a `4·n²`-byte block is not a multiple of 8 for odd `n²`).
+**Memory model:** shared memory is now only `O(n)` — the `n²` factor `L` was moved to a per-block
+global scratch slab (`L_scratch + blockIdx.x·n²`), L2-cached. This removes the shared-memory
+occupancy ceiling entirely: the kernel is no longer smem-bound, so more blocks fit per SM and
+much larger `n` becomes feasible. `L`'s per-block working set (`n²·sizeof(T)`, e.g. ~34 KB for
+`n=65` in double) is small relative to L2 and reused `O(n)` times, so its effective latency is the
+L2-hit latency.
 
-**Typical smem (double, narrowed L):** dropping the resident `G` array halves the dominant
-`2n²` term to `n²`, so the footprint is roughly half of the previous design (e.g. ~18 KB for
-`n=65`), leaving more room for larger `n` and/or higher occupancy under the device's per-block
-opt-in shared-memory limit (`sharedMemPerBlockOptin`).
+**Typical smem (double):** `5n` `T`-vectors + `2·WarpSize` reduction slots + `n` ints (`idx`) +
+`n` bytes (`act`) ≈ `48n + 256` B (e.g. ~3.4 KB for `n=65`), independent of the `n²` factor.
 
 ### 3.3 Per-Block Data Flow Diagram
 
@@ -155,19 +161,20 @@ opt-in shared-memory limit (`sharedMemPerBlockOptin`).
 GLOBAL                          SHARED (one block)                    GLOBAL
 ──────                          ──────────────────                    ──────
 G[n,n]  (stays in global, L2-cached; read directly, never staged)
+L[n,n]  (per-block scratch slab, global, L2-cached; column-major)
 C[:,p]  ──load──────────►  S.c[n]
 masks[:,p] ──view───────►  mask_col (read in argmax only)
 
 Each outer iter:
   G[:,idx], S.x ──matvec (global read of active cols)──► S.w[n]
   S.w, S.act, mask ──reduce──► j_star ; activate (idx, act, np++)
-  G[idx,j*] ──bordering append (one global column)──► extend S.Gp = L
+  G[idx,j*] ──bordering append (one global column)──► extend L (global)
                                                   └► extend S.y = L⁻¹ c_P
 
 Each inner iter (no G reads):
-  S.Gp = L, S.y ──back-solve L^T s = y──► s (unconstrained LS on P)
+  L (global cols), S.y ──back-solve L^T s = y──► s (unconstrained LS on P)
   S.x, S.s ──line search──► updated S.x, S.act, S.idx
-  on prune: Givens downdate of S.Gp = L AND S.y for the dropped columns
+  on prune: Givens downdate of L (global) AND S.y for the dropped columns
 
 S.x[n] ──store──────────► X[:,p]
 ```
@@ -272,7 +279,7 @@ broadcast via `red_val[0]`, `red_idx[0]`.
 
 **Step 3d — Factor append** (`block_chol_append`, once per outer iteration):
 
-Extend the lower Cholesky factor `L` (kept in `Gp`, leading dimension `n`) with the entering
+Extend the lower Cholesky factor `L` (in its per-block global scratch slab, leading dimension `n`) with the entering
 column, read directly from global `G`:
 
 
@@ -300,11 +307,14 @@ never touches `G` and never re-runs the forward substitution.
 
 The full solve is L L^\top s = c_P. Because the forward half `y = L⁻¹ c_P` is maintained
 incrementally (extended on append, downdated on prune), the inner loop only needs the **back
-pass** L^\top s = y, reading `L` from `Gp` with leading dimension `n` (only the `np × np`
-leading block is used, so no repacking is needed). The block first copies `y → s`, then a
-single warp runs the sequential substitution with per-row `__syncwarp`; `y` is left intact for
-the next iteration. This halves the sequential depth of the old forward+back solve, which
-dominated the kernel's barrier-stall profile.
+pass** L^\top s = y, reading `L` from its global scratch slab with leading dimension `n` (only
+the `np × np` leading block is used, so no repacking is needed). The block first copies `y → s`,
+then a single warp runs the substitution **left-looking**:
+x_i = (y_i - \sum_{j>i} L_{j,i}\, x_j)/L_{i,i}. Each row reads column `i` of `L` below the
+diagonal (`L[j + i·n]`) — **contiguous** in the column-major factor, i.e. a coalesced global
+read — and reduces the partial products across the warp. `y` is left intact for the next
+iteration. This halves the sequential depth of the old forward+back solve (which dominated the
+kernel's barrier-stall profile) and keeps `L`'s now-global reads coalesced.
 
 **Step 4d — Feasibility test:**
 
@@ -385,15 +395,16 @@ one signature remains.
 | Gradient `w = c - Gx`    | One row per strided thread; inner loop over active cols of global `G` | `__syncthreads`  |
 | Argmax / min / min-α     | Local scan → `raft::blockRankedReduce` (min/max) / `raft::blockReduce` (count) | `__syncthreads` |
 | Factor append + `y` ext  | Warp-0 forward solve (`__syncwarp`) + shuffle-reduced `l·l`, `l·y`; lane0 pivot & `y[np-1]` | `__syncthreads` (open+close) |
-| Back-solve (`Lᵀs = y`)   | Block copy `y→s`; warp-0 back substitution (`__syncwarp` per row) | `__syncthreads` (open+close) |
+| Back-solve (`Lᵀs = y`)   | Block copy `y→s`; warp-0 **left-looking** substitution: per-row coalesced column read of global `L` + shuffle reduction | `__syncthreads` (open+close) |
 | Line search update       | Strided over `np`                                             | `__syncthreads`          |
 | Compact active set       | Thread 0 only                                                 | `__syncthreads`          |
 | Factor + `y` downdate    | Warp-0 compaction; per-pivot Givens on `L` (lane0 rotation + warp apply) and `y` (lane0) | `__syncthreads` (open+close) |
 
 
 **Occupancy trade-off:** larger `BlockSize` (1024) helps parallelize `n²` factor updates;
-smaller blocks allow more concurrent problems when smem-bound or batch is huge
-(`LawsonBlockDispatch` targets `8 × resident_blocks ≥ n_problems`).
+smaller blocks allow more concurrent problems when the batch is huge (`LawsonBlockDispatch`
+targets `8 × resident_blocks ≥ n_problems`). With `L` moved to global memory the kernel is no
+longer shared-memory bound, so occupancy is limited by registers/warps, not the `n²` factor.
 
 ---
 
@@ -413,7 +424,7 @@ Symbols follow cuML (`m`, `n`, `P`) and MSA (`n_channels`, `n_signatures`, etc.)
 | `tol`               | kernel param                 | Dual residual threshold                   | **1e-6** (cuML default)                                                                                                        |
 | `inner_budget`      | `3*n+1`                      | Inner loop cap per outer step             | Same as default `max_iter`                                                                                                     |
 | `BlockSize`         | template param               | Threads per block                         | **1024** down to **32** (occupancy dispatch)                                                                                   |
-| `smem`              | `lawson_smem_bytes(n)`       | Dynamic shared memory / block (one `n²` factor, G in global) | **~18 KB** (`n=65`), **~26 KB** (`n=78`), **~1 KB** (`n=10`)                                                 |
+| `smem`              | `lawson_smem_bytes(n)`       | Dynamic shared memory / block (`O(n)`; G and L both in global) | **~3.4 KB** (`n=65`), **~4 KB** (`n=78`), **~0.7 KB** (`n=10`)                                             |
 | `chunk_size`        | `--gpu_batch_size`           | Max NNLS problems per `nnls_batched` call | **4096** (CLI default), **65536** (GPU batch in code)                                                                          |
 | `samples_per_group` | `chunk_size // n_sig`        | Samples grouped per greedy step           | **~63** for SBS-96 (`4096//65`), **~372** (`65536//65`)                                                                        |
 | `n_trials` / step   | `Σ active_sigs per sample`   | Leave-one-out problems per greedy step    | Roughly `**#active_samples × avg_active_sigs`** (≤ chunk)                                                                      |
