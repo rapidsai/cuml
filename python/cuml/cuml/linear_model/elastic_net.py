@@ -133,6 +133,7 @@ class ElasticNet(
             "alpha",
             "l1_ratio",
             "fit_intercept",
+            "positive",
             "max_iter",
             "tol",
             "solver",
@@ -141,9 +142,6 @@ class ElasticNet(
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.positive:
-            raise UnsupportedOnGPU("`positive=True` is not supported")
-
         if model.warm_start:
             raise UnsupportedOnGPU("`warm_start=True` is not supported")
 
@@ -158,6 +156,7 @@ class ElasticNet(
             "alpha": model.alpha,
             "l1_ratio": model.l1_ratio,
             "fit_intercept": model.fit_intercept,
+            "positive": model.positive,
             "tol": tol,
             "max_iter": model.max_iter,
             "selection": model.selection,
@@ -172,6 +171,7 @@ class ElasticNet(
             "alpha": self.alpha,
             "l1_ratio": self.l1_ratio,
             "fit_intercept": self.fit_intercept,
+            "positive": self.positive,
             "tol": tol,
             "max_iter": self.max_iter,
             "selection": self.selection,
@@ -199,6 +199,7 @@ class ElasticNet(
         *,
         l1_ratio=0.5,
         fit_intercept=True,
+        positive=False,
         max_iter=1000,
         tol=1e-3,
         solver="auto",
@@ -211,6 +212,7 @@ class ElasticNet(
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
+        self.positive = positive
         self.max_iter = max_iter
         self.tol = tol
         self.solver = solver
@@ -259,6 +261,7 @@ class ElasticNet(
                 tol=self.tol,
                 penalty_normalized=False,
                 verbose=self._verbose_level,
+                positive=self.positive,
             )
             coef = coef.flatten()
             intercept = intercept.item()
@@ -280,6 +283,7 @@ class ElasticNet(
                 shuffle=self.selection == "random",
                 max_iter=self.max_iter,
                 tol=self.tol,
+                positive=self.positive,
             )
         else:
             raise ValueError(f"solver={solver!r} is not supported")

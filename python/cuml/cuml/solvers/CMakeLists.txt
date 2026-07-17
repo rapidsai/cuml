@@ -5,7 +5,7 @@
 # cmake-format: on
 # =============================================================================
 
-set(cython_sources cd.pyx qn.pyx sgd.pyx)
+set(cython_sources cd.pyx qn.pyx sgd.pyx nnls.pyx)
 
 if(NOT SINGLEGPU)
   list(APPEND cython_sources cd_mg.pyx)

@@ -123,6 +123,7 @@ class MBSGDRegressor(
             "power_t",
             "batch_size",
             "n_iter_no_change",
+            "positive",
         ]
 
     def __init__(
@@ -141,6 +142,7 @@ class MBSGDRegressor(
         power_t=0.5,
         batch_size=32,
         n_iter_no_change=5,
+        positive=False,
         verbose=False,
         output_type=None,
     ):
@@ -158,6 +160,7 @@ class MBSGDRegressor(
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
+        self.positive = positive
 
     @generate_docstring()
     @mlfunc(set_input_type=True)
@@ -186,6 +189,7 @@ class MBSGDRegressor(
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
+            positive=self.positive,
         )
         self.coef_ = coef
         self.intercept_ = intercept

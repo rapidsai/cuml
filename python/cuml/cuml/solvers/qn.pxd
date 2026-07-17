@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 from libcpp cimport bool
@@ -30,6 +30,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM" nogil:
         int verbose
         bool fit_intercept
         bool penalty_normalized
+        bool positive
 
 cdef void init_qn_params(
     qn_params &params,
@@ -45,4 +46,5 @@ cdef void init_qn_params(
     int lbfgs_memory,
     bool penalty_normalized,
     level_enum verbose,
+    bool positive=*,
 )

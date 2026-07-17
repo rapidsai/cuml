@@ -33,7 +33,8 @@ void sgdFit(raft::handle_t& handle,
             float l1_ratio,
             bool shuffle,
             float tol,
-            int n_iter_no_change);
+            int n_iter_no_change,
+            bool positive = false);
 
 void sgdFit(raft::handle_t& handle,
             double* input,
@@ -54,7 +55,8 @@ void sgdFit(raft::handle_t& handle,
             double l1_ratio,
             bool shuffle,
             double tol,
-            int n_iter_no_change);
+            int n_iter_no_change,
+            bool positive = false);
 
 void sgdPredict(raft::handle_t& handle,
                 const float* input,
@@ -136,6 +138,8 @@ void sgdPredictBinaryClass(raft::handle_t& handle,
  * @param sample_weight
  *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
  *        This vector is modified during the computation
+ * @param positive
+ *        if true, enforce non-negative coefficients (NNLS mode)
  * @return n_iter
  *        Number of iterations the solver ran for.
  */
@@ -153,7 +157,8 @@ int cdFit(raft::handle_t& handle,
           float l1_ratio,
           bool shuffle,
           float tol,
-          float* sample_weight = nullptr);
+          float* sample_weight = nullptr,
+          bool positive        = false);
 
 int cdFit(raft::handle_t& handle,
           double* input,
@@ -169,7 +174,8 @@ int cdFit(raft::handle_t& handle,
           double l1_ratio,
           bool shuffle,
           double tol,
-          double* sample_weight = nullptr);
+          double* sample_weight = nullptr,
+          bool positive         = false);
 
 void cdPredict(raft::handle_t& handle,
                const float* input,

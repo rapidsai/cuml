@@ -81,6 +81,7 @@ cdef void init_qn_params(
     int lbfgs_memory,
     bool penalty_normalized,
     level_enum verbose,
+    bool positive=False,
 ):
     """Initialize a `qn_params` from the corresponding python parameters."""
     if loss == "logistic":
@@ -117,6 +118,7 @@ cdef void init_qn_params(
     params.verbose = <int>verbose
     params.fit_intercept = fit_intercept
     params.penalty_normalized = penalty_normalized
+    params.positive = positive
 
 
 def fit_qn(
@@ -140,6 +142,7 @@ def fit_qn(
     init_coef=None,
     level_enum verbose=level_enum.warn,
     return_classes=False,
+    bool positive=False,
 ):
     """Fit a linear model using a Quasi-newton method.
 
@@ -234,6 +237,7 @@ def fit_qn(
         lbfgs_memory=lbfgs_memory,
         penalty_normalized=penalty_normalized,
         verbose=verbose,
+        positive=positive,
     )
 
     coef_shape = (
@@ -506,7 +510,8 @@ class QN(Base):
             "lbfgs_memory",
             "warm_start",
             "delta",
-            "penalty_normalized"
+            "penalty_normalized",
+            "positive",
         ]
 
     def __init__(
@@ -525,6 +530,7 @@ class QN(Base):
         output_type=None,
         warm_start=False,
         penalty_normalized=True,
+        positive=False,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
 
@@ -539,6 +545,7 @@ class QN(Base):
         self.lbfgs_memory = lbfgs_memory
         self.warm_start = warm_start
         self.penalty_normalized = penalty_normalized
+        self.positive = positive
 
     @generate_docstring(X="dense_sparse")
     @mlfunc(set_input_type=True)
@@ -576,6 +583,7 @@ class QN(Base):
             init_coef=init_coef,
             verbose=self._verbose_level,
             return_classes=is_classifier,
+            positive=self.positive,
         )
         if is_classifier:
             coef, intercept, n_iter, objective, classes = out

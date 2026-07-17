@@ -58,7 +58,8 @@ int qn_fit(const raft::handle_t& handle,
                        lossWith,
                        l1,
                        opt_param,
-                       static_cast<rapids_logger::level_enum>(pams.verbose));
+                       static_cast<rapids_logger::level_enum>(pams.verbose),
+                       pams.positive);
 
   } else {
     Tikhonov<T> reg(l2);
@@ -72,7 +73,8 @@ int qn_fit(const raft::handle_t& handle,
                        lossWith,
                        l1,
                        opt_param,
-                       static_cast<rapids_logger::level_enum>(pams.verbose));
+                       static_cast<rapids_logger::level_enum>(pams.verbose),
+                       pams.positive);
   }
 }
 

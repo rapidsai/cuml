@@ -85,6 +85,8 @@ struct qn_params {
    * which do not scale the loss functions (like sklearn.LogisticRegression()).
    */
   bool penalty_normalized;
+  /** If true, enforce non-negative coefficients. */
+  bool positive;
 
 #ifdef __cplusplus
   qn_params()
@@ -98,7 +100,8 @@ struct qn_params {
       lbfgs_memory(5),
       verbose(0),
       fit_intercept(true),
-      penalty_normalized(true)
+      penalty_normalized(true),
+      positive(false)
   {
   }
 #endif

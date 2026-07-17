@@ -18,6 +18,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/gemv.cuh>
 #include <raft/linalg/map.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector.cuh>
 #include <raft/linalg/multiply.cuh>
 #include <raft/linalg/power.cuh>
@@ -27,6 +28,8 @@
 #include <raft/stats/sum.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
+
+#include <limits>
 
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
@@ -55,18 +58,21 @@ struct ConvState {
  * @param[in] squaredLoc pointer to the precomputed data - L2 norm of input for across rows
  * @param[inout] convStateLoc pointer to the structure holding the convergence state
  * @param[in] l1_alpha L1 regularization coef
+ * @param[in] positive if true, enforce non-negative coefficients (NNLS mode)
  */
 template <typename math_t>
 CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
                                                             const math_t* squaredLoc,
                                                             ConvState<math_t>* convStateLoc,
-                                                            const math_t l1_alpha)
+                                                            const math_t l1_alpha,
+                                                            const bool positive)
 {
   auto coef    = *coefLoc;
   auto r       = coef > l1_alpha ? coef - l1_alpha : (coef < -l1_alpha ? coef + l1_alpha : 0);
   auto squared = *squaredLoc;
   r            = squared > math_t(1e-5) ? r / squared : math_t(0);
-  auto diff    = raft::abs(convStateLoc->coef - r);
+  if (positive && r < math_t(0)) r = math_t(0);
+  auto diff = raft::abs(convStateLoc->coef - r);
   if (convStateLoc->diffMax < diff) convStateLoc->diffMax = diff;
   auto absv = raft::abs(r);
   if (convStateLoc->coefMax < absv) convStateLoc->coefMax = absv;
@@ -120,6 +126,8 @@ CUML_KERNEL void __launch_bounds__(1, 1) cdUpdateCoefKernel(math_t* coefLoc,
  * @param sample_weight
  *        device pointer to sample weight vector of length n_rows (nullptr or uniform weights)
  *        This vector is modified during the computation
+ * @param positive
+ *        if true, enforce non-negative coefficients (NNLS mode)
  * @return n_iter
  *        The number of iterations the solver ran for.
  */
@@ -138,7 +146,8 @@ int cdFit(const raft::handle_t& handle,
           math_t l1_ratio,
           bool shuffle,
           math_t tol,
-          math_t* sample_weight = nullptr)
+          math_t* sample_weight = nullptr,
+          bool positive         = false)
 {
   raft::common::nvtx::range fun_scope("ML::Solver::cdFit-%d-%d", n_rows, n_cols);
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
@@ -216,6 +225,16 @@ int cdFit(const raft::handle_t& handle,
   rmm::device_scalar<math_t> cublas_alpha(1.0, stream);
   rmm::device_scalar<math_t> cublas_beta(0.0, stream);
 
+  // For the positive (NNLS) case, use objective-based convergence instead of
+  // coefficient-change-based convergence. The standard diffMax/coefMax criterion
+  // fails because non-negativity clamping causes persistent boundary oscillations:
+  // a coefficient near the boundary alternates between 0 and a tiny positive value,
+  // producing diffs that never settle below tight tolerances. In contrast, the
+  // objective ||residual||^2 is a smooth quadratic and changes by O(delta^2) for
+  // O(delta) coefficient oscillations, so it converges reliably.
+  rmm::device_scalar<math_t> d_obj(stream);
+  math_t h_prev_obj = std::numeric_limits<math_t>::max();
+
   int n_iter = 0;
   while (n_iter < epochs) {
     raft::common::nvtx::range epoch_scope("ML::Solver::cdFit::epoch-%d", n_iter);
@@ -256,19 +275,37 @@ int cdFit(const raft::handle_t& handle,
       // coef[ci] = SoftTreshold(dot(X[:, ci], residual[:]), l1_alpha) /  dot(X[:, ci], X[:, ci]))
       // Also, update the convergence criteria.
       cdUpdateCoefKernel<math_t><<<dim3(1, 1, 1), dim3(1, 1, 1), 0, stream>>>(
-        coef_loc, squared_loc, convStateLoc, l1_alpha);
+        coef_loc, squared_loc, convStateLoc, l1_alpha, positive);
       RAFT_CUDA_TRY(cudaGetLastError());
 
       // Restore the residual using the updated coeffecient
       raft::linalg::axpy<math_t, true>(
         handle, n_rows, &(convStateLoc->coef), input_col_loc, 1, residual.data(), 1, stream);
     }
-    raft::update_host(&h_convState, convStateLoc, 1, stream);
-    handle.sync_stream(stream);
 
-    // Iteration completed, increase n_iter and check early stopping criteria
-    n_iter++;
-    if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
+    if (positive) {
+      // Objective-based convergence: compute ||residual||^2
+      raft::linalg::mapThenSumReduce(
+        d_obj.data(),
+        n_rows,
+        [] __device__(math_t x) { return x * x; },
+        stream,
+        residual.data());
+      math_t h_obj;
+      raft::update_host(&h_obj, d_obj.data(), 1, stream);
+      handle.sync_stream(stream);
+
+      n_iter++;
+      math_t obj_scale = std::max(h_obj, math_t(1));
+      if (std::abs(h_prev_obj - h_obj) <= tol * obj_scale) break;
+      h_prev_obj = h_obj;
+    } else {
+      raft::update_host(&h_convState, convStateLoc, 1, stream);
+      handle.sync_stream(stream);
+
+      n_iter++;
+      if (h_convState.coefMax < tol || (h_convState.diffMax / h_convState.coefMax) < tol) break;
+    }
   }
 
   if (sample_weight != nullptr) {

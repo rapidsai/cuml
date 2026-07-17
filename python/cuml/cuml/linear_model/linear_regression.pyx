@@ -10,7 +10,7 @@ import numpy as np
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.interop import InteropMixin
 from cuml.internals.mixins import (
     FMajorInputTagMixin,
     RegressorMixin,
@@ -19,6 +19,7 @@ from cuml.internals.mixins import (
 from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
+from cuml.solvers.cd import fit_cd
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -173,22 +174,22 @@ class LinearRegression(InteropMixin,
             *super()._get_param_names(),
             "algorithm",
             "fit_intercept",
+            "positive",
             "copy_X",
         ]
 
     @classmethod
     def _params_from_cpu(cls, model):
-        if model.positive:
-            raise UnsupportedOnGPU("`positive=True` is not supported")
-
         return {
             "fit_intercept": model.fit_intercept,
+            "positive": model.positive,
             "copy_X": model.copy_X,
         }
 
     def _params_to_cpu(self):
         return {
             "fit_intercept": self.fit_intercept,
+            "positive": self.positive,
             "copy_X": self.copy_X,
         }
 
@@ -219,6 +220,7 @@ class LinearRegression(InteropMixin,
         *,
         algorithm="auto",
         fit_intercept=True,
+        positive=False,
         copy_X=True,
         verbose=False,
         output_type=None
@@ -226,6 +228,7 @@ class LinearRegression(InteropMixin,
         super().__init__(verbose=verbose, output_type=output_type)
         self.algorithm = algorithm
         self.fit_intercept = fit_intercept
+        self.positive = positive
         self.copy_X = copy_X
 
     def _fit_libcuml(
@@ -342,6 +345,11 @@ class LinearRegression(InteropMixin,
         y_is_copy = cuda_ptr(y) != cuda_ptr(y_orig)
         sample_weight_is_copy = cuda_ptr(sample_weight) != cuda_ptr(sample_weight_orig)
 
+        if self.positive and y.ndim == 2 and y.shape[1] > 1:
+            raise ValueError(
+                "`positive=True` is not supported for multi-target regression"
+            )
+
         if self.algorithm not in (
             "auto", "eig", "svd", "lsmr", "qr", "svd-qr", "svd-jacobi"
         ):
@@ -349,7 +357,12 @@ class LinearRegression(InteropMixin,
 
         # Determine the solver to use
         fallback_reason = None
-        if self.algorithm == "lsmr":
+        if self.positive:
+            # positive=True is only supported via coordinate descent
+            solver = "cd"
+            if self.algorithm not in ("auto",):
+                fallback_reason = "positive=True"
+        elif self.algorithm == "lsmr":
             solver = "lsmr"
         elif sp.issparse(X):
             solver = "lsmr"
@@ -381,6 +394,18 @@ class LinearRegression(InteropMixin,
                 may_mutate_X=X_is_copy or not self.copy_X,
                 may_mutate_y=y_is_copy,
                 may_mutate_sample_weight=sample_weight_is_copy,
+            )
+        elif solver == "cd":
+            coef, intercept, _ = fit_cd(
+                self,
+                X,
+                y,
+                sample_weight=sample_weight,
+                fit_intercept=self.fit_intercept,
+                alpha=0.0,
+                l1_ratio=0.0,
+                shuffle=False,
+                positive=True,
             )
         else:
             coef, intercept, _ = fit_least_squares(
