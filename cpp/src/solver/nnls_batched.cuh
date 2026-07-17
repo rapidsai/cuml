@@ -154,7 +154,10 @@ void nnls_batched_impl(raft::handle_t&          handle,
       case NnlsBatchedSolver::SGD: {
         if (max_iter <= 0) max_iter = 1000;
         const std::size_t smem = qp_grad_smem_bytes<T>(n);
-        nnls_set_smem_attr(nnls_sgd_batched_kernel<T>, smem);
+        ASSERT(nnls_set_smem_attr(handle, nnls_sgd_batched_kernel<T>, smem),
+               "ML::Solver::nnlsBatched: required shared memory (%zu B) exceeds the device "
+               "per-block opt-in limit; reduce n_cols or pick a different solver.",
+               smem);
         nnls_sgd_batched_kernel<T><<<P, QP_BLOCK_SIZE, smem, stream>>>(
           G.data_handle(), C.data_handle(), n, masks, X, inv_L, max_iter, check_every, tol);
         break;
@@ -162,7 +165,10 @@ void nnls_batched_impl(raft::handle_t&          handle,
       case NnlsBatchedSolver::APG: {
         if (max_iter <= 0) max_iter = 1000;
         const std::size_t smem = qp_grad_smem_bytes<T>(n);
-        nnls_set_smem_attr(nnls_apg_batched_kernel<T>, smem);
+        ASSERT(nnls_set_smem_attr(handle, nnls_apg_batched_kernel<T>, smem),
+               "ML::Solver::nnlsBatched: required shared memory (%zu B) exceeds the device "
+               "per-block opt-in limit; reduce n_cols or pick a different solver.",
+               smem);
         nnls_apg_batched_kernel<T><<<P, QP_BLOCK_SIZE, smem, stream>>>(
           G.data_handle(), C.data_handle(), n, masks, X, inv_L, max_iter, check_every, tol);
         break;
@@ -170,7 +176,10 @@ void nnls_batched_impl(raft::handle_t&          handle,
       case NnlsBatchedSolver::CD: {
         if (max_iter <= 0) max_iter = 1000;
         const std::size_t smem = qp_grad_smem_bytes<T>(n);
-        nnls_set_smem_attr(nnls_cd_batched_kernel<T>, smem);
+        ASSERT(nnls_set_smem_attr(handle, nnls_cd_batched_kernel<T>, smem),
+               "ML::Solver::nnlsBatched: required shared memory (%zu B) exceeds the device "
+               "per-block opt-in limit; reduce n_cols or pick a different solver.",
+               smem);
         nnls_cd_batched_kernel<T><<<P, QP_BLOCK_SIZE, smem, stream>>>(
           G.data_handle(), C.data_handle(), n, masks, X, max_iter, check_every, tol);
         break;
@@ -181,7 +190,10 @@ void nnls_batched_impl(raft::handle_t&          handle,
         if (hist < 1) hist = 1;
         if (hist > QP_LBFGS_MAX_HISTORY) hist = QP_LBFGS_MAX_HISTORY;
         const std::size_t smem = qp_lbfgs_smem_bytes<T>(n, hist);
-        nnls_set_smem_attr(nnls_lbfgs_batched_kernel<T>, smem);
+        ASSERT(nnls_set_smem_attr(handle, nnls_lbfgs_batched_kernel<T>, smem),
+               "ML::Solver::nnlsBatched: required shared memory (%zu B) exceeds the device "
+               "per-block opt-in limit; reduce n_cols or pick a different solver.",
+               smem);
         nnls_lbfgs_batched_kernel<T><<<P, QP_BLOCK_SIZE, smem, stream>>>(
           G.data_handle(), C.data_handle(), n, masks, X, inv_L, max_iter, hist, check_every, tol);
         break;

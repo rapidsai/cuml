@@ -71,7 +71,19 @@ flowchart TB
 **Launch:** `<<<n_problems, BlockSize, smem_bytes, stream>>>`
 
 **Block size:** occupancy-driven, starting at 1024 threads (32 warps), halving down to 32 if
-needed (`LawsonBlockDispatch`).
+needed (`LawsonBlockDispatch`). Because both the shared-memory footprint and the per-SM occupancy
+depend only on `(T, n)`, the whole chain of block-size candidates -- each tagged with its resident
+block count -- is a `lawson_plan<T>` built once per `n` and memoised in a per-handle LRU
+(`lawson_kernel_cache`, a raft custom resource) keyed by `n` **alone**. The batch size `n_problems`
+influences the choice only through how many device "waves" it takes to drain the batch, so it picks
+a plan step by cheap arithmetic (`resident * kResidenceMultiple < n_problems`) on every dispatch --
+no CUDA API calls. This makes all `n_problems` for a given `n` a single equivalence class, so the
+`cudaFuncSetAttribute` + `cudaOccupancyMaxActiveBlocksPerMultiprocessor` queries run once per
+distinct `n` instead of on every dispatch (the MSA greedy loop issues thousands). Shared memory is
+opted in (`cudaFuncAttributeMaxDynamicSharedMemorySize`) only when the requirement exceeds the device
+default `sharedMemPerBlock`; the shmem/L1 carveout split is never touched, and "can even one block be
+placed" is decided by the occupancy query (`blocks_per_sm > 0`, limited by `sharedMemPerBlockOptin`)
+rather than any hardcoded byte constant.
 
 **MSA mapping:** one kernel launch solves up to `gpu_batch_size` masked leave-one-out trials
 (default 4096; GPU optimised path uses 65536 in `process_samples_batch`).
@@ -133,7 +145,8 @@ the `double` arrays (a `4·n²`-byte block is not a multiple of 8 for odd `n²`)
 
 **Typical smem (double, narrowed L):** dropping the resident `G` array halves the dominant
 `2n²` term to `n²`, so the footprint is roughly half of the previous design (e.g. ~18 KB for
-`n=65`), leaving more room for larger `n` and/or higher occupancy under the 48–96 KB cap.
+`n=65`), leaving more room for larger `n` and/or higher occupancy under the device's per-block
+opt-in shared-memory limit (`sharedMemPerBlockOptin`).
 
 ### 3.3 Per-Block Data Flow Diagram
 

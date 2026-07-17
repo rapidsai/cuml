@@ -5,24 +5,26 @@
 
 #pragma once
 
-#include <raft/core/device_mdspan.hpp>              // device_matrix_view / col_major
-#include <raft/core/error.hpp>                      // ASSERT
-#include <raft/core/resource/cuda_stream.hpp>       // raft::resource::get_cuda_stream
+#include <raft/core/device_mdspan.hpp>               // device_matrix_view / col_major
+#include <raft/core/error.hpp>                       // ASSERT
+#include <raft/core/resource/cuda_stream.hpp>        // raft::resource::get_cuda_stream
+#include <raft/core/resource/custom_resource.hpp>    // raft::resource::get_custom_resource
 #include <raft/core/resource/device_properties.hpp>  // raft::resource::get_device_properties
-#include <raft/core/resources.hpp>                  // raft::resources
-#include <raft/util/cuda_rt_essentials.hpp>         // RAFT_CUDA_TRY
-#include <raft/util/cuda_utils.cuh>                 // raft::WarpSize
-#include <raft/util/reduction.cuh>                  // raft::blockReduce / blockRankedReduce
+#include <raft/core/resources.hpp>                   // raft::resources
+#include <raft/util/cache.hpp>                       // raft::cache::lru
+#include <raft/util/cuda_rt_essentials.hpp>          // RAFT_CUDA_TRY
+#include <raft/util/cuda_utils.cuh>                  // raft::WarpSize
+#include <raft/util/reduction.cuh>                   // raft::blockReduce / blockRankedReduce
 
 #include <cuda_runtime.h>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 namespace ML {
 namespace Solver {
 namespace detail {
-
 
 /** Number of warps in a block of `BlockSize` threads (compile-time). */
 constexpr int lawson_n_warps(int block_size) { return block_size / raft::WarpSize; }
@@ -84,9 +86,9 @@ inline std::size_t lawson_smem_bytes(int n)
   bytes += sizeof(narrow_t<T>) * static_cast<std::size_t>(n) * n;  // Gp (factor L)
   bytes += sizeof(T) * static_cast<std::size_t>(n) * 4;            // c, x, w, s
   bytes += sizeof(T) * raft::WarpSize;                             // red_val
-  bytes += sizeof(int) * raft::WarpSize;                          // red_idx
-  bytes += sizeof(int) * static_cast<std::size_t>(n);            // idx
-  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);    // act
+  bytes += sizeof(int) * raft::WarpSize;                           // red_idx
+  bytes += sizeof(int) * static_cast<std::size_t>(n);              // idx
+  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);      // act
   return bytes;
 }
 
@@ -131,18 +133,17 @@ __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
  * via the supplied `red_val[0]` / `red_idx[0]` slots.
  */
 template <typename T, int BlockSize>
-__device__ inline void block_argmax_inactive(
-  const T*                                            w,
-  const std::int8_t*                                  act,
-  raft::device_vector_view<const std::uint8_t, int>   mask,
-  int                                                 n,
-  T*                                                  red_val,
-  int*                                                red_idx)
+__device__ inline void block_argmax_inactive(const T* w,
+                                             const std::int8_t* act,
+                                             raft::device_vector_view<const std::uint8_t, int> mask,
+                                             int n,
+                                             T* red_val,
+                                             int* red_idx)
 {
-  const int  tid      = threadIdx.x;
+  const int tid       = threadIdx.x;
   const bool has_mask = mask.data_handle() != nullptr;
 
-  T   thread_max = -std::numeric_limits<T>::infinity();
+  T thread_max   = -std::numeric_limits<T>::infinity();
   int thread_idx = -1;
   for (int i = tid; i < n; i += BlockSize) {
     if (act[i] == 0 && (!has_mask || mask(i) != 0)) {
@@ -176,7 +177,7 @@ __device__ inline void block_min_alpha(
 {
   const int tid = threadIdx.x;
 
-  T   thread_min = std::numeric_limits<T>::infinity();
+  T thread_min   = std::numeric_limits<T>::infinity();
   int thread_cnt = 0;
   for (int jj = tid; jj < np; jj += BlockSize) {
     T s_jj = s[jj];
@@ -196,7 +197,7 @@ __device__ inline void block_min_alpha(
   // (blockRankedReduce pads absent lanes with +inf) and the binding count (a
   // plain sum, for which blockReduce's zero padding is the correct identity).
   auto min_res = raft::blockRankedReduce(thread_min, red_val, tid, raft::min_op{});
-  int  n_bind  = raft::blockReduce<int>(thread_cnt, reinterpret_cast<char*>(red_idx), raft::add_op{});
+  int n_bind = raft::blockReduce<int>(thread_cnt, reinterpret_cast<char*>(red_idx), raft::add_op{});
   if (tid == 0) {
     red_val[0] = min_res.first;
     red_idx[0] = n_bind;
@@ -234,13 +235,13 @@ __device__ inline void block_min(const T* s, int np, T* red_val)
  */
 template <typename T, int BlockSize>
 __device__ inline void block_matvec_gradient(
-  T*                                                      w,
-  const T*                                                c,
+  T* w,
+  const T* c,
   raft::device_matrix_view<const T, int, raft::col_major> G,
-  const int*                                              idx,
-  const T*                                                x,
-  int                                                     np,
-  int                                                     n)
+  const int* idx,
+  const T* x,
+  int np,
+  int n)
 {
   const int tid = threadIdx.x;
   for (int j = tid; j < n; j += BlockSize) {
@@ -270,14 +271,13 @@ __device__ inline void block_matvec_gradient(
  * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
  */
 template <int BlockSize, typename GT, typename GG, typename T>
-__device__ inline bool block_chol_append(
-  GT*                                                      L,
-  int                                                      ld,
-  int                                                      np,
-  raft::device_matrix_view<const GG, int, raft::col_major> G,
-  const int*                                               idx,
-  T*                                                       red_val,
-  T*                                                       scratch)
+__device__ inline bool block_chol_append(GT* L,
+                                         int ld,
+                                         int np,
+                                         raft::device_matrix_view<const GG, int, raft::col_major> G,
+                                         const int* idx,
+                                         T* red_val,
+                                         T* scratch)
 {
   const int tid    = threadIdx.x;
   const int m      = np - 1;  // size of the existing factor L_11
@@ -372,20 +372,20 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
   // Positive rank-1 update of the trailing block (rows/cols p..np-2) by v.
   for (int k = 0; k < q; ++k) {
     if (tid == 0) {
-      T Lkk  = static_cast<T>(L[(p + k) + (p + k) * ld]);
-      T vk   = v[k];
-      T r    = std::sqrt(Lkk * Lkk + vk * vk);
-      rot[0] = (r > T(0)) ? (Lkk / r) : T(1);  // c
-      rot[1] = (r > T(0)) ? (vk / r) : T(0);   // s
+      T Lkk                     = static_cast<T>(L[(p + k) + (p + k) * ld]);
+      T vk                      = v[k];
+      T r                       = std::sqrt(Lkk * Lkk + vk * vk);
+      rot[0]                    = (r > T(0)) ? (Lkk / r) : T(1);  // c
+      rot[1]                    = (r > T(0)) ? (vk / r) : T(0);   // s
       L[(p + k) + (p + k) * ld] = static_cast<GT>(r);
     }
     __syncthreads();
     const T c = rot[0];
     const T s = rot[1];
     for (int t = k + 1 + tid; t < q; t += BlockSize) {
-      const int row = p + t;
-      T lik = static_cast<T>(L[row + (p + k) * ld]);
-      T vi  = v[t];
+      const int row         = p + t;
+      T lik                 = static_cast<T>(L[row + (p + k) * ld]);
+      T vi                  = v[t];
       L[row + (p + k) * ld] = static_cast<GT>(c * lik + s * vi);
       v[t]                  = c * vi - s * lik;
     }
@@ -469,10 +469,10 @@ __device__ inline void block_chol_solve(const GT* L, int ld, int np, T* s, T* re
  */
 template <typename T, int BlockSize>
 __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
-  raft::device_matrix_view<const T, int, raft::col_major>            G,
-  raft::device_matrix_view<const T, int, raft::col_major>            C,
+  raft::device_matrix_view<const T, int, raft::col_major> G,
+  raft::device_matrix_view<const T, int, raft::col_major> C,
   raft::device_matrix_view<const std::uint8_t, int, raft::col_major> masks,
-  raft::device_matrix_view<T, int, raft::col_major>                  X,
+  raft::device_matrix_view<T, int, raft::col_major> X,
   int max_iter,
   T tol)
 {
@@ -514,7 +514,7 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
     block_matvec_gradient<T, BlockSize>(S.w, S.c, G, S.idx, S.x, sm_n_active, n);
 
     block_argmax_inactive<T, BlockSize>(S.w, S.act, mask_col, n, S.red_val, S.red_idx);
-    T   max_w  = S.red_val[0];
+    T max_w    = S.red_val[0];
     int j_star = S.red_idx[0];
     if (j_star < 0 || max_w <= tol) break;
 
@@ -563,14 +563,14 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
       }
 
       block_min_alpha<T, BlockSize>(S.x, S.s, S.idx, np, S.red_val, S.red_idx);
-      T   alpha     = S.red_val[0];
+      T alpha       = S.red_val[0];
       int n_binding = S.red_idx[0];
       if (n_binding == 0) break;
 
       for (int jj = tid; jj < np; jj += BlockSize) {
         int j_idx  = S.idx[jj];
-        T   xi     = S.x[j_idx];
-        T   si     = S.s[jj];
+        T xi       = S.x[j_idx];
+        T si       = S.s[jj];
         S.x[j_idx] = xi + alpha * (si - xi);
       }
       __syncthreads();
@@ -616,27 +616,33 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
 }
 
 /**
- * Raise a kernel's dynamic-shared-memory cap when the requested carveout
- * exceeds the default 48 KB (SM 80/86/89/90 support up to 96 KB+).  Shared by
- * every batched NNLS backend launcher.
+ * Opt a kernel in to more dynamic shared memory than the device's default
+ * per-block budget, but only when the requirement actually exceeds it.  Returns
+ * true if the kernel is allowed to use `smem_bytes` of dynamic shared memory
+ * (either because it already fits the default budget, or because the opt-in
+ * succeeded); returns false otherwise, after resetting the pending CUDA error
+ * so a later query is not misattributed (mirroring the cuVS IVF-PQ kernel
+ * selection).  The caller decides how to react to a false result: the Lawson
+ * selector defers to the occupancy query (`blocks_per_sm <= 0`), while the
+ * single-launch QP backends assert.
+ *
+ * Both thresholds come from the device (`sharedMemPerBlock` /
+ * `sharedMemPerBlockOptin`) rather than hardcoded 48 KB / 96 KB constants, so
+ * the limits track the actual architecture.  The shmem/L1 carveout split is
+ * never touched: no `cudaFuncAttributePreferredSharedMemoryCarveout` is issued,
+ * and the opt-in is skipped entirely when it is not needed.
  */
 template <typename Kernel>
-inline void nnls_set_smem_attr(Kernel kernel, std::size_t smem_bytes)
+inline bool nnls_set_smem_attr(raft::resources const& handle, Kernel kernel, std::size_t smem_bytes)
 {
-  constexpr std::size_t kDefaultSmem = 48 * 1024;
-  constexpr std::size_t kMaxSmem     = 96 * 1024;
-  ASSERT(smem_bytes <= kMaxSmem,
-         "ML::Solver::nnlsBatched: required shared memory (%zu B) exceeds the "
-         "per-block limit (%zu B); reduce n_cols or pick a different solver.",
-         smem_bytes,
-         kMaxSmem);
-  if (smem_bytes > kDefaultSmem) {
-    cudaError_t err = cudaFuncSetAttribute(
-      kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(smem_bytes));
-    ASSERT(err == cudaSuccess,
-           "ML::Solver::nnlsBatched: cudaFuncSetAttribute failed: %s",
-           cudaGetErrorString(err));
-  }
+  const cudaDeviceProp& dev_props = raft::resource::get_device_properties(handle);
+  if (smem_bytes <= static_cast<std::size_t>(dev_props.sharedMemPerBlock)) return true;
+  cudaError_t err = cudaFuncSetAttribute(
+    kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(smem_bytes));
+  if (err == cudaSuccess) return true;
+  // Reset the sticky error so a subsequent RAFT_CUDA_TRY doesn't observe it.
+  (void)cudaGetLastError();
+  return false;
 }
 
 // Desired number of co-resident blocks per problem before we keep a larger
@@ -644,118 +650,194 @@ inline void nnls_set_smem_attr(Kernel kernel, std::size_t smem_bytes)
 constexpr int kResidenceMultiple = 8;
 
 /**
- * Occupancy-driven block-size selector for the batched Lawson kernel.
+ * One block-size candidate for a batched Lawson solve: the kernel to launch,
+ * its block size, its dynamic-shared-memory requirement, and its resident-block
+ * count.  A chain of these forms a `lawson_plan<T>` (see below).  The kernel
+ * signature does not depend on the block size, so a single function pointer can
+ * hold any instantiation.
+ */
+template <typename T>
+struct lawson_selected {
+  using GView    = raft::device_matrix_view<const T, int, raft::col_major>;
+  using XView    = raft::device_matrix_view<T, int, raft::col_major>;
+  using MView    = raft::device_matrix_view<const std::uint8_t, int, raft::col_major>;
+  using kernel_t = void (*)(GView, GView, MView, XView, int, T);
+
+  kernel_t kernel  = nullptr;
+  int block_size   = 0;
+  std::size_t smem = 0;
+  // Number of co-resident blocks of this instantiation across the whole GPU
+  // (max active blocks per SM * number of SMs).  It is the sole channel through
+  // which `n_problems` influences the choice of block size: a launch saturates
+  // the device once `n_problems` exceeds `resident * kResidenceMultiple`, i.e.
+  // it takes more than `kResidenceMultiple` waves to drain the batch.
+  long long resident = 0;
+};
+
+/**
+ * Per-`n` plan for the batched Lawson kernel: the fixed chain of block-size
+ * candidates (largest first), each tagged with its resident-block count.  The
+ * chain depends only on `(T, n)` -- the shared-memory footprint and the per-SM
+ * occupancy do not depend on `n_problems` -- so it is built once (a handful of
+ * CUDA API calls) and cached per handle keyed by `n` alone.  `n_problems` then
+ * selects a step by cheap arithmetic (`pick`), which means every batch size for
+ * a given `n` shares one cache entry -- the widest possible equivalence class.
+ */
+template <typename T>
+struct lawson_plan {
+  // Block sizes 1024 -> 512 -> ... -> 32 (raft::WarpSize): at most 6 steps.
+  static constexpr int kMaxSteps = 6;
+  lawson_selected<T> steps[kMaxSteps];
+  int count = 0;
+
+  /**
+   * Pick the block size for `n_problems`.  The chain is ordered from the
+   * largest block (fewest resident blocks) to the smallest, and the occupancy
+   * gate that admits each smaller step is `n_problems`-independent, so we simply
+   * walk to a smaller block while the current one cannot already saturate the
+   * device (`resident * kResidenceMultiple < n_problems`).  This reproduces the
+   * original top-down recursion exactly, but without any CUDA API calls.
+   */
+  const lawson_selected<T>& pick(int n_problems) const
+  {
+    int i = 0;
+    while (i + 1 < count &&
+           steps[i].resident * static_cast<long long>(kResidenceMultiple) < n_problems) {
+      ++i;
+    }
+    return steps[i];
+  }
+};
+
+/** Per-handle custom resource holding the LRU of per-`n` Lawson plans. */
+template <typename T>
+struct lawson_kernel_cache {
+  static constexpr std::size_t kDefaultSize = 32;
+  raft::cache::lru<int, std::hash<int>, std::equal_to<>, lawson_plan<T>> value{kDefaultSize};
+};
+
+/**
+ * Occupancy-driven block-size planner for the batched Lawson kernel.
  *
- * Starting from the largest block size, we ask the driver how many blocks of
- * this kernel instantiation can be co-resident across the whole GPU
- * (R = max active blocks per SM * number of SMs).  If `R * kResidenceMultiple`
- * covers the batch (>= n_problems) the grid can saturate the device at this
- * block size, so we launch it; otherwise we consider halving the block size --
- * which usually raises the block count -- and retry.
+ * For each block size (largest first) we ask the driver how many blocks of this
+ * kernel instantiation can be co-resident across the whole GPU
+ * (R = max active blocks per SM * number of SMs) and record it as a plan step.
+ * We then consider halving the block size -- which usually raises the block
+ * count -- and continue the chain.
  *
- * The halving is gated by a second condition: we only shrink if it does not
- * lower the per-SM occupancy, measured as resident threads
- * (blocks_per_sm * BlockSize).  Near a hardware blocks-per-SM cap, or when the
- * kernel is shared-memory bound, a smaller block can fail to raise the block
- * count enough to compensate for the fewer threads each block carries, which
- * would trade device saturation for lower utilisation -- so in that case we
- * keep the larger block.  The recursion bottoms out at a single warp
- * (raft::WarpSize), where we always launch.
+ * The halving is gated by a condition that does *not* depend on `n_problems`:
+ * we only extend the chain if a smaller block keeps at least the same per-SM
+ * occupancy, measured as resident threads (blocks_per_sm * BlockSize), or still
+ * has enough threads for the work (>= 2n).  Near a hardware blocks-per-SM cap,
+ * or when the kernel is shared-memory bound, a smaller block can fail to raise
+ * the block count enough to compensate for the fewer threads each block carries,
+ * which would trade device saturation for lower utilisation -- so in that case
+ * we stop the chain.  It bottoms out at a single warp (raft::WarpSize).
+ *
+ * The result is a `lawson_plan<T>` (never launched), so the caller can cache it
+ * per `n` and pick a step for any `n_problems` without repeating CUDA API calls.
  */
 template <typename T, int BlockSize = 32 * raft::WarpSize>
 struct LawsonBlockDispatch {
-  using GView = raft::device_matrix_view<const T, int, raft::col_major>;
-  using XView = raft::device_matrix_view<T, int, raft::col_major>;
-  using MView = raft::device_matrix_view<const std::uint8_t, int, raft::col_major>;
-
-  /** Entry point: query the largest block's occupancy once, then recurse. */
-  static void start(raft::resources const& handle,
-                    GView                  G,
-                    GView                  C,
-                    std::optional<MView>   masks,
-                    XView                  X,
-                    int                    max_iter,
-                    T                      tol)
+  // Append this block size to the plan, then -- if the (n_problems-independent)
+  // occupancy gate allows -- the smaller ones.  `blocks_per_sm` is this level's
+  // occupancy, already measured by the caller, so each level performs at most
+  // one new occupancy query (the one for the half-sized candidate).
+  static void build(raft::resources const& handle, int n, int blocks_per_sm, lawson_plan<T>& plan)
   {
-    const std::size_t smem = lawson_smem_bytes<T, BlockSize>(X.extent(0));
-    // The occupancy query returns 0 for a carveout above the 48 KB default
-    // unless the kernel's max-dynamic-smem attribute is raised first.
-    nnls_set_smem_attr(nnls_lawson_batched_kernel<T, BlockSize>, smem);
+    const int         n_sm = raft::resource::get_device_properties(handle).multiProcessorCount;
+    const std::size_t smem = lawson_smem_bytes<T, BlockSize>(n);
+    plan.steps[plan.count++] =
+      lawson_selected<T>{&nnls_lawson_batched_kernel<T, BlockSize>,
+                         BlockSize,
+                         smem,
+                         static_cast<long long>(blocks_per_sm) * n_sm};
+
+    if constexpr (BlockSize > raft::WarpSize) {
+      constexpr int     half_block = BlockSize / 2;
+      const std::size_t smem_half  = lawson_smem_bytes<T, half_block>(n);
+      // Raise the smem cap before querying; otherwise the driver reports 0
+      // active blocks for a kernel whose smem exceeds the device default.
+      nnls_set_smem_attr(handle, nnls_lawson_batched_kernel<T, half_block>, smem_half);
+      int blocks_per_sm_half = 0;
+      RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &blocks_per_sm_half, nnls_lawson_batched_kernel<T, half_block>, half_block, smem_half));
+      const int occ_full = blocks_per_sm * BlockSize;
+      const int occ_half = blocks_per_sm_half * half_block;
+      // Reuse this query as the next level's occupancy.
+      if ((occ_half >= occ_full) || (half_block >= n * 2)) {
+        LawsonBlockDispatch<T, half_block>::build(handle, n, blocks_per_sm_half, plan);
+      }
+    }
+  }
+
+  /** Entry point: query the largest block's occupancy once, then build the chain. */
+  static lawson_plan<T> start(raft::resources const& handle, int n)
+  {
+    const std::size_t smem = lawson_smem_bytes<T, BlockSize>(n);
+    // The occupancy query returns 0 for a kernel whose smem exceeds the device
+    // default unless its max-dynamic-smem attribute is raised first.
+    nnls_set_smem_attr(handle, nnls_lawson_batched_kernel<T, BlockSize>, smem);
     int blocks_per_sm = 0;
     RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &blocks_per_sm, nnls_lawson_batched_kernel<T, BlockSize>, BlockSize, smem));
-    run(handle, G, C, masks, X, max_iter, tol, blocks_per_sm);
-  }
 
-  // `blocks_per_sm` is the occupancy of this instantiation, already measured by
-  // the previous recursion level (or by start()), so each level performs at
-  // most one new occupancy query -- the one for the half-sized candidate.
-  static void run(raft::resources const& handle,
-                  GView                  G,
-                  GView                  C,
-                  std::optional<MView>   masks,
-                  XView                  X,
-                  int                    max_iter,
-                  T                      tol,
-                  int                    blocks_per_sm)
-  {
-    const int         n          = X.extent(0);
-    const int         n_problems = X.extent(1);
-    cudaStream_t      stream     = raft::resource::get_cuda_stream(handle);
-    const std::size_t smem       = lawson_smem_bytes<T, BlockSize>(n);
+    lawson_plan<T> plan;
+    build(handle, n, blocks_per_sm, plan);
 
-    if constexpr (BlockSize > raft::WarpSize) {
-      const int       n_sm     = raft::resource::get_device_properties(handle).multiProcessorCount;
-      const long long resident = static_cast<long long>(blocks_per_sm) * n_sm;
-      // RAFT_LOG_INFO("Resident: %lld, n_problems: %d", resident, n_problems);
-      if (resident * kResidenceMultiple < n_problems) {
-        // Shrink only if the smaller block keeps at least the same per-SM
-        // occupancy (resident threads); otherwise we'd trade saturation for a
-        // less utilised SM.  Reuse this query as the next level's occupancy.
-        constexpr int     half_block = BlockSize / 2;
-        const std::size_t smem_half  = lawson_smem_bytes<T, half_block>(n);
-        // Raise the smem cap before querying; otherwise the driver reports 0
-        // active blocks for any carveout above the 48 KB default.
-        nnls_set_smem_attr(nnls_lawson_batched_kernel<T, half_block>, smem_half);
-        int blocks_per_sm_half = 0;
-        RAFT_CUDA_TRY(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-          &blocks_per_sm_half, nnls_lawson_batched_kernel<T, half_block>, half_block, smem_half));
-        // RAFT_LOG_INFO("Consider block size: %d, occupancy: %d", half_block, blocks_per_sm_half);
-        const int occ_full = blocks_per_sm * BlockSize;
-        const int occ_half = blocks_per_sm_half * half_block;
-        if ((occ_half >= occ_full) || (half_block >= n * 2)) {
-          LawsonBlockDispatch<T, half_block>::run(
-            handle, G, C, masks, X, max_iter, tol, blocks_per_sm_half);
-          return;
-        }
-      }
-    }
-
-    // The smem cap for this instantiation was already raised exactly once, at
-    // the point its occupancy was queried (in start() for the top block, or in
-    // the parent level's half-block query), so we must not call the expensive
-    // cudaFuncSetAttribute again here.
-    // Empty view => "all columns eligible" inside the kernel.
-    MView mv = masks.has_value() ? *masks : MView{};
-    // RAFT_LOG_INFO("Selected block size: %d, smem: %zu, sizeof(T): %zu", BlockSize, smem, sizeof(T));
-    nnls_lawson_batched_kernel<T, BlockSize>
-      <<<n_problems, BlockSize, smem, stream>>>(G, C, mv, X, max_iter, tol);
+    // The occupancy query is the definitive "can even one block be placed" test
+    // (mirroring cuVS IVF-PQ, which skips a candidate on `blocks_per_sm <= 0`).
+    // Because our smem is independent of the block size, a zero top-level
+    // occupancy means no block size can run, so it is a hard failure.
+    RAFT_EXPECTS(
+      plan.count > 0 && plan.steps[0].resident > 0,
+      "ML::Solver::nnlsBatched: no block of the Lawson kernel can be placed on an SM for "
+      "n=%d (dynamic shared memory %zu B exceeds the device per-block opt-in limit %zu B); "
+      "reduce n_cols or pick a different solver.",
+      n,
+      smem,
+      static_cast<std::size_t>(
+        raft::resource::get_device_properties(handle).sharedMemPerBlockOptin));
+    return plan;
   }
 };
 
 /** Dispatch a batched Lawson solve, choosing the block size from the kernel's
- *  occupancy and the batch size (see LawsonBlockDispatch). */
+ *  occupancy and the batch size (see LawsonBlockDispatch).  The per-`n` plan is
+ *  cached per-handle keyed by `n` alone, so the CUDA API calls behind it run
+ *  once per distinct `n`; the batch size `n_problems` then selects a plan step
+ *  by cheap arithmetic on every dispatch. */
 template <typename T>
 inline void nnls_lawson_batched_dispatch(
-  raft::resources const&                                               handle,
-  raft::device_matrix_view<const T, int, raft::col_major>              G,
-  raft::device_matrix_view<const T, int, raft::col_major>              C,
+  raft::resources const& handle,
+  raft::device_matrix_view<const T, int, raft::col_major> G,
+  raft::device_matrix_view<const T, int, raft::col_major> C,
   std::optional<raft::device_matrix_view<const std::uint8_t, int, raft::col_major>> masks,
-  raft::device_matrix_view<T, int, raft::col_major>                    X,
-  int                                                                  max_iter,
-  T                                                                    tol)
+  raft::device_matrix_view<T, int, raft::col_major> X,
+  int max_iter,
+  T tol)
 {
-  LawsonBlockDispatch<T>::start(handle, G, C, masks, X, max_iter, tol);
+  using MView = raft::device_matrix_view<const std::uint8_t, int, raft::col_major>;
+
+  const int n          = X.extent(0);
+  const int n_problems = X.extent(1);
+
+  auto& cache = raft::resource::get_custom_resource<lawson_kernel_cache<T>>(handle)->value;
+  lawson_plan<T> plan;
+  if (!cache.get(n, &plan)) {
+    // Cache miss: build the (CUDA-API-heavy) plan once for this `n` and memoise
+    // it.  On a hit no cudaFuncSetAttribute / occupancy query runs -- the smem
+    // attribute persists at CUDA-context scope from the cold path that populated
+    // the entry.
+    plan = LawsonBlockDispatch<T>::start(handle, n);
+    cache.set(n, plan);
+  }
+  const lawson_selected<T>& sel = plan.pick(n_problems);
+
+  cudaStream_t stream = raft::resource::get_cuda_stream(handle);
+  // Empty view => "all columns eligible" inside the kernel.
+  MView mv = masks.has_value() ? *masks : MView{};
+  sel.kernel<<<n_problems, sel.block_size, sel.smem, stream>>>(G, C, mv, X, max_iter, tol);
 }
 
 }  // namespace detail
