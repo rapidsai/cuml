@@ -96,13 +96,17 @@ raft::linalg::gemm(handle, At_view, B_view, C.view());
 | ------- | ------------------ | ----------------- | ------------ | -------------------------------------------------------------- |
 | `A`     | `(m, n)` col-major | `float64` typical | all problems | MSA: `(n_channels, n_signatures)`                              |
 | `B`     | `(m, P)`           | same              | —            | Target spectra; `b_index` selects column per problem in Python |
-| `G`     | `(n, n)`           | `T`               | all blocks   | Read-only in kernel                                            |
+| `G`     | `(n, n)`           | `T`               | all blocks   | Read-only in kernel, straight from global (L2-cached)          |
 | `C`     | `(n, P)`           | `T`               | —            | Block `p` reads column `p`                                     |
 | `masks` | `(n, P)` uint8     | —                 | —            | Optional; masked columns never enter active set                |
 | `X`     | `(n, P)`           | `T`               | —            | Output                                                         |
 
 
-**Key design choice:** `A` is never read inside the kernel. All work uses `G` and `c = C[:,p]`.
+**Key design choice:** `A` is never read inside the kernel; all work uses `G` and `c = C[:,p]`.
+`G` stays in **global memory** (never staged into shared) and is read directly — the whole
+grid shares it, so the L2 cache absorbs the reuse. Because the active-set Cholesky factor is
+maintained incrementally, each block touches `G` only once per outer iteration: the active
+columns for the projected gradient plus the single entering column for the factor append.
 
 ### 3.2 Inside One Block (Dynamic Shared Memory)
 
@@ -111,42 +115,45 @@ Layout from `lawson_smem_layout`:
 
 | Array                | Size           | Stored as                         | Role                                   |
 | -------------------- | -------------- | --------------------------------- | -------------------------------------- |
-| `G`                  | `n×n`          | `narrow_t<T>` (float if T=double) | Resident Gram matrix                   |
-| `Gp`                 | `n×n`          | `narrow_t<T>`                     | Active-submatrix + Cholesky factor `L` |
 | `c`                  | `n`            | `T`                               | RHS projection `Aᵀb`                   |
 | `x`                  | `n`            | `T`                               | Current solution                       |
-| `w`                  | `n`            | `T`                               | Gradient / dual residual `c − Gx`      |
-| `s`                  | `n`            | `T`                               | Trial solve + Cholesky RHS             |
-| `idx`                | `n`            | `int`                             | Compact active-set indices             |
-| `act`                | `n`            | `int8`                            | 1 = active, 0 = inactive               |
+| `w`                  | `n`            | `T`                               | Gradient / dual residual `c − Gx` (also removed-index scratch) |
+| `s`                  | `n`            | `T`                               | Trial solve + Cholesky RHS + downdate scratch |
 | `red_val`, `red_idx` | `WarpSize` each (contiguous) | scratch            | RAFT block-reduction scratch + scalar broadcast |
+| `idx`                | `n`            | `int`                             | Compact active-set indices             |
+| `Gp`                 | `n×n` (ld = n) | `narrow_t<T>` (float if T=double) | Incrementally-maintained Cholesky factor `L` |
+| `act`                | `n`            | `int8`                            | 1 = active, 0 = inactive               |
 
+The Gram matrix `G` is **not** in this list — it lives in global memory only.
 
-**Memory trick:** `G` and `Gp` are stored in float when `T=double`, roughly halving the
-dominant `2n²` smem footprint; arithmetic still accumulates in `T`.
+**Memory trick:** `Gp` (the factor `L`) is stored in float when `T=double`, halving its
+`n²` footprint; arithmetic still accumulates in `T`. `Gp` is placed after the wider `T`/`int`
+arrays and before the 1-byte `act[]` so its 4-byte float alignment holds without misaligning
+the `double` arrays (a `4·n²`-byte block is not a multiple of 8 for odd `n²`).
 
-**Typical smem (double, narrowed G/Gp):** ~36 KB for `n=65`, ~51 KB for `n=78` — fits in
-48–96 KB dynamic smem carveout.
+**Typical smem (double, narrowed L):** dropping the resident `G` array halves the dominant
+`2n²` term to `n²`, so the footprint is roughly half of the previous design (e.g. ~18 KB for
+`n=65`), leaving more room for larger `n` and/or higher occupancy under the 48–96 KB cap.
 
 ### 3.3 Per-Block Data Flow Diagram
 
 ```
 GLOBAL                          SHARED (one block)                    GLOBAL
 ──────                          ──────────────────                    ──────
-G[n,n]  ──load+narrow──►  S.G[n,n]  (resident, read many times)
+G[n,n]  (stays in global, L2-cached; read directly, never staged)
 C[:,p]  ──load──────────►  S.c[n]
 masks[:,p] ──view───────►  mask_col (read in argmax only)
 
 Each outer iter:
-  S.G, S.x ──matvec──► S.w[n]
-  S.w, S.act, mask ──reduce──► j_star
+  G[:,idx], S.x ──matvec (global read of active cols)──► S.w[n]
+  S.w, S.act, mask ──reduce──► j_star ; activate (idx, act, np++)
+  G[idx,j*] ──bordering append (one global column)──► extend S.Gp = L
 
-Each inner iter:
-  S.G, S.idx ──gather──► S.Gp[np,np]
+Each inner iter (no G reads):
   S.c, S.idx ──gather──► S.s[np] = c_P
-  S.Gp ──Cholesky──► L
-  S.s ──tri-solve──► s (unconstrained LS on P)
+  S.Gp = L ──tri-solve──► s (unconstrained LS on P)
   S.x, S.s ──line search──► updated S.x, S.act, S.idx
+  on prune: Givens downdate of S.Gp = L for the dropped columns
 
 S.x[n] ──store──────────► X[:,p]
 ```
@@ -170,20 +177,20 @@ INPUT: G, c, mask, tol, max_iter
 INIT: x ← 0, act ← 0, idx ← [], n_active ← 0
 
 FOR outer = 1 .. max_iter:
-    w ← c − G·x                          // projected gradient
+    w ← c − G·x                          // projected gradient (global, active cols only)
 
     (j*, w*) ← argmax{ w_j : act[j]=0 AND mask[j]≠0 }
     IF j* < 0 OR w* ≤ tol: BREAK         // optimal
 
     act[j*] ← 1; idx[n_active] ← j*; n_active++
+    L ← chol_append(L, G[idx, j*])       // bordering update; reads one global column
+    IF new pivot ≤ 0:                    // activation breaks positive-definiteness
+        undo j*; BREAK outer
 
-    FOR inner = 1 .. (3n+1):              // inner budget
+    FOR inner = 1 .. (3n+1):              // inner budget (no G reads)
         np ← n_active
-        G_P ← G[idx[0:np], idx[0:np]]     // gather to Gp
         c_P ← c[idx[0:np]]
-        s ← solve(G_P · s = c_P)        // Cholesky + triangular solve
-        IF Cholesky fails:
-            undo j*; BREAK outer
+        s ← solve(L L^T · s = c_P)      // triangular solve on the maintained factor
 
         IF min(s) > 0:                   // feasible unconstrained step
             x ← 0; x[idx] ← s
@@ -192,11 +199,10 @@ FOR outer = 1 .. max_iter:
         α ← min{ x_j / (x_j − s_j) : s_j ≤ 0, x_j − s_j > 0 }
         x[idx] ← x[idx] + α·(s − x[idx])
 
-        // Drop variables that hit zero
-        compact idx; act[j]=0 where x_j ≈ 0
+        // Drop variables that hit zero, then downdate the factor to match
+        compact idx; act[j]=0 where x_j ≈ 0; record removed local positions
+        L ← chol_downdate(L, removed positions)   // Givens delete, descending
         IF n_active = 0: BREAK inner
-
-    IF numerical failure flag: BREAK outer
 
 WRITE x to output
 ```
@@ -206,8 +212,6 @@ WRITE x to output
 #### Phase 1–2: Initialization (once per block)
 
 ```cpp
-for (int q = tid; q < n * n; q += BlockSize)
-  S.G[q] = static_cast<narrow_t<T>>(G.data_handle()[q]);
 for (int j = tid; j < n; j += BlockSize) {
   S.c[j]   = C(j, p);
   S.x[j]   = T(0);
@@ -215,24 +219,29 @@ for (int j = tid; j < n; j += BlockSize) {
 }
 ```
 
+`G` is **not** copied into shared memory; it is read directly from global memory where it is
+needed. There is no longer an `O(n²)` staging load.
 
-| Step                      | Parallelism                                         | Work                         |
-| ------------------------- | --------------------------------------------------- | ---------------------------- |
-| Load `G`                  | `tid` strides `q = tid, tid+BlockSize, …` over `n²` | Global → shared, narrow cast |
-| Load `c`, zero `x`, `act` | `tid` strides over `n`                              | One column of `C`            |
-| Init scalars              | `tid==0`                                            | `n_active=0`, flags          |
+
+| Step                      | Parallelism            | Work                |
+| ------------------------- | ---------------------- | ------------------- |
+| Load `c`, zero `x`, `act` | `tid` strides over `n` | One column of `C`   |
+| Init scalars              | `tid==0`               | `n_active=0`        |
 
 
 #### Phase 3: Outer Loop — Add a Column
 
-**Step 3a — Gradient** (parallel matvec per row):
+**Step 3a — Gradient** (`block_matvec_gradient`, parallel matvec per row):
 
 
-w_j = c_j - \sum_{k=0}^{n-1} G_{jk} x_k
+w_j = c_j - \sum_{kk=0}^{np-1} G_{j,\texttt{idx}[kk]}\, x_{\texttt{idx}[kk]}
 
 
-Each thread `tid` owns rows `j = tid, tid+BlockSize, …` and loops `k` over all `n` (serial
-inner loop per row — fine for small MSA `n`).
+`G` is read straight from global memory. Since `x` is zero outside the active set, only the
+`np` active columns contribute: each thread `tid` owns rows `j = tid, tid+BlockSize, …` and
+loops over the active columns `kk`. For a fixed active column the lanes stride over rows `j`,
+so consecutive lanes read consecutive (column-major) elements of `G` — a coalesced access,
+well served by L2 since the whole grid shares `G`.
 
 **Step 3b — Entering column** (`block_argmax_inactive`):
 
@@ -247,34 +256,32 @@ broadcast via `red_val[0]`, `red_idx[0]`.
 
 **Step 3c — Activate:** thread 0 sets `act[j*]=1`, appends `j`* to `idx`, increments `n_active`.
 
-#### Phase 4: Inner Loop — Solve on Current Active Set
+**Step 3d — Factor append** (`block_chol_append`, once per outer iteration):
 
-**Step 4a — Gather submatrix and RHS:**
-
-
-G_P[i,j] = G_{\texttt{idx}[i],\texttt{idx}[j]}, \qquad s_i = c_{\texttt{idx}[i]}
+Extend the lower Cholesky factor `L` (kept in `Gp`, leading dimension `n`) with the entering
+column, read directly from global `G`:
 
 
-Parallel over `np²` (gather) and `np` (RHS).
-
-**Step 4b — Cholesky** (`block_cholesky`):
-
-Factor G_P = LL^\top in-place in `Gp`, with Tikhonov regularization:
+a_{12}[i] = G_{\texttt{idx}[i],\,j^*},\quad l = L_{11}^{-1} a_{12},\quad L_{22} = \sqrt{a_{22} - l\cdot l}
 
 
-G_P(k,k) \leftarrow G_P(k,k) + \varepsilon, \quad \varepsilon = 10^{-7}\cdot\frac{\mathrm{tr}(G_P)}{n_p} (\text{float storage})
+This is a device analogue of `raft::linalg::choleskyRank1Update` (a host/cuBLAS routine, not
+callable inside a block). The trace-based Tikhonov term of the old from-scratch factorisation
+is replaced by a **per-pivot guard**: `\varepsilon = 10^{-7}` (float) / `10^{-14}` (double)
+times `a_{22}`, added before the `sqrt`. A non-positive pivot (`a_{22}+\varepsilon - l\cdot l
+\le 0`) means the activation breaks positive-definiteness — thread 0 rejects it (undo `j*`)
+and the outer loop stops, exactly reproducing the old Cholesky-failure behaviour.
 
+#### Phase 4: Inner Loop — Solve on Current Active Set (no `G` reads)
 
-Parallelism per pivot `k`:
+The factor `L` is already current, so the inner loop never touches `G`.
 
-- Thread 0: `sqrt` diagonal, broadcast via `red_val[0]`
-- All threads: scale column below diagonal
-- All threads: strided outer-product update on trailing block
+**Step 4a — RHS gather:** `s_i = c_{\texttt{idx}[i]}` (parallel over `np`).
 
-**Step 4c — Triangular solve** (`block_chol_solve`):
+**Step 4b — Triangular solve** (`block_chol_solve`):
 
-Solve G_P s = c_P via forward Ly=c_P and back L^\top s=y.
-
+Solve L L^\top s = c_P via forward Ly=c_P and back L^\top s=y, reading `L` from `Gp` with
+leading dimension `n` (only the `np × np` leading block is used, so no repacking is needed).
 Sequential in row index `i`, but each update row parallelizes over trailing/prior indices —
 standard small-n cooperative pattern.
 
@@ -301,13 +308,18 @@ Then:
 x_j \leftarrow x_j + \alpha(s_j - x_j) \quad \forall j \in P
 
 
-**Step 4f — Drop zeros from active set:**
+**Step 4f — Drop zeros and downdate the factor:**
 
 Thread 0 compacts `idx`, clearing `act[j]` and `x[j]` where x_j \le \varepsilon
-(`1e-15` double / `1e-12` float).
+(`1e-15` double / `1e-12` float), and records the removed **local** positions. The factor is
+then shrunk to match with `block_chol_delete_one` applied to each removed position in
+**descending** order (so lower-index deletions stay valid as `np` shrinks). Deleting an
+interior row/column reduces to a positive rank-1 Cholesky update of the trailing block by the
+below-diagonal part of the deleted column, applied with Givens rotations — no `G` read.
 
 **Inner exit conditions:** feasible solution found; `n_active==0`; inner budget `3n+1`
-exhausted; Cholesky failure (undo last add, break outer).
+exhausted. (The positive-definiteness check now lives in the Phase-3d append, not the inner
+loop.)
 
 #### Phase 5: Writeback
 
@@ -326,7 +338,7 @@ for (int j = tid; j < n; j += BlockSize)
 | **Optimality**       | \max_{j \in Z,\text{masked}} w_j \le \texttt{tol} | No inactive column wants weight; KKT satisfied |
 | **Outer cap**        | `outer == max_iter`                               | Default `max_iter = 3n+1` if unset             |
 | **Inner cap**        | `inner == 3n+1` per outer step                    | Prevents infinite inner cycling                |
-| **Cholesky failure** | non-positive pivot after regularization           | Undo last activation; stop outer               |
+| **Append failure**   | non-positive pivot in the factor append           | Undo last activation; stop outer               |
 | **Empty active set** | `n_active == 0` after binding                     | Degenerate; exit inner                         |
 
 
@@ -344,17 +356,17 @@ one signature remains.
 
 | Operation                | Threads do                                                    | Synchronization          |
 | ------------------------ | ------------------------------------------------------------- | ------------------------ |
-| Load `G`, init `c,x,act` | Strided `for (i=tid; i<N; i+=BlockSize)`                      | `__syncthreads`          |
-| Gradient `w = c - Gx`    | One row per strided thread; inner `k` loop serial             | `__syncthreads`          |
+| Init `c,x,act`           | Strided `for (i=tid; i<n; i+=BlockSize)`                      | `__syncthreads`          |
+| Gradient `w = c - Gx`    | One row per strided thread; inner loop over active cols of global `G` | `__syncthreads`  |
 | Argmax / min / min-α     | Local scan → `raft::blockRankedReduce` (min/max) / `raft::blockReduce` (count) | `__syncthreads` |
-| Gather `G_P`             | Strided over `np²`                                            | `__syncthreads`          |
-| Cholesky                 | Per-`k` pivot: t0 diag; parallel column scale + rank-1 update | `__syncthreads` each `k` |
+| Factor append            | Forward solve (t0 divide + parallel axpy) + block-reduced `l·l`; t0 pivot | `__syncthreads` |
 | Tri-solve                | Per row: t0 divide; parallel axpy                             | `__syncthreads` each row |
 | Line search update       | Strided over `np`                                             | `__syncthreads`          |
 | Compact active set       | Thread 0 only                                                 | `__syncthreads`          |
+| Factor downdate (prune)  | t0 compaction; per-pivot Givens (t0 rotation + parallel apply) | `__syncthreads` each `k` |
 
 
-**Occupancy trade-off:** larger `BlockSize` (1024) helps parallelize `n²` Cholesky updates;
+**Occupancy trade-off:** larger `BlockSize` (1024) helps parallelize `n²` factor updates;
 smaller blocks allow more concurrent problems when smem-bound or batch is huge
 (`LawsonBlockDispatch` targets `8 × resident_blocks ≥ n_problems`).
 
@@ -376,7 +388,7 @@ Symbols follow cuML (`m`, `n`, `P`) and MSA (`n_channels`, `n_signatures`, etc.)
 | `tol`               | kernel param                 | Dual residual threshold                   | **1e-6** (cuML default)                                                                                                        |
 | `inner_budget`      | `3*n+1`                      | Inner loop cap per outer step             | Same as default `max_iter`                                                                                                     |
 | `BlockSize`         | template param               | Threads per block                         | **1024** down to **32** (occupancy dispatch)                                                                                   |
-| `smem`              | `lawson_smem_bytes(n)`       | Dynamic shared memory / block             | **~36 KB** (`n=65`), **~51 KB** (`n=78`), **~1.5 KB** (`n=10`)                                                                 |
+| `smem`              | `lawson_smem_bytes(n)`       | Dynamic shared memory / block (one `n²` factor, G in global) | **~18 KB** (`n=65`), **~26 KB** (`n=78`), **~1 KB** (`n=10`)                                                 |
 | `chunk_size`        | `--gpu_batch_size`           | Max NNLS problems per `nnls_batched` call | **4096** (CLI default), **65536** (GPU batch in code)                                                                          |
 | `samples_per_group` | `chunk_size // n_sig`        | Samples grouped per greedy step           | **~63** for SBS-96 (`4096//65`), **~372** (`65536//65`)                                                                        |
 | `n_trials` / step   | `Σ active_sigs per sample`   | Leave-one-out problems per greedy step    | Roughly `**#active_samples × avg_active_sigs`** (≤ chunk)                                                                      |
