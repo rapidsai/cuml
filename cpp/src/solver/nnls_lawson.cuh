@@ -269,6 +269,14 @@ __device__ inline void block_matvec_gradient(
  * routine and so cannot be called from within a block.  `scratch` is O(np)
  * working space (the new column / row l).  The trace-based Tikhonov regulariser
  * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
+ *
+ * Called by the whole block: the a_12 gather from global memory uses every
+ * thread for full memory throughput; the sequential forward solve, l.l dot and
+ * pivot test then run on warp 0 alone (cheap `__syncwarp`/shuffle instead of
+ * block barriers), and a single closing `__syncthreads` publishes the extended
+ * factor and the pivot-ok flag (`red_val[0]`) to the block.  `scratch` is O(np)
+ * working space (the new column / row l).  The trace-based Tikhonov regulariser
+ * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
  */
 template <int BlockSize, typename GT, typename GG, typename T>
 __device__ inline bool block_chol_append(GT* L,
@@ -283,46 +291,46 @@ __device__ inline bool block_chol_append(GT* L,
   const int m      = np - 1;  // size of the existing factor L_11
   const int j_star = idx[np - 1];
 
-  // a_12[i] = G(idx[i], j_star)  (read from global memory).
+  // a_12[i] = G(idx[i], j_star): block-wide gather from global memory.
   for (int i = tid; i < m; i += BlockSize)
     scratch[i] = static_cast<T>(G(idx[i], j_star));
   __syncthreads();
 
-  // Forward solve L_11 l = a_12, in place in scratch.
-  for (int i = 0; i < m; ++i) {
-    if (tid == 0) {
-      red_val[0] = scratch[i] / static_cast<T>(L[i + i * ld]);
-      scratch[i] = red_val[0];
+  // Sequential factor extension on warp 0.
+  if (tid < raft::WarpSize) {
+    const int lane = tid;
+
+    // Forward solve L_11 l = a_12, in place in scratch (pivot folded into row i).
+    for (int i = 0; i < m; ++i) {
+      T y_i = scratch[i] / static_cast<T>(L[i + i * ld]);
+      __syncwarp();
+      for (int j = i + lane; j < m; j += raft::WarpSize)
+        scratch[j] = (j > i) ? scratch[j] - static_cast<T>(L[j + i * ld]) * y_i : y_i;
+      __syncwarp();
     }
-    __syncthreads();
-    T y_i = red_val[0];
-    for (int j = i + 1 + tid; j < m; j += BlockSize)
-      scratch[j] -= static_cast<T>(L[j + i * ld]) * y_i;
-    __syncthreads();
-  }
 
-  // Store l as the new row (np-1) of L and accumulate dot = l . l.
-  T thread_dot = T(0);
-  for (int j = tid; j < m; j += BlockSize) {
-    T lj                 = scratch[j];
-    L[(np - 1) + j * ld] = static_cast<GT>(lj);
-    thread_dot += lj * lj;
-  }
-  T dot = raft::blockReduce<T>(thread_dot, reinterpret_cast<char*>(red_val), raft::add_op{});
-  if (tid == 0) red_val[0] = dot;
-  __syncthreads();
-  dot = red_val[0];
+    // Store l as the new row (np-1) of L and accumulate dot = l . l on lane 0.
+    T thread_dot = T(0);
+    for (int j = lane; j < m; j += raft::WarpSize) {
+      T lj                 = scratch[j];
+      L[(np - 1) + j * ld] = static_cast<GT>(lj);
+      thread_dot += lj * lj;
+    }
+#pragma unroll
+    for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
+      thread_dot += __shfl_down_sync(0xffffffffu, thread_dot, off);
 
-  // New diagonal L_22 = sqrt(a_22 + eps - dot); reject a non-positive pivot.
-  if (tid == 0) {
-    T a22 = static_cast<T>(G(j_star, j_star));
-    T eps = (sizeof(GT) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
-    T d2  = a22 + eps - dot;
-    if (d2 > T(0)) {
-      L[(np - 1) + (np - 1) * ld] = static_cast<GT>(std::sqrt(d2));
-      red_val[0]                  = T(1);
-    } else {
-      red_val[0] = T(-1);
+    // New diagonal L_22 = sqrt(a_22 + eps - dot); reject a non-positive pivot.
+    if (lane == 0) {
+      const T a22 = static_cast<T>(G(j_star, j_star));
+      const T eps = (sizeof(GT) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
+      const T d2  = a22 + eps - thread_dot;
+      if (d2 > T(0)) {
+        L[(np - 1) + (np - 1) * ld] = static_cast<GT>(std::sqrt(d2));
+        red_val[0]                  = T(1);
+      } else {
+        red_val[0] = T(-1);
+      }
     }
   }
   __syncthreads();
@@ -339,58 +347,65 @@ __device__ inline bool block_chol_append(GT* L,
  *   M M^T = L33 L33^T + l3p l3p^T,
  * applied with a sequence of Givens rotations (Golub & Van Loan, "deleting a
  * column").  `v` is O(np) scratch holding l3p and the rotated residual.
+ *
+ * Called by the whole block, but the compaction and Givens sweep are inherently
+ * sequential, so they run on warp 0 alone with `__syncwarp`/shuffle; a single
+ * closing `__syncthreads` exposes the downdated factor to the block.  `v` is
+ * O(np) scratch holding l3p and the rotated residual.
  */
 template <int BlockSize, typename GT, typename T>
 __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
 {
-  __shared__ T rot[2];  // (c, s) rotation, broadcast from thread 0
-  const int tid = threadIdx.x;
-  const int q   = np - 1 - p;  // trailing block size
+  if (threadIdx.x < raft::WarpSize) {
+    const int lane = threadIdx.x;
+    const int q    = np - 1 - p;  // trailing block size
 
-  // Save l3p = L(p+1 : np-1, p) before the compaction overwrites column p.
-  for (int i = tid; i < q; i += BlockSize)
-    v[i] = static_cast<T>(L[(p + 1 + i) + p * ld]);
-  __syncthreads();
+    // Save l3p = L(p+1 : np-1, p) before the compaction overwrites column p.
+    for (int i = lane; i < q; i += raft::WarpSize)
+      v[i] = static_cast<T>(L[(p + 1 + i) + p * ld]);
+    __syncwarp();
 
-  // Compact: drop row p and column p.  The per-column row shifts move each
-  // destination from a not-yet-written source, so thread 0 performs them
-  // race-free (O(np^2) with small np); columns < p keep rows [0, p) in place.
-  if (tid == 0) {
-    for (int j = 0; j < np - 1; ++j) {
-      if (j < p) {
-        for (int i = p; i < np - 1; ++i)
-          L[i + j * ld] = L[(i + 1) + j * ld];
-      } else {
-        const int c = j + 1;
-        for (int i = j; i < np - 1; ++i)
-          L[i + j * ld] = L[(i + 1) + c * ld];
+    // Compact: drop row p and column p.  The per-column row shifts move each
+    // destination from a not-yet-written source, so lane 0 performs them
+    // race-free (O(np^2) with small np); columns < p keep rows [0, p) in place.
+    if (lane == 0) {
+      for (int j = 0; j < np - 1; ++j) {
+        if (j < p) {
+          for (int i = p; i < np - 1; ++i)
+            L[i + j * ld] = L[(i + 1) + j * ld];
+        } else {
+          const int c = j + 1;
+          for (int i = j; i < np - 1; ++i)
+            L[i + j * ld] = L[(i + 1) + c * ld];
+        }
       }
     }
+    __syncwarp();
+
+    // Positive rank-1 update of the trailing block (rows/cols p..np-2) by v.
+    for (int k = 0; k < q; ++k) {
+      T c = T(0), s = T(0);
+      if (lane == 0) {
+        T Lkk                     = static_cast<T>(L[(p + k) + (p + k) * ld]);
+        T vk                      = v[k];
+        T r                       = std::sqrt(Lkk * Lkk + vk * vk);
+        c                         = (r > T(0)) ? (Lkk / r) : T(1);
+        s                         = (r > T(0)) ? (vk / r) : T(0);
+        L[(p + k) + (p + k) * ld] = static_cast<GT>(r);
+      }
+      c = __shfl_sync(0xffffffffu, c, 0);
+      s = __shfl_sync(0xffffffffu, s, 0);
+      for (int t = k + 1 + lane; t < q; t += raft::WarpSize) {
+        const int row         = p + t;
+        T lik                 = static_cast<T>(L[row + (p + k) * ld]);
+        T vi                  = v[t];
+        L[row + (p + k) * ld] = static_cast<GT>(c * lik + s * vi);
+        v[t]                  = c * vi - s * lik;
+      }
+      __syncwarp();
+    }
   }
   __syncthreads();
-
-  // Positive rank-1 update of the trailing block (rows/cols p..np-2) by v.
-  for (int k = 0; k < q; ++k) {
-    if (tid == 0) {
-      T Lkk                     = static_cast<T>(L[(p + k) + (p + k) * ld]);
-      T vk                      = v[k];
-      T r                       = std::sqrt(Lkk * Lkk + vk * vk);
-      rot[0]                    = (r > T(0)) ? (Lkk / r) : T(1);  // c
-      rot[1]                    = (r > T(0)) ? (vk / r) : T(0);   // s
-      L[(p + k) + (p + k) * ld] = static_cast<GT>(r);
-    }
-    __syncthreads();
-    const T c = rot[0];
-    const T s = rot[1];
-    for (int t = k + 1 + tid; t < q; t += BlockSize) {
-      const int row         = p + t;
-      T lik                 = static_cast<T>(L[row + (p + k) * ld]);
-      T vi                  = v[t];
-      L[row + (p + k) * ld] = static_cast<GT>(c * lik + s * vi);
-      v[t]                  = c * vi - s * lik;
-    }
-    __syncthreads();
-  }
 }
 
 /**
@@ -400,43 +415,47 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
  * np x np leading block (lower triangle) is read, so the incrementally-updated
  * factor (fixed ld = n, current size np) can be solved without repacking.
  *
- * Both passes are sequential in the row index but parallel in the trailing
- * update, which is the standard cooperative pattern for small triangular solves.
+ * Called by the whole block: the substitution is sequential in the row index,
+ * so it runs on warp 0 alone with the cheap per-row `__syncwarp` (replacing the
+ * block barrier that dominated the kernel's stall profile), and a single closing
+ * `__syncthreads` publishes the solution to the block.  The RHS must already be
+ * visible (the caller syncs after gathering it).  The pivot divide is done
+ * redundantly by every lane; the `__syncwarp` between it and the in-place row
+ * update orders the read of `s[i]` before the lane that owns `j == i` overwrites
+ * it with the pivot.
  */
 template <int BlockSize, typename GT, typename T>
-__device__ inline void block_chol_solve(const GT* L, int ld, int np, T* s, T* red_val)
+__device__ inline void block_chol_solve(const GT* L, int ld, int np, T* s)
 {
-  const int tid = threadIdx.x;
-
   // L is stored narrowed (GT); the RHS/solution `s` stays at full precision T,
   // so factors are widened to T on read and the solve accumulates in T.
+  if (threadIdx.x < raft::WarpSize) {
+    const int lane = threadIdx.x;
 
-  // Forward solve: L y = s_rhs  ->  s holds y on exit.
-  for (int i = 0; i < np; ++i) {
-    if (tid == 0) {
-      red_val[0] = s[i] / static_cast<T>(L[i + i * ld]);
-      s[i]       = red_val[0];
+    // Forward solve: L y = s_rhs  ->  s holds y on exit.
+    for (int i = 0; i < np; ++i) {
+      T y_i = s[i] / static_cast<T>(L[i + i * ld]);
+      __syncwarp();
+      for (int j = i + lane; j < np; j += raft::WarpSize)
+        s[j] = (j > i) ? s[j] - static_cast<T>(L[j + i * ld]) * y_i : y_i;
+      __syncwarp();
     }
-    __syncthreads();
-    T y_i = red_val[0];
-    for (int j = i + 1 + tid; j < np; j += BlockSize)
-      s[j] -= static_cast<T>(L[j + i * ld]) * y_i;
-    __syncthreads();
-  }
 
-  // Back solve: L^T x = y  ->  s holds x on exit.
-  for (int i = np - 1; i >= 0; --i) {
-    if (tid == 0) {
-      red_val[0] = s[i] / static_cast<T>(L[i + i * ld]);
-      s[i]       = red_val[0];
+    // Back solve: L^T x = y  ->  s holds x on exit.  L^T[i,j] = L[j,i]; rows < i.
+    for (int i = np - 1; i >= 0; --i) {
+      T x_i = s[i] / static_cast<T>(L[i + i * ld]);
+      __syncwarp();
+      for (int j = lane; j <= i; j += raft::WarpSize)
+        s[j] = (j < i) ? s[j] - static_cast<T>(L[i + j * ld]) * x_i : x_i;
+      __syncwarp();
     }
-    __syncthreads();
-    T x_i = red_val[0];
-    for (int j = tid; j < i; j += BlockSize)
-      s[j] -= static_cast<T>(L[i + j * ld]) * x_i;  // L^T[i,j] = L[j,i]; rows < i
-    __syncthreads();
   }
+  __syncthreads();
 }
+
+
+template <int BlockSize>
+constexpr int min_block_count = std::clamp(1024/BlockSize, 1, 8);
 
 /**
  * Batched, masked Lawson-Hanson NNLS kernel -- the single solver kernel used
@@ -468,7 +487,7 @@ __device__ inline void block_chol_solve(const GT* L, int ld, int np, T* s, T* re
  * @param tol       optimality tolerance on the projected gradient.
  */
 template <typename T, int BlockSize>
-__global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
+__global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_lawson_batched_kernel(
   raft::device_matrix_view<const T, int, raft::col_major> G,
   raft::device_matrix_view<const T, int, raft::col_major> C,
   raft::device_matrix_view<const std::uint8_t, int, raft::col_major> masks,
@@ -548,7 +567,7 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
         S.s[jj] = S.c[S.idx[jj]];
       __syncthreads();
 
-      block_chol_solve<BlockSize>(L, n, np, S.s, S.red_val);
+      block_chol_solve<BlockSize>(L, n, np, S.s);
 
       block_min<T, BlockSize>(S.s, np, S.red_val);
       T min_s = S.red_val[0];
@@ -556,8 +575,8 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
         for (int j = tid; j < n; j += BlockSize)
           S.x[j] = T(0);
         __syncthreads();
-        for (int jj = tid; jj < np; jj += BlockSize)
-          S.x[S.idx[jj]] = S.s[jj];
+        for (int j = tid; j < np; j += BlockSize)
+          S.x[S.idx[j]] = S.s[j];
         __syncthreads();
         break;
       }
@@ -737,7 +756,7 @@ struct lawson_kernel_cache {
  * The result is a `lawson_plan<T>` (never launched), so the caller can cache it
  * per `n` and pick a step for any `n_problems` without repeating CUDA API calls.
  */
-template <typename T, int BlockSize = 32 * raft::WarpSize>
+template <typename T, int BlockSize = 4 * raft::WarpSize>
 struct LawsonBlockDispatch {
   // Append this block size to the plan, then -- if the (n_problems-independent)
   // occupancy gate allows -- the smaller ones.  `blocks_per_sm` is this level's
