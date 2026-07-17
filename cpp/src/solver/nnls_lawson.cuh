@@ -59,6 +59,8 @@ using narrow_t = typename Narrowing<T>::type;
  *   T   x[n]                   current solution
  *   T   w[n]                   gradient (also scratch for the removed-index list)
  *   T   s[n]                   trial solution (also RHS / downdate scratch)
+ *   T   y[n]                   forward-solve state L^-1 c_P (maintained
+ *                              incrementally; back-solved into s each iteration)
  *   T   red_val[WarpSize]      reduction scratch (also used to broadcast scalars)
  *   int red_idx[WarpSize]      reduction scratch (also used to broadcast scalars)
  *   int idx[n]                 compact list of active-set column indices
@@ -84,7 +86,7 @@ inline std::size_t lawson_smem_bytes(int n)
 {
   std::size_t bytes = 0;
   bytes += sizeof(narrow_t<T>) * static_cast<std::size_t>(n) * n;  // Gp (factor L)
-  bytes += sizeof(T) * static_cast<std::size_t>(n) * 4;            // c, x, w, s
+  bytes += sizeof(T) * static_cast<std::size_t>(n) * 5;            // c, x, w, s, y
   bytes += sizeof(T) * raft::WarpSize;                             // red_val
   bytes += sizeof(int) * raft::WarpSize;                           // red_idx
   bytes += sizeof(int) * static_cast<std::size_t>(n);              // idx
@@ -98,6 +100,7 @@ struct LawsonSmem {
   T* x;
   T* w;
   T* s;
+  T* y;
   T* red_val;
   int* red_idx;
   int* idx;
@@ -115,7 +118,8 @@ __device__ LawsonSmem<T> lawson_smem_layout(unsigned char* smem, int n)
   L.x       = L.c + n;
   L.w       = L.x + n;
   L.s       = L.w + n;
-  L.red_val = L.s + n;
+  L.y       = L.s + n;
+  L.red_val = L.y + n;
   // red_idx sits immediately after red_val so a single pointer (red_val) backs
   // raft::blockRankedReduce, which expects the index slots at &shbuf[WarpSize].
   L.red_idx = reinterpret_cast<int*>(L.red_val + raft::WarpSize);
@@ -277,6 +281,12 @@ __device__ inline void block_matvec_gradient(
  * factor and the pivot-ok flag (`red_val[0]`) to the block.  `scratch` is O(np)
  * working space (the new column / row l).  The trace-based Tikhonov regulariser
  * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
+ *
+ * The forward-solve state y = L^-1 c_P is extended in the same pass: the leading
+ * block of L and the prefix of c_P are unchanged, so y[0:m] is untouched and the
+ * only new component is y[m] = (c[j_star] - l . y[0:m]) / L_22 (for m == 0 this
+ * degenerates to c[j_star] / L_22).  It is written only when the pivot is
+ * accepted, so a rejected activation leaves y intact.
  */
 template <int BlockSize, typename GT, typename GG, typename T>
 __device__ inline bool block_chol_append(GT* L,
@@ -284,6 +294,8 @@ __device__ inline bool block_chol_append(GT* L,
                                          int np,
                                          raft::device_matrix_view<const GG, int, raft::col_major> G,
                                          const int* idx,
+                                         const T* c,
+                                         T* y,
                                          T* red_val,
                                          T* scratch)
 {
@@ -309,24 +321,31 @@ __device__ inline bool block_chol_append(GT* L,
       __syncwarp();
     }
 
-    // Store l as the new row (np-1) of L and accumulate dot = l . l on lane 0.
-    T thread_dot = T(0);
+    // Store l as the new row (np-1) of L; accumulate dot_ll = l . l and
+    // dot_ly = l . y[0:m] on lane 0 (the latter extends the forward-solve state).
+    T thread_dot_ll = T(0);
+    T thread_dot_ly = T(0);
     for (int j = lane; j < m; j += raft::WarpSize) {
       T lj                 = scratch[j];
       L[(np - 1) + j * ld] = static_cast<GT>(lj);
-      thread_dot += lj * lj;
+      thread_dot_ll += lj * lj;
+      thread_dot_ly += lj * y[j];
     }
 #pragma unroll
-    for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-      thread_dot += __shfl_down_sync(0xffffffffu, thread_dot, off);
+    for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
+      thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
+      thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
+    }
 
-    // New diagonal L_22 = sqrt(a_22 + eps - dot); reject a non-positive pivot.
+    // New diagonal L_22 = sqrt(a_22 + eps - dot_ll); reject a non-positive pivot.
     if (lane == 0) {
       const T a22 = static_cast<T>(G(j_star, j_star));
       const T eps = (sizeof(GT) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
-      const T d2  = a22 + eps - thread_dot;
+      const T d2  = a22 + eps - thread_dot_ll;
       if (d2 > T(0)) {
-        L[(np - 1) + (np - 1) * ld] = static_cast<GT>(std::sqrt(d2));
+        const T d                   = std::sqrt(d2);
+        L[(np - 1) + (np - 1) * ld] = static_cast<GT>(d);
+        y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
         red_val[0]                  = T(1);
       } else {
         red_val[0] = T(-1);
@@ -352,9 +371,16 @@ __device__ inline bool block_chol_append(GT* L,
  * sequential, so they run on warp 0 alone with `__syncwarp`/shuffle; a single
  * closing `__syncthreads` exposes the downdated factor to the block.  `v` is
  * O(np) scratch holding l3p and the rotated residual.
+ *
+ * The forward-solve state y = L^-1 c_P is downdated in lock-step: y[0:p] is
+ * unchanged, the deleted component y[p] is saved as the rotation partner, the
+ * trailing y[p+1:] is compacted into y[p:], and the same Givens (c,s) that
+ * retriangularise L are applied to (y[p+k], partner) so y stays L^-1 c_P for the
+ * shrunken active set.  These are scalar recurrences carried in a lane-0
+ * register, so they piggyback on the existing sweep at no extra sync cost.
  */
 template <int BlockSize, typename GT, typename T>
-__device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
+__device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* y, T* v)
 {
   if (threadIdx.x < raft::WarpSize) {
     const int lane = threadIdx.x;
@@ -368,7 +394,13 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
     // Compact: drop row p and column p.  The per-column row shifts move each
     // destination from a not-yet-written source, so lane 0 performs them
     // race-free (O(np^2) with small np); columns < p keep rows [0, p) in place.
+    // The forward-solve state y is compacted the same way (drop y[p], keeping
+    // y[p] as the initial Givens partner for the trailing sweep below).
+    T partner = T(0);
     if (lane == 0) {
+      partner = y[p];
+      for (int i = p; i < np - 1; ++i)
+        y[i] = y[i + 1];
       for (int j = 0; j < np - 1; ++j) {
         if (j < p) {
           for (int i = p; i < np - 1; ++i)
@@ -392,6 +424,12 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
         c                         = (r > T(0)) ? (Lkk / r) : T(1);
         s                         = (r > T(0)) ? (vk / r) : T(0);
         L[(p + k) + (p + k) * ld] = static_cast<GT>(r);
+        // Rotate the forward-solve state with the same (c,s): the trailing
+        // component y[p+k] pairs with the running partner just like L's
+        // column p+k pairs with the v-column.
+        T yk     = y[p + k];
+        y[p + k] = c * yk + s * partner;
+        partner  = c * partner - s * yk;
       }
       c = __shfl_sync(0xffffffffu, c, 0);
       s = __shfl_sync(0xffffffffu, s, 0);
@@ -409,37 +447,35 @@ __device__ inline void block_chol_delete_one(GT* L, int ld, int np, int p, T* v)
 }
 
 /**
- * Forward + back substitution for the system L L^T s = s_rhs.  The right-hand
- * side is provided in `s` and overwritten with the solution.  L is the lower
- * triangular factor stored column-major with leading dimension `ld`; only the
- * np x np leading block (lower triangle) is read, so the incrementally-updated
- * factor (fixed ld = n, current size np) can be solved without repacking.
+ * Back substitution for the system L^T s = y, where y = L^-1 c_P is the
+ * incrementally-maintained forward-solve state.  This completes the solve of
+ * L L^T s = c_P: because the forward half is kept up to date across appends and
+ * downdates, each inner iteration only needs this back pass (half the sequential
+ * depth of a full forward+back solve).  L is the lower triangular factor stored
+ * column-major with leading dimension `ld`; only the np x np leading block
+ * (lower triangle) is read, so the incrementally-updated factor (fixed ld = n,
+ * current size np) can be solved without repacking.  `y` is left intact (it must
+ * survive into the next iteration); the solution is written to `s`.
  *
- * Called by the whole block: the substitution is sequential in the row index,
- * so it runs on warp 0 alone with the cheap per-row `__syncwarp` (replacing the
- * block barrier that dominated the kernel's stall profile), and a single closing
- * `__syncthreads` publishes the solution to the block.  The RHS must already be
- * visible (the caller syncs after gathering it).  The pivot divide is done
- * redundantly by every lane; the `__syncwarp` between it and the in-place row
- * update orders the read of `s[i]` before the lane that owns `j == i` overwrites
- * it with the pivot.
+ * Called by the whole block: the block first copies y -> s (coalesced), then the
+ * sequential substitution runs on warp 0 alone with the cheap per-row
+ * `__syncwarp` (replacing the block barrier that dominated the kernel's stall
+ * profile), and a single closing `__syncthreads` publishes the solution to the
+ * block.  The pivot divide is done redundantly by every lane; the `__syncwarp`
+ * between it and the in-place row update orders the read of `s[i]` before the
+ * lane that owns `j == i` overwrites it with the pivot.
  */
 template <int BlockSize, typename GT, typename T>
-__device__ inline void block_chol_solve(const GT* L, int ld, int np, T* s)
+__device__ inline void block_chol_backsolve(const GT* L, int ld, int np, const T* y, T* s)
 {
-  // L is stored narrowed (GT); the RHS/solution `s` stays at full precision T,
-  // so factors are widened to T on read and the solve accumulates in T.
+  // L is stored narrowed (GT); the state/solution stays at full precision T, so
+  // factors are widened to T on read and the solve accumulates in T.
+  for (int j = threadIdx.x; j < np; j += BlockSize)
+    s[j] = y[j];
+  __syncthreads();
+
   if (threadIdx.x < raft::WarpSize) {
     const int lane = threadIdx.x;
-
-    // Forward solve: L y = s_rhs  ->  s holds y on exit.
-    for (int i = 0; i < np; ++i) {
-      T y_i = s[i] / static_cast<T>(L[i + i * ld]);
-      __syncwarp();
-      for (int j = i + lane; j < np; j += raft::WarpSize)
-        s[j] = (j > i) ? s[j] - static_cast<T>(L[j + i * ld]) * y_i : y_i;
-      __syncwarp();
-    }
 
     // Back solve: L^T x = y  ->  s holds x on exit.  L^T[i,j] = L[j,i]; rows < i.
     for (int i = np - 1; i >= 0; --i) {
@@ -470,6 +506,11 @@ constexpr int min_block_count = std::clamp(1024/BlockSize, 1, 8);
  * downdates (block_chol_delete_one).  Consequently G is read only once per outer
  * iteration -- the active columns for the projected gradient plus the single new
  * column for the append -- and never re-gathered inside the inner loop.
+ *
+ * The forward-solve state y = L^-1 c_P is maintained alongside L (extended by
+ * block_chol_append, downdated by block_chol_delete_one), so the inner line
+ * search only runs a back substitution (block_chol_backsolve) to get the trial
+ * solution s = L^-T y instead of a full forward+back solve each iteration.
  *
  * A "non-batched" solve is simply the P == 1, empty-`masks` case: the caller
  * forms G and C = A^T b once with cuBLAS and launches this kernel with a single
@@ -549,7 +590,8 @@ __global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_la
     // Incremental bordering append: extend L with the new column read from
     // global G.  A non-positive pivot means the activation is rejected -> undo
     // it and stop the outer loop (matches the old Cholesky-failure behaviour).
-    bool ok = block_chol_append<BlockSize>(L, n, sm_n_active, G, S.idx, S.red_val, S.s);
+    bool ok =
+      block_chol_append<BlockSize>(L, n, sm_n_active, G, S.idx, S.c, S.y, S.red_val, S.s);
     if (!ok) {
       if (tid == 0) {
         sm_n_active      = sm_n_active - 1;
@@ -562,12 +604,9 @@ __global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_la
     for (int inner = 0; inner < inner_budget_total; ++inner) {
       const int np = sm_n_active;
 
-      // RHS c_P = c[idx]; solve L L^T s = c_P on the current factor.
-      for (int jj = tid; jj < np; jj += BlockSize)
-        S.s[jj] = S.c[S.idx[jj]];
-      __syncthreads();
-
-      block_chol_solve<BlockSize>(L, n, np, S.s);
+      // Complete the solve L L^T s = c_P using the incrementally-maintained
+      // forward-solve state y = L^-1 c_P: only the back substitution is needed.
+      block_chol_backsolve<BlockSize>(L, n, np, S.y, S.s);
 
       block_min<T, BlockSize>(S.s, np, S.red_val);
       T min_s = S.red_val[0];
@@ -620,7 +659,7 @@ __global__ __launch_bounds__(BlockSize, min_block_count<BlockSize>) void nnls_la
       // earlier (lower-index) deletions stay valid as np shrinks.
       int cur_np = np;
       for (int r = sm_n_removed - 1; r >= 0; --r) {
-        block_chol_delete_one<BlockSize>(L, n, cur_np, rem[r], S.s);
+        block_chol_delete_one<BlockSize>(L, n, cur_np, rem[r], S.y, S.s);
         --cur_np;
       }
       if (tid == 0) sm_n_active = sm_new_n;

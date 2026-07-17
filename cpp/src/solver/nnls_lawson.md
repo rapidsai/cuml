@@ -130,7 +130,8 @@ Layout from `lawson_smem_layout`:
 | `c`                  | `n`            | `T`                               | RHS projection `Aᵀb`                   |
 | `x`                  | `n`            | `T`                               | Current solution                       |
 | `w`                  | `n`            | `T`                               | Gradient / dual residual `c − Gx` (also removed-index scratch) |
-| `s`                  | `n`            | `T`                               | Trial solve + Cholesky RHS + downdate scratch |
+| `s`                  | `n`            | `T`                               | Trial solve output + append/downdate scratch |
+| `y`                  | `n`            | `T`                               | Forward-solve state `L⁻¹ c_P` (maintained incrementally) |
 | `red_val`, `red_idx` | `WarpSize` each (contiguous) | scratch            | RAFT block-reduction scratch + scalar broadcast |
 | `idx`                | `n`            | `int`                             | Compact active-set indices             |
 | `Gp`                 | `n×n` (ld = n) | `narrow_t<T>` (float if T=double) | Incrementally-maintained Cholesky factor `L` |
@@ -161,12 +162,12 @@ Each outer iter:
   G[:,idx], S.x ──matvec (global read of active cols)──► S.w[n]
   S.w, S.act, mask ──reduce──► j_star ; activate (idx, act, np++)
   G[idx,j*] ──bordering append (one global column)──► extend S.Gp = L
+                                                  └► extend S.y = L⁻¹ c_P
 
 Each inner iter (no G reads):
-  S.c, S.idx ──gather──► S.s[np] = c_P
-  S.Gp = L ──tri-solve──► s (unconstrained LS on P)
+  S.Gp = L, S.y ──back-solve L^T s = y──► s (unconstrained LS on P)
   S.x, S.s ──line search──► updated S.x, S.act, S.idx
-  on prune: Givens downdate of S.Gp = L for the dropped columns
+  on prune: Givens downdate of S.Gp = L AND S.y for the dropped columns
 
 S.x[n] ──store──────────► X[:,p]
 ```
@@ -196,14 +197,14 @@ FOR outer = 1 .. max_iter:
     IF j* < 0 OR w* ≤ tol: BREAK         // optimal
 
     act[j*] ← 1; idx[n_active] ← j*; n_active++
-    L ← chol_append(L, G[idx, j*])       // bordering update; reads one global column
+    L, y ← chol_append(L, y, G[idx, j*], c[j*])  // bordering update; reads one global
+                                                 // column, extends y = L⁻¹ c_P
     IF new pivot ≤ 0:                    // activation breaks positive-definiteness
         undo j*; BREAK outer
 
     FOR inner = 1 .. (3n+1):              // inner budget (no G reads)
         np ← n_active
-        c_P ← c[idx[0:np]]
-        s ← solve(L L^T · s = c_P)      // triangular solve on the maintained factor
+        s ← backsolve(L^T · s = y)      // only the back pass; forward state y is current
 
         IF min(s) > 0:                   // feasible unconstrained step
             x ← 0; x[idx] ← s
@@ -212,9 +213,9 @@ FOR outer = 1 .. max_iter:
         α ← min{ x_j / (x_j − s_j) : s_j ≤ 0, x_j − s_j > 0 }
         x[idx] ← x[idx] + α·(s − x[idx])
 
-        // Drop variables that hit zero, then downdate the factor to match
+        // Drop variables that hit zero, then downdate factor AND forward state to match
         compact idx; act[j]=0 where x_j ≈ 0; record removed local positions
-        L ← chol_downdate(L, removed positions)   // Givens delete, descending
+        L, y ← chol_downdate(L, y, removed positions)   // Givens delete, descending
         IF n_active = 0: BREAK inner
 
 WRITE x to output
@@ -285,18 +286,25 @@ times `a_{22}`, added before the `sqrt`. A non-positive pivot (`a_{22}+\varepsil
 \le 0`) means the activation breaks positive-definiteness — thread 0 rejects it (undo `j*`)
 and the outer loop stops, exactly reproducing the old Cholesky-failure behaviour.
 
+The same pass **extends the forward-solve state** `y = L⁻¹ c_P`: the leading block of `L` and
+the prefix of `c_P` are unchanged, so only the new component is added,
+`y_{np-1} = (c_{j^*} - l\cdot y)/L_{22}` (the `l·y` dot rides along the `l·l` reduction). It is
+written only when the pivot is accepted, so a rejected activation leaves `y` intact.
+
 #### Phase 4: Inner Loop — Solve on Current Active Set (no `G` reads)
 
-The factor `L` is already current, so the inner loop never touches `G`.
+The factor `L` and the forward-solve state `y = L⁻¹ c_P` are already current, so the inner loop
+never touches `G` and never re-runs the forward substitution.
 
-**Step 4a — RHS gather:** `s_i = c_{\texttt{idx}[i]}` (parallel over `np`).
+**Step 4b — Back substitution** (`block_chol_backsolve`):
 
-**Step 4b — Triangular solve** (`block_chol_solve`):
-
-Solve L L^\top s = c_P via forward Ly=c_P and back L^\top s=y, reading `L` from `Gp` with
-leading dimension `n` (only the `np × np` leading block is used, so no repacking is needed).
-Sequential in row index `i`, but each update row parallelizes over trailing/prior indices —
-standard small-n cooperative pattern.
+The full solve is L L^\top s = c_P. Because the forward half `y = L⁻¹ c_P` is maintained
+incrementally (extended on append, downdated on prune), the inner loop only needs the **back
+pass** L^\top s = y, reading `L` from `Gp` with leading dimension `n` (only the `np × np`
+leading block is used, so no repacking is needed). The block first copies `y → s`, then a
+single warp runs the sequential substitution with per-row `__syncwarp`; `y` is left intact for
+the next iteration. This halves the sequential depth of the old forward+back solve, which
+dominated the kernel's barrier-stall profile.
 
 **Step 4d — Feasibility test:**
 
@@ -328,7 +336,11 @@ Thread 0 compacts `idx`, clearing `act[j]` and `x[j]` where x_j \le \varepsilon
 then shrunk to match with `block_chol_delete_one` applied to each removed position in
 **descending** order (so lower-index deletions stay valid as `np` shrinks). Deleting an
 interior row/column reduces to a positive rank-1 Cholesky update of the trailing block by the
-below-diagonal part of the deleted column, applied with Givens rotations — no `G` read.
+below-diagonal part of the deleted column, applied with Givens rotations — no `G` read. The
+**forward-solve state `y` is downdated in lock-step**: `y[0:p]` is unchanged, the deleted
+`y[p]` becomes the initial Givens partner, the trailing `y` is compacted, and the same
+rotations `(c,s)` that retriangularise `L` are applied to `(y[p+k], partner)`, so `y` stays
+`L⁻¹ c_P` for the shrunken set at no extra sync cost.
 
 **Inner exit conditions:** feasible solution found; `n_active==0`; inner budget `3n+1`
 exhausted. (The positive-definiteness check now lives in the Phase-3d append, not the inner
@@ -372,11 +384,11 @@ one signature remains.
 | Init `c,x,act`           | Strided `for (i=tid; i<n; i+=BlockSize)`                      | `__syncthreads`          |
 | Gradient `w = c - Gx`    | One row per strided thread; inner loop over active cols of global `G` | `__syncthreads`  |
 | Argmax / min / min-α     | Local scan → `raft::blockRankedReduce` (min/max) / `raft::blockReduce` (count) | `__syncthreads` |
-| Factor append            | Forward solve (t0 divide + parallel axpy) + block-reduced `l·l`; t0 pivot | `__syncthreads` |
-| Tri-solve                | Per row: t0 divide; parallel axpy                             | `__syncthreads` each row |
+| Factor append + `y` ext  | Warp-0 forward solve (`__syncwarp`) + shuffle-reduced `l·l`, `l·y`; lane0 pivot & `y[np-1]` | `__syncthreads` (open+close) |
+| Back-solve (`Lᵀs = y`)   | Block copy `y→s`; warp-0 back substitution (`__syncwarp` per row) | `__syncthreads` (open+close) |
 | Line search update       | Strided over `np`                                             | `__syncthreads`          |
 | Compact active set       | Thread 0 only                                                 | `__syncthreads`          |
-| Factor downdate (prune)  | t0 compaction; per-pivot Givens (t0 rotation + parallel apply) | `__syncthreads` each `k` |
+| Factor + `y` downdate    | Warp-0 compaction; per-pivot Givens on `L` (lane0 rotation + warp apply) and `y` (lane0) | `__syncthreads` (open+close) |
 
 
 **Occupancy trade-off:** larger `BlockSize` (1024) helps parallelize `n²` factor updates;
