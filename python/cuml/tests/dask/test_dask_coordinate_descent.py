@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numpy as np
@@ -207,3 +207,32 @@ def test_max_iter_n_iter(cls, client):
 
     model = cls(max_iter=2, client=client).fit(X, y)
     assert model.solver.n_iter_ == 2
+    assert model.n_iter_ == model.solver.n_iter_
+
+
+@pytest.mark.parametrize("cls", [ElasticNet, Lasso])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_cd_fitted_attributes(cls, dtype, client):
+    X, y = make_regression(
+        n_samples=500,
+        n_features=20,
+        n_parts=10,
+        n_informative=10,
+        client=client,
+        dtype=dtype,
+    )
+
+    model = cls(max_iter=2, client=client)
+    for attr in ("coef_", "intercept_", "n_iter_"):
+        with pytest.raises(AttributeError):
+            getattr(model, attr)
+
+    model.fit(X, y)
+
+    assert model.coef_ is not None
+    assert model.intercept_ is not None
+    assert model.n_iter_ is not None
+    assert model.coef_.shape == model.solver.coef_.shape
+    assert type(model.coef_) is type(model.solver.coef_)
+    assert type(model.intercept_) is type(model.solver.intercept_)
+    assert model.n_iter_ == model.solver.n_iter_

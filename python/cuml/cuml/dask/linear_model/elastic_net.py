@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -94,6 +94,18 @@ class ElasticNet(BaseEstimator):
         """
         self.solver.fit(X, y)
         return self
+
+    @property
+    def coef_(self):
+        return self.solver.coef_
+
+    @property
+    def intercept_(self):
+        return self.solver.intercept_
+
+    @property
+    def n_iter_(self):
+        return self.solver.n_iter_
 
     def predict(self, X, delayed=True):
         """

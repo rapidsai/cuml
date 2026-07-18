@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -62,8 +62,20 @@ def test_ridge(
     X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
     lr = cumlRidge_dask(alpha=0.5, fit_intercept=fit_intercept)
+    for attr in ("coef_", "intercept_"):
+        with pytest.raises(AttributeError):
+            getattr(lr, attr)
 
     lr.fit(X_df, y_df)
+
+    internal_model = lr.get_combined_model()
+    assert lr.coef_ is not None
+    assert lr.intercept_ is not None
+    assert lr.coef_.shape == internal_model.coef_.shape
+    if hasattr(lr.intercept_, "shape"):
+        assert lr.intercept_.shape == internal_model.intercept_.shape
+    assert type(lr.coef_) is type(internal_model.coef_)
+    assert type(lr.intercept_) is type(internal_model.intercept_)
 
     ret = lr.predict(X_df, delayed=delayed)
 
