@@ -4,10 +4,49 @@
 import numpy as np
 import pytest
 
+import cuml
 from cuml.dask.datasets import make_regression
 from cuml.dask.linear_model import ElasticNet, Lasso
 from cuml.metrics import r2_score
-from cuml.testing.utils import quality_param, stress_param, unit_param
+from cuml.testing.utils import (
+    as_numpy,
+    quality_param,
+    stress_param,
+    unit_param,
+)
+
+
+def _as_numpy_array(value):
+    return np.asarray(as_numpy(value))
+
+
+def _assert_cd_fitted_attrs_match_solver(model, dtype):
+    coef = model.coef_
+    intercept = model.intercept_
+    n_iter = model.n_iter_
+    solver_coef = model.solver.coef_
+    solver_intercept = model.solver.intercept_
+
+    coef_np = _as_numpy_array(coef)
+    intercept_np = _as_numpy_array(intercept)
+
+    assert coef is not None
+    assert intercept is not None
+    assert n_iter is not None
+    assert coef_np.dtype == dtype
+    if not np.isscalar(intercept):
+        assert intercept_np.dtype == dtype
+    assert coef_np.shape == (20,)
+    assert intercept_np.shape in ((), (1,))
+    assert isinstance(n_iter, (int, np.integer))
+    np.testing.assert_allclose(coef_np, _as_numpy_array(solver_coef))
+    np.testing.assert_allclose(intercept_np, _as_numpy_array(solver_intercept))
+    assert n_iter == model.solver.n_iter_
+
+    with cuml.using_output_type("numpy"):
+        assert isinstance(model.coef_, np.ndarray)
+        np.testing.assert_allclose(model.coef_, model.solver.coef_)
+        np.testing.assert_allclose(model.intercept_, model.solver.intercept_)
 
 
 @pytest.mark.mg
@@ -222,17 +261,17 @@ def test_cd_fitted_attributes(cls, dtype, client):
         dtype=dtype,
     )
 
-    model = cls(max_iter=2, client=client)
+    model = cls(alpha=np.array([0.001]), max_iter=2, client=client)
     for attr in ("coef_", "intercept_", "n_iter_"):
         with pytest.raises(AttributeError):
             getattr(model, attr)
 
     model.fit(X, y)
 
-    assert model.coef_ is not None
-    assert model.intercept_ is not None
-    assert model.n_iter_ is not None
-    assert model.coef_.shape == model.solver.coef_.shape
-    assert type(model.coef_) is type(model.solver.coef_)
-    assert type(model.intercept_) is type(model.solver.intercept_)
-    assert model.n_iter_ == model.solver.n_iter_
+    _assert_cd_fitted_attrs_match_solver(model, dtype)
+    first_coef = _as_numpy_array(model.coef_).copy()
+
+    model.fit(X, -y)
+
+    _assert_cd_fitted_attrs_match_solver(model, dtype)
+    assert not np.allclose(_as_numpy_array(model.coef_), first_coef)
