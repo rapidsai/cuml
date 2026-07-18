@@ -299,14 +299,24 @@ def infer_output_type(array, array_like="numpy"):
 
 def _is_object_dtype(res):
     """Check for NumPy object dtype on an array-like or dataframe-like."""
+    dtype = getattr(res, "dtype", None)
+    if dtype is not None:
+        # Array-like or Series: a single (possibly extension) dtype. Only a
+        # plain numpy object dtype has no device representation; extension
+        # dtypes are a separate, unsupported case handled elsewhere.
+        return isinstance(dtype, np.dtype) and dtype.kind == "O"
+
     dtypes = getattr(res, "dtypes", None)
     if dtypes is not None:
-        return any(
-            isinstance(dtype, np.dtype) and dtype.kind == "O"
-            for dtype in dtypes
-        )
-    dtype = getattr(res, "dtype", None)
-    return isinstance(dtype, np.dtype) and dtype.kind == "O"
+        # DataFrame-like: dtypes is per-column.
+        try:
+            return any(
+                isinstance(dt, np.dtype) and dt.kind == "O" for dt in dtypes
+            )
+        except TypeError:
+            return False
+
+    return False
 
 
 class ArrayIndexPair:

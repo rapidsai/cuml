@@ -12,14 +12,11 @@ def _get_mask(X, value_to_mask):
     if isinstance(value_to_mask, str) and value_to_mask == "NaN":
         xp = cp.get_array_module(X)
         return xp.isnan(X)
-    try:
-        # NaN-like sentinels (np.nan, None, pd.NA, pd.NaT, ...) require an
-        # NA-aware comparison: a plain `==` against e.g. pd.NA propagates
-        # instead of returning a boolean mask, and `cp.isnan` doesn't accept
-        # non-numeric scalars like pd.NA in the first place.
-        is_na_sentinel = pd.isna(value_to_mask)
-    except (TypeError, ValueError):
-        is_na_sentinel = False
+    # NaN-like sentinels (np.nan, None, pd.NA, pd.NaT, ...) require an
+    # NA-aware comparison: a plain `==` against e.g. pd.NA propagates
+    # instead of returning a boolean mask, and `cp.isnan` doesn't accept
+    # non-numeric scalars like pd.NA in the first place.
+    is_na_sentinel = pd.isna(value_to_mask)
     if is_na_sentinel:
         if isinstance(X, cp.ndarray):
             return cp.isnan(X)

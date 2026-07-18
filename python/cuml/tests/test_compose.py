@@ -434,3 +434,40 @@ def test_column_transformer_simple_imputer_categorical_cudf():
     sk_result = sk_transformer.fit_transform(df_np)
 
     np.testing.assert_array_equal(np.asarray(cu_result), sk_result)
+
+
+def test_simple_imputer_add_indicator_object_cudf():
+    """Regression: SimpleImputer(add_indicator=True) on string/object columns
+    must stack the imputed (host object) data with the indicator mask on host
+    instead of routing the host array through cupy.hstack (issue #6183 follow-up).
+    """
+    df = cudf.DataFrame(
+        {
+            "cat1": ["a", None, "c", "a"],
+            "cat2": ["x", "y", None, "x"],
+        }
+    )
+    df_np = df.to_pandas()
+    cu_imp = cuSimpleImputer(
+        strategy="most_frequent", missing_values=pd.NA, add_indicator=True
+    )
+    sk_imp = skSimpleImputer(
+        strategy="most_frequent", missing_values=pd.NA, add_indicator=True
+    )
+
+    cu_result = cu_imp.fit_transform(df)
+    sk_result = sk_imp.fit_transform(df_np)
+
+    np.testing.assert_array_equal(np.asarray(cu_result), np.asarray(sk_result))
+
+
+def test_is_object_dtype_handles_series_and_extension_dtypes():
+    from cuml.internals.outputs import _is_object_dtype
+
+    assert _is_object_dtype(pd.Series(["a", "b"])) is True
+    assert _is_object_dtype(pd.Series([1, 2, 3])) is False
+    assert _is_object_dtype(pd.Series(pd.Categorical(["a", "b"]))) is False
+    assert _is_object_dtype(pd.Series(["a"], dtype="string")) is False
+    assert _is_object_dtype(pd.DataFrame({"a": ["x"], "b": [1]})) is True
+    assert _is_object_dtype(np.array(["a", "b"], dtype=object)) is True
+    assert _is_object_dtype(np.array([1, 2, 3])) is False
