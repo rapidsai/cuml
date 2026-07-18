@@ -28,19 +28,17 @@ def _assert_cd_fitted_attrs_match_solver(model, dtype):
     solver_coef = model.solver.coef_
     solver_intercept = model.solver.intercept_
 
-    coef_np = _as_numpy_array(coef)
-    intercept_np = _as_numpy_array(intercept)
-
     assert coef is not None
     assert intercept is not None
     assert n_iter is not None
     assert isinstance(coef, cp.ndarray)
     assert np.isscalar(intercept)
+
+    coef_np = _as_numpy_array(coef)
+    intercept_np = _as_numpy_array(intercept)
+
     assert coef_np.dtype == dtype
-    if not np.isscalar(intercept):
-        assert intercept_np.dtype == dtype
     assert coef_np.shape == (20,)
-    assert intercept_np.shape in ((), (1,))
     assert isinstance(n_iter, (int, np.integer))
     np.testing.assert_allclose(coef_np, _as_numpy_array(solver_coef))
     np.testing.assert_allclose(intercept_np, _as_numpy_array(solver_intercept))
@@ -48,6 +46,7 @@ def _assert_cd_fitted_attrs_match_solver(model, dtype):
 
     with cuml.using_output_type("numpy"):
         assert isinstance(model.coef_, np.ndarray)
+        assert np.isscalar(model.intercept_)
         np.testing.assert_allclose(model.coef_, model.solver.coef_)
         np.testing.assert_allclose(model.intercept_, model.solver.intercept_)
 

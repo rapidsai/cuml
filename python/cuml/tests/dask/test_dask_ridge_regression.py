@@ -27,34 +27,26 @@ def _assert_ridge_fitted_attrs_match_model(
     coef = model.coef_
     intercept = model.intercept_
 
-    coef_np = _as_numpy_array(coef)
-    intercept_np = _as_numpy_array(intercept)
-
     assert coef is not None
     assert intercept is not None
     assert isinstance(coef, cudf.Series)
+    assert np.isscalar(intercept)
+
+    coef_np = _as_numpy_array(coef)
+
     assert coef_np.dtype == datatype
     assert coef_np.shape == (ncols,)
     np.testing.assert_allclose(coef_np, _as_numpy_array(internal_model.coef_))
-    np.testing.assert_allclose(
-        intercept_np, _as_numpy_array(internal_model.intercept_)
-    )
+    assert intercept == internal_model.intercept_
 
-    if fit_intercept:
-        assert isinstance(intercept, cudf.Series)
-        assert intercept_np.dtype == datatype
-        assert intercept_np.shape == (1,)
-    else:
-        assert np.isscalar(intercept)
-        assert intercept_np.shape == ()
-        assert intercept_np.item() == 0.0
+    if not fit_intercept:
+        assert intercept == 0.0
 
     with cuml.using_output_type("numpy"):
         assert isinstance(model.coef_, np.ndarray)
+        assert np.isscalar(model.intercept_)
         np.testing.assert_allclose(model.coef_, internal_model.coef_)
-        np.testing.assert_allclose(model.intercept_, internal_model.intercept_)
-        if fit_intercept:
-            assert isinstance(model.intercept_, np.ndarray)
+        assert model.intercept_ == internal_model.intercept_
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
