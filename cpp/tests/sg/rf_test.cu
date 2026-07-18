@@ -37,7 +37,7 @@
 #include <decisiontree/batched-levelalgo/objectives.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <gtest/gtest.h>
-#include <nvforest/detail/raft_proto/device_type.hpp>
+#include <nvforest/device_type.hpp>
 #include <nvforest/infer_kind.hpp>
 #include <nvforest/tree_layout.hpp>
 #include <nvforest/treelite_importer.hpp>
@@ -257,7 +257,7 @@ std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               std::is_same_v<DataT, double>,
-                                                              raft_proto::device_type::gpu,
+                                                              nvforest::device_type::gpu,
                                                               handle.get_device(),
                                                               handle.get_next_usable_stream());
   handle.sync_stream();
@@ -268,8 +268,8 @@ std::shared_ptr<thrust::device_vector<LabelT>> nvForestPredict(
                          workspace->data().get(),
                          X_transpose,
                          params.n_rows,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();
@@ -328,7 +328,7 @@ auto nvForestPredictProba(const raft::handle_t& handle,
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               std::is_same_v<DataT, double>,
-                                                              raft_proto::device_type::gpu,
+                                                              nvforest::device_type::gpu,
                                                               handle.get_device(),
                                                               handle.get_next_usable_stream());
   handle.sync_stream();
@@ -339,8 +339,8 @@ auto nvForestPredictProba(const raft::handle_t& handle,
                          pred->data().get(),
                          X_transpose,
                          params.n_rows,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();
@@ -932,7 +932,7 @@ TEST(RfTests, IntegerOverflow)
                                                               nvforest::tree_layout::breadth_first,
                                                               128,
                                                               false,
-                                                              raft_proto::device_type::gpu,
+                                                              nvforest::device_type::gpu,
                                                               handle.get_device(),
                                                               handle.get_next_usable_stream());
   handle.sync_stream();
@@ -943,8 +943,8 @@ TEST(RfTests, IntegerOverflow)
                          pred.data().get(),
                          X.data().get(),
                          m,
-                         raft_proto::device_type::gpu,
-                         raft_proto::device_type::gpu,
+                         nvforest::device_type::gpu,
+                         nvforest::device_type::gpu,
                          nvforest::infer_kind::default_kind,
                          1);
   handle.sync_stream();

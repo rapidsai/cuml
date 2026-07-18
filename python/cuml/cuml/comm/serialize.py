@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -18,7 +18,6 @@ try:
     from distributed.protocol.serialize import pickle_dumps, pickle_loads
 
     from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
-    from cuml.internals.array_sparse import SparseCumlArray
     from cuml.naive_bayes import MultinomialNB
 
     # Registering RF Regressor and Classifier to use pickling even when
@@ -42,10 +41,6 @@ try:
     @cuda_deserialize.register(RandomForestClassifier)
     def rfc_deserialize(header, frames):
         return pickle_loads(header, frames)
-
-    register_generic(SparseCumlArray, "cuda", cuda_serialize, cuda_deserialize)
-
-    register_generic(SparseCumlArray, "dask", dask_serialize, dask_deserialize)
 
     register_generic(cuml.Base, "cuda", cuda_serialize, cuda_deserialize)
 
