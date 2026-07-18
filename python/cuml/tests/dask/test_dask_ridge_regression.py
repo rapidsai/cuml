@@ -32,6 +32,7 @@ def _assert_ridge_fitted_attrs_match_model(
 
     assert coef is not None
     assert intercept is not None
+    assert isinstance(coef, cudf.Series)
     assert coef_np.dtype == datatype
     assert coef_np.shape == (ncols,)
     np.testing.assert_allclose(coef_np, _as_numpy_array(internal_model.coef_))
@@ -40,9 +41,11 @@ def _assert_ridge_fitted_attrs_match_model(
     )
 
     if fit_intercept:
+        assert isinstance(intercept, cudf.Series)
         assert intercept_np.dtype == datatype
         assert intercept_np.shape == (1,)
     else:
+        assert np.isscalar(intercept)
         assert intercept_np.shape == ()
         assert intercept_np.item() == 0.0
 

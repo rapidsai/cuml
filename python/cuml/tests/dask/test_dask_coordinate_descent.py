@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -33,6 +34,8 @@ def _assert_cd_fitted_attrs_match_solver(model, dtype):
     assert coef is not None
     assert intercept is not None
     assert n_iter is not None
+    assert isinstance(coef, cp.ndarray)
+    assert np.isscalar(intercept)
     assert coef_np.dtype == dtype
     if not np.isscalar(intercept):
         assert intercept_np.dtype == dtype
@@ -261,7 +264,7 @@ def test_cd_fitted_attributes(cls, dtype, client):
         dtype=dtype,
     )
 
-    model = cls(alpha=np.array([0.001]), max_iter=2, client=client)
+    model = cls(alpha=np.array([0.001]), max_iter=2, tol=0.0, client=client)
     for attr in ("coef_", "intercept_", "n_iter_"):
         with pytest.raises(AttributeError):
             getattr(model, attr)
@@ -270,8 +273,13 @@ def test_cd_fitted_attributes(cls, dtype, client):
 
     _assert_cd_fitted_attrs_match_solver(model, dtype)
     first_coef = _as_numpy_array(model.coef_).copy()
+    first_n_iter = model.n_iter_
+    assert first_n_iter == 2
 
+    model.solver.kwargs["max_iter"] = 3
     model.fit(X, -y)
 
     _assert_cd_fitted_attrs_match_solver(model, dtype)
     assert not np.allclose(_as_numpy_array(model.coef_), first_coef)
+    assert model.n_iter_ == 3
+    assert model.n_iter_ != first_n_iter
