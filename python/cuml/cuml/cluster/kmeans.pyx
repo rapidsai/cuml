@@ -663,10 +663,21 @@ class KMeans(InteropMixin,
             mem_type=None,
             reset=True,
         )
-        n_rows, n_cols = X.shape
+        data_on_device = isinstance(X, cp.ndarray)
 
-        if sample_weight is None:
-            sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
+        # `streaming_batch_size` only affects the host-to-device streaming
+        # path. When `X` is already on device take the standard device-data fit path.
+        use_host_path = streaming_batch_size > 0 and not data_on_device
+        if use_host_path:
+            X = cp.asnumpy(X, order="C")
+            if sample_weight is not None:
+                sample_weight = cp.asnumpy(sample_weight)
+        else:
+            X = cp.asarray(X, order="C")
+            if sample_weight is not None:
+                sample_weight = cp.asarray(sample_weight)
+
+        n_rows, n_cols = X.shape
 
         self._validate_fit_row_constraints(n_rows)
 
