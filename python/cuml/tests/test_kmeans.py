@@ -483,7 +483,7 @@ def test_kmeans_streaming_batch_size_host_path(
     """The single-GPU host-streaming fit path should agree with the device
     path on identical inputs.
     """
-    n_rows = 4096
+    n_rows = 4000
     n_cols = 16
     n_clusters = 8
 
