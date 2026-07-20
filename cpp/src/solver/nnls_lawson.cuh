@@ -249,12 +249,20 @@ __device__ inline void block_matvec_gradient(
  * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
  *
  * Called by the whole block: the a_12 gather from global memory uses every
- * thread for full memory throughput; the sequential forward solve, l.l dot and
- * pivot test then run on warp 0 alone (cheap `__syncwarp`/shuffle instead of
- * block barriers), and a single closing `__syncthreads` publishes the extended
- * factor and the pivot-ok flag (`red_val[0]`) to the block.  `scratch` is O(np)
- * working space (the new column / row l).  The trace-based Tikhonov regulariser
- * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
+ * thread for full memory throughput.  Small factors (m = np-1 <= WarpSize) take a
+ * single-warp fast path -- the sequential forward solve, l.l/l.y dots and pivot
+ * test run on warp 0 alone (cheap `__syncwarp`/shuffle instead of block
+ * barriers).  Larger factors use a blocked (panel) forward solve: panels of
+ * WarpSize columns are solved top-down, the O(m^2) update of the rows below each
+ * panel is applied by the WHOLE block (coalesced column reads), only the small
+ * diagonal panel solve stays on warp 0, and the closing (only O(m)) l.l/l.y dots
+ * stay on warp 0 with the same strided reduction order as the fast path (so the
+ * result is bit-identical) -- block barriers are O(m / WarpSize) rather than one
+ * warp-0 serial section that idles the other warps.  A single closing
+ * `__syncthreads` publishes the extended factor and the pivot-ok flag
+ * (`red_val[0]`) to the block.  `scratch` is O(np) working space (the new
+ * column / row l).  The trace-based Tikhonov regulariser of the from-scratch
+ * factorisation is replaced by a per-pivot guard on a_22.
  *
  * The forward-solve state y = L^-1 c_P is extended in the same pass: the leading
  * block of L and the prefix of c_P are unchanged, so y[0:m] is untouched and the
@@ -282,47 +290,128 @@ __device__ inline bool block_chol_append(T* L,
     scratch[i] = G(idx[i], j_star);
   __syncthreads();
 
-  // Sequential factor extension on warp 0.
-  if (tid < raft::WarpSize) {
-    const int lane = tid;
+  const int lane = tid % raft::WarpSize;
 
-    // Forward solve L_11 l = a_12, in place in scratch (pivot folded into row i).
-    for (int i = 0; i < m; ++i) {
-      T y_i = scratch[i] / L[i + i * ld];
-      __syncwarp();
-      for (int j = i + lane; j < m; j += raft::WarpSize)
-        scratch[j] = (j > i) ? scratch[j] - L[j + i * ld] * y_i : y_i;
-      __syncwarp();
-    }
+  // Fast path: one warp performs the whole forward solve L_11 l = a_12 (and the
+  // l.l / l.y dots) when the existing factor fits in a single panel.
+  if (m <= raft::WarpSize) {
+    if (tid < raft::WarpSize) {
+      // Forward solve in place in scratch (pivot folded into row i).
+      for (int i = 0; i < m; ++i) {
+        T y_i = scratch[i] / L[i + i * ld];
+        __syncwarp();
+        for (int j = i + lane; j < m; j += raft::WarpSize)
+          scratch[j] = (j > i) ? scratch[j] - L[j + i * ld] * y_i : y_i;
+        __syncwarp();
+      }
 
-    // Store l as the new row (np-1) of L; accumulate dot_ll = l . l and
-    // dot_ly = l . y[0:m] on lane 0 (the latter extends the forward-solve state).
-    T thread_dot_ll = T(0);
-    T thread_dot_ly = T(0);
-    for (int j = lane; j < m; j += raft::WarpSize) {
-      T lj                 = scratch[j];
-      L[(np - 1) + j * ld] = lj;
-      thread_dot_ll += lj * lj;
-      thread_dot_ly += lj * y[j];
-    }
+      // Store l as the new row (np-1) of L; accumulate dot_ll = l . l and
+      // dot_ly = l . y[0:m] (the latter extends the forward-solve state).
+      T thread_dot_ll = T(0);
+      T thread_dot_ly = T(0);
+      for (int j = lane; j < m; j += raft::WarpSize) {
+        T lj                 = scratch[j];
+        L[(np - 1) + j * ld] = lj;
+        thread_dot_ll += lj * lj;
+        thread_dot_ly += lj * y[j];
+      }
 #pragma unroll
-    for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-      thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
-      thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
+      for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
+        thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
+        thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
+      }
+
+      if (lane == 0) {
+        const T a22 = G(j_star, j_star);
+        const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
+        const T d2  = a22 + eps - thread_dot_ll;
+        if (d2 > T(0)) {
+          const T d                   = std::sqrt(d2);
+          L[(np - 1) + (np - 1) * ld] = d;
+          y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
+          red_val[0]                  = T(1);
+        } else {
+          red_val[0] = T(-1);
+        }
+      }
+    }
+    __syncthreads();
+    return red_val[0] > T(0);
+  }
+
+  // Blocked forward solve for larger factors: panels of WarpSize rows are solved
+  // top-down, and the contribution of each solved panel to the rows below it (the
+  // O(m^2) bulk) is applied by the WHOLE block, while only the small diagonal
+  // panel solve stays on warp 0.  Block barriers are O(m / WarpSize) instead of a
+  // single warp-0 serial section that idles the other warps.  The scheme is
+  // right-looking, so the between-panel update reads column j of the panel
+  // (`L[i + j*ld]`, contiguous over the target rows i) -- a coalesced global read.
+  {
+    constexpr int b       = raft::WarpSize;
+    const int     warp    = tid / raft::WarpSize;
+    const int     n_panel = (m + b - 1) / b;
+
+    for (int k = 0; k < n_panel; ++k) {
+      const int lo = k * b;
+      const int hi = (lo + b < m) ? (lo + b) : m;
+
+      // Within-panel solve (warp 0), right-looking over its own columns [lo,hi);
+      // scratch[lo:hi] becomes the solved l entries for this panel.
+      if (warp == 0) {
+        for (int i = lo; i < hi; ++i) {
+          T y_i = scratch[i] / L[i + i * ld];
+          __syncwarp();
+          for (int j = i + 1 + lane; j < hi; j += raft::WarpSize)
+            scratch[j] -= L[j + i * ld] * y_i;
+          __syncwarp();
+          if (lane == 0) scratch[i] = y_i;
+          __syncwarp();
+        }
+      }
+      __syncthreads();
+
+      // Between-panel update (whole block): rows [hi,m) subtract the contribution
+      // of the just-solved columns [lo,hi).  Consecutive threads own consecutive
+      // target rows i, so L[i + j*ld] is coalesced; scratch[j] is the solved l_j.
+      for (int i = hi + tid; i < m; i += BlockSize) {
+        T acc = scratch[i];
+        for (int j = lo; j < hi; ++j)
+          acc -= L[i + j * ld] * scratch[j];
+        scratch[i] = acc;
+      }
+      __syncthreads();
     }
 
-    // New diagonal L_22 = sqrt(a_22 + eps - dot_ll); reject a non-positive pivot.
-    if (lane == 0) {
-      const T a22 = G(j_star, j_star);
-      const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
-      const T d2  = a22 + eps - thread_dot_ll;
-      if (d2 > T(0)) {
-        const T d                   = std::sqrt(d2);
-        L[(np - 1) + (np - 1) * ld] = d;
-        y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
-        red_val[0]                  = T(1);
-      } else {
-        red_val[0] = T(-1);
+    // Store l as the new row (np-1) of L and form the dots on warp 0 alone, with
+    // the SAME strided-by-WarpSize reduction order as the fast path.  These are
+    // only O(m) (the O(m^2) work was the forward solve above), so keeping them
+    // single-warp costs little and keeps results bit-identical to the fast path.
+    if (warp == 0) {
+      T thread_dot_ll = T(0);
+      T thread_dot_ly = T(0);
+      for (int j = lane; j < m; j += raft::WarpSize) {
+        T lj                 = scratch[j];
+        L[(np - 1) + j * ld] = lj;
+        thread_dot_ll += lj * lj;
+        thread_dot_ly += lj * y[j];
+      }
+#pragma unroll
+      for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
+        thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
+        thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
+      }
+      if (lane == 0) {
+        const T a22 = G(j_star, j_star);
+        const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
+        const T d2  = a22 + eps - thread_dot_ll;
+        if (d2 > T(0)) {
+          const T d                   = std::sqrt(d2);
+          L[(np - 1) + (np - 1) * ld] = d;
+          y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
+          red_val[0]                  = T(1);
+        } else {
+          red_val[0] = T(-1);
+        }
       }
     }
   }
@@ -342,10 +431,17 @@ __device__ inline bool block_chol_append(T* L,
  * applied with a sequence of Givens rotations (Golub & Van Loan, "deleting a
  * column").  `v` is O(np) scratch holding l3p and the rotated residual.
  *
- * Called by the whole block, but the compaction and Givens sweep are inherently
- * sequential, so they run on warp 0 alone with `__syncwarp`/shuffle; a single
- * closing `__syncthreads` exposes the downdated factor to the block.  `v` is
- * O(np) scratch holding l3p and the rotated residual.
+ * Called by the whole block.  The compaction is split into two independent
+ * pieces: the columns left of p only shift rows up within a column, so the
+ * whole block drives them in parallel (one thread per column, no sync); the
+ * trailing block shift L(i,j) <- L(i+1,j+1) sends every element to its
+ * lower-left neighbour, so it decomposes into independent diagonals (constant
+ * i-j) -- one lane walks one diagonal top-down, giving a single sync-free
+ * warp-wide pass on warp 0.  The Givens sweep (an inherently sequential angle
+ * recurrence) also runs on warp 0 with `__syncwarp`/shuffle.  Only a single
+ * closing `__syncthreads` (no per-row block barrier) exposes the downdated
+ * factor to the block.  `v` is O(np) scratch holding l3p and the rotated
+ * residual.
  *
  * The forward-solve state y = L^-1 c_P is downdated in lock-step: y[0:p] is
  * unchanged, the deleted component y[p] is saved as the rotation partner, the
@@ -357,37 +453,50 @@ __device__ inline bool block_chol_append(T* L,
 template <int BlockSize, typename T>
 __device__ inline void block_chol_delete_one(T* L, int ld, int np, int p, T* y, T* v)
 {
-  if (threadIdx.x < raft::WarpSize) {
-    const int lane = threadIdx.x;
+  const int tid = threadIdx.x;
+
+  // Region 1 -- columns [0, p): drop row p by shifting rows [p, np-1) up one
+  // (L(i,j) <- L(i+1,j)).  Each destination reads the row directly below it in
+  // the SAME column, so a thread owning a whole column and sweeping rows
+  // ascending is race-free without any sync; columns are independent, so the
+  // whole block runs this in parallel (was lane 0 alone, O(np^2)).
+  for (int j = tid; j < p; j += BlockSize)
+    for (int i = p; i < np - 1; ++i)
+      L[i + j * ld] = L[(i + 1) + j * ld];
+
+  // The trailing shift (diagonal-parallel), the y compaction and the Givens
+  // downdate (a sequential angle recurrence) stay on warp 0, using only
+  // warp-level sync; the closing block barrier below is the only __syncthreads.
+  // Region 1 (other warps) writes disjoint columns [0, p), so no barrier here.
+  if (tid < raft::WarpSize) {
+    const int lane = tid;
     const int q    = np - 1 - p;  // trailing block size
 
-    // Save l3p = L(p+1 : np-1, p) before the compaction overwrites column p.
+    // Save l3p = L(p+1 : np-1, p) before the trailing shift overwrites column p.
     for (int i = lane; i < q; i += raft::WarpSize)
       v[i] = L[(p + 1 + i) + p * ld];
-    __syncwarp();
 
-    // Compact: drop row p and column p.  The per-column row shifts move each
-    // destination from a not-yet-written source, so lane 0 performs them
-    // race-free (O(np^2) with small np); columns < p keep rows [0, p) in place.
-    // The forward-solve state y is compacted the same way (drop y[p], keeping
-    // y[p] as the initial Givens partner for the trailing sweep below).
+    // Compact the forward-solve state y (drop y[p]); keep the old y[p] as the
+    // initial Givens partner for the trailing sweep below.
     T partner = T(0);
     if (lane == 0) {
       partner = y[p];
       for (int i = p; i < np - 1; ++i)
         y[i] = y[i + 1];
-      for (int j = 0; j < np - 1; ++j) {
-        if (j < p) {
-          for (int i = p; i < np - 1; ++i)
-            L[i + j * ld] = L[(i + 1) + j * ld];
-        } else {
-          const int c = j + 1;
-          for (int i = j; i < np - 1; ++i)
-            L[i + j * ld] = L[(i + 1) + c * ld];
-        }
-      }
     }
-    __syncwarp();
+    __syncwarp();  // l3p captured before column p is overwritten below
+
+    // Region 2 -- trailing block up-left shift (drop row p AND column p):
+    // L(i,j) <- L(i+1, j+1).  The move sends every element to its lower-left
+    // neighbour, so it splits into independent diagonals (constant i-j): one
+    // lane walks one diagonal (d = i-j) from the top, reading each source before
+    // this same lane later overwrites it.  Diagonals never alias across lanes,
+    // so the whole shift is a single sync-free warp-wide pass (was q column
+    // steps, each ending in a __syncwarp).
+    for (int d = lane; d < q; d += raft::WarpSize)
+      for (int k = 0; k <= q - 1 - d; ++k)
+        L[(p + d + k) + (p + k) * ld] = L[(p + d + k + 1) + (p + k + 1) * ld];
+    __syncwarp();  // trailing block published before the Givens sweep reads it
 
     // Positive rank-1 update of the trailing block (rows/cols p..np-2) by v.
     for (int k = 0; k < q; ++k) {
@@ -432,42 +541,95 @@ __device__ inline void block_chol_delete_one(T* L, int ld, int np, int p, T* y, 
  * current size np) can be solved without repacking.  `y` is left intact (it must
  * survive into the next iteration); the solution is written to `s`.
  *
- * Called by the whole block: the block first copies y -> s (coalesced), then the
- * sequential substitution runs on warp 0 alone with the cheap per-row
- * `__syncwarp` (replacing the block barrier that dominated the kernel's stall
- * profile), and a single closing `__syncthreads` publishes the solution to the
- * block.  The pass is left-looking:
+ * Called by the whole block.  After copying y -> s (coalesced), small active
+ * sets (np <= WarpSize) take a single-warp fast path -- the sequential
+ * substitution on warp 0 with cheap per-row `__syncwarp` and one closing
+ * `__syncthreads` -- which covers the common late-stage case with minimal
+ * barriers.  Larger active sets use a blocked (panel) scheme: panels of
+ * WarpSize rows are solved bottom-up, and the contribution of the already-solved
+ * rows below each panel (the O(np^2) bulk) is applied by the WHOLE block, while
+ * only the small diagonal panel solve stays on warp 0.  Block barriers are then
+ * O(np / WarpSize) instead of one giant warp-0 serial section that idles the
+ * other warps.  The pass is left-looking,
  *   x_i = (y_i - sum_{j>i} L[j,i] * x_j) / L_ii,
  * so each row reads column `i` below the diagonal (`L[j + i*ld]`) -- contiguous
- * in the column-major factor, i.e. a coalesced global read now that L lives in
- * global memory -- and reduces the partial products across the warp.
+ * in the column-major factor (coalesced global read) -- and reduces the partial
+ * products across the warp.  `y` is left intact for the next iteration.
  */
 template <int BlockSize, typename T>
 __device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T* y, T* s)
 {
-  for (int j = threadIdx.x; j < np; j += BlockSize)
+  const int tid  = threadIdx.x;
+  const int lane = tid % raft::WarpSize;
+
+  for (int j = tid; j < np; j += BlockSize)
     s[j] = y[j];
   __syncthreads();
 
-  if (threadIdx.x < raft::WarpSize) {
-    const int lane = threadIdx.x;
-
-    // Back solve: L^T x = y -> s holds x on exit.  s[j] already holds x_j for
-    // j > i (top-down), and s[i] (= y_i) is read before being overwritten.
-    for (int i = np - 1; i >= 0; --i) {
-      T partial = T(0);
-      for (int j = i + 1 + lane; j < np; j += raft::WarpSize)
-        partial += L[j + i * ld] * s[j];
+  // Fast path: one warp solves the whole system when it fits in a single panel.
+  if (np <= raft::WarpSize) {
+    if (tid < raft::WarpSize) {
+      for (int i = np - 1; i >= 0; --i) {
+        T partial = T(0);
+        for (int j = i + 1 + lane; j < np; j += raft::WarpSize)
+          partial += L[j + i * ld] * s[j];
 #pragma unroll
-      for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-        partial += __shfl_xor_sync(0xffffffffu, partial, off);
-      T x_i = (s[i] - partial) / L[i + i * ld];
-      __syncwarp();
-      if (lane == 0) s[i] = x_i;
-      __syncwarp();
+        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
+          partial += __shfl_xor_sync(0xffffffffu, partial, off);
+        T x_i = (s[i] - partial) / L[i + i * ld];
+        __syncwarp();
+        if (lane == 0) s[i] = x_i;
+        __syncwarp();
+      }
     }
+    __syncthreads();
+    return;
   }
-  __syncthreads();
+
+  // Blocked back-substitution for larger active sets.
+  constexpr int b       = raft::WarpSize;
+  const int     nwarps  = BlockSize / raft::WarpSize;
+  const int     warp    = tid / raft::WarpSize;
+  const int     n_panel = (np + b - 1) / b;
+
+  for (int k = n_panel - 1; k >= 0; --k) {
+    const int lo = k * b;
+    const int hi = (lo + b < np) ? (lo + b) : np;
+
+    // Between-panel update (whole block): apply the already-solved rows below the
+    // panel, s[i] -= sum_{j>=hi} L[j,i]*s[j] for i in [lo,hi).  Each panel row is
+    // owned by one warp (self-contained warp reduction).  Bottom panel has none.
+    if (hi < np) {
+      for (int i = lo + warp; i < hi; i += nwarps) {
+        T partial = T(0);
+        for (int j = hi + lane; j < np; j += raft::WarpSize)
+          partial += L[j + i * ld] * s[j];
+#pragma unroll
+        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
+          partial += __shfl_xor_sync(0xffffffffu, partial, off);
+        if (lane == 0) s[i] -= partial;
+      }
+      __syncthreads();
+    }
+
+    // Within-panel solve (warp 0): back-substitution over [lo,hi), reducing only
+    // over the panel's own columns (higher columns were applied above).
+    if (warp == 0) {
+      for (int i = hi - 1; i >= lo; --i) {
+        T partial = T(0);
+        for (int j = i + 1 + lane; j < hi; j += raft::WarpSize)
+          partial += L[j + i * ld] * s[j];
+#pragma unroll
+        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
+          partial += __shfl_xor_sync(0xffffffffu, partial, off);
+        T x_i = (s[i] - partial) / L[i + i * ld];
+        __syncwarp();
+        if (lane == 0) s[i] = x_i;
+        __syncwarp();
+      }
+    }
+    __syncthreads();
+  }
 }
 
 /**
