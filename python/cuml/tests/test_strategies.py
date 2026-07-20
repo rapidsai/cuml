@@ -1,64 +1,19 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-import cupy as cp
 import numpy as np
 from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import floating_dtypes, integer_dtypes
 from sklearn.datasets import make_classification, make_regression
 
-from cuml.internals.array import CumlArray
 from cuml.testing.strategies import (
-    create_cuml_array_input,
-    cuml_array_dtypes,
-    cuml_array_input_types,
-    cuml_array_inputs,
-    cuml_array_orders,
-    cuml_array_shapes,
     regression_datasets,
     split_datasets,
     standard_classification_datasets,
     standard_datasets,
     standard_regression_datasets,
 )
-from cuml.testing.utils import normalized_shape, series_squeezed_shape
-
-
-@example(input_type="series", dtype="float32", shape=(10,), order="C")
-@given(
-    input_type=cuml_array_input_types(),
-    dtype=cuml_array_dtypes(),
-    shape=cuml_array_shapes(),
-    order=cuml_array_orders(),
-)
-@settings(deadline=None)
-def test_cuml_array_input_elements(input_type, dtype, shape, order):
-    input_array = create_cuml_array_input(input_type, dtype, shape, order)
-    assert input_array.dtype == dtype
-    if input_type == "series":
-        assert input_array.shape == series_squeezed_shape(shape)
-    else:
-        assert input_array.shape == normalized_shape(shape)
-
-    layout_flag = f"{order}_CONTIGUOUS"
-    if input_type == "series":
-        assert input_array.values.flags[layout_flag]
-    else:
-        assert input_array.flags[layout_flag]
-
-
-@example(array_input=np.ones(10, dtype="float32"))
-@given(cuml_array_inputs())
-@settings(deadline=None)
-def test_cuml_array_inputs(array_input):
-    array = CumlArray(data=array_input)
-    assert cp.array_equal(
-        cp.asarray(array_input), array.to_output("cupy"), equal_nan=True
-    )
-    assert np.array_equal(
-        cp.asnumpy(array_input), array.to_output("numpy"), equal_nan=True
-    )
 
 
 @example(

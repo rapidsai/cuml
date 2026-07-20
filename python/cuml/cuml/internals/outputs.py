@@ -14,8 +14,6 @@ import pandas as pd
 import scipy.sparse as sp
 from cupy.cuda import Stream
 
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 
 __all__ = (
@@ -24,8 +22,6 @@ __all__ = (
     "using_output_type",
     "mlfunc",
     "ReflectedAttr",
-    "reflect",
-    "run_in_internal_context",
     "exit_internal_context",
     "enter_internal_context",
     "in_internal_context",
@@ -271,8 +267,6 @@ def infer_output_type(array, array_like="numpy"):
         return "numpy"
     elif isinstance(array, cp.ndarray) or cp_sp.issparse(array):
         return "cupy"
-    elif isinstance(array, (CumlArray, SparseCumlArray)):
-        return "cuml"
     elif isinstance(array, (cudf.DataFrame, cudf.Series, cudf.Index)):
         return "cudf"
     elif isinstance(array, (pd.DataFrame, pd.Series, pd.Index)):
@@ -459,7 +453,12 @@ class ClassLabels:
             )
 
 
-def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
+def convert_arrays(
+    obj,
+    output_type="cupy",
+    index=None,
+    one_col_2d_as_series=True,
+):
     """Convert arrays in `obj` to the specified `output_type`.
 
     Parameters
@@ -477,6 +476,10 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     index : pandas.Index, cudf.Index, or None, default=None
         An optional index to attach to arrays when returning dataframe-like
         outputs.
+    one_col_2d_as_series : bool, default=True
+        Whether to coerce a one column 2D input to a Series. This is a legacy
+        behavior of our conversion machinery. It defaults to true for now, but
+        should be changed to false in the future (and the option going away).
 
     Returns
     -------
@@ -484,16 +487,6 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
         The equivalent output, with arrays coerced to `output_type`.
     """
     check_output_type(output_type)
-    # TODO: legacy output paths, remove once `CumlArray`/`SparseCumlArray`
-    # are no longer used anywhere.
-    if isinstance(obj, CumlArray):
-        assert index is None
-        return obj.to_output(output_type)
-    elif isinstance(obj, SparseCumlArray):
-        return obj.to_output(
-            "scipy" if output_type in ["numpy", "pandas"] else "cupy"
-        )
-
     if isinstance(obj, ArrayIndexPair):
         index = obj.index
         obj = obj.array
@@ -508,7 +501,7 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
             if hasattr(index, "to_pandas"):
                 index = index.to_pandas()
             if obj.ndim == 2:
-                if obj.shape[1] == 1:
+                if one_col_2d_as_series and obj.shape[1] == 1:
                     return pd.Series(obj.flatten(), index=index)
                 return pd.DataFrame(obj, index=index)
             return pd.Series(obj, index=index)
@@ -545,7 +538,11 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
                     obj = obj[None, None]
 
             if obj.ndim == 2:
-                if obj.shape[1] == 1 and output_type != "dataframe":
+                if (
+                    one_col_2d_as_series
+                    and obj.shape[1] == 1
+                    and output_type != "dataframe"
+                ):
                     df = cudf.Series(obj.flatten(), index=index)
                 else:
                     df = cudf.DataFrame(obj, index=index)
@@ -562,9 +559,6 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
             from numba import cuda
 
             return cuda.as_cuda_array(obj)
-        elif output_type == "cuml" and _legacy:
-            # TODO: remove legacy output path once all consumers are updated
-            return CumlArray.from_input(obj, order="K")
         else:
             assert output_type in ("cuml", "cupy", "array")
             # Return `cupy` directly
@@ -573,11 +567,7 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
     elif cp_sp.issparse(obj):
         if output_type in ("numpy", "pandas"):
             return obj.get()
-        elif output_type == "cuml" and _legacy:
-            # TODO: remove legacy output path once all consumers are updated
-            return SparseCumlArray(obj)
-        else:
-            return obj
+        return obj
 
     elif sp.issparse(obj):
         if output_type in ("numpy", "pandas"):
@@ -602,16 +592,20 @@ def convert_arrays(obj, output_type="cupy", index=None, _legacy=False):
         )
 
     elif isinstance(obj, list):
-        return [convert_arrays(v, output_type, index, _legacy) for v in obj]
+        return [
+            convert_arrays(v, output_type, index, one_col_2d_as_series)
+            for v in obj
+        ]
 
     elif isinstance(obj, tuple):
         return tuple(
-            convert_arrays(v, output_type, index, _legacy) for v in obj
+            convert_arrays(v, output_type, index, one_col_2d_as_series)
+            for v in obj
         )
 
     elif isinstance(obj, dict):
         return {
-            k: convert_arrays(v, output_type, index, _legacy)
+            k: convert_arrays(v, output_type, index, one_col_2d_as_series)
             for k, v in obj.items()
         }
 
@@ -730,7 +724,6 @@ def mlfunc(
     convert_output=True,
     set_input_type=False,
     preserve_index=False,
-    _legacy=False,
 ):
     """A decorator for enabling common `cuml` machinery on a function/method.
 
@@ -796,7 +789,6 @@ def mlfunc(
             convert_output=convert_output,
             preserve_index=preserve_index,
             set_input_type=set_input_type,
-            _legacy=_legacy,
         )
 
     sig = inspect.signature(func, follow_wrapped=True)
@@ -876,85 +868,11 @@ def mlfunc(
 
             with enter_internal_context():
                 res = convert_arrays(
-                    res, output_type, index=index, _legacy=_legacy
+                    res,
+                    output_type,
+                    index=index,
                 )
 
         return res
 
     return inner
-
-
-def run_in_internal_context(func):
-    """Decorate a function to run within an "internal context".
-
-    New code should use `mlfunc` instead, this decorator will go away in the
-    near future.
-
-    An "internal context" mainly means that reflected functions/methods or
-    estimator fitted attributes will be returned as ``CumlArray`` instances
-    instead of their reflected types.
-
-    Unlike `reflect`, functions decorated with this do not participate in the
-    reflection system.
-    """
-    return mlfunc(func, convert_output=False)
-
-
-def reflect(
-    func=None,
-    *,
-    array=...,
-    model=...,
-    reset=False,
-):
-    """Mark a function or method as participating in the reflection system.
-
-    New code should use `mlfunc` instead, this decorator will go away in the
-    near future.
-
-    Functions and methods decorated with this get a few additional behaviors:
-
-    - They are run within an "internal context". This mainly means that
-      reflected functions/methods or estimator fitted attributes will be
-      returned as ``CumlArray`` instances instead of their reflected types. If
-      this is the only behavior you want, you should use
-      `run_in_internal_context` instead.
-
-    - Their output type is converted to the proper output type following
-      standard cuml behavior. The default behavior covers most cases, but when
-      needed you may want to specify the ``model`` and/or ``array`` parameters
-      manually.
-
-    - For estimators, fit-like methods will store the required metadata like
-      ``_input_type`` to support cases like ``output_type="input"``. To enable
-      this for a method set ``reset=True``.
-
-    Parameters
-    ----------
-    func : callable or None
-        The function to be decorated, or None to curry to be applied later.
-    model : int, str, or None, default=...
-        The ``cuml.Base`` parameter to infer the reflected output type from. By
-        default this will be ``'self'`` (if present), and ``None`` otherwise.
-        Provide a parameter position or name to override. May also provide
-        ``None`` to disable this inference entirely.
-    array : int, str, or None, default=...
-        The array-like parameter to infer the reflected output type from. By
-        default this will be the first argument to the method or function
-        (excluding ``'self'`` or ``model``), or ``None`` if there are no other
-        arguments. Provide a parameter position or name to override. May also
-        provide ``None`` to disable this inference entirely; in this case the
-        output type is expected to be specified manually either internal or
-        external to the method.
-    reset : bool, default=False
-        If True, the input type for reflection is reset on the estimator.
-        Defaults to False, to not reset anything. Most estimators should set
-        ``reset=True`` on any fit-like methods.
-    """
-    return mlfunc(
-        func,
-        model_arg=model,
-        array_arg=array,
-        set_input_type=reset,
-        _legacy=True,
-    )
