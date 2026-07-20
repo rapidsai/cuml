@@ -79,6 +79,63 @@ void fit(const raft::handle_t& handle,
          int64_t& n_iter);
 
 /**
+ * @brief Multi-GPU / out-of-core k-means fit over multiple local data partitions.
+ *
+ * Each rank (e.g. each Dask worker) supplies its local training data as an
+ * array of `n_parts` partitions instead of a single concatenated matrix. The
+ * memory residency of the partitions is detected automatically:
+ *   - Device-resident partitions are handed to cuVS as device matrix views and
+ *     processed in full (`device_buffer_samples` is ignored).
+ *   - Host-resident partitions are handed to cuVS as host matrix views and
+ *     streamed to the device in batches of `params.device_buffer_samples`, so
+ *     the full dataset is never materialized on the device.
+ * All partitions on a given rank must share the same residency. The
+ * distributed reduction across ranks is performed via the NCCL communicator
+ * that must be initialized on `handle`.
+ *
+ * @param[in]     handle              cuML handle with NCCL comms initialized.
+ * @param[in]     params              Parameters for the KMeans model. For
+ *                                    host-resident partitions the
+ *                                    host-to-device batch size is read from
+ *                                    `params.device_buffer_samples`.
+ * @param[in]     X_parts             Array of `n_parts` pointers to the local
+ *                                    row-major partitions (all host- or all
+ *                                    device-resident). Partition `i` has shape
+ *                                    [`n_samples_parts[i]`, `n_features`].
+ * @param[in]     n_samples_parts     Array of `n_parts` per-partition row counts.
+ * @param[in]     n_parts             Number of local partitions on this rank.
+ * @param[in]     n_features          Number of features (shared by all partitions).
+ * @param[in]     sample_weight_parts Optional array of `n_parts` pointers to the
+ *                                    per-partition weight vectors (matching the
+ *                                    residency of `X_parts`), or `nullptr` for
+ *                                    uniform weights.
+ * @param[inout]  centroids           Device matrix [n_clusters x n_features].
+ * @param[out]    inertia             Sum of squared distances to closest center.
+ * @param[out]    n_iter              Number of iterations run.
+ */
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* const* X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const float* const* sample_weight_parts,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* const* X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const double* const* sample_weight_parts,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
+
+/**
  * @brief Predict the closest cluster each sample in X belongs to.
  *
  * @param[in]     handle            The handle to the cuML library context

@@ -113,6 +113,28 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
                   double &inertia,
                   int64_t &n_iter) except +
 
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  float **X_parts,
+                  const int64_t *n_samples_parts,
+                  int64_t n_parts,
+                  int64_t n_features,
+                  float **sample_weight_parts,
+                  float *centroids,
+                  float &inertia,
+                  int64_t &n_iter) except +
+
+    cdef void fit(handle_t& handle,
+                  KMeansParams& params,
+                  double **X_parts,
+                  const int64_t *n_samples_parts,
+                  int64_t n_parts,
+                  int64_t n_features,
+                  double **sample_weight_parts,
+                  double *centroids,
+                  double &inertia,
+                  int64_t &n_iter) except +
+
     cdef void predict(handle_t& handle,
                       KMeansParams& params,
                       const float *centroids,

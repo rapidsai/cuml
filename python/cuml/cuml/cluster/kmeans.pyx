@@ -178,6 +178,89 @@ cdef _kmeans_fit(
     return n_iter_32 if indices_i32 else n_iter_64
 
 
+cdef _kmeans_fit_parts(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    parts,
+    sample_weight_parts,
+    centers,
+):
+    """Fit kmeans over multiple local partitions (multi-GPU / out-of-core).
+
+    `parts` is a non-empty list of row-major partitions that share
+    `n_features` and dtype. They may all be device-resident
+    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`); the C++ layer
+    detects the residency and calls the matching cuVS overload. Host
+    partitions are streamed to the device in batches of
+    `params.device_buffer_samples`. `sample_weight_parts` is either None or a
+    matching list of weight vectors. `centers` lives on the device. The
+    distributed reduction across ranks is performed via the NCCL communicator
+    initialized on `handle`. Returns `n_iter`.
+    """
+    cdef int64_t n_parts = len(parts)
+    cdef int64_t n_cols = parts[0].shape[1]
+    cdef bool values_f32 = parts[0].dtype == np.float32
+    cdef bool has_weights = sample_weight_parts is not None
+
+    # Marshal the per-partition data pointers and row counts into contiguous
+    # buffers so they can be passed as C arrays. Device (cupy) arrays expose
+    # their pointer via `.data.ptr`; host (numpy) arrays via `.ctypes.data`.
+    # These Python-owned arrays stay alive for the duration of the (nogil)
+    # call below.
+    X_ptrs = np.empty(n_parts, dtype=np.uintp)
+    n_samples_parts = np.empty(n_parts, dtype=np.int64)
+    sw_ptrs = np.empty(n_parts, dtype=np.uintp) if has_weights else None
+    for i in range(n_parts):
+        X_ptrs[i] = (
+            parts[i].data.ptr if isinstance(parts[i], cp.ndarray)
+            else parts[i].ctypes.data
+        )
+        n_samples_parts[i] = parts[i].shape[0]
+        if has_weights:
+            sw = sample_weight_parts[i]
+            sw_ptrs[i] = (
+                sw.data.ptr if isinstance(sw, cp.ndarray) else sw.ctypes.data
+            )
+
+    cdef uintptr_t X_ptrs_ptr = X_ptrs.ctypes.data
+    cdef uintptr_t n_samples_ptr = n_samples_parts.ctypes.data
+    cdef uintptr_t sw_ptrs_ptr = sw_ptrs.ctypes.data if has_weights else 0
+    cdef uintptr_t centers_ptr = centers.data.ptr
+
+    cdef float inertia_32 = 0
+    cdef double inertia_64 = 0
+    cdef int64_t n_iter_64 = 0
+
+    with nogil:
+        if values_f32:
+            lib.fit(
+                handle,
+                params,
+                <float **>X_ptrs_ptr,
+                <const int64_t *>n_samples_ptr,
+                n_parts,
+                n_cols,
+                <float **>sw_ptrs_ptr,
+                <float *>centers_ptr,
+                inertia_32,
+                n_iter_64,
+            )
+        else:
+            lib.fit(
+                handle,
+                params,
+                <double **>X_ptrs_ptr,
+                <const int64_t *>n_samples_ptr,
+                n_parts,
+                n_cols,
+                <double **>sw_ptrs_ptr,
+                <double *>centers_ptr,
+                inertia_64,
+                n_iter_64,
+            )
+    return n_iter_64
+
+
 cdef _kmeans_predict(
     handle_t& handle,
     lib.KMeansParams &params,
@@ -723,6 +806,138 @@ class KMeans(InteropMixin,
         handle.sync()
 
         # Store fitted attributes and return
+        self.cluster_centers_ = centers
+        self.labels_ = labels
+        self.inertia_ = inertia
+        self.n_iter_ = n_iter
+
+        return self
+
+    def _fit_mg_parts(self, parts, sample_weight_parts=None):
+        """Fit KMeans over a list of local partitions (multi-GPU / out-of-core).
+
+        Intended for the multi-GPU (Dask) path: each worker passes its local
+        partitions directly to cuVS as a vector of matrix views, without
+        concatenating them. The partitions may be device-resident
+        (`cupy.ndarray`) or host-resident (`numpy.ndarray`); their memory
+        residency is preserved and the C++ layer selects the matching cuVS
+        overload. Host partitions are streamed to the device in batches of
+        ``device_buffer_samples`` (never fully materialized). The cross-rank
+        reduction runs over the NCCL communicator on ``self.handle``.
+
+        `parts` is a non-empty sequence of per-partition arrays.
+        `sample_weight_parts`, if given, is a matching sequence of per-partition
+        weight vectors.
+        """
+        if len(parts) == 0:
+            raise ValueError(
+                "KMeansMG requires at least one local data partition."
+            )
+
+        self._validate_fit_params()
+
+        has_weights = sample_weight_parts is not None
+
+        # Coerce each partition to a C-contiguous array, preserving its memory
+        # residency (device stays device, host stays host) via ``mem_type=None``
+        # so device-accessible partitions are never staged to host and
+        # host-resident partitions are never staged to device here.
+        # ``reset=True`` on the first partition records ``n_features_in_``;
+        # subsequent partitions are validated against it so mismatched shapes
+        # are rejected.
+        coerced_parts = []
+        coerced_weights = [] if has_weights else None
+        for i, part in enumerate(parts):
+            sw_in = sample_weight_parts[i] if has_weights else None
+            part_c, sw_c = check_inputs(
+                self,
+                part,
+                sample_weight=sw_in,
+                dtype=("float32", "float64"),
+                order="C",
+                mem_type=None,
+                reset=(i == 0),
+            )
+            coerced_parts.append(part_c)
+            if has_weights:
+                coerced_weights.append(sw_c)
+
+        parts = coerced_parts
+        sample_weight_parts = coerced_weights
+        dtype = parts[0].dtype
+        n_cols = parts[0].shape[1]
+        n_rows = sum(part.shape[0] for part in parts)
+        self._validate_fit_row_constraints(n_rows)
+
+        # Partitions on a rank share residency; a cupy first partition means
+        # the data is device-accessible.
+        on_device = isinstance(parts[0], cp.ndarray)
+
+        # Allocate output cluster_centers_ on the device (cuVS writes the
+        # converged centroids to device memory).
+        if isinstance(self.init, str):
+            centers = cp.zeros(
+                shape=(self.n_clusters, n_cols), dtype=dtype, order="C",
+            )
+        else:
+            centers = check_array(
+                self.init, order="C", dtype=dtype,
+            ).copy()
+            if centers.shape[0] != self.n_clusters:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of clusters {self.n_clusters}."
+                )
+            if centers.shape[1] != n_cols:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of features of the data {n_cols}."
+                )
+
+        cdef int64_t batch = int(self.device_buffer_samples)
+
+        handle = self.handle
+        cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
+        cdef lib.KMeansParams params
+        _kmeans_init_params(self, params)
+
+        n_iter = _kmeans_fit_parts(
+            handle_[0], params, parts, sample_weight_parts, centers,
+        )
+
+        # Assign labels and accumulate inertia one partition at a time (the
+        # data is never concatenated). Device partitions use the standard
+        # device predict; host partitions are streamed to the device in chunks
+        # via the shared host-chunked predict helper. Weights are applied as-is
+        # (they are normalized upstream by the Dask layer).
+        labels_parts = []
+        inertia = 0.0
+        for i, part in enumerate(parts):
+            sw = sample_weight_parts[i] if has_weights else None
+            if on_device:
+                part_labels, part_inertia = _kmeans_predict(
+                    handle_[0], params, part, sw, centers,
+                    normalize_weights=False,
+                )
+            else:
+                part_labels, part_inertia = _kmeans_predict_host_chunked(
+                    handle_[0], params, part, sw, centers, batch,
+                )
+            labels_parts.append(part_labels)
+            inertia += float(part_inertia)
+        handle.sync()
+
+        if len(labels_parts) == 1:
+            labels = labels_parts[0]
+        elif on_device:
+            labels = cp.concatenate(labels_parts)
+        else:
+            labels = np.concatenate(labels_parts)
+        # Labels are O(n_rows) (tiny relative to the data), so returning them on
+        # device keeps the Dask reduction path unchanged without defeating the
+        # out-of-core goal for the data itself.
+        labels = cp.asarray(labels)
+
         self.cluster_centers_ = centers
         self.labels_ = labels
         self.inertia_ = inertia
