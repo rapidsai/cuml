@@ -14,23 +14,65 @@
 #include <raft/util/cache.hpp>                       // raft::cache::lru
 #include <raft/util/cuda_rt_essentials.hpp>          // RAFT_CUDA_TRY
 #include <raft/util/cuda_utils.cuh>                  // raft::WarpSize
-#include <raft/util/reduction.cuh>                   // raft::blockReduce / blockRankedReduce
+#include <raft/util/integer_utils.hpp>               // raft::div_rounding_up_unsafe
+#include <raft/util/reduction.cuh>  // raft::blockReduce / blockRankedReduce / warpReduce
 
-#include <rmm/device_uvector.hpp>                     // rmm::device_uvector (L scratch)
+#include <rmm/device_uvector.hpp>  // rmm::device_uvector (L scratch)
 
 #include <cuda_runtime.h>
 
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 
 namespace ML {
 namespace Solver {
 namespace detail {
 
-/** Number of warps in a block of `BlockSize` threads (compile-time). */
-constexpr int lawson_n_warps(int block_size) { return block_size / raft::WarpSize; }
+/**
+ * Cholesky ridge added to a pivot to keep the factorisation positive-definite in
+ * the presence of round-off.  It scales with the pivot magnitude and with the
+ * working precision (looser for float, tighter for double).
+ */
+template <typename T>
+__device__ inline T lawson_ridge_eps(T diag)
+{
+  const T rel = (sizeof(T) == 4 ? T(1e-7) : T(1e-14));
+  return rel * (diag > T(0) ? diag : T(1));
+}
+
+/**
+ * Threshold below which an active coordinate driven down by the line search is
+ * treated as exactly zero and dropped from the active set.
+ */
+template <typename T>
+__device__ inline T lawson_zero_eps()
+{
+  return sizeof(T) == 4 ? T(1e-12) : T(1e-15);
+}
+
+/**
+ * Finalise a bordering Cholesky append on lane 0: form the new pivot from the
+ * Gram diagonal `a22` and the accumulated dots, and, when it stays positive,
+ * write the diagonal of `L` and extend the forward-solve state `y`.  Publishes
+ * +1 (accepted) or -1 (non-positive pivot) through `red_val[0]`.
+ */
+template <typename T>
+__device__ inline void lawson_finish_pivot(
+  T* L, int ld, int np, T a22, const T* c, int j_star, T* y, T* red_val, T dot_ll, T dot_ly)
+{
+  const T d2 = a22 + lawson_ridge_eps(a22) - dot_ll;
+  if (d2 > T(0)) {
+    const T d                   = std::sqrt(d2);
+    L[(np - 1) + (np - 1) * ld] = d;
+    y[np - 1]                   = (c[j_star] - dot_ly) / d;
+    red_val[0]                  = T(1);
+  } else {
+    red_val[0] = T(-1);
+  }
+}
 
 /**
  * Compute the dynamic shared-memory footprint of the Lawson-Hanson kernel for
@@ -55,17 +97,17 @@ constexpr int lawson_n_warps(int block_size) { return block_size / raft::WarpSiz
  * Neither the Gram matrix G nor the Cholesky factor L is staged into shared
  * memory: G is read directly from global memory (L2-cached across the grid) and
  * L lives in a per-block global scratch slab (also L2-cached).  Shared memory is
- * therefore only O(n), so occupancy is no longer bound by the n*n factor.
+ * therefore only O(n), so occupancy is not bound by the n*n factor.
  */
 template <typename T, int BlockSize>
 inline std::size_t lawson_smem_bytes(int n)
 {
   std::size_t bytes = 0;
-  bytes += sizeof(T) * static_cast<std::size_t>(n) * 5;            // c, x, w, s, y
-  bytes += sizeof(T) * raft::WarpSize;                             // red_val
-  bytes += sizeof(int) * raft::WarpSize;                           // red_idx
-  bytes += sizeof(int) * static_cast<std::size_t>(n);              // idx
-  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);      // act
+  bytes += sizeof(T) * static_cast<std::size_t>(n) * 5;        // c, x, w, s, y
+  bytes += sizeof(T) * raft::WarpSize;                         // red_val
+  bytes += sizeof(int) * raft::WarpSize;                       // red_idx
+  bytes += sizeof(int) * static_cast<std::size_t>(n);          // idx
+  bytes += sizeof(std::int8_t) * static_cast<std::size_t>(n);  // act
   return bytes;
 }
 
@@ -245,8 +287,8 @@ __device__ inline void block_matvec_gradient(
  *
  * Device analogue of raft::linalg::choleskyRank1Update, which is a host/cuBLAS
  * routine and so cannot be called from within a block.  `scratch` is O(np)
- * working space (the new column / row l).  The trace-based Tikhonov regulariser
- * of the from-scratch factorisation is replaced by a per-pivot guard on a_22.
+ * working space (the new column / row l), and positive-definiteness is kept by a
+ * per-pivot ridge on a_22 (lawson_ridge_eps) rather than a global regulariser.
  *
  * Called by the whole block: the a_12 gather from global memory uses every
  * thread for full memory throughput.  Small factors (m = np-1 <= WarpSize) take a
@@ -256,13 +298,10 @@ __device__ inline void block_matvec_gradient(
  * WarpSize columns are solved top-down, the O(m^2) update of the rows below each
  * panel is applied by the WHOLE block (coalesced column reads), only the small
  * diagonal panel solve stays on warp 0, and the closing (only O(m)) l.l/l.y dots
- * stay on warp 0 with the same strided reduction order as the fast path (so the
- * result is bit-identical) -- block barriers are O(m / WarpSize) rather than one
- * warp-0 serial section that idles the other warps.  A single closing
- * `__syncthreads` publishes the extended factor and the pivot-ok flag
- * (`red_val[0]`) to the block.  `scratch` is O(np) working space (the new
- * column / row l).  The trace-based Tikhonov regulariser of the from-scratch
- * factorisation is replaced by a per-pivot guard on a_22.
+ * stay on warp 0 with the same warpReduce as the fast path (so the pivot is
+ * bit-identical) -- block barriers are O(m / WarpSize) rather than one warp-0
+ * serial section that idles the other warps.  A single closing `__syncthreads`
+ * publishes the extended factor and the pivot-ok flag (`red_val[0]`).
  *
  * The forward-solve state y = L^-1 c_P is extended in the same pass: the leading
  * block of L and the prefix of c_P are unchanged, so y[0:m] is untouched and the
@@ -315,25 +354,11 @@ __device__ inline bool block_chol_append(T* L,
         thread_dot_ll += lj * lj;
         thread_dot_ly += lj * y[j];
       }
-#pragma unroll
-      for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-        thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
-        thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
-      }
-
-      if (lane == 0) {
-        const T a22 = G(j_star, j_star);
-        const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
-        const T d2  = a22 + eps - thread_dot_ll;
-        if (d2 > T(0)) {
-          const T d                   = std::sqrt(d2);
-          L[(np - 1) + (np - 1) * ld] = d;
-          y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
-          red_val[0]                  = T(1);
-        } else {
-          red_val[0] = T(-1);
-        }
-      }
+      thread_dot_ll = raft::warpReduce(thread_dot_ll, raft::add_op{});
+      thread_dot_ly = raft::warpReduce(thread_dot_ly, raft::add_op{});
+      if (lane == 0)
+        lawson_finish_pivot(
+          L, ld, np, G(j_star, j_star), c, j_star, y, red_val, thread_dot_ll, thread_dot_ly);
     }
     __syncthreads();
     return red_val[0] > T(0);
@@ -347,9 +372,9 @@ __device__ inline bool block_chol_append(T* L,
   // right-looking, so the between-panel update reads column j of the panel
   // (`L[i + j*ld]`, contiguous over the target rows i) -- a coalesced global read.
   {
-    constexpr int b       = raft::WarpSize;
-    const int     warp    = tid / raft::WarpSize;
-    const int     n_panel = (m + b - 1) / b;
+    constexpr int b   = raft::WarpSize;
+    const int warp    = tid / raft::WarpSize;
+    const int n_panel = raft::div_rounding_up_unsafe(m, b);
 
     for (int k = 0; k < n_panel; ++k) {
       const int lo = k * b;
@@ -382,10 +407,10 @@ __device__ inline bool block_chol_append(T* L,
       __syncthreads();
     }
 
-    // Store l as the new row (np-1) of L and form the dots on warp 0 alone, with
-    // the SAME strided-by-WarpSize reduction order as the fast path.  These are
-    // only O(m) (the O(m^2) work was the forward solve above), so keeping them
-    // single-warp costs little and keeps results bit-identical to the fast path.
+    // Store l as the new row (np-1) of L and form the closing dots on warp 0.
+    // These are only O(m) (the O(m^2) work was the forward solve above), so
+    // keeping them single-warp costs little; warp 0 reuses the same warpReduce
+    // as the fast path so both paths produce a bit-identical pivot.
     if (warp == 0) {
       T thread_dot_ll = T(0);
       T thread_dot_ly = T(0);
@@ -395,24 +420,11 @@ __device__ inline bool block_chol_append(T* L,
         thread_dot_ll += lj * lj;
         thread_dot_ly += lj * y[j];
       }
-#pragma unroll
-      for (int off = raft::WarpSize / 2; off > 0; off >>= 1) {
-        thread_dot_ll += __shfl_down_sync(0xffffffffu, thread_dot_ll, off);
-        thread_dot_ly += __shfl_down_sync(0xffffffffu, thread_dot_ly, off);
-      }
-      if (lane == 0) {
-        const T a22 = G(j_star, j_star);
-        const T eps = (sizeof(T) == 4 ? T(1e-7) : T(1e-14)) * (a22 > T(0) ? a22 : T(1));
-        const T d2  = a22 + eps - thread_dot_ll;
-        if (d2 > T(0)) {
-          const T d                   = std::sqrt(d2);
-          L[(np - 1) + (np - 1) * ld] = d;
-          y[np - 1]                   = (c[j_star] - thread_dot_ly) / d;
-          red_val[0]                  = T(1);
-        } else {
-          red_val[0] = T(-1);
-        }
-      }
+      thread_dot_ll = raft::warpReduce(thread_dot_ll, raft::add_op{});
+      thread_dot_ly = raft::warpReduce(thread_dot_ly, raft::add_op{});
+      if (lane == 0)
+        lawson_finish_pivot(
+          L, ld, np, G(j_star, j_star), c, j_star, y, red_val, thread_dot_ll, thread_dot_ly);
     }
   }
   __syncthreads();
@@ -459,7 +471,7 @@ __device__ inline void block_chol_delete_one(T* L, int ld, int np, int p, T* y, 
   // (L(i,j) <- L(i+1,j)).  Each destination reads the row directly below it in
   // the SAME column, so a thread owning a whole column and sweeping rows
   // ascending is race-free without any sync; columns are independent, so the
-  // whole block runs this in parallel (was lane 0 alone, O(np^2)).
+  // whole block runs this in parallel (one thread per column).
   for (int j = tid; j < p; j += BlockSize)
     for (int i = p; i < np - 1; ++i)
       L[i + j * ld] = L[(i + 1) + j * ld];
@@ -491,8 +503,7 @@ __device__ inline void block_chol_delete_one(T* L, int ld, int np, int p, T* y, 
     // neighbour, so it splits into independent diagonals (constant i-j): one
     // lane walks one diagonal (d = i-j) from the top, reading each source before
     // this same lane later overwrites it.  Diagonals never alias across lanes,
-    // so the whole shift is a single sync-free warp-wide pass (was q column
-    // steps, each ending in a __syncwarp).
+    // so the whole shift is a single sync-free warp-wide pass.
     for (int d = lane; d < q; d += raft::WarpSize)
       for (int k = 0; k <= q - 1 - d; ++k)
         L[(p + d + k) + (p + k) * ld] = L[(p + d + k + 1) + (p + k + 1) * ld];
@@ -573,10 +584,8 @@ __device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T*
         T partial = T(0);
         for (int j = i + 1 + lane; j < np; j += raft::WarpSize)
           partial += L[j + i * ld] * s[j];
-#pragma unroll
-        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-          partial += __shfl_xor_sync(0xffffffffu, partial, off);
-        T x_i = (s[i] - partial) / L[i + i * ld];
+        partial = raft::warpReduce(partial, raft::add_op{});
+        T x_i   = (s[i] - partial) / L[i + i * ld];
         __syncwarp();
         if (lane == 0) s[i] = x_i;
         __syncwarp();
@@ -587,10 +596,10 @@ __device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T*
   }
 
   // Blocked back-substitution for larger active sets.
-  constexpr int b       = raft::WarpSize;
-  const int     nwarps  = BlockSize / raft::WarpSize;
-  const int     warp    = tid / raft::WarpSize;
-  const int     n_panel = (np + b - 1) / b;
+  constexpr int b   = raft::WarpSize;
+  const int nwarps  = BlockSize / raft::WarpSize;
+  const int warp    = tid / raft::WarpSize;
+  const int n_panel = raft::div_rounding_up_unsafe(np, b);
 
   for (int k = n_panel - 1; k >= 0; --k) {
     const int lo = k * b;
@@ -604,9 +613,7 @@ __device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T*
         T partial = T(0);
         for (int j = hi + lane; j < np; j += raft::WarpSize)
           partial += L[j + i * ld] * s[j];
-#pragma unroll
-        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-          partial += __shfl_xor_sync(0xffffffffu, partial, off);
+        partial = raft::warpReduce(partial, raft::add_op{});
         if (lane == 0) s[i] -= partial;
       }
       __syncthreads();
@@ -619,10 +626,8 @@ __device__ inline void block_chol_backsolve(const T* L, int ld, int np, const T*
         T partial = T(0);
         for (int j = i + 1 + lane; j < hi; j += raft::WarpSize)
           partial += L[j + i * ld] * s[j];
-#pragma unroll
-        for (int off = raft::WarpSize / 2; off > 0; off >>= 1)
-          partial += __shfl_xor_sync(0xffffffffu, partial, off);
-        T x_i = (s[i] - partial) / L[i + i * ld];
+        partial = raft::warpReduce(partial, raft::add_op{});
+        T x_i   = (s[i] - partial) / L[i + i * ld];
         __syncwarp();
         if (lane == 0) s[i] = x_i;
         __syncwarp();
@@ -719,103 +724,107 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
     __syncthreads();
 
     // ---- Phase 3: outer loop (active-set growth) -----------------------------
+    // Each pass brings in the inactive column with the largest projected
+    // gradient; the KKT conditions hold once that gradient drops to `tol`.
     for (int outer = 0; outer < max_iter; ++outer) {
-    // Projected gradient w = c - G x, reading active columns of G from global.
-    block_matvec_gradient<T, BlockSize>(S.w, S.c, G, S.idx, S.x, sm_n_active, n);
+      // Projected gradient w = c - G x, reading active columns of G from global.
+      block_matvec_gradient<T, BlockSize>(S.w, S.c, G, S.idx, S.x, sm_n_active, n);
 
-    block_argmax_inactive<T, BlockSize>(S.w, S.act, mask_col, n, S.red_val, S.red_idx);
-    T max_w    = S.red_val[0];
-    int j_star = S.red_idx[0];
-    if (j_star < 0 || max_w <= tol) break;
+      block_argmax_inactive<T, BlockSize>(S.w, S.act, mask_col, n, S.red_val, S.red_idx);
+      T max_w    = S.red_val[0];
+      int j_star = S.red_idx[0];
+      if (j_star < 0 || max_w <= tol) break;
 
-    // Activate j_star (append it at the end of the compact active set).
-    if (tid == 0) {
-      S.act[j_star]      = 1;
-      S.idx[sm_n_active] = j_star;
-      sm_n_active        = sm_n_active + 1;
-      sm_j_star          = j_star;
-    }
-    __syncthreads();
-
-    // Incremental bordering append: extend L with the new column read from
-    // global G.  A non-positive pivot means the activation is rejected -> undo
-    // it and stop the outer loop (matches the old Cholesky-failure behaviour).
-    bool ok =
-      block_chol_append<BlockSize>(L, n, sm_n_active, G, S.idx, S.c, S.y, S.red_val, S.s);
-    if (!ok) {
+      // Activate j_star (append it at the end of the compact active set).
       if (tid == 0) {
-        sm_n_active      = sm_n_active - 1;
-        S.act[sm_j_star] = 0;
+        S.act[j_star]      = 1;
+        S.idx[sm_n_active] = j_star;
+        sm_n_active        = sm_n_active + 1;
+        sm_j_star          = j_star;
       }
       __syncthreads();
-      break;
-    }
 
-    for (int inner = 0; inner < inner_budget_total; ++inner) {
-      const int np = sm_n_active;
-
-      // Complete the solve L L^T s = c_P using the incrementally-maintained
-      // forward-solve state y = L^-1 c_P: only the back substitution is needed.
-      block_chol_backsolve<BlockSize>(L, n, np, S.y, S.s);
-
-      block_min<T, BlockSize>(S.s, np, S.red_val);
-      T min_s = S.red_val[0];
-      if (min_s > T(0)) {
-        for (int j = tid; j < n; j += BlockSize)
-          S.x[j] = T(0);
-        __syncthreads();
-        for (int j = tid; j < np; j += BlockSize)
-          S.x[S.idx[j]] = S.s[j];
+      // Incremental bordering append: extend L with the new column read from
+      // global G.  A non-positive pivot means idx[np-1] breaks positive-
+      // definiteness, so undo the activation and stop the outer loop.
+      bool ok = block_chol_append<BlockSize>(L, n, sm_n_active, G, S.idx, S.c, S.y, S.red_val, S.s);
+      if (!ok) {
+        if (tid == 0) {
+          sm_n_active      = sm_n_active - 1;
+          S.act[sm_j_star] = 0;
+        }
         __syncthreads();
         break;
       }
 
-      block_min_alpha<T, BlockSize>(S.x, S.s, S.idx, np, S.red_val, S.red_idx);
-      T alpha       = S.red_val[0];
-      int n_binding = S.red_idx[0];
-      if (n_binding == 0) break;
+      // Inner loop: solve the unconstrained active-set problem and, while any
+      // coordinate is negative, take the largest feasible step and drop the
+      // coordinates that hit zero until the trial solution is non-negative.
+      for (int inner = 0; inner < inner_budget_total; ++inner) {
+        const int np = sm_n_active;
 
-      for (int jj = tid; jj < np; jj += BlockSize) {
-        int j_idx  = S.idx[jj];
-        T xi       = S.x[j_idx];
-        T si       = S.s[jj];
-        S.x[j_idx] = xi + alpha * (si - xi);
-      }
-      __syncthreads();
+        // Complete the solve L L^T s = c_P using the incrementally-maintained
+        // forward-solve state y = L^-1 c_P: only the back substitution is needed.
+        block_chol_backsolve<BlockSize>(L, n, np, S.y, S.s);
 
-      // Compact the active set, recording the removed local positions (ascending)
-      // in the free scratch backed by S.w (unused inside the inner loop).
-      int* rem = reinterpret_cast<int*>(S.w);
-      if (tid == 0) {
-        const T zero_eps = (sizeof(T) == 4 ? T(1e-12) : T(1e-15));
-        int new_n        = 0;
-        int n_rem        = 0;
-        for (int jj = 0; jj < np; ++jj) {
-          int j_idx = S.idx[jj];
-          if (S.x[j_idx] > zero_eps) {
-            S.idx[new_n++] = j_idx;
-          } else {
-            S.act[j_idx] = 0;
-            S.x[j_idx]   = T(0);
-            rem[n_rem++] = jj;
-          }
+        block_min<T, BlockSize>(S.s, np, S.red_val);
+        T min_s = S.red_val[0];
+        if (min_s > T(0)) {
+          for (int j = tid; j < n; j += BlockSize)
+            S.x[j] = T(0);
+          __syncthreads();
+          for (int j = tid; j < np; j += BlockSize)
+            S.x[S.idx[j]] = S.s[j];
+          __syncthreads();
+          break;
         }
-        sm_new_n     = new_n;
-        sm_n_removed = n_rem;
-      }
-      __syncthreads();
 
-      // Downdate L for each removed position, deleting in descending order so
-      // earlier (lower-index) deletions stay valid as np shrinks.
-      int cur_np = np;
-      for (int r = sm_n_removed - 1; r >= 0; --r) {
-        block_chol_delete_one<BlockSize>(L, n, cur_np, rem[r], S.y, S.s);
-        --cur_np;
-      }
-      if (tid == 0) sm_n_active = sm_new_n;
-      __syncthreads();
+        block_min_alpha<T, BlockSize>(S.x, S.s, S.idx, np, S.red_val, S.red_idx);
+        T alpha       = S.red_val[0];
+        int n_binding = S.red_idx[0];
+        if (n_binding == 0) break;
 
-      if (sm_n_active == 0) break;
+        for (int jj = tid; jj < np; jj += BlockSize) {
+          int j_idx  = S.idx[jj];
+          T xi       = S.x[j_idx];
+          T si       = S.s[jj];
+          S.x[j_idx] = xi + alpha * (si - xi);
+        }
+        __syncthreads();
+
+        // Compact the active set, recording the removed local positions (ascending)
+        // in the free scratch backed by S.w (unused inside the inner loop).
+        int* rem = reinterpret_cast<int*>(S.w);
+        if (tid == 0) {
+          const T zero_eps = lawson_zero_eps<T>();
+          int new_n        = 0;
+          int n_rem        = 0;
+          for (int jj = 0; jj < np; ++jj) {
+            int j_idx = S.idx[jj];
+            if (S.x[j_idx] > zero_eps) {
+              S.idx[new_n++] = j_idx;
+            } else {
+              S.act[j_idx] = 0;
+              S.x[j_idx]   = T(0);
+              rem[n_rem++] = jj;
+            }
+          }
+          sm_new_n     = new_n;
+          sm_n_removed = n_rem;
+        }
+        __syncthreads();
+
+        // Downdate L for each removed position, deleting in descending order so
+        // earlier (lower-index) deletions stay valid as np shrinks.
+        int cur_np = np;
+        for (int r = sm_n_removed - 1; r >= 0; --r) {
+          block_chol_delete_one<BlockSize>(L, n, cur_np, rem[r], S.y, S.s);
+          --cur_np;
+        }
+        if (tid == 0) sm_n_active = sm_new_n;
+        __syncthreads();
+
+        if (sm_n_active == 0) break;
       }
     }
 
@@ -833,10 +842,9 @@ __global__ __launch_bounds__(BlockSize) void nnls_lawson_batched_kernel(
  * true if the kernel is allowed to use `smem_bytes` of dynamic shared memory
  * (either because it already fits the default budget, or because the opt-in
  * succeeded); returns false otherwise, after resetting the pending CUDA error
- * so a later query is not misattributed (mirroring the cuVS IVF-PQ kernel
- * selection).  The caller decides how to react to a false result: the Lawson
- * selector defers to the occupancy query (`blocks_per_sm <= 0`), while the
- * single-launch QP backends assert.
+ * so a later query is not misattributed.  The caller decides how to react to a
+ * false result: the Lawson selector defers to the occupancy query
+ * (`blocks_per_sm <= 0`).
  *
  * Both thresholds come from the device (`sharedMemPerBlock` /
  * `sharedMemPerBlockOptin`) rather than hardcoded 48 KB / 96 KB constants, so
@@ -907,8 +915,8 @@ struct lawson_plan {
    * largest block (fewest resident blocks) to the smallest, and the occupancy
    * gate that admits each smaller step is `n_problems`-independent, so we simply
    * walk to a smaller block while the current one cannot already saturate the
-   * device (`resident * kResidenceMultiple < n_problems`).  This reproduces the
-   * original top-down recursion exactly, but without any CUDA API calls.
+   * device (`resident * kResidenceMultiple < n_problems`).  No CUDA API calls
+   * are made here; the chain was built once at plan-construction time.
    */
   const lawson_selected<T>& pick(int n_problems) const
   {
@@ -957,17 +965,16 @@ struct LawsonBlockDispatch {
   // one new occupancy query (the one for the half-sized candidate).
   static void build(raft::resources const& handle, int n, int blocks_per_sm, lawson_plan<T>& plan)
   {
-    const int         n_sm = raft::resource::get_device_properties(handle).multiProcessorCount;
-    const std::size_t smem = lawson_smem_bytes<T, BlockSize>(n);
-    plan.steps[plan.count++] =
-      lawson_selected<T>{&nnls_lawson_batched_kernel<T, BlockSize>,
-                         BlockSize,
-                         smem,
-                         static_cast<long long>(blocks_per_sm) * n_sm};
+    const int n_sm           = raft::resource::get_device_properties(handle).multiProcessorCount;
+    const std::size_t smem   = lawson_smem_bytes<T, BlockSize>(n);
+    plan.steps[plan.count++] = lawson_selected<T>{&nnls_lawson_batched_kernel<T, BlockSize>,
+                                                  BlockSize,
+                                                  smem,
+                                                  static_cast<long long>(blocks_per_sm) * n_sm};
 
     if constexpr (BlockSize > raft::WarpSize) {
-      constexpr int     half_block = BlockSize / 2;
-      const std::size_t smem_half  = lawson_smem_bytes<T, half_block>(n);
+      constexpr int half_block    = BlockSize / 2;
+      const std::size_t smem_half = lawson_smem_bytes<T, half_block>(n);
       // Raise the smem cap before querying; otherwise the driver reports 0
       // active blocks for a kernel whose smem exceeds the device default.
       nnls_set_smem_attr(handle, nnls_lawson_batched_kernel<T, half_block>, smem_half);
@@ -997,8 +1004,7 @@ struct LawsonBlockDispatch {
     lawson_plan<T> plan;
     build(handle, n, blocks_per_sm, plan);
 
-    // The occupancy query is the definitive "can even one block be placed" test
-    // (mirroring cuVS IVF-PQ, which skips a candidate on `blocks_per_sm <= 0`).
+    // The occupancy query is the definitive "can even one block be placed" test.
     // Because our smem is independent of the block size, a zero top-level
     // occupancy means no block size can run, so it is a hard failure.
     RAFT_EXPECTS(
@@ -1039,8 +1045,8 @@ inline void nnls_lawson_batched_dispatch(
   if (!cache.get(n, &plan)) {
     // Cache miss: build the (CUDA-API-heavy) plan once for this `n` and memoise
     // it.  On a hit no cudaFuncSetAttribute / occupancy query runs -- the smem
-    // attribute persists at CUDA-context scope from the cold path that populated
-    // the entry.
+    // attribute set while first building this entry persists at CUDA-context
+    // scope.
     plan = LawsonBlockDispatch<T>::start(handle, n);
     cache.set(n, plan);
   }

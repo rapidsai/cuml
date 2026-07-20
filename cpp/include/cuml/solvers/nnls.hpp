@@ -17,109 +17,23 @@ namespace CUML_EXPORT ML {
 namespace Solver {
 
 /**
- * @brief Method for estimating the gradient Lipschitz constant L of the smooth
- * NNLS objective f(x) = 1/2 ||A x - b||^2.
- *
- * For NNLS we have ∇f(x) = A^T (A x - b), so L = ||A||_2^2 = sigma_max(A)^2.
- */
-enum class NnlsLipschitzMethod {
-  POWER_ITERATION = 0,  ///< Cheap iterative estimate via two gemv per step.
-  SVD             = 1,  ///< Exact value via cuSOLVER SVD on a copy of A.
-  USER_SUPPLIED   = 2   ///< Use NnlsApgParams::lipschitz_value as-is.
-};
-
-/**
- * Parameters for the FISTA / accelerated projected gradient NNLS solver.
- */
-struct NnlsApgParams {
-  int    max_iter         = 1000;
-  double tol              = 1e-6;
-  int    check_every      = 10;
-  bool   restart          = true;
-  NnlsLipschitzMethod lipschitz_method = NnlsLipschitzMethod::POWER_ITERATION;
-  double lipschitz_value  = 0.0;  ///< Used only when lipschitz_method == USER_SUPPLIED.
-  int    power_iter       = 30;   ///< Power-iteration steps for L estimation.
-  double lipschitz_safety = 1.05; ///< Multiplicative safety factor on L.
-};
-
-/**
- * Solve the Non-Negative Least Squares problem
- *
- *   argmin_x  1/2 || A x - b ||_2^2,  subject to x >= 0
- *
- * by viewing it as a convex quadratic program and applying FISTA-style
- * accelerated projected gradient (APG) iterations.  The Hessian G = A^T A is
- * never formed explicitly; each iteration performs two gemv calls (A y and
- * A^T r), one fused projection elementwise op, optional adaptive restart,
- * and a Nesterov momentum combine.  All work is performed via the standard
- * raft / cuBLAS / cuSOLVER primitives (raft::linalg::gemv, ::axpy, ::dot,
- * ::map, ::map_reduce, ::svdJacobi); no custom CUDA kernels are used.
- *
- * @param handle  raft handle.  All work runs on its main stream.
- * @param A       column-major coefficient matrix of shape (n_rows, n_cols).
- * @param n_rows  number of rows of A (length of b).
- * @param n_cols  number of columns of A (length of x).
- * @param b       right-hand-side vector of length n_rows.
- * @param x       output solution vector of length n_cols.  Pre-existing
- *                contents are overwritten.
- * @param params  solver parameters (see NnlsApgParams).
- * @return        number of outer iterations actually performed.
- */
-int nnlsApg(raft::handle_t& handle,
-            const float* A,
-            int n_rows,
-            int n_cols,
-            const float* b,
-            float* x,
-            const NnlsApgParams& params);
-
-int nnlsApg(raft::handle_t& handle,
-            const double* A,
-            int n_rows,
-            int n_cols,
-            const double* b,
-            double* x,
-            const NnlsApgParams& params);
-
-/**
  * @brief Solver backend selector for the batched NNLS entry point.
  *
- * All five backends service the same batched, masked, shared-A contract
- * (see nnlsBatched).  LAWSON is an exact active-set method run as one CUDA
- * block per problem; the remaining four minimise the same convex QP with a
- * projected iterative scheme (also one block per problem) and are provided
- * for completeness / cross-checking.
+ * Only the Lawson-Hanson active-set method is currently exposed.  The selector
+ * is kept so that additional backends can be added later without changing the
+ * call signature.
  */
 enum class NnlsBatchedSolver {
-  LAWSON = 0,  ///< Lawson-Hanson active-set (exact, best for small n_cols).
-  APG    = 1,  ///< FISTA-style accelerated projected gradient.
-  CD     = 2,  ///< Coordinate descent on the QP.
-  SGD    = 3,  ///< Projected gradient descent (ISTA).
-  LBFGS  = 4,  ///< Projected limited-memory BFGS.
-  LAWSON_MULTIKERNEL = 5  ///< Lawson-Hanson advanced one step over the whole
-                          ///< batch per global kernel launch; factor maintained
-                          ///< in global memory with batched cuBLAS/cuSOLVER
-                          ///< primitives, stopping polled from pinned memory.
+  LAWSON = 0  ///< Lawson-Hanson active-set (exact, best for small n_cols).
 };
 
 /**
- * Parameters shared by every batched NNLS backend.
+ * Parameters for the batched NNLS solver.
  */
 struct NnlsBatchedParams {
   NnlsBatchedSolver solver = NnlsBatchedSolver::LAWSON;
-  int    max_iter     = 0;      ///< 0 => per-solver default.
-  double tol          = 1e-6;   ///< Relative KKT tolerance.
-  int    check_every  = 10;     ///< Iterations between convergence checks.
-  int    lbfgs_history = 5;     ///< History length for the LBFGS backend.
-
-  // Lipschitz-constant estimation for the gradient backends (APG, SGD).
-  // L = sigma_max(A)^2 is estimated once on the shared A and reused as the
-  // step size 1/L for every problem (submatrices only shrink the spectrum,
-  // so a single global L is a valid step for the whole masked batch).
-  NnlsLipschitzMethod lipschitz_method = NnlsLipschitzMethod::POWER_ITERATION;
-  double lipschitz_value  = 0.0;   ///< Used only for USER_SUPPLIED.
-  int    power_iter       = 30;    ///< Power-iteration steps for L.
-  double lipschitz_safety = 1.05;  ///< Multiplicative safety factor on L.
+  int max_iter             = 0;     ///< 0 => per-solver default (3 * n_cols + 1 for Lawson).
+  double tol               = 1e-6;  ///< Dual-feasibility (KKT) tolerance on the projected gradient.
 };
 
 /**
@@ -141,14 +55,10 @@ struct NnlsBatchedParams {
  * @param n            number of columns of A (length of each X column).
  * @param B            column-major RHS matrix, shape (m, n_problems).
  * @param n_problems   number of problems / columns of B and X.
- * @param masks        column-major uint8 matrix, shape (n_signatures, n_problems)
- *                     i.e. (n, n_problems), F-contiguous; element (j, p) lives at
- *                     masks[p*n + j] and is nonzero iff column j is active for
- *                     problem p.  May be null, meaning every column is active for
- *                     every problem.  (The byte layout is identical to a
- *                     row-major (n_problems, n) array; only the interpretation
- *                     differs, so the per-block access masks[p*n + j] is
- *                     unchanged and coalesced over the signature index j.)
+ * @param masks        column-major uint8 matrix, shape (n, n_problems),
+ *                     F-contiguous; element (j, p) lives at masks[p*n + j] and
+ *                     is nonzero iff column j is active for problem p.  May be
+ *                     null, meaning every column is active for every problem.
  * @param X            output solutions, column-major (n, n_problems).  Masked-out
  *                     rows are written as 0.
  * @param fitted       optional output A @ X, column-major (m, n_problems).  May

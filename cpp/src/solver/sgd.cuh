@@ -12,9 +12,15 @@
 #include <cuml/solvers/params.hpp>
 
 #include <raft/core/handle.hpp>
-#include <raft/linalg/map.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemv.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/copy.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
@@ -77,8 +83,6 @@ using namespace MLCommon;
  *        solver stops if there is no update greater than tol after n_iter_no_change iterations
  * @param stream
  *        cuda stream
- * @param positive
- *        if true, enforce non-negative coefficients (NNLS mode)
  */
 template <typename math_t>
 void sgdFit(const raft::handle_t& handle,
@@ -101,8 +105,7 @@ void sgdFit(const raft::handle_t& handle,
             bool shuffle,
             math_t tol,
             int n_iter_no_change,
-            cudaStream_t stream,
-            bool positive = false)
+            cudaStream_t stream)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -222,14 +225,8 @@ void sgdFit(const raft::handle_t& handle,
       if (lr_type != ML::lr_type::ADAPTIVE)
         learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-      raft::linalg::map(handle,
-                        raft::make_device_vector_view<const math_t, int>(coef, n_cols),
-                        raft::make_device_vector_view<const math_t, int>(grads.data(), n_cols),
-                        raft::make_device_vector_view<math_t, int>(coef, n_cols),
-                        [learning_rate, positive] __device__(math_t c, math_t g) {
-                          auto r = c - learning_rate * g;
-                          return positive ? raft::max(r, math_t(0)) : r;
-                        });
+      raft::linalg::scalarMultiply(grads.data(), grads.data(), learning_rate, n_cols, stream);
+      raft::linalg::subtract(coef, coef, grads.data(), n_cols, stream);
 
       j = j + cbs;
       t = t + 1;

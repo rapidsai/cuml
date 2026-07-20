@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -35,8 +35,7 @@ void sgdFit(raft::handle_t& handle,
             float l1_ratio,
             bool shuffle,
             float tol,
-            int n_iter_no_change,
-            bool positive)
+            int n_iter_no_change)
 {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
@@ -96,8 +95,7 @@ void sgdFit(raft::handle_t& handle,
          shuffle,
          tol,
          n_iter_no_change,
-         handle.get_stream(),
-         positive);
+         handle.get_stream());
 }
 
 void sgdFit(raft::handle_t& handle,
@@ -119,8 +117,7 @@ void sgdFit(raft::handle_t& handle,
             double l1_ratio,
             bool shuffle,
             double tol,
-            int n_iter_no_change,
-            bool positive)
+            int n_iter_no_change)
 {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
@@ -179,8 +176,7 @@ void sgdFit(raft::handle_t& handle,
          shuffle,
          tol,
          n_iter_no_change,
-         handle.get_stream(),
-         positive);
+         handle.get_stream());
 }
 
 void sgdPredict(raft::handle_t& handle,
@@ -293,8 +289,7 @@ int cdFit(raft::handle_t& handle,
           float l1_ratio,
           bool shuffle,
           float tol,
-          float* sample_weight,
-          bool positive)
+          float* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
@@ -314,8 +309,7 @@ int cdFit(raft::handle_t& handle,
                       l1_ratio,
                       shuffle,
                       tol,
-                      sample_weight,
-                      positive);
+                      sample_weight);
 }
 
 int cdFit(raft::handle_t& handle,
@@ -332,8 +326,7 @@ int cdFit(raft::handle_t& handle,
           double l1_ratio,
           bool shuffle,
           double tol,
-          double* sample_weight,
-          bool positive)
+          double* sample_weight)
 {
   ASSERT(loss == 0, "Parameter loss: Only SQRT_LOSS function is supported for now");
 
@@ -353,8 +346,7 @@ int cdFit(raft::handle_t& handle,
                        l1_ratio,
                        shuffle,
                        tol,
-                       sample_weight,
-                       positive);
+                       sample_weight);
 }
 
 void cdPredict(raft::handle_t& handle,

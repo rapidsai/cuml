@@ -10,78 +10,31 @@ from cuml.common import CumlArray
 from cuml.internals.base import get_handle
 
 from libc.stdint cimport uint8_t, uintptr_t
-from libcpp cimport bool
 from pylibraft.common.handle cimport handle_t
 
 __all__ = (
     "nnls",
     "nnls_batched",
-    "fit_nnls_apg",
     "fit_nnls_batched",
 )
 
 _NVTX_DOMAIN = "cuml_python"
 _NVTX_CATEGORY = "solvers.nnls"
 
-_VALID_SOLVERS = {"cd", "sgd", "lbfgs", "lawson", "lawson_multikernel", "apg"}
+# The solver argument is retained on the public API so more backends can be
+# added later, but Lawson-Hanson is the only option available for now.
+_VALID_SOLVERS = {"lawson"}
 _SUPPORTED_DTYPES = (np.dtype(np.float32), np.dtype(np.float64))
 
 
 cdef extern from "cuml/solvers/nnls.hpp" namespace "ML::Solver" nogil:
-    cdef enum class NnlsLipschitzMethod(int):
-        POWER_ITERATION = 0
-        SVD = 1
-        USER_SUPPLIED = 2
-
-    cdef cppclass NnlsApgParams:
-        int max_iter
-        double tol
-        int check_every
-        bool restart
-        NnlsLipschitzMethod lipschitz_method
-        double lipschitz_value
-        int power_iter
-        double lipschitz_safety
-        NnlsApgParams() except +
-
-    cdef int nnlsApg(
-        handle_t& handle,
-        const float* A,
-        int n_rows,
-        int n_cols,
-        const float* b,
-        float* x,
-        const NnlsApgParams& params,
-    ) except +
-
-    cdef int nnlsApg(
-        handle_t& handle,
-        const double* A,
-        int n_rows,
-        int n_cols,
-        const double* b,
-        double* x,
-        const NnlsApgParams& params,
-    ) except +
-
     cdef enum class NnlsBatchedSolver(int):
         LAWSON = 0
-        APG = 1
-        CD = 2
-        SGD = 3
-        LBFGS = 4
-        LAWSON_MULTIKERNEL = 5
 
     cdef cppclass NnlsBatchedParams:
         NnlsBatchedSolver solver
         int max_iter
         double tol
-        int check_every
-        int lbfgs_history
-        NnlsLipschitzMethod lipschitz_method
-        double lipschitz_value
-        int power_iter
-        double lipschitz_safety
         NnlsBatchedParams() except +
 
     cdef void nnlsBatched(
@@ -111,177 +64,9 @@ cdef extern from "cuml/solvers/nnls.hpp" namespace "ML::Solver" nogil:
     ) except +
 
 
-_LIPSCHITZ_METHODS = {
-    "power": NnlsLipschitzMethod.POWER_ITERATION,
-    "svd": NnlsLipschitzMethod.SVD,
-    "user": NnlsLipschitzMethod.USER_SUPPLIED,
-}
-
 _BATCHED_SOLVERS = {
     "lawson": NnlsBatchedSolver.LAWSON,
-    "lawson_multikernel": NnlsBatchedSolver.LAWSON_MULTIKERNEL,
-    "apg": NnlsBatchedSolver.APG,
-    "cd": NnlsBatchedSolver.CD,
-    "sgd": NnlsBatchedSolver.SGD,
-    "lbfgs": NnlsBatchedSolver.LBFGS,
 }
-
-
-def fit_nnls_apg(
-    A,
-    b,
-    *,
-    convert_dtype=False,
-    int max_iter=1000,
-    double tol=1e-6,
-    int check_every=10,
-    bint restart=True,
-    str lipschitz="power",
-    double lipschitz_value=0.0,
-    int power_iter=30,
-    double lipschitz_safety=1.05,
-):
-    """Solve a Non-Negative Least Squares problem with FISTA-style accelerated
-    projected gradient (APG).
-
-    The smooth quadratic objective ``f(x) = 1/2 || A x - b ||_2^2`` is
-    minimized over ``x >= 0`` by repeatedly taking a gradient step ``y - g/L``
-    (with ``g = A^T (A y - b)``), projecting onto the nonnegative orthant,
-    and adding Nesterov momentum.  Each iteration costs two ``gemv`` calls
-    plus a single fused projection / momentum elementwise pass; the Hessian
-    ``A^T A`` is never materialised.
-
-    Parameters
-    ----------
-    A : array-like, shape=(n_rows, n_cols)
-        Coefficient matrix, dtype ``float32`` or ``float64``.
-    b : array-like, shape=(n_rows,)
-        Right-hand-side vector.  Cast to ``A.dtype`` if needed (and if
-        ``convert_dtype=True``; otherwise its dtype must already match).
-    convert_dtype : bool, default=False
-        If True, convert ``A`` and ``b`` to a supported dtype.
-    max_iter : int, default=1000
-        Maximum number of APG iterations.
-    tol : double, default=1e-6
-        KKT tolerance.  The solver stops when
-        ``max_j |min(x_j, g_j)| < tol * max(1, ||A^T b||_inf)``.
-    check_every : int, default=10
-        Number of iterations between KKT-residual checks (and therefore
-        between device->host syncs).
-    restart : bool, default=True
-        Enable adaptive (gradient) restart of the Nesterov momentum.
-    lipschitz : {'power', 'svd', 'user'}, default='power'
-        Method for estimating the gradient Lipschitz constant
-        ``L = sigma_max(A) ** 2`` that controls the step size ``1/L``.
-
-        - ``'power'`` -- a few power iterations on ``A^T A`` (default,
-          two ``gemv`` per step, no extra factorization).
-        - ``'svd'``   -- exact ``L`` via cuSOLVER's Jacobi SVD on a copy
-          of ``A`` (costlier, intended for small matrices).
-        - ``'user'``  -- use ``lipschitz_value`` directly.
-    lipschitz_value : double, default=0.0
-        Explicit Lipschitz constant.  Only used when ``lipschitz='user'``;
-        must be strictly positive in that case.
-    power_iter : int, default=30
-        Number of power iterations performed when ``lipschitz='power'``.
-    lipschitz_safety : double, default=1.05
-        Multiplicative safety factor on the estimated ``L`` (estimates can
-        slightly underestimate ``sigma_max`` and the projected step requires
-        ``1/L <= 1/||A||_2^2``).
-
-    Returns
-    -------
-    coef : CumlArray, shape=(n_cols,)
-        The non-negative solution vector.
-    """
-    if lipschitz not in _LIPSCHITZ_METHODS:
-        raise ValueError(
-            f"Unknown lipschitz method {lipschitz!r}. "
-            f"Expected one of {sorted(_LIPSCHITZ_METHODS)}."
-        )
-    if lipschitz == "user" and not (lipschitz_value > 0):
-        raise ValueError(
-            "lipschitz='user' requires lipschitz_value > 0; got "
-            f"{lipschitz_value!r}."
-        )
-    if max_iter < 1:
-        raise ValueError(f"max_iter must be >= 1, got {max_iter}.")
-    if check_every < 1:
-        raise ValueError(f"check_every must be >= 1, got {check_every}.")
-
-    handle = get_handle()
-
-    cdef int n_rows, n_cols
-    A = CumlArray.from_input(
-        A,
-        check_dtype=[np.float32, np.float64],
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        order="F",
-    )
-    n_rows = A.shape[0]
-    n_cols = A.shape[1] if len(A.shape) > 1 else 1
-
-    if n_rows < 1:
-        raise ValueError(
-            f"Found array with {n_rows} sample(s) (shape={A.shape}) while a "
-            f"minimum of 1 is required."
-        )
-    if n_cols < 1:
-        raise ValueError(
-            f"Found array with {n_cols} feature(s) (shape={A.shape}) while "
-            f"a minimum of 1 is required."
-        )
-
-    b = CumlArray.from_input(
-        b,
-        check_dtype=A.dtype,
-        convert_to_dtype=(A.dtype if convert_dtype else None),
-        check_rows=n_rows,
-        check_cols=1,
-    )
-
-    coef = CumlArray(cp.zeros(n_cols, dtype=A.dtype))
-
-    cdef NnlsApgParams params
-    params.max_iter         = max_iter
-    params.tol              = tol
-    params.check_every      = check_every
-    params.restart          = restart
-    params.lipschitz_method = _LIPSCHITZ_METHODS[lipschitz]
-    params.lipschitz_value  = lipschitz_value
-    params.power_iter       = power_iter
-    params.lipschitz_safety = lipschitz_safety
-
-    cdef uintptr_t A_ptr = A.ptr
-    cdef uintptr_t b_ptr = b.ptr
-    cdef uintptr_t coef_ptr = coef.ptr
-    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
-    cdef bint is_float32 = A.dtype == np.float32
-
-    with nogil:
-        if is_float32:
-            nnlsApg(
-                handle_[0],
-                <const float*>A_ptr,
-                n_rows,
-                n_cols,
-                <const float*>b_ptr,
-                <float*>coef_ptr,
-                params,
-            )
-        else:
-            nnlsApg(
-                handle_[0],
-                <const double*>A_ptr,
-                n_rows,
-                n_cols,
-                <const double*>b_ptr,
-                <double*>coef_ptr,
-                params,
-            )
-    handle.sync()
-
-    return coef
 
 
 def fit_nnls_batched(
@@ -293,16 +78,10 @@ def fit_nnls_batched(
     str solver="lawson",
     int max_iter=0,
     double tol=1e-6,
-    int check_every=10,
-    int lbfgs_history=5,
-    str lipschitz="power",
-    double lipschitz_value=0.0,
-    int power_iter=30,
-    double lipschitz_safety=1.05,
     bint compute_fitted=True,
 ):
     """Solve a batch of masked, shared-``A`` Non-Negative Least Squares
-    problems in a single kernel launch per backend.
+    problems in a single kernel launch.
 
     For every column ``p`` of ``B`` this solves
     ``argmin_{x >= 0, x[j]=0 where masks[j, p]==0} || A @ x - B[:, p] ||_2``
@@ -324,20 +103,13 @@ def fit_nnls_batched(
         access exactly. ``None`` means every column is active for every problem.
     convert_dtype : bool, default=False
         If True, convert ``A``/``B`` to a supported dtype.
-    solver : {'lawson', 'apg', 'cd', 'sgd', 'lbfgs'}, default='lawson'
-        Backend to use. ``'lawson'`` is the exact active-set method and the
-        best fit for small ``n``; the others minimise the same QP iteratively.
+    solver : {'lawson'}, default='lawson'
+        Backend to use. Lawson-Hanson is the exact active-set method and the
+        only backend currently available.
     max_iter : int, default=0
-        Iteration cap. ``0`` selects the per-backend default.
+        Iteration cap. ``0`` selects the active-set default (``3 * n + 1``).
     tol : double, default=1e-6
-        Relative KKT tolerance.
-    check_every : int, default=10
-        Iterations between convergence checks (iterative backends).
-    lbfgs_history : int, default=5
-        History length for the LBFGS backend.
-    lipschitz, lipschitz_value, power_iter, lipschitz_safety
-        Options for the gradient backends' step size ``1/L`` (see
-        :func:`fit_nnls_apg`). Ignored by ``lawson`` and ``cd``.
+        Dual-feasibility (KKT) tolerance on the projected gradient.
     compute_fitted : bool, default=True
         Whether to also return ``fitted = A @ X``.
 
@@ -352,11 +124,6 @@ def fit_nnls_batched(
         raise ValueError(
             f"Unknown solver {solver!r}. "
             f"Expected one of {sorted(_BATCHED_SOLVERS)}."
-        )
-    if lipschitz not in _LIPSCHITZ_METHODS:
-        raise ValueError(
-            f"Unknown lipschitz method {lipschitz!r}. "
-            f"Expected one of {sorted(_LIPSCHITZ_METHODS)}."
         )
 
     handle = get_handle()
@@ -417,15 +184,9 @@ def fit_nnls_batched(
         fitted_ptr = fitted.ptr
 
     cdef NnlsBatchedParams params
-    params.solver           = _BATCHED_SOLVERS[solver]
-    params.max_iter         = max_iter
-    params.tol              = tol
-    params.check_every      = check_every
-    params.lbfgs_history    = lbfgs_history
-    params.lipschitz_method = _LIPSCHITZ_METHODS[lipschitz]
-    params.lipschitz_value  = lipschitz_value
-    params.power_iter       = power_iter
-    params.lipschitz_safety = lipschitz_safety
+    params.solver = _BATCHED_SOLVERS[solver]
+    params.max_iter = max_iter
+    params.tol = tol
 
     cdef uintptr_t A_ptr = A.ptr
     cdef uintptr_t B_ptr = B.ptr
@@ -470,12 +231,10 @@ def nnls(
     b,
     *,
     maxiter=None,
-    solver="cd",
+    solver="lawson",
     compute_rnorm=True,
     tol=None,
     check_every=10,
-    restart=True,
-    lipschitz="power",
 ):
     """Solve ``argmin_x || A @ x - b ||_2`` for ``x >= 0``.
 
@@ -490,32 +249,23 @@ def nnls(
     b : array-like, shape (m,)
         Right-hand side vector.  Will be cast to ``A.dtype`` if needed.
     maxiter : int, optional
-        Maximum number of iterations.  Defaults to ``1000``.
-    solver : {'cd', 'sgd', 'lbfgs', 'lawson', 'apg'}, default='cd'
-        Which solver backend to use:
-
-        - ``'cd'``     -- Coordinate Descent (default, best general-purpose).
-        - ``'sgd'``    -- Projected Stochastic Gradient Descent.
-        - ``'lbfgs'``  -- Projected L-BFGS (quasi-Newton).
-        - ``'lawson'`` -- Single-kernel Lawson-Hanson active-set solver.
-          Solves the whole problem in a single CUDA kernel using normal
-          equations and shared-memory Cholesky.  Best for small problems
-          (n_cols up to roughly 90 in double precision) where launch
-          latency dominates the iterative solvers.
-        - ``'apg'``    -- FISTA-style accelerated projected gradient on the
-          QP form ``min 1/2 x^T (A^T A) x - (A^T b)^T x  s.t. x >= 0``.
-          Built exclusively from raft / cuBLAS / cuSOLVER primitives and
-          scales well to large, wide, or many-RHS workloads where the
-          coordinate-descent inner loop is dominated by per-coefficient
-          launch overhead.
+        Maximum number of active-set iterations.  Defaults to the Lawson
+        active-set cap ``3 * n + 1``.
+    solver : {'lawson'}, default='lawson'
+        Which solver backend to use.  Lawson-Hanson is the exact active-set
+        method that solves the whole problem in a single CUDA kernel using
+        normal equations and shared-memory Cholesky; it is the only backend
+        currently available.  Best for small problems (n_cols up to roughly 90
+        in double precision) where launch latency dominates.
     compute_rnorm : bool, default=True
         Whether to compute the residual 2-norm.  When ``False``, ``rnorm``
         is returned as ``None`` and an extra matmul + reduction + device sync
         per call is avoided.  Useful in tight loops where the caller does
         not need the residual norm.
-    tol, check_every, restart, lipschitz
-        APG-specific options (see :func:`fit_nnls_apg`).
-        Ignored for the other solvers.  ``tol`` defaults to ``1e-6`` for APG.
+    tol : float, optional
+        Dual-feasibility (KKT) tolerance.  Defaults to ``1e-4``.
+    check_every : int, default=10
+        Retained for API compatibility; unused by the Lawson backend.
 
     Returns
     -------
@@ -572,49 +322,27 @@ def nnls(
             if b_gpu.dtype != A_gpu.dtype:
                 b_gpu = b_gpu.astype(A_gpu.dtype, copy=False)
 
-        max_iter = maxiter if maxiter is not None else 1000
-
         with nvtx.annotate(
             message=f"nnls.solve[{solver}]",
             domain=_NVTX_DOMAIN,
             category=_NVTX_CATEGORY,
         ):
-            if solver in ("cd", "sgd", "lbfgs", "lawson", "lawson_multikernel"):
-                # These backends are all implemented by the batched Gram-form
-                # engine (fit_nnls_batched); a single-RHS problem is just a
-                # batch of one column with no mask, so we reuse that path here
-                # rather than maintaining a parallel single-problem kernel.
-                # For the Lawson backends a max_iter of 0 selects the tight
-                # active-set cap (3 * n_cols + 1) and the tolerance default is
-                # the active-set gradient tolerance (1e-4) rather than 1e-6.
-                default_tol = (
-                    1e-4 if solver in ("lawson", "lawson_multikernel") else 1e-6
-                )
-                X_batched, _ = fit_nnls_batched(
-                    A_gpu,
-                    b_gpu.reshape(-1, 1),
-                    None,
-                    convert_dtype=False,
-                    solver=solver,
-                    max_iter=(0 if maxiter is None else max_iter),
-                    tol=(default_tol if tol is None else float(tol)),
-                    check_every=int(check_every),
-                    lbfgs_history=5,
-                    lipschitz=str(lipschitz),
-                    compute_fitted=False,
-                )
-                coef = cp.asarray(X_batched)[:, 0]
-            elif solver == "apg":
-                coef = fit_nnls_apg(
-                    A_gpu,
-                    b_gpu,
-                    convert_dtype=False,
-                    max_iter=max_iter,
-                    tol=(1e-6 if tol is None else float(tol)),
-                    check_every=int(check_every),
-                    restart=restart,
-                    lipschitz=str(lipschitz),
-                )
+            # A single-RHS problem is just a batch of one column with no mask, so
+            # reuse the batched Gram-form engine rather than maintaining a
+            # parallel single-problem kernel.  max_iter of 0 selects the tight
+            # active-set cap (3 * n_cols + 1) and the tolerance default is the
+            # active-set gradient tolerance (1e-4).
+            X_batched, _ = fit_nnls_batched(
+                A_gpu,
+                b_gpu.reshape(-1, 1),
+                None,
+                convert_dtype=False,
+                solver=solver,
+                max_iter=(0 if maxiter is None else int(maxiter)),
+                tol=(1e-4 if tol is None else float(tol)),
+                compute_fitted=False,
+            )
+            coef = cp.asarray(X_batched)[:, 0]
 
         x = cp.asarray(coef).ravel()
         if compute_rnorm:
@@ -641,9 +369,6 @@ def nnls_batched(
     compute_fitted=True,
     maxiter=None,
     tol=1e-6,
-    check_every=10,
-    lbfgs_history=5,
-    lipschitz="power",
 ):
     """Solve a batch of masked, shared-``A`` NNLS problems on the GPU.
 
@@ -677,22 +402,15 @@ def nnls_batched(
     b_index : array-like, shape (n_problems,), int, optional
         Target column of ``B`` for each problem, gathered on the device.
         Defaults to the identity mapping (requires ``n_targets == n_problems``).
-    solver : {'lawson', 'apg', 'cd', 'sgd', 'lbfgs'}, default='lawson'
-        Backend to use.
+    solver : {'lawson'}, default='lawson'
+        Backend to use.  Lawson-Hanson is the only backend currently available.
     compute_fitted : bool, default=True
         Whether to also return ``fitted = A @ X``.  When ``False``, ``fitted``
         is ``None`` and the extra matmul is skipped.
     maxiter : int, optional
-        Iteration cap.  Defaults to the per-backend default (selected by 0).
+        Iteration cap.  Defaults to the active-set default (selected by 0).
     tol : float, default=1e-6
-        Relative KKT tolerance.
-    check_every : int, default=10
-        Iterations between convergence checks (iterative backends).
-    lbfgs_history : int, default=5
-        History length for the ``'lbfgs'`` backend.
-    lipschitz : {'power', 'svd', 'user'}, default='power'
-        Lipschitz-estimation method for the gradient backends' ``1/L`` step.
-        Ignored by ``'lawson'`` and ``'cd'``.
+        Dual-feasibility (KKT) tolerance.
 
     Returns
     -------
@@ -799,9 +517,6 @@ def nnls_batched(
             solver=str(solver),
             max_iter=(0 if maxiter is None else int(maxiter)),
             tol=(1e-6 if tol is None else float(tol)),
-            check_every=int(check_every),
-            lbfgs_history=int(lbfgs_history),
-            lipschitz=str(lipschitz),
             compute_fitted=compute_fitted,
         )
 

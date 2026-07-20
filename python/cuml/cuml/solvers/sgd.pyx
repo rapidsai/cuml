@@ -34,8 +34,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                      float l1_ratio,
                      bool shuffle,
                      float tol,
-                     int n_iter_no_change,
-                     bool positive) except +
+                     int n_iter_no_change) except +
 
     cdef void sgdFit(handle_t& handle,
                      double *input,
@@ -56,8 +55,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
                      double l1_ratio,
                      bool shuffle,
                      double tol,
-                     int n_iter_no_change,
-                     bool positive) except +
+                     int n_iter_no_change) except +
 
     cdef void sgdPredict(handle_t& handle,
                          const float *input,
@@ -118,7 +116,6 @@ def fit_sgd(
     double power_t=0.5,
     int batch_size=32,
     int n_iter_no_change=5,
-    bool positive=False,
 ):
     """Fit a linear model using stochastic gradient descent.
 
@@ -229,8 +226,7 @@ def fit_sgd(
                 l1_ratio,
                 shuffle,
                 tol,
-                n_iter_no_change,
-                positive
+                n_iter_no_change
             )
         else:
             sgdFit(
@@ -253,8 +249,7 @@ def fit_sgd(
                 l1_ratio,
                 shuffle,
                 tol,
-                n_iter_no_change,
-                positive
+                n_iter_no_change
             )
     handle.sync()
 
@@ -374,7 +369,6 @@ class SGD(FMajorInputTagMixin, Base):
             "power_t",
             "batch_size",
             "n_iter_no_change",
-            "positive",
         ]
 
     def __init__(
@@ -393,7 +387,6 @@ class SGD(FMajorInputTagMixin, Base):
         power_t=0.5,
         batch_size=32,
         n_iter_no_change=5,
-        positive=False,
         output_type=None,
         verbose=False,
     ):
@@ -411,7 +404,6 @@ class SGD(FMajorInputTagMixin, Base):
         self.power_t = power_t
         self.batch_size = batch_size
         self.n_iter_no_change = n_iter_no_change
-        self.positive = positive
 
     @generate_docstring()
     @mlfunc(set_input_type=True)
@@ -438,7 +430,6 @@ class SGD(FMajorInputTagMixin, Base):
             power_t=self.power_t,
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
-            positive=self.positive,
         )
         self.coef_ = coef
         self.intercept_ = intercept

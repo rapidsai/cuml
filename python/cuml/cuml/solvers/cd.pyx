@@ -33,8 +33,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
         float l1_ratio,
         bool shuffle,
         float tol,
-        float *sample_weight,
-        bool positive
+        float *sample_weight
     ) except +
 
     cdef int cdFit(
@@ -52,8 +51,7 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver" nogil:
         double l1_ratio,
         bool shuffle,
         double tol,
-        double *sample_weight,
-        bool positive
+        double *sample_weight
     ) except +
 
     cdef void cdPredict(handle_t& handle,
@@ -89,7 +87,6 @@ def fit_cd(
     int max_iter=1000,
     double tol=1e-3,
     bool shuffle=True,
-    bool positive=False,
 ):
     """Fit a linear model using coordinate descent.
 
@@ -181,8 +178,7 @@ def fit_cd(
                 <float>l1_ratio,
                 shuffle,
                 <float>tol,
-                <float*>sample_weight_ptr,
-                positive
+                <float*>sample_weight_ptr
             )
         else:
             n_iter = cdFit(
@@ -200,8 +196,7 @@ def fit_cd(
                 l1_ratio,
                 shuffle,
                 tol,
-                <double*>sample_weight_ptr,
-                positive
+                <double*>sample_weight_ptr
             )
     handle.sync()
 

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2018-2025, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -113,8 +113,8 @@ inline bool update_and_check(const char* solver,
   } else if (isLsInDoubt && fx + param.ftol >= fxp) {
     // If a non-critical error has happened during the line search, check if the target
     // is improved at least a bit. Otherwise, stop to avoid spinning till the iteration limit.
-    // CUML_LOG_WARN(
-    //   "%s stopped, because the line search failed to advance (step delta = %f)", solver, fx - fxp);
+    CUML_LOG_WARN(
+      "%s stopped, because the line search failed to advance (step delta = %f)", solver, fx - fxp);
     outcode = OPT_LS_FAILED;
     stop    = true;
   }
@@ -137,8 +137,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
                              int* k,                   // output iterations
                              SimpleVec<T>& workspace,  // scratch space
                              cudaStream_t stream,
-                             rapids_logger::level_enum verbosity = 0,
-                             bool positive                       = false)
+                             rapids_logger::level_enum verbosity = 0)
 {
   int n                    = x.len;
   const int workspace_size = lbfgs_workspace_size(param, n);
@@ -203,8 +202,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
     fxp = fx;
 
     // Line search to update x, fx and gradient
-    lsret = positive ? ls_backtrack_nonneg(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream)
-                     : ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
+    lsret = ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
     gnorm = f.gradNorm(grad, dev_scalar, stream);
 
     if (update_and_check("L-BFGS",
@@ -412,8 +410,7 @@ inline int qn_minimize(const raft::handle_t& handle,
                        LossFunction& loss,
                        const T l1,
                        const LBFGSParam<T>& opt_param,
-                       const rapids_logger::level_enum verbosity = 0,
-                       bool positive                             = false)
+                       const rapids_logger::level_enum verbosity = 0)
 {
   // TODO should the worksapce allocation happen outside?
   cudaStream_t stream = handle.get_stream();
@@ -429,8 +426,7 @@ inline int qn_minimize(const raft::handle_t& handle,
                     num_iters,  // output iterations
                     workspace,  // scratch space
                     stream,
-                    verbosity,
-                    positive);
+                    verbosity);
 
     CUML_LOG_DEBUG("L-BFGS Done");
   } else {
