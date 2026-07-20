@@ -51,7 +51,7 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
     params.init_size = int(kmeans.init_size)
-    params.streaming_batch_size = int(kmeans.streaming_batch_size)
+    params.device_buffer_samples = int(kmeans.device_buffer_samples)
     params.oversampling_factor = kmeans.oversampling_factor
 
     # Ensure random_state is set when running on multi-gpu
@@ -455,7 +455,7 @@ class KMeans(InteropMixin,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
-    streaming_batch_size : int (default = 0)
+    device_buffer_samples : int (default = 0)
         Number of samples to stream from host to device per GPU batch when
         fitting with host-resident inputs. Set to a positive value to bound peak GPU memory
         when the full dataset does not fit on the device. When set to 0
@@ -518,7 +518,7 @@ class KMeans(InteropMixin,
             "n_init",
             "oversampling_factor",
             "max_samples_per_batch",
-            "streaming_batch_size",
+            "device_buffer_samples",
             "init_size",
             "init",
             "max_iter",
@@ -608,7 +608,7 @@ class KMeans(InteropMixin,
         n_init="auto",
         oversampling_factor=2.0,
         max_samples_per_batch=1<<15,
-        streaming_batch_size=0,
+        device_buffer_samples=0,
         init_size=0,
         output_type=None,
     ):
@@ -621,7 +621,7 @@ class KMeans(InteropMixin,
         self.n_init = n_init
         self.oversampling_factor = oversampling_factor
         self.max_samples_per_batch = max_samples_per_batch
-        self.streaming_batch_size = streaming_batch_size
+        self.device_buffer_samples = device_buffer_samples
         self.init_size = init_size
 
     @property
@@ -637,17 +637,17 @@ class KMeans(InteropMixin,
         Compute k-means clustering with X.
 
         """
-        streaming_batch_size = int(self.streaming_batch_size)
-        if streaming_batch_size < 0:
+        device_buffer_samples = int(self.device_buffer_samples)
+        if device_buffer_samples < 0:
             raise ValueError(
-                f"streaming_batch_size must be >= 0, got "
-                f"{streaming_batch_size}."
+                f"device_buffer_samples must be >= 0, got "
+                f"{device_buffer_samples}."
             )
-        if streaming_batch_size > 0 and self._multi_gpu:
+        if device_buffer_samples > 0 and self._multi_gpu:
             raise ValueError(
-                f"streaming_batch_size={streaming_batch_size} is not "
+                f"device_buffer_samples={device_buffer_samples} is not "
                 f"supported for the multi-GPU KMeans fit path; set "
-                f"streaming_batch_size=0."
+                f"device_buffer_samples=0."
             )
 
         self._validate_fit_params()
@@ -665,9 +665,9 @@ class KMeans(InteropMixin,
         )
         data_on_device = isinstance(X, cp.ndarray)
 
-        # `streaming_batch_size` only affects the host-to-device streaming
+        # `device_buffer_samples` only affects the host-to-device streaming
         # path. When `X` is already on device take the standard device-data fit path.
-        use_host_path = streaming_batch_size > 0 and not data_on_device
+        use_host_path = device_buffer_samples > 0 and not data_on_device
         if use_host_path:
             X = cp.asnumpy(X, order="C")
             if sample_weight is not None:
@@ -714,7 +714,7 @@ class KMeans(InteropMixin,
         if use_host_path:
             labels, inertia = _kmeans_predict_host_chunked(
                 handle_[0], params, X, sample_weight, centers,
-                streaming_batch_size,
+                device_buffer_samples,
             )
         else:
             labels, inertia = _kmeans_predict(

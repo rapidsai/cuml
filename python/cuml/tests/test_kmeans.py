@@ -474,11 +474,11 @@ def test_kmeans_init_wrong_shape():
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-@pytest.mark.parametrize("streaming_batch_size", [256, 1024, 5000])
+@pytest.mark.parametrize("device_buffer_samples", [256, 1024, 5000])
 @pytest.mark.parametrize("weighted", [False, True])
 @pytest.mark.parametrize("init_method", ["explicit", "default"])
-def test_kmeans_streaming_batch_size_host_path(
-    dtype, streaming_batch_size, weighted, init_method
+def test_kmeans_device_buffer_samples_host_path(
+    dtype, device_buffer_samples, weighted, init_method
 ):
     """The single-GPU host-streaming fit path should agree with the device
     path on identical inputs.
@@ -518,11 +518,11 @@ def test_kmeans_streaming_batch_size_host_path(
         common_kwargs["init_size"] = n_rows
 
     host_model = cuml.KMeans(
-        streaming_batch_size=streaming_batch_size, **common_kwargs
+        device_buffer_samples=device_buffer_samples, **common_kwargs
     )
     host_model.fit(X_host, sample_weight=sample_weight_host)
 
-    dev_model = cuml.KMeans(streaming_batch_size=0, **common_kwargs)
+    dev_model = cuml.KMeans(device_buffer_samples=0, **common_kwargs)
     dev_model.fit(X_dev, sample_weight=sample_weight_dev)
 
     host_labels = cp.asnumpy(cp.asarray(host_model.labels_))

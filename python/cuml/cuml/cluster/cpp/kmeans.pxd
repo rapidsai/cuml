@@ -31,7 +31,7 @@ cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans" nogil:
         int batch_samples,
         int batch_centroids,
         int64_t init_size,
-        int64_t streaming_batch_size
+        int64_t device_buffer_samples
 
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
