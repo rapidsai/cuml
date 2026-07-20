@@ -183,7 +183,7 @@ class MyEstimator(Base):
     @mlfunc(preserve_index=True)
     def transform(self, X):
         check_is_fitted(self)
-        X_m = check_inputs(self, X, order="K")
+        X = check_inputs(self, X, order="K")
         # Return an array-like object directly; @mlfunc handles conversion.
         return X
 ```
@@ -191,8 +191,8 @@ class MyEstimator(Base):
 Fit-like methods should use `@mlfunc(set_input_type=True)` in combination with
 the appropriate validation helpers. Pass `reset=True` to validation when
 fitting. Methods that return scalars may use `@mlfunc(convert_output=False)` to
-avoid some fully disable output conversion, though a plain `@mlfunc` would work
-as well.
+fully disable the output conversion code path, though a plain `@mlfunc` would
+work as well (no conversion happens for scalars anyway).
 
 ## Background
 
@@ -200,11 +200,13 @@ as well.
 
 cuML estimators should validate public inputs with `cuml.internals.validation`
 helpers such as `check_inputs`, `check_array`, `check_y`, and
-`check_sample_weight`. These helpers accept the standard cuML array-like
-inputs, apply estimator feature metadata checks, and normalize data to standard
-CuPy/NumPy or sparse array containers. Sparse estimators should configure the
-validation helpers for their supported sparse formats or follow the
-sparse-specific validation utilities used by neighboring sparse estimators.
+`check_sample_weight`. Prefer `check_inputs` for estimator methods that
+validate `X` and optional `y`/`sample_weight` values. These helpers accept the
+standard cuML array-like inputs, apply estimator feature metadata checks, and
+normalize data to standard CuPy/NumPy or sparse array containers. Sparse
+estimators should configure the validation helpers for their supported sparse
+formats or follow the sparse-specific validation utilities used by neighboring
+sparse estimators.
 
 Internally, dense array data should usually be processed as the standard arrays
 returned by validation. Low-level code that needs a specific memory location
@@ -227,15 +229,15 @@ Accepted output types are:
  - `None`: No global or estimator override. Reflected estimator methods infer
    from their input or fit-time input type.
  - `"input"`: Mirror the relevant input type.
- - `"array"`: Return a CuPy array for device data or a NumPy array for host data.
- - `"numba"`: Return a Numba device array.
- - `"dataframe"`: Return a cuDF DataFrame based on memory location.
- - `"series"`: Return a cuDF Series based on memory location.
- - `"df_obj"`: Return a Series for single-dimensional output or a DataFrame otherwise.
  - `"cupy"`: Return a CuPy array.
  - `"numpy"`: Return a NumPy array.
  - `"cudf"`: Return a cuDF Series or DataFrame.
  - `"pandas"`: Return a pandas Series or DataFrame.
+ - `"numba"`: Return a Numba device array.
+ - `"dataframe"`: Return a cuDF DataFrame.
+ - `"series"`: Return a cuDF Series.
+ - `"array"`: An alias for `"cupy"`.
+ - `"df_obj"`: An alias for `"cudf"`.
 
 The internal output type `"cuml"` may appear inside reflected calls.
 User-facing code should not set it.
@@ -256,7 +258,7 @@ from cuml.internals.validation import check_inputs, check_is_fitted
 
 @mlfunc(set_input_type=True)
 def fit(self, X, y, *, convert_dtype=True):
-    X_m, y_m = check_inputs(
+    X, y = check_inputs(
         self,
         X,
         y,
@@ -265,15 +267,15 @@ def fit(self, X, y, *, convert_dtype=True):
         order="K",
         reset=True,
     )
-    rows, cols = X_m.shape
-    dtype = X_m.dtype
+    rows, cols = X.shape
+    dtype = X.dtype
     ...
 
 
 @mlfunc(preserve_index=True)
 def transform(self, X, *, convert_dtype=True):
     check_is_fitted(self)
-    X_m = check_inputs(
+    X = check_inputs(
         self,
         X,
         dtype=self.result_.dtype,
@@ -459,7 +461,7 @@ class SampleEstimator(Base):
    my_array_ = ReflectedAttr()
    my_other_array_ = ReflectedAttr()
 
-   @mlfunc(set_input_Type=True)
+   @mlfunc(set_input_type=True)
    def fit(self, X):
       # reset=True on check_inputs sets n_features_in_ and feature_names_in_
       X = check_inputs(self, X, order="K", reset=True)
@@ -502,7 +504,7 @@ np_arr = np.ones((10,))
 my_est.fit(np_arr) # This will load data into attributes
 
 # Externally, descriptors reflect the fit-time input type by default
-print(type(my_est.my_array_)) # Output: Numpy (saved from the input of `fit`)
+print(type(my_est.my_array_)) # Output: NumPy (saved from the input of `fit`)
 
 # Calling fit again with cupy arrays, will have a similar effect
 my_est.fit(cp.ones((10,)))
@@ -551,7 +553,7 @@ class MyEstimator(Base):
     def predict(self, X):
         check_is_fitted(self)
         X = check_inputs(self, X, order="K")
-        return X + cp.ones(X_m.shape)
+        return X + cp.ones(X.shape)
 ```
 
 | Decorator Usage | When to Use |
