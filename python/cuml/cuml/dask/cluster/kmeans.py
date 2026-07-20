@@ -116,8 +116,6 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         handle = get_raft_comm_state(sessionId, get_worker())["handle"]
 
-        # Pass the worker-local partitions directly to cuVS (as a vector of
-        # device matrix views) instead of concatenating them on device.
         if not has_weights:
             inp_data = list(objs)
             inp_weights = None

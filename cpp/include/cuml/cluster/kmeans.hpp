@@ -23,7 +23,7 @@ namespace kmeans {
  manages the CUDA resources.
  * @param[in]     params        Parameters for KMeans model.
  * @param[in]     X             Training instances to cluster, in row-major
- * format. May live on the device or on the host.
+ * format. May or may not be device accessible.
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
@@ -33,7 +33,7 @@ namespace kmeans {
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'. `centroids`
- * must always live on the device.
+ * must always be device accessible.
  * @param[out]    inertia       Sum of squared distances of samples to their
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
@@ -82,13 +82,7 @@ void fit(const raft::handle_t& handle,
  * @brief Multi-GPU / out-of-core k-means fit over multiple local data partitions.
  *
  * Each rank (e.g. each Dask worker) supplies its local training data as an
- * array of `n_parts` partitions instead of a single concatenated matrix. The
- * memory residency of the partitions is detected automatically:
- *   - Device-resident partitions are handed to cuVS as device matrix views and
- *     processed in full (`device_buffer_samples` is ignored).
- *   - Host-resident partitions are handed to cuVS as host matrix views and
- *     streamed to the device in batches of `params.device_buffer_samples`, so
- *     the full dataset is never materialized on the device.
+ * array of `n_parts` partitions.
  * All partitions on a given rank must share the same residency. The
  * distributed reduction across ranks is performed via the NCCL communicator
  * that must be initialized on `handle`.

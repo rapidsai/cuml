@@ -32,8 +32,6 @@ void fit_impl_device_parts(const raft::handle_t& handle,
                            value_t& inertia,
                            int64_t& n_iter)
 {
-  // Device-resident partitions are processed in full (no host-to-device
-  // streaming); `device_buffer_samples` is ignored by cuVS in this case.
   std::vector<raft::device_matrix_view<const value_t, int64_t>> X_views;
   X_views.reserve(n_parts);
   for (int64_t i = 0; i < n_parts; ++i) {
@@ -73,8 +71,6 @@ void fit_impl_host_parts(const raft::handle_t& handle,
                          value_t& inertia,
                          int64_t& n_iter)
 {
-  // Each partition stays on the host; cuVS streams it to the device in batches
-  // of `params.device_buffer_samples`. Only the centroids live on the device.
   std::vector<raft::host_matrix_view<const value_t, int64_t>> X_views;
   X_views.reserve(n_parts);
   for (int64_t i = 0; i < n_parts; ++i) {
@@ -245,8 +241,6 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int64_t& n_iter)
 {
-  // All local partitions on a rank share the same memory residency; pick the
-  // device or host cuVS overload based on the first partition.
   if (n_parts > 0 && ML::is_device_or_managed_type(X_parts[0])) {
     fit_impl_device_parts(handle,
                           params,

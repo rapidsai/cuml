@@ -20,10 +20,7 @@ class KMeansMG(KMeans):
     def fit(self, X, sample_weight=None):
         """Fit the multi-GPU KMeans model.
 
-        When ``X`` is a sequence of local data partitions (as passed by the
-        Dask layer), the partitions are handed directly to cuVS as a vector of
-        device matrix views, avoiding an on-device concatenation. Otherwise the
-        standard single-array fit path is used.
+        When ``X`` is a sequence of local data partitions.
         """
         if isinstance(X, (list, tuple)):
             return self._fit_mg_parts(X, sample_weight_parts=sample_weight)

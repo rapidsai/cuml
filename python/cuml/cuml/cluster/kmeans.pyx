@@ -189,24 +189,17 @@ cdef _kmeans_fit_parts(
 
     `parts` is a non-empty list of row-major partitions that share
     `n_features` and dtype. They may all be device-resident
-    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`); the C++ layer
-    detects the residency and calls the matching cuVS overload. Host
-    partitions are streamed to the device in batches of
+    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`). Host
+    partitions are buffered to the device in batches of
     `params.device_buffer_samples`. `sample_weight_parts` is either None or a
-    matching list of weight vectors. `centers` lives on the device. The
-    distributed reduction across ranks is performed via the NCCL communicator
-    initialized on `handle`. Returns `n_iter`.
+    matching list of weight vectors. The distributed reduction across ranks is performed via the NCCL communicator
+    initialized on `handle`.
     """
     cdef int64_t n_parts = len(parts)
     cdef int64_t n_cols = parts[0].shape[1]
     cdef bool values_f32 = parts[0].dtype == np.float32
     cdef bool has_weights = sample_weight_parts is not None
 
-    # Marshal the per-partition data pointers and row counts into contiguous
-    # buffers so they can be passed as C arrays. Device (cupy) arrays expose
-    # their pointer via `.data.ptr`; host (numpy) arrays via `.ctypes.data`.
-    # These Python-owned arrays stay alive for the duration of the (nogil)
-    # call below.
     X_ptrs = np.empty(n_parts, dtype=np.uintp)
     n_samples_parts = np.empty(n_parts, dtype=np.int64)
     sw_ptrs = np.empty(n_parts, dtype=np.uintp) if has_weights else None
@@ -816,13 +809,8 @@ class KMeans(InteropMixin,
     def _fit_mg_parts(self, parts, sample_weight_parts=None):
         """Fit KMeans over a list of local partitions (multi-GPU / out-of-core).
 
-        Intended for the multi-GPU (Dask) path: each worker passes its local
-        partitions directly to cuVS as a vector of matrix views, without
-        concatenating them. The partitions may be device-resident
-        (`cupy.ndarray`) or host-resident (`numpy.ndarray`); their memory
-        residency is preserved and the C++ layer selects the matching cuVS
-        overload. Host partitions are streamed to the device in batches of
-        ``device_buffer_samples`` (never fully materialized). The cross-rank
+        Each worker passes its local
+        partitions as a vector of matrix views. The partitions may reside on host or device.; their memory. The cross-rank
         reduction runs over the NCCL communicator on ``self.handle``.
 
         `parts` is a non-empty sequence of per-partition arrays.
@@ -873,8 +861,7 @@ class KMeans(InteropMixin,
         # the data is device-accessible.
         on_device = isinstance(parts[0], cp.ndarray)
 
-        # Allocate output cluster_centers_ on the device (cuVS writes the
-        # converged centroids to device memory).
+        # Allocate output cluster_centers_ on the device.
         if isinstance(self.init, str):
             centers = cp.zeros(
                 shape=(self.n_clusters, n_cols), dtype=dtype, order="C",
@@ -1062,9 +1049,6 @@ class KMeans(InteropMixin,
         cdef int64_t n_cols = X.shape[1]
         cdef int64_t n_clusters = self.n_clusters
 
-        # Stop-gap: the current C++/cuVS transform path does not preserve
-        # int64 indexing end-to-end for the output matrix. Reject oversized
-        # outputs here until transform supports int64 output indexing.
         if not _kmeans_indices_i32(n_rows, n_clusters):
             raise NotImplementedError(
                 "KMeans.transform does not currently support output shapes "
