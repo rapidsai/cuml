@@ -65,8 +65,8 @@ class RowSampler {
  public:
   RowSampler(const raft::handle_t& handle,
              const RF_params& rf_params,
-             int n_rows,
-             int n_sampled_rows,
+             std::int64_t n_rows,
+             std::int64_t n_sampled_rows,
              int n_streams,
              bool* bootstrap_masks,
              const double* sample_weight)
@@ -83,7 +83,7 @@ class RowSampler {
            "bootstrap_masks must be a GPU pointer");
     validate_sample_weight(handle, sample_weight_, n_rows_);
     if (use_weighted_bootstrap()) {
-      sample_weight_cdf_.resize(n_rows_, handle.get_stream());
+      sample_weight_cdf_.resize(ML::narrow_cast<std::size_t>(n_rows_), handle.get_stream());
       thrust::inclusive_scan(rmm::exec_policy(handle.get_stream()),
                              sample_weight_,
                              sample_weight_ + n_rows_,
@@ -96,11 +96,12 @@ class RowSampler {
              "sample_weight values must contain at least one positive value");
     }
     // Use a deque instead of vector because device_uvector has a deleted copy constructor.
+    auto const n_sampled_rows_size = ML::narrow_cast<std::size_t>(n_sampled_rows_);
     for (int i = 0; i < n_streams; i++) {
       auto stream = handle.get_stream_from_stream_pool(i);
-      selected_rows_.emplace_back(n_sampled_rows_, stream);
+      selected_rows_.emplace_back(n_sampled_rows_size, stream);
       if (use_weighted_bootstrap()) {
-        weighted_draw_scratch_.emplace_back(n_sampled_rows_, stream);
+        weighted_draw_scratch_.emplace_back(n_sampled_rows_size, stream);
       }
     }
   }
@@ -144,7 +145,7 @@ class RowSampler {
         stream_resources, rng_state, selected_rows.data(), selected_rows.size(), 0, n_rows_);
     } else if (sample_weight_ != nullptr) {
       // Remove zero-weight rows from the non-bootstrap row set.
-      selected_rows.resize(n_sampled_rows_, stream);
+      selected_rows.resize(ML::narrow_cast<std::size_t>(n_sampled_rows_), stream);
       auto rows_begin        = thrust::make_counting_iterator<std::int64_t>(0);
       auto selected_rows_end = thrust::copy_if(rmm::exec_policy(stream),
                                                rows_begin,
@@ -156,7 +157,7 @@ class RowSampler {
       ASSERT(n_selected > 0, "sample_weight values must contain at least one positive value");
       selected_rows.resize(n_selected, stream);
     } else {
-      selected_rows.resize(n_sampled_rows_, stream);
+      selected_rows.resize(ML::narrow_cast<std::size_t>(n_sampled_rows_), stream);
       thrust::sequence(rmm::exec_policy(stream), selected_rows.begin(), selected_rows.end());
     }
 
@@ -199,7 +200,7 @@ class RowSampler {
 
   static void validate_sample_weight(const raft::handle_t& handle,
                                      const double* sample_weight,
-                                     int n_rows)
+                                     std::int64_t n_rows)
   {
     ASSERT(sample_weight == nullptr || DT::is_dev_ptr(sample_weight),
            "sample_weight must be a GPU pointer");
@@ -216,8 +217,8 @@ class RowSampler {
 
   bool bootstrap_;
   uint64_t seed_;
-  int n_rows_;
-  int n_sampled_rows_;
+  std::int64_t n_rows_;
+  std::int64_t n_sampled_rows_;
   bool* bootstrap_masks_;
   const double* sample_weight_;
   double sample_weight_sum_;
@@ -297,10 +298,12 @@ class RandomForest {
   {
     raft::common::nvtx::range fun_scope("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
-    const raft::handle_t& handle = user_handle;
-    int n_sampled_rows           = 0;
+    const raft::handle_t& handle  = user_handle;
+    std::int64_t const n_rows_i64 = n_rows;
+    std::int64_t n_sampled_rows   = 0;
     if (this->rf_params.bootstrap) {
-      n_sampled_rows = std::round(this->rf_params.max_samples * n_rows);
+      n_sampled_rows =
+        static_cast<std::int64_t>(std::round(this->rf_params.max_samples * n_rows_i64));
     } else {
       if (this->rf_params.max_samples != 1.0) {
         CUML_LOG_WARN(
@@ -308,7 +311,7 @@ class RandomForest {
           "whole dataset is used for building each tree");
         this->rf_params.max_samples = 1.0;
       }
-      n_sampled_rows = n_rows;
+      n_sampled_rows = n_rows_i64;
     }
     int n_streams = this->rf_params.n_streams;
     ASSERT(static_cast<std::size_t>(n_streams) <= handle.get_stream_pool_size(),
@@ -329,8 +332,13 @@ class RandomForest {
     // n_streams should not be less than n_trees
     if (this->rf_params.n_trees < n_streams) n_streams = this->rf_params.n_trees;
 
-    detail::RowSampler row_sampler(
-      handle, this->rf_params, n_rows, n_sampled_rows, n_streams, bootstrap_masks, sample_weight);
+    detail::RowSampler row_sampler(handle,
+                                   this->rf_params,
+                                   n_rows_i64,
+                                   n_sampled_rows,
+                                   n_streams,
+                                   bootstrap_masks,
+                                   sample_weight);
 
     forest->n_features = n_cols;
 
