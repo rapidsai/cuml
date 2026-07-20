@@ -245,8 +245,13 @@ def test_deprecated_output_type(output_type):
     with pytest.warns(
         FutureWarning,
         match=f"`{output_type=!r}` was deprecated",
-    ):
+    ) as rec:
         model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type=output_type)
+
+    if output_type in ("series", "dataframe"):
+        assert "Note that `output_type='cudf'`" in str(rec[0].message)
+    else:
+        assert "Note that `output_type='cudf'`" not in str(rec[0].message)
 
     labels = model.fit_predict(X)
     if alias := {"numba": "numba", "array": "cupy", "df_obj": "cudf"}.get(
