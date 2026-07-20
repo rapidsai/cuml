@@ -5,35 +5,13 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-import cupy as cp
-import numpy as np
-
 from cuml.internals.outputs import mlfunc
 
 __all__ = (
     "UnsupportedOnGPU",
     "UnsupportedOnCPU",
     "InteropMixin",
-    "to_cpu",
-    "to_gpu",
 )
-
-
-def to_gpu(x, order="K", dtype=None):
-    """Coerce `x` to the equivalent gpu type."""
-    from cuml.internals.array import CumlArray
-
-    if np.isscalar(x):
-        # cuml typically expects scalars on host
-        return x
-    return CumlArray(data=cp.asarray(x, order=order, dtype=dtype))
-
-
-def to_cpu(x, order="K", dtype=None):
-    """Coerce `x` to the equivalent cpu type."""
-    if np.isscalar(x):
-        return x
-    return np.asarray(x.to_output("numpy"), order=order, dtype=dtype)
 
 
 class UnsupportedOnGPU(ValueError):
