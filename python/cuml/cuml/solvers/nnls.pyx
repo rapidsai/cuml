@@ -1,12 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
 import cuml.internals.nvtx as nvtx
-from cuml.common import CumlArray
 from cuml.internals.base import get_handle
 
 from libc.stdint cimport uint8_t, uintptr_t
@@ -115,9 +114,9 @@ def fit_nnls_batched(
 
     Returns
     -------
-    X : CumlArray, shape=(n, n_problems)
+    X : cupy.ndarray, shape=(n, n_problems)
         Non-negative solutions (column-major), masked-out rows set to 0.
-    fitted : CumlArray, shape=(m, n_problems) or None
+    fitted : cupy.ndarray, shape=(m, n_problems) or None
         ``A @ X`` when ``compute_fitted`` else ``None``.
     """
     if solver not in _BATCHED_SOLVERS:
@@ -129,14 +128,17 @@ def fit_nnls_batched(
     handle = get_handle()
 
     cdef int m, n
-    A = CumlArray.from_input(
-        A,
-        check_dtype=[np.float32, np.float64],
-        convert_to_dtype=(np.float32 if convert_dtype else None),
-        order="F",
-    )
+    A = cp.asarray(A)
+    if A.dtype not in _SUPPORTED_DTYPES:
+        if convert_dtype:
+            A = A.astype(np.float32)
+        else:
+            raise ValueError(
+                f"Unsupported A dtype {A.dtype}; expected float32 or float64."
+            )
+    A = cp.asfortranarray(A)
     m = A.shape[0]
-    n = A.shape[1] if len(A.shape) > 1 else 1
+    n = A.shape[1] if A.ndim > 1 else 1
 
     if m < 1:
         raise ValueError(
@@ -150,47 +152,56 @@ def fit_nnls_batched(
         )
 
     cdef int n_problems
-    B = CumlArray.from_input(
-        B,
-        check_dtype=A.dtype,
-        convert_to_dtype=(A.dtype if convert_dtype else None),
-        check_rows=m,
-        order="F",
-    )
-    n_problems = B.shape[1] if len(B.shape) > 1 else 1
+    B = cp.asarray(B)
+    if B.dtype != A.dtype:
+        if convert_dtype:
+            B = B.astype(A.dtype)
+        else:
+            raise ValueError(
+                f"B dtype {B.dtype} does not match A dtype {A.dtype}."
+            )
+    B = cp.asfortranarray(B)
+    if B.shape[0] != m:
+        raise ValueError(
+            f"Expected B with {m} rows to match A, got {B.shape[0]}."
+        )
+    n_problems = B.shape[1] if B.ndim > 1 else 1
 
     cdef uintptr_t masks_ptr = 0
+    masks_arr = None
     if masks is not None:
-        # Column-major (n, n_problems): F-contiguous input is used in place, and
-        # its raw layout (signature index fastest) matches the kernel's
-        # ``masks[p*n + j]`` per-block access. A C-contiguous input is copied to
-        # this layout by ``from_input`` (still correct, just not zero-copy).
-        masks_arr = CumlArray.from_input(
-            masks,
-            check_dtype=[np.uint8],
-            convert_to_dtype=np.uint8,
-            check_rows=n,
-            check_cols=n_problems,
-            order="F",
+        # Column-major (n, n_problems): an F-contiguous uint8 input is used in
+        # place, and its raw layout (signature index fastest) matches the
+        # kernel's ``masks[p*n + j]`` per-block access. A non-conforming input
+        # is copied to this layout (still correct, just not zero-copy).
+        masks_arr = cp.asfortranarray(
+            cp.asarray(masks).astype(np.uint8, copy=False)
         )
-        masks_ptr = masks_arr.ptr
+        masks_rows = masks_arr.shape[0]
+        masks_cols = masks_arr.shape[1] if masks_arr.ndim > 1 else 1
+        if masks_rows != n or masks_cols != n_problems:
+            raise ValueError(
+                f"Expected masks of shape ({n}, {n_problems}), got "
+                f"({masks_rows}, {masks_cols})."
+            )
+        masks_ptr = masks_arr.data.ptr
 
-    X = CumlArray(cp.zeros((n, n_problems), dtype=A.dtype, order="F"))
+    X = cp.zeros((n, n_problems), dtype=A.dtype, order="F")
 
     fitted = None
     cdef uintptr_t fitted_ptr = 0
     if compute_fitted:
-        fitted = CumlArray(cp.zeros((m, n_problems), dtype=A.dtype, order="F"))
-        fitted_ptr = fitted.ptr
+        fitted = cp.zeros((m, n_problems), dtype=A.dtype, order="F")
+        fitted_ptr = fitted.data.ptr
 
     cdef NnlsBatchedParams params
     params.solver = _BATCHED_SOLVERS[solver]
     params.max_iter = max_iter
     params.tol = tol
 
-    cdef uintptr_t A_ptr = A.ptr
-    cdef uintptr_t B_ptr = B.ptr
-    cdef uintptr_t X_ptr = X.ptr
+    cdef uintptr_t A_ptr = A.data.ptr
+    cdef uintptr_t B_ptr = B.data.ptr
+    cdef uintptr_t X_ptr = X.data.ptr
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
     cdef bint is_float32 = A.dtype == np.float32
 
