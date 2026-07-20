@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import contextlib
@@ -14,16 +14,14 @@ import pandas as pd
 import scipy.sparse as sp
 from cupy.cuda import Stream
 
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import GlobalSettings
 
 __all__ = (
     "check_output_type",
     "set_global_output_type",
     "using_output_type",
-    "reflect",
-    "run_in_internal_context",
+    "mlfunc",
+    "ReflectedAttr",
     "exit_internal_context",
     "enter_internal_context",
     "in_internal_context",
@@ -46,16 +44,13 @@ OUTPUT_TYPES = (
 
 def check_output_type(output_type: str) -> str:
     """Validate and normalize an ``output_type`` value"""
-    # normalize as lower, keeping original str reference to appease the sklearn
-    # standard estimator checks as much as possible.
-    if output_type != (temp := output_type.lower()):
-        output_type = temp
+    output_type = output_type.lower()
     # Check for allowed types. Allow 'cuml' to support internal estimators
     if output_type != "cuml" and output_type not in OUTPUT_TYPES:
         valid_output_types = ", ".join(map(repr, OUTPUT_TYPES))
         raise ValueError(
-            f"`output_type` must be one of {valid_output_types}"
-            f" or None. Got: {output_type!r}"
+            f"`{output_type=!r}` is not supported. "
+            f"Expected one of {valid_output_types}, or None."
         )
     return output_type
 
@@ -253,25 +248,6 @@ def exit_internal_context():
             gs.output_type = orig_output_type
 
 
-def _get_param(sig, name_or_index):
-    """Get an `inspect.Parameter` instance by name or index from a
-    signature, and validates it's not variadic.
-
-    Used for normalizing `array`/`model` args to `reflect`."""
-    if isinstance(name_or_index, str):
-        param = sig.parameters[name_or_index]
-    else:
-        param = list(sig.parameters.values())[name_or_index]
-
-    if param.kind in (
-        inspect.Parameter.VAR_KEYWORD,
-        inspect.Parameter.VAR_POSITIONAL,
-    ):
-        raise ValueError("Cannot reflect variadic args/kwargs")
-
-    return param.name
-
-
 def infer_output_type(array, array_like="numpy"):
     """Infer the corresponding ``output_type`` given an input array-like.
 
@@ -291,8 +267,6 @@ def infer_output_type(array, array_like="numpy"):
         return "numpy"
     elif isinstance(array, cp.ndarray) or cp_sp.issparse(array):
         return "cupy"
-    elif isinstance(array, (CumlArray, SparseCumlArray)):
-        return "cuml"
     elif isinstance(array, (cudf.DataFrame, cudf.Series, cudf.Index)):
         return "cudf"
     elif isinstance(array, (pd.DataFrame, pd.Series, pd.Index)):
@@ -323,144 +297,529 @@ def infer_output_type(array, array_like="numpy"):
     return None
 
 
-def coerce_arrays(res, output_type):
-    """Traverse a result, converting it to the proper output type"""
-    if isinstance(res, tuple):
-        return tuple(coerce_arrays(i, output_type) for i in res)
-    elif isinstance(res, list):
-        return [coerce_arrays(i, output_type) for i in res]
-    elif isinstance(res, dict):
-        return {k: coerce_arrays(v, output_type) for k, v in res.items()}
+class ArrayIndexPair:
+    """An array paired with an aligned index.
 
-    # Get the output type
-    arr_type = infer_output_type(res, array_like=None)
+    Used to attach `index` metadata to an `array` for use when returning
+    dataframe-like outputs.
 
-    if arr_type is None:
-        # Not an array, just return
-        return res
-
-    is_sparse = (
-        cp_sp.issparse(res)
-        or sp.issparse(res)
-        or isinstance(res, SparseCumlArray)
-    )
-
-    # If we are a supported array and not already cuml, convert to cuml
-    if arr_type != "cuml":
-        if is_sparse:
-            res = SparseCumlArray(res, convert_index=False)
-        else:
-            res = CumlArray.from_input(res, order="K")
-
-    if output_type == "cuml":
-        # Return CumlArray/SparseCumlArray directly
-        return res
-
-    if is_sparse:
-        # Coerce output_type to supported sparse types.
-        # Host types -> scipy, cupy otherwise.
-        output_type = "scipy" if output_type in ["numpy", "pandas"] else "cupy"
-
-    return res.to_output(output_type=output_type)
-
-
-def run_in_internal_context(func):
-    """Decorate a function to run within an "internal context".
-
-    This mainly means that reflected functions/methods or estimator fitted
-    attributes will be returned as ``CumlArray`` instances instead of their
-    reflected types.
-
-    Unlike `reflect`, functions decorated with this do not participate in the
-    reflection system.
+    Parameters
+    ----------
+    array : cupy.ndarray
+        An array input.
+    index : pandas.Index, cudf.Index, or None
+        An index to attach. Must have the same length as `array`.
     """
 
-    @functools.wraps(func)
-    def inner(*args, **kwargs):
-        with enter_internal_context():
-            return func(*args, **kwargs)
-
-    return inner
+    def __init__(self, array, index):
+        self.array = array
+        self.index = index
 
 
-def reflect(
+class ClassLabels:
+    """An output type for reflecting class labels.
+
+    This is a workaround for a current limitation in `cupy` - it cannot handle
+    non-numeric dtypes. As such, methods that return class labels (which support
+    non-numeric dtypes) need to return something other than a `cupy.ndarray`.
+
+    This type plugs in to the output conversion machinery, delaying conversion
+    to a specific `output_type` until necessary. If a type doesn't support
+    the requested `dtype`, an appropriate error is raised.
+
+    Parameters
+    ----------
+    indices : cupy.ndarray
+        An array of labels encoded as indices into `classes`.
+    classes : numpy.ndarray
+        An array of classes.
+    """
+
+    def __init__(self, indices, classes):
+        self.indices = indices
+        self.classes = classes
+
+    def to_output(self, output_type=None, index=None):
+        """Convert this instance to a specific `output_type`.
+
+        Parameters
+        ----------
+        output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'} or None
+            The output type to convert to. If `None`, `cupy` will be used when
+            possible, falling back to `cudf` if necessary.
+        index : pandas.Index, cudf.Index, or None, default=None
+            An optional index to attach to arrays when returning dataframe-like
+            outputs.
+
+        Returns
+        -------
+        labels
+            The class labels stored in the requested output type.
+        """
+        if output_type == "cuml":
+            return self
+
+        if isinstance(self.classes, list):
+            # Multi-target output
+            dtype = (
+                self.classes[0].dtype
+                if len(set(c.dtype for c in self.classes)) == 1
+                else None
+            )
+            if dtype is not None and dtype.kind in "iufb":
+                # All dtypes are identical and numeric, we can use cupy here
+                if all((c == np.arange(len(c))).all() for c in self.classes):
+                    # Fast path for common case of monotonically increasing numeric classes
+                    labels = self.indices.astype(dtype, copy=False)
+                else:
+                    # Need to transform indices back to classes
+                    labels = cp.empty(shape=self.indices.shape, dtype=dtype)
+                    for i, c in enumerate(self.classes):
+                        labels[:, i] = cp.asarray(c).take(self.indices[:, i])
+
+                out = labels
+            else:
+                # At least one class is non-numeric, we need to use cudf
+                out = cudf.DataFrame(
+                    {
+                        i: cudf.Series(
+                            c,
+                            dtype=("object" if c.dtype.kind in "OU" else None),
+                        )
+                        .take(self.indices[:, i])
+                        .reset_index(drop=True)
+                        for i, c in enumerate(self.classes)
+                    },
+                    index=index,
+                )
+        else:
+            # Single-target output
+            dtype = self.classes.dtype
+            if self.classes.dtype.kind in "iufb":
+                # Numeric dtype, we can use cupy here
+                if (self.classes == np.arange(len(self.classes))).all():
+                    # Fast path for common case of monotonically increasing numeric classes
+                    labels = self.indices.astype(
+                        self.classes.dtype, copy=False
+                    )
+                else:
+                    # Need to transform indices back to classes
+                    labels = cp.asarray(self.classes).take(self.indices)
+
+                out = labels
+            else:
+                # Non-numeric classes. We use cudf since it supports all types, and will
+                # error appropriately later on when converting to outputs like `cupy`
+                # that don't support strings.
+                cudf_dtype = (
+                    "object" if self.classes.dtype.kind in "OU" else None
+                )
+                out = (
+                    cudf.Series(self.classes, dtype=cudf_dtype)
+                    .take(self.indices)
+                    .reset_index(drop=True)
+                )
+                if index is not None:
+                    out.index = index
+
+        # At this point `out` is either a cupy or cudf object
+        if output_type is None:
+            # cupy when possible, cudf otherwise
+            return out
+
+        # Coerce result to requested output_type
+        if isinstance(out, cp.ndarray):
+            return convert_arrays(out, output_type, index=index)
+        elif output_type in ("cudf", "df_obj"):
+            return out
+        elif output_type == "dataframe":
+            return out.to_frame() if isinstance(out, cudf.Series) else out
+        elif output_type == "series" and isinstance(out, cudf.Series):
+            return out
+        elif output_type == "pandas":
+            if cudf.pandas.LOADED:
+                return cudf.pandas.as_proxy_object(out)
+            return out.to_pandas()
+        elif output_type in ("numpy", "array"):
+            # XXX: dtype coercion not needed for object, and when specified
+            # cudf will sometimes coerce `None -> <NA>` erroneously.
+            # See https://github.com/rapidsai/cudf/issues/22419
+            # Better to leave unspecified in this case.
+            return out.to_numpy(dtype=None if dtype == "object" else dtype)
+        else:
+            raise TypeError(
+                f"{output_type=!r} doesn't support outputs of dtype "
+                f"{dtype or 'object'} and shape {self.indices.shape}"
+            )
+
+
+def convert_arrays(
+    obj,
+    output_type="cupy",
+    index=None,
+    one_col_2d_as_series=True,
+):
+    """Convert arrays in `obj` to the specified `output_type`.
+
+    Parameters
+    ----------
+    obj : object
+        The object to convert. Any cupy arrays, numpy arrays, cupyx sparse
+        matrices, scipy sparse matrices, or cuml-specific output types
+        (`ClassLabels`, `ArrayIndexPair`) will be converted to the specified
+        `output_type`. Some builtin collections (dict, list, tuple) are
+        traversed recursively to find array-likes. Other array-likes (pandas,
+        ...) will error as unsupported. Any other type is passed through
+        unchanged.
+    output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'}
+        The output type to convert to.
+    index : pandas.Index, cudf.Index, or None, default=None
+        An optional index to attach to arrays when returning dataframe-like
+        outputs.
+    one_col_2d_as_series : bool, default=True
+        Whether to coerce a one column 2D input to a Series. This is a legacy
+        behavior of our conversion machinery. It defaults to true for now, but
+        should be changed to false in the future (and the option going away).
+
+    Returns
+    -------
+    out : object
+        The equivalent output, with arrays coerced to `output_type`.
+    """
+    check_output_type(output_type)
+    if isinstance(obj, ArrayIndexPair):
+        index = obj.index
+        obj = obj.array
+
+    if isinstance(obj, ClassLabels):
+        return obj.to_output(output_type, index=index)
+
+    if isinstance(obj, np.ndarray):
+        if output_type == "numpy":
+            return obj
+        elif output_type == "pandas":
+            if hasattr(index, "to_pandas"):
+                index = index.to_pandas()
+            if obj.ndim == 2:
+                if one_col_2d_as_series and obj.shape[1] == 1:
+                    return pd.Series(obj.flatten(), index=index)
+                return pd.DataFrame(obj, index=index)
+            return pd.Series(obj, index=index)
+        else:
+            # Other output types use device memory, coerce to cupy and take
+            # cupy code path.
+            obj = cp.asarray(obj)
+
+    if isinstance(obj, cp.ndarray):
+        if output_type == "numpy":
+            return obj.get(order="A")
+        elif output_type in (
+            "cudf",
+            "pandas",
+            "df_obj",
+            "dataframe",
+            "series",
+        ):
+            if output_type == "series":
+                if obj.ndim == 2:
+                    if obj.shape[1] == 1:
+                        obj = obj.flatten()
+                    else:
+                        raise ValueError(
+                            "Only single dimensional arrays can be transformed to"
+                            " Series."
+                        )
+                elif obj.ndim == 0:
+                    obj = obj[None]
+            elif output_type == "dataframe":
+                if obj.ndim == 1:
+                    obj = obj[:, None]
+                elif obj.ndim == 0:
+                    obj = obj[None, None]
+
+            if obj.ndim == 2:
+                if (
+                    one_col_2d_as_series
+                    and obj.shape[1] == 1
+                    and output_type != "dataframe"
+                ):
+                    df = cudf.Series(obj.flatten(), index=index)
+                else:
+                    df = cudf.DataFrame(obj, index=index)
+            else:
+                df = cudf.Series(obj, index=index)
+
+            if output_type == "pandas":
+                if cudf.pandas.LOADED:
+                    return cudf.pandas.as_proxy_object(df)
+                return df.to_pandas()
+            return df
+
+        elif output_type == "numba":
+            from numba import cuda
+
+            return cuda.as_cuda_array(obj)
+        else:
+            assert output_type in ("cuml", "cupy", "array")
+            # Return `cupy` directly
+            return obj
+
+    elif cp_sp.issparse(obj):
+        if output_type in ("numpy", "pandas"):
+            return obj.get()
+        return obj
+
+    elif sp.issparse(obj):
+        if output_type in ("numpy", "pandas"):
+            return obj
+        elif obj.format == "csr":
+            return cp_sp.csr_matrix(obj)
+        elif obj.format == "csc":
+            return cp_sp.csc_matrix(obj)
+        else:
+            # Use coo for coo and all other formats
+            return cp_sp.coo_matrix(obj)
+
+    elif isinstance(
+        obj, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)
+    ):
+        raise TypeError(
+            f"Cannot return objects of type {type(obj).__name__} directly "
+            f"from an `mlfunc`-decorated function. Please return a "
+            f"`cupy.ndarray`, `numpy.ndarray`, `cupyx.scipy.sparse.spmatrix`, "
+            f"`scipy.sparse.spmatrix`, `ArrayIndexPair`, "
+            f"or `ClassLabels` instead."
+        )
+
+    elif isinstance(obj, list):
+        return [
+            convert_arrays(v, output_type, index, one_col_2d_as_series)
+            for v in obj
+        ]
+
+    elif isinstance(obj, tuple):
+        return tuple(
+            convert_arrays(v, output_type, index, one_col_2d_as_series)
+            for v in obj
+        )
+
+    elif isinstance(obj, dict):
+        return {
+            k: convert_arrays(v, output_type, index, one_col_2d_as_series)
+            for k, v in obj.items()
+        }
+
+    else:
+        return obj
+
+
+class ReflectedAttr:
+    """A descriptor for enabling `output_type` reflection on an attribute."""
+
+    class Cache:
+        """A cache for conversions of values per `output_type`"""
+
+        def __init__(self, value):
+            self.value = value
+            self._cache = {} if self._requires_reflection(value) else None
+
+        def _requires_reflection(self, obj) -> bool:
+            """Check if `obj` requires reflection."""
+            if isinstance(obj, (cp.ndarray, np.ndarray, ArrayIndexPair)):
+                return True
+            elif cp_sp.issparse(obj) or sp.issparse(obj):
+                return True
+            elif isinstance(
+                obj,
+                (
+                    cudf.Series,
+                    cudf.DataFrame,
+                    pd.Series,
+                    pd.DataFrame,
+                ),
+            ):
+                raise TypeError(
+                    "Array-like types other than cupy, cupyx.scipy.sparse, "
+                    "numpy, scipy.sparse, or `ArrayIndexPair` are not supported."
+                )
+            elif isinstance(obj, (list, tuple)):
+                return any(self._requires_reflection(v) for v in obj)
+            elif isinstance(obj, dict):
+                return any(self._requires_reflection(v) for v in obj.values())
+            return False
+
+        def get(self, output_type):
+            """Get the proper value for a given `output_type` from the cache"""
+            if self._cache is None:
+                # No need to reflect
+                return self.value
+            if output_type in self._cache:
+                return self._cache[output_type]
+            out = convert_arrays(self.value, output_type)
+            if not (isinstance(out, (list, tuple, set)) or cp.isscalar(out)):
+                self._cache[output_type] = out
+            return out
+
+        def __reduce__(self):
+            return (ReflectedAttr.Cache, (self.value,))
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+
+        cache = instance.__dict__.get(self.name)
+        if cache is None:
+            raise AttributeError(
+                f"{owner.__name__!r} object has no attribute {self.name!r}"
+            )
+
+        output_type = GlobalSettings().output_type
+
+        if output_type == "mirror":
+            return cache.value
+        if output_type is None:
+            output_type = instance.output_type
+        if output_type in (None, "input"):
+            output_type = instance._input_type
+
+        return cache.get(output_type)
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.name] = self.Cache(value)
+
+    def __delete__(self, instance):
+        if instance.__dict__.pop(self.name, None) is None:
+            raise AttributeError(
+                f"{type(instance).__name__!r} object has no attribute {self.name!r}"
+            )
+
+
+def _get_param(sig, name_or_index):
+    """Get an `inspect.Parameter` instance by name or index from a
+    signature, and validates it's not variadic.
+
+    Used for normalizing `array`/`model` args to `reflect`."""
+    if isinstance(name_or_index, str):
+        param = sig.parameters[name_or_index]
+    else:
+        param = list(sig.parameters.values())[name_or_index]
+
+    if param.kind in (
+        inspect.Parameter.VAR_KEYWORD,
+        inspect.Parameter.VAR_POSITIONAL,
+    ):
+        raise ValueError("Cannot reflect variadic args/kwargs")
+
+    return param.name
+
+
+def mlfunc(
     func=None,
     *,
-    array=...,
-    model=...,
-    reset=False,
+    model_arg=...,
+    array_arg=...,
+    convert_output=True,
+    set_input_type=False,
+    preserve_index=False,
 ):
-    """Mark a function or method as participating in the reflection system.
+    """A decorator for enabling common `cuml` machinery on a function/method.
+
+    This decorator should be applied to any public function or method that
+    invokes a CUDA kernel (through either `libcuml`, `cupy`, or `cudf`),
+    or accesses any functions or attributes that require type reflection.
+    In short - most public functions or methods.
 
     Functions and methods decorated with this get a few additional behaviors:
 
     - They are run within an "internal context". This mainly means that
       reflected functions/methods or estimator fitted attributes will be
-      returned as ``CumlArray`` instances instead of their reflected types. If
-      this is the only behavior you want, you should use
-      `run_in_internal_context` instead.
+      returned consistently as `cupy` instances instead of their reflected
+      types.
 
-    - Their output type is converted to the proper output type following
-      standard cuml behavior. The default behavior covers most cases, but when
-      needed you may want to specify the ``model`` and/or ``array`` parameters
-      manually.
+    - Their output is converted to the configured/inferred output type. If not
+      needed, conversion may be disabled by setting ``convert_output=False``.
 
-    - For estimators, fit-like methods will store the required metadata like
+    The decorator also eases compliance with a few standard ``cuml`` API
+    conventions:
+
+    - Fit-like methods on estimators should store the required metadata like
       ``_input_type`` to support cases like ``output_type="input"``. To enable
-      this for a method set ``reset=True``.
+      this for a method set ``set_input_type=True``.
+
+    - Inference methods should preserve the index of the input in the output.
+      To enable this for a method, set ``preserve_index=True``.
 
     Parameters
     ----------
     func : callable or None
         The function to be decorated, or None to curry to be applied later.
-    model : int, str, or None, default=...
+    model_arg : int, str, or None, default=...
         The ``cuml.Base`` parameter to infer the reflected output type from. By
         default this will be ``'self'`` (if present), and ``None`` otherwise.
         Provide a parameter position or name to override. May also provide
         ``None`` to disable this inference entirely.
-    array : int, str, or None, default=...
+    array_arg : int, str, or None, default=...
         The array-like parameter to infer the reflected output type from. By
         default this will be the first argument to the method or function
-        (excluding ``'self'`` or ``model``), or ``None`` if there are no other
+        (excluding ``'self'`` or ``model_arg``), or ``None`` if there are no other
         arguments. Provide a parameter position or name to override. May also
         provide ``None`` to disable this inference entirely; in this case the
         output type is expected to be specified manually either internal or
         external to the method.
-    reset : bool, default=False
+    convert_output : bool, default=True
+        Whether to convert the function output to the configured/inferred
+        output type.
+    set_input_type : bool, default=False
         If True, the input type for reflection is reset on the estimator.
         Defaults to False, to not reset anything. Most estimators should set
-        ``reset=True`` on any fit-like methods.
+        ``set_input_type=True`` on any fit-like methods.
+    preserve_index : bool, default=False
+        Whether to preserve the index of the ``array_arg`` argument (if any)
+        in the function output. This should typically be set to ``True`` on
+        any inference (predict/transform-like) methods.
     """
     if func is None:
-        return lambda func: reflect(
+        return lambda func: mlfunc(
             func,
-            model=model,
-            array=array,
-            reset=reset,
+            model_arg=model_arg,
+            array_arg=array_arg,
+            convert_output=convert_output,
+            preserve_index=preserve_index,
+            set_input_type=set_input_type,
         )
 
     sig = inspect.signature(func, follow_wrapped=True)
 
-    # Normalize model to str | None
-    if model is ...:
-        model = "self" if ("self" in sig.parameters) else None
-    if model is not None:
-        model = _get_param(sig, model)
+    # Normalize model_arg to str | None
+    if model_arg is ...:
+        model_arg = "self" if ("self" in sig.parameters) else None
+    if model_arg is not None:
+        model_arg = _get_param(sig, model_arg)
 
-    # Normalize array to str | None
-    if array is ...:
-        array = int(
-            model is not None and list(sig.parameters).index(model) == 0
+    # Normalize array_arg to str | None
+    if array_arg is ...:
+        array_arg = int(
+            model_arg is not None
+            and list(sig.parameters).index(model_arg) == 0
         )
-        if len(sig.parameters) <= array:
+        if len(sig.parameters) <= array_arg:
             # Not enough parameters, no array-like param to infer from
-            array = None
-    if array is not None:
-        array = _get_param(sig, array)
+            array_arg = None
+    if array_arg is not None:
+        array_arg = _get_param(sig, array_arg)
 
-    if reset and (model is None or array is None):
+    if set_input_type and (model_arg is None or array_arg is None):
         raise ValueError(
-            "`reset=True` is not valid with `array=None` or `model=None`"
+            "`set_input_type=True` is not valid with `array_arg=None` "
+            "or `model_arg=None`"
+        )
+
+    if preserve_index and array_arg is None:
+        raise ValueError(
+            "`preserve_index=True` is not valid with `array_arg=None`"
         )
 
     @functools.wraps(func)
@@ -469,36 +828,51 @@ def reflect(
         bound = sig.bind(*args, **kwargs)
         bound.apply_defaults()
 
-        model_arg = None if model is None else bound.arguments[model]
-        array_arg = None if array is None else bound.arguments[array]
+        model = None if model_arg is None else bound.arguments[model_arg]
+        array = None if array_arg is None else bound.arguments[array_arg]
+
+        if preserve_index and isinstance(
+            array, (cudf.Series, cudf.DataFrame, pd.Series, pd.DataFrame)
+        ):
+            index = array.index
+        else:
+            index = None
+
         with enter_internal_context() as was_external:
-            if reset:
-                model_arg._set_output_type(array_arg)
+            if set_input_type is True:
+                model._set_output_type(array)
 
             res = func(*args, **kwargs)
 
-        gs = GlobalSettings()
-        if was_external or gs.output_type != "mirror":
-            # We're returning to the user, infer the expected output type
-            if model is not None:
-                if array is not None:
-                    output_type = model_arg._get_output_type(array_arg)
+        if convert_output:
+            gs = GlobalSettings()
+            if was_external or gs.output_type != "mirror":
+                # We're returning to the user, infer the expected output type
+                if model_arg is not None:
+                    if array_arg is not None:
+                        output_type = model._get_output_type(array)
+                    else:
+                        output_type = model._get_output_type()
                 else:
-                    output_type = model_arg._get_output_type()
-            else:
-                output_type = gs.output_type
-                if output_type in ("input", None):
-                    if array is not None:
-                        output_type = infer_output_type(array_arg)
+                    output_type = gs.output_type
                     if output_type in ("input", None):
-                        # Nothing to infer from and no explicit type set,
-                        # default to cupy
-                        output_type = "cupy"
-        else:
-            # We're internal, return as cuml
-            output_type = "cuml"
+                        if array_arg is not None:
+                            output_type = infer_output_type(array)
+                        if output_type in ("input", None):
+                            # Nothing to infer from and no explicit type set,
+                            # default to cupy
+                            output_type = "cupy"
+            else:
+                # We're internal
+                output_type = "cuml"
 
-        with enter_internal_context():
-            return coerce_arrays(res, output_type)
+            with enter_internal_context():
+                res = convert_arrays(
+                    res,
+                    output_type,
+                    index=index,
+                )
+
+        return res
 
     return inner

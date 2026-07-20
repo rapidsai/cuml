@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -106,7 +104,7 @@ class MBSGDRegressor(
     array([1.5156871, 1.5121976], dtype=float32)
     """
 
-    coef_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -162,7 +160,7 @@ class MBSGDRegressor(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDRegressor":
         """
         Fit the model with X and y.
@@ -189,6 +187,6 @@ class MBSGDRegressor(
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
         )
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         return self

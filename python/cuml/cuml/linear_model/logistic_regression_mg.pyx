@@ -7,8 +7,7 @@ import cupyx.scipy.sparse as cp_sp
 import numpy as np
 
 import cuml.common.opg_data_utils_mg as opg
-from cuml.internals import run_in_internal_context
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.linear_model import LogisticRegression
 
@@ -131,7 +130,7 @@ class LogisticRegressionMG(LogisticRegression):
         self.standardization = standardization
         self._convert_index = _convert_index
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(
         self,
         input_data,
@@ -362,8 +361,8 @@ class LogisticRegressionMG(LogisticRegression):
             coef = coef.T
 
         # Store fitted attributes
-        self.coef_ = CumlArray(data=coef)
-        self.intercept_ = CumlArray(data=intercept)
+        self.coef_ = coef
+        self.intercept_ = intercept
         self.n_iter_ = np.array([n_iter])
         self.classes_ = classes
 

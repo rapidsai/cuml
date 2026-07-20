@@ -1002,3 +1002,130 @@ benchmarks:
         tiers:
           default: {rows: [1000000]}
           nightly: {rows: [4000000]}
+
+  - id: kerneldensity_fitscoresamples
+    algorithm: KernelDensity
+    dataset: blobs
+    operation: fit_score_samples
+    backends: [gpu]
+    tags: [neighbors, density]
+    variants:
+      base:
+        features: [16]
+        tiers:
+          default: {rows: [20000]}
+          nightly: {rows: [80000]}
+
+  - id: bernoullinb_fit
+    algorithm: BernoulliNB
+    dataset: binary_classification
+    operation: fit
+    backends: [gpu]
+    tags: [naive-bayes]
+    variants:
+      base:
+        features: [256]
+        tiers:
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
+
+  - id: complementnb_fit
+    algorithm: ComplementNB
+    dataset: count_classification
+    operation: fit
+    backends: [gpu]
+    tags: [naive-bayes]
+    variants:
+      base:
+        features: [256]
+        tiers:
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
+
+  - id: categoricalnb_fit
+    algorithm: CategoricalNB
+    dataset: categorical_classification
+    operation: fit
+    backends: [gpu]
+    dataset_params:
+      n_categories: 16
+    tags: [naive-bayes]
+    variants:
+      base:
+        features: [64]
+        tiers:
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
+
+  - id: targetencoder_fittransform
+    algorithm: TargetEncoder
+    dataset: categorical_classification
+    operation: fit_transform
+    backends: [gpu]
+    dataset_params:
+      n_categories: 64
+    tags: [preprocessing, encoding]
+    variants:
+      base:
+        features: [16]
+        tiers:
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
+
+  - id: onehotencoder_fittransform
+    algorithm: OneHotEncoder
+    dataset: categorical_classification
+    operation: fit_transform
+    backends: [gpu]
+    dataset_params:
+      n_categories: 8
+    tags: [preprocessing, encoding]
+    variants:
+      base:
+        features: [16]
+        tiers:
+          default: {rows: [100000]}
+          nightly: {rows: [400000]}
+
+  - id: ordinalencoder_fittransform
+    algorithm: OrdinalEncoder
+    dataset: categorical_classification
+    operation: fit_transform
+    backends: [gpu]
+    dataset_params:
+      n_categories: 64
+    tags: [preprocessing, encoding]
+    variants:
+      base:
+        features: [32]
+        tiers:
+          default: {rows: [500000]}
+          nightly: {rows: [2000000]}
+
+  - id: missingindicator_fittransform
+    algorithm: MissingIndicator
+    dataset: missing_classification
+    operation: fit_transform
+    backends: [gpu]
+    dataset_params:
+      missing_rate: 0.1
+    tags: [preprocessing, missing-values]
+    variants:
+      base:
+        features: [128]
+        tiers:
+          default: {rows: [200000]}
+          nightly: {rows: [800000]}
+
+  - id: kernelcenterer_fittransform
+    algorithm: KernelCenterer
+    dataset: blobs
+    operation: fit_transform
+    backends: [gpu]
+    tags: [preprocessing, kernel]
+    variants:
+      base:
+        features: [16]
+        tiers:
+          default: {rows: [4096]}
+          nightly: {rows: [8192]}

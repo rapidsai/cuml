@@ -1,21 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
 import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals import logger, reflect
-from cuml.internals.array import CumlArray
+from cuml.internals import logger
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 from cython.operator cimport dereference as deref
@@ -189,7 +183,7 @@ cdef class _HDBSCANState:
 
         self.core_dists = cp.empty(n_rows, dtype=np.float32)
         cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
-        cdef float* X_ptr = <float*><uintptr_t>X.ptr
+        cdef float* X_ptr = <float*><uintptr_t>X.data.ptr
         cdef float* core_dists_ptr = <float*><uintptr_t>self.core_dists.data.ptr
         cdef bool allow_single_cluster = model.allow_single_cluster
         cdef int64_t max_cluster_size = model.max_cluster_size
@@ -406,7 +400,7 @@ cdef class _HDBSCANState:
 
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
-        cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.ptr
+        cdef int64_t* labels_ptr = <int64_t*><uintptr_t>labels.data.ptr
         cdef int64_t* inverse_label_map_ptr = (
             <int64_t*><uintptr_t>self.inverse_label_map.data.ptr
         )
@@ -667,9 +661,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         Even then in some optimized cases a tree may not be generated.
 
     """
-    labels_ = CumlArrayDescriptor()
-    probabilities_ = CumlArrayDescriptor()
-    cluster_persistence_ = CumlArrayDescriptor()
+    labels_ = ReflectedAttr()
+    probabilities_ = ReflectedAttr()
+    cluster_persistence_ = ReflectedAttr()
 
     _cpu_class_path = "hdbscan.HDBSCAN"
 
@@ -749,8 +743,8 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             # Sparse input
             raise UnsupportedOnGPU("Sparse inputs are not supported")
 
-        raw_data = to_gpu(raw_data_cpu, order="C", dtype="float32")
-        labels = to_gpu(model.labels_, order="C", dtype="int64")
+        raw_data = cp.asarray(raw_data_cpu, order="C", dtype="float32")
+        labels = cp.asarray(model.labels_, order="C", dtype="int64")
         state = _HDBSCANState.from_sklearn(model, raw_data)
         if model._prediction_data is not None:
             state.generate_prediction_data(raw_data, labels)
@@ -759,10 +753,10 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             # XXX: `hdbscan.HDBSCAN` doesn't set `n_features_in_` currently, we need
             # to infer this ourselves from the raw data.
             "n_features_in_": raw_data_cpu.shape[1],
-            "labels_": labels,
-            "probabilities_": to_gpu(model.probabilities_, dtype="float32"),
-            "cluster_persistence_": to_gpu(model.cluster_persistence_, dtype="float32"),
-            "_raw_data": raw_data,
+            "labels_": ArrayIndexPair(labels, None),
+            "probabilities_": cp.asarray(model.probabilities_, dtype="float32"),
+            "cluster_persistence_": cp.asarray(model.cluster_persistence_, dtype="float32"),
+            "_raw_data": ArrayIndexPair(raw_data, None),
             "_raw_data_cpu": raw_data_cpu,
             "_state": state,
             "n_clusters_": state.n_clusters,
@@ -774,9 +768,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
 
     def _attrs_to_cpu(self, model):
         out = {
-            "labels_": to_cpu(self.labels_),
-            "probabilities_": to_cpu(self.probabilities_),
-            "cluster_persistence_": to_cpu(self.cluster_persistence_),
+            "labels_": self.labels_.array.get(order="A"),
+            "probabilities_": self.probabilities_.get(order="A"),
+            "cluster_persistence_": self.cluster_persistence_.get(order="A"),
             "_condensed_tree": self._condensed_tree,
             "_single_linkage_tree": self._single_linkage_tree,
             "_min_spanning_tree": self._min_spanning_tree,
@@ -832,7 +826,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
 
     def _get_raw_data_cpu(self):
         if getattr(self, "_raw_data_cpu") is None:
-            self._raw_data_cpu = self._raw_data.to_output("numpy")
+            self._raw_data_cpu = self._raw_data.array.get(order="A")
         return self._raw_data_cpu
 
     @property
@@ -905,11 +899,11 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         with cuml.using_output_type("cuml"):
             labels = self.labels_
 
-        self._state.generate_prediction_data(self._raw_data, labels)
+        self._state.generate_prediction_data(self._raw_data.array, labels)
         self.prediction_data = True
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated") -> "HDBSCAN":
         """
         Fit HDBSCAN model from features.
@@ -936,7 +930,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
             return_index=True,
             reset=True,
         )
-        self._raw_data = CumlArray(X, index=index)
+        self._raw_data = ArrayIndexPair(X, index)
         self._raw_data_cpu = None
 
         # Validate and prepare hyperparameters
@@ -1053,9 +1047,9 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         # Store state on model
         self._state = state
         self.n_clusters_ = n_clusters
-        self.labels_ = CumlArray(data=labels, index=index)
-        self.probabilities_ = CumlArray(data=probabilities)
-        self.cluster_persistence_ = CumlArray(data=cluster_persistence)
+        self.labels_ = ArrayIndexPair(labels, index)
+        self.probabilities_ = probabilities
+        self.cluster_persistence_ = cluster_persistence
         self._min_spanning_tree = min_spanning_tree
         self._single_linkage_tree = single_linkage_tree
 
@@ -1068,8 +1062,8 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
-    @reflect
-    def fit_predict(self, X, y=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None):
         """
         Fit the HDBSCAN model from features and return
         cluster labels.
@@ -1117,7 +1111,7 @@ def _check_clusterer(clusterer):
     return state
 
 
-@reflect(model="clusterer", array=None)
+@mlfunc(model_arg="clusterer", array_arg=None)
 def all_points_membership_vectors(clusterer, int batch_size=4096):
     """
     Predict soft cluster membership vectors for all points in the
@@ -1148,19 +1142,19 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    n_rows = clusterer._raw_data.shape[0]
+    n_rows = clusterer._raw_data.array.shape[0]
 
     if clusterer.n_clusters_ == 0:
-        return CumlArray(
-            data=cp.zeros(n_rows, dtype=np.float32, order="C"),
-            index=clusterer._raw_data.index,
+        return ArrayIndexPair(
+            cp.zeros(n_rows, dtype=np.float32, order="C"),
+            clusterer._raw_data.index,
         )
 
     membership_vec = cp.empty(
         (n_rows, clusterer.n_clusters_,), dtype="float32", order="C",
     )
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
     cdef float* membership_vec_ptr = <float*><uintptr_t>membership_vec.data.ptr
@@ -1180,10 +1174,10 @@ def all_points_membership_vectors(clusterer, int batch_size=4096):
         )
     handle.sync()
 
-    return CumlArray(data=membership_vec, index=clusterer._raw_data.index)
+    return ArrayIndexPair(membership_vec, clusterer._raw_data.index)
 
 
-@reflect(model="clusterer", array="points_to_predict")
+@mlfunc(model_arg="clusterer", array_arg="points_to_predict", preserve_index=True)
 def membership_vector(
     clusterer,
     points_to_predict,
@@ -1224,13 +1218,12 @@ def membership_vector(
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
-    points_to_predict, index = check_inputs(
+    points_to_predict = check_inputs(
         clusterer,
         points_to_predict,
         dtype="float32",
         convert_dtype=convert_dtype,
         order="C",
-        return_index=True,
     )
     cdef int n_prediction_points = points_to_predict.shape[0]
 
@@ -1238,9 +1231,9 @@ def membership_vector(
         (n_prediction_points, clusterer.n_clusters_,), dtype="float32", order="C"
     )
     if clusterer.n_clusters_ == 0:
-        return CumlArray(data=membership_vec, index=index)
+        return membership_vec
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
     cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
@@ -1265,10 +1258,10 @@ def membership_vector(
         )
     handle.sync()
 
-    return CumlArray(data=membership_vec, index=index)
+    return membership_vec
 
 
-@reflect(model="clusterer", array="points_to_predict")
+@mlfunc(model_arg="clusterer", array_arg="points_to_predict", preserve_index=True)
 def approximate_predict(clusterer, points_to_predict, convert_dtype="deprecated"):
     """Predict the cluster label of new points. The returned labels
     will be those of the original clustering found by ``clusterer``,
@@ -1309,23 +1302,22 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype="deprecated"
             "will be automatically predicted as outliers."
         )
 
-    points_to_predict, index = check_inputs(
+    points_to_predict = check_inputs(
         clusterer,
         points_to_predict,
         dtype="float32",
         convert_dtype=convert_dtype,
         order="C",
-        return_index=True,
     )
     cdef int n_prediction_points = points_to_predict.shape[0]
 
     prediction_labels = cp.empty(n_prediction_points, dtype="int64")
     prediction_probs = cp.empty(n_prediction_points, dtype="float32")
 
-    raw_data = clusterer._raw_data.to_output("cupy")
+    raw_data = clusterer._raw_data.array
     cdef _HDBSCANState state = <_HDBSCANState?>clusterer._state
     cdef float* X_ptr = <float*><uintptr_t>raw_data.data.ptr
-    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>clusterer.labels_.ptr
+    cdef int64_t* labels_ptr = <int64_t*><uintptr_t>clusterer.labels_.array.data.ptr
     cdef float* points_to_predict_ptr = <float*><uintptr_t>points_to_predict.data.ptr
     cdef int64_t* prediction_labels_ptr = <int64_t*><uintptr_t>prediction_labels.data.ptr
     cdef float* prediction_probs_ptr = <float*><uintptr_t>prediction_probs.data.ptr
@@ -1350,10 +1342,7 @@ def approximate_predict(clusterer, points_to_predict, convert_dtype="deprecated"
         )
     handle.sync()
 
-    return (
-        CumlArray(data=prediction_labels, index=index),
-        CumlArray(data=prediction_probs, index=index),
-    )
+    return prediction_labels, prediction_probs
 
 
 ###########################################################

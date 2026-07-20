@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -276,7 +276,7 @@ endif()
 
 if(LINK_NVFOREST)
   include(cmake/thirdparty/get_nvforest.cmake)
-  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest)
 endif()
 
 if(all_algo OR treeshap_algo)
@@ -419,7 +419,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR kmeans_algo)
     target_sources(
       cuml_objs PRIVATE src/kmeans/kmeans_transform.cu src/kmeans/kmeans_fit.cu
-                        src/kmeans/kmeans_predict.cu src/kmeans/kmeans_params.cpp
+                        src/kmeans/kmeans_predict.cu
     )
   endif()
 
@@ -472,10 +472,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR svm_algo)
-    target_sources(
-      cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu
-                        src/matrix/kernel_params.cpp
-    )
+    target_sources(cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu)
   endif()
 
   if(all_algo OR autoarima_algo)

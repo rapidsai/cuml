@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,7 @@
 
 #include <cuml/tree/algo_helper.h>
 
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 
@@ -29,6 +30,7 @@ class ClassificationObjectiveFunction {
   IdxT nclasses;
   IdxT min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
 
   HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
@@ -39,7 +41,8 @@ class ClassificationObjectiveFunction {
     return weight;
   }
 
-  HDI DataT GiniGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT
+  GiniGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     constexpr DataT One = DataT(1.0);
     auto total_weight   = WeightAt(hist, n_bins - 1, n_bins);
@@ -74,7 +77,8 @@ class ClassificationObjectiveFunction {
     return gain;
   }
 
-  HDI DataT EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT
+  EntropyGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto total_weight = WeightAt(hist, n_bins - 1, n_bins);
     auto left_weight  = WeightAt(hist, i, n_bins);
@@ -114,10 +118,15 @@ class ClassificationObjectiveFunction {
   }
 
  public:
-  HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         std::int64_t len,
+                         std::int64_t nLeft,
+                         std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -127,8 +136,14 @@ class ClassificationObjectiveFunction {
     }
   }
 
-  HDI ClassificationObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf, CRITERION criterion)
-    : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
+  HDI ClassificationObjectiveFunction(IdxT nclasses,
+                                      IdxT min_samples_leaf,
+                                      CRITERION criterion,
+                                      DataT min_impurity_decrease = DataT{0})
+    : nclasses(nclasses),
+      min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -146,17 +161,17 @@ class ClassificationObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, std::int64_t len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }
@@ -192,9 +207,11 @@ class RegressionObjectiveFunction {
  private:
   IdxT min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI DataT MSEGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT
+  MSEGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -216,7 +233,8 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT
+  PoissonGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -243,7 +261,8 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT GammaGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT
+  GammaGain(BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -270,7 +289,8 @@ class RegressionObjectiveFunction {
     return gain;
   }
 
-  HDI DataT InverseGaussianGain(BinT const* hist, IdxT i, IdxT n_bins, IdxT, IdxT, IdxT) const
+  HDI DataT InverseGaussianGain(
+    BinT const* hist, IdxT i, IdxT n_bins, std::int64_t, std::int64_t, std::int64_t) const
   {
     auto parent_weight = hist[n_bins - 1].Weight();
     auto left_weight   = hist[i].Weight();
@@ -297,10 +317,15 @@ class RegressionObjectiveFunction {
   }
 
  public:
-  HDI DataT
-  GainPerSplit(BinT const* hist, IdxT i, IdxT n_bins, IdxT len, IdxT nLeft, IdxT nRight) const
+  HDI DataT GainPerSplit(BinT const* hist,
+                         IdxT i,
+                         IdxT n_bins,
+                         std::int64_t len,
+                         std::int64_t nLeft,
+                         std::int64_t nRight) const
   {
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < static_cast<std::int64_t>(min_samples_leaf) ||
+        nRight < static_cast<std::int64_t>(min_samples_leaf))
       return -std::numeric_limits<DataT>::max();
 
     switch (criterion) {
@@ -313,8 +338,13 @@ class RegressionObjectiveFunction {
     }
   }
 
-  HDI RegressionObjectiveFunction(IdxT, IdxT min_samples_leaf, CRITERION criterion)
-    : min_samples_leaf(min_samples_leaf), criterion(criterion)
+  HDI RegressionObjectiveFunction(IdxT,
+                                  IdxT min_samples_leaf,
+                                  CRITERION criterion,
+                                  DataT min_impurity_decrease = DataT{0})
+    : min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -332,17 +362,17 @@ class RegressionObjectiveFunction {
   }
 
   DI Split<DataT, IdxT> Gain(
-    BinT const* shist, DataT const* squantiles, IdxT col, IdxT len, IdxT n_bins) const
+    BinT const* shist, DataT const* squantiles, IdxT col, std::int64_t len, IdxT n_bins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
-      if (nLeft >= min_samples_leaf && nRight >= min_samples_leaf) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+      if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
+          nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, i});
     }
     return sp;
   }

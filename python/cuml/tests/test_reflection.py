@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import pickle
 
@@ -13,13 +13,16 @@ import scipy.sparse
 from numba.cuda import as_cuda_array, is_cuda_array
 
 import cuml
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.base import Base
 from cuml.internals.global_settings import GlobalSettings
-from cuml.internals.outputs import infer_output_type
+from cuml.internals.outputs import (
+    ArrayIndexPair,
+    ClassLabels,
+    ReflectedAttr,
+    convert_arrays,
+    infer_output_type,
+    mlfunc,
+)
 from cuml.internals.validation import check_inputs
 
 OUTPUT_TYPES = ["numpy", "numba", "cupy", "cudf", "pandas"]
@@ -89,44 +92,43 @@ class ImplementsCudaArrayInterface:
 
 
 class DummyEstimator(Base):
-    X_ = CumlArrayDescriptor()
+    X_ = ReflectedAttr()
 
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None):
-        X = check_inputs(self, X, reset=True)
-        self.X_ = CumlArray(data=X)
+        self.X_ = check_inputs(self, X, reset=True)
         return self
 
-    @reflect
+    @mlfunc
     def example(self, X):
         return cp.zeros(3)
 
-    @reflect
+    @mlfunc
     def example_no_args(self):
         return cp.zeros(3)
 
-    @run_in_internal_context
+    @mlfunc
     def check_descriptor(self):
         # When run in an internal context, a descriptor returns its original
         # internal value.
-        assert isinstance(self.X_, CumlArray)
+        assert isinstance(self.X_, cp.ndarray)
 
-        with cuml.using_output_type("cupy"):
+        with cuml.using_output_type("numpy"):
             # Can override with using_output_type
-            assert_output_type(self.X_, "cupy")
+            assert_output_type(self.X_, "numpy")
 
 
-@reflect
-def reflects_input(X):
-    return X
+@mlfunc
+def returns_cupy(X):
+    return cp.asarray(X)
 
 
-@reflect
+@mlfunc
 def returns_array_no_args():
     return cp.ones(3)
 
 
-@reflect(array=None)
+@mlfunc(array_arg=None)
 def returns_array_one_arg(n):
     return cp.ones(n)
 
@@ -141,7 +143,7 @@ def test_set_global_output_type():
     cuml.set_global_output_type(None)
     assert gs.output_type is None
 
-    with pytest.raises(ValueError, match="`output_type` must be one of"):
+    with pytest.raises(ValueError, match="`output_type='bad'`"):
         cuml.set_global_output_type("bad")
 
 
@@ -160,7 +162,7 @@ def test_using_output_type():
         assert gs.output_type is None
     assert gs.output_type == "cupy"
 
-    with pytest.raises(ValueError, match="`output_type` must be one of"):
+    with pytest.raises(ValueError, match="`output_type='bad'`"):
         with cuml.using_output_type("bad"):
             pass
 
@@ -170,13 +172,6 @@ def test_infer_output_type(input_type):
     X = rand_array(input_type)
     output_type = infer_output_type(X)
     assert output_type == input_type
-
-
-def test_infer_output_type_cuml():
-    a = CumlArray(cp.array([[1, 2], [3, 4]]))
-    b = SparseCumlArray(cupyx.scipy.sparse.random(5, 5, random_state=42))
-    assert infer_output_type(a) == "cuml"
-    assert infer_output_type(b) == "cuml"
 
 
 @pytest.mark.parametrize("kind", ["cudf", "pandas"])
@@ -261,9 +256,9 @@ def test_global_output_type(input_type, output_type):
 
 def test_invalid_estimator_output_type():
     X = rand_array("numpy")
-    model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type="invalid")
+    model = cuml.DBSCAN(eps=1.0, min_samples=1)
     model.fit(X)
-    assert model.output_type == "invalid"
+    model.output_type = "invalid"
 
     # Descriptor raises appropriately
     with pytest.raises(ValueError, match="`output_type='invalid'`"):
@@ -296,6 +291,91 @@ def test_global_input_with_estimator_output_type():
     assert_output_type(model.components_, "pandas")
 
 
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("order", ["C", "F"])
+def test_convert_arrays_dense_array(input_type, output_type, order):
+    if input_type == "cupy":
+        X = cp.asarray(rand_array("cupy"), order=order)
+    else:
+        X = np.asarray(rand_array("numpy"), order=order)
+
+    out = convert_arrays(X, output_type)
+    assert_output_type(out, output_type)
+    np.testing.assert_array_equal(cp.asnumpy(X), cp.asnumpy(out))
+    assert out.flags.c_contiguous if order == "C" else out.flags.f_contiguous
+
+
+@pytest.mark.parametrize("input_type", ["scipy", "cupyx"])
+@pytest.mark.parametrize("format", ["coo", "csc", "csr"])
+@pytest.mark.parametrize("output_type", OUTPUT_TYPES)
+def test_convert_arrays_sparse_array(input_type, output_type, format):
+    if input_type == "cupyx":
+        X = cupyx.scipy.sparse.random(
+            5, 5, random_state=42, density=0.5, format=format
+        )
+    else:
+        X = scipy.sparse.random(
+            5, 5, random_state=42, density=0.5, format=format
+        )
+
+    out = convert_arrays(X, output_type)
+
+    if output_type in ["cupy", "cudf", "numba"]:
+        assert cupyx.scipy.sparse.issparse(out)
+    else:
+        assert scipy.sparse.issparse(out)
+
+    assert out.format == format
+
+    np.testing.assert_array_equal(
+        cp.asnumpy(X.todense()),
+        cp.asnumpy(out.todense()),
+    )
+
+
+@pytest.mark.parametrize("kind", ["dataframe", "series"])
+@pytest.mark.parametrize("input_type", ["cupy", "numpy"])
+@pytest.mark.parametrize("output_type", ["pandas", "cudf"])
+def test_convert_arrays_dataframe(kind, input_type, output_type):
+    arr = rand_array(input_type, shape=((8, 4) if kind == "dataframe" else 8))
+    res = convert_arrays(arr, output_type)
+    assert_output_type(res, output_type)
+
+    if kind == "dataframe":
+        cudf.testing.assert_frame_equal(
+            cudf.DataFrame(res), cudf.DataFrame(arr)
+        )
+    else:
+        cudf.testing.assert_series_equal(cudf.Series(res), cudf.Series(arr))
+
+
+@pytest.mark.parametrize("xdf", [pd, cudf])
+@pytest.mark.parametrize("kind", ["dataframe", "series"])
+@pytest.mark.parametrize("use_pair", [False, True])
+@pytest.mark.parametrize("input_type", ["cupy", "numpy"])
+@pytest.mark.parametrize("output_type", ["pandas", "cudf"])
+def test_convert_arrays_dataframe_with_index(
+    xdf, kind, use_pair, input_type, output_type
+):
+    arr = rand_array(input_type, shape=((8, 4) if kind == "dataframe" else 8))
+    index = xdf.Index(["a", "b", "c", "d", "e", "f", "g", "h"])
+
+    if use_pair:
+        res = convert_arrays(ArrayIndexPair(arr, index), output_type)
+    else:
+        res = convert_arrays(arr, output_type, index=index)
+
+    if kind == "dataframe":
+        cudf.testing.assert_frame_equal(
+            cudf.DataFrame(res), cudf.DataFrame(arr, index=index)
+        )
+    else:
+        cudf.testing.assert_series_equal(
+            cudf.Series(res), cudf.Series(arr, index=index)
+        )
+
+
 @pytest.mark.parametrize(
     "construct",
     [
@@ -305,24 +385,18 @@ def test_global_input_with_estimator_output_type():
         pytest.param(lambda x, y: {"a": [(x, 1), (y, 2)]}, id="nested"),
     ],
 )
-@pytest.mark.parametrize("output_type", ["input", "cupy", "cudf"])
-def test_convert_nested_outputs(construct, output_type):
+@pytest.mark.parametrize("output_type", ["numpy", "cupy", "pandas", "cudf"])
+def test_convert_arrays_nested_values(construct, output_type):
     cuml.set_global_output_type(output_type)
-    x = rand_array("numpy")
-
-    @reflect(array="x")
-    def apply(func, x):
-        return func(x, x + 1)
-
-    res = apply(construct, x)
+    x = rand_array("cupy", shape=(4, 8))
+    y = rand_array("cupy", shape=(4, 4))
+    res = convert_arrays(construct(x, y), output_type)
     sol = construct("x", "y")
-
-    expected_type = "numpy" if output_type == "input" else output_type
 
     def check_nested_types(res, sol):
         """Check types match, using `x` and `y` as placeholders for arrays"""
         if sol in ("x", "y"):
-            assert_output_type(res, expected_type)
+            assert_output_type(res, output_type)
         else:
             assert type(res) is type(sol)
             if isinstance(res, dict):
@@ -337,28 +411,56 @@ def test_convert_nested_outputs(construct, output_type):
     check_nested_types(res, sol)
 
 
-@pytest.mark.parametrize("sparse_type", ["cupy", "numpy", "cuml"])
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
-def test_convert_sparse_outputs(sparse_type, output_type):
-    @reflect
+def test_mlfunc_dense_outputs(output_type):
+    cuml.set_global_output_type(output_type)
+    X = rand_array("cupy")
+
+    # Reflected functions treat None/"input" the same
+    assert_output_type(
+        returns_cupy(X),
+        "cupy" if output_type in (None, "input") else output_type,
+    )
+
+    # With no array argument functions default to 'cupy' unless
+    # a concrete type is configured
+    expected = "cupy" if output_type in (None, "input") else output_type
+    assert_output_type(returns_array_no_args(), expected)
+    assert_output_type(returns_array_one_arg(3), expected)
+
+
+@pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
+def test_mlfunc_sparse_outputs(output_type):
+    @mlfunc
     def make_sparse():
-        arr = cupyx.scipy.sparse.random(5, 5, random_state=42)
-        if sparse_type == "cupy":
-            return arr
-        elif sparse_type == "numpy":
-            return arr.get()
-        else:
-            return SparseCumlArray(arr)
+        return cupyx.scipy.sparse.random(5, 5, random_state=42)
 
     cuml.set_global_output_type(output_type)
     res = make_sparse()
 
-    if output_type == "cuml":
-        assert isinstance(res, SparseCumlArray)
-    elif output_type in [None, "input", "cupy", "cudf", "numba"]:
+    if output_type in [None, "input", "cupy", "cudf", "numba", "cuml"]:
         assert cupyx.scipy.sparse.issparse(res)
     else:
         assert scipy.sparse.issparse(res)
+
+
+@pytest.mark.parametrize("output_type", ["input", "cupy", "cudf"])
+def test_mlfunc_nested_output(output_type):
+    expected_type = "cupy" if output_type == "input" else output_type
+    cuml.set_global_output_type(output_type)
+    x = rand_array("cupy")
+
+    @mlfunc
+    def myfunc(x):
+        return [{"x": x}, (1, x + 1)]
+
+    res = myfunc(x)
+    assert isinstance(res, list)
+    assert isinstance(res[0], dict)
+    assert_output_type(res[0]["x"], expected_type)
+    assert isinstance(res[1], tuple)
+    assert res[1][0] == 1
+    assert_output_type(res[1][1], expected_type)
 
 
 @pytest.mark.parametrize(
@@ -369,8 +471,8 @@ def test_convert_sparse_outputs(sparse_type, output_type):
         pytest.param(ImplementsArray(np.array([1, 2, 3])), id="__array__"),
     ],
 )
-def test_dont_convert_array_like(obj):
-    @reflect
+def test_mlfunc_dont_convert_array_like(obj):
+    @mlfunc
     def make_array_like():
         return obj
 
@@ -379,64 +481,97 @@ def test_dont_convert_array_like(obj):
     assert type(res) is type(obj)
 
 
-@pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
-def test_functions(output_type):
-    cuml.set_global_output_type(output_type)
-    X = rand_array("numpy")
-
-    # Reflected functions treat None/"input" the same
-    assert_output_type(
-        reflects_input(X),
-        "numpy" if output_type in (None, "input") else output_type,
-    )
-
-    # With no array argument functions default to 'cupy' unless
-    # a concrete type is configured
-    expected = "cupy" if output_type in (None, "input") else output_type
-    assert_output_type(returns_array_no_args(), expected)
-    assert_output_type(returns_array_one_arg(3), expected)
-
-
 @pytest.mark.parametrize("output_type", [None, "input", "numpy"])
-def test_internal_calls(output_type):
-    @reflect(array="X")
+def test_mlfunc_internal_calls(output_type):
+    @mlfunc(array_arg="X")
     def apply(func, X):
         result = func(X)
         # Internal calls return internal types by default
-        assert isinstance(result, CumlArray)
+        assert isinstance(result, cp.ndarray)
 
-        with cuml.using_output_type("cupy"):
+        with cuml.using_output_type("numpy"):
             temp = func(X)
 
         # Internal calls can configure output type to get
         # something specific when needed
-        assert isinstance(temp, cp.ndarray)
+        assert isinstance(temp, np.ndarray)
 
         return result
 
     cuml.set_global_output_type(output_type)
     X = rand_array("pandas")
-    res = apply(reflects_input, X)
+    res = apply(returns_cupy, X)
     expected = "pandas" if output_type in (None, "input") else output_type
     assert_output_type(res, expected)
 
 
-def test_run_in_internal_context():
-    @run_in_internal_context
-    def always_returns_numpy(func, X):
-        result = func(X)
-        # Internal calls return internal types by default
-        assert isinstance(result, CumlArray)
+@pytest.mark.parametrize("input_type", ["pandas", "cudf"])
+@pytest.mark.parametrize("output_type", ["pandas", "cudf"])
+def test_mlfunc_preserve_index(input_type, output_type):
+    xdf = cudf if input_type == "cudf" else pd
+    df = xdf.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]}, index=["a", "c", "b"])
 
-        return result.to_output("numpy")
+    @mlfunc(preserve_index=True)
+    def myfunc(df):
+        return cp.asarray(df.x + 1)
+
+    with cuml.using_output_type(output_type):
+        res = myfunc(df)
+
+    assert_output_type(res, output_type)
+
+    cudf.testing.assert_series_equal(
+        cudf.Series(res), cudf.Series([2, 3, 4], index=df.index)
+    )
+
+
+@pytest.mark.parametrize("dtype", ["int32", "object", "U"])
+@pytest.mark.parametrize("output_type", OUTPUT_TYPES)
+def test_class_labels(dtype, output_type):
+    if dtype in ("object", "U"):
+        classes = np.array(["a", "b", "c"], dtype=dtype)
+    else:
+        classes = np.array([10, 20, 30], dtype=dtype)
+
+    indices = cp.array([0, 2, 1, 2, 1, 0])
+
+    @mlfunc
+    def myfunc():
+        return ClassLabels(indices, classes)
+
+    if dtype in ("object", "U") and output_type in ("cupy", "numba"):
+        with pytest.raises(
+            TypeError,
+            match=f"output_type={output_type!r} doesn't support outputs of dtype",
+        ):
+            with cuml.using_output_type(output_type):
+                res = myfunc()
+    else:
+        with cuml.using_output_type(output_type):
+            res = myfunc()
+
+        assert_output_type(res, output_type)
+        res = res.to_numpy() if hasattr(res, "to_numpy") else cp.asnumpy(res)
+        np.testing.assert_array_equal(
+            res,
+            classes.take(indices.get()),
+        )
+
+
+def test_mlfunc_convert_output_false():
+    @mlfunc(convert_output=False)
+    def always_returns_numpy(X):
+        result = returns_cupy(X)
+        assert isinstance(result, cp.ndarray)
+        return result.get(order="A")
 
     cuml.set_global_output_type("cudf")
     X = rand_array("pandas")
-    res = always_returns_numpy(reflects_input, X)
+    res = always_returns_numpy(X)
     assert_output_type(res, "numpy")
 
 
-def test_reset_true():
+def test_decorator_sets_input_type():
     X = rand_array("numpy", shape=(10, 5))
     model = DummyEstimator().fit(X)
     assert model.n_features_in_ == 5
@@ -495,53 +630,80 @@ def test_estimator_method_with_no_array_input():
         assert_output_type(model.example_no_args(), "pandas")
 
 
-def test_cuml_array_descriptor_type_in_internal_context():
+@pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
+def test_reflected_attr(output_type):
+    cuml.set_global_output_type(output_type)
+    X = rand_array("pandas")
+
+    model = DummyEstimator().fit(X)
+
+    # Reflected attributes treat None/"input" the same
+    assert_output_type(
+        model.X_,
+        "pandas" if output_type in (None, "input") else output_type,
+    )
+
+    # With no array argument functions default to 'cupy' unless
+    # a concrete type is configured
+    expected = "cupy" if output_type in (None, "input") else output_type
+    assert_output_type(returns_array_no_args(), expected)
+    assert_output_type(returns_array_one_arg(3), expected)
+
+
+def test_reflected_attr_type_in_internal_context():
     X = rand_array("numpy")
     model = DummyEstimator().fit(X)
     assert_output_type(model.X_, "numpy")
     model.check_descriptor()
 
 
-def test_array_descriptor_cache_behavior():
+def test_reflected_attr_cache_behavior():
     X = rand_array("cupy")
     model = DummyEstimator().fit(X)
     assert_output_type(model.X_, "cupy")
     # Instance is cached
     assert model.X_ is model.X_
-    assert len(model.__dict__["X_"].values) == 2  # cuml + cupy
+    assert len(model.__dict__["X_"]._cache) == 1  # cupy
 
     with cuml.using_output_type("pandas"):
         assert_output_type(model.X_, "pandas")
         # Instance is cached, but original cache isn't wiped
         assert model.X_ is model.X_
-        assert len(model.__dict__["X_"].values) == 3  # cuml + cupy + pandas
+        assert len(model.__dict__["X_"]._cache) == 2  # cupy + pandas
 
     msg = pickle.dumps(model)
     model2 = pickle.loads(msg)
-    # Only one array is serialized when pickled, and the cache is reset
+    # Only one array is serialized when pickled, and the cache is reset in the
+    # new instance.
     assert b"pandas" not in msg
     assert_output_type(model2.X_, "cupy")
-    assert len(model2.__dict__["X_"].values) == 2  # cuml + cupy
+    assert len(model2.__dict__["X_"]._cache) == 1  # cupy
+    assert len(model.__dict__["X_"]._cache) == 2  # cupy + pandas
+
+    # Assigning an attribute resets the cache
+    model.X_ = X
+    assert_output_type(model.X_, "cupy")
+    assert len(model.__dict__["X_"]._cache) == 1  # cupy
 
 
 def test_decorators_set_cupy_ptds():
     class MyEstimator(Base):
-        @reflect(reset=True)
+        @mlfunc(set_input_type=True)
         def fit(self, X, y=None):
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return self
 
-        @reflect
+        @mlfunc
         def direct_call(self, X):
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return cp.zeros(3)
 
-        @reflect
+        @mlfunc
         def nested_call(self, X):
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return self.direct_call(X)
 
-        @run_in_internal_context
+        @mlfunc(convert_output=False)
         def no_reflection(self, X):
             assert cp.cuda.get_current_stream() is cp.cuda.Stream.ptds
             return cp.zeros(3)

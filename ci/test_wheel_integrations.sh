@@ -8,8 +8,6 @@ source rapids-init-pip
 
 LIBCUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_cpp libcuml cuml --cuda "$RAPIDS_CUDA_VERSION")")
 CUML_WHEELHOUSE=$(rapids-download-from-github "$(rapids-artifact-name wheel_python cuml cuml --stable --cuda "$RAPIDS_CUDA_VERSION")")
-RAPIDS_TESTS_DIR=${RAPIDS_TESTS_DIR:-"${PWD}/test-results"}
-mkdir -p "${RAPIDS_TESTS_DIR}"
 
 EXITCODE=0
 trap "EXITCODE=1" ERR
@@ -20,16 +18,19 @@ set +e
 #
 rapids-logger "===== Testing BERTopic Integration ====="
 
-# Step 1: Install cuML wheels first (two-step workaround for issue #7374)
-rapids-logger "Installing cuML wheels"
+rapids-logger "Generating testing dependencies"
+rapids-dependency-file-generator \
+  --output requirements \
+  --file-key test_integration_bertopic \
+  --matrix "cuda=${RAPIDS_CUDA_VERSION%.*};arch=$(arch);py=${RAPIDS_PY_VERSION};dependencies=${RAPIDS_DEPENDENCIES}" \
+| tee ./requirements.txt
+
+rapids-logger "Installing cuML, BERTopic, and dependencies"
 rapids-pip-retry install \
   --prefer-binary \
   "${LIBCUML_WHEELHOUSE}"/libcuml*.whl \
-  "${CUML_WHEELHOUSE}"/cuml*.whl
-
-# Step 2: Install BERTopic
-rapids-logger "Installing BERTopic"
-rapids-pip-retry install --prefer-binary bertopic
+  "${CUML_WHEELHOUSE}"/cuml*.whl \
+  -r ./requirements.txt
 
 # Test 1: Verify imports
 rapids-logger "Testing imports"
@@ -48,6 +49,9 @@ warnings.filterwarnings('ignore')
 import random
 from bertopic import BERTopic
 
+from cuml.cluster import HDBSCAN
+from cuml.manifold import UMAP
+
 # Generate synthetic documents with topic-like word clusters
 random.seed(42)
 topics = [
@@ -62,11 +66,14 @@ for i in range(100):
     doc = ' '.join(random.choices(topic_words, k=random.randint(10, 30)))
     docs.append(doc)
 
-# Initialize BERTopic with cuML UMAP backend
-# BERTopic will automatically use cuML's UMAP if available
-topic_model = BERTopic(verbose=False, calculate_probabilities=False)
+hdbscan_model = HDBSCAN(min_samples=10, gen_min_span_tree=True, prediction_data=True)
+umap_model = UMAP(n_components=5, n_neighbors=15, min_dist=0.0)
 
-# Fit the model
+topic_model = BERTopic(verbose=False,
+                       calculate_probabilities=False,
+                       hdbscan_model=hdbscan_model,
+                       umap_model=umap_model)
+
 topics, probs = topic_model.fit_transform(docs)
 
 print(f'✓ BERTopic smoke test passed - processed {len(docs)} documents, found {len(set(topics))} topics')

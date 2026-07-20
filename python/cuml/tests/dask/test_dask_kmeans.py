@@ -1,16 +1,53 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cudf
 import cupy as cp
 import dask.array as da
+import dask_cudf
 import numpy as np
 import pytest
+from raft_dask.common.comms import Comms
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
+from cuml.dask.cluster import KMeans
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
+
+
+def _make_skewed_kmeans_data(client, n_small_rows=2):
+    workers = list(client.scheduler_info()["workers"].keys())
+    if len(workers) < 2:
+        pytest.skip("Need at least 2 workers to test skewed partitions")
+
+    n_clusters = 4
+    X_np = np.asarray(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [10.0, 10.0],
+            [10.1, 10.0],
+            [20.0, 20.0],
+            [20.1, 20.0],
+        ],
+        dtype=np.float32,
+    )
+
+    worker_info = Comms(comms_p2p=False, client=client).worker_info(workers)
+    rank0_worker = next(
+        worker for worker, info in worker_info.items() if info["rank"] == 0
+    )
+    other_worker = next(worker for worker in workers if worker != rank0_worker)
+
+    X_small = cudf.DataFrame(X_np[:n_small_rows])
+    X_large = cudf.DataFrame(X_np[n_small_rows:])
+    small_f = client.scatter(X_small, workers=[rank0_worker])
+    large_f = client.scatter(X_large, workers=[other_worker])
+    X = dask_cudf.from_delayed([small_f, large_f], meta=X_small.iloc[:0])
+
+    return X, X_np, n_clusters
 
 
 @pytest.mark.mg
@@ -339,5 +376,94 @@ def test_nclusters_exceeds_n_samples(client):
 
     with pytest.raises(
         ValueError, match="n_samples=10 should be >= n_clusters=11"
+    ):
+        model.fit(X)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("n_clusters", [0, -1])
+def test_invalid_nclusters_raises(client, n_clusters):
+    from cuml.dask.datasets import make_blobs
+
+    X, _ = make_blobs(
+        n_samples=10,
+        n_features=5,
+        centers=2,
+        n_parts=2,
+        random_state=10,
+    )
+
+    model = KMeans(n_clusters=n_clusters, random_state=10)
+
+    with pytest.raises(
+        ValueError,
+        match=f"n_clusters={n_clusters} should be a positive integer",
+    ):
+        model.fit(X)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize(
+    "kwargs, match",
+    [
+        (
+            {"init": "k-means++"},
+            r"init='k-means\+\+' is not supported for KMeansMG",
+        ),
+        (
+            {"oversampling_factor": 0},
+            "oversampling_factor=0 is not supported for KMeansMG",
+        ),
+    ],
+)
+def test_unsupported_mg_init_params_raise(client, kwargs, match):
+    from cuml.dask.datasets import make_blobs
+
+    X, _ = make_blobs(
+        n_samples=10,
+        n_features=5,
+        centers=2,
+        n_parts=2,
+        random_state=10,
+    )
+
+    model = KMeans(n_clusters=2, random_state=10, **kwargs)
+
+    with pytest.raises(ValueError, match=match):
+        model.fit(X)
+
+
+@pytest.mark.mg
+def test_partition_with_fewer_rows_than_clusters(client):
+    """KMeansMG validates n_clusters against global, not per-rank, rows."""
+    X, X_np, n_clusters = _make_skewed_kmeans_data(client)
+
+    init = X_np[[0, 2, 4, 5]]
+    model = KMeans(
+        n_clusters=n_clusters,
+        init=init,
+        n_init=1,
+        random_state=10,
+    )
+
+    model.fit(X)
+
+    assert model.cluster_centers_.shape == (n_clusters, X_np.shape[1])
+    assert len(model.labels_.compute()) == X_np.shape[0]
+
+
+@pytest.mark.mg
+def test_random_init_partition_too_small_raises(client):
+    X, _, n_clusters = _make_skewed_kmeans_data(client, n_small_rows=1)
+
+    model = KMeans(
+        n_clusters=n_clusters,
+        init="random",
+        random_state=10,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="init='random' requires rank 0 to sample up to 2",
     ):
         model.fit(X)

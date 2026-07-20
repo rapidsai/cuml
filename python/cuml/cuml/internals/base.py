@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -59,11 +59,14 @@ class Base(TagsMixin):
     - Define ``_get_param_names`` to extend the base implementation with
       any additional parameter names.
 
-    - Decorate their ``fit`` method with ``cuml.internals.reflect(reset=True)``
-      to store their fitted input type.
+    - Decorate their ``fit`` method with
+      ``cuml.internals.mlfunc(set_input_type=True)`` to store their fitted
+      input type.
 
-    - Decorate methods that return array likes with ``cuml.internals.reflect``
-      to properly coerce outputs to the proper type.
+    - Decorate methods that return array likes with ``cuml.internals.mlfunc``
+      to properly coerce outputs to the proper type. In most cases you'll
+      also want to set ``preserve_index=True`` so the index of the input
+      dataframe is attached to the output.
 
     Parameters
     ----------
@@ -83,7 +86,7 @@ class Base(TagsMixin):
     .. code-block:: python
 
         import cupy as cp
-        from cuml.internals import Base, reflect
+        from cuml.internals import Base, mlfunc
 
         class MyAlgo(Base):
             def __init__(
@@ -100,12 +103,12 @@ class Base(TagsMixin):
             def _get_param_names(cls):
                 return [*super()._get_param_names(), "param"]
 
-            @reflect(reset=True)
+            @mlfunc(set_input_type=True)
             def fit(self, X, y):
                 # Training logic goes here...
                 return self
 
-            @reflect
+            @mlfunc(preserve_index=True)
             def predict(self, X):
                 # Inference logic goes here...
                 return cp.ones(len(X), dtype="int32")
