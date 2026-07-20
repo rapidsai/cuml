@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -210,6 +210,7 @@ if(BUILD_CUML_MG_TESTS)
     ConfigureTest(
       PREFIX MG NAME RF_QUANTILE_TEST mg/rf_quantile_test.cu MPI RAFT_DISTRIBUTED ML_INCLUDE
     )
+    ConfigureTest(PREFIX MG NAME RF_TEST mg/rf_test.cu MPI RAFT_DISTRIBUTED ML_INCLUDE)
   else(MPI_CXX_FOUND)
     message("OpenMPI not found. Skipping MultiGPU tests '${CUML_MG_TEST_TARGET}'")
   endif()

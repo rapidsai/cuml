@@ -46,16 +46,20 @@ class NodeQueue {
   std::deque<NodeWorkItem> work_items_;
 
  public:
-  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows, int num_outputs)
+  NodeQueue(DecisionTreeParams params,
+            size_t max_nodes,
+            size_t local_sampled_rows,
+            std::int64_t global_sampled_rows,
+            int num_outputs)
     : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
     tree->num_outputs = num_outputs;
     tree->sparsetree.reserve(max_nodes);
-    tree->sparsetree.emplace_back(NodeT::CreateLeafNode(sampled_rows));
+    tree->sparsetree.emplace_back(NodeT::CreateLeafNode(global_sampled_rows));
     tree->leaf_counter  = 1;
     tree->depth_counter = 0;
     node_instances_.reserve(max_nodes);
-    node_instances_.emplace_back(InstanceRange{0, sampled_rows});
+    node_instances_.emplace_back(InstanceRange{0, local_sampled_rows});
     if (this->IsExpandable(tree->sparsetree.back(), 0)) {
       work_items_.emplace_back(NodeWorkItem{0, 0, node_instances_.back()});
     }
@@ -99,15 +103,15 @@ class NodeQueue {
       if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
       using NodeCountT            = decltype(std::declval<NodeT>().InstanceCount());
+      auto const parent_count     = tree->sparsetree.at(item.idx).InstanceCount();
       auto const local_left_count = ML::narrow_cast<std::size_t>(split.local_nLeft);
 
       // parent
-      tree->sparsetree.at(item.idx) =
-        NodeT::CreateSplitNode(split.colid,
-                               split.quesval,
-                               split.best_metric_val,
-                               int64_t(tree->sparsetree.size()),
-                               ML::narrow_cast<NodeCountT>(parent_range.count));
+      tree->sparsetree.at(item.idx) = NodeT::CreateSplitNode(split.colid,
+                                                             split.quesval,
+                                                             split.best_metric_val,
+                                                             int64_t(tree->sparsetree.size()),
+                                                             parent_count);
       tree->leaf_counter++;
       // left
       tree->sparsetree.emplace_back(
@@ -121,9 +125,8 @@ class NodeQueue {
       }
 
       // right
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(
-        ML::checked_sub<NodeCountT>(tree->sparsetree.at(item.idx).InstanceCount(),
-                                    ML::narrow_cast<NodeCountT>(split.global_nLeft))));
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(ML::checked_sub<NodeCountT>(
+        parent_count, ML::narrow_cast<NodeCountT>(split.global_nLeft))));
       node_instances_.emplace_back(
         InstanceRange{ML::checked_add<std::size_t>(parent_range.begin, local_left_count),
                       ML::checked_sub<std::size_t>(parent_range.count, local_left_count)});
@@ -375,8 +378,11 @@ struct Builder {
   {
     raft::common::nvtx::range fun_scope("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
-    NodeQueue<DataT, LabelT> queue(
-      params, this->maxNodes(), dataset.n_sampled_rows, dataset.num_outputs);
+    NodeQueue<DataT, LabelT> queue(params,
+                                   this->maxNodes(),
+                                   dataset.n_sampled_rows,
+                                   this->globalSampledRows(),
+                                   dataset.num_outputs);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
@@ -404,6 +410,22 @@ struct Builder {
     }
     raft::update_device(workload_info, h_workload_info, n_blocks_dimx, builder_stream);
     return n_blocks_dimx;
+  }
+
+  std::int64_t globalSampledRows()
+  {
+    auto global_sampled_rows = static_cast<std::int64_t>(dataset.n_sampled_rows);
+    if (!distributed) { return global_sampled_rows; }
+
+    rmm::device_uvector<std::int64_t> d_sampled_rows(1, builder_stream);
+    raft::update_device(d_sampled_rows.data(), &global_sampled_rows, 1, builder_stream);
+    handle.get_comms().allreduce(
+      d_sampled_rows.data(), d_sampled_rows.data(), 1, raft::comms::op_t::SUM, builder_stream);
+    ASSERT(handle.get_comms().sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
+           "An error occurred in the distributed RF sampled-row-count all-reduce.");
+    raft::update_host(&global_sampled_rows, d_sampled_rows.data(), 1, builder_stream);
+    handle.sync_stream(builder_stream);
+    return global_sampled_rows;
   }
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
