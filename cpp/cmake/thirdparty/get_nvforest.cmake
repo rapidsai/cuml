@@ -1,6 +1,6 @@
 #=============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 #=============================================================================
@@ -18,7 +18,7 @@ function(find_and_configure_nvforest)
     endif()
 
     rapids_cpm_find(nvforest ${PKG_VERSION}
-            GLOBAL_TARGETS      nvforest::nvforest++
+            GLOBAL_TARGETS      nvforest::nvforest
             BUILD_EXPORT_SET    cuml-exports
             INSTALL_EXPORT_SET  cuml-exports
             CPM_ARGS

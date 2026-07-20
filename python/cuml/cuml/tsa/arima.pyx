@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 from typing import Mapping, Optional, Tuple, Union
@@ -7,8 +7,7 @@ from typing import Mapping, Optional, Tuple, Union
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, nvtx, reflect, run_in_internal_context
+from cuml.internals import ReflectedAttr, logger, mlfunc, nvtx
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
 from cuml.tsa._deprecation import warn_deprecated_tsa_api
@@ -273,18 +272,18 @@ class ARIMA(Base):
 
     """
 
-    d_y = CumlArrayDescriptor()
+    d_y = ReflectedAttr()
     # TODO: (MDD) Should this be public? Its not listed in the attributes doc
-    _d_y_diff = CumlArrayDescriptor()
-    _temp_mem = CumlArrayDescriptor()
+    _d_y_diff = ReflectedAttr()
+    _temp_mem = ReflectedAttr()
 
-    mu_ = CumlArrayDescriptor()
-    beta_ = CumlArrayDescriptor()
-    ar_ = CumlArrayDescriptor()
-    ma_ = CumlArrayDescriptor()
-    sar_ = CumlArrayDescriptor()
-    sma_ = CumlArrayDescriptor()
-    sigma2_ = CumlArrayDescriptor()
+    mu_ = ReflectedAttr()
+    beta_ = ReflectedAttr()
+    ar_ = ReflectedAttr()
+    ma_ = ReflectedAttr()
+    sar_ = ReflectedAttr()
+    sma_ = ReflectedAttr()
+    sigma2_ = ReflectedAttr()
 
     def __init__(self,
                  endog,
@@ -396,11 +395,11 @@ class ARIMA(Base):
 
         self._initial_calc()
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _initial_calc(self):
         """
         This separates the initial calculation from the initialization to make
-        the CumlArrayDescriptors work
+        ReflectedAttr work.
         """
 
         cdef uintptr_t d_y_ptr = self.d_y.data.ptr
@@ -512,19 +511,19 @@ class ARIMA(Base):
         return ic
 
     @property
-    @reflect
+    @mlfunc
     def aic(self):
         """Akaike Information Criterion"""
         return self._ic("aic")
 
     @property
-    @reflect
+    @mlfunc
     def aicc(self):
         """Corrected Akaike Information Criterion"""
         return self._ic("aicc")
 
     @property
-    @reflect
+    @mlfunc
     def bic(self):
         """Bayesian Information Criterion"""
         return self._ic("bic")
@@ -536,7 +535,7 @@ class ARIMA(Base):
         return (order.p + order.P + order.q + order.Q + order.k + order.n_exog
                 + 1)
 
-    @reflect
+    @mlfunc
     def get_fit_params(self):
         """Get all the fit parameters. Not to be confused with get_params
         Note: pack() can be used to get a compact vector of the parameters
@@ -613,7 +612,7 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         start=0,
@@ -768,7 +767,7 @@ class ARIMA(Base):
                     d_upper)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def forecast(
         self,
         nsteps: int,
@@ -837,7 +836,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
                    domain="cuml_python")
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
         """
@@ -858,7 +857,7 @@ class ARIMA(Base):
                     <double*> d_exog_ptr, <int> self.batch_size,
                     <int> self.n_obs, order, <bool> self.missing)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
             opt_disp: int = -1,
@@ -960,7 +959,7 @@ class ARIMA(Base):
         return self
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _loglike(self, x, trans=True, method="ml", truncate=0, convert_dtype="deprecated"):
         """Compute the batched log-likelihood for the given parameters.
 
@@ -1031,7 +1030,7 @@ class ARIMA(Base):
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
                    domain="cuml_python")
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0,
                       convert_dtype="deprecated"):
         """Compute the gradient (via finite differencing) of the batched
@@ -1110,7 +1109,7 @@ class ARIMA(Base):
         return grad.get(order="A")
 
     @property
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def llf(self):
         """Log-likelihood of a fit model. Shape: (batch_size,)
         """
@@ -1158,7 +1157,7 @@ class ARIMA(Base):
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def unpack(self, x: Union[list, np.ndarray], convert_dtype="deprecated"):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -1191,7 +1190,7 @@ class ARIMA(Base):
                    <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 

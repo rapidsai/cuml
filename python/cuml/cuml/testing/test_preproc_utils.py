@@ -1,12 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
 import cupy as cp
-import cupyx.scipy.sparse as gpu_sparse
 import numpy as np
 import pytest
-import scipy.sparse as cpu_sparse
 from cupyx.scipy.sparse import coo_matrix as gpu_coo_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
@@ -15,72 +13,7 @@ from scipy.sparse import csc_matrix as cpu_csc_matrix
 from scipy.sparse import csr_matrix as cpu_csr_matrix
 
 from cuml.datasets import make_blobs, make_classification
-from cuml.internals.array import CumlArray
-
-
-def to_output_type(array, output_type, order="F"):
-    """Used to convert arrays while creating datasets
-    for testing.
-
-    Parameters
-    ----------
-    array : array
-        Input array to convert
-    output_type : string
-        Type of to convert to
-
-    Returns
-    -------
-    Converted array
-    """
-    if output_type == "scipy_csr":
-        return cpu_sparse.csr_matrix(array.get())
-    if output_type == "scipy_csc":
-        return cpu_sparse.csc_matrix(array.get())
-    if output_type == "scipy_coo":
-        return cpu_sparse.coo_matrix(array.get())
-    if output_type == "cupy_csr":
-        if array.format in ["csc", "coo"]:
-            return array.tocsr()
-        else:
-            return array
-    if output_type == "cupy_csc":
-        if array.format in ["csr", "coo"]:
-            return array.tocsc()
-        else:
-            return array
-    if output_type == "cupy_coo":
-        if array.format in ["csr", "csc"]:
-            return array.tocoo()
-        else:
-            return array
-
-    if cpu_sparse.issparse(array):
-        if output_type == "numpy":
-            return array.todense()
-        elif output_type == "cupy":
-            return cp.array(array.todense())
-        else:
-            array = array.todense()
-    elif gpu_sparse.issparse(array):
-        if output_type == "numpy":
-            return array.get().todense()
-        elif output_type == "cupy":
-            return array.todense()
-        else:
-            array = array.todense()
-
-    cuml_array = CumlArray.from_input(array, order=order)
-    if output_type == "series" and len(array.shape) > 1:
-        output_type = "cudf"
-
-    output = cuml_array.to_output(output_type)
-
-    if output_type in ["dataframe", "cudf"]:
-        renaming = {i: "c" + str(i) for i in range(output.shape[1])}
-        output = output.rename(columns=renaming)
-
-    return output
+from cuml.internals.outputs import convert_arrays
 
 
 def create_rand_clf(random_state):
@@ -120,8 +53,11 @@ def create_positive_rand(random_state):
     return rand
 
 
-def convert(dataset, conversion_format):
-    converted_dataset = to_output_type(dataset, conversion_format)
+def convert(dataset, output_type):
+    converted_dataset = convert_arrays(dataset, output_type)
+    if output_type in ["dataframe", "cudf"]:
+        renaming = {i: f"c{i}" for i in range(dataset.shape[1])}
+        converted_dataset = converted_dataset.rename(columns=renaming)
     dataset = cp.asnumpy(dataset)
     return dataset, converted_dataset
 
@@ -313,10 +249,15 @@ def sparse_nan_filled_positive(request, random_seed):
 
 
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05, ratio_tol=None):
-    if not isinstance(actual, np.ndarray):
-        actual = to_output_type(actual, "numpy")
-    if not isinstance(desired, np.ndarray):
-        desired = to_output_type(desired, "numpy")
+    def as_numpy(x):
+        if hasattr(x, "todense"):
+            x = x.todense()
+        elif hasattr(x, "to_numpy"):
+            x = x.to_numpy()
+        return cp.asnumpy(x)
+
+    actual = as_numpy(actual)
+    desired = as_numpy(desired)
 
     if ratio_tol:
         assert actual.shape == desired.shape

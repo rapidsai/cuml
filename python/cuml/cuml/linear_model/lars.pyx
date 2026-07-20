@@ -1,12 +1,11 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals import ReflectedAttr, logger, mlfunc
-from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import RegressorMixin
 from cuml.internals.validation import (
@@ -14,6 +13,7 @@ from cuml.internals.validation import (
     check_inputs,
     check_is_fitted,
 )
+from cuml.linear_model.base import cuda_ptr
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool

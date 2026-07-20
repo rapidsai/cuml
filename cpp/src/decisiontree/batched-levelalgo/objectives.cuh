@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,6 +30,7 @@ class ClassificationObjectiveFunction {
   IdxT nclasses;
   IdxT min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
 
   HDI double WeightAt(BinT const* hist, IdxT i, IdxT n_bins) const
   {
@@ -135,8 +136,14 @@ class ClassificationObjectiveFunction {
     }
   }
 
-  HDI ClassificationObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf, CRITERION criterion)
-    : nclasses(nclasses), min_samples_leaf(min_samples_leaf), criterion(criterion)
+  HDI ClassificationObjectiveFunction(IdxT nclasses,
+                                      IdxT min_samples_leaf,
+                                      CRITERION criterion,
+                                      DataT min_impurity_decrease = DataT{0})
+    : nclasses(nclasses),
+      min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -160,12 +167,11 @@ class ClassificationObjectiveFunction {
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, nclasses);
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
           nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }
@@ -201,6 +207,7 @@ class RegressionObjectiveFunction {
  private:
   IdxT min_samples_leaf;
   CRITERION criterion;
+  DataT min_impurity_decrease;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI DataT
@@ -331,8 +338,13 @@ class RegressionObjectiveFunction {
     }
   }
 
-  HDI RegressionObjectiveFunction(IdxT, IdxT min_samples_leaf, CRITERION criterion)
-    : min_samples_leaf(min_samples_leaf), criterion(criterion)
+  HDI RegressionObjectiveFunction(IdxT,
+                                  IdxT min_samples_leaf,
+                                  CRITERION criterion,
+                                  DataT min_impurity_decrease = DataT{0})
+    : min_samples_leaf(min_samples_leaf),
+      criterion(criterion),
+      min_impurity_decrease(min_impurity_decrease)
   {
   }
 
@@ -356,12 +368,11 @@ class RegressionObjectiveFunction {
     for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       auto nLeft  = detail::CountLeft(shist, i, n_bins, IdxT{1});
       auto nRight = len - nLeft;
-      auto gain   = -std::numeric_limits<DataT>::max();
       if (nLeft >= static_cast<std::int64_t>(min_samples_leaf) &&
           nRight >= static_cast<std::int64_t>(min_samples_leaf)) {
-        gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        auto gain = GainPerSplit(shist, i, n_bins, len, nLeft, nRight);
+        if (gain > min_impurity_decrease) { sp.update(squantiles[i], col, gain, nLeft, i); }
       }
-      sp.update({squantiles[i], col, gain, nLeft, nLeft, i});
     }
     return sp;
   }

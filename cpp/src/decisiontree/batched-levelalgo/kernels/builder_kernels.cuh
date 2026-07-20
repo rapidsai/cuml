@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,12 +12,15 @@
 
 #include <cuml/common/utils.hpp>
 
+#include <raft/linalg/unary_op.cuh>
+
 #include <cuda/iterator>
 #include <cuda/std/random>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace ML {
@@ -42,32 +45,16 @@ struct NodeWorkItem {
  */
 template <typename IdxT>
 struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
+  IdxT nodeid;          // Node in the batch on which the threadblock needs to work
   IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
                         // working on this node
   IdxT num_blocks;      // Total number of blocks that are working on the node
 };
 
-template <typename SplitT, typename IdxT>
-HDI bool SplitPartitionNotValid(const SplitT& split, IdxT min_samples_leaf, std::size_t num_rows)
-{
-  const auto local_count = static_cast<std::int64_t>(num_rows);
-  const auto min_leaf    = static_cast<std::int64_t>(min_samples_leaf);
-  return split.colid == IdxT(-1) || split.local_nLeft > local_count ||
-         split.local_nLeft < min_leaf || (local_count - split.local_nLeft) < min_leaf;
-}
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease ||
-         SplitPartitionNotValid(split, min_samples_leaf, num_rows);
-}
+struct SharedMemoryConfig {
+  bool use_global_memory_histogram;
+  size_t histogram_dynamic_smem_size;
+};
 
 /* Returns 'dataset' rounded up to a correctly-aligned pointer of type OutT* */
 template <typename OutT, typename InT>
@@ -107,13 +94,12 @@ void sample_features(IdxT* column_samples,
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-void launchNodeSplitKernel(const IdxT min_samples_leaf,
-                           const DataT min_impurity_decrease,
-                           const Dataset<DataT, LabelT, IdxT>& dataset,
+void launchNodeSplitKernel(const Dataset<DataT, LabelT, IdxT>& dataset,
                            const NodeWorkItem* work_items,
-                           const Split<DataT, IdxT>* splits,
+                           Split<DataT, IdxT>* splits,
                            const WorkloadInfo<IdxT>* workload_info,
                            size_t n_blocks_dimx,
+                           size_t n_work_items,
                            IdxT* partition_row_ids,
                            cudaStream_t builder_stream);
 
@@ -147,26 +133,65 @@ HDI IdxT lower_bound(DataT const* array, IdxT len, DataT element)
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
-void launchComputeSplitKernel(typename ObjectiveT::BinT* histograms,
-                              IdxT n_bins,
-                              IdxT min_samples_split,
-                              IdxT max_leaves,
-                              const Dataset<DataT, LabelT, IdxT>& dataset,
-                              const Quantiles<DataT, IdxT>& quantiles,
-                              const NodeWorkItem* work_items,
-                              IdxT colStart,
-                              const IdxT* column_samples,
-                              int* done_count,
-                              int* mutex,
-                              volatile Split<DataT, IdxT>* splits,
-                              ObjectiveT& objective,
-                              IdxT treeid,
-                              const WorkloadInfo<IdxT>* workload_info,
-                              uint64_t seed,
-                              bool use_global_memory_histogram,
-                              dim3 grid,
-                              size_t smem_size,
-                              cudaStream_t builder_stream);
+void launchBuildHistogramsKernel(typename ObjectiveT::BinT* histograms,
+                                 IdxT n_bins,
+                                 const Dataset<DataT, LabelT, IdxT>& dataset,
+                                 const Quantiles<DataT, IdxT>& quantiles,
+                                 const NodeWorkItem* work_items,
+                                 IdxT colStart,
+                                 const IdxT* column_samples,
+                                 ObjectiveT& objective,
+                                 const WorkloadInfo<IdxT>* workload_info,
+                                 dim3 histogram_grid,
+                                 const SharedMemoryConfig& split_smem_config,
+                                 cudaStream_t builder_stream);
+
+template <typename DataT, typename LabelT, typename IdxT, int TPB, typename ObjectiveT>
+void launchFindBestSplitsKernel(typename ObjectiveT::BinT* histograms,
+                                IdxT n_bins,
+                                const Dataset<DataT, LabelT, IdxT>& dataset,
+                                const Quantiles<DataT, IdxT>& quantiles,
+                                IdxT colStart,
+                                const IdxT* column_samples,
+                                int* mutex,
+                                volatile Split<DataT, IdxT>* splits,
+                                ObjectiveT& objective,
+                                dim3 split_grid,
+                                cudaStream_t builder_stream);
+
+template <typename BinT>
+inline constexpr std::size_t reduction_buffer_size_v =
+  decltype(BinT{}.ToReductionBuffer()){}.size();
+
+template <typename BinT>
+inline void packHistograms(const BinT* in, double* out, std::size_t len, cudaStream_t stream)
+{
+  // Counts are packed as doubles so each bin can use one homogeneous arithmetic buffer. This is
+  // exact for current RF problem sizes: integer values up to 2^53 are exactly representable by
+  // double, and IdxT row indexing is far below that limit.
+  auto op = [in] __device__(double* out, std::size_t i) {
+    auto const bin_idx = i / reduction_buffer_size_v<BinT>;
+    auto const field   = i % reduction_buffer_size_v<BinT>;
+    auto const buffer  = in[bin_idx].ToReductionBuffer();
+    *out               = buffer[field];
+  };
+  raft::linalg::writeOnlyUnaryOp<double, decltype(op), std::size_t, 256>(
+    out, len * reduction_buffer_size_v<BinT>, op, stream);
+}
+
+template <typename BinT>
+inline void unpackHistograms(const double* in, BinT* out, std::size_t len, cudaStream_t stream)
+{
+  auto op = [in] __device__(BinT * out, std::size_t i) {
+    decltype(BinT{}.ToReductionBuffer()) buffer{};
+    auto const offset = i * reduction_buffer_size_v<BinT>;
+    for (std::size_t field = 0; field < reduction_buffer_size_v<BinT>; ++field) {
+      buffer[field] = in[offset + field];
+    }
+    *out = BinT::FromReductionBuffer(buffer);
+  };
+  raft::linalg::writeOnlyUnaryOp<BinT, decltype(op), std::size_t, 256>(out, len, op, stream);
+}
 
 }  // namespace DT
 }  // namespace ML

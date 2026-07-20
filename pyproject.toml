@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2023-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 [tool.codespell]
@@ -14,7 +14,7 @@ builtin = "clear"
 quiet-level = 3
 
 [tool.cython-lint]
-max-line-length = 95
+max-line-length = 105
 
 
 [tool.run-clang-tidy]

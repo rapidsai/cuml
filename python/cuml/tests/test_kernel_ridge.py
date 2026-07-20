@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -18,7 +18,7 @@ from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
 import cuml
 from cuml import KernelRidge as cuKernelRidge
 from cuml.metrics import PAIRWISE_KERNEL_FUNCTIONS, pairwise_kernels
-from cuml.testing.utils import as_type
+from cuml.testing.utils import as_cupy, as_numpy, as_type
 
 
 def gradient_norm(model, X, y, K, sw=None):
@@ -33,9 +33,7 @@ def gradient_norm(model, X, y, K, sw=None):
     X = cp.array(X, dtype=np.float64)
     y = cp.array(y, dtype=np.float64)
     K = cp.array(K, dtype=np.float64)
-    betas = cp.array(
-        as_type("cupy", model.dual_coef_), dtype=np.float64
-    ).reshape(y.shape)
+    betas = as_cupy(model.dual_coef_).astype("f8").reshape(y.shape)
     alphas = cp.asarray(model.alpha)
 
     # initialise to NaN in case below loop has 0 iterations
@@ -180,9 +178,7 @@ def array_strategy(draw):
 
 @example(
     kernel_arg=("linear", {}),
-    XY=as_type(
-        "numpy", np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.5, 2.5]])
-    ),
+    XY=(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.5, 2.5]])),
 )
 @given(kernel_arg_strategy(), array_strategy())
 @settings(deadline=None)
@@ -193,16 +189,16 @@ def test_pairwise_kernels(kernel_arg, XY):
 
     if kernel == "cosine":
         # this kernel is very unstable for both sklearn/cuml
-        assume(as_type("numpy", X).min() > 0.1)
+        assume(as_numpy(X).min() > 0.1)
         if Y is not None:
-            assume(as_type("numpy", Y).min() > 0.1)
+            assume(as_numpy(Y).min() > 0.1)
 
     K = pairwise_kernels(X, Y, metric=kernel, **args)
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     K_sklearn = skl_pairwise_kernels(
-        *as_type("numpy", X, Y), metric=skl_kernel, **args
+        *as_numpy(X, Y), metric=skl_kernel, **args
     )
-    assert np.allclose(as_type("numpy", K), K_sklearn, atol=0.01, rtol=0.01)
+    assert np.allclose(as_numpy(K), K_sklearn, atol=0.01, rtol=0.01)
 
 
 @st.composite
@@ -297,7 +293,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     skl_kernel = kernel.py_func if hasattr(kernel, "py_func") else kernel
     skl_model = sklKernelRidge(
         kernel=skl_kernel,
-        alpha=as_type("numpy", alpha),
+        alpha=as_numpy(alpha),
         gamma=gamma,
         degree=degree,
         coef0=coef0,
@@ -305,7 +301,7 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
     )
     if kernel == "chi2" or kernel == "additive_chi2":
         # X must be positive
-        X = (X - as_type("numpy", X).min()) + 1.0
+        X = (X - as_numpy(X).min()) + 1.0
 
     model.fit(X, y, sample_weight)
     pred = model.predict(X_test)
@@ -313,20 +309,18 @@ def test_estimator(kernel_arg, arrays, gamma, degree, coef0):
         # For a convex optimisation problem we should arrive at gradient norm 0
         # If the solution has converged correctly
         K = model._get_kernel(X)
-        grad_norm = gradient_norm(
-            model, *as_type("cupy", X, y, K, sample_weight)
-        )
+        grad_norm = gradient_norm(model, *as_cupy(X, y, K, sample_weight))
         assert grad_norm < 0.1
         try:
-            skl_model.fit(*as_type("numpy", X, y, sample_weight))
+            skl_model.fit(*as_numpy(X, y, sample_weight))
         except np.linalg.LinAlgError:
             # sklearn can fail to fit multiclass models
             # with singular kernel matrices
             assume(False)
 
-        skl_pred = skl_model.predict(as_type("numpy", X_test))
+        skl_pred = skl_model.predict(as_numpy(X_test))
         assert np.allclose(
-            as_type("numpy", pred).squeeze(),
+            as_numpy(pred).squeeze(),
             skl_pred.squeeze(),
             atol=1e-2,
             rtol=1e-2,

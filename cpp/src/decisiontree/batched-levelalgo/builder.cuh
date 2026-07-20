@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -16,6 +16,7 @@
 
 #include <raft/core/handle.hpp>
 #include <raft/core/nvtx.hpp>
+#include <raft/core/resource/comms.hpp>
 #include <raft/util/cuda_utils.cuh>
 
 #include <rmm/device_uvector.hpp>
@@ -93,10 +94,7 @@ class NodeQueue {
       auto split        = h_splits[i];
       auto item         = work_items[i];
       auto parent_range = node_instances_.at(item.idx);
-      if (SplitNotValid(
-            split, params.min_impurity_decrease, params.min_samples_leaf, parent_range.count)) {
-        continue;
-      }
+      if (!split.IsValid()) { continue; }
 
       if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
@@ -181,8 +179,6 @@ struct Builder {
   IdxT* n_nodes;
   /** buffer of segmented histograms*/
   BinT* histograms;
-  /** threadblock arrival count */
-  int* done_count;
   /** mutex array used for atomically updating best split */
   int* mutex;
   /** best splits for the current batch of nodes */
@@ -197,6 +193,8 @@ struct Builder {
   int max_blocks_dimx = 0;
   /** host array of splits */
   SplitT* h_splits;
+  /** packed histogram buffer used by distributed all-reduce */
+  void* packed_histograms;
   /** number of blocks used to parallelize column-wise computations */
   int n_blks_for_cols = 10;
   /** Memory alignment value */
@@ -208,6 +206,8 @@ struct Builder {
   rmm::device_uvector<char> d_buff;
   /** pinned host buffer to store the trained nodes */
   ML::pinned_host_vector<char> h_buff;
+  /** true when a communicator with more than one rank is available */
+  bool distributed;
 
   Builder(const raft::handle_t& handle,
           cudaStream_t s,
@@ -240,7 +240,8 @@ struct Builder {
               row_ids->data(),
               n_classes},
       quantiles(q),
-      d_buff(0, builder_stream)
+      d_buff(0, builder_stream),
+      distributed(raft::resource::comms_initialized(handle) && handle.get_comms().get_size() > 1)
   {
     max_blocks_dimx = 1 + params.max_batch_size + dataset.n_sampled_rows / TPB_DEFAULT;
     ASSERT(q.quantiles_array != nullptr && q.n_bins_array != nullptr,
@@ -262,6 +263,16 @@ struct Builder {
   size_t calculateAlignedBytes(const size_t actual_size) const
   {
     return raft::alignTo(actual_size, align_value);
+  }
+
+  size_t packedHistogramWorkspaceSize(std::size_t len_histograms) const
+  {
+    if (!distributed) { return 0; }
+
+    auto const packed_count =
+      ML::checked_mul<std::size_t>(reduction_buffer_size_v<BinT>, len_histograms);
+    auto const packed_bytes = ML::checked_mul<std::size_t>(sizeof(double), packed_count);
+    return calculateAlignedBytes(packed_bytes);
   }
 
   /**
@@ -292,17 +303,17 @@ struct Builder {
     size_t max_len_histograms =
       max_batch * params.max_n_bins * n_blks_for_cols * dataset.num_outputs;
 
-    d_wsize += calculateAlignedBytes(sizeof(IdxT));                               // n_nodes
-    d_wsize += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);          // histograms
-    d_wsize += calculateAlignedBytes(sizeof(int) * max_batch * n_blks_for_cols);  // done_count
-    d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);                    // mutex
-    d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);                 // splits
-    d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
-    d_wsize +=                                                                    // workload_info
+    d_wsize += calculateAlignedBytes(sizeof(IdxT));                       // n_nodes
+    d_wsize += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);  // histograms
+    d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);            // mutex
+    d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);         // splits
+    d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);   // d_work_Items
+    d_wsize +=                                                            // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks_dimx);
     d_wsize +=
       calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);  // column_samples
     d_wsize += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);  // partition row IDs
+    d_wsize += packedHistogramWorkspaceSize(max_len_histograms);
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -323,8 +334,7 @@ struct Builder {
   {
     raft::common::nvtx::range fun_scope(
       "Builder::assignWorkspace @builder.cuh [batched-levelalgo]");
-    auto max_batch  = params.max_batch_size;
-    auto n_col_blks = n_blks_for_cols;
+    auto max_batch = params.max_batch_size;
     size_t max_len_histograms =
       max_batch * (params.max_n_bins) * n_blks_for_cols * dataset.num_outputs;
     // device
@@ -332,8 +342,6 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
     histograms = reinterpret_cast<BinT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(BinT) * max_len_histograms);
-    done_count = reinterpret_cast<int*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
     mutex = reinterpret_cast<int*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
     splits = reinterpret_cast<SplitT*>(d_wspace);
@@ -346,9 +354,9 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * dataset.n_sampled_cols);
     partition_row_ids = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT) * dataset.n_sampled_rows);
+    packed_histograms = reinterpret_cast<void*>(d_wspace);
+    d_wspace += packedHistogramWorkspaceSize(max_len_histograms);
 
-    RAFT_CUDA_TRY(
-      cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, builder_stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, builder_stream));
 
     // host
@@ -383,23 +391,19 @@ struct Builder {
  private:
   auto updateWorkloadInfo(const std::vector<NodeWorkItem>& work_items)
   {
-    int n_large_nodes = 0;  // large nodes are nodes having training instances larger than block
-                            // size, hence require global memory for histogram construction
-    int n_blocks_dimx = 0;  // gridDim.x required for computeSplitKernel
+    int n_blocks_dimx = 0;  // gridDim.x required for histogram construction
     for (std::size_t i = 0; i < work_items.size(); i++) {
       auto item = work_items[i];
       int n_blocks_per_node =
         std::max(raft::ceildiv(item.instances.count, size_t(TPB_DEFAULT)), size_t(1));
 
-      if (n_blocks_per_node > 1) ++n_large_nodes;
-
       for (int b = 0; b < n_blocks_per_node; b++) {
-        h_workload_info[n_blocks_dimx + b] = {int(i), n_large_nodes - 1, b, n_blocks_per_node};
+        h_workload_info[n_blocks_dimx + b] = {int(i), b, n_blocks_per_node};
       }
       n_blocks_dimx += n_blocks_per_node;
     }
     raft::update_device(workload_info, h_workload_info, n_blocks_dimx, builder_stream);
-    return std::make_pair(n_blocks_dimx, n_large_nodes);
+    return n_blocks_dimx;
   }
 
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
@@ -440,8 +444,7 @@ struct Builder {
       for (std::size_t i = 0; i < active_items.size(); ++i) {
         const auto original_idx    = active_to_original[i];
         final_splits[original_idx] = h_splits[i];
-        if (SplitPartitionNotValid(
-              h_splits[i], params.min_samples_leaf, active_items[i].instances.count)) {
+        if (!h_splits[i].IsValid()) {
           retry_items.push_back(active_items[i]);
           retry_to_original.push_back(original_idx);
         }
@@ -461,15 +464,14 @@ struct Builder {
                                   cudaMemcpyHostToDevice,
                                   builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
-    const auto partition_workload = this->updateWorkloadInfo(work_items);
+    const auto n_partition_blocks = this->updateWorkloadInfo(work_items);
     raft::common::nvtx::push_range("nodeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(params.min_samples_leaf,
-                                                            params.min_impurity_decrease,
-                                                            dataset,
+    launchNodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>(dataset,
                                                             d_work_items,
                                                             splits,
                                                             workload_info,
-                                                            partition_workload.first,
+                                                            n_partition_blocks,
+                                                            work_items.size(),
                                                             partition_row_ids,
                                                             builder_stream);
     RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -484,17 +486,15 @@ struct Builder {
                          IdxT sample_offset)
   {
     initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), builder_stream);
-    RAFT_CUDA_TRY(cudaMemsetAsync(
-      done_count, 0, sizeof(int) * params.max_batch_size * n_blks_for_cols, builder_stream));
     RAFT_CUDA_TRY(cudaMemsetAsync(mutex, 0, sizeof(int) * params.max_batch_size, builder_stream));
     raft::update_device(d_work_items, work_items.data(), work_items.size(), builder_stream);
-    auto [n_blocks_dimx, n_large_nodes] = this->updateWorkloadInfo(work_items);
-    auto split_smem_config              = computeSplitSharedMemoryConfig();
+    auto n_blocks_dimx     = this->updateWorkloadInfo(work_items);
+    auto split_smem_config = computeSharedMemoryConfig();
 
     sampleFeatures(work_items, sampling_seed, sample_offset);
 
     for (IdxT c = 0; c < dataset.n_sampled_cols; c += n_blks_for_cols) {
-      computeSplit(c, n_blocks_dimx, n_large_nodes, work_items.size(), split_smem_config);
+      computeSplit(c, n_blocks_dimx, work_items.size(), split_smem_config);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
     }
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -518,100 +518,111 @@ struct Builder {
     RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
-  struct SplitSharedMemoryConfig {
-    bool use_global_memory_histogram;
-    size_t dynamic_smem_size;
-  };
-
-  SplitSharedMemoryConfig computeSplitSharedMemoryConfig() const
+  SharedMemoryConfig computeSharedMemoryConfig() const
   {
-    // Dynamic shared memory for the fast path: histogram, copied quantiles, and
+    // Dynamic shared memory for the histogram fast path: histogram, copied quantiles, and
     // alignment padding for the kernel's shared-memory layout.
     auto shared_histogram_size =
       ML::checked_mul<std::size_t>(params.max_n_bins, dataset.num_outputs, sizeof(BinT));
     auto shared_quantiles_size = ML::checked_mul<std::size_t>(params.max_n_bins, sizeof(DataT));
-    auto shared_dynamic_smem_size =
-      ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size, sizeof(int));
-    auto alignment_smem_size =
-      ML::checked_add<std::size_t>(sizeof(DataT), ML::checked_mul<std::size_t>(3, sizeof(int)));
-    shared_dynamic_smem_size =
-      ML::checked_add<std::size_t>(shared_dynamic_smem_size, alignment_smem_size);
-
-    // Dynamic shared memory for the fallback path only needs the per-block done
-    // flag used by the inter-block completion handshake.
-    auto global_dynamic_smem_size = ML::checked_add<std::size_t>(sizeof(int), sizeof(int));
-
-    // Static shared memory is reserved by the kernel regardless of where the
-    // histogram lives.
+    auto histogram_dynamic_smem_size =
+      ML::checked_add<std::size_t>(shared_histogram_size, shared_quantiles_size);
+    auto histogram_alignment_smem_size = ML::checked_add<std::size_t>(sizeof(BinT), sizeof(DataT));
+    histogram_dynamic_smem_size =
+      ML::checked_add<std::size_t>(histogram_dynamic_smem_size, histogram_alignment_smem_size);
     auto cdf_scan_smem_size = sizeof(typename cub::BlockScan<BinT, TPB_DEFAULT>::TempStorage);
     auto split_scratch_smem_size =
       ML::checked_mul<std::size_t>(raft::ceildiv(TPB_DEFAULT, raft::WarpSize), sizeof(SplitT));
-    auto static_smem_size =
+    auto split_static_smem_size =
       ML::checked_add<std::size_t>(cdf_scan_smem_size, split_scratch_smem_size);
-
     auto available_smem = size_t(handle.get_device_properties().sharedMemPerBlock);
-    auto global_total_smem_size =
-      ML::checked_add<std::size_t>(global_dynamic_smem_size, static_smem_size);
-    ASSERT(available_smem >= global_total_smem_size,
+    ASSERT(available_smem >= split_static_smem_size,
            "Not enough shared memory for RF split bookkeeping.");
 
     // Prefer shared memory when it fits and stays small enough for good occupancy;
     // otherwise use the global histogram path to avoid launch failure or slowdown.
-    auto shared_total_smem_size =
-      ML::checked_add<std::size_t>(shared_dynamic_smem_size, static_smem_size);
     bool use_global_memory_histogram =
-      shared_total_smem_size > available_smem ||
-      shared_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
+      histogram_dynamic_smem_size > available_smem || split_static_smem_size > available_smem ||
+      histogram_dynamic_smem_size > tunable_split_histogram_dynamic_smem_limit_bytes;
 
     return {use_global_memory_histogram,
-            use_global_memory_histogram ? global_dynamic_smem_size : shared_dynamic_smem_size};
+            use_global_memory_histogram ? 0 : histogram_dynamic_smem_size};
+  }
+
+  void allReduceHistograms(BinT* histograms_to_reduce, std::size_t len_histograms)
+  {
+    auto const& comm  = handle.get_comms();
+    auto* packed      = reinterpret_cast<double*>(packed_histograms);
+    auto packed_count = ML::checked_mul<std::size_t>(reduction_buffer_size_v<BinT>, len_histograms);
+
+    packHistograms(histograms_to_reduce, packed, len_histograms, builder_stream);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+    comm.allreduce(packed, packed, packed_count, raft::comms::op_t::SUM, builder_stream);
+    ASSERT(comm.sync_stream(builder_stream) == raft::comms::status_t::SUCCESS,
+           "An error occurred in the distributed RF histogram all-reduce.");
+
+    unpackHistograms(packed, histograms_to_reduce, len_histograms, builder_stream);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
   }
 
   void computeSplit(IdxT col,
                     size_t n_blocks_dimx,
-                    size_t n_large_nodes,
                     size_t n_work_items,
-                    const SplitSharedMemoryConfig& split_smem_config)
+                    const SharedMemoryConfig& split_smem_config)
   {
     // if no instances to split, return
     if (n_blocks_dimx == 0) return;
     raft::common::nvtx::range fun_scope("Builder::computeSplit @builder.cuh [batched-levelalgo]");
-    auto n_bins                      = params.max_n_bins;
-    auto n_classes                   = dataset.num_outputs;
-    auto use_global_memory_histogram = split_smem_config.use_global_memory_histogram;
+    auto n_bins    = params.max_n_bins;
+    auto n_classes = dataset.num_outputs;
     // if columns left to be processed lesser than `n_blks_for_cols`, shrink the blocks along dimy
     auto n_blocks_dimy = std::min(n_blks_for_cols, dataset.n_sampled_cols - col);
-    dim3 grid(n_blocks_dimx, n_blocks_dimy, 1);
-    auto histogram_node_count = use_global_memory_histogram ? n_work_items : n_large_nodes;
+    dim3 histogram_grid(ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimx),
+                        ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimy),
+                        1);
+    dim3 split_grid(ML::narrow_cast<ML::cuda_launch_t>(n_work_items),
+                    ML::narrow_cast<ML::cuda_launch_t>(n_blocks_dimy),
+                    1);
     auto len_histograms =
-      ML::checked_mul<std::size_t>(n_bins, n_classes, n_blocks_dimy, histogram_node_count);
+      ML::checked_mul<std::size_t>(n_bins, n_classes, n_blocks_dimy, n_work_items);
     auto histograms_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), len_histograms);
     RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, histograms_bytes, builder_stream));
     // create the objective function object
-    ObjectiveT objective(dataset.num_outputs, params.min_samples_leaf, params.split_criterion);
-    // call the computeSplitKernel
-    raft::common::nvtx::range kernel_scope("computeSplitKernel @builder.cuh [batched-levelalgo]");
-    launchComputeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
-      histograms,
-      params.max_n_bins,
-      params.min_samples_split,
-      params.max_leaves,
-      dataset,
-      quantiles,
-      d_work_items,
-      col,
-      column_samples,
-      done_count,
-      mutex,
-      splits,
-      objective,
-      treeid,
-      workload_info,
-      seed,
-      use_global_memory_histogram,
-      grid,
-      split_smem_config.dynamic_smem_size,
-      builder_stream);
+    ObjectiveT objective(dataset.num_outputs,
+                         params.min_samples_leaf,
+                         params.split_criterion,
+                         params.min_impurity_decrease);
+    raft::common::nvtx::range kernel_scope("computeSplitKernels @builder.cuh [batched-levelalgo]");
+    launchBuildHistogramsKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
+                                                                              params.max_n_bins,
+                                                                              dataset,
+                                                                              quantiles,
+                                                                              d_work_items,
+                                                                              col,
+                                                                              column_samples,
+                                                                              objective,
+                                                                              workload_info,
+                                                                              histogram_grid,
+                                                                              split_smem_config,
+                                                                              builder_stream);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+    // Distributed RF must aggregate per-rank histograms before split scoring.
+    // The split kernel then sees the same global CDF histogram on every rank.
+    if (distributed) { allReduceHistograms(histograms, len_histograms); }
+
+    launchFindBestSplitsKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(histograms,
+                                                                             params.max_n_bins,
+                                                                             dataset,
+                                                                             quantiles,
+                                                                             col,
+                                                                             column_samples,
+                                                                             mutex,
+                                                                             splits,
+                                                                             objective,
+                                                                             split_grid,
+                                                                             builder_stream);
   }
 
   // Set the leaf value predictions in batch

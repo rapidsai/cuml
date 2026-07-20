@@ -1,15 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
-from cuml.internals import reflect
+from cuml.internals import mlfunc
 from cuml.internals.validation import check_array
 from cuml.tsa._deprecation import deprecated_tsa_api
 
 
 @deprecated_tsa_api("cuml.tsa.seasonality.seas_test")
-@reflect
+@mlfunc
 def seas_test(y, s, convert_dtype="deprecated"):
     """
     Perform Wang, Smith & Hyndman's test to decide whether seasonal

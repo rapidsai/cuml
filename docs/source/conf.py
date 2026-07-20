@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file is execfile()d with the current directory set to its
@@ -55,6 +55,7 @@ extensions = [
     "recommonmark",
     "sphinx_markdown_tables",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
 ipython_mplbackend = "str"
@@ -227,7 +228,8 @@ numpydoc_class_members_toctree = False
 REDIRECTS = {
     "zero-code-change/index.html": "cuml-accel/",
     "zero-code-change-benchmarks/index.html": "cuml-accel/benchmarks/",
-    "zero-code-change-limitations/index.html": "cuml-accel/limitations/",
+    "zero-code-change-limitations/index.html": ("cuml-accel/compatibility/"),
+    "cuml-accel/limitations/index.html": "cuml-accel/compatibility/",
     "zero-code-change-logging/index.html": "cuml-accel/logging-and-profiling/",
     "zero_code_change_examples/plot_kmeans_digits/index.html": (
         "cuml-accel/examples/plot_kmeans_digits/"
@@ -243,7 +245,7 @@ def setup_redirects(app, docname):
         <head>
             <meta http-equiv="refresh" content="1; url={new_path}" />
             <script>
-            window.location.href = "{new_path}"
+            window.location.href = "{new_path}" + window.location.hash
             </script>
         </head>
         </html>
@@ -262,6 +264,7 @@ def setup_redirects(app, docname):
 
 def setup(app):
     app.add_css_file("custom.css")
+    app.add_js_file("open-details-on-fragment.js")
     app.connect("build-finished", setup_redirects)
 
 
