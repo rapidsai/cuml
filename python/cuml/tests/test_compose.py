@@ -461,6 +461,16 @@ def test_simple_imputer_add_indicator_object_cudf():
     np.testing.assert_array_equal(np.asarray(cu_result), np.asarray(sk_result))
 
 
+def test_simple_imputer_add_indicator_clone_params():
+    imputer = cuSimpleImputer(add_indicator=True, missing_values=pd.NA)
+
+    cloned = sk_clone(imputer)
+
+    params = cloned.get_params()
+    assert params["add_indicator"] is True
+    assert params["missing_values"] is pd.NA
+
+
 def test_is_object_dtype_handles_series_and_extension_dtypes():
     from cuml.internals.outputs import _is_object_dtype
 

@@ -516,11 +516,6 @@ def convert_arrays(
     if isinstance(obj, ClassLabels):
         return obj.to_output(output_type, index=index)
 
-    # NumPy object arrays have no device representation.
-    # Keep them on host for method outputs and reflected attributes.
-    if isinstance(obj, np.ndarray) and _is_object_dtype(obj):
-        return obj
-
     if isinstance(obj, np.ndarray):
         if output_type == "numpy":
             return obj
@@ -532,6 +527,56 @@ def convert_arrays(
                     return pd.Series(obj.flatten(), index=index)
                 return pd.DataFrame(obj, index=index)
             return pd.Series(obj, index=index)
+        elif _is_object_dtype(obj):
+            # NumPy object arrays have no device representation. Preserve
+            # host arrays unless the requested output type wraps them.
+            if output_type not in (
+                "cudf",
+                "df_obj",
+                "dataframe",
+                "series",
+            ):
+                return obj
+
+            if hasattr(index, "to_pandas"):
+                index = index.to_pandas()
+            if output_type == "series":
+                if obj.ndim == 2:
+                    if obj.shape[1] == 1:
+                        obj = obj.flatten()
+                    else:
+                        raise ValueError(
+                            "Only single dimensional arrays can be transformed to"
+                            " Series."
+                        )
+                elif obj.ndim == 0:
+                    obj = obj[None]
+            elif output_type == "dataframe":
+                if obj.ndim == 1:
+                    obj = obj[:, None]
+                elif obj.ndim == 0:
+                    obj = obj[None, None]
+
+            if obj.ndim == 2:
+                if (
+                    one_col_2d_as_series
+                    and obj.shape[1] == 1
+                    and output_type != "dataframe"
+                ):
+                    host_df = pd.Series(obj.flatten(), index=index)
+                else:
+                    host_df = pd.DataFrame(obj, index=index)
+            else:
+                host_df = pd.Series(obj, index=index)
+
+            try:
+                return cudf.from_pandas(host_df)
+            except (TypeError, ValueError, NotImplementedError):
+                if isinstance(host_df, pd.DataFrame):
+                    # cudf cannot represent every mixed object DataFrame.
+                    # Preserve the host DataFrame instead of losing its data.
+                    return host_df
+                raise
         else:
             # Other output types use device memory, coerce to cupy and take
             # cupy code path.
