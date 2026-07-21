@@ -58,7 +58,13 @@ def check_output_type(output_type: str) -> str:
 
 def warn_if_output_type_deprecated(output_type: str):
     """Warn if the specified `output_type` is deprecated"""
-    if output_type in ("numba", "array", "df_obj", "dataframe", "series"):
+    if isinstance(output_type, str) and output_type in (
+        "numba",
+        "array",
+        "df_obj",
+        "dataframe",
+        "series",
+    ):
         alt = "cupy" if output_type in ("numba", "array") else "cudf"
         if output_type in ("dataframe", "series"):
             suffix = (
