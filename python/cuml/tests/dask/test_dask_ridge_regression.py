@@ -12,6 +12,7 @@ from sklearn.metrics import mean_squared_error
 
 import cuml
 from cuml.dask.common import utils as dask_utils
+from cuml.internals.global_settings import GlobalSettings
 from cuml.testing.utils import as_numpy
 
 pytestmark = pytest.mark.mg
@@ -42,11 +43,13 @@ def _assert_ridge_fitted_attrs_match_model(
     if not fit_intercept:
         assert intercept == 0.0
 
+    previous_output_type = GlobalSettings().output_type
     with cuml.using_output_type("numpy"):
         assert isinstance(model.coef_, np.ndarray)
         assert np.isscalar(model.intercept_)
         np.testing.assert_allclose(model.coef_, internal_model.coef_)
         assert model.intercept_ == internal_model.intercept_
+    assert GlobalSettings().output_type == previous_output_type
 
 
 def _prep_training_data(c, X_train, y_train, partitions_per_worker):
@@ -101,6 +104,9 @@ def test_ridge(
             getattr(lr, attr)
 
     lr.fit(X_df, y_df)
+
+    with pytest.raises(AttributeError):
+        lr.attribute_that_does_not_exist_
 
     internal_model = lr.get_combined_model()
     _assert_ridge_fitted_attrs_match_model(

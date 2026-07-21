@@ -8,6 +8,7 @@ import pytest
 import cuml
 from cuml.dask.datasets import make_regression
 from cuml.dask.linear_model import ElasticNet, Lasso
+from cuml.internals.global_settings import GlobalSettings
 from cuml.metrics import r2_score
 from cuml.testing.utils import (
     as_numpy,
@@ -44,11 +45,13 @@ def _assert_cd_fitted_attrs_match_solver(model, dtype):
     np.testing.assert_allclose(intercept_np, _as_numpy_array(solver_intercept))
     assert n_iter == model.solver.n_iter_
 
+    previous_output_type = GlobalSettings().output_type
     with cuml.using_output_type("numpy"):
         assert isinstance(model.coef_, np.ndarray)
         assert np.isscalar(model.intercept_)
         np.testing.assert_allclose(model.coef_, model.solver.coef_)
         np.testing.assert_allclose(model.intercept_, model.solver.intercept_)
+    assert GlobalSettings().output_type == previous_output_type
 
 
 @pytest.mark.mg
@@ -285,6 +288,9 @@ def test_cd_fitted_attributes(cls, dtype, client):
             getattr(model, attr)
 
     model.fit(X, y)
+
+    with pytest.raises(AttributeError):
+        model.attribute_that_does_not_exist_
 
     _assert_cd_fitted_attrs_match_solver(model, dtype)
     first_coef = _as_numpy_array(model.coef_).copy()
