@@ -84,17 +84,15 @@ class Lasso(BaseEstimator):
 
         return self
 
-    @property
-    def coef_(self):
-        return self.solver.coef_
-
-    @property
-    def intercept_(self):
-        return self.solver.intercept_
-
-    @property
-    def n_iter_(self):
-        return self.solver.n_iter_
+    def __getattr__(self, attr):
+        if attr in ("coef_", "intercept_", "n_iter_"):
+            try:
+                return getattr(self.solver, attr)
+            except AttributeError as e:
+                raise AttributeError(
+                    "%s is not fitted" % type(self).__name__
+                ) from e
+        return super().__getattr__(attr)
 
     def predict(self, X, delayed=True):
         """

@@ -171,16 +171,19 @@ class BaseEstimator:
         previous_output_type = settings.output_type
         settings.output_type = output_type
         try:
-            if hasattr(model, name):
+            try:
                 return getattr(model, name)
-            # skip raising an error for ipython/jupyter related attributes
-            elif any([x in name for x in ("_ipython", "_repr")]):
-                pass
-            else:
-                raise AttributeError(
-                    "Attribute %s does not exist on model %s"
-                    % (name, type(model))
-                )
+            except AttributeError as e:
+                # skip raising an error for ipython/jupyter related attributes
+                if any([x in name for x in ("_ipython", "_repr")]):
+                    pass
+                elif e.name == name and e.obj is model:
+                    raise AttributeError(
+                        "Attribute %s does not exist on model %s"
+                        % (name, type(model))
+                    ) from e
+                else:
+                    raise
         finally:
             settings.output_type = previous_output_type
 

@@ -252,6 +252,22 @@ def test_max_iter_n_iter(cls, client):
 
 
 @pytest.mark.parametrize("cls", [ElasticNet, Lasso])
+@pytest.mark.parametrize("attr", ["coef_", "intercept_", "n_iter_"])
+def test_cd_fitted_attributes_require_fit(cls, attr, client):
+    model = cls(client=client)
+
+    with pytest.raises(AttributeError, match="not fitted") as error:
+        getattr(model, attr)
+
+    assert error.value.__cause__ is not None
+
+
+@pytest.mark.parametrize("cls", [ElasticNet, Lasso])
+def test_cd_fitted_attributes_are_absent_before_fit(cls, client):
+    assert not hasattr(cls(client=client), "coef_")
+
+
+@pytest.mark.parametrize("cls", [ElasticNet, Lasso])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_cd_fitted_attributes(cls, dtype, client):
     X, y = make_regression(
