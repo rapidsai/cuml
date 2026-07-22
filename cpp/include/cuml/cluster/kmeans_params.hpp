@@ -28,7 +28,7 @@ struct KMeansParams {
   int batch_samples                 = 1 << 15;
   int batch_centroids               = 0;
   std::int64_t init_size            = 0;
-  std::int64_t streaming_batch_size = 0;
+  std::int64_t device_buffer_samples = 0;
 };
 
 }  // end namespace kmeans
