@@ -23,11 +23,11 @@ struct KMeansParams {
   double tol                          = 1e-4;
   rapids_logger::level_enum verbosity = rapids_logger::level_enum::info;
   raft::random::RngState rng_state{0, raft::random::GeneratorType::GenPhilox};
-  int n_init                        = 1;
-  double oversampling_factor        = 2.0;
-  int batch_samples                 = 1 << 15;
-  int batch_centroids               = 0;
-  std::int64_t init_size            = 0;
+  int n_init                         = 1;
+  double oversampling_factor         = 2.0;
+  int batch_samples                  = 1 << 15;
+  int batch_centroids                = 0;
+  std::int64_t init_size             = 0;
   std::int64_t device_buffer_samples = 0;
 };
 
