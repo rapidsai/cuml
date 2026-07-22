@@ -587,7 +587,7 @@ class KMeans(InteropMixin,
 
         return {
             "cluster_centers_": self.cluster_centers_.get(order="A"),
-            "labels_": self.labels_.get(order="A"),
+            "labels_": cp.asnumpy(self.labels_),
             "inertia_": self.inertia_,
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
