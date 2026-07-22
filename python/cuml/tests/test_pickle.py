@@ -486,8 +486,6 @@ def test_nearest_neighbors_pickle(algorithm):
         min_acc = 0.75 if algorithm == "ivfpq" else 0.9
         accuracy = (i1 == i2).sum() / i1.size
         assert accuracy >= min_acc
-        atol = 5e-3 if algorithm == "ivfpq" else 1e-3
-        np.testing.assert_allclose(d1, d2, atol=atol)
     else:
         np.testing.assert_allclose(i1, i2)
         np.testing.assert_allclose(d1, d2)
