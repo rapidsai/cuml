@@ -60,7 +60,7 @@ jobs:
       steps:
         - name: Checkout main branch if needed
           if: ${{ github.event.pull_request.base.ref == 'main' }}
-          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
           with:
             ref: main
             persist-credentials: false
@@ -115,7 +115,7 @@ jobs:
         repository-projects: read
       steps:
         - name: Checkout base branch
-          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
           with:
             ref: ${{ github.event.pull_request.base.ref }}
             persist-credentials: false
