@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,6 +29,10 @@ from cuml.testing.test_preproc_utils import (  # noqa: F401
     assert_allclose,
     clf_dataset,
     sparse_clf_dataset,
+)
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Outputting `numba` arrays:FutureWarning"
 )
 
 
