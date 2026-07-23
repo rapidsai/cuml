@@ -533,20 +533,21 @@ class KMeans(InteropMixin,
         `n_clusters` becomes prohibitively large.
     device_buffer_samples : int (default = 0)
         Number of samples to stream from host to device per GPU batch when
-        fitting with host-resident inputs. Set to a positive value to bound peak GPU memory
-        when the full dataset does not fit on the device. When set to 0
-        (default), all samples are copied to device at once. Ignored when
-        the input is already device-resident (e.g. cupy.ndarray,
-        cudf.DataFrame) — the standard device-data fit path is used and
-        no batching is performed.
+        fitting with host-resident inputs. Set to a positive value to bound peak
+        GPU memory when the full dataset does not fit on the device. When set to
+        0 (default), the whole partition is processed in a single batch (all
+        samples staged to device at once). Ignored when the input is already
+        device-resident (e.g. cupy.ndarray, cudf.DataFrame) — the standard
+        device-data fit path is used and no batching is performed.
     init_size : int (default = 0)
         Number of samples to randomly draw for the KMeansPlusPlus initialization
-        step. A random subset of this size is used for centroid seeding. Only applies
-        when dataset is on host; for device data the full dataset is always used for
-        seeding and this parameter is ignored. When set to 0 (default) with host data
-        uses `min(3 * n_clusters, n_samples)` as a default.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        step. A random subset of this size is used for centroid seeding. Only
+        applies when the input is not device accessible (which always uses the
+        out-of-core host fit path, regardless of ``device_buffer_samples``); for
+        device-resident data the full dataset is always used for seeding and
+        this parameter is ignored. When set to 0 (default) with host data,
+        ``min(3 * n_clusters, n_samples)`` is used.
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -663,7 +664,7 @@ class KMeans(InteropMixin,
 
         return {
             "cluster_centers_": self.cluster_centers_.get(order="A"),
-            "labels_": self.labels_.get(order="A"),
+            "labels_": cp.asnumpy(self.labels_),
             "inertia_": self.inertia_,
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
@@ -741,10 +742,7 @@ class KMeans(InteropMixin,
         )
         data_on_device = isinstance(X, cp.ndarray)
 
-        # `device_buffer_samples` only affects the host-to-device streaming
-        # path. When `X` is already on device take the standard device-data fit path.
-        use_host_path = device_buffer_samples > 0 and not data_on_device
-        if use_host_path:
+        if not data_on_device:
             X = cp.asnumpy(X, order="C")
             if sample_weight is not None:
                 sample_weight = cp.asnumpy(sample_weight)
@@ -787,7 +785,7 @@ class KMeans(InteropMixin,
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
-        if use_host_path:
+        if not data_on_device:
             labels, inertia = _kmeans_predict_host_chunked(
                 handle_[0], params, X, sample_weight, centers,
                 device_buffer_samples,
