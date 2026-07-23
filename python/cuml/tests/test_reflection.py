@@ -435,10 +435,11 @@ def test_convert_arrays_object_array_device_output_error(output_type):
         convert_arrays(arr, output_type)
 
 
-def test_convert_arrays_object_array_array_output():
+@pytest.mark.parametrize("output_type", ["array", "cuml"])
+def test_convert_arrays_object_array_array_output(output_type):
     arr = np.array(["a", "b"], dtype=object)
 
-    assert convert_arrays(arr, "array") is arr
+    assert convert_arrays(arr, output_type) is arr
 
 
 @pytest.mark.parametrize(

@@ -529,15 +529,11 @@ def convert_arrays(
             return pd.Series(obj, index=index)
         elif _is_object_dtype(obj):
             # NumPy object arrays have no device representation. Preserve
-            # host arrays for "array" or wrap them in a dataframe-like type.
-            if output_type == "array":
+            # host arrays for "array" and internal "cuml" outputs, or wrap
+            # them in a dataframe-like type.
+            if output_type in ("array", "cuml"):
                 return obj
-            elif output_type not in (
-                "cudf",
-                "df_obj",
-                "dataframe",
-                "series",
-            ):
+            elif output_type in ("cupy", "numba"):
                 raise TypeError(
                     f"{output_type=!r} doesn't support outputs of dtype "
                     f"object and shape {obj.shape}"
