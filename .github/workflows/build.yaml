@@ -66,7 +66,7 @@ jobs:
       arch: "amd64"
       branch: ${{ inputs.branch }}
       build_type: ${{ inputs.build_type || 'branch' }}
-      container_image: "rapidsai/ci-conda:26.10-cuda13.0.2-ubuntu22.04-py3.13"
+      container_image: "rapidsai/ci-conda:26.10-latest"
       date: ${{ inputs.date }}
       node_type: "gpu-l4-latest-1"
       script: "ci/build_docs.sh"
