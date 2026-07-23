@@ -559,8 +559,7 @@ class HDBSCAN(InteropMixin, ClusterMixin, CMajorInputTagMixin, Base):
         utilizing plotting tools. This requires the `hdbscan` CPU Python
         package to be installed.
 
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See

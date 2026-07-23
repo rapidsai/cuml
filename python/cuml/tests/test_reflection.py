@@ -227,16 +227,55 @@ def test_infer_output_type_non_arrays(obj):
 def test_default_output_type(input_type):
     X = rand_array(input_type)
     model = cuml.DBSCAN(eps=1.0, min_samples=1)
-    labels = model.fit_predict(X)
+    if input_type == "numba":
+        with pytest.warns(FutureWarning, match="Outputting `numba` arrays"):
+            labels = model.fit_predict(X)
+    else:
+        labels = model.fit_predict(X)
     assert_output_type(labels, input_type)
     assert_output_type(model.components_, input_type)
+
+
+@pytest.mark.parametrize(
+    "output_type", ("numba", "array", "df_obj", "series", "dataframe")
+)
+def test_deprecated_output_type(output_type):
+    X = rand_array("cupy")
+
+    with pytest.warns(
+        FutureWarning,
+        match=f"`{output_type=!r}` was deprecated",
+    ) as rec:
+        model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type=output_type)
+
+    if output_type in ("series", "dataframe"):
+        assert "Note that `output_type='cudf'`" in str(rec[0].message)
+    else:
+        assert "Note that `output_type='cudf'`" not in str(rec[0].message)
+
+    labels = model.fit_predict(X)
+    if alias := {"numba": "numba", "array": "cupy", "df_obj": "cudf"}.get(
+        output_type
+    ):
+        assert_output_type(labels, alias)
+        assert_output_type(model.labels_, alias)
+    else:
+        cls = cudf.Series if output_type == "series" else cudf.DataFrame
+        assert isinstance(labels, cls)
+        assert isinstance(model.labels_, cls)
 
 
 @pytest.mark.parametrize("input_type", OUTPUT_TYPES)
 @pytest.mark.parametrize("output_type", OUTPUT_TYPES)
 def test_estimator_output_type(input_type, output_type):
     X = rand_array(input_type)
-    model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type=output_type)
+    if output_type == "numba":
+        with pytest.warns(FutureWarning, match="`output_type='numba'`"):
+            model = cuml.DBSCAN(
+                eps=1.0, min_samples=1, output_type=output_type
+            )
+    else:
+        model = cuml.DBSCAN(eps=1.0, min_samples=1, output_type=output_type)
     labels = model.fit_predict(X)
     assert_output_type(labels, output_type)
     assert_output_type(model.components_, output_type)
@@ -245,7 +284,11 @@ def test_estimator_output_type(input_type, output_type):
 @pytest.mark.parametrize("input_type", OUTPUT_TYPES)
 @pytest.mark.parametrize("output_type", OUTPUT_TYPES)
 def test_global_output_type(input_type, output_type):
-    cuml.set_global_output_type(output_type)
+    if output_type == "numba":
+        with pytest.warns(FutureWarning, match="`output_type='numba'`"):
+            cuml.set_global_output_type(output_type)
+    else:
+        cuml.set_global_output_type(output_type)
 
     X = rand_array(input_type)
     model = cuml.DBSCAN(eps=1.0, min_samples=1)
@@ -412,6 +455,7 @@ def test_convert_arrays_nested_values(construct, output_type):
 
 
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_mlfunc_dense_outputs(output_type):
     cuml.set_global_output_type(output_type)
     X = rand_array("cupy")
@@ -430,6 +474,7 @@ def test_mlfunc_dense_outputs(output_type):
 
 
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_mlfunc_sparse_outputs(output_type):
     @mlfunc
     def make_sparse():
@@ -527,6 +572,7 @@ def test_mlfunc_preserve_index(input_type, output_type):
 
 @pytest.mark.parametrize("dtype", ["int32", "object", "U"])
 @pytest.mark.parametrize("output_type", OUTPUT_TYPES)
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_class_labels(dtype, output_type):
     if dtype in ("object", "U"):
         classes = np.array(["a", "b", "c"], dtype=dtype)
@@ -630,6 +676,7 @@ def test_estimator_method_with_no_array_input():
         assert_output_type(model.example_no_args(), "pandas")
 
 
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 @pytest.mark.parametrize("output_type", [None, *OUTPUT_TYPES])
 def test_reflected_attr(output_type):
     cuml.set_global_output_type(output_type)
