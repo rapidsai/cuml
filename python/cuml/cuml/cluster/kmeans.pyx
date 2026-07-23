@@ -667,6 +667,7 @@ class KMeans(InteropMixin,
             reset=True,
         )
         data_on_device = isinstance(X, cp.ndarray)
+        n_samples = X.shape[0]
 
         # Only take the cuVS host (out-of-core) fit path when the user has
         # explicitly opted into host-to-device streaming via `device_buffer_samples > 0`.
