@@ -424,6 +424,23 @@ def test_convert_arrays_object_array_explicit_dataframe_outputs(
         )
 
 
+@pytest.mark.parametrize("output_type", ["cupy", "numba"])
+def test_convert_arrays_object_array_device_output_error(output_type):
+    arr = np.array(["a", "b"], dtype=object)
+
+    with pytest.raises(
+        TypeError,
+        match=f"output_type={output_type!r} doesn't support outputs of dtype",
+    ):
+        convert_arrays(arr, output_type)
+
+
+def test_convert_arrays_object_array_array_output():
+    arr = np.array(["a", "b"], dtype=object)
+
+    assert convert_arrays(arr, "array") is arr
+
+
 @pytest.mark.parametrize(
     "construct",
     [

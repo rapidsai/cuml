@@ -529,14 +529,19 @@ def convert_arrays(
             return pd.Series(obj, index=index)
         elif _is_object_dtype(obj):
             # NumPy object arrays have no device representation. Preserve
-            # host arrays unless the requested output type wraps them.
-            if output_type not in (
+            # host arrays for "array" or wrap them in a dataframe-like type.
+            if output_type == "array":
+                return obj
+            elif output_type not in (
                 "cudf",
                 "df_obj",
                 "dataframe",
                 "series",
             ):
-                return obj
+                raise TypeError(
+                    f"{output_type=!r} doesn't support outputs of dtype "
+                    f"object and shape {obj.shape}"
+                )
 
             if hasattr(index, "to_pandas"):
                 index = index.to_pandas()
