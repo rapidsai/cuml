@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -80,119 +80,6 @@ def _csc_mean_variance_axis0(X):
 
         start = end
     return means, variances, counts_nan
-
-
-@cuda.jit
-def norm_step2_k(indptr, data, norm):
-    """Apply normalization
-
-    Parameters
-    ----------
-    indptr : array
-        indptr of sparse matrix
-    data : array
-        data of sparse matrix
-    norm: array
-        norm by which to divide columns
-    """
-    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
-
-    if row_i >= indptr.shape[0] - 1:
-        return
-
-    start = indptr[row_i]
-    end = indptr[row_i + 1]
-    if inrow_idx >= (end - start):
-        return
-
-    data[start + inrow_idx] /= norm[row_i]
-
-
-@cuda.jit
-def l1_step1_k(indptr, data, norm):
-    """Compute norm for L1 normalization"""
-    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
-
-    if row_i >= indptr.shape[0] - 1:
-        return
-
-    start = indptr[row_i]
-    end = indptr[row_i + 1]
-    if inrow_idx >= (end - start):
-        return
-
-    val = abs(data[start + inrow_idx])
-    cuda.atomic.add(norm, row_i, val)
-
-
-def inplace_csr_row_normalize_l1(X):
-    """Normalize CSR matrix inplace with L1 norm
-
-    Parameters
-    ----------
-    X : sparse CSR matrix
-        Input array
-
-    Returns
-    -------
-    Normalized matrix
-    """
-    n_rows = X.indptr.shape[0]
-    max_nnz = cp.diff(X.indptr).max()
-    tpb = (32, 32)
-    bpg_x = ceil(n_rows / tpb[0])
-    bpg_y = ceil(max_nnz / tpb[1])
-    bpg = (bpg_x, bpg_y)
-
-    norm = cp.zeros(n_rows - 1, dtype=X.dtype)
-    l1_step1_k[bpg, tpb](X.indptr, X.data, norm)
-    norm_step2_k[bpg, tpb](X.indptr, X.data, norm)
-
-
-@cuda.jit
-def l2_step1_k(indptr, data, norm):
-    """Compute norm for L2 normalization"""
-    row_i = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-    inrow_idx = cuda.blockIdx.y * cuda.blockDim.y + cuda.threadIdx.y
-
-    if row_i >= indptr.shape[0] - 1:
-        return
-
-    start = indptr[row_i]
-    end = indptr[row_i + 1]
-    if inrow_idx >= (end - start):
-        return
-
-    val = data[start + inrow_idx]
-    val *= val
-    cuda.atomic.add(norm, row_i, val)
-
-
-def inplace_csr_row_normalize_l2(X):
-    """Normalize CSR matrix inplace with L2 norm
-
-    Parameters
-    ----------
-    X : sparse CSR matrix
-        Input array
-
-    Returns
-    -------
-    Normalized matrix
-    """
-    n_rows = X.indptr.shape[0]
-    max_nnz = cp.diff(X.indptr).max()
-    tpb = (32, 32)
-    bpg_x = ceil(n_rows / tpb[0])
-    bpg_y = ceil(max_nnz / tpb[1])
-    bpg = (bpg_x, bpg_y)
-
-    norm = cp.zeros(n_rows - 1, dtype=X.dtype)
-    l2_step1_k[bpg, tpb](X.indptr, X.data, norm)
-    norm = cp.sqrt(norm)
-    norm_step2_k[bpg, tpb](X.indptr, X.data, norm)
 
 
 @cuda.jit(device=True, inline=True)

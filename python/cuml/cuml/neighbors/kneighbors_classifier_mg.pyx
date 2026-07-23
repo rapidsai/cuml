@@ -4,7 +4,7 @@
 #
 import cupy as cp
 
-from cuml.internals import logger, reflect
+from cuml.internals import logger, mlfunc
 from cuml.internals.validation import check_array
 from cuml.neighbors.nearest_neighbors_mg import NearestNeighborsMG
 
@@ -51,7 +51,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
     """
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         index,
@@ -84,8 +84,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         ncols: number of columns
         rank: rank of current worker
         n_neighbors: number of nearest neighbors to query
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------
@@ -169,7 +168,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
 
         return outputs
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict_proba(self, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       uniq_labels, n_unique, ncols, rank,
@@ -191,8 +190,7 @@ class KNeighborsClassifierMG(NearestNeighborsMG):
         n_unique: array with number of possible labels for each columns
         ncols: number of columns
         rank: int rank of current worker
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------

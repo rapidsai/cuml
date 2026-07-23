@@ -71,6 +71,29 @@ def test_linear_svc_input_constraints():
         cuml.LinearSVC().fit(X, np.ones_like(y))
 
 
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+        (np.bool_(True), TypeError),
+    ],
+)
+def test_linear_svc_invalid_n_streams(n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        cuml.LinearSVC(n_streams=n_streams).fit(X, y)
+
+
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize(
     "loss", ["epsilon_insensitive", "squared_epsilon_insensitive"]

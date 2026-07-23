@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
 #include <cuml/explainer/kernel_shap.hpp>
 
@@ -188,6 +189,9 @@ void kernel_dataset_impl(const raft::handle_t& handle,
 
   // check if random part of the dataset is needed
   if (len_samples > 0) {
+    if (len_samples > nrows_X) {
+      RAFT_FAIL("kernel_dataset: len_samples (%d) must be <= nrows_X (%d)", len_samples, nrows_X);
+    }
     // The kernel handles one row per block, but that row also attempts
     // to modify values from the next row. This means that if the number of
     // len_samples is even, we launch 1 extra block that then attempts
@@ -197,17 +201,19 @@ void kernel_dataset_impl(const raft::handle_t& handle,
     } else {
       nblks = len_samples / 2;
     }
+    std::size_t const row_off = checked_sub<std::size_t>(nrows_X, len_samples);
+    std::size_t const x_off   = checked_mul<std::size_t>(row_off, ncols);
+    std::size_t const ds_off  = checked_mul<std::size_t>(row_off, nrows_background, ncols);
     // each block does a sample and its compliment
-    sampled_rows_kernel<<<nblks, nthreads, 0, stream>>>(
-      nsamples,
-      &X[(nrows_X - len_samples) * ncols],
-      len_samples,
-      ncols,
-      background,
-      nrows_background,
-      &dataset[(nrows_X - len_samples) * nrows_background * ncols],
-      observation,
-      seed);
+    sampled_rows_kernel<<<nblks, nthreads, 0, stream>>>(nsamples,
+                                                        &X[x_off],
+                                                        len_samples,
+                                                        ncols,
+                                                        background,
+                                                        nrows_background,
+                                                        &dataset[ds_off],
+                                                        observation,
+                                                        seed);
   }
 
   RAFT_CUDA_TRY(cudaPeekAtLastError());

@@ -1,14 +1,14 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.internals.base import Base, get_handle
-from cuml.internals.outputs import run_in_internal_context
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_array
+from cuml.tsa._deprecation import warn_deprecated_tsa_api
 
 from libc.stdint cimport uintptr_t
 from pylibraft.common.handle cimport handle_t
@@ -56,6 +56,10 @@ class ExponentialSmoothing(Base):
     exponential smoothing, where weights are assigned against historical
     data with exponentially decreasing impact. This is done by analyzing
     three components of the data: level, trend, and seasonality.
+
+    .. deprecated:: 26.08
+        ``cuml.tsa.ExponentialSmoothing`` and ``cuml.ExponentialSmoothing``
+        are deprecated and will be removed in the cuML 26.12 release.
 
     Notes
     -----
@@ -141,8 +145,7 @@ class ExponentialSmoothing(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -150,16 +153,18 @@ class ExponentialSmoothing(Base):
 
     """
 
-    forecasted_points = CumlArrayDescriptor()
-    level = CumlArrayDescriptor()
-    trend = CumlArrayDescriptor()
-    season = CumlArrayDescriptor()
-    SSE = CumlArrayDescriptor()
+    forecasted_points = ReflectedAttr()
+    level = ReflectedAttr()
+    trend = ReflectedAttr()
+    season = ReflectedAttr()
+    SSE = ReflectedAttr()
 
     def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3,
                  verbose=False, output_type=None):
+
+        warn_deprecated_tsa_api("cuml.tsa.ExponentialSmoothing")
 
         super().__init__(verbose=verbose, output_type=output_type)
 
@@ -256,7 +261,7 @@ class ExponentialSmoothing(Base):
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return mod_ts_input
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
@@ -342,7 +347,7 @@ class ExponentialSmoothing(Base):
 
         return self
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def forecast(self, h=1, index=None):
         """
         Forecasts future points based on the fitted model.
@@ -422,7 +427,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before forecast()")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, index=None):
         """
         Returns the score of the model.
@@ -454,7 +459,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model before score()")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def get_level(self, index=None):
         """
         Returns the level component of the model.
@@ -486,7 +491,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get level values")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def get_trend(self, index=None):
         """
         Returns the trend component of the model.
@@ -518,7 +523,7 @@ class ExponentialSmoothing(Base):
         else:
             raise ValueError("Fit() the model to get trend values")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def get_season(self, index=None):
         """
         Returns the season component of the model.

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
@@ -177,14 +177,14 @@ def custom_kernel(X, Y, func, **kwds):
     return K
 
 
-@cuml.internals.reflect
+@cuml.internals.mlfunc
 def pairwise_kernels(
     X,
     Y=None,
     metric="linear",
     *,
     filter_params=False,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     **kwds,
 ):
     """
@@ -224,10 +224,13 @@ def pairwise_kernels(
         kernel value as a single number.
     filter_params : bool, default=False
         Whether to filter invalid parameters or not.
-    convert_dtype : bool, optional (default = True)
-        When set to True, the method will, when necessary, convert
-        Y to be the same data type as X if they differ. This
-        will increase memory used for the method.
+    convert_dtype : bool, default="deprecated"
+        .. deprecated:: 26.08
+            `convert_dtype` was deprecated in version 26.08 and will be
+            removed in version 26.10. cuML only copies input arrays when
+            necessary (e.g. to unify dtypes), there is no reason to provide
+            this keyword going forward.
+
     **kwds : optional keyword parameters
         Any further parameters are passed directly to the kernel function.
 

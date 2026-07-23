@@ -1,15 +1,13 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import ClusterMixin, CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 
 from libc.stdint cimport uintptr_t
@@ -83,8 +81,7 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -104,8 +101,8 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         The children of each non-leave node.
     """
 
-    labels_ = CumlArrayDescriptor(order="C")
-    children_ = CumlArrayDescriptor(order="C")
+    labels_ = ReflectedAttr()
+    children_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -138,8 +135,8 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         self.c = c
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True) -> "AgglomerativeClustering":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "AgglomerativeClustering":
         """
         Fit the hierarchical clustering from features.
         """
@@ -206,8 +203,8 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
         self.n_clusters_ = n_clusters
-        self.labels_ = CumlArray(data=labels)
-        self.children_ = CumlArray(data=children)
+        self.labels_ = labels
+        self.children_ = children
 
         return self
 
@@ -215,8 +212,8 @@ class AgglomerativeClustering(ClusterMixin, CMajorInputTagMixin, Base):
                                        "type": "dense",
                                        "description": "Cluster indexes",
                                        "shape": "(n_samples, 1)"})
-    @reflect
-    def fit_predict(self, X, y=None) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def fit_predict(self, X, y=None):
         """
         Fit and return the assigned cluster labels.
         """

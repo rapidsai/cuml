@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -7,12 +7,11 @@ import cupyx
 from sklearn.exceptions import NotFittedError
 
 import cuml.internals
-from cuml.common.sparsefuncs import (
+from cuml.common.sparse import (
     csr_diag_mul,
     csr_row_normalize_l1,
     csr_row_normalize_l2,
 )
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 
 
@@ -92,8 +91,7 @@ class TfidfTransformer(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -136,7 +134,7 @@ class TfidfTransformer(Base):
         n_samples, n_features = X.shape
         df = _sparse_document_frequency(X)
         df = df.astype(output_dtype, copy=False)
-        self.__df = CumlArray(df)
+        self.__df = df
         self.__n_samples = n_samples
         self.__n_features = n_features
 
@@ -147,7 +145,7 @@ class TfidfTransformer(Base):
         Sets idf_diagonal sparse array
         """
         # perform idf smoothing if required
-        df = self.__df.to_output("cupy") + int(self.smooth_idf)
+        df = self.__df + int(self.smooth_idf)
         n_samples = self.__n_samples + int(self.smooth_idf)
 
         # log+1 instead of log makes sure terms with zero idf don't get
@@ -161,7 +159,7 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
@@ -178,7 +176,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -230,7 +228,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

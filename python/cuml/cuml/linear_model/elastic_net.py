@@ -1,26 +1,20 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+import cupy as cp
 import cupyx.scipy.sparse
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.array import CumlArray
+from cuml.common.sparse import is_sparse
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import (
     FMajorInputTagMixin,
     RegressorMixin,
     SparseInputTagMixin,
 )
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.solvers.cd import fit_cd
 from cuml.solvers.qn import fit_qn
@@ -75,8 +69,7 @@ class ElasticNet(
         features sequentially by default. This (setting to 'random') often
         leads to significantly faster convergence especially when tol is higher
         than 1e-4.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -128,7 +121,7 @@ class ElasticNet(
     dtype: float32
     """
 
-    coef_ = CumlArrayDescriptor(order="F")
+    coef_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.linear_model.ElasticNet"
 
@@ -185,16 +178,16 @@ class ElasticNet(
 
     def _attrs_from_cpu(self, model):
         return {
-            "intercept_": to_gpu(model.intercept_, order="F"),
-            "coef_": to_gpu(model.coef_, order="F"),
+            "intercept_": model.intercept_,
+            "coef_": cp.asarray(model.coef_),
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "intercept_": to_cpu(self.intercept_),
-            "coef_": to_cpu(self.coef_),
+            "intercept_": self.intercept_,
+            "coef_": cp.asnumpy(self.coef_, order="A"),
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model),
         }
@@ -223,15 +216,15 @@ class ElasticNet(
         self.selection = selection
 
     @property
-    @reflect
+    @mlfunc
     def sparse_coef_(self):
         """Sparse representation of the fitted `coef_`."""
-        return cupyx.scipy.sparse.csr_matrix(self.coef_.to_output("cupy"))
+        return cupyx.scipy.sparse.csr_matrix(self.coef_)
 
     @generate_docstring()
-    @reflect(reset="type")
+    @mlfunc(set_input_type=True)
     def fit(
-        self, X, y, sample_weight=None, *, convert_dtype=True
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "ElasticNet":
         """
         Fit the model with X and y.
@@ -290,7 +283,7 @@ class ElasticNet(
         else:
             raise ValueError(f"solver={solver!r} is not supported")
 
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = n_iter
 

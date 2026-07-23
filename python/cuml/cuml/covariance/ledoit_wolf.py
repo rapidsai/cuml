@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -7,11 +7,9 @@ import warnings
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import reflect, run_in_internal_context
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import InteropMixin
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 
@@ -116,8 +114,7 @@ class LedoitWolf(InteropMixin, Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -161,9 +158,9 @@ class LedoitWolf(InteropMixin, Base):
     Analysis, Volume 88, Issue 2, February 2004, pages 365-411.
     """
 
-    covariance_ = CumlArrayDescriptor()
-    location_ = CumlArrayDescriptor()
-    precision_ = CumlArrayDescriptor()
+    covariance_ = ReflectedAttr()
+    location_ = ReflectedAttr()
+    precision_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.covariance.LedoitWolf"
 
@@ -192,22 +189,26 @@ class LedoitWolf(InteropMixin, Base):
 
     def _attrs_from_cpu(self, model):
         return {
-            "covariance_": to_gpu(model.covariance_),
-            "location_": to_gpu(model.location_),
-            "precision_": to_gpu(model.precision_)
-            if self.store_precision
-            else None,
+            "covariance_": cp.asarray(model.covariance_),
+            "location_": cp.asarray(model.location_),
+            "precision_": (
+                None
+                if model.precision_ is None
+                else cp.asarray(model.precision_)
+            ),
             "shrinkage_": model.shrinkage_,
             **super()._attrs_from_cpu(model),
         }
 
     def _attrs_to_cpu(self, model):
         return {
-            "covariance_": to_cpu(self.covariance_),
-            "location_": to_cpu(self.location_),
-            "precision_": to_cpu(self.precision_)
-            if self.store_precision
-            else None,
+            "covariance_": self.covariance_.get(order="A"),
+            "location_": self.location_.get(order="A"),
+            "precision_": (
+                None
+                if self.precision_ is None
+                else self.precision_.get(order="A")
+            ),
             "shrinkage_": self.shrinkage_,
             **super()._attrs_to_cpu(model),
         }
@@ -226,8 +227,8 @@ class LedoitWolf(InteropMixin, Base):
         self.assume_centered = assume_centered
         self.block_size = block_size
 
-    @reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True) -> "LedoitWolf":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y=None, *, convert_dtype="deprecated") -> "LedoitWolf":
         """Fit the Ledoit-Wolf shrunk covariance model to X.
 
         Parameters
@@ -237,8 +238,12 @@ class LedoitWolf(InteropMixin, Base):
             and `n_features` is the number of features.
         y : Ignored
             Not used, present for API consistency.
-        convert_dtype : bool, default=True
-            If True, convert the input data to float32.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
@@ -273,17 +278,17 @@ class LedoitWolf(InteropMixin, Base):
         shrunk_cov.flat[:: X.shape[1] + 1] += shrinkage * mu
 
         self.shrinkage_ = shrinkage
-        self.location_ = CumlArray(data=location)
-        self.covariance_ = CumlArray(data=shrunk_cov)
+        self.location_ = location
+        self.covariance_ = shrunk_cov
 
         if self.store_precision:
-            self.precision_ = CumlArray(data=cp.linalg.pinv(shrunk_cov))
+            self.precision_ = cp.linalg.pinv(shrunk_cov)
         else:
             self.precision_ = None
 
         return self
 
-    @reflect
+    @mlfunc
     def get_precision(self):
         """Getter for the precision matrix.
 
@@ -296,12 +301,9 @@ class LedoitWolf(InteropMixin, Base):
 
         if self.store_precision:
             return self.precision_
-        else:
-            covariance = self.covariance_.to_output("cupy")
-            precision = cp.linalg.pinv(covariance)
-            return precision
+        return cp.linalg.pinv(self.covariance_)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def score(self, X_test, y=None) -> float:
         """Compute the log-likelihood of X_test under the estimated model.
 
@@ -325,10 +327,9 @@ class LedoitWolf(InteropMixin, Base):
             X_test,
             dtype=("float32", "float64"),
         )
-        precision = self.get_precision().to_output("cupy")
-        location = self.location_.to_output("cupy")
 
-        X_centered = X_test - location
+        precision = self.get_precision()
+        X_centered = X_test - self.location_
         log_det_precision = cp.linalg.slogdet(precision)[1]
         mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
 
@@ -340,7 +341,7 @@ class LedoitWolf(InteropMixin, Base):
 
         return float(log_likelihood)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def error_norm(
         self, comp_cov, norm="frobenius", scaling=True, squared=True
     ):
@@ -366,9 +367,8 @@ class LedoitWolf(InteropMixin, Base):
         check_is_fitted(self)
 
         comp_cov = check_inputs(self, comp_cov, dtype=("float32", "float64"))
-        self_cov = self.covariance_.to_output("cupy")
 
-        diff = self_cov - comp_cov
+        diff = self.covariance_ - comp_cov
 
         if norm == "frobenius":
             error = cp.sum(diff**2)
@@ -380,7 +380,7 @@ class LedoitWolf(InteropMixin, Base):
             )
 
         if scaling:
-            n_features = self_cov.shape[0]
+            n_features = self.covariance_.shape[0]
             error = error / n_features
 
         if not squared:
@@ -388,7 +388,7 @@ class LedoitWolf(InteropMixin, Base):
 
         return float(error)
 
-    @reflect
+    @mlfunc
     def mahalanobis(self, X):
         """Compute the squared Mahalanobis distances of given observations.
 
@@ -404,10 +404,10 @@ class LedoitWolf(InteropMixin, Base):
         """
         check_is_fitted(self)
         X = check_inputs(self, X, dtype=("float32", "float64"))
-        precision = self.get_precision().to_output("cupy")
-        location = self.location_.to_output("cupy")
 
-        X_centered = X - location
-        mahal = cp.sum(cp.dot(X_centered, precision) * X_centered, axis=1)
+        X_centered = X - self.location_
+        mahal = cp.sum(
+            cp.dot(X_centered, self.get_precision()) * X_centered, axis=1
+        )
 
         return mahal

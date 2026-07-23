@@ -30,5 +30,23 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
   return hash;
 }
 
+template <typename T>
+HDI uint32_t fnv1a32_combine(uint32_t hash, T value)
+{
+  hash = fnv1a32(hash, static_cast<uint32_t>(value));
+  if constexpr (sizeof(T) > sizeof(uint32_t)) {
+    hash = fnv1a32(hash, static_cast<uint32_t>(static_cast<uint64_t>(value) >> 32));
+  }
+  return hash;
+}
+
+template <typename... Ts>
+HDI uint32_t fnv1a32_hash(Ts... values)
+{
+  uint32_t hash = fnv1a32_basis;
+  ((hash = fnv1a32_combine(hash, values)), ...);
+  return hash;
+}
+
 }  // namespace DT
 }  // namespace ML

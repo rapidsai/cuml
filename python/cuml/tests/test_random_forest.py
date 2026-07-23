@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -28,7 +28,9 @@ from sklearn.metrics import (
     mean_squared_error,
     mean_tweedie_deviance,
 )
+from sklearn.metrics import r2_score as sk_r2_score
 from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_sample_weight
 
 import cuml
 from cuml.ensemble import RandomForestClassifier as curfc
@@ -219,9 +221,266 @@ def test_default_parameters():
     for name in ["max_features", "split_criterion"]:
         reg_params.pop(name)
         clf_params.pop(name)
+    clf_params.pop("class_weight")
 
     # The rest are the same
     assert reg_params == clf_params
+
+
+@pytest.mark.parametrize("estimator", [curfc, curfr])
+@pytest.mark.parametrize(
+    "n_streams,error_type",
+    [
+        (0, ValueError),
+        (-1, ValueError),
+        (1.5, TypeError),
+        ("1", TypeError),
+        (None, TypeError),
+        (True, TypeError),
+    ],
+)
+def test_rf_invalid_n_streams(estimator, n_streams, error_type):
+    X = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+    if estimator is curfr:
+        y = y.astype(np.float32)
+
+    with pytest.raises(
+        error_type,
+        match="n_streams must be a positive integer",
+    ):
+        estimator(n_streams=n_streams).fit(X, y)
+
+
+def _zero_weight_two_cluster_data(datatype, n_zero=8, n_one=8):
+    zero_weight_X = np.linspace(-3.0, -1.0, n_zero, dtype=datatype).reshape(
+        -1, 1
+    )
+    one_weight_X = np.linspace(1.0, 3.0, n_one, dtype=datatype).reshape(-1, 1)
+    X = np.vstack([zero_weight_X, one_weight_X])
+    y = np.array(
+        [0] * len(zero_weight_X) + [1] * len(one_weight_X),
+        dtype=np.int32,
+    )
+    sample_weight = y.astype(np.float64)
+    probe = np.linspace(-3.5, 3.5, 17, dtype=datatype).reshape(-1, 1)
+    return X, y, sample_weight, probe
+
+
+def _sample_weight_rf_params(X, bootstrap):
+    return dict(
+        n_estimators=3,
+        bootstrap=bootstrap,
+        max_depth=3,
+        max_features=1.0,
+        n_bins=X.shape[0],
+        min_samples_leaf=1,
+        min_samples_split=2,
+        random_state=0,
+        n_streams=1,
+    )
+
+
+def _cuml_preds(model, X):
+    return cp.asnumpy(cp.asarray(model.predict(X)))
+
+
+@pytest.mark.parametrize(
+    "estimator", [curfc, curfr], ids=["classifier", "regressor"]
+)
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_fit_input_order_parity(datatype, input_type, estimator):
+    X, y = make_classification(
+        n_samples=128,
+        n_features=8,
+        n_informative=5,
+        n_redundant=0,
+        n_clusters_per_class=1,
+        n_classes=3,
+        class_sep=2.0,
+        random_state=7,
+    )
+    xp = cp if input_type == "cupy" else np
+    X_c = xp.asarray(X, dtype=datatype, order="C")
+    X_f = xp.asarray(X, dtype=datatype, order="F")
+
+    params = dict(
+        n_estimators=3,
+        bootstrap=False,
+        max_depth=4,
+        max_features=1.0,
+        n_bins=16,
+        random_state=11,
+        n_streams=1,
+    )
+    c_model = estimator(**params).fit(X_c, y)
+    f_model = estimator(**params).fit(X_f, y)
+
+    X_pred = np.array(X, dtype=datatype, order="C")
+    c_preds = _cuml_preds(c_model, X_pred)
+    f_preds = _cuml_preds(f_model, X_pred)
+
+    np.testing.assert_allclose(c_preds, f_preds, rtol=1e-6, atol=1e-6)
+    assert c_model.as_treelite().num_feature == X.shape[1]
+
+
+def _sklearn_fit_params(cuml_model):
+    params = cuml_model._params_to_cpu()
+    if params["max_samples"] == 1.0:
+        params["max_samples"] = None
+    return params
+
+
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_classifier_sample_weight_zero_distribution_matches_sklearn(
+    datatype, bootstrap
+):
+    X, y, sample_weight, probe = _zero_weight_two_cluster_data(datatype)
+    cuml_model = curfc(**_sample_weight_rf_params(X, bootstrap))
+    sk_model = skrfc(**_sklearn_fit_params(cuml_model))
+
+    cuml_model.fit(X, y, sample_weight=sample_weight)
+    sk_model.fit(X, y, sample_weight=sample_weight)
+
+    cuml_preds = _cuml_preds(cuml_model, probe)
+    np.testing.assert_array_equal(cuml_preds, sk_model.predict(probe))
+    np.testing.assert_array_equal(
+        cuml_preds, np.ones(probe.shape[0], dtype=np.int32)
+    )
+
+    score = cuml_model.score(X, y, sample_weight=sample_weight)
+    assert score == pytest.approx(
+        accuracy_score(y, sk_model.predict(X), sample_weight=sample_weight)
+    )
+
+
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_regressor_sample_weight_zero_distribution_matches_sklearn(
+    datatype, bootstrap
+):
+    X, y, sample_weight, probe = _zero_weight_two_cluster_data(datatype)
+    cuml_model = curfr(**_sample_weight_rf_params(X, bootstrap))
+    sk_model = skrfr(**_sklearn_fit_params(cuml_model))
+
+    cuml_model.fit(X, y, sample_weight=sample_weight)
+    sk_model.fit(X, y, sample_weight=sample_weight)
+
+    cuml_preds = _cuml_preds(cuml_model, probe)
+    np.testing.assert_allclose(
+        cuml_preds, sk_model.predict(probe), rtol=1e-6, atol=1e-6
+    )
+    np.testing.assert_allclose(
+        cuml_preds,
+        np.ones(probe.shape[0]),
+        rtol=1e-6,
+        atol=1e-6,
+    )
+
+    score = cuml_model.score(X, y, sample_weight=sample_weight)
+    assert score == pytest.approx(
+        sk_r2_score(y, sk_model.predict(X), sample_weight=sample_weight),
+        abs=1e-6,
+    )
+
+
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_regressor_sample_weight_min_samples_leaf_matches_sklearn(datatype):
+    X = np.array([[0.0], [1.0], [2.0]], dtype=datatype)
+    y = np.array([0.0, 0.0, 10.0], dtype=datatype)
+    sample_weight = np.array([1.0, 1.0, 1000.0], dtype=np.float64)
+
+    cuml_model = curfr(
+        n_estimators=1,
+        bootstrap=False,
+        max_depth=2,
+        max_features=1.0,
+        n_bins=3,
+        min_samples_leaf=2,
+        min_samples_split=2,
+        random_state=0,
+        n_streams=1,
+    )
+    sk_model = skrfr(**_sklearn_fit_params(cuml_model))
+
+    cuml_model.fit(X, y, sample_weight=sample_weight)
+    sk_model.fit(X, y, sample_weight=sample_weight)
+
+    np.testing.assert_allclose(
+        _cuml_preds(cuml_model, X), sk_model.predict(X), rtol=1e-6, atol=1e-6
+    )
+
+
+@pytest.mark.parametrize(
+    "class_weight,match",
+    [
+        pytest.param("not-balanced", "class_weight", id="invalid-string"),
+        pytest.param(
+            {0: 1.0, 2: 1.0}, "not in class_weight", id="missing-class"
+        ),
+    ],
+)
+def test_rf_classifier_invalid_class_weight_raises(class_weight, match):
+    X = np.array([[0.0], [1.0]], dtype=np.float32)
+    y = np.array([0, 1], dtype=np.int32)
+    clf = curfc(
+        n_estimators=1,
+        max_depth=1,
+        n_bins=2,
+        n_streams=1,
+        class_weight=class_weight,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        clf.fit(X, y)
+
+
+@pytest.mark.parametrize(
+    "class_weight",
+    [
+        pytest.param({0: 0.0, 1: 1.0}, id="zero-class-zero"),
+        pytest.param("balanced", id="balanced"),
+    ],
+)
+@pytest.mark.parametrize("bootstrap", [False, True])
+@pytest.mark.parametrize("datatype", [np.float32, np.float64])
+def test_rf_classifier_class_weight_matches_sklearn(
+    datatype, bootstrap, class_weight
+):
+    n_zero, n_one = (12, 4) if class_weight == "balanced" else (8, 8)
+    X, y, _, probe = _zero_weight_two_cluster_data(
+        datatype, n_zero=n_zero, n_one=n_one
+    )
+    sample_weight = compute_sample_weight(class_weight, y).astype(np.float64)
+    params = _sample_weight_rf_params(X, bootstrap)
+
+    class_weight_model = curfc(**params, class_weight=class_weight)
+    sample_weight_model = curfc(**params)
+    sk_model = skrfc(**_sklearn_fit_params(class_weight_model))
+
+    class_weight_model.fit(X, y)
+    sample_weight_model.fit(X, y, sample_weight=sample_weight)
+    sk_model.fit(X, y)
+
+    class_weight_preds = _cuml_preds(class_weight_model, probe)
+    np.testing.assert_array_equal(
+        class_weight_preds, _cuml_preds(sample_weight_model, probe)
+    )
+
+    if class_weight == "balanced":
+        assert np.unique(sample_weight).size == 2
+        np.testing.assert_array_equal(
+            _cuml_preds(class_weight_model, X), sk_model.predict(X)
+        )
+    else:
+        np.testing.assert_array_equal(
+            class_weight_preds, sk_model.predict(probe)
+        )
+        np.testing.assert_array_equal(
+            class_weight_preds, np.ones(probe.shape[0], dtype=np.int32)
+        )
 
 
 @pytest.mark.parametrize("max_depth", [2, 4])
@@ -484,16 +743,13 @@ def test_rf_classification_seed(small_clf, datatype):
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
-@pytest.mark.parametrize("convert_dtype", [True, False])
 @pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 @pytest.mark.skipif(
     cudf_pandas_active,
     reason="cudf.pandas causes sklearn RF estimators crashes sometimes. "
     "Issue: https://github.com/rapidsai/cuml/issues/5991",
 )
-def test_rf_classification_fit_and_predict_dtypes_differ(
-    small_clf, datatype, convert_dtype
-):
+def test_rf_classification_fit_and_predict_dtypes_differ(small_clf, datatype):
     X, y = small_clf
     X = X.astype(datatype[0])
     y = y.astype(np.int32)
@@ -505,14 +761,7 @@ def test_rf_classification_fit_and_predict_dtypes_differ(
     cuml_model = curfc()
     cuml_model.fit(X_train, y_train)
 
-    if not convert_dtype:
-        with pytest.raises(
-            ValueError, match=r".*Expected array with dtype in.*"
-        ):
-            preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
-        return
-
-    preds = cuml_model.predict(X_test, convert_dtype=convert_dtype)
+    preds = cuml_model.predict(X_test)
     acc = accuracy_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfc(random_state=10)
@@ -544,7 +793,7 @@ def test_rf_regression_fit_and_predict_dtypes_differ(large_reg, datatype):
 
     cuml_model = curfr()
     cuml_model.fit(X_train, y_train)
-    preds = cuml_model.predict(X_test, convert_dtype=True)
+    preds = cuml_model.predict(X_test)
     r2 = r2_score(y_test, preds)
     if X.shape[0] < 500000:
         sk_model = skrfr(random_state=10)
@@ -922,7 +1171,6 @@ def test_rf_regression_with_identical_labels():
     # with only the root node.
     model = curfr(
         max_features=1.0,
-        max_samples=1.0,
         n_bins=5,
         bootstrap=False,
         split_criterion="mse",
@@ -1033,6 +1281,41 @@ def test_rf_min_samples_split_with_small_float(estimator, make_data):
 def test_max_features(max_features, sol):
     res = compute_max_features(max_features, 100)
     assert res == sol
+
+
+def test_rf_feature_sampling_retries_until_valid_split():
+    n_samples = 128
+    n_features = 32
+    X = np.zeros((n_samples, n_features), dtype=np.float32)
+    y = np.zeros(n_samples, dtype=np.int32)
+    y[n_samples // 2 :] = 1
+    X[:, 0] = y
+
+    for random_state in range(8):
+        clf = curfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            n_bins=4,
+            n_streams=1,
+            random_state=random_state,
+        )
+        clf.fit(X, y)
+        cuml_acc = accuracy_score(y, clf.predict(X))
+
+        sk_clf = skrfc(
+            n_estimators=1,
+            bootstrap=False,
+            max_depth=None,
+            max_features=1,
+            random_state=random_state,
+        )
+        sk_clf.fit(X, y)
+        sk_acc = accuracy_score(y, sk_clf.predict(X))
+
+        assert sk_acc == 1.0
+        assert cuml_acc == sk_acc
 
 
 def test_rf_predict_returns_int():

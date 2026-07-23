@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
@@ -305,7 +305,7 @@ def test_svc_weights(class_weight, sample_weight):
                 "degree": 40,
                 "C": 1,
                 "gamma": "scale",
-                "x_arraytype": "numba",
+                "x_arraytype": "cupy",
             }
         ),
     ],
@@ -473,7 +473,7 @@ def test_svr_skl_cmp_weighted():
 @pytest.mark.parametrize("classifier", [True, False])
 @pytest.mark.parametrize("train_dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("test_dtype", [np.float64, np.float32])
-def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
+def test_svm_predict_mixed_dtypes(train_dtype, test_dtype, classifier):
     X, y = make_classification(n_samples=50, random_state=0)
 
     X = X.astype(train_dtype)

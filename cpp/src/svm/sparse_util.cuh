@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/device_csr_matrix.hpp>
@@ -542,7 +543,7 @@ static void copySparseRowsToDense(const int* indptr,
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);
-  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  const dim3 gs(raft::ceildiv(num_indices, narrow_cast<int>(bs.y)), 1, 1);
   extractDenseRowsFromCSR<math_t>
     <<<gs, bs, 0, stream>>>(output, indptr, indices, data, row_indices, num_indices);
   RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -643,7 +644,7 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);
-  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  const dim3 gs(raft::ceildiv(num_indices, narrow_cast<int>(bs.y)), 1, 1);
   extractDenseRowsFromCSR<math_t>
     <<<gs, bs, 0, stream>>>(matrix_out, indptr, indices, data, row_indices, num_indices);
 
@@ -751,7 +752,7 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);
-  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  const dim3 gs(raft::ceildiv(num_indices, narrow_cast<int>(bs.y)), 1, 1);
   extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
     indptr_out, indices_out, data_out, indptr_in, indices_in, data_in, row_indices, num_indices);
 
@@ -824,7 +825,7 @@ void extractRows(raft::device_csr_matrix_view<math_t, int, int, int> matrix_in,
 
   // copy with 1 warp per row for now, blocksize 256
   const dim3 bs(32, 8, 1);
-  const dim3 gs(raft::ceildiv(num_indices, (int)bs.y), 1, 1);
+  const dim3 gs(raft::ceildiv(num_indices, narrow_cast<int>(bs.y)), 1, 1);
   extractCSRRowsFromCSR<math_t><<<gs, bs, 0, stream>>>(
     *indptr_out, *indices_out, *data_out, indptr_in, indices_in, data_in, row_indices, num_indices);
 

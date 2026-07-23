@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import copy
@@ -6,12 +6,12 @@ import platform
 from importlib.metadata import version as package_version
 
 import cupy as cp
-import cupyx
+import cupyx.scipy.sparse as cp_sp
 import joblib
 import numba
 import numpy as np
 import pytest
-import scipy.sparse as scipy_sparse
+import scipy.sparse as sp
 import umap
 from packaging.version import Version
 from sklearn import datasets
@@ -19,11 +19,12 @@ from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs, make_moons
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
-from sklearn.neighbors import KDTree, NearestNeighbors
+from sklearn.neighbors import KDTree, NearestNeighbors, kneighbors_graph
 
 import cuml
 from cuml.internals import GraphBasedDimRedCallback
 from cuml.manifold.umap import UMAP as cuUMAP
+from cuml.manifold.utils import extract_knn_graph
 from cuml.metrics import pairwise_distances
 from cuml.testing.utils import (
     array_equal,
@@ -51,9 +52,7 @@ def test_blobs_cluster(nrows, n_feats, build_algo):
     data, labels = datasets.make_blobs(
         n_samples=nrows, n_features=n_feats, centers=5, random_state=0
     )
-    embedding = cuUMAP(build_algo=build_algo).fit_transform(
-        data, convert_dtype=True
-    )
+    embedding = cuUMAP(build_algo=build_algo).fit_transform(data)
 
     if nrows < 500000:
         score = adjusted_rand_score(labels, KMeans(5).fit_predict(embedding))
@@ -92,7 +91,7 @@ def test_umap_fit_transform_score(nrows, n_feats, build_algo):
     cuml_model = cuUMAP(n_neighbors=10, min_dist=0.01, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     assert not np.isnan(embedding).any()
     assert not np.isnan(cuml_embedding).any()
@@ -111,7 +110,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     data = iris.data
     embedding = cuUMAP(
         n_neighbors=10, random_state=0, min_dist=0.01
-    ).fit_transform(data, iris.target, convert_dtype=True)
+    ).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -123,7 +122,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target[25:75] = -1
     embedding = cuUMAP(
         n_neighbors=10, random_state=0, min_dist=0.01
-    ).fit_transform(data, target, convert_dtype=True)
+    ).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
@@ -134,7 +133,7 @@ def test_umap_trustworthiness_on_iris():
     data = iris.data
     embedding = cuUMAP(
         n_neighbors=10, min_dist=0.01, random_state=0
-    ).fit_transform(data, convert_dtype=True)
+    ).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -156,9 +155,9 @@ def test_umap_transform_on_iris(target_metric):
         random_state=42,
         target_metric=target_metric,
     )
-    fitter.fit(data, convert_dtype=True)
+    fitter.fit(data)
     new_data = iris.data[~iris_selection]
-    embedding = fitter.transform(new_data, convert_dtype=True)
+    embedding = fitter.transform(new_data)
 
     assert not np.isnan(embedding).any()
 
@@ -178,14 +177,9 @@ def test_umap_transform_on_digits_sparse(
         [True, False], 1797, replace=True, p=[0.75, 0.25]
     )
 
-    if input_type == "cupy":
-        sp_prefix = cupyx.scipy.sparse
-    else:
-        sp_prefix = scipy_sparse
+    sparse = cp_sp if input_type == "cupy" else sp
 
-    data = sp_prefix.csr_matrix(
-        scipy_sparse.csr_matrix(digits.data[digits_selection])
-    )
+    data = sparse.csr_matrix(sp.csr_matrix(digits.data[digits_selection]))
 
     fitter = cuUMAP(
         n_neighbors=15,
@@ -196,15 +190,13 @@ def test_umap_transform_on_digits_sparse(
         target_metric=target_metric,
     )
 
-    new_data = sp_prefix.csr_matrix(
-        scipy_sparse.csr_matrix(digits.data[~digits_selection])
-    )
+    new_data = sparse.csr_matrix(sp.csr_matrix(digits.data[~digits_selection]))
 
     if xform_method == "fit":
-        fitter.fit(data, convert_dtype=True)
-        embedding = fitter.transform(new_data, convert_dtype=True)
+        fitter.fit(data)
+        embedding = fitter.transform(new_data)
     else:
-        embedding = fitter.fit_transform(new_data, convert_dtype=True)
+        embedding = fitter.fit_transform(new_data)
 
     if input_type == "cupy":
         embedding = embedding.get()
@@ -232,11 +224,11 @@ def test_umap_transform_on_digits(target_metric):
         random_state=42,
         target_metric=target_metric,
     )
-    fitter.fit(data, convert_dtype=True)
+    fitter.fit(data)
 
     new_data = digits.data[~digits_selection]
 
-    embedding = fitter.transform(new_data, convert_dtype=True)
+    embedding = fitter.transform(new_data)
     trust = trustworthiness(
         digits.data[~digits_selection], embedding, n_neighbors=15
     )
@@ -272,7 +264,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         n_neighbors=10, min_dist=0.01, target_metric=target_metric
     )
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     trust = trustworthiness(data, embedding, n_neighbors=10)
     cuml_trust = trustworthiness(data, cuml_embedding, n_neighbors=10)
@@ -336,7 +328,7 @@ def test_umap_fit_transform_score_default(target_metric, build_algo):
     cuml_model = cuUMAP(target_metric=target_metric, build_algo=build_algo)
 
     embedding = model.fit_transform(data)
-    cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
+    cuml_embedding = cuml_model.fit_transform(data)
 
     cuml_score = adjusted_rand_score(
         labels, KMeans(10).fit_predict(cuml_embedding)
@@ -361,8 +353,8 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
 
     cuml_model = cuUMAP(build_algo=build_algo)
 
-    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+    ft_embedding = cuml_model.fit_transform(data)
+    fit_embedding_same_input = cuml_model.transform(data)
 
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_same_input)
 
@@ -372,14 +364,12 @@ def test_umap_fit_transform_against_fit_and_transform(build_algo):
 
     cuml_model = cuUMAP(hash_input=True)
 
-    ft_embedding = cuml_model.fit_transform(data, convert_dtype=True)
-    fit_embedding_same_input = cuml_model.transform(data, convert_dtype=True)
+    ft_embedding = cuml_model.fit_transform(data)
+    fit_embedding_same_input = cuml_model.transform(data)
 
     assert joblib.hash(ft_embedding) == joblib.hash(fit_embedding_same_input)
 
-    fit_embedding_diff_input = cuml_model.transform(
-        data[1:], convert_dtype=True
-    )
+    fit_embedding_diff_input = cuml_model.transform(data[1:])
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
@@ -414,7 +404,7 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
             random_state=random_state,
             build_algo="brute_force_knn",
         )
-        return reducer.fit_transform(data, convert_dtype=True)
+        return reducer.fit_transform(data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
@@ -456,7 +446,7 @@ def test_umap_force_serial_epochs_reproducibility(n_components, init):
             random_state=42,
             force_serial_epochs=True,
             build_algo="brute_force_knn",
-        ).fit_transform(data, convert_dtype=True)
+        ).fit_transform(data)
 
     cuml_embedding1 = get_embedding()
     cuml_embedding2 = get_embedding()
@@ -504,8 +494,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
             random_state=random_state,
             build_algo="brute_force_knn",
         )
-        reducer.fit(fit_data, convert_dtype=True)
-        return reducer.transform(transform_data, convert_dtype=True)
+        reducer.fit(fit_data)
+        return reducer.transform(transform_data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
@@ -533,7 +523,7 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
         init="random",
         random_state=42,
     )
-    embedding = algo.fit_transform(data, convert_dtype=True)
+    embedding = algo.fit_transform(data)
     trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
@@ -552,8 +542,8 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
         init="random",
         random_state=42,
     )
-    model.fit(fit_data, convert_dtype=True)
-    embedding = model.transform(transform_data, convert_dtype=True)
+    model.fit(fit_data)
+    embedding = model.transform(transform_data)
     trust = trustworthiness(transform_data, embedding, n_neighbors=10)
     assert trust >= 0.92
 
@@ -585,6 +575,236 @@ def test_fit_fewer_rows_than_n_neighbors():
     assert model._n_neighbors == 10
 
 
+@pytest.mark.parametrize("in_mem_type", ["device", "host"])
+@pytest.mark.parametrize("in_dtype", ["float32", "float64"])
+@pytest.mark.parametrize("indices_dtype", ["float32", "float64"])
+@pytest.mark.parametrize("k", [10, 20])
+@pytest.mark.parametrize(
+    "kind, transform",
+    [
+        ("csr", None),
+        ("csc", None),
+        ("coo", None),
+        ("csr", "canonical"),
+        ("csc", "canonical"),
+        ("coo", "canonical"),
+        ("csr", "nonzero"),
+        ("csc", "nonzero"),
+        ("coo", "nonzero"),
+        ("pairwise", None),
+        ("tuple", None),
+    ],
+)
+def test_extract_knn_graph(
+    in_mem_type, in_dtype, indices_dtype, k, kind, transform
+):
+    X, _ = datasets.make_blobs(30, 10, centers=5, random_state=42)
+    if kind == "pairwise":
+        knn_info = pairwise_distances(X).astype(in_dtype)
+        if in_mem_type == "device":
+            knn_info = cp.asarray(knn_info)
+    elif kind == "tuple":
+        nn = NearestNeighbors(n_neighbors=20).fit(X)
+        distances, indices = nn.kneighbors(X, return_distance=True)
+        if in_mem_type == "device":
+            indices = cp.asarray(indices)
+            distances = cp.asarray(distances)
+        knn_info = (indices, distances.astype(in_dtype))
+    else:
+        knn_info = kneighbors_graph(X, 20, include_self=True, mode="distance")
+        if in_mem_type == "device":
+            knn_info = cp_sp.csr_matrix(knn_info)
+        knn_info = knn_info.asformat(kind).astype(in_dtype)
+        if transform is not None:
+            # Canonicalize input matrix
+            if hasattr(knn_info, "sort_indices"):
+                knn_info.sort_indices()
+        if transform == "nonzero":
+            knn_info.eliminate_zeros()
+
+    sol = kneighbors_graph(X, k, include_self=True, mode="distance")
+
+    # mem_type=None doesn't coerce mem_type
+    indices, distances = extract_knn_graph(
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type=None
+    )
+    assert indices.dtype == indices_dtype
+    assert distances.dtype == "float32"
+    xp = cp if in_mem_type == "device" else np
+    assert isinstance(indices, xp.ndarray)
+    assert isinstance(distances, xp.ndarray)
+    np.testing.assert_allclose(cp.asnumpy(distances), sol.data, atol=1e-5)
+    np.testing.assert_array_equal(cp.asnumpy(indices), sol.indices)
+
+    indices, distances = extract_knn_graph(
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type="host"
+    )
+    assert indices.dtype == indices_dtype
+    assert distances.dtype == "float32"
+    np.testing.assert_allclose(distances, sol.data, atol=1e-5)
+    np.testing.assert_array_equal(indices, sol.indices)
+
+    indices, distances = extract_knn_graph(
+        knn_info, 30, k, indices_dtype=indices_dtype, mem_type="device"
+    )
+    assert indices.dtype == indices_dtype
+    assert distances.dtype == "float32"
+    np.testing.assert_allclose(distances.get(), sol.data, atol=1e-5)
+    np.testing.assert_array_equal(indices.get(), sol.indices)
+
+
+def test_extract_knn_graph_errors():
+    X, _ = datasets.make_blobs(30, 10, centers=5, random_state=42)
+
+    # tuple: invalid shape
+    knn_info = (np.ones((3, 4)), np.ones((4, 3)))
+    with pytest.raises(
+        ValueError, match="Expected indices and distances to have shape"
+    ):
+        extract_knn_graph(knn_info, 3, 2)
+    knn_info = (np.ones((2, 4)), np.ones((2, 4)))
+    with pytest.raises(
+        ValueError, match="Expected indices and distances to have shape"
+    ):
+        extract_knn_graph(knn_info, 3, 2)
+
+    # tuple: n_neighbors > original_n_neighbors
+    knn_info = tuple(
+        reversed(
+            NearestNeighbors(n_neighbors=20)
+            .fit(X)
+            .kneighbors(X, return_distance=True)
+        )
+    )
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Precomputed KNN data has 20 neighbors per sample, but "
+            "n_neighbors=25 was specified"
+        ),
+    ):
+        extract_knn_graph(knn_info, 30, 25)
+
+    # tuple: expected self references
+    knn_info = tuple(
+        reversed(
+            NearestNeighbors(n_neighbors=20)
+            .fit(X)
+            .kneighbors(return_distance=True)
+        )
+    )
+    with pytest.raises(
+        ValueError,
+        match="Expected indices and distances to include self references",
+    ):
+        extract_knn_graph(knn_info, 30, 20)
+
+    # graph: invalid shape
+    knn_info = sp.random(29, 29, random_state=42, density=0.5)
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        extract_knn_graph(knn_info, 30, 10)
+    knn_info = sp.random(30, 29, random_state=42, density=0.5)
+    with pytest.raises(ValueError, match="Expected a sparse array of shape"):
+        extract_knn_graph(knn_info, 30, 10)
+
+    # graph: invalid nnz
+    knn_info = sp.csr_matrix(
+        (
+            np.array([0.5, 0.5, 0.5, 0.5]),
+            (np.array([0, 0, 1, 1]), np.array([1, 2, 0, 2])),
+        ),
+        shape=(3, 3),
+    )
+    with pytest.raises(
+        ValueError, match="Precomputed KNN graph has 4 nonzero elements"
+    ):
+        extract_knn_graph(knn_info, 3, 3)
+
+    # graph: n_neighbors > original_n_neighbors
+    knn_info = kneighbors_graph(X, 20, include_self=True, mode="distance")
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Precomputed KNN data has 20 neighbors per sample, but "
+            "n_neighbors=25 was specified"
+        ),
+    ):
+        extract_knn_graph(knn_info, 30, 25)
+
+    # pairwise: invalid shape
+    knn_info = np.ones((5, 6))
+    with pytest.raises(ValueError, match="Expected a dense array of shape"):
+        extract_knn_graph(knn_info, 5, 5)
+    knn_info = np.ones((5, 5))
+    with pytest.raises(ValueError, match="Expected a dense array of shape"):
+        extract_knn_graph(knn_info, 6, 5)
+
+    # pairwise: n_neighbors > n_samples
+    knn_info = np.ones((5, 5))
+    with pytest.raises(
+        ValueError,
+        match="Precomputed KNN data requires n_samples >= n_neighbors",
+    ):
+        extract_knn_graph(knn_info, 5, 10)
+
+
+@pytest.mark.parametrize(
+    "kind, mem_type",
+    [
+        ("cupy", None),
+        ("cupy", "device"),
+        ("numpy", None),
+        ("numpy", "host"),
+    ],
+)
+def test_extract_knn_graph_zero_distance_rows(kind, mem_type):
+    X = np.array([[0, 1, 2], [3, 1, 3], [5, 1, 2], [0, 1, 2]], dtype="float32")
+    nn = cuml.neighbors.NearestNeighbors().fit(X)
+    with cuml.using_output_type(kind):
+        graph = nn.kneighbors_graph(X, 3, mode="distance")
+    graph.sort_indices()
+
+    # Hardcoded indices to ease testing - it's tricky to get `kneighbors` to
+    # return self references first otherwise.
+    sol_indices = np.array([0, 3, 1, 1, 2, 3, 2, 1, 3, 3, 0, 1])
+    sol_distances = nn.kneighbors(X, 3)[0].flatten()
+
+    indices, distances = extract_knn_graph(graph, 4, 3, mem_type=mem_type)
+    np.testing.assert_allclose(cp.asnumpy(distances), sol_distances, atol=1e-5)
+    np.testing.assert_array_equal(cp.asnumpy(indices), sol_indices)
+
+
+@pytest.mark.parametrize(
+    "kind, mem_type",
+    [
+        ("cupy", None),
+        ("cupy", "device"),
+        ("numpy", None),
+        ("numpy", "host"),
+    ],
+)
+def test_extract_knn_graph_from_kneighbors_graph_zero_copy(kind, mem_type):
+    """When converting from the output of `kneighbors_graph`, no copy should be
+    needed if not changing mem_type, as no sorting is required"""
+    X, _ = datasets.make_blobs(30, 10, centers=5, random_state=42)
+    with cuml.using_output_type(kind):
+        graph = cuml.neighbors.kneighbors_graph(
+            X, 20, include_self=True, mode="distance"
+        )
+
+    def assert_same_memory(x, y):
+        assert type(x) is type(y)
+        x_ptr = x.data.ptr if isinstance(x, cp.ndarray) else x.ctypes.data
+        y_ptr = y.data.ptr if isinstance(y, cp.ndarray) else y.ctypes.data
+        assert x_ptr == y_ptr
+
+    indices, distances = extract_knn_graph(
+        graph, 30, 20, mem_type=mem_type, indices_dtype=graph.indices.dtype
+    )
+    assert_same_memory(indices, graph.indices)
+    assert_same_memory(distances, graph.data)
+
+
 @pytest.mark.parametrize("n_neighbors", [5, 15])
 @pytest.mark.parametrize("build_algo", ["brute_force_knn", "nn_descent"])
 @pytest.mark.parametrize("data_on_gpu", [True, False])
@@ -604,7 +824,6 @@ def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
         embd = model.fit_transform(
             cp.array(data) if data_on_gpu else data,
             knn_graph=knn_graph,
-            convert_dtype=True,
         )
 
         return embd.get() if data_on_gpu else embd
@@ -619,11 +838,8 @@ def test_umap_knn_graph(n_neighbors, build_algo, data_on_gpu):
         model.fit(
             cp.array(data) if data_on_gpu else data,
             knn_graph=knn_graph,
-            convert_dtype=True,
         )
-        embd = model.transform(
-            cp.array(data) if data_on_gpu else data, convert_dtype=True
-        )
+        embd = model.transform(cp.array(data) if data_on_gpu else data)
         return embd.get() if data_on_gpu else embd
 
     def test_trustworthiness(embedding):
@@ -682,7 +898,7 @@ def test_umap_precomputed_knn(precomputed_type, sparse_input, build_algo):
             [0.0, 1.0], p=[0.1, 0.9], size=data.shape
         )
         data = np.multiply(data, sparsification)
-        data = scipy_sparse.csr_matrix(data)
+        data = sp.csr_matrix(data)
 
     n_neighbors = 8
 
@@ -866,7 +1082,7 @@ def test_umap_distance_metrics_fit_transform_trust_on_sparse_input(
     if metric == "jaccard":
         data = data >= 0
 
-    new_data = scipy_sparse.csr_matrix(data[~data_selection])
+    new_data = sp.csr_matrix(data[~data_selection])
 
     if umap_learn_supported:
         umap_model = umap.UMAP(
@@ -918,12 +1134,10 @@ def test_umap_trustworthiness_on_batch_nnd(
     )
 
     if fit_then_transform:
-        cuml_model.fit(digits.data, convert_dtype=True)
+        cuml_model.fit(digits.data)
         cuml_embedding = cuml_model.transform(digits.data)
     else:
-        cuml_embedding = cuml_model.fit_transform(
-            digits.data, convert_dtype=True
-        )
+        cuml_embedding = cuml_model.fit_transform(digits.data)
 
     cuml_trust = trustworthiness(
         digits.data, cuml_embedding, n_neighbors=10, metric=metric
@@ -964,7 +1178,7 @@ def test_umap_fit_transform_batch_brute_force_reproducibility(
             build_algo="brute_force_knn",
             build_kwds={"knn_n_clusters": num_clusters},
         )
-        return reducer.fit_transform(data, convert_dtype=True)
+        return reducer.fit_transform(data)
 
     state = copy.deepcopy(random_state)
     cuml_embedding1 = get_embedding(n_components, state)
@@ -1199,7 +1413,9 @@ def test_umap_precomputed_knn_insufficient_neighbors(precomputed_type):
         random_state=42,
         init="random",
     )
-    with pytest.raises(ValueError, match=".*fewer neighbors.*"):
+    with pytest.raises(
+        ValueError, match=f".*at least {k_requested} neighbors.*"
+    ):
         model.fit(data)
 
 
@@ -1290,10 +1506,14 @@ def test_umap_sigmas_rhos():
     ref_model.fit(X)
 
     # With identical KNN inputs, sigmas and rhos should match closely
-    np.testing.assert_allclose(cu_model._rhos, ref_model._rhos, atol=1e-3)
+    np.testing.assert_allclose(
+        cu_model._rhos.get(), ref_model._rhos, atol=1e-3
+    )
 
     # Sigmas are more sensitive to numerical differences
-    np.testing.assert_allclose(cu_model._sigmas, ref_model._sigmas, atol=5e-2)
+    np.testing.assert_allclose(
+        cu_model._sigmas.get(), ref_model._sigmas, atol=5e-2
+    )
 
 
 @pytest.mark.xfail(
@@ -1395,9 +1615,7 @@ def test_inverse_transform():
 def test_inverse_transform_sparse_error():
     """Test that inverse_transform raises error for sparse input data."""
     # Create sparse data
-    X_sparse = scipy_sparse.random(
-        100, 20, density=0.3, format="csr", random_state=42
-    )
+    X_sparse = sp.random(100, 20, density=0.3, format="csr", random_state=42)
     X_sparse = X_sparse.astype(np.float32)
 
     # Fit UMAP on sparse data

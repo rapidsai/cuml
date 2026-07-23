@@ -9,16 +9,16 @@ dependencies:
 - ccache
 - certifi
 - cmake>=4.0
+- cuda-bindings>=12.9.2,<13.0
 - cuda-cudart-dev
 - cuda-nvcc
 - cuda-profiler-api
-- cuda-python>=12.9.2,<13.0
 - cuda-version=12.9
 - cudf==26.8.*,>=0.0.0a0
-- cupy>=13.6.0,!=14.0.0,!=14.1.0
+- cupy>=14.0.1,!=14.1.0
 - cuvs==26.8.*,>=0.0.0a0
 - cxx-compiler
-- cython>=3.2.2
+- cython>=3.2.2,!=3.2.7
 - dask-cuda==26.8.*,>=0.0.0a0
 - dask-cudf==26.8.*,>=0.0.0a0
 - dask-ml>=2024
@@ -48,7 +48,7 @@ dependencies:
 - nltk
 - numba-cuda>=0.22.2
 - numba>=0.60.0,<0.65.0
-- numpy>=1.26,<3.0
+- numpy>=2.0,<3.0
 - numpydoc
 - numpydoc<1.9
 - nvforest==26.8.*,>=0.0.0a0
@@ -56,12 +56,10 @@ dependencies:
 - onnxruntime
 - packaging
 - pre-commit
-- pydata-sphinx-theme!=0.14.2
 - pylibraft==26.8.*,>=0.0.0a0
 - pynndescent
 - pytest
 - pytest-benchmark
-- pytest-cases
 - pytest-cov
 - pytest-xdist
 - python>=3.11
@@ -82,9 +80,12 @@ dependencies:
 - skl2onnx
 - sphinx
 - sphinx-copybutton
+- sphinx-design
 - sphinx-markdown-tables
 - statsmodels
 - sysroot_linux-64==2.28
 - treelite>=4.7.0,<5.0.0
 - umap-learn>=0.5.7,<0.5.13
+- pip:
+  - nvidia-sphinx-theme
 name: all_cuda-129_arch-x86_64

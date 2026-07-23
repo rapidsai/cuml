@@ -19,7 +19,7 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics" nogil:
                                int n) except +
 
 
-def adjusted_rand_score(labels_true, labels_pred, convert_dtype=True) -> float:
+def adjusted_rand_score(labels_true, labels_pred, convert_dtype="deprecated") -> float:
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.

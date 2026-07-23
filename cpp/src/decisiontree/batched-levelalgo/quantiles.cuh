@@ -7,6 +7,7 @@
 
 #include "quantiles.h"
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/export.hpp>
 
 #include <raft/core/error.hpp>
@@ -45,6 +46,8 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
                                                 int sample_count,
                                                 int rank,
                                                 int n_rows,
+                                                int n_cols,
+                                                bool row_major,
                                                 std::uint64_t seed)
 {
   int col        = blockIdx.x;
@@ -69,7 +72,8 @@ static __global__ void sampleOwnedColumnsKernel(T* out,
   if (sample_rank == rank) {
     int local_row = static_cast<int>(global_row - local_begin);
     out[static_cast<std::size_t>(col) * sample_count + sample_idx] =
-      data[static_cast<int64_t>(col) * n_rows + local_row];
+      row_major ? data[static_cast<std::size_t>(local_row) * n_cols + col]
+                : data[static_cast<std::size_t>(col) * n_rows + local_row];
   }
 }
 
@@ -124,7 +128,9 @@ struct QuantileResult {
  *
  * @tparam T Floating-point input type.
  * @param handle RAFT handle used for stream and resource access.
- * @param data Column-major input matrix with shape `[n_cols, n_rows]`.
+ * @param data Input matrix. When `row_major` is false, data is column-major with
+ * shape `[n_cols, n_rows]`; when `row_major` is true, data is row-major with
+ * shape `[n_rows, n_cols]`.
  * @param max_n_bins Maximum number of quantile candidates to retain per feature.
  * @param n_rows Number of local rows in `data` for this rank.
  * @param n_cols Number of columns in `data`.
@@ -134,6 +140,7 @@ struct QuantileResult {
  * `max_n_bins`, rank error decreases like O(1 / sqrt(oversampling_factor)), so
  * returns from increasing this are strongly diminishing.
  * @param seed User seed for deterministic sampling.
+ * @param row_major Whether `data` is row-major instead of column-major.
  * @return Quantile metadata and owning device buffers for quantile values and bin counts.
  */
 template <typename T>
@@ -143,7 +150,8 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                int n_rows,
                                                int n_cols,
                                                int oversampling_factor = 4,
-                                               uint64_t seed           = uint64_t{0})
+                                               uint64_t seed           = uint64_t{0},
+                                               bool row_major          = false)
 {
   raft::common::nvtx::push_range("computeQuantiles");
   RAFT_EXPECTS(data != nullptr, "data pointer must not be null");
@@ -182,11 +190,10 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   RAFT_EXPECTS(global_rows > 0, "global row count must be positive");
 
   // Allocate one shared row sample for all columns and the buffers used to sort it by column.
-  int sample_count = static_cast<int>(std::min<std::uint64_t>(
-    global_rows, static_cast<std::uint64_t>(max_n_bins) * oversampling_factor));
+  int sample_count = ML::narrow_cast<int>(std::min<std::uint64_t>(
+    global_rows, ML::checked_mul<std::uint64_t>(max_n_bins, oversampling_factor)));
 
-  std::size_t total_sample_values =
-    static_cast<std::size_t>(sample_count) * static_cast<std::size_t>(n_cols);
+  std::size_t total_sample_values = ML::checked_mul<std::size_t>(sample_count, n_cols);
   rmm::device_uvector<T> sampled_columns(total_sample_values, stream);
   rmm::device_uvector<T> sorted_samples(total_sample_values, stream);
 
@@ -196,12 +203,14 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                     [sample_count] __host__ __device__(std::int64_t col) {
                                       return col * static_cast<std::int64_t>(sample_count);
                                     });
-  rmm::device_uvector<T> quantiles_array(n_cols * max_n_bins, stream);
+  rmm::device_uvector<T> quantiles_array(ML::checked_mul<std::size_t>(n_cols, max_n_bins), stream);
   rmm::device_uvector<int> n_bins_array(n_cols, stream);
 
   // Fill this rank's owned positions in the global sample; all other positions remain zero.
-  RAFT_CUDA_TRY(
-    cudaMemsetAsync(sampled_columns.data(), 0, sizeof(T) * total_sample_values, stream));
+  RAFT_CUDA_TRY(cudaMemsetAsync(sampled_columns.data(),
+                                0,
+                                ML::checked_mul<std::size_t>(sizeof(T), total_sample_values),
+                                stream));
   dim3 sample_grid(n_cols, (sample_count + n_threads - 1) / n_threads);
   detail::sampleOwnedColumnsKernel<<<sample_grid, n_threads, 0, stream>>>(sampled_columns.data(),
                                                                           data,
@@ -211,6 +220,8 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
                                                                           sample_count,
                                                                           rank,
                                                                           n_rows,
+                                                                          n_cols,
+                                                                          row_major,
                                                                           seed);
   RAFT_CUDA_TRY(cudaGetLastError());
   if (distributed) {

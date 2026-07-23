@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -210,7 +210,8 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
         } else {
           // if rf_tree.num_outputs < num_class, fill the remainder with zero
           // Most likely this happens when a binary classifier is fit with all-0 labels
-          ASSERT(rf_tree.num_outputs <= num_class, "num_class too small");
+          ASSERT(static_cast<unsigned int>(rf_tree.num_outputs) <= num_class,
+                 "num_class too small");
           std::vector<T> leaf_vector(num_class, T(0));
           std::copy(leaf_begin, leaf_begin + rf_tree.num_outputs, leaf_vector.begin());
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
@@ -243,7 +244,9 @@ class DecisionTree {
     DecisionTreeParams params,
     uint64_t seed,
     const Quantiles<DataT, int>& quantiles,
-    int treeid)
+    int treeid,
+    const double* sample_weight = nullptr,
+    bool row_major              = false)
   {
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
@@ -255,6 +258,23 @@ class DecisionTree {
     // Dispatch objective family. The objective object switches on the criterion at runtime.
     if (not std::is_same<DataT, LabelT>::value and (params.split_criterion == CRITERION::GINI ||
                                                     params.split_criterion == CRITERION::ENTROPY)) {
+      if (sample_weight != nullptr) {
+        return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                                   s,
+                                                                                   treeid,
+                                                                                   seed,
+                                                                                   params,
+                                                                                   data,
+                                                                                   labels,
+                                                                                   sample_weight,
+                                                                                   nrows,
+                                                                                   ncols,
+                                                                                   row_ids,
+                                                                                   unique_labels,
+                                                                                   quantiles,
+                                                                                   row_major)
+          .train();
+      }
       return Builder<ClassificationObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                            s,
                                                                            treeid,
@@ -262,17 +282,36 @@ class DecisionTree {
                                                                            params,
                                                                            data,
                                                                            labels,
+                                                                           sample_weight,
                                                                            nrows,
                                                                            ncols,
                                                                            row_ids,
                                                                            unique_labels,
-                                                                           quantiles)
+                                                                           quantiles,
+                                                                           row_major)
         .train();
     } else if (std::is_same<DataT, LabelT>::value and
                (params.split_criterion == CRITERION::MSE ||
                 params.split_criterion == CRITERION::POISSON ||
                 params.split_criterion == CRITERION::GAMMA ||
                 params.split_criterion == CRITERION::INVERSE_GAUSSIAN)) {
+      if (sample_weight != nullptr) {
+        return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT, true>>(handle,
+                                                                               s,
+                                                                               treeid,
+                                                                               seed,
+                                                                               params,
+                                                                               data,
+                                                                               labels,
+                                                                               sample_weight,
+                                                                               nrows,
+                                                                               ncols,
+                                                                               row_ids,
+                                                                               unique_labels,
+                                                                               quantiles,
+                                                                               row_major)
+          .train();
+      }
       return Builder<RegressionObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                        s,
                                                                        treeid,
@@ -280,11 +319,13 @@ class DecisionTree {
                                                                        params,
                                                                        data,
                                                                        labels,
+                                                                       sample_weight,
                                                                        nrows,
                                                                        ncols,
                                                                        row_ids,
                                                                        unique_labels,
-                                                                       quantiles)
+                                                                       quantiles,
+                                                                       row_major)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

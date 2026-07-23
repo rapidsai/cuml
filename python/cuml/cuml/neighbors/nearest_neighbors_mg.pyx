@@ -4,7 +4,7 @@
 #
 import cupy as cp
 
-from cuml.internals import logger, reflect
+from cuml.internals import logger, mlfunc
 from cuml.internals.validation import check_array
 from cuml.neighbors import NearestNeighbors
 
@@ -49,10 +49,7 @@ def _build_part_inputs(arrays, parts_to_ranks, m, n, local_rank, convert_dtype):
     cdef vector[floatData_t*] *local_parts = new vector[floatData_t*]()
     for arr in cupy_arrays:
         local_parts.push_back(
-            new floatData_t(
-                <float*><uintptr_t>arr.data.ptr,
-                arr.shape[0] * arr.shape[1] * sizeof(float),
-            )
+            new floatData_t(<float*><uintptr_t>arr.data.ptr, arr.size)
         )
 
     cdef vector[RankSizePair*] parts_to_ranks_vec
@@ -83,7 +80,7 @@ class NearestNeighborsMG(NearestNeighbors):
         self.batch_size = batch_size
         super().__init__(**kwargs)
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def kneighbors(
         self,
         index,
@@ -111,8 +108,7 @@ class NearestNeighborsMG(NearestNeighbors):
         ncols: number of columns
         rank: rank of current worker
         n_neighbors: number of nearest neighbors to query
-        convert_dtype: since only float32 inputs are supported, should
-               the input be automatically converted?
+        convert_dtype: deprecated, will be removed in 26.10
 
         Returns
         -------

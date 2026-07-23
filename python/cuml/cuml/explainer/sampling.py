@@ -1,18 +1,17 @@
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cudf
 import cupy as cp
 import pandas as pd
 
-import cuml
 from cuml import KMeans
-from cuml.internals.array import CumlArray
+from cuml.internals.outputs import ArrayIndexPair, mlfunc, using_output_type
 from cuml.internals.validation import check_array
 from cuml.preprocessing import SimpleImputer
 
 
-@cuml.internals.reflect
+@mlfunc
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :
@@ -57,33 +56,27 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     if X.ndim == 1:
         X = X.reshape(-1, 1)
 
-    # in case there are any missing values in data impute them
-    imp = SimpleImputer(
-        missing_values=cp.nan, strategy="mean", output_type="cupy"
-    )
-    X = imp.fit_transform(X)
+    with using_output_type("cupy"):
+        # in case there are any missing values in data impute them
+        imp = SimpleImputer(missing_values=cp.nan, strategy="mean")
+        X = imp.fit_transform(X)
 
-    kmeans = KMeans(
-        n_clusters=k,
-        random_state=random_state,
-        output_type="cupy",
-        n_init="auto",
-    ).fit(X)
+        kmeans = KMeans(n_clusters=k, random_state=random_state, n_init="auto")
+        kmeans.fit(X)
+        summary = kmeans.cluster_centers_
 
-    if round_values:
-        for i in range(k):
-            for j in range(X.shape[1]):
-                xj = X[:, j]
-                ind = cp.argmin(cp.abs(xj - kmeans.cluster_centers_[i, j]))
-                kmeans.cluster_centers_[i, j] = X[ind, j]
-    summary = kmeans.cluster_centers_
-    labels = kmeans.labels_
+        if round_values:
+            for i in range(k):
+                for j in range(X.shape[1]):
+                    xj = X[:, j]
+                    ind = cp.argmin(cp.abs(xj - summary[i, j]))
+                    summary[i, j] = X[ind, j]
 
-    if detailed:
-        return (
-            CumlArray(data=summary),
-            group_names,
-            CumlArray(labels, index=index),
-        )
-    else:
-        return CumlArray(data=summary)
+        if detailed:
+            return (
+                summary,
+                group_names,
+                ArrayIndexPair(kmeans.labels_, index=index),
+            )
+        else:
+            return summary

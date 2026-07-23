@@ -19,20 +19,14 @@ except ImportError:
     from gpu_check import is_cuml_available  # noqa: E402
 
 # Conditional GPU imports
-cudf = None
-cp = None
-cuda = None
-cuml = None
-input_utils = None
-DeviceType = None
-UMAP = None
-
 if is_cuml_available():
     import cudf
     import cupy as cp
     from numba import cuda
 
     from cuml.manifold import UMAP
+else:
+    cudf = cp = cuda = UMAP = None
 
 
 def call(m, func_name, X, y=None):
@@ -72,6 +66,10 @@ def kneighbors(m, x, y=None):
     call(m, "kneighbors", x)
 
 
+def score_samples(m, x, y=None):
+    call(m, "score_samples", x[: min(x.shape[0], 1024)])
+
+
 def fit_predict(m, x, y=None):
     if hasattr(m, "predict"):
         fit(m, x, y)
@@ -94,6 +92,11 @@ def fit_kneighbors(m, x, y=None):
         kneighbors(m, x)
     else:
         call(m, "fit_kneighbors", x, y)
+
+
+def fit_score_samples(m, x, y=None):
+    fit(m, x, y)
+    score_samples(m, x)
 
 
 def _training_data_to_numpy(X, y):

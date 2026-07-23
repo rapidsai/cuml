@@ -35,6 +35,7 @@
 #include <cuvs/distance/distance.hpp>
 #include <cuvs/distance/grammian.hpp>
 #include <gtest/gtest.h>
+#include <matrix/kernel_params.hpp>
 #include <svm/smoblocksolve.cuh>
 #include <svm/smosolver.cuh>
 #include <svm/workingset.cuh>
@@ -276,7 +277,8 @@ TYPED_TEST_P(KernelCacheTest, EvalTest)
       this->x_dev.data(), this->n_rows, this->n_cols, 0);
 
   for (auto params : param_vec) {
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(params.to_cuvs());
+    GramMatrixBase<TypeParam>* kernel =
+      KernelFactory<TypeParam>::create(ML::matrix::to_cuvs(params));
     KernelCache<TypeParam, raft::device_matrix_view<TypeParam, int, raft::layout_stride>> cache(
       this->handle,
       dense_view,
@@ -324,7 +326,8 @@ TYPED_TEST_P(KernelCacheTest, SvcCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param.to_cuvs());
+    GramMatrixBase<TypeParam>* kernel =
+      KernelFactory<TypeParam>::create(ML::matrix::to_cuvs(param));
     if (input.sparse) {
       auto csr_structure =
         raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
@@ -416,7 +419,8 @@ TYPED_TEST_P(KernelCacheTest, SvrCacheEvalTest)
 
     size_t tile_byte_limit   = input.batching ? (2 * this->n_ws * sizeof(TypeParam)) : (1 << 30);
     size_t sparse_byte_limit = input.sparse_compute ? 1 : (1 << 30);
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(param.to_cuvs());
+    GramMatrixBase<TypeParam>* kernel =
+      KernelFactory<TypeParam>::create(ML::matrix::to_cuvs(param));
     if (input.sparse) {
       auto csr_structure =
         raft::make_device_compressed_structure_view<int, int, int>(this->x_indptr_dev.data(),
@@ -1102,7 +1106,8 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     param.C            = p.C;
     param.tol          = p.tol;
     // param.max_outer_iter = p.max_outer_iter;
-    GramMatrixBase<TypeParam>* kernel = KernelFactory<TypeParam>::create(p.kernel_params.to_cuvs());
+    GramMatrixBase<TypeParam>* kernel =
+      KernelFactory<TypeParam>::create(ML::matrix::to_cuvs(p.kernel_params));
     SmoSolver<TypeParam> smo(
       this->handle,
       param,

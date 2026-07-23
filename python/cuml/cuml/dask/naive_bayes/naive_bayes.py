@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -170,11 +170,6 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         return arrs.shape[0]
 
     def predict(self, X):
-        # TODO: Once cupy sparse arrays are fully supported underneath Dask
-        # arrays, and Naive Bayes is refactored to use CumlArray, this can
-        # extend DelayedPredictionMixin.
-        # Ref: https://github.com/rapidsai/cuml/issues/1834
-        # Ref: https://github.com/rapidsai/cuml/issues/1387
         """
         Use distributed Naive Bayes model to predict the classes for a
         given set of data samples.
@@ -191,6 +186,9 @@ class MultinomialNB(BaseEstimator, DelayedPredictionMixin):
         dask.Array containing predicted classes
 
         """
+        # TODO: This could be refactored to use DelayedPredictionMixin
+        # Ref: https://github.com/rapidsai/cuml/issues/1834
+        # Ref: https://github.com/rapidsai/cuml/issues/1387
         if not isinstance(X, dask.array.core.Array):
             raise ValueError("Only dask.Array is supported for X")
 

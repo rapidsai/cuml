@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
 #include <cuml/prims/opg/linalg/mm_aTa.hpp>
@@ -34,12 +33,8 @@ void fit_impl(raft::handle_t& handle,
               paramsTSVDMG& prms,
               cudaStream_t* streams,
               std::uint32_t n_streams,
-              bool verbose,
-              bool flip_signs_based_on_U = false)
+              bool verbose)
 {
-  const auto& comm             = handle.get_comms();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-
   auto len = prms.n_cols * prms.n_cols;
 
   rmm::device_uvector<T> cov_data(len, streams[0]);
@@ -79,27 +74,13 @@ void fit_impl(raft::handle_t& handle,
                                 singular_vals, std::size_t(1), prms.n_components),
                               raft::make_host_scalar_view(&scalar));
 
-  if (flip_signs_based_on_U) {
-    PCA::opg::sign_flip_components_u(handle,
-                                     input_data,
-                                     input_desc,
-                                     components,
-                                     prms.n_rows,
-                                     prms.n_cols,
-                                     prms.n_components,
-                                     streams,
-                                     n_streams,
+  raft::linalg::sign_flip_components(handle_stream_zero,
+                                     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+                                       input_data[0]->ptr, prms.n_rows, prms.n_cols),
+                                     raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
+                                       components, prms.n_components, prms.n_cols),
+                                     false,
                                      false);
-  } else {
-    raft::linalg::sign_flip_components(
-      handle_stream_zero,
-      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-        input_data[0]->ptr, prms.n_rows, prms.n_cols),
-      raft::make_device_matrix_view<T, std::size_t, raft::col_major>(
-        components, prms.n_components, prms.n_cols),
-      false,
-      false);
-  }
 }
 
 /**
@@ -121,8 +102,7 @@ void fit_impl(raft::handle_t& handle,
               T* components,
               T* singular_vals,
               paramsTSVDMG& prms,
-              bool verbose,
-              bool flip_signs_based_on_U = false)
+              bool verbose)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -138,16 +118,8 @@ void fit_impl(raft::handle_t& handle,
     RAFT_CUDA_TRY(cudaStreamCreate(&streams[i]));
   }
 
-  fit_impl(handle,
-           input_data,
-           input_desc,
-           components,
-           singular_vals,
-           prms,
-           streams,
-           n_streams,
-           verbose,
-           flip_signs_based_on_U);
+  fit_impl(
+    handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
 
   for (std::uint32_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
@@ -357,19 +329,10 @@ void fit_transform_impl(raft::handle_t& handle,
                         T* explained_var_ratio,
                         T* singular_vals,
                         paramsTSVDMG& prms,
-                        bool verbose,
-                        bool flip_signs_based_on_U = false)
+                        bool verbose)
 {
-  fit_impl(handle,
-           input_data,
-           input_desc,
-           components,
-           singular_vals,
-           prms,
-           streams,
-           n_streams,
-           verbose,
-           flip_signs_based_on_U);
+  fit_impl(
+    handle, input_data, input_desc, components, singular_vals, prms, streams, n_streams, verbose);
 
   transform_impl(
     handle, input_data, input_desc, components, trans_data, prms, streams, n_streams, verbose);
@@ -415,18 +378,9 @@ void fit(raft::handle_t& handle,
          float* components,
          float* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose,
-         bool flip_signs_based_on_U)
+         bool verbose)
 {
-  fit_impl(handle,
-           rank_sizes,
-           n_parts,
-           input,
-           components,
-           singular_vals,
-           prms,
-           verbose,
-           flip_signs_based_on_U);
+  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose);
 }
 
 void fit(raft::handle_t& handle,
@@ -436,18 +390,9 @@ void fit(raft::handle_t& handle,
          double* components,
          double* singular_vals,
          paramsTSVDMG& prms,
-         bool verbose,
-         bool flip_signs_based_on_U)
+         bool verbose)
 {
-  fit_impl(handle,
-           rank_sizes,
-           n_parts,
-           input,
-           components,
-           singular_vals,
-           prms,
-           verbose,
-           flip_signs_based_on_U);
+  fit_impl(handle, rank_sizes, n_parts, input, components, singular_vals, prms, verbose);
 }
 
 void fit_transform(raft::handle_t& handle,
@@ -460,8 +405,7 @@ void fit_transform(raft::handle_t& handle,
                    float* explained_var_ratio,
                    float* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U = false)
+                   bool verbose)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -482,8 +426,7 @@ void fit_transform(raft::handle_t& handle,
                      explained_var_ratio,
                      singular_vals,
                      prms,
-                     verbose,
-                     flip_signs_based_on_U);
+                     verbose);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }
@@ -502,8 +445,7 @@ void fit_transform(raft::handle_t& handle,
                    double* explained_var_ratio,
                    double* singular_vals,
                    paramsTSVDMG& prms,
-                   bool verbose,
-                   bool flip_signs_based_on_U = false)
+                   bool verbose)
 {
   // TODO: These streams should come from raft::handle_t
   int rank         = handle.get_comms().get_rank();
@@ -524,8 +466,7 @@ void fit_transform(raft::handle_t& handle,
                      explained_var_ratio,
                      singular_vals,
                      prms,
-                     verbose,
-                     flip_signs_based_on_U);
+                     verbose);
   for (std::size_t i = 0; i < n_streams; i++) {
     handle.sync_stream(streams[i]);
   }

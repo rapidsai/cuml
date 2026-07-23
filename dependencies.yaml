@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Dependency list for https://github.com/rapidsai/dependency-file-generator
@@ -6,7 +6,7 @@ files:
   all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64, aarch64]
     includes:
       - common_build
@@ -41,6 +41,9 @@ files:
     output: none
     includes:
       # "devcontainers" includes everything in "all", excluding test_python_xgboost
+      # The libxgboost package depends on librmm but we do not want to have a
+      # package depending on librmm in devcontainers since it should be built
+      # from source.
       - common_build
       - cuda
       - cuda_version
@@ -70,7 +73,7 @@ files:
   cpp_all:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64]
     includes:
       - common_build
@@ -88,7 +91,7 @@ files:
   clang_tidy:
     output: conda
     matrix:
-      cuda: ["12.9", "13.2"]
+      cuda: ["12.9", "13.3"]
       arch: [x86_64]
     includes:
       - clang_tidy
@@ -120,6 +123,10 @@ files:
       - depends_on_libnvforest
       - test_libcuml
       - test_cpp
+  test_integration_bertopic:
+    output: none
+    includes:
+      - test_bertopic
   test_python:
     output: none
     includes:
@@ -193,7 +200,6 @@ files:
       - common_build
       - depends_on_cuda_python
       - depends_on_libcuml
-      - depends_on_libcuvs
       - depends_on_libnvforest
       - depends_on_libraft
       - depends_on_librmm
@@ -343,7 +349,8 @@ dependencies:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
-          - &cython cython>=3.2.2
+          # skipping Cython 3.2.7 because of https://github.com/cython/cython/issues/7781
+          - &cython cython>=3.2.2,!=3.2.7
           - &treelite treelite>=4.7.0,<5.0.0
   py_run_cuml:
     common:
@@ -351,7 +358,7 @@ dependencies:
         packages:
           - joblib>=0.11
           - numba>=0.60.0,<0.65.0
-          - &numpy numpy>=1.26,<3.0
+          - &numpy numpy>=2.0,<3.0
           - scipy>=1.14.0
           - packaging
           - rich
@@ -391,6 +398,10 @@ dependencies:
               cuda: "13.2"
             packages:
               - cuda-version=13.2
+          - matrix:
+              cuda: "13.3"
+            packages:
+              - cuda-version=13.3
       - output_types: requirements
         matrices:
           # if use_cuda_wheels=false is provided, do not add dependencies on any CUDA wheels
@@ -441,6 +452,11 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - cuda-toolkit==13.2.*
+          - matrix:
+              cuda: "13.3"
+              use_cuda_wheels: "true"
+            packages:
+              - cuda-toolkit==13.3.*
   cuda:
     common:
       - output_types: [conda]
@@ -482,7 +498,7 @@ dependencies:
               use_cuda_wheels: "true"
             packages:
               - &ctk_cu13 cuda-toolkit[cublas,cufft,curand,cusolver,cusparse]==13.*
-              - &nvjitlink_cu13 nvidia-nvjitlink>=13.0,<14
+              - &nvjitlink_cu13 nvidia-nvjitlink>=13.3,<14
           # if no matching matrix selectors passed, list the CUDA 13 requirement
           # (just as a source of documentation, as this populates pyproject.toml in source control)
           - matrix:
@@ -499,21 +515,23 @@ dependencies:
           - nbsphinx
           - numpydoc
           - &onnxruntime onnxruntime
-          # https://github.com/pydata/pydata-sphinx-theme/issues/1539
-          - pydata-sphinx-theme!=0.14.2
           - recommonmark
           - *scikit_learn
           - &skl2onnx skl2onnx
           - sphinx
           - sphinx-copybutton
+          - sphinx-design
           - sphinx-markdown-tables
       - output_types: conda
         packages:
           - doxygen=1.9.1
           - matplotlib-base
+          - pip:
+              - nvidia-sphinx-theme
       - output_types: requirements
         packages:
           - matplotlib
+          - nvidia-sphinx-theme
   py_version:
     specific:
       - output_types: conda
@@ -537,6 +555,29 @@ dependencies:
           - matrix:
             packages:
               - python>=3.11
+  test_bertopic:
+    common:
+      - output_types: requirements
+        packages:
+          - bertopic>=0.17.4
+    specific:
+      # The 'pytorch.org' indices referenced in --extra-index-url below host CPU-only variants too,
+      # so requirements like '>=' are not safe.
+      #
+      # Using '==' and a version with the CUDA specifier like '+cu132' is the most reliable way to ensure
+      # the packages we want are pulled (at the expense of needing to maintain this list).
+      - output_types: requirements
+        matrices:
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu129
+              - torch==2.10.0+cu129
+          - matrix:
+              cuda: "13.*"
+            packages:
+              - --extra-index-url=https://download.pytorch.org/whl/cu132
+              - torch==2.12.1+cu132
   test_libcuml:
     common:
       - output_types: conda
@@ -557,7 +598,7 @@ dependencies:
               - scikit-learn==1.6.0
               - umap-learn==0.5.7
               - hdbscan==0.8.39
-              - numpy==1.26
+              - numpy==2.0
           - matrix: {dependencies: "nightly"}
             packages:
               # Pre-release specifier tells pip to accept dev/alpha/beta versions
@@ -611,6 +652,20 @@ dependencies:
               - libopenblas<=0.3.30
           - matrix:
             packages:
+      - output_types: [conda, requirements, pyproject]
+        matrices:
+          - matrix:
+              dependencies: "oldest"
+              cuda: "12.*"
+            packages:
+              - cuda-bindings==12.9.2
+          - matrix:
+              dependencies: "oldest"
+              cuda: "13.*"
+            packages:
+              - cuda-bindings==13.0.1
+          - matrix:
+            packages:
     common:
       - output_types: [conda, requirements, pyproject]
         packages:
@@ -628,7 +683,6 @@ dependencies:
           # - *skl2onnx
           - pytest
           - pytest-benchmark
-          - pytest-cases
           - pytest-cov
           - pytest-xdist
           - pyyaml
@@ -651,10 +705,10 @@ dependencies:
         matrices:
           - matrix: {dependencies: "latest"}
             packages:
-              - scikit-learn==1.8.0
+              - scikit-learn==1.9.0
           - matrix: {dependencies: "intermediate"}
             packages:
-              - scikit-learn==1.7.2
+              - scikit-learn==1.8.0
           - matrix: {dependencies: "oldest"}
             packages:
               - scikit-learn==1.6.0
@@ -664,17 +718,20 @@ dependencies:
         packages:
           - dask-ml>=2024
   test_python_xgboost:
-    common:
-      - output_types: [conda]
-        packages:
-          # We must separate xgboost into its own list so that it is not
-          # included in the "devcontainers" key. The libxgboost package depends
-          # on librmm but we do not want to have a package depending on librmm
-          # in devcontainers since it should be built from source.
-          - rapids-xgboost==26.8.*,>=0.0.0a0
     specific:
+      - output_types: [conda]
+        matrices:
+        - matrix:
+            py: "3.11"
+          packages: []
+        - matrix:
+          packages:
+            - rapids-xgboost==26.8.*,>=0.0.0a0
       - output_types: [requirements, pyproject]
         matrices:
+          - matrix:
+              py: "3.11"
+            packages: []
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
@@ -727,11 +784,11 @@ dependencies:
           - matrix:
               cuda: "12.*"
             packages:
-              - cuda-python>=12.9.2,<13.0
+              - cuda-bindings>=12.9.2,<13.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cuda-python>=13.0.1,<14.0
+              - cuda-bindings>=13.0.1,<14.0
   depends_on_cudf:
     common:
       - output_types: conda
@@ -766,37 +823,57 @@ dependencies:
     common:
       - output_types: conda
         packages:
-          - cupy>=13.6.0,!=14.0.0,!=14.1.0
+          - cupy>=14.0.1,!=14.1.0
     # NOTE: This is intentionally not broken into groups by a 'cuda_suffixed' selector like
     #       other packages with -cu{nn}x suffixes in this file.
     #       All RAPIDS wheel builds (including in devcontainers) expect cupy to be suffixed.
     specific:
-      - output_types: [requirements, pyproject]
+      - output_types: requirements
         matrices:
           # Nightly dependencies with pre-release specifiers
           - matrix:
               cuda: "12.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda12x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda12x>=14.0.1a0,!=14.1.0
           - matrix:
               cuda: "13.*"
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda13x>=14.0.1a0,!=14.1.0
           - matrix:
               dependencies: "nightly"
             packages:
-              - cupy-cuda13x>=13.6.0a0,!=14.0.0,!=14.1.0
+              - cupy-cuda13x>=14.0.1a0,!=14.1.0
           # Standard dependencies
           - matrix:
               cuda: "12.*"
             packages:
-              - cupy-cuda12x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cu12 cupy-cuda12x>=14.0.1,!=14.1.0
           # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
           - matrix:
             packages:
-              - cupy-cuda13x>=13.6.0,!=14.0.0,!=14.1.0
+              - &cupy_cu13 cupy-cuda13x>=14.0.1,!=14.1.0
+      - output_types: pyproject
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu12
+          - matrix:
+              cuda: "13.*"
+              use_cuda_wheels: "false"
+            packages:
+              - *cupy_cu13
+          - matrix:
+              cuda: "12.*"
+            packages:
+              - cupy-cuda12x[ctk]>=14.0.1,!=14.1.0
+          # fallback to CUDA 13 versions if 'cuda' is '13.*' or not provided
+          - matrix:
+            packages:
+              - cupy-cuda13x[ctk]>=14.0.1,!=14.1.0
       - output_types: requirements
         matrices:
           - matrix:
@@ -892,6 +969,24 @@ dependencies:
       - output_types: conda
         packages:
           - &libcuvs_unsuffixed libcuvs==26.8.*,>=0.0.0a0
+      - output_types: requirements
+        packages:
+          # pip recognizes the index as a global option for the requirements.txt file
+          - --extra-index-url=https://pypi.anaconda.org/rapidsai-wheels-nightly/simple
+    specific:
+      - output_types: [requirements, pyproject]
+        matrices:
+          - matrix:
+              cuda: "12.*"
+              cuda_suffixed: "true"
+            packages:
+              - libcuvs-cu12==26.8.*,>=0.0.0a0
+          - matrix:
+              cuda: "13.*"
+              cuda_suffixed: "true"
+            packages:
+              - libcuvs-cu13==26.8.*,>=0.0.0a0
+          - {matrix: null, packages: [*libcuvs_unsuffixed]}
   depends_on_libnvforest:
     common:
       - output_types: conda

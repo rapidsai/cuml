@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
@@ -93,9 +94,11 @@ void brute_force_knn(const raft::handle_t& handle,
   float* out_D   = res_D;
   int64_t* out_I = res_I;
 
+  std::size_t const k_n = ML::checked_mul<std::size_t>(k, n);
   if (input.size() > 1) {
-    all_D.resize(input.size() * k * n, userStream);
-    all_I.resize(input.size() * k * n, userStream);
+    std::size_t const total = ML::checked_mul<std::size_t>(input.size(), k_n);
+    all_D.resize(total, userStream);
+    all_I.resize(total, userStream);
 
     out_D = all_D.data();
     out_I = all_I.data();
@@ -105,8 +108,8 @@ void brute_force_knn(const raft::handle_t& handle,
   raft::resource::wait_stream_pool_on_stream(handle);
 
   for (size_t i = 0; i < input.size(); i++) {
-    float* out_d_ptr   = out_D + (i * k * n);
-    int64_t* out_i_ptr = out_I + (i * k * n);
+    float* out_d_ptr   = out_D + (i * k_n);
+    int64_t* out_i_ptr = out_I + (i * k_n);
 
     auto stream         = raft::resource::get_next_usable_stream(handle, i);
     auto current_handle = raft::device_resources(stream);

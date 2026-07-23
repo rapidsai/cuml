@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,9 +13,7 @@ else:
     libcuml.load_library()
     del libcuml
 
-import cupy
-from rmm.allocators.cupy import rmm_cupy_allocator
-
+import cuml.accel
 import cuml.feature_extraction
 from cuml._version import __git_commit__, __version__
 from cuml.cluster.agglomerative import AgglomerativeClustering
@@ -45,6 +43,7 @@ from cuml.internals.global_settings import (
 from cuml.internals.outputs import set_global_output_type, using_output_type
 from cuml.kernel_ridge.kernel_ridge import KernelRidge
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.linear_model.lars import Lars
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.logistic_regression import LogisticRegression
@@ -75,9 +74,28 @@ from cuml.tsa.arima import ARIMA
 from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
-# Enable rmm_cupy_allocator
-cupy.cuda.set_allocator(rmm_cupy_allocator)
-del cupy, rmm_cupy_allocator
+
+def _setup_cupy():
+    """One-time setup calls for cupy interop"""
+    import copyreg
+
+    import cupy as cp
+    from rmm.allocators.cupy import rmm_cupy_allocator
+
+    # Enable rmm_cupy_allocator
+    cp.cuda.set_allocator(rmm_cupy_allocator)
+
+    # TODO: this is a workaround for https://github.com/cupy/cupy/issues/10084
+    # It can be conditionally done once the cupy fix is out (see
+    # https://github.com/rapidsai/cuml/issues/8364).
+    copyreg.dispatch_table[cp.ndarray] = lambda x: (
+        cp.array,
+        (x.get(order="A"),),
+    )
+
+
+_setup_cupy()
+del _setup_cupy
 
 
 def __getattr__(name):
@@ -121,6 +139,7 @@ __all__ = [
     "KMeans",
     "KNeighborsClassifier",
     "KNeighborsRegressor",
+    "Lars",
     "Lasso",
     "LedoitWolf",
     "LinearRegression",

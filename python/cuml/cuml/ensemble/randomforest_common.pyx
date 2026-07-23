@@ -4,7 +4,9 @@
 #
 from __future__ import annotations
 
+import builtins
 import math
+import numbers
 import warnings
 from typing import Literal
 
@@ -78,7 +80,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        const double* sample_weight,
+        bool input_row_major
     ) except +
 
     cdef void fit_treelite[T, L](
@@ -91,7 +95,9 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML" nogil:
         RF_params params,
         bool* bootstrap_masks,
         T* feature_importances,
-        level_enum verbosity
+        level_enum verbosity,
+        const double* sample_weight,
+        bool input_row_major
     ) except +
 
 
@@ -270,9 +276,9 @@ class BaseRandomForestModel(InteropMixin, Base):
         if hasattr(model, 'oob_score_'):
             attrs["oob_score_"] = model.oob_score_
         if hasattr(model, 'oob_decision_function_'):
-            attrs["oob_decision_function_"] = model.oob_decision_function_
+            attrs["oob_decision_function_"] = cp.asarray(model.oob_decision_function_)
         if hasattr(model, 'oob_prediction_'):
-            attrs["oob_prediction_"] = model.oob_prediction_
+            attrs["oob_prediction_"] = cp.asarray(model.oob_prediction_)
         # Note: feature_importances_ is NOT transferred from sklearn to cuML
         # because cuML caches the impurity decrease directly (BestMetric()) which
         # is not available in sklearn models created via treelite export
@@ -293,9 +299,9 @@ class BaseRandomForestModel(InteropMixin, Base):
         if hasattr(self, 'oob_score_'):
             attrs["oob_score_"] = self.oob_score_
         if hasattr(self, 'oob_decision_function_'):
-            attrs["oob_decision_function_"] = self.oob_decision_function_
+            attrs["oob_decision_function_"] = self.oob_decision_function_.get(order="A")
         if hasattr(self, 'oob_prediction_'):
-            attrs["oob_prediction_"] = self.oob_prediction_
+            attrs["oob_prediction_"] = self.oob_prediction_.get(order="A")
         # Note: feature_importances_ is NOT transferred from cuML to sklearn
         # because sklearn's computation requires tree impurities that aren't
         # available in sklearn models created via treelite export
@@ -453,16 +459,20 @@ class BaseRandomForestModel(InteropMixin, Base):
             handle=get_handle(),
         )
 
-    def _fit_forest(self, X, y):
+    def _fit_forest(self, X, y, sample_weight=None):
         cdef bool is_classifier = self._estimator_type == "classifier"
         cdef bool is_float32 = X.dtype == np.float32
 
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t y_ptr = y.data.ptr
+        cdef uintptr_t sample_weight_ptr = (
+            0 if sample_weight is None else sample_weight.data.ptr
+        )
         cdef int n_rows = X.shape[0]
         cdef int n_cols = X.shape[1]
         cdef level_enum verbose = <level_enum> self._verbose_level
         cdef int n_classes = self.n_classes_ if is_classifier else 0
+        cdef bool input_row_major = not X.flags.f_contiguous
 
         cdef int max_depth_c
         max_depth = self.max_depth
@@ -487,6 +497,21 @@ class BaseRandomForestModel(InteropMixin, Base):
         # Validate OOB score requirements
         if self.oob_score and not self.bootstrap:
             raise ValueError("Out of bag estimation only available if bootstrap=True")
+
+        n_streams = self.n_streams
+        if (
+            isinstance(n_streams, (builtins.bool, np.bool_))
+            or not isinstance(n_streams, numbers.Integral)
+        ):
+            raise TypeError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+        if n_streams <= 0:
+            raise ValueError(
+                f"n_streams must be a positive integer; got {n_streams!r}"
+            )
+
+        cdef int n_streams_c = n_streams
 
         cdef float max_features = compute_max_features(self.max_features, n_cols)
         cdef uint64_t seed = (
@@ -524,12 +549,12 @@ class BaseRandomForestModel(InteropMixin, Base):
             self.max_samples,
             seed,
             _normalize_split_criterion(self.split_criterion),
-            self.n_streams,
+            n_streams_c,
             self.max_batch_size,
         )
 
         cdef TreeliteModelHandle tl_handle
-        handle = get_handle(n_streams=self.n_streams)
+        handle = get_handle(n_streams=n_streams_c)
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
 
         # Store oob_score in C variable for nogil block
@@ -561,7 +586,9 @@ class BaseRandomForestModel(InteropMixin, Base):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
                 else:
                     fit_treelite(
@@ -575,7 +602,9 @@ class BaseRandomForestModel(InteropMixin, Base):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
             else:
                 if is_float32:
@@ -589,7 +618,9 @@ class BaseRandomForestModel(InteropMixin, Base):
                         params,
                         bootstrap_masks_ptr,
                         <float*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
                 else:
                     fit_treelite(
@@ -602,7 +633,9 @@ class BaseRandomForestModel(InteropMixin, Base):
                         params,
                         bootstrap_masks_ptr,
                         <double*> feature_importances_ptr,
-                        verbose
+                        verbose,
+                        <const double*> sample_weight_ptr,
+                        input_row_major
                     )
 
         # XXX: Theoretically we could wrap `tl_handle` with `treelite.Model` to

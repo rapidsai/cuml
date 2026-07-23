@@ -7,6 +7,7 @@
 
 #include <common/fast_int_div.cuh>
 
+#include <cuml/common/checked_arithmetic.hpp>
 #include <cuml/common/utils.hpp>
 
 #include <raft/core/interruptible.hpp>
@@ -204,9 +205,11 @@ inline void divide_by_min_build_index(const DataT* d_matrix,
   // In the first pass, compute d_batch and initialize the matrix that will
   // be used to compute d_size and d_index (1 for the first occurrence of the
   // minimum of each row, else 0)
-  rmm::device_uvector<int> cumul(batch_size * n_sub, stream);
+  std::size_t const cumul_count = ML::checked_mul<std::size_t>(batch_size, n_sub);
+  rmm::device_uvector<int> cumul(cumul_count, stream);
   int* d_cumul = cumul.data();
-  RAFT_CUDA_TRY(cudaMemsetAsync(d_cumul, 0, batch_size * n_sub * sizeof(int), stream));
+  RAFT_CUDA_TRY(
+    cudaMemsetAsync(d_cumul, 0, ML::checked_mul<std::size_t>(cumul_count, sizeof(int)), stream));
   thrust::for_each(
     thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
       int min_id      = 0;

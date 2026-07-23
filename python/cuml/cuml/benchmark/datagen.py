@@ -46,19 +46,13 @@ except ImportError:
     from gpu_check import is_cuml_available, is_gpu_available  # noqa: E402
 
 # Conditional GPU imports
-cudf = None
-cp = None
-cuda = None
-cuml_datasets = None
-input_utils = None
-
 if is_cuml_available():
     import cudf
     import cupy as cp
-    from numba import cuda
 
     import cuml.datasets as cuml_datasets
-    from cuml.internals import input_utils
+else:
+    cudf = cp = cuml_datasets = None
 
 
 def _gen_data_regression(
@@ -129,16 +123,29 @@ def _gen_data_classification(
     n_features=100,
     random_state=42,
     n_classes=2,
+    n_informative=None,
+    n_redundant=None,
+    n_clusters_per_class=None,
     dtype=np.float32,
 ):
     """Generate classification data using optimal backend."""
     if is_gpu_available() and is_cuml_available():
-        X, y = cuml_datasets.make_classification(
+        gen_kwargs = dict(
             n_samples=n_samples,
             n_features=n_features,
             n_classes=n_classes,
             random_state=random_state,
             dtype=dtype,
+        )
+        if n_informative is not None:
+            gen_kwargs["n_informative"] = n_informative
+        if n_redundant is not None:
+            gen_kwargs["n_redundant"] = n_redundant
+        if n_clusters_per_class is not None:
+            gen_kwargs["n_clusters_per_class"] = n_clusters_per_class
+
+        X, y = cuml_datasets.make_classification(
+            **gen_kwargs,
         )
         return cudf.DataFrame(X), cudf.Series(y)
 
@@ -146,18 +153,99 @@ def _gen_data_classification(
     # Note: GPU path uses cuml_datasets.make_classification (different defaults);
     # CPU path uses these settings. Slight differences in data generation may
     # affect cross-backend comparability of benchmark results.
-    n_informative = max(2, n_features // 2)
-    n_redundant = min(2, n_features - n_informative)
+    if n_informative is None:
+        n_informative = max(2, n_features // 2)
+    if n_redundant is None:
+        n_redundant = min(2, n_features - n_informative)
+    if n_clusters_per_class is None:
+        n_clusters_per_class = 1
     X, y = sklearn_make_classification(
         n_samples=n_samples,
         n_features=n_features,
         n_classes=n_classes,
         n_informative=n_informative,
         n_redundant=n_redundant,
-        n_clusters_per_class=1,
+        n_clusters_per_class=n_clusters_per_class,
         random_state=random_state,
     )
     return pd.DataFrame(X.astype(dtype)), pd.Series(y)
+
+
+def _gen_data_binary_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    positive_probability=0.2,
+    dtype=np.float32,
+):
+    """Generate binary feature classification data for Bernoulli models."""
+    rng = np.random.default_rng(random_state)
+    X = rng.binomial(
+        1, positive_probability, size=(n_samples, n_features)
+    ).astype(dtype)
+    n_informative = max(1, min(n_features, 8))
+    scores = X[:, :n_informative].sum(axis=1)
+    threshold = max(1, int(np.ceil(n_informative * positive_probability)))
+    y = (scores >= threshold).astype(np.int32)
+    return pd.DataFrame(X), pd.Series(y)
+
+
+def _gen_data_count_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    n_classes=2,
+    dtype=np.float32,
+):
+    """Generate non-negative count data for multinomial-style models."""
+    rng = np.random.default_rng(random_state)
+    y = rng.integers(0, n_classes, size=n_samples, dtype=np.int32)
+    feature_class = np.arange(n_features) % n_classes
+    X = rng.poisson(1.0, size=(n_samples, n_features)).astype(dtype)
+    for class_id in range(n_classes):
+        row_mask = y == class_id
+        col_idx = np.flatnonzero(feature_class == class_id)
+        if row_mask.any() and col_idx.size > 0:
+            X[np.ix_(row_mask, col_idx)] += rng.poisson(
+                2.0, size=(row_mask.sum(), col_idx.size)
+            ).astype(dtype)
+    return pd.DataFrame(X), pd.Series(y)
+
+
+def _gen_data_categorical_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    n_categories=16,
+    n_classes=2,
+    dtype=np.float32,
+):
+    """Generate integer-coded categorical data for categorical estimators."""
+    rng = np.random.default_rng(random_state)
+    X = rng.integers(
+        0, n_categories, size=(n_samples, n_features), dtype=np.int32
+    )
+    n_informative = max(1, min(n_features, 4))
+    y = (X[:, :n_informative].sum(axis=1) % n_classes).astype(np.int32)
+    return pd.DataFrame(X.astype(dtype)), pd.Series(y)
+
+
+def _gen_data_missing_classification(
+    n_samples=int(1e6),
+    n_features=100,
+    random_state=42,
+    missing_rate=0.1,
+    dtype=np.float32,
+):
+    """Generate numeric data with missing values for missingness indicators."""
+    rng = np.random.default_rng(random_state)
+    X = rng.normal(size=(n_samples, n_features)).astype(dtype)
+    y = (X[:, 0] > 0).astype(np.int32)
+    mask = rng.random(size=X.shape) < missing_rate
+    if not mask.any() and X.size > 0:
+        mask[0, 0] = True
+    X[mask] = np.nan
+    return pd.DataFrame(X), pd.Series(y)
 
 
 # Default location to cache datasets
@@ -365,7 +453,7 @@ def _convert_to_numpy(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 
-def _convert_to_cupy(data):
+def _convert_to_cupy(data, order="F"):
     """Returns tuple data with all elements converted to cupy ndarrays"""
     if not is_cuml_available():
         raise RuntimeError(
@@ -374,17 +462,17 @@ def _convert_to_cupy(data):
     if data is None:
         return None
     elif isinstance(data, tuple):
-        return tuple([_convert_to_cupy(d) for d in data])
+        return tuple([_convert_to_cupy(d, order=order) for d in data])
     elif isinstance(data, np.ndarray):
-        return cp.asarray(data)
+        return cp.asarray(data, order=order)
     elif isinstance(data, cp.ndarray):
-        return data
+        return cp.asarray(data, order=order)
     elif isinstance(data, cudf.DataFrame):
-        return data.values
+        return cp.asarray(data.to_cupy(), order=order)
     elif isinstance(data, cudf.Series):
-        return data.values
+        return data.to_cupy()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
-        return cp.asarray(data.to_numpy())
+        return cp.asarray(data.to_numpy(), order=order)
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
 
@@ -449,32 +537,6 @@ def _convert_to_pandas(data):
         raise Exception("Unsupported type %s" % str(type(data)))
 
 
-def _convert_to_gpuarray(data, order="F"):
-    """Returns tuple data with all elements converted to GPU arrays"""
-    if not is_cuml_available():
-        raise RuntimeError(
-            "GPU libraries not available. Cannot convert to gpuarray format."
-        )
-    if data is None:
-        return None
-    elif isinstance(data, tuple):
-        return tuple([_convert_to_gpuarray(d, order=order) for d in data])
-    elif isinstance(data, pd.DataFrame):
-        return _convert_to_gpuarray(cudf.DataFrame(data), order=order)
-    elif isinstance(data, pd.Series):
-        gs = cudf.Series(data)
-        return cuda.as_cuda_array(gs)
-    else:
-        return input_utils.input_to_cuml_array(data, order=order)[0].to_output(
-            "numba"
-        )
-
-
-def _convert_to_gpuarray_c(data):
-    """Returns tuple data with all elements converted to GPU arrays (C order)"""
-    return _convert_to_gpuarray(data, order="C")
-
-
 def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
     """Randomly set values to 0 and produce a sparse array."""
     random_loc = np.random.choice(
@@ -486,7 +548,7 @@ def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
     elif input_type == "csc":
         return scipy.sparse.csc_matrix(data)
     else:
-        TypeError("Wrong sparse input type {}".format(input_type))
+        raise TypeError("Wrong sparse input type {}".format(input_type))
 
 
 def _convert_to_scipy_sparse(data, input_type):
@@ -521,6 +583,10 @@ _data_generators = {
     "blobs": _gen_data_blobs,
     "zeros": _gen_data_zeros,
     "classification": _gen_data_classification,
+    "binary_classification": _gen_data_binary_classification,
+    "count_classification": _gen_data_count_classification,
+    "categorical_classification": _gen_data_categorical_classification,
+    "missing_classification": _gen_data_missing_classification,
     "regression": _gen_data_regression,
     "airline_regression": _gen_data_airline_regression,
     "airline_classification": _gen_data_airline_classification,
@@ -543,9 +609,8 @@ _cpu_data_converters = {
 # GPU converters (only available when GPU libs present)
 _gpu_data_converters = {
     "cupy": _convert_to_cupy,
+    "cupy-c": functools.partial(_convert_to_cupy, order="C"),
     "cudf": _convert_to_cudf,
-    "gpuarray": _convert_to_gpuarray,
-    "gpuarray-c": _convert_to_gpuarray_c,
 }
 
 
@@ -586,7 +651,7 @@ def gen_data(
         Dataset to use. Can be a synthetic generator (blobs or regression)
         or a specified dataset (higgs currently, others coming soon)
     dataset_format : str
-        Type of data to return. (One of cudf, numpy, pandas, gpuarray)
+        Type of data to return. (One of cudf, numpy, pandas, cupy, cupy-c)
     n_samples : int, optional
         Total number of samples. If None, uses generator default.
     n_features : int, optional
@@ -619,7 +684,16 @@ def gen_data(
         datasets_root_dir, "%s_y.pkl" % dataset_name
     )
 
-    mock_datasets = ["regression", "classification", "blobs", "zeros"]
+    mock_datasets = [
+        "regression",
+        "classification",
+        "binary_classification",
+        "count_classification",
+        "categorical_classification",
+        "missing_classification",
+        "blobs",
+        "zeros",
+    ]
     if dataset_name in mock_datasets:
         gen_kwargs = {"dtype": dtype, **kwargs}
         if n_samples is not None:

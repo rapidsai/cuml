@@ -31,12 +31,7 @@ def _has_probability(model):
 
 class SVC(ProxyBase):
     _gpu_class = cuml.svm.SVC
-    _not_implemented_attributes = frozenset(
-        (
-            "class_weight_",
-            "n_iter_",
-        )
-    )
+    _other_attributes = frozenset(("_gamma",))
 
     def _gpu_fit(self, X, y, sample_weight=None):
         classes = np.unique(np.asanyarray(y))
@@ -62,7 +57,7 @@ class SVC(ProxyBase):
 
 class SVR(ProxyBase):
     _gpu_class = cuml.svm.SVR
-    _not_implemented_attributes = frozenset(("n_iter_",))
+    _other_attributes = frozenset(("_gamma",))
 
 
 class LinearSVC(ProxyBase):

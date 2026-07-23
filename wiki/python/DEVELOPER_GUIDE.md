@@ -243,37 +243,49 @@ Running pytest from outside `python/cuml/` can result in import errors or missed
 
 ## Input Validation
 
-New or updated estimator code should use `cuml.internals.validation` for user-facing input validation. These helpers are the standard path for matching scikit-learn validation behavior, simplifying input ingest, and avoiding module-specific validation pipelines. See the [Estimator Guide](ESTIMATOR_GUIDE.md#input-validation) for estimator-specific patterns and examples.
+Code should use `cuml.internals.validation` for user-facing input validation.
+These helpers are the standard path for matching scikit-learn validation
+behavior, simplifying input ingest, and avoiding module-specific validation
+pipelines. See the [Estimator Guide](ESTIMATOR_GUIDE.md#input-validation) for
+estimator-specific patterns and examples.
 
-Prefer `check_inputs` for estimator methods that validate `X` and optional `y` / `sample_weight` values. Use lower-level helpers directly only when a method has a non-standard shape that the higher-level helper cannot express.
+Prefer `check_inputs` for estimator methods that validate `X` and optional `y`
+/ `sample_weight` values. Use lower-level helpers directly only when a method
+has a non-standard shape that the higher-level helper cannot express.
 
-Validation helpers should be configured to describe what the estimator actually supports. Set `dtype`, `convert_dtype`, `mem_type`, `order`, `accept_sparse`, `ensure_all_finite`, `ensure_non_negative`, and minimum shape requirements explicitly when the defaults are not correct. Do not hand-roll equivalent checks unless the common helpers cannot express the estimator's requirements.
+Validation helpers should be configured to describe what the estimator actually
+supports. Set `dtype`, `convert_dtype`, `mem_type`, `order`, `accept_sparse`,
+`ensure_all_finite`, `ensure_non_negative`, and minimum shape requirements
+explicitly when the defaults are not correct. Do not hand-roll equivalent
+checks unless the common helpers cannot express the estimator's requirements.
 
 The validation pipeline normalizes inputs to standard array containers:
 
 - `cupy.ndarray` or `cupyx.scipy.sparse.spmatrix` for device outputs
 - `numpy.ndarray` or `scipy.sparse.spmatrix` for host outputs
 
-For new code, prefer these standard containers for internal processing rather than converting user inputs through `input_to_cuml_array` or using `CumlArray` as the ingest representation. `CumlArray` is still useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation.
+Fit-like methods should validate with `reset=True` so feature metadata is set
+from the training input. Inference methods should usually call
+`check_is_fitted` and then validate with the default `reset=False` so the input
+is checked against the fitted feature metadata.
 
-Fit-like methods should validate with `reset=True` so feature metadata is set from the training input. Inference methods should usually call `check_is_fitted` and then validate with the default `reset=False` so the input is checked against the fitted feature metadata.
-
-Tests for validation changes should cover both accepted and rejected inputs, including dtype conversion, sparse support, finite/non-negative requirements, feature-count and feature-name checks, and any classifier class-encoding behavior. When changing validation behavior for an estimator, also check the scikit-learn compatibility tests and the `cuml.accel` upstream xfail list.
+Tests for validation changes should cover both accepted and rejected inputs,
+including dtype conversion, sparse support, finite/non-negative requirements,
+feature-count and feature-name checks, and any classifier class-encoding
+behavior. When changing validation behavior for an estimator, also check the
+scikit-learn compatibility tests and the `cuml.accel` upstream xfail list.
 
 ## Memory Management
 
-cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures CuPy to allocate through RMM when `cuml` is imported. Validated user inputs should generally be processed as standard arrays (`cupy`, `numpy`, `cupyx.scipy.sparse`, or `scipy.sparse`) returned by the input validation helpers.
+cuML uses RMM (RAPIDS Memory Manager) for GPU memory management and configures
+CuPy to allocate through RMM when `cuml` is imported. Validated user inputs
+should generally be processed as standard arrays (`cupy`, `numpy`,
+`cupyx.scipy.sparse`, or `scipy.sparse`) returned by the input validation
+helpers.
 
-`CumlArray` remains useful at API boundaries, especially for fitted attributes managed by `CumlArrayDescriptor` and returned values that need output-type reflection or index preservation. Do not use `CumlArray` allocation or conversion methods for new internal array processing code; use the standard CuPy, NumPy, cuDF, or SciPy containers returned by validation.
+Use standard array libraries for allocations and conversions in new internal
+code:
 
-Current `CumlArray` memory types are:
-
-- `device`: GPU-accessible memory for CUDA operations.
-- `host`: CPU-accessible memory for host operations.
-
-Use explicit conversion parameters when a code path needs a specific location; estimators do not have a general memory-type context manager.
-
-Use standard array libraries for allocations and conversions in new internal code:
 ```python
 import cupy as cp
 import numpy as np
@@ -290,7 +302,8 @@ Additional considerations:
 - Minimize memory transfers between host and device
 - Prefer device memory for GPU kernels and host memory only when a CPU API needs it
 - Consider memory layout (C/F order) for optimal performance
-- Let `@reflect` and `CumlArrayDescriptor` handle user-facing output type conversion for estimator methods and fitted array attributes
+- Let `@mlfunc` and `ReflectedAttr` handle user-facing output type conversion
+  for estimator methods and fitted array attributes
 
 ## Thread Safety
 

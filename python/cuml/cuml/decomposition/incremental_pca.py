@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -7,13 +7,11 @@ import numbers
 
 import cupy as cp
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.sparse_utils import is_sparse
+from cuml.common.sparse import is_sparse
 from cuml.decomposition.pca import PCA
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import InteropMixin, to_cpu, to_gpu
+from cuml.internals.interop import InteropMixin
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import (
     check_array,
     check_features,
@@ -66,8 +64,7 @@ class IncrementalPCA(PCA):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -151,7 +148,7 @@ class IncrementalPCA(PCA):
         ...                               density=0.07, random_state=5)
         >>> ipca = IncrementalPCA(n_components=2, batch_size=200)
         >>> ipca.fit(X)
-        IncrementalPCA()
+        IncrementalPCA(batch_size=200, n_components=2)
         >>>
         >>> # Components:
         >>> ipca.components_ # doctest: +SKIP
@@ -180,7 +177,7 @@ class IncrementalPCA(PCA):
     """
 
     _cpu_class_path = "sklearn.decomposition.IncrementalPCA"
-    var_ = CumlArrayDescriptor(order="F")
+    var_ = ReflectedAttr()
 
     def __init__(
         self,
@@ -201,8 +198,10 @@ class IncrementalPCA(PCA):
         )
         self.batch_size = batch_size
 
-    @cuml.internals.reflect(reset="type")
-    def fit(self, X, y=None, *, convert_dtype=True) -> "IncrementalPCA":
+    @mlfunc(set_input_type=True)
+    def fit(
+        self, X, y=None, *, convert_dtype="deprecated"
+    ) -> "IncrementalPCA":
         """
         Fit the model with X, using minibatches of size batch_size.
 
@@ -253,7 +252,7 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.run_in_internal_context
+    @mlfunc(convert_output=False)
     def partial_fit(self, X, y=None, *, check_input=True) -> "IncrementalPCA":
         """
         Incremental fit with X. All of X is processed as a single batch.
@@ -374,18 +373,14 @@ class IncrementalPCA(PCA):
         # Store results
         self.n_samples_ = n_total_samples
         self.n_samples_seen_ = n_total_samples
-        self.components_ = CumlArray(
-            data=cp.asfortranarray(V[: self.n_components_])
-        )
-        self.singular_values_ = CumlArray(data=S[: self.n_components_])
-        self.mean_ = CumlArray(data=col_mean)
-        self.var_ = CumlArray(data=col_var)
-        self.explained_variance_ = CumlArray(
-            data=explained_variance[: self.n_components_]
-        )
-        self.explained_variance_ratio_ = CumlArray(
-            data=explained_variance_ratio[: self.n_components_]
-        )
+        self.components_ = cp.asfortranarray(V[: self.n_components_])
+        self.singular_values_ = S[: self.n_components_]
+        self.mean_ = col_mean
+        self.var_ = col_var
+        self.explained_variance_ = explained_variance[: self.n_components_]
+        self.explained_variance_ratio_ = explained_variance_ratio[
+            : self.n_components_
+        ]
         if self.n_components_ < n_features:
             self.noise_variance_ = float(
                 explained_variance[self.n_components_ :].mean()
@@ -395,8 +390,8 @@ class IncrementalPCA(PCA):
 
         return self
 
-    @cuml.internals.reflect
-    def transform(self, X, *, convert_dtype=False) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def transform(self, X, *, convert_dtype="deprecated"):
         """
         Apply dimensionality reduction to X.
 
@@ -406,19 +401,19 @@ class IncrementalPCA(PCA):
 
         Parameters
         ----------
-
         X : array-like or sparse matrix, shape (n_samples, n_features)
             New data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        convert_dtype : bool, optional (default = False)
-            When set to True, the transform method will automatically
-            convert the input to the data type which was used to train the
-            model. This will increase memory used for the method.
+        convert_dtype : bool, default="deprecated"
+            .. deprecated:: 26.08
+                `convert_dtype` was deprecated in version 26.08 and will be
+                removed in version 26.10. cuML only copies input arrays when
+                necessary (e.g. to unify dtypes), there is no reason to provide
+                this keyword going forward.
 
         Returns
         -------
-
         X_new : array-like, shape (n_samples, n_components)
 
         """
@@ -447,7 +442,7 @@ class IncrementalPCA(PCA):
                 min_batch_size=self.n_components or 0,
             ):
                 output.append(self._transform_sparse(X[batch]))
-            return CumlArray(data=cp.vstack(output))
+            return cp.vstack(output)
         else:
             # `PCA.transform` validates `X` itself, so don't re-check here.
             return super().transform(X)
@@ -484,16 +479,14 @@ class IncrementalPCA(PCA):
     # `feature_names_in_` handling.
     def _attrs_from_cpu(self, model):
         out = {
-            "components_": to_gpu(model.components_, order="F"),
-            "explained_variance_": to_gpu(
-                model.explained_variance_, order="F"
+            "components_": cp.asarray(model.components_, order="F"),
+            "explained_variance_": cp.asarray(model.explained_variance_),
+            "explained_variance_ratio_": cp.asarray(
+                model.explained_variance_ratio_
             ),
-            "explained_variance_ratio_": to_gpu(
-                model.explained_variance_ratio_, order="F"
-            ),
-            "singular_values_": to_gpu(model.singular_values_, order="F"),
-            "mean_": to_gpu(model.mean_, order="F"),
-            "var_": to_gpu(model.var_, order="F"),
+            "singular_values_": cp.asarray(model.singular_values_),
+            "mean_": cp.asarray(model.mean_),
+            "var_": cp.asarray(model.var_),
             "n_components_": model.n_components_,
             "n_samples_seen_": model.n_samples_seen_,
             "noise_variance_": model.noise_variance_,
@@ -505,14 +498,12 @@ class IncrementalPCA(PCA):
 
     def _attrs_to_cpu(self, model):
         out = {
-            "components_": to_cpu(self.components_),
-            "explained_variance_": to_cpu(self.explained_variance_),
-            "explained_variance_ratio_": to_cpu(
-                self.explained_variance_ratio_
-            ),
-            "singular_values_": to_cpu(self.singular_values_),
-            "mean_": to_cpu(self.mean_),
-            "var_": to_cpu(self.var_),
+            "components_": self.components_.get(order="A"),
+            "explained_variance_": self.explained_variance_.get(),
+            "explained_variance_ratio_": self.explained_variance_ratio_.get(),
+            "singular_values_": self.singular_values_.get(),
+            "mean_": self.mean_.get(),
+            "var_": self.var_.get(),
             "n_components_": self.n_components_,
             "n_samples_seen_": self.n_samples_seen_,
             "noise_variance_": self.noise_variance_,

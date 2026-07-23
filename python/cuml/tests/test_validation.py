@@ -812,6 +812,27 @@ def test_check_array_sparse_copy(mem_type, format):
         assert ptr(res.indptr) != ptr(array.indptr)
 
 
+def test_convert_dtype_deprecated():
+    model = MyModel()
+    X = cp.array([[1, 2], [3, 4], [5, 6]], dtype="float32")
+    y = sample_weight = cp.array([1, 2, 3], dtype="float32")
+
+    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
+        check_array(X, dtype="float64", convert_dtype=True)
+
+    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
+        check_inputs(model, X, dtype="float64", convert_dtype=True)
+
+    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
+        check_y(y, dtype="float64", convert_dtype=True)
+
+    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
+        check_sample_weight(sample_weight, dtype="float64", convert_dtype=True)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:`convert_dtype` was deprecated:FutureWarning"
+)
 def test_check_array_convert_dtype():
     array = cp.array([[1, 2, 3]], dtype="float32")
 

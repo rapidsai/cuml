@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -276,7 +276,7 @@ endif()
 
 if(LINK_NVFOREST)
   include(cmake/thirdparty/get_nvforest.cmake)
-  set(CUML_NVFOREST_TARGET nvforest::nvforest++)
+  set(CUML_NVFOREST_TARGET nvforest::nvforest)
 endif()
 
 if(all_algo OR treeshap_algo)
@@ -354,8 +354,13 @@ if(BUILD_CUML_CPP_LIBRARY)
       cuml_objs
       PRIVATE src/decisiontree/batched-levelalgo/kernels/classification-double.cu
               src/decisiontree/batched-levelalgo/kernels/classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/node-split.cu
               src/decisiontree/batched-levelalgo/kernels/regression-double.cu
               src/decisiontree/batched-levelalgo/kernels/regression-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-classification-float.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-double.cu
+              src/decisiontree/batched-levelalgo/kernels/weighted-regression-float.cu
               src/decisiontree/decisiontree.cu
     )
   endif()
@@ -414,7 +419,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   if(all_algo OR kmeans_algo)
     target_sources(
       cuml_objs PRIVATE src/kmeans/kmeans_transform.cu src/kmeans/kmeans_fit.cu
-                        src/kmeans/kmeans_predict.cu src/kmeans/kmeans_params.cpp
+                        src/kmeans/kmeans_predict.cu
     )
   endif()
 
@@ -467,10 +472,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif()
 
   if(all_algo OR svm_algo)
-    target_sources(
-      cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu
-                        src/matrix/kernel_params.cpp
-    )
+    target_sources(cuml_objs PRIVATE src/svm/svc.cu src/svm/svr.cu src/svm/linear.cu)
   endif()
 
   if(all_algo OR autoarima_algo)
@@ -501,7 +503,6 @@ if(BUILD_CUML_CPP_LIBRARY)
               src/knn/knn_classify_mg.cu
               src/knn/knn_regress_mg.cu
               src/pca/pca_mg.cu
-              src/pca/sign_flip_mg.cu
               src/solver/cd_mg.cu
               src/tsvd/tsvd_mg.cu
               # OPG primitives (moved from cumlprims_mg)

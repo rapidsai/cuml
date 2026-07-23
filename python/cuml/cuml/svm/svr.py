@@ -1,11 +1,10 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 from cuml.common.doc_utils import generate_docstring
-from cuml.common.sparse_utils import is_sparse
-from cuml.internals.array import CumlArray
+from cuml.common.sparse import is_sparse
 from cuml.internals.mixins import RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.svm.svm_base import SVMBase
 
@@ -62,8 +61,7 @@ class SVR(RegressorMixin, SVMBase):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -124,7 +122,7 @@ class SVR(RegressorMixin, SVMBase):
         >>> y = cp.array([1.1, 4, 5, 3.9, 1.], dtype = cp.float32)
         >>> reg = SVR(kernel='rbf', gamma='scale', C=10, epsilon=0.1)
         >>> reg.fit(X, y)
-        SVR()
+        SVR(C=10)
         >>> print("Predicted values:", reg.predict(X)) # doctest: +SKIP
         Predicted values: [1.200474 3.8999617 5.100488 3.7995374 1.0995375]
     """
@@ -132,8 +130,10 @@ class SVR(RegressorMixin, SVMBase):
     _cpu_class_path = "sklearn.svm.SVR"
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y, sample_weight=None, *, convert_dtype=True) -> "SVR":
+    @mlfunc(set_input_type=True)
+    def fit(
+        self, X, y, sample_weight=None, *, convert_dtype="deprecated"
+    ) -> "SVR":
         """
         Fit the model with X and y.
 
@@ -170,8 +170,8 @@ class SVR(RegressorMixin, SVMBase):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the values for X.
 

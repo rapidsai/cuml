@@ -1,10 +1,12 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import inspect
 import os
+import re
 import threading
+import warnings
 
 import pylibraft.common.handle
 
@@ -14,7 +16,10 @@ import cuml.internals
 import cuml.internals.logger as logger
 import cuml.internals.nvtx as nvtx
 from cuml.internals.mixins import TagsMixin, _ensure_transformer_tags
-from cuml.internals.outputs import infer_output_type
+from cuml.internals.outputs import (
+    infer_output_type,
+    warn_if_output_type_deprecated,
+)
 
 _THREAD_STATE = threading.local()
 
@@ -50,6 +55,14 @@ def get_handle(*, n_streams=0, device_ids=None):
         return pylibraft.common.handle.Handle(n_streams=n_streams)
 
 
+class _DeprecatedOutputTypeDescriptor:
+    """A descriptor to warn when a deprecated `output_type` is configured."""
+
+    def __set__(self, obj, value):
+        warn_if_output_type_deprecated(value)
+        obj.__dict__["output_type"] = value
+
+
 class Base(TagsMixin):
     """Base class for cuml estimators.
 
@@ -58,19 +71,21 @@ class Base(TagsMixin):
     - Define ``_get_param_names`` to extend the base implementation with
       any additional parameter names.
 
-    - Decorate their ``fit`` method with ``cuml.internals.reflect(reset=True)``
-      to store their fitted input type.
+    - Decorate their ``fit`` method with
+      ``cuml.internals.mlfunc(set_input_type=True)`` to store their fitted
+      input type.
 
-    - Decorate methods that return array likes with ``cuml.internals.reflect``
-      to properly coerce outputs to the proper type.
+    - Decorate methods that return array likes with ``cuml.internals.mlfunc``
+      to properly coerce outputs to the proper type. In most cases you'll
+      also want to set ``preserve_index=True`` so the index of the input
+      dataframe is attached to the output.
 
     Parameters
     ----------
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -82,7 +97,7 @@ class Base(TagsMixin):
     .. code-block:: python
 
         import cupy as cp
-        from cuml.internals import Base, reflect
+        from cuml.internals import Base, mlfunc
 
         class MyAlgo(Base):
             def __init__(
@@ -99,16 +114,18 @@ class Base(TagsMixin):
             def _get_param_names(cls):
                 return [*super()._get_param_names(), "param"]
 
-            @reflect(reset=True)
+            @mlfunc(set_input_type=True)
             def fit(self, X, y):
                 # Training logic goes here...
                 return self
 
-            @reflect
+            @mlfunc(preserve_index=True)
             def predict(self, X):
                 # Inference logic goes here...
                 return cp.ones(len(X), dtype="int32")
     """
+
+    output_type = _DeprecatedOutputTypeDescriptor()
 
     def __init__(
         self,
@@ -124,25 +141,47 @@ class Base(TagsMixin):
         if nvtx_benchmark and nvtx_benchmark.lower() == "true":
             self.set_nvtx_annotations()
 
-    def __repr__(self):
+    def __repr__(self, N_CHAR_MAX=700):
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
-        signature = inspect.getfullargspec(self.__init__).args
-        if len(signature) > 0 and signature[0] == "self":
-            del signature[0]
-        state = self.__dict__
-        string = self.__class__.__name__ + "("
-        for key in signature:
-            if key not in state:
+        # Only show parameters whose value differs from the constructor
+        # default, sorted by name, matching scikit-learn's behavior.
+        # `inspect.signature` (unlike `getfullargspec().args`) includes
+        # keyword-only parameters, which all cuML estimators now use. Params
+        # returned by `get_params` that aren't constructor arguments (e.g.
+        # base params injected into sklearn-derived preprocessors) are skipped.
+        init_params = inspect.signature(type(self).__init__).parameters
+        changed = {}
+        for key, value in self.get_params(deep=False).items():
+            if key not in init_params:
                 continue
-            if type(state[key]) is str:
-                string += "{}='{}', ".format(key, state[key])
-            else:
-                if hasattr(state[key], "__str__"):
-                    string += "{}={}, ".format(key, state[key])
-        string = string.rstrip(", ")
-        output = string + ")"
+            default = init_params[key].default
+            if default is inspect.Parameter.empty or repr(value) != repr(
+                default
+            ):
+                changed[key] = value
+        body = ", ".join(
+            f"{key}={value!r}" for key, value in sorted(changed.items())
+        )
+        output = f"{type(self).__name__}({body})"
+
+        # Use bruteforce ellipsis when there are a lot of non-blank characters,
+        # mirroring `sklearn.base.BaseEstimator.__repr__`.
+        n_nonblank = len("".join(output.split()))
+        if n_nonblank > N_CHAR_MAX:
+            lim = N_CHAR_MAX // 2  # apprx number of chars to keep on both ends
+            regex = r"^(\s*\S){%d}" % lim
+            left_lim = re.match(regex, output).end()
+            right_lim = re.match(regex, output[::-1]).end()
+
+            if "\n" in output[left_lim:-right_lim]:
+                regex += r"[^\n]*\n"
+                right_lim = re.match(regex, output[::-1]).end()
+
+            ellipsis = "..."
+            if left_lim + len(ellipsis) < len(output) - right_lim:
+                output = output[:left_lim] + "..." + output[-right_lim:]
 
         if hasattr(self, "sk_model_"):
             output += " <sk_model_ attribute used>"
@@ -214,6 +253,15 @@ class Base(TagsMixin):
             else:
                 # Determine the output from the input
                 output_type = infer_output_type(inp)
+            if output_type == "numba":
+                warnings.warn(
+                    "Outputting `numba` arrays was deprecated "
+                    "in version 26.08 and will be removed "
+                    "in version 26.10. In the future this call will return a "
+                    "`cupy` array instead. You may silence this warning by "
+                    "explicitly setting `output_type='cupy'` now.",
+                    FutureWarning,
+                )
 
         return output_type
 

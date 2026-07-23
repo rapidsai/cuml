@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
  * SPDX-License-Identifier: Apache-2.0
  */
 #pragma once
@@ -18,7 +18,7 @@ CUML_KERNEL void merge_height_kernel(value_t* heights,
                                      value_idx* parents,
                                      size_t m,
                                      value_idx n_selected_clusters,
-                                     raft::util::FastIntDiv n,
+                                     raft::util::FastIntDiv<value_idx> n,
                                      value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -62,7 +62,7 @@ CUML_KERNEL void merge_height_kernel(value_t* heights,
                                      value_idx* parents,
                                      size_t n_prediction_points,
                                      value_idx n_selected_clusters,
-                                     raft::util::FastIntDiv n,
+                                     raft::util::FastIntDiv<value_idx> n,
                                      value_idx* selected_clusters)
 {
   value_idx idx = blockDim.x * blockIdx.x + threadIdx.x;

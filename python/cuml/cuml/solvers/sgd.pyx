@@ -1,15 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.outputs import reflect
-from cuml.internals.validation import check_inputs
+from cuml.internals.outputs import ReflectedAttr, mlfunc
+from cuml.internals.validation import check_inputs, check_is_fitted
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -103,7 +101,7 @@ def fit_sgd(
     X,
     y,
     *,
-    convert_dtype=True,
+    convert_dtype="deprecated",
     return_classes=False,
     loss="squared_loss",
     penalty=None,
@@ -290,7 +288,7 @@ class SGD(FMajorInputTagMixin, Base):
         ...                  fit_intercept=True, batch_size=2,
         ...                  tol=0.0, penalty=None, loss='squared_loss')
         >>> cu_sgd.fit(X, y)
-        SGD()
+        SGD(batch_size=2, epochs=2000, eta0=0.005, tol=0.0)
         >>> cu_pred = cu_sgd.predict(pred_data).to_numpy()
         >>> print(" cuML intercept : ", cu_sgd.intercept_) # doctest: +SKIP
         cuML intercept :  0.00418...
@@ -341,8 +339,7 @@ class SGD(FMajorInputTagMixin, Base):
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         The number of epochs to train without any improvement in the model
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -352,7 +349,7 @@ class SGD(FMajorInputTagMixin, Base):
         See :ref:`verbosity-levels` for more info.
 
     """
-    coef_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -408,8 +405,8 @@ class SGD(FMajorInputTagMixin, Base):
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @reflect(reset="type")
-    def fit(self, X, y, *, convert_dtype=True) -> "SGD":
+    @mlfunc(set_input_type=True)
+    def fit(self, X, y, *, convert_dtype="deprecated") -> "SGD":
         """
         Fit the model with X and y.
 
@@ -433,7 +430,7 @@ class SGD(FMajorInputTagMixin, Base):
             batch_size=self.batch_size,
             n_iter_no_change=self.n_iter_no_change,
         )
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         return self
 
@@ -445,19 +442,20 @@ class SGD(FMajorInputTagMixin, Base):
             "shape": "(n_samples,)"
         }
     )
-    @reflect
-    def predict(self, X, *, convert_dtype=True) -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the y for X.
 
         """
-        X, index = check_inputs(
+        check_is_fitted(self)
+
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
             order="F",
-            return_index=True,
         )
 
         preds = cp.zeros(X.shape[0], dtype=self.coef_.dtype)
@@ -470,7 +468,7 @@ class SGD(FMajorInputTagMixin, Base):
         cdef int n_cols = X.shape[1]
         cdef uintptr_t preds_ptr = preds.data.ptr
         cdef uintptr_t X_ptr = X.data.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.data.ptr
         cdef double intercept = self.intercept_
 
         with nogil:
@@ -498,4 +496,4 @@ class SGD(FMajorInputTagMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=preds, index=index)
+        return preds
