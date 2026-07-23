@@ -40,6 +40,7 @@ order = [
 @pytest.mark.parametrize("n_obs", n_obs)
 @pytest.mark.parametrize("random_state", random_state)
 @pytest.mark.parametrize("order", order)
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_make_arima(
     dtype, output_type, batch_size, n_obs, random_state, order
 ):

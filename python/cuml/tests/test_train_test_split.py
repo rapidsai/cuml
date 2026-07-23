@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -40,9 +40,13 @@ def convert_to_type(request):
             else:
                 return array_constructor.Series(X)
 
-        return (backend_name, ctor)
+        yield (backend_name, ctor)
 
-    return (backend_name, array_constructor)
+    elif backend_name == "numba":
+        with pytest.warns(FutureWarning, match="Handling `numba` arrays"):
+            yield (backend_name, array_constructor)
+    else:
+        yield (backend_name, array_constructor)
 
 
 @pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
