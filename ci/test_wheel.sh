@@ -24,7 +24,7 @@ rapids-pip-retry install \
     --prefer-binary \
     --constraint "${PIP_CONSTRAINT}" \
     "${LIBCUML_WHEELHOUSE}"/libcuml*.whl
-python -c "import libcuml; libcuml.load_library()"
+python -c "import libcuml; assert (libraries := libcuml.load_library()) and all(libraries)"
 deactivate
 
 # notes:
