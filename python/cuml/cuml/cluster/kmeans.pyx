@@ -107,7 +107,7 @@ cdef _kmeans_fit(
 
     cdef bool values_f32 = X.dtype == cp.float32
     # Indices fitting in int32 is for device arrays
-    cdef bool host_data = not hasattr(X, "__cuda_array_interface__")
+    cdef bool host_data = not isinstance(X, cp.ndarray)
     cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
     cdef uintptr_t X_ptr = X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
