@@ -191,8 +191,9 @@ cdef _kmeans_fit_parts(
     `n_features` and dtype. They may all be device-resident
     (`cupy.ndarray`) or all host-resident (`numpy.ndarray`). Host
     partitions are buffered to the device in batches of
-    `params.device_buffer_samples`. `sample_weight_parts` is either None or a
-    matching list of weight vectors. The distributed reduction across ranks is performed via the NCCL communicator
+    `params.device_buffer_samples`. `sample_weight_parts` is
+    either None or a matching list of weight vectors. The distributed
+    reduction across ranks is performed via the NCCL communicator
     initialized on `handle`.
     """
     cdef int64_t n_parts = len(parts)
@@ -824,8 +825,9 @@ class KMeans(InteropMixin,
         """Fit KMeans over a list of local partitions (multi-GPU / out-of-core).
 
         Each worker passes its local
-        partitions as a vector of matrix views. The partitions may reside on host or device.; their memory. The cross-rank
-        reduction runs over the NCCL communicator on ``self.handle``.
+        partitions as a vector of matrix views. The partitions may reside on host
+        or device.; their memory. The cross-rank reduction runs over the NCCL
+        communicator on ``self.handle``.
 
         `parts` is a non-empty sequence of per-partition arrays.
         `sample_weight_parts`, if given, is a matching sequence of per-partition
