@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -1071,8 +1071,7 @@ class NearestNeighbors(NeighborsBase):
         Additional keyword arguments for the metric function.
     n_jobs : int (default = None)
         Ignored, here for scikit-learn API compatibility.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See

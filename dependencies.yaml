@@ -41,6 +41,9 @@ files:
     output: none
     includes:
       # "devcontainers" includes everything in "all", excluding test_python_xgboost
+      # The libxgboost package depends on librmm but we do not want to have a
+      # package depending on librmm in devcontainers since it should be built
+      # from source.
       - common_build
       - cuda
       - cuda_version
@@ -715,17 +718,20 @@ dependencies:
         packages:
           - dask-ml>=2024
   test_python_xgboost:
-    common:
-      - output_types: [conda]
-        packages:
-          # We must separate xgboost into its own list so that it is not
-          # included in the "devcontainers" key. The libxgboost package depends
-          # on librmm but we do not want to have a package depending on librmm
-          # in devcontainers since it should be built from source.
-          - rapids-xgboost==26.10.*,>=0.0.0a0
     specific:
+      - output_types: [conda]
+        matrices:
+        - matrix:
+            py: "3.11"
+          packages: []
+        - matrix:
+          packages:
+            - rapids-xgboost==26.10.*,>=0.0.0a0
       - output_types: [requirements, pyproject]
         matrices:
+          - matrix:
+              py: "3.11"
+            packages: []
           - matrix:
               cuda: "12.*"
               cuda_suffixed: "true"
