@@ -16,6 +16,17 @@ mkdir -p "${RAPIDS_TESTS_DIR}"
 # dependencies that can be installed later on when installing the wheel
 rapids-generate-pip-constraints test_python "${PIP_CONSTRAINT}"
 
+python -m venv libcuml-env
+. libcuml-env/bin/activate
+
+rapids-pip-retry install \
+    -v \
+    --prefer-binary \
+    --constraint "${PIP_CONSTRAINT}" \
+    "${LIBCUML_WHEELHOUSE}"/libcuml*.whl
+python -c "import libcuml; libcuml.load_library()"
+deactivate
+
 # notes:
 #
 #   * just providing --constraint="${PIP_CONSTRAINT}" to be explicit, and because
