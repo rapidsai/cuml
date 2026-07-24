@@ -1,6 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+import warnings
+
 import cudf
 import cupy as cp
 from numba import cuda as numba_cuda
@@ -31,9 +33,9 @@ def train_test_split(
     Parameters
     ----------
     *arrays : sequence of indexables with same length / shape[0]
-        Allowed inputs are cudf DataFrames/Series, cupy arrays, numba device
-        arrays, numpy arrays, pandas DataFrames/Series, or any array-like
-        objects with a shape attribute.
+        Allowed inputs are cudf DataFrames/Series, cupy arrays, numpy arrays,
+        pandas DataFrames/Series, or any array-like objects with a shape
+        attribute.
 
     test_size : float or int, default=None
         If float, should be between 0.0 and 1.0 and represent the proportion
@@ -111,6 +113,14 @@ def train_test_split(
         shuffle=shuffle,
         stratify=stratify,
     )
+
+    if any(o == "numba" for o in original_types):
+        warnings.warn(
+            "Handling `numba` arrays in `train_test_split` was "
+            "deprecated in 26.08 and will be removed in 26.10. Please "
+            "coerce the input to `cupy` with `cupy.asarray` instead.",
+            FutureWarning,
+        )
 
     # Convert numba arrays back to numba device arrays
     # There are two results for each original array.
