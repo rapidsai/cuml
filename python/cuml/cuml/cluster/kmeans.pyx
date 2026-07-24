@@ -761,12 +761,6 @@ class KMeans(InteropMixin,
         # explicitly opted into host-to-device streaming via `device_buffer_samples > 0`.
         # For the default (``device_buffer_samples == 0``) copy host inputs to the
         # device and use the device fit.
-        #
-        # TODO: This is a workaround to accommodate failing cuml.accel check.
-        # Drop this host mdspan handling when cuVS kmeans++
-        # Reference issue: https://github.com/NVIDIA/cuvs/issues/2359
-        # host-data fit is made reproducible, drop this gate and let cuVS handle host
-        # inputs once the above issue is handled.
         use_host_path = (not data_on_device) and device_buffer_samples > 0 \
             and device_buffer_samples < n_samples
 
