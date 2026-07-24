@@ -846,15 +846,15 @@ class KMeans(InteropMixin,
 
         has_weights = sample_weight_parts is not None
 
-        # Coerce each partition to a C-contiguous array, preserving its memory
-        # residency (device stays device, host stays host) via ``mem_type=None``
-        # so device-accessible partitions are never staged to host and
-        # host-resident partitions are never staged to device here.
-        # ``reset=True`` on the first partition records ``n_features_in_``;
-        # subsequent partitions are validated against it so mismatched shapes
-        # are rejected.
+        # The C++ layer dispatches on the residency of the *first* partition
+        # (``is_device_or_managed_type(X_parts[0])``), so every partition must
+        # share the same residency. Coerce the first partition preserving its
+        # native residency (``mem_type=None``), then coerce the remaining
+        # partitions to match it (all host or all device) so mixed-residency
+        # inputs stay congruent with the C++ dispatch.
         coerced_parts = []
         coerced_weights = [] if has_weights else None
+        mem_type = None
         for i, part in enumerate(parts):
             sw_in = sample_weight_parts[i] if has_weights else None
             part_c, sw_c = check_inputs(
@@ -863,9 +863,12 @@ class KMeans(InteropMixin,
                 sample_weight=sw_in,
                 dtype=("float32", "float64"),
                 order="C",
-                mem_type=None,
+                mem_type=mem_type,
+                ensure_min_samples=0,
                 reset=(i == 0),
             )
+            if i == 0:
+                mem_type = "device" if isinstance(part_c, cp.ndarray) else "host"
             coerced_parts.append(part_c)
             if has_weights:
                 coerced_weights.append(sw_c)
@@ -920,6 +923,8 @@ class KMeans(InteropMixin,
         labels_parts = []
         inertia = 0.0
         for i, part in enumerate(parts):
+            if part.shape[0] == 0:
+                continue
             sw = sample_weight_parts[i] if has_weights else None
             if on_device:
                 part_labels, part_inertia = _kmeans_predict(
@@ -935,7 +940,12 @@ class KMeans(InteropMixin,
             inertia += float(part_inertia)
         handle.sync()
 
-        if len(labels_parts) == 1:
+        if not labels_parts:
+            labels = (
+                cp.empty(0, dtype=np.int32) if on_device
+                else np.empty(0, dtype=np.int32)
+            )
+        elif len(labels_parts) == 1:
             labels = labels_parts[0]
         elif on_device:
             labels = cp.concatenate(labels_parts)
