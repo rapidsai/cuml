@@ -36,6 +36,7 @@ GENERATORS = (make_blobs, make_classification, make_regression)
 
 @pytest.mark.parametrize("generator", GENERATORS)
 @pytest.mark.parametrize("output_str,output_types", TEST_OUTPUT_TYPES)
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_xy_output_type(generator, output_str, output_types):
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
@@ -50,6 +51,7 @@ def test_xy_output_type(generator, output_str, output_types):
     "ignore:`cuml.datasets.make_arima`, along with the entire `cuml.tsa` module, "
     "was deprecated:FutureWarning"
 )
+@pytest.mark.filterwarnings("ignore:`output_type='numba'`:FutureWarning")
 def test_time_series_label_output_type(output_str, output_types):
     # Set the output type and ensure data of that type is generated
     with cuml.using_output_type(output_str):
