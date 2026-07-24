@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,10 +9,9 @@
 #include <cuml/neighbors/knn_mg.hpp>
 
 #include <raft/comms/mpi_comms.hpp>
+#include <raft/core/device_mdarray.hpp>
 #include <raft/random/make_blobs.cuh>
 #include <raft/util/cuda_utils.cuh>
-
-#include <rmm/mr/per_device_resource.hpp>
 
 #include <gtest/gtest.h>
 
@@ -21,6 +20,8 @@
 namespace ML {
 namespace KNN {
 namespace opg {
+
+namespace Matrix = MLCommon::Matrix;
 
 struct KNNParams {
   int k;
@@ -36,24 +37,19 @@ struct KNNParams {
 
 class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
  public:
-  void generate_partition(Matrix::floatData_t* part,
-                          size_t n_rows,
-                          int n_cols,
-                          int n_clusters,
-                          int part_num,
-                          cudaStream_t stream)
+  void generate_partition(
+    Matrix::floatData_t* part, size_t n_rows, int n_cols, int n_clusters, cudaStream_t stream)
   {
-    rmm::device_uvector<int> labels(n_rows, stream);
+    auto labels = raft::make_device_vector<int, int64_t>(handle, static_cast<int64_t>(n_rows));
 
     raft::random::make_blobs<float, int>(
-      part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
+      part->ptr, labels.data_handle(), (int)n_rows, (int)n_cols, n_clusters, stream);
   }
 
   bool runTest(const KNNParams& params)
   {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
-    const auto& comm     = handle.get_comms();
-    const auto allocator = rmm::mr::get_current_device_resource_ref();
+    const auto& comm = handle.get_comms();
 
     cudaStream_t stream = handle.get_stream();
 
@@ -100,15 +96,23 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     std::vector<Matrix::floatData_t*> query_parts;
     std::vector<Matrix::floatData_t*> out_d_parts;
     std::vector<Matrix::Data<int64_t>*> out_i_parts;
+    std::vector<raft::device_vector<float, int64_t>> query_storage;
+    std::vector<raft::device_vector<float, int64_t>> out_d_storage;
+    std::vector<raft::device_vector<int64_t, int64_t>> out_i_storage;
+    query_storage.reserve(query_parts_per_rank);
+    out_d_storage.reserve(query_parts_per_rank);
+    out_i_storage.reserve(query_parts_per_rank);
     for (int i = 0; i < query_parts_per_rank; i++) {
-      float* q =
-        (float*)allocator.get()->allocate(params.min_rows * params.n_cols * sizeof(float*), stream);
+      query_storage.emplace_back(raft::make_device_vector<float, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.n_cols)));
+      out_d_storage.emplace_back(raft::make_device_vector<float, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.k)));
+      out_i_storage.emplace_back(raft::make_device_vector<int64_t, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.k)));
 
-      float* o =
-        (float*)allocator.get()->allocate(params.min_rows * params.k * sizeof(float*), stream);
-
-      int64_t* ind =
-        (int64_t*)allocator.get()->allocate(params.min_rows * params.k * sizeof(int64_t), stream);
+      float* q     = query_storage.back().data_handle();
+      float* o     = out_d_storage.back().data_handle();
+      int64_t* ind = out_i_storage.back().data_handle();
 
       Matrix::Data<float>* query_d = new Matrix::Data<float>(q, params.min_rows * params.n_cols);
 
@@ -120,20 +124,23 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
       out_d_parts.push_back(out_d);
       out_i_parts.push_back(out_i);
 
-      generate_partition(query_d, params.min_rows, params.n_cols, 5, i, stream);
+      generate_partition(query_d, params.min_rows, params.n_cols, 5, stream);
     }
 
     std::vector<Matrix::floatData_t*> index_parts;
+    std::vector<raft::device_vector<float, int64_t>> index_storage;
+    index_storage.reserve(index_parts_per_rank);
 
     for (int i = 0; i < index_parts_per_rank; i++) {
-      float* ind =
-        (float*)allocator.get()->allocate(params.min_rows * params.n_cols * sizeof(float), stream);
+      index_storage.emplace_back(raft::make_device_vector<float, int64_t>(
+        handle, static_cast<int64_t>(params.min_rows * params.n_cols)));
+      float* ind = index_storage.back().data_handle();
 
       Matrix::Data<float>* i_d = new Matrix::Data<float>(ind, params.min_rows * params.n_cols);
 
       index_parts.push_back(i_d);
 
-      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, stream);
+      generate_partition(i_d, params.min_rows, params.n_cols, 5, stream);
     }
 
     Matrix::PartDescriptor idx_desc(
@@ -145,18 +152,20 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     handle.sync_stream(stream);
 
     /**
-     * Execute brute_force_knn()
+     * Execute knn()
      */
-    brute_force_knn(handle,
-                    out_i_parts,
-                    out_d_parts,
-                    index_parts,
-                    idx_desc,
-                    query_parts,
-                    query_desc,
-                    params.k,
-                    params.batch_size,
-                    true);
+    knn(handle,
+        &out_i_parts,
+        &out_d_parts,
+        index_parts,
+        idx_desc,
+        query_parts,
+        query_desc,
+        false,
+        false,
+        params.k,
+        params.batch_size,
+        true);
 
     handle.sync_stream(stream);
 
@@ -168,22 +177,18 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
      */
 
     for (Matrix::floatData_t* fd : query_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
     for (Matrix::floatData_t* fd : index_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
     for (Matrix::Data<int64_t>* fd : out_i_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(int64_t), stream);
       delete fd;
     }
 
     for (Matrix::floatData_t* fd : out_d_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
@@ -197,7 +202,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
     int actual   = 1;
     int expected = 1;
-    return raft::CompareApprox<int>(1)(actual, expected);
+    return MLCommon::CompareApprox<int>(1)(actual, expected);
   }
 
  private:
