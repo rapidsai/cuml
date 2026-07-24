@@ -16,11 +16,14 @@ namespace ML {
 namespace DT {
 namespace detail {
 
-template <typename BinT, typename IdxT>
-DI std::int64_t CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
+template <typename BinT>
+DI std::int64_t CountLeft(BinT const* hist,
+                          std::int64_t i,
+                          std::int64_t n_bins,
+                          std::int64_t n_outputs)
 {
   auto nLeft = hist[i].Count();
-  for (IdxT j = 1; j < n_outputs; ++j) {
+  for (std::int64_t j = 1; j < n_outputs; ++j) {
     nLeft += hist[n_bins * j + i].Count();
   }
   return static_cast<std::int64_t>(nLeft);
@@ -33,16 +36,16 @@ DI std::int64_t CountLeft(BinT const* hist, IdxT i, IdxT n_bins, IdxT n_outputs)
  *
  * @tparam DataT input data type
  */
-template <typename DataT, typename IdxT>
+template <typename DataT>
 struct Split {
-  typedef Split<DataT, IdxT> SplitT;
+  typedef Split<DataT> SplitT;
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
 
   /** threshold to compare in this node */
   DataT quesval;
   /** feature index */
-  IdxT colid;
+  std::int64_t colid;
   /** best info gain on this node */
   DataT best_metric_val;
   /** global number of samples in the left child */
@@ -50,9 +53,9 @@ struct Split {
   /** rank-local number of samples in the left child */
   std::int64_t local_nLeft;
   /** first quantile index in an inclusive range of training-equivalent splits */
-  IdxT split_start;
+  std::int64_t split_start;
   /** last quantile index in an inclusive range of training-equivalent splits */
-  IdxT split_end;
+  std::int64_t split_end;
 
   HDI Split()
   {
@@ -76,27 +79,27 @@ struct Split {
     return *this;
   }
 
-  HDI bool IsValid() const { return colid != static_cast<IdxT>(-1); }
+  HDI bool IsValid() const { return colid != static_cast<std::int64_t>(-1); }
 
   DI bool has_valid_split_range() const
   {
-    return split_start >= IdxT{0} && split_end >= split_start;
+    return split_start >= std::int64_t{0} && split_end >= split_start;
   }
 
   DI bool can_merge_equivalent_split_range(std::int64_t other_global_nLeft,
-                                           IdxT other_split_start,
-                                           IdxT other_split_end) const
+                                           std::int64_t other_split_start,
+                                           std::int64_t other_split_end) const
   {
     return global_nLeft == other_global_nLeft && has_valid_split_range() &&
-           other_split_start >= IdxT{0} && other_split_end >= other_split_start;
+           other_split_start >= std::int64_t{0} && other_split_end >= other_split_start;
   }
 
   // Extend the candidate's inclusive range of training-equivalent split
   // thresholds. `quesval` tracks the upper edge only to preserve the existing
   // threshold tie-break against candidates outside this equivalent range.
   DI void merge_equivalent_split_range(DataT other_quesval,
-                                       IdxT other_split_start,
-                                       IdxT other_split_end)
+                                       std::int64_t other_split_start,
+                                       std::int64_t other_split_end)
   {
     split_start = other_split_start < split_start ? other_split_start : split_start;
     split_end   = other_split_end > split_end ? other_split_end : split_end;
@@ -104,11 +107,11 @@ struct Split {
   }
 
   DI bool replace_with(DataT other_quesval,
-                       IdxT other_colid,
+                       std::int64_t other_colid,
                        DataT other_best_metric_val,
                        std::int64_t other_global_nLeft,
-                       IdxT other_split_start,
-                       IdxT other_split_end)
+                       std::int64_t other_split_start,
+                       std::int64_t other_split_end)
   {
     quesval         = other_quesval;
     colid           = other_colid;
@@ -123,7 +126,7 @@ struct Split {
   // Several thresholds can be equally good for the training data while still
   // routing future inference values differently. Select the middle split in
   // that equivalent range so deterministic tie-breaking does not pick an edge.
-  DI void select_split_range_midpoint(DataT const* quantiles, IdxT n_bins)
+  DI void select_split_range_midpoint(DataT const* quantiles, std::int64_t n_bins)
   {
     if (has_valid_split_range() && split_end < n_bins) {
       auto bin    = split_start + (split_end - split_start + 1) / 2;
@@ -140,11 +143,11 @@ struct Split {
    * on global counts, and local counts are filled just before partitioning.
    */
   DI bool update(DataT other_quesval,
-                 IdxT other_colid,
+                 std::int64_t other_colid,
                  DataT other_best_metric_val,
                  std::int64_t other_global_nLeft,
-                 IdxT other_split_start,
-                 IdxT other_split_end)
+                 std::int64_t other_split_start,
+                 std::int64_t other_split_end)
   {
     // Primary ordering: higher gain wins; lower or unordered gain loses.
     if (other_best_metric_val > best_metric_val) {
@@ -191,10 +194,10 @@ struct Split {
   }
 
   DI bool update(DataT other_quesval,
-                 IdxT other_colid,
+                 std::int64_t other_colid,
                  DataT other_best_metric_val,
                  std::int64_t other_global_nLeft,
-                 IdxT other_bin)
+                 std::int64_t other_bin)
   {
     return update(
       other_quesval, other_colid, other_best_metric_val, other_global_nLeft, other_bin, other_bin);
@@ -229,8 +232,11 @@ struct Split {
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
-  DI void evalBestSplit(
-    SplitT* split_scratch, volatile SplitT* split, int* mutex, DataT const* quantiles, IdxT n_bins)
+  DI void evalBestSplit(SplitT* split_scratch,
+                        volatile SplitT* split,
+                        int* mutex,
+                        DataT const* quantiles,
+                        std::int64_t n_bins)
   {
     warpReduce();
     auto warp   = threadIdx.x / raft::WarpSize;
@@ -281,17 +287,17 @@ struct Split {
  * @param[in]  len    length of this array
  * @param[in]  s      cuda stream where to schedule work
  */
-template <typename DataT, typename IdxT, int TPB = 256>
-void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
+template <typename DataT, int TPB = 256>
+void initSplit(Split<DataT>* splits, std::int64_t len, cudaStream_t s)
 {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { *ptr = Split<DataT, IdxT>(); };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
+  auto op = [] __device__(Split<DataT> * ptr, std::int64_t idx) { *ptr = Split<DataT>(); };
+  raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), std::int64_t, TPB>(splits, len, op, s);
 }
 
-template <typename DataT, typename IdxT, int TPB = 256>
-void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
+template <typename DataT, int TPB = 256>
+void printSplits(Split<DataT>* splits, std::int64_t len, cudaStream_t s)
 {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
+  auto op = [] __device__(Split<DataT> * ptr, std::int64_t idx) {
     printf(
       "quesval = %e, colid = %lld, best_metric_val = %e, global_nLeft = %lld, "
       "local_nLeft = %lld, split_range = [%lld, %lld]\n",
@@ -303,7 +309,7 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
       static_cast<long long>(ptr->split_start),
       static_cast<long long>(ptr->split_end));
   };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
+  raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), std::int64_t, TPB>(splits, len, op, s);
   RAFT_CUDA_TRY(cudaDeviceSynchronize());
 }
 
