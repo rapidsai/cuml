@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,12 +24,18 @@
 namespace ML {
 namespace tl = treelite;
 
-// Explicit instantiation of compute_c_normalization
-template CUML_EXPORT float compute_c_normalization<float>(int n);
-template CUML_EXPORT double compute_c_normalization<double>(int n);
+double compute_c_normalization(int n)
+{
+  if (n <= 1) return 0.0;
+  if (n == 2) return 1.0;
+
+  constexpr double euler_mascheroni = 0.5772156649015329;
+  double harmonic_n_minus_1         = std::log(static_cast<double>(n - 1)) + euler_mascheroni;
+  return 2.0 * harmonic_n_minus_1 - 2.0 * static_cast<double>(n - 1) / static_cast<double>(n);
+}
 
 template <typename T>
-tl::Tree<T, T> build_treelite_if_tree(const CompactIFForest& compact, int tree_id)
+tl::Tree<T, T> build_treelite_if_tree(const CompactIFForest<T>& compact, int tree_id)
 {
   ASSERT(tree_id >= 0 && tree_id < static_cast<int>(compact.tree_offsets.size()),
          "Invalid isolation forest tree id.");
@@ -201,12 +207,12 @@ void predict(const raft::handle_t& handle,
   rmm::device_uvector<float> scores(n_rows, stream);
   score_samples(handle, forest, input, n_rows, n_cols, scores.data(), verbosity);
 
-  // Convert scores to predictions: 1 for anomaly (score >= threshold), -1 for normal
+  // Convert scores to predictions: 1 for anomaly (score > threshold), -1 for normal
   thrust::transform(rmm::exec_policy(stream),
                     scores.data(),
                     scores.data() + n_rows,
                     predictions,
-                    [threshold] __device__(float score) { return score >= threshold ? 1 : -1; });
+                    [threshold] __device__(float score) { return score > threshold ? 1 : -1; });
 
   handle.sync_stream(stream);
 }
@@ -227,12 +233,12 @@ void predict(const raft::handle_t& handle,
   rmm::device_uvector<double> scores(n_rows, stream);
   score_samples(handle, forest, input, n_rows, n_cols, scores.data(), verbosity);
 
-  // Convert scores to predictions: 1 for anomaly (score >= threshold), -1 for normal
+  // Convert scores to predictions: 1 for anomaly (score > threshold), -1 for normal
   thrust::transform(rmm::exec_policy(stream),
                     scores.data(),
                     scores.data() + n_rows,
                     predictions,
-                    [threshold] __device__(double score) { return score >= threshold ? 1 : -1; });
+                    [threshold] __device__(double score) { return score > threshold ? 1 : -1; });
 
   handle.sync_stream(stream);
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -40,7 +40,7 @@ struct IsolationForestModel {
   int n_features          = 0;                ///< Number of features in training data
   int n_features_per_tree = 0;                ///< Features sampled per tree
   int n_samples_per_tree  = 0;                ///< Samples used per tree (for c(n) calculation)
-  T c_normalization       = 0;                ///< Precomputed c(n) normalization constant
+  double c_normalization  = 0;                ///< Precomputed c(n) normalization constant
   int max_nodes_per_tree  = 0;                ///< Allocated node capacity per tree
   rmm::device_buffer global_feature_indices;  ///< Optional per-tree sampled feature ids
   rmm::device_buffer global_nodes;            ///< Device memory for global-memory IFNode array
@@ -58,9 +58,10 @@ typedef IsolationForestModel<double> IsolationForestD;
  * Internal nodes: feature_idx >= 0, threshold is split value
  * Leaf nodes: feature_idx = -1, threshold stores pre-computed path length
  */
+template <typename T>
 struct IFNodeCompact {
   int feature_idx;
-  float threshold;
+  T threshold;
   int left_child;
   int right_child;
 };
@@ -69,11 +70,12 @@ struct IFNodeCompact {
  * @brief Compact tree data returned by get_compact_trees().
  * Contains all used nodes concatenated, with per-tree metadata.
  */
+template <typename T>
 struct CompactIFForest {
-  std::vector<IFNodeCompact> nodes;  ///< All used nodes, trees concatenated
-  std::vector<int> tree_offsets;     ///< Start index in nodes[] for each tree
-  std::vector<int> tree_n_nodes;     ///< Number of nodes per tree
-  std::vector<int> tree_max_depth;   ///< Max depth per tree
+  std::vector<IFNodeCompact<T>> nodes;  ///< All used nodes, trees concatenated
+  std::vector<int> tree_offsets;        ///< Start index in nodes[] for each tree
+  std::vector<int> tree_n_nodes;        ///< Number of nodes per tree
+  std::vector<int> tree_max_depth;      ///< Max depth per tree
 };
 
 /**
@@ -83,12 +85,11 @@ struct CompactIFForest {
  * instead of the full padded storage (~200 MB).
  */
 template <typename T>
-CompactIFForest get_compact_trees(const raft::handle_t& handle,
-                                  const IsolationForestModel<T>* model);
+CompactIFForest<T> get_compact_trees(const raft::handle_t& handle,
+                                     const IsolationForestModel<T>* model);
 
 /** @brief Compute c(n) = 2H(n-1) - 2(n-1)/n normalization constant. */
-template <typename T>
-T compute_c_normalization(int n);
+double compute_c_normalization(int n);
 
 /**
  * @brief Build a Treelite regression forest from a trained Isolation Forest model.
@@ -175,7 +176,7 @@ void score_samples(const raft::handle_t& handle,
  * @param[in]  n_rows      Number of test samples
  * @param[in]  n_cols      Number of features (must match training)
  * @param[out] predictions Labels [n_rows]: 1 = anomaly, -1 = normal, device pointer
- * @param[in]  threshold   Score threshold (default 0.5, higher = more anomalies)
+ * @param[in]  threshold   Score threshold (default 0.5); scores strictly above it are anomalies
  * @param[in]  verbosity   Logging level
  */
 void predict(const raft::handle_t& handle,

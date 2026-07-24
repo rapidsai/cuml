@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -25,18 +25,6 @@
 #include <limits>
 
 namespace ML {
-
-/** @brief Compute average path length c(n) = 2H(n-1) - 2(n-1)/n for normalization. */
-template <typename T>
-T compute_c_normalization(int n)
-{
-  if (n <= 1) return T(0);
-  if (n == 2) return T(1);
-
-  constexpr T euler_mascheroni = T(0.5772156649015329);
-  T harmonic_n_minus_1         = std::log(T(n - 1)) + euler_mascheroni;
-  return T(2) * harmonic_n_minus_1 - T(2) * T(n - 1) / T(n);
-}
 
 inline int compute_global_max_nodes_per_tree(int max_depth, int max_samples)
 {
@@ -102,18 +90,21 @@ class IsolationForest {
     model->n_features          = n_cols;
     model->n_features_per_tree = n_sampled_features;
     model->n_samples_per_tree  = n_sampled_rows;
-    model->c_normalization     = compute_c_normalization<T>(n_sampled_rows);
+    model->c_normalization     = compute_c_normalization(n_sampled_rows);
 
     auto stream               = handle.get_stream();
     model->max_nodes_per_tree = compute_global_max_nodes_per_tree(max_depth, n_sampled_rows);
-    size_t total_nodes  = static_cast<size_t>(params.n_estimators) * model->max_nodes_per_tree;
-    model->global_nodes = rmm::device_buffer(total_nodes * sizeof(IsolationTree::IFNode), stream);
+    size_t total_nodes = static_cast<size_t>(params.n_estimators) * model->max_nodes_per_tree;
+    model->global_nodes =
+      rmm::device_buffer(total_nodes * sizeof(IsolationTree::IFNode<T>), stream);
     model->global_tree_offsets   = rmm::device_buffer(params.n_estimators * sizeof(int), stream);
     model->global_tree_n_nodes   = rmm::device_buffer(params.n_estimators * sizeof(int), stream);
     model->global_tree_max_depth = rmm::device_buffer(params.n_estimators * sizeof(int), stream);
     if (n_sampled_features < n_cols) {
       model->global_feature_indices = rmm::device_buffer(
         static_cast<size_t>(params.n_estimators) * n_sampled_features * sizeof(int), stream);
+    } else {
+      model->global_feature_indices = rmm::device_buffer{};
     }
 
     IsolationTree::build_isolation_forest_global(
@@ -128,8 +119,9 @@ class IsolationForest {
       model->max_nodes_per_tree,
       params.bootstrap,
       params.seed,
-      static_cast<int*>(model->global_feature_indices.data()),
-      static_cast<IsolationTree::IFNode*>(model->global_nodes.data()),
+      n_sampled_features < n_cols ? static_cast<int*>(model->global_feature_indices.data())
+                                  : nullptr,
+      static_cast<IsolationTree::IFNode<T>*>(model->global_nodes.data()),
       static_cast<int*>(model->global_tree_offsets.data()),
       static_cast<int*>(model->global_tree_n_nodes.data()),
       static_cast<int*>(model->global_tree_max_depth.data()));
@@ -151,7 +143,7 @@ class IsolationForest {
     int threads   = 256;
     size_t blocks = (n_rows + threads - 1) / threads;
 
-    auto* nodes        = static_cast<const IsolationTree::IFNode*>(model->global_nodes.data());
+    auto* nodes        = static_cast<const IsolationTree::IFNode<T>*>(model->global_nodes.data());
     auto* tree_offsets = static_cast<const int*>(model->global_tree_offsets.data());
     IsolationTree::compute_path_lengths_global_kernel<T><<<blocks, threads, 0, stream>>>(
       input, n_rows, n_cols, nodes, tree_offsets, params.n_estimators, avg_path_lengths);
@@ -168,7 +160,7 @@ class IsolationForest {
                               T* scores) const
   {
     cudaStream_t stream = handle.get_stream();
-    T c_n               = model->c_normalization;
+    T c_n               = static_cast<T>(model->c_normalization);
 
     if (c_n <= T(0)) {
       thrust::fill(rmm::exec_policy(stream), scores, scores + n_rows, T(0.5));
@@ -188,15 +180,15 @@ template class IsolationForest<float>;
 template class IsolationForest<double>;
 
 template <typename T>
-CompactIFForest get_compact_trees(const raft::handle_t& handle,
-                                  const IsolationForestModel<T>* model)
+CompactIFForest<T> get_compact_trees(const raft::handle_t& handle,
+                                     const IsolationForestModel<T>* model)
 {
   int n_trees = model->params.n_estimators;
 
-  CompactIFForest result;
-  std::vector<IsolationTree::IFNode> raw_nodes;
+  CompactIFForest<T> result;
+  std::vector<IsolationTree::IFNode<T>> raw_nodes;
 
-  auto* d_nodes          = static_cast<const IsolationTree::IFNode*>(model->global_nodes.data());
+  auto* d_nodes          = static_cast<const IsolationTree::IFNode<T>*>(model->global_nodes.data());
   auto* d_tree_n_nodes   = static_cast<const int*>(model->global_tree_n_nodes.data());
   auto* d_tree_max_depth = static_cast<const int*>(model->global_tree_max_depth.data());
   IsolationTree::compact_global_isolation_forest<T>(handle,
@@ -211,16 +203,16 @@ CompactIFForest get_compact_trees(const raft::handle_t& handle,
                                                     result.tree_max_depth);
 
   result.nodes.resize(raw_nodes.size());
-  static_assert(sizeof(IFNodeCompact) == sizeof(IsolationTree::IFNode),
+  static_assert(sizeof(IFNodeCompact<T>) == sizeof(IsolationTree::IFNode<T>),
                 "IFNodeCompact and IFNode must have identical layout");
-  std::memcpy(result.nodes.data(), raw_nodes.data(), raw_nodes.size() * sizeof(IFNodeCompact));
+  std::memcpy(result.nodes.data(), raw_nodes.data(), raw_nodes.size() * sizeof(IFNodeCompact<T>));
 
   return result;
 }
 
-template CompactIFForest get_compact_trees<float>(const raft::handle_t&,
-                                                  const IsolationForestModel<float>*);
-template CompactIFForest get_compact_trees<double>(const raft::handle_t&,
-                                                   const IsolationForestModel<double>*);
+template CompactIFForest<float> get_compact_trees<float>(const raft::handle_t&,
+                                                         const IsolationForestModel<float>*);
+template CompactIFForest<double> get_compact_trees<double>(const raft::handle_t&,
+                                                           const IsolationForestModel<double>*);
 
 }  // namespace ML

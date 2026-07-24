@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -453,11 +453,11 @@ TEST_F(IsolationForestTest, MaxFeaturesFitStoresOriginalFeatureIds)
                                 n_estimators * sizeof(int),
                                 cudaMemcpyDeviceToHost,
                                 stream));
-  std::vector<IsolationTree::IFNode> h_nodes(static_cast<size_t>(n_estimators) *
-                                             model.max_nodes_per_tree);
+  std::vector<IsolationTree::IFNode<float>> h_nodes(static_cast<size_t>(n_estimators) *
+                                                    model.max_nodes_per_tree);
   RAFT_CUDA_TRY(cudaMemcpyAsync(h_nodes.data(),
                                 model.global_nodes.data(),
-                                h_nodes.size() * sizeof(IsolationTree::IFNode),
+                                h_nodes.size() * sizeof(IsolationTree::IFNode<float>),
                                 cudaMemcpyDeviceToHost,
                                 stream));
   handle->sync_stream(stream);
@@ -474,6 +474,10 @@ TEST_F(IsolationForestTest, MaxFeaturesFitStoresOriginalFeatureIds)
     }
   }
   EXPECT_TRUE(saw_split);
+
+  params.max_features = n_features;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+  EXPECT_EQ(model.global_feature_indices.size(), 0);
 }
 
 /**
@@ -683,18 +687,14 @@ TEST_F(IsolationForestTest, CNormalizationConstant)
   //   H(255) ≈ ln(255) + 0.5772 ≈ 5.541 + 0.577 ≈ 6.118
   //   c(256) = 2 * 6.118 - 2 * 255/256 ≈ 12.236 - 1.992 ≈ 10.24
 
-  float c_256 = compute_c_normalization<float>(256);
-  EXPECT_NEAR(c_256, 10.24f, 0.1f);
+  double c_256 = compute_c_normalization(256);
+  EXPECT_NEAR(c_256, 10.24, 0.1);
 
-  float c_2 = compute_c_normalization<float>(2);
-  EXPECT_FLOAT_EQ(c_2, 1.0f);
+  double c_2 = compute_c_normalization(2);
+  EXPECT_DOUBLE_EQ(c_2, 1.0);
 
-  float c_1 = compute_c_normalization<float>(1);
-  EXPECT_FLOAT_EQ(c_1, 0.0f);
-
-  // Double precision
-  double c_256_d = compute_c_normalization<double>(256);
-  EXPECT_NEAR(c_256_d, 10.24, 0.1);
+  double c_1 = compute_c_normalization(1);
+  EXPECT_DOUBLE_EQ(c_1, 0.0);
 }
 
 /**
@@ -920,6 +920,20 @@ TEST_F(IsolationForestTest, PredictThreshold)
   // Lower threshold should produce more anomaly predictions
   EXPECT_GE(anomalies_low, anomalies_high)
     << "Lower threshold should produce at least as many anomalies";
+
+  thrust::device_vector<float> scores(n_samples);
+  score_samples(
+    *handle, &model, X_rowmajor.data().get(), n_samples, n_features, scores.data().get());
+  float boundary = scores[0];
+  thrust::device_vector<int> pred_boundary(n_samples);
+  predict(*handle,
+          &model,
+          X_rowmajor.data().get(),
+          n_samples,
+          n_features,
+          pred_boundary.data().get(),
+          boundary);
+  EXPECT_EQ(pred_boundary[0], -1) << "A score exactly at the threshold is not anomalous";
 }
 
 /**

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -56,7 +56,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
         IsolationForestModel() except +  # Default constructor
         int n_features
         int n_samples_per_tree
-        T c_normalization
+        double c_normalization
 
     ctypedef IsolationForestModel[float] IsolationForestF
     ctypedef IsolationForestModel[double] IsolationForestD
@@ -184,8 +184,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         `ceil(log2(max_samples))`, which is the theoretical maximum depth
         needed to isolate any sample.
     max_features : float, default=1.0
-        Accepted for sklearn API compatibility. The current GPU builder
-        uses all features when selecting random split features.
+        The number of features to draw from X to train each isolation tree.
+        - If int, draw exactly ``max_features`` features.
+        - If float, draw ``max_features * n_features`` features.
     bootstrap : bool, default=False
         If True, individual trees are fit on random subsets of the training
         data sampled with replacement. Otherwise, sampling is without
@@ -202,6 +203,8 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         - If ``"auto"``, the offset is set to -0.5 as in sklearn.
         - If float, must be in the range (0, 0.5] and the offset is set to
           the corresponding training-score quantile.
+    warm_start : bool, default=False
+        ``warm_start=True`` is not currently supported.
     verbose : int or boolean, default=False
         Sets logging level.
     output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \\
@@ -215,9 +218,16 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         Number of features seen during fit.
     offset_ : float
         Offset used to compute `decision_function` from raw anomaly scores.
+    max_samples_ : int
+        The actual number of samples used to train each tree.
 
     Notes
     -----
+    The sklearn attributes ``estimator_``, ``estimators_``,
+    ``estimators_features_``, and ``estimators_samples_`` are not currently
+    exposed because the GPU model stores the forest in compact device buffers
+    rather than as individual sklearn tree estimators.
+
     The implementation is based on the original Isolation Forest paper:
     Liu, F. T., Ting, K. M., & Zhou, Z. H. (2008). Isolation forest.
     In 2008 Eighth IEEE International Conference on Data Mining (pp. 413-422).
@@ -278,6 +288,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         random_state=None,
         max_batch_size=4096,
         contamination="auto",
+        warm_start=False,
         verbose=False,
         output_type=None,
     ):
@@ -301,6 +312,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self.random_state = random_state
         self.max_batch_size = max_batch_size
         self.contamination = contamination
+        self.warm_start = warm_start
 
     def __del__(self):
         """Clean up C++ model memory."""
@@ -333,6 +345,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             "random_state",
             "max_batch_size",
             "contamination",
+            "warm_start",
         ]
 
     @classmethod
@@ -348,6 +361,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             "bootstrap": model.bootstrap,
             "random_state": model.random_state,
             "contamination": model.contamination,
+            "warm_start": model.warm_start,
         }
 
     def _params_to_cpu(self):
@@ -359,6 +373,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             "bootstrap": self.bootstrap,
             "random_state": self.random_state,
             "contamination": self.contamination,
+            "warm_start": self.warm_start,
         }
 
     def __getstate__(self):
@@ -378,7 +393,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         """Pickle support - restore state."""
         self.__dict__.update(state)
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, sample_weight=None):
         """
         Fit the Isolation Forest model.
 
@@ -389,12 +404,19 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             or float64.
         y : Ignored
             Not used, present for API consistency.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Not currently supported.
 
         Returns
         -------
         self : IsolationForest
             Fitted estimator.
         """
+        if self.warm_start:
+            raise UnsupportedOnGPU("`warm_start=True` is not supported")
+        if sample_weight is not None:
+            raise UnsupportedOnGPU("`sample_weight` is not supported")
+
         # Free any existing model
         self._free_model()
 
@@ -462,12 +484,44 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
         # Compute max_samples
         cdef int actual_max_samples
-        if isinstance(self.max_samples, str) and self.max_samples == "auto":
+        if isinstance(self.max_samples, str):
+            if self.max_samples != "auto":
+                raise ValueError(
+                    "max_samples must be 'auto', a positive int, or a float "
+                    "in (0.0, 1.0]."
+                )
             actual_max_samples = min(256, n_rows)
-        elif isinstance(self.max_samples, float):
-            actual_max_samples = int(self.max_samples * n_rows)
-        else:
+        elif isinstance(self.max_samples, builtins.bool):
+            raise ValueError(
+                "max_samples must be 'auto', a positive int, or a float "
+                "in (0.0, 1.0]."
+            )
+        elif isinstance(self.max_samples, Integral):
+            if self.max_samples <= 0:
+                raise ValueError("max_samples must be a positive integer.")
+            if self.max_samples > n_rows:
+                warnings.warn(
+                    f"max_samples ({self.max_samples}) is greater than the "
+                    f"total number of samples ({n_rows}). max_samples will "
+                    "be set to n_samples for estimation.",
+                    UserWarning,
+                )
             actual_max_samples = min(self.max_samples, n_rows)
+        elif isinstance(self.max_samples, Real):
+            if self.max_samples <= 0.0 or self.max_samples > 1.0:
+                raise ValueError("float max_samples must be in (0.0, 1.0].")
+            actual_max_samples = int(self.max_samples * n_rows)
+            if actual_max_samples < 1:
+                raise ValueError(
+                    "max_samples resolves to 0 samples; increase max_samples "
+                    "or provide more training rows."
+                )
+        else:
+            raise ValueError(
+                "max_samples must be 'auto', a positive int, or a float "
+                "in (0.0, 1.0]."
+            )
+        self.max_samples_ = actual_max_samples
 
         # Compute max_depth (-1 means auto in C++)
         cdef int actual_max_depth
@@ -649,7 +703,14 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if avg_path_lengths.ndim == 2 and avg_path_lengths.shape[1] == 1:
             avg_path_lengths = avg_path_lengths.reshape(-1)
 
-        paper_scores = cp.power(2.0, -avg_path_lengths / self._c_normalization)
+        if self._c_normalization <= 0:
+            paper_scores = cp.full(
+                avg_path_lengths.shape, 0.5, dtype=self._dtype
+            )
+        else:
+            paper_scores = cp.power(
+                2.0, -avg_path_lengths / self._c_normalization
+            )
         scores_sklearn = -paper_scores
 
         return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
@@ -854,7 +915,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
 
         return CumlArray(preds_sklearn).to_output(self._get_output_type(X))
 
-    def fit_predict(self, X, y=None):
+    def fit_predict(self, X, y=None, sample_weight=None):
         """
         Fit the model and predict on X.
 
@@ -864,10 +925,12 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             The input samples.
         y : Ignored
             Not used, present for API consistency.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Not currently supported.
 
         Returns
         -------
         labels : ndarray of shape (n_samples,)
             1 for inliers, -1 for outliers.
         """
-        return self.fit(X).predict(X)
+        return self.fit(X, sample_weight=sample_weight).predict(X)

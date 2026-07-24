@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Shared device types and helpers for the batched Isolation Forest tree builder.
@@ -45,12 +45,13 @@ struct StackEntry {
  * @brief Compute c(n) = 2H(n-1) - 2(n-1)/n, the expected path length in an
  * unsuccessful BST search (used for adjusting isolation depth at leaves).
  */
-__device__ __forceinline__ float compute_c_n(int n_samples)
+template <typename T>
+__device__ __forceinline__ T compute_c_n(int n_samples)
 {
-  if (n_samples <= 1) return 0.0f;
-  if (n_samples == 2) return 1.0f;
-  float n = static_cast<float>(n_samples);
-  return 2.0f * (logf(n - 1.0f) + 0.5772156649f) - 2.0f * (n - 1.0f) / n;
+  if (n_samples <= 1) return T(0);
+  if (n_samples == 2) return T(1);
+  T n = static_cast<T>(n_samples);
+  return T(2) * (log(n - T(1)) + T(0.5772156649015329)) - T(2) * (n - T(1)) / n;
 }
 
 /**
@@ -59,9 +60,10 @@ __device__ __forceinline__ float compute_c_n(int n_samples)
  * Leaf nodes: feature_idx = -1, threshold stores pre-computed path length
  *             (depth + c(n_samples)) for direct use by inference
  */
+template <typename T>
 struct IFNode {
   int feature_idx;
-  float threshold;
+  T threshold;
   int left_child;
   int right_child;
 };
@@ -126,7 +128,7 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
                                             int max_depth,
                                             int max_nodes_per_tree,
                                             curandState* rng_state,
-                                            IFNode* nodes,
+                                            IFNode<T>* nodes,
                                             int* n_nodes_out,
                                             int* max_depth_out,
                                             int* work_indices,
@@ -157,8 +159,8 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
 
       // Stopping condition: max depth, isolated sample, or exhausted capacity.
       if (depth >= max_depth || n_node_samples <= 1 || n_nodes + 2 > max_nodes_per_tree) {
-        float path_length = static_cast<float>(depth) + compute_c_n(n_node_samples);
-        nodes[node_idx]   = {-1, path_length, -1, -1};
+        T path_length   = static_cast<T>(depth) + compute_c_n<T>(n_node_samples);
+        nodes[node_idx] = {-1, path_length, -1, -1};
         continue;
       }
 
@@ -175,8 +177,8 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
       }
 
       if (min_val >= max_val) {
-        float path_length = static_cast<float>(depth) + compute_c_n(n_node_samples);
-        nodes[node_idx]   = {-1, path_length, -1, -1};
+        T path_length   = static_cast<T>(depth) + compute_c_n<T>(n_node_samples);
+        nodes[node_idx] = {-1, path_length, -1, -1};
         continue;
       }
 
@@ -200,7 +202,7 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
       int right_child = n_nodes + 1;
       n_nodes += 2;
 
-      nodes[node_idx] = {original_feature, static_cast<float>(threshold), left_child, right_child};
+      nodes[node_idx] = {original_feature, threshold, left_child, right_child};
 
       stack[stack_top++] = {right_child, left_end, end, depth + 1};
       stack[stack_top++] = {left_child, start, left_end, depth + 1};
@@ -223,7 +225,7 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
                                                     bool bootstrap,
                                                     uint64_t seed,
                                                     int* __restrict__ feature_indices,
-                                                    IFNode* __restrict__ nodes,
+                                                    IFNode<T>* __restrict__ nodes,
                                                     int* __restrict__ tree_offsets,
                                                     int* __restrict__ tree_n_nodes,
                                                     int* __restrict__ tree_max_depth,
@@ -248,7 +250,7 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
                                   : feature_indices + static_cast<size_t>(tree_id) * max_features;
   int* tree_work_indices      = work_indices + static_cast<size_t>(tree_id) * max_samples;
   StackEntry* tree_stack      = stack + static_cast<size_t>(tree_id) * max_nodes_per_tree;
-  IFNode* tree_nodes          = nodes + tree_offset;
+  IFNode<T>* tree_nodes       = nodes + tree_offset;
 
   // Thread 0 samples source rows using sklearn IsolationForest semantics:
   // bootstrap=True samples with replacement; bootstrap=False samples without
@@ -304,17 +306,17 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
 }
 
 template <typename T>
-__device__ T traverse_global_tree(const IFNode* tree_nodes, const T* sample, int n_cols)
+__device__ T traverse_global_tree(const IFNode<T>* tree_nodes, const T* sample, int n_cols)
 {
   int node_idx = 0;
 
   while (true) {
-    const IFNode& node = tree_nodes[node_idx];
+    const IFNode<T>& node = tree_nodes[node_idx];
 
-    if (node.feature_idx < 0) { return static_cast<T>(node.threshold); }
+    if (node.feature_idx < 0) { return node.threshold; }
 
     T val    = sample[node.feature_idx];
-    node_idx = (val < static_cast<T>(node.threshold)) ? node.left_child : node.right_child;
+    node_idx = (val < node.threshold) ? node.left_child : node.right_child;
   }
 }
 
@@ -322,7 +324,7 @@ template <typename T>
 __global__ void compute_path_lengths_global_kernel(const T* __restrict__ data,
                                                    size_t n_samples,
                                                    int n_cols,
-                                                   const IFNode* __restrict__ nodes,
+                                                   const IFNode<T>* __restrict__ nodes,
                                                    const int* __restrict__ tree_offsets,
                                                    int n_trees,
                                                    T* __restrict__ path_lengths)
@@ -353,7 +355,7 @@ void build_isolation_forest_global(const raft::handle_t& handle,
                                    bool bootstrap,
                                    uint64_t seed,
                                    int* feature_indices,
-                                   IFNode* nodes,
+                                   IFNode<T>* nodes,
                                    int* tree_offsets,
                                    int* tree_n_nodes,
                                    int* tree_max_depth)
@@ -390,12 +392,12 @@ void build_isolation_forest_global(const raft::handle_t& handle,
 }
 
 template <typename T>
-__global__ void compact_global_trees_kernel(const IFNode* __restrict__ nodes,
+__global__ void compact_global_trees_kernel(const IFNode<T>* __restrict__ nodes,
                                             int n_trees,
                                             int max_nodes_per_tree,
                                             const int* __restrict__ tree_n_nodes,
                                             const int* __restrict__ compact_offsets,
-                                            IFNode* __restrict__ compact_nodes)
+                                            IFNode<T>* __restrict__ compact_nodes)
 {
   int tree_id = blockIdx.x;
   if (tree_id >= n_trees) return;
@@ -409,12 +411,12 @@ __global__ void compact_global_trees_kernel(const IFNode* __restrict__ nodes,
 
 template <typename T>
 void compact_global_isolation_forest(const raft::handle_t& handle,
-                                     const IFNode* d_nodes,
+                                     const IFNode<T>* d_nodes,
                                      const int* d_tree_n_nodes,
                                      const int* d_tree_max_depth,
                                      int n_trees,
                                      int max_nodes_per_tree,
-                                     std::vector<IFNode>& h_nodes,
+                                     std::vector<IFNode<T>>& h_nodes,
                                      std::vector<int>& h_tree_offsets,
                                      std::vector<int>& h_tree_n_nodes,
                                      std::vector<int>& h_tree_max_depth)
@@ -446,7 +448,7 @@ void compact_global_isolation_forest(const raft::handle_t& handle,
                                 cudaMemcpyHostToDevice,
                                 stream));
 
-  rmm::device_uvector<IFNode> d_compact(total_nodes, stream);
+  rmm::device_uvector<IFNode<T>> d_compact(total_nodes, stream);
   compact_global_trees_kernel<T><<<n_trees, 128, 0, stream>>>(d_nodes,
                                                               n_trees,
                                                               max_nodes_per_tree,
@@ -458,7 +460,7 @@ void compact_global_isolation_forest(const raft::handle_t& handle,
   h_nodes.resize(total_nodes);
   RAFT_CUDA_TRY(cudaMemcpyAsync(h_nodes.data(),
                                 d_compact.data(),
-                                total_nodes * sizeof(IFNode),
+                                total_nodes * sizeof(IFNode<T>),
                                 cudaMemcpyDeviceToHost,
                                 stream));
   handle.sync_stream(stream);

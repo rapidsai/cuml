@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -20,6 +20,7 @@ from sklearn.datasets import make_blobs
 from sklearn.ensemble import IsolationForest as skIsolationForest
 
 from cuml import IsolationForest as cuIsolationForest
+from cuml.internals.interop import UnsupportedOnGPU
 from cuml.testing.utils import stress_param, unit_param
 
 # =============================================================================
@@ -178,6 +179,43 @@ def test_max_samples_auto(blobs_data):
     assert predictions.shape[0] == blobs_data.shape[0]
 
 
+@pytest.mark.parametrize(
+    "max_samples",
+    [0, -1, 0.0, -0.1, 1.1, 1.5, "invalid", True],
+)
+def test_invalid_max_samples_raises(blobs_data, max_samples):
+    """Invalid max_samples values should raise a clear ValueError."""
+    clf = cuIsolationForest(
+        n_estimators=10, max_samples=max_samples, random_state=42
+    )
+
+    with pytest.raises(ValueError, match="max_samples"):
+        clf.fit(blobs_data)
+
+
+def test_max_samples_larger_than_input_warns_and_sets_attribute(blobs_data):
+    """Large integer max_samples should warn, cap, and set max_samples_."""
+    clf = cuIsolationForest(
+        n_estimators=10,
+        max_samples=blobs_data.shape[0] + 1,
+        random_state=42,
+    )
+
+    with pytest.warns(UserWarning, match="greater than"):
+        clf.fit(blobs_data)
+
+    assert clf.max_samples_ == blobs_data.shape[0]
+
+
+def test_max_samples_attribute(blobs_data):
+    """max_samples_ should expose the resolved number of rows per tree."""
+    clf = cuIsolationForest(
+        n_estimators=10, max_samples=0.5, random_state=42
+    ).fit(blobs_data)
+
+    assert clf.max_samples_ == int(0.5 * blobs_data.shape[0])
+
+
 @pytest.mark.parametrize("max_depth", [2, 4, 8, None])
 def test_max_depth_parameter(blobs_data, max_depth):
     """max_depth parameter should be respected."""
@@ -245,6 +283,22 @@ def test_bootstrap_parameter(blobs_data, bootstrap):
     clf.fit(blobs_data)
     predictions = clf.predict(blobs_data)
     assert predictions.shape[0] == blobs_data.shape[0]
+
+
+def test_unsupported_sample_weight(blobs_data):
+    """sample_weight should fail explicitly until backend support is added."""
+    clf = cuIsolationForest(n_estimators=10, random_state=42)
+
+    with pytest.raises(UnsupportedOnGPU, match="sample_weight"):
+        clf.fit(blobs_data, sample_weight=np.ones(blobs_data.shape[0]))
+
+
+def test_unsupported_warm_start(blobs_data):
+    """warm_start=True should fail explicitly."""
+    clf = cuIsolationForest(n_estimators=10, random_state=42, warm_start=True)
+
+    with pytest.raises(UnsupportedOnGPU, match="warm_start"):
+        clf.fit(blobs_data)
 
 
 def test_contamination_float_sets_score_quantile_offset(blobs_data):
@@ -500,6 +554,20 @@ def test_nvforest_score_parity(blobs_data):
     cp.testing.assert_allclose(
         cpp_scores, nvforest_scores, rtol=1e-5, atol=1e-6
     )
+
+
+def test_nvforest_score_parity_single_sample():
+    """c(1)=0 should produce the neutral -0.5 score on both paths."""
+    X = cp.asarray([[1.0, 2.0]], dtype=cp.float32)
+    clf = cuIsolationForest(n_estimators=2, random_state=42).fit(X)
+
+    cpp_scores = cp.asarray(clf.score_samples(X))
+    nvforest_scores = cp.asarray(clf._score_samples_nvforest(X))
+
+    cp.testing.assert_allclose(
+        cpp_scores, cp.asarray([-0.5], dtype=cp.float32)
+    )
+    cp.testing.assert_allclose(cpp_scores, nvforest_scores)
 
 
 def test_treelite_export_before_fit_raises(blobs_data):
