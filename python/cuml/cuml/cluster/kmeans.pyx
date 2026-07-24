@@ -360,12 +360,21 @@ cdef _kmeans_predict_host_chunked(
     sample_weight,
     centers,
     int64_t batch_size,
+    bool normalize_weights=True,
 ):
     """Predict labels & total inertia for host-resident `X` in chunks.
 
     Streams chunks of `batch_size` host rows into a single reusable device
     buffer, runs the existing device-data predict on each chunk, and stitches
     the per-chunk labels into a single host (`numpy.ndarray`) result.
+
+    When `normalize_weights` is True the sample weights are rescaled to sum to
+    `n_rows` (matching the device predict), so a single-GPU host fit reports the
+    same inertia as the device fit. Pass False when the weights are already
+    normalized by the caller (e.g. the multi-GPU Dask layer normalizes
+    `sample_weight` globally before splitting it across workers); rescaling
+    per-partition there would make host-resident partitions report a different
+    inertia than device-resident ones.
 
     Returns (`numpy.ndarray` of labels, `float` total inertia).
     """
@@ -380,9 +389,10 @@ cdef _kmeans_predict_host_chunked(
     if uniform:
         sw_buf = cp.ones(cap, dtype=X.dtype)
     else:
-        total_sw = float(sample_weight.sum())
-        if total_sw > 0:
-            scale = n_rows / total_sw
+        if normalize_weights:
+            total_sw = float(sample_weight.sum())
+            if total_sw > 0:
+                scale = n_rows / total_sw
         sw_buf = cp.empty(shape=cap, dtype=X.dtype)
 
     X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
@@ -405,11 +415,12 @@ cdef _kmeans_predict_host_chunked(
             end = n_rows
         n = end - start
 
-        # For non-uniform, copy the raw slice and scale on-device.
+        # For non-uniform, copy the raw slice and (optionally) scale on-device.
         X_buf[:n].set(X[start:end])
         if not uniform:
             sw_buf[:n].set(sample_weight[start:end])
-            sw_buf[:n] *= scale
+            if normalize_weights:
+                sw_buf[:n] *= scale
 
         batch_labels, batch_inertia = _kmeans_predict(
             handle, params, X_buf[:n], sw_buf[:n], centers,
@@ -824,10 +835,9 @@ class KMeans(InteropMixin,
     def _fit_mg_parts(self, parts, sample_weight_parts=None):
         """Fit KMeans over a list of local partitions (multi-GPU / out-of-core).
 
-        Each worker passes its local
-        partitions as a vector of matrix views. The partitions may reside on host
-        or device.; their memory. The cross-rank reduction runs over the NCCL
-        communicator on ``self.handle``.
+        Each worker passes its local partitions as a vector of mdspans. The
+        partitions may reside on host or device. The cross-rank reduction runs
+        over the NCCL communicator on ``self.handle``.
 
         `parts` is a non-empty sequence of per-partition arrays.
         `sample_weight_parts`, if given, is a matching sequence of per-partition
@@ -925,6 +935,7 @@ class KMeans(InteropMixin,
             else:
                 part_labels, part_inertia = _kmeans_predict_host_chunked(
                     handle_[0], params, part, sw, centers, batch,
+                    normalize_weights=False,
                 )
             labels_parts.append(part_labels)
             inertia += float(part_inertia)
