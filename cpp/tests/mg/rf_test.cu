@@ -83,6 +83,7 @@ uint64_t hash_forest_structure(const RandomForestMetaData<T, L>& forest)
     hash_value(hash, tree->leaf_counter);
     hash_value(hash, tree->num_outputs);
     hash_value(hash, tree->sparsetree.size());
+    int node_id = 0;
     for (auto const& node : tree->sparsetree) {
       hash_value(hash, node.ColumnId());
       hash_value(hash, node.QueryValue());
@@ -90,6 +91,12 @@ uint64_t hash_forest_structure(const RandomForestMetaData<T, L>& forest)
       hash_value(hash, node.LeftChildId());
       hash_value(hash, node.InstanceCount());
       hash_value(hash, node.IsLeaf());
+      if (node.IsLeaf()) {
+        for (int k = 0; k < tree->num_outputs; ++k) {
+          hash_value(hash, tree->vector_leaf[node_id * tree->num_outputs + k]);
+        }
+      }
+      ++node_id;
     }
   }
   return hash;
@@ -177,6 +184,7 @@ void expect_global_tree_counts(RandomForestMetaData<T, L> const& forest, int n_r
 template <typename T, typename L>
 void expect_tree_limits(RandomForestMetaData<T, L> const& forest, RfMgTestParams const& params)
 {
+  EXPECT_EQ(forest.trees.size(), params.n_trees);
   for (auto const& tree : forest.trees) {
     EXPECT_LE(tree->depth_counter, params.max_depth);
     if (params.max_leaves > 0) { EXPECT_LE(tree->leaf_counter, params.max_leaves); }
@@ -362,7 +370,7 @@ std::vector<RfMgTestParams> inputs = {
    false,
    PartitionKind::EmptyNonRootRanks}};
 
-INSTANTIATE_TEST_CASE_P(RfTests, RfMgPropertyTest, ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_SUITE_P(RfTests, RfMgPropertyTest, ::testing::ValuesIn(inputs));
 
 }  // namespace opg
 }  // namespace Test
