@@ -11,11 +11,10 @@ namespace ML {
 namespace DT {
 using DataT      = float;
 using LabelT     = float;
-using IdxT       = int;
-using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT, IdxT>;
+using ObjectiveT = RegressionObjectiveFunction<DataT, LabelT>;
 using BinT       = typename ObjectiveT::BinT;
-using DatasetT   = Dataset<DataT, LabelT, IdxT>;
-using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
+using DatasetT   = Dataset<DataT, LabelT>;
+using NodeT      = SparseTreeNode<DataT, LabelT>;
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
 template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
@@ -29,30 +28,30 @@ template void launchLeafKernel<DatasetT, NodeT, ObjectiveT, DataT>(
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchBuildHistogramsKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+template void launchBuildHistogramsKernel<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
-  IdxT n_bins,
+  std::int64_t n_bins,
   const DatasetT& dataset,
-  const Quantiles<DataT, IdxT>& quantiles,
+  const Quantiles<DataT>& quantiles,
   const NodeWorkItem* work_items,
-  IdxT colStart,
-  const IdxT* column_samples,
+  std::int64_t colStart,
+  const std::int64_t* column_samples,
   ObjectiveT& objective,
-  const WorkloadInfo<IdxT>* workload_info,
+  const WorkloadInfo* workload_info,
   dim3 histogram_grid,
   const SharedMemoryConfig& split_smem_config,
   cudaStream_t builder_stream);
 
 // Explicit instantiations are split across separate .cu files to increase compilation parallelism.
-template void launchFindBestSplitsKernel<DataT, LabelT, IdxT, TPB_DEFAULT, ObjectiveT>(
+template void launchFindBestSplitsKernel<DataT, LabelT, TPB_DEFAULT, ObjectiveT>(
   BinT* histograms,
-  IdxT n_bins,
+  std::int64_t n_bins,
   const DatasetT& dataset,
-  const Quantiles<DataT, IdxT>& quantiles,
-  IdxT colStart,
-  const IdxT* column_samples,
+  const Quantiles<DataT>& quantiles,
+  std::int64_t colStart,
+  const std::int64_t* column_samples,
   int* mutex,
-  volatile Split<DataT, IdxT>* splits,
+  volatile Split<DataT>* splits,
   ObjectiveT& objective,
   dim3 split_grid,
   cudaStream_t builder_stream);
