@@ -547,23 +547,22 @@ class KMeans(InteropMixin,
     device_buffer_samples : int (default = 0)
         Number of host samples to buffer to the device per GPU batch when
         fitting with host-resident inputs. This selects the fit path for
-        host-resident inputs: the out-of-core host fit path is used
-        only when ``0 < device_buffer_samples < n_samples``. When
-        ``device_buffer_samples == 0`` (default) or
-        ``device_buffer_samples >= n_samples``, host inputs are copied to the
-        device in full and the standard device fit is used. Ignored when the
-        input is already device-resident (e.g. cupy.ndarray, cudf.DataFrame),
+        host-resident inputs: the out-of-core host fit path is used whenever
+        ``device_buffer_samples > 0``. When ``device_buffer_samples == 0``
+        (default), host inputs are copied to the device in full and the
+        standard device fit is used. Ignored when the input is already
+        device-resident (e.g. cupy.ndarray, cudf.DataFrame),
         which always uses the device fit.
     init_size : int (default = 0)
         Number of samples to randomly draw for the KMeansPlusPlus initialization
         step. A random subset of this size is used for centroid seeding. Only
-        applies when the out-of-core host fit path is actually
-        selected, i.e. when the input is host-resident and
-        ``0 < device_buffer_samples < n_samples``. When set to 0 (default) on
-        that path, ``min(3 * n_clusters, n_samples)`` is used. It is ignored on
-        the device fit path — device-resident inputs, as well as host inputs
-        that are copied to the device in full (``device_buffer_samples == 0`` or
-        ``>= n_samples``) — where the full dataset is always used for seeding.
+        applies when the out-of-core host fit path is actually selected, i.e.
+        when the input is host-resident and ``device_buffer_samples > 0``. When
+        set to 0 (default) on that path, ``min(3 * n_clusters, n_samples)`` is
+        used. It is ignored on the device fit path — device-resident inputs, as
+        well as host inputs that are copied to the device in full
+        (``device_buffer_samples == 0``) — where the full dataset is always used
+        for seeding.
     output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
@@ -758,16 +757,14 @@ class KMeans(InteropMixin,
             reset=True,
         )
         data_on_device = isinstance(X, cp.ndarray)
-        n_samples = X.shape[0]
 
-        # Take the cuVS host (out-of-core) fit path only when the input
-        # is host-resident and the batch actually splits the data
-        # (``0 < device_buffer_samples < n_samples``). When the batch is 0
-        # (default) or would cover all rows (``>= n_samples``), copy host inputs
-        # to the device and use the device fit; device-resident inputs always
-        # use the device fit.
-        use_host_path = (not data_on_device) and device_buffer_samples > 0 \
-            and device_buffer_samples < n_samples
+        # Take the host (out-of-core) fit path when the input is host-resident
+        # and a positive batch size is set (``device_buffer_samples > 0``); if
+        # the batch is ``>= n_samples`` cuVS processes all rows in a single
+        # batch. When the batch is 0 (default), copy host inputs to the device
+        # and use the device fit; device-resident inputs always use the device
+        # fit.
+        use_host_path = (not data_on_device) and device_buffer_samples > 0
 
         if use_host_path:
             X = cp.asnumpy(X, order="C")
