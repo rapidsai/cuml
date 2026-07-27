@@ -202,7 +202,10 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
       int right_child = n_nodes + 1;
       n_nodes += 2;
 
-      nodes[node_idx] = {original_feature, threshold, left_child, right_child};
+      nodes[node_idx].feature_idx = original_feature;
+      nodes[node_idx].threshold   = threshold;
+      nodes[node_idx].left_child  = left_child;
+      nodes[node_idx].right_child = right_child;
 
       stack[stack_top++] = {right_child, left_end, end, depth + 1};
       stack[stack_top++] = {left_child, start, left_end, depth + 1};

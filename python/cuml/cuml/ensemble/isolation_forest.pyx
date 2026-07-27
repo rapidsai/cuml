@@ -19,13 +19,12 @@ import numpy as np
 import nvforest
 import treelite
 
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.input_utils import input_to_cuml_array
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin
+from cuml.internals.outputs import mlfunc
 from cuml.internals.treelite import safe_treelite_call
-from cuml.internals.validation import check_random_seed
+from cuml.internals.validation import check_inputs, check_random_seed
 
 from libc.stddef cimport size_t
 from libc.stdint cimport uint64_t, uintptr_t
@@ -130,7 +129,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
     ) except +
 
 
-class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
+class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
     """
     GPU-accelerated Isolation Forest for anomaly detection.
 
@@ -393,6 +392,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         """Pickle support - restore state."""
         self.__dict__.update(state)
 
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, sample_weight=None):
         """
         Fit the Isolation Forest model.
@@ -420,16 +420,18 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         # Free any existing model
         self._free_model()
 
-        # Convert input to cuML array (column-major for fit)
-        X_m = input_to_cuml_array(
+        # Convert input to a column-major device array for fit.
+        X_m = check_inputs(
+            self,
             X,
-            check_dtype=[np.float32, np.float64],
-            order="F",  # Column-major for fit
-        ).array
+            dtype=(np.float32, np.float64),
+            order="F",
+            reset=True,
+        )
 
         cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
-        cdef uintptr_t X_ptr = X_m.ptr
+        cdef uintptr_t X_ptr = X_m.data.ptr
         cdef double contamination_fraction = 0.0
         cdef bint use_contamination_quantile = False
         self.n_features_in_ = n_cols
@@ -592,7 +594,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         self._nvforest_model = None
 
         if use_contamination_quantile:
-            training_scores = cp.asarray(self.score_samples(X_m.to_output("cupy")))
+            training_scores = self.score_samples(X_m)
             self.offset_ = float(
                 cp.percentile(
                     training_scores, 100.0 * contamination_fraction
@@ -680,25 +682,19 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if self._treelite_model_bytes is None:
             raise RuntimeError("Model has not been fitted. Call fit() first.")
 
-        X_m = input_to_cuml_array(
+        X_m = check_inputs(
+            self,
             X,
-            check_dtype=[np.float32, np.float64],
-            convert_to_dtype=self._dtype,
+            dtype=self._dtype,
             order="C",
-        ).array
-
-        if X_m.shape[1] != self.n_features_in_:
-            raise ValueError(
-                f"X has {X_m.shape[1]} features, but IsolationForest was fitted "
-                f"with {self.n_features_in_} features."
-            )
+        )
 
         nvforest_model = self._get_inference_nvforest_model(
             layout=layout,
             default_chunk_size=default_chunk_size,
             align_bytes=align_bytes,
         )
-        avg_path_lengths = nvforest_model.predict(X_m.to_output("cupy"))
+        avg_path_lengths = nvforest_model.predict(X_m)
         avg_path_lengths = cp.asarray(avg_path_lengths, dtype=self._dtype)
         if avg_path_lengths.ndim == 2 and avg_path_lengths.shape[1] == 1:
             avg_path_lengths = avg_path_lengths.reshape(-1)
@@ -713,8 +709,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
             )
         scores_sklearn = -paper_scores
 
-        return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
+        return scores_sklearn
 
+    @mlfunc(preserve_index=True)
     def score_samples(self, X):
         """
         Compute the anomaly score of X.
@@ -751,33 +748,27 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if self._forest_float is None and self._forest_double is None:
             raise RuntimeError("Model has not been fitted. Call fit() first.")
 
-        # Convert input to cuML array (row-major for inference)
-        X_m = input_to_cuml_array(
+        # Convert input to a row-major device array for inference.
+        X_m = check_inputs(
+            self,
             X,
-            check_dtype=[np.float32, np.float64],
-            convert_to_dtype=self._dtype,
-            order="C",  # Row-major for inference
-        ).array
+            dtype=self._dtype,
+            order="C",
+        )
 
         cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
 
-        if n_cols != self.n_features_in_:
-            raise ValueError(
-                f"X has {n_cols} features, but IsolationForest was fitted "
-                f"with {self.n_features_in_} features."
-            )
-
         # Allocate output
-        scores = CumlArray.zeros(n_rows, dtype=self._dtype, order="C")
+        scores = cp.zeros(n_rows, dtype=self._dtype, order="C")
 
         # Get handle and verbosity
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t scores_ptr = scores.ptr
+        cdef uintptr_t X_ptr = X_m.data.ptr
+        cdef uintptr_t scores_ptr = scores.data.ptr
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
 
@@ -813,11 +804,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         #   - paper_score=0.5 (normal threshold) → sklearn_score=-0.5
         #   - paper_score=0.0 (v.normal) → sklearn_score=0.0
         #
-        scores_cp = scores.to_output("cupy")
-        scores_sklearn = -scores_cp
+        return -scores
 
-        return CumlArray(scores_sklearn).to_output(self._get_output_type(X))
-
+    @mlfunc(preserve_index=True)
     def decision_function(self, X):
         """
         Compute the decision function of X.
@@ -837,6 +826,7 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         """
         return self.score_samples(X) - self.offset_
 
+    @mlfunc(preserve_index=True)
     def predict(self, X):
         """
         Predict if samples are anomalies or not.
@@ -856,33 +846,27 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         if self._forest_float is None and self._forest_double is None:
             raise RuntimeError("Model has not been fitted. Call fit() first.")
 
-        # Convert input to cuML array (row-major for inference)
-        X_m = input_to_cuml_array(
+        # Convert input to a row-major device array for inference.
+        X_m = check_inputs(
+            self,
             X,
-            check_dtype=[np.float32, np.float64],
-            convert_to_dtype=self._dtype,
-            order="C",  # Row-major for inference
-        ).array
+            dtype=self._dtype,
+            order="C",
+        )
 
         cdef size_t n_rows = X_m.shape[0]
         cdef int n_cols = X_m.shape[1]
 
-        if n_cols != self.n_features_in_:
-            raise ValueError(
-                f"X has {n_cols} features, but IsolationForest was fitted "
-                f"with {self.n_features_in_} features."
-            )
-
         # Allocate output
-        predictions = CumlArray.zeros(n_rows, dtype=np.int32, order="C")
+        predictions = cp.zeros(n_rows, dtype=np.int32, order="C")
 
         # Get handle and verbosity
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><uintptr_t>handle.getHandle()
         cdef level_enum verbose = <level_enum>self._verbose_level
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t pred_ptr = predictions.ptr
+        cdef uintptr_t X_ptr = X_m.data.ptr
+        cdef uintptr_t pred_ptr = predictions.data.ptr
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
 
@@ -910,11 +894,9 @@ class IsolationForest(Base, InteropMixin, CMajorInputTagMixin):
         # Our C++ returns: 1 for anomaly, -1 for normal
         # sklearn returns: -1 for anomaly, 1 for normal
         # So we need to negate
-        preds_cp = predictions.to_output("cupy")
-        preds_sklearn = -preds_cp
+        return -predictions
 
-        return CumlArray(preds_sklearn).to_output(self._get_output_type(X))
-
+    @mlfunc(preserve_index=True)
     def fit_predict(self, X, y=None, sample_weight=None):
         """
         Fit the model and predict on X.
