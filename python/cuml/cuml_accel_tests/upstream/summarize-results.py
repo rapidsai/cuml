@@ -72,6 +72,14 @@ def parse_args():
         help="Minimum pass rate threshold [0-100] (default: 0)",
     )
     parser.add_argument(
+        "--total-fail-below",
+        type=float,
+        help=(
+            "Minimum total pass rate threshold [0-100], including outcomes "
+            "excluded by --exclude-xfail-reason (default: disabled)"
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=["summary", "xfail_list", "traceback"],
         default="summary",
@@ -305,6 +313,8 @@ def main():
     """Main entry point."""
     args = parse_args()
     validate_threshold(args.fail_below)
+    if args.total_fail_below is not None:
+        validate_threshold(args.total_fail_below)
 
     if not args.report_file.exists():
         print(f"Error: Report file not found: {args.report_file}")
@@ -385,6 +395,7 @@ def main():
         if pass_rate_denominator > 0
         else 0
     )
+    total_pass_rate = passed / total_tests * 100 if total_tests > 0 else 0
 
     if args.format == "traceback":
         output = format_traceback_output(
@@ -439,6 +450,7 @@ def main():
         ["Errors:", str(regular_errors)],
         ["Skipped:", str(regular_skipped)],
         ["Pass Rate:", f"{pass_rate:.2f}%"],
+        ["Total Pass Rate:", f"{total_pass_rate:.2f}%"],
         ["Total Time:", f"{time:.2f}s"],
     ]
     for row in format_table(rows, "  "):
@@ -496,11 +508,23 @@ def main():
                     print(f'  "{test_id}"')
                     count += 1
 
+    threshold_failed = False
     if pass_rate < args.fail_below:
         print(
             f"\nError: Pass rate {pass_rate:.2f}% is below threshold "
             f"{args.fail_below}%"
         )
+        threshold_failed = True
+    if (
+        args.total_fail_below is not None
+        and total_pass_rate < args.total_fail_below
+    ):
+        print(
+            f"\nError: Total pass rate {total_pass_rate:.2f}% is below "
+            f"threshold {args.total_fail_below}%"
+        )
+        threshold_failed = True
+    if threshold_failed:
         sys.exit(1)
 
     sys.exit(0)

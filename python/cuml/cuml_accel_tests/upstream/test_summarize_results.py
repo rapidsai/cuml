@@ -52,6 +52,7 @@ def test_all_xfails_count_against_pass_rate_by_default(tmp_path):
     assert result.returncode == 0
     assert summary["Excluded XFailed"].strip() == "0"
     assert summary["Pass Rate"].strip() == "50.00%"
+    assert summary["Total Pass Rate"].strip() == "50.00%"
 
 
 def test_matching_xfail_is_excluded_from_pass_rate_denominator(tmp_path):
@@ -71,6 +72,7 @@ def test_matching_xfail_is_excluded_from_pass_rate_denominator(tmp_path):
     assert summary["XFailed"].strip() == "2"
     assert summary["Excluded XFailed"].strip() == "1"
     assert summary["Pass Rate"].strip() == "66.67%"
+    assert summary["Total Pass Rate"].strip() == "50.00%"
 
 
 def test_timeout_xfail_remains_in_pass_rate_denominator(tmp_path):
@@ -90,3 +92,24 @@ def test_timeout_xfail_remains_in_pass_rate_denominator(tmp_path):
     assert summary["Excluded XFailed"].strip() == "1"
     assert summary["Pass Rate"].strip() == "66.67%"
     assert "below threshold 70.0%" in result.stdout
+
+
+def test_total_pass_rate_has_separate_threshold(tmp_path):
+    report = tmp_path / "report.xml"
+    report.write_text(REPORT)
+
+    result = run_summarizer(
+        report,
+        "--fail-below",
+        "60",
+        "--total-fail-below",
+        "55",
+        "--exclude-xfail-reason",
+        "Network error:",
+    )
+    summary = parse_summary(result.stdout)
+
+    assert result.returncode == 1
+    assert summary["Pass Rate"].strip() == "66.67%"
+    assert summary["Total Pass Rate"].strip() == "50.00%"
+    assert "Total pass rate 50.00% is below threshold 55.0%" in result.stdout
