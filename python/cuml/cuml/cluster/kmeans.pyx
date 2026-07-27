@@ -4,6 +4,7 @@
 from numbers import Integral
 
 import cupy as cp
+import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base, get_handle
@@ -49,6 +50,8 @@ cdef _kmeans_init_params(kmeans, lib.KMeansParams& params):
     params.verbosity = kmeans._verbose_level
     params.metric = DistanceType.L2Expanded
     params.batch_samples = int(kmeans.max_samples_per_batch)
+    params.init_size = int(kmeans.init_size)
+    params.device_buffer_samples = int(kmeans.device_buffer_samples)
     params.oversampling_factor = kmeans.oversampling_factor
 
     # Ensure random_state is set when running on multi-gpu
@@ -94,16 +97,27 @@ cdef _kmeans_fit(
     sample_weight,
     centers,
 ):
-    """Fit the kmeans centers and return `n_iter`"""
+    """Fit the kmeans centers and return `n_iter`.
+
+    `X` and `sample_weight` may live on either the device or the host.
+    `centers` always lives on the device.
+    """
     cdef int64_t n_rows = X.shape[0]
     cdef int64_t n_cols = X.shape[1]
 
     cdef bool values_f32 = X.dtype == cp.float32
-    cdef bool indices_i32 = _kmeans_indices_i32(n_rows, n_cols)
+    # Indices fitting in int32 is for device arrays
+    cdef bool host_data = not isinstance(X, cp.ndarray)
+    cdef bool indices_i32 = (not host_data) and _kmeans_indices_i32(n_rows, n_cols)
 
-    cdef uintptr_t X_ptr = X.data.ptr
+    cdef uintptr_t X_ptr = X.data.ptr if isinstance(X, cp.ndarray) else X.ctypes.data
     cdef uintptr_t centers_ptr = centers.data.ptr
-    cdef uintptr_t sample_weight_ptr = sample_weight.data.ptr
+    cdef uintptr_t sample_weight_ptr = 0
+    if sample_weight is not None:
+        sample_weight_ptr = (
+            sample_weight.data.ptr if isinstance(sample_weight, cp.ndarray)
+            else sample_weight.ctypes.data
+        )
 
     cdef int n_iter_32 = 0
     cdef int64_t n_iter_64 = 0
@@ -170,6 +184,7 @@ cdef _kmeans_predict(
     X,
     sample_weight,
     centers,
+    bool normalize_weights=True,
 ):
     """Predict labels & inertia from a fit `KMeans`.
 
@@ -190,7 +205,9 @@ cdef _kmeans_predict(
 
     cdef uintptr_t X_ptr = X.data.ptr
     cdef uintptr_t centers_ptr = centers.data.ptr
-    cdef uintptr_t sample_weight_ptr = sample_weight.data.ptr
+    cdef uintptr_t sample_weight_ptr = (
+        sample_weight.data.ptr if sample_weight is not None else 0
+    )
     cdef uintptr_t labels_ptr = labels.data.ptr
 
     cdef bool values_f32 = X.dtype == cp.float32
@@ -209,7 +226,7 @@ cdef _kmeans_predict(
                     <int>n_rows,
                     <int>n_cols,
                     <float*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int*>labels_ptr,
                     inertia_f32,
                 )
@@ -222,7 +239,7 @@ cdef _kmeans_predict(
                     <int64_t>n_rows,
                     <int64_t>n_cols,
                     <float*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int64_t*>labels_ptr,
                     inertia_f32,
                 )
@@ -236,7 +253,7 @@ cdef _kmeans_predict(
                     <int>n_rows,
                     <int>n_cols,
                     <double*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int*>labels_ptr,
                     inertia_f64,
                 )
@@ -249,7 +266,7 @@ cdef _kmeans_predict(
                     <int64_t>n_rows,
                     <int64_t>n_cols,
                     <double*>sample_weight_ptr,
-                    True,
+                    normalize_weights,
                     <int64_t*>labels_ptr,
                     inertia_f64,
                 )
@@ -257,6 +274,76 @@ cdef _kmeans_predict(
     inertia = inertia_f32 if values_f32 else inertia_f64
 
     return labels, inertia
+
+
+cdef _kmeans_predict_host_chunked(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    X,
+    sample_weight,
+    centers,
+    int64_t batch_size,
+):
+    """Predict labels & total inertia for host-resident `X` in chunks.
+
+    Streams chunks of `batch_size` host rows into a single reusable device
+    buffer, runs the existing device-data predict on each chunk, and stitches
+    the per-chunk labels into a single host (`numpy.ndarray`) result.
+
+    Returns (`numpy.ndarray` of labels, `float` total inertia).
+    """
+    cdef int64_t n_rows = X.shape[0]
+    cdef int64_t n_cols = X.shape[1]
+    cdef int64_t cap = batch_size if batch_size > 0 else n_rows
+    if cap > n_rows:
+        cap = n_rows
+
+    cdef bool uniform = sample_weight is None
+    cdef double scale = 1.0
+    if uniform:
+        sw_buf = cp.ones(cap, dtype=X.dtype)
+    else:
+        total_sw = float(sample_weight.sum())
+        if total_sw > 0:
+            scale = n_rows / total_sw
+        sw_buf = cp.empty(shape=cap, dtype=X.dtype)
+
+    X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
+
+    labels_dtype = (
+        np.int32
+        if _kmeans_indices_i32(n_rows, n_cols)
+        and _kmeans_indices_i32(centers.shape[0], n_cols)
+        else np.int64
+    )
+    labels_host = np.empty(n_rows, dtype=labels_dtype)
+
+    cdef int64_t start = 0
+    cdef int64_t end = 0
+    cdef int64_t n = 0
+    total_inertia = 0.0
+    while start < n_rows:
+        end = start + cap
+        if end > n_rows:
+            end = n_rows
+        n = end - start
+
+        # For non-uniform, copy the raw slice and scale on-device.
+        X_buf[:n].set(X[start:end])
+        if not uniform:
+            sw_buf[:n].set(sample_weight[start:end])
+            sw_buf[:n] *= scale
+
+        batch_labels, batch_inertia = _kmeans_predict(
+            handle, params, X_buf[:n], sw_buf[:n], centers,
+            normalize_weights=False,
+        )
+        labels_host[start:end] = cp.asnumpy(batch_labels)
+        total_inertia += float(batch_inertia)
+
+        start = end
+
+    return labels_host, total_inertia
 
 
 class KMeans(InteropMixin,
@@ -368,6 +455,25 @@ class KMeans(InteropMixin,
         batched pairwise distance computation is :py:`max_samples_per_batch *
         n_clusters`. It might become necessary to lower this number when
         `n_clusters` becomes prohibitively large.
+    device_buffer_samples : int (default = 0)
+        Number of host samples to buffer to the device per GPU batch when
+        fitting with host-resident inputs. This selects the fit path for
+        host-resident inputs: the out-of-core host fit path is used whenever
+        ``device_buffer_samples > 0``. When ``device_buffer_samples == 0``
+        (default), host inputs are copied to the device in full and the
+        standard device fit is used. Ignored when the input is already
+        device-resident (e.g. cupy.ndarray, cudf.DataFrame),
+        which always uses the device fit.
+    init_size : int (default = 0)
+        Number of samples to randomly draw for the KMeansPlusPlus initialization
+        step. A random subset of this size is used for centroid seeding. Only
+        applies when the out-of-core host fit path is actually selected, i.e.
+        when the input is host-resident and ``device_buffer_samples > 0``. When
+        set to 0 (default) on that path, ``min(3 * n_clusters, n_samples)`` is
+        used. It is ignored on the device fit path — device-resident inputs, as
+        well as host inputs that are copied to the device in full
+        (``device_buffer_samples == 0``) — where the full dataset is always used
+        for seeding.
     output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
@@ -416,6 +522,8 @@ class KMeans(InteropMixin,
             "n_init",
             "oversampling_factor",
             "max_samples_per_batch",
+            "device_buffer_samples",
+            "init_size",
             "init",
             "max_iter",
             "n_clusters",
@@ -483,7 +591,7 @@ class KMeans(InteropMixin,
 
         return {
             "cluster_centers_": self.cluster_centers_.get(order="A"),
-            "labels_": self.labels_.get(order="A"),
+            "labels_": cp.asnumpy(self.labels_),
             "inertia_": self.inertia_,
             "n_iter_": self.n_iter_,
             # sklearn's KMeans relies on a few private attributes to work
@@ -504,6 +612,8 @@ class KMeans(InteropMixin,
         n_init="auto",
         oversampling_factor=2.0,
         max_samples_per_batch=1<<15,
+        device_buffer_samples=0,
+        init_size=0,
         output_type=None,
     ):
         super().__init__(verbose=verbose, output_type=output_type)
@@ -515,6 +625,8 @@ class KMeans(InteropMixin,
         self.n_init = n_init
         self.oversampling_factor = oversampling_factor
         self.max_samples_per_batch = max_samples_per_batch
+        self.device_buffer_samples = device_buffer_samples
+        self.init_size = init_size
 
     @property
     def _n_features_out(self):
@@ -529,6 +641,19 @@ class KMeans(InteropMixin,
         Compute k-means clustering with X.
 
         """
+        device_buffer_samples = int(self.device_buffer_samples)
+        if device_buffer_samples < 0:
+            raise ValueError(
+                f"device_buffer_samples must be >= 0, got "
+                f"{device_buffer_samples}."
+            )
+        if device_buffer_samples > 0 and self._multi_gpu:
+            raise ValueError(
+                f"device_buffer_samples={device_buffer_samples} is not "
+                f"supported for the multi-GPU KMeans fit path; set "
+                f"device_buffer_samples=0."
+            )
+
         self._validate_fit_params()
 
         # Process input arrays
@@ -538,13 +663,30 @@ class KMeans(InteropMixin,
             sample_weight=sample_weight,
             dtype=("float32", "float64"),
             convert_dtype=convert_dtype,
-            order="C",
+            order=None,
+            mem_type=None,
             reset=True,
         )
-        n_rows, n_cols = X.shape
+        data_on_device = isinstance(X, cp.ndarray)
 
-        if sample_weight is None:
-            sample_weight = cp.ones(shape=n_rows, dtype=X.dtype)
+        # Take the host (out-of-core) fit path when the input is host-resident
+        # and a positive batch size is set (``device_buffer_samples > 0``); if
+        # the batch is ``>= n_samples`` cuVS processes all rows in a single
+        # batch. When the batch is 0 (default), copy host inputs to the device
+        # and use the device fit; device-resident inputs always use the device
+        # fit.
+        use_host_path = (not data_on_device) and device_buffer_samples > 0
+
+        if use_host_path:
+            X = cp.asnumpy(X, order="C")
+            if sample_weight is not None:
+                sample_weight = cp.asnumpy(sample_weight)
+        else:
+            X = cp.asarray(X, order="C")
+            if sample_weight is not None:
+                sample_weight = cp.asarray(sample_weight)
+
+        n_rows, n_cols = X.shape
 
         self._validate_fit_row_constraints(n_rows)
 
@@ -554,7 +696,6 @@ class KMeans(InteropMixin,
                 shape=(self.n_clusters, n_cols), dtype=X.dtype, order="C",
             )
         else:
-            # Initial array provided, coerce to device array and validate
             centers = check_array(
                 self.init,
                 order="C",
@@ -579,7 +720,15 @@ class KMeans(InteropMixin,
         cdef lib.KMeansParams params
         _kmeans_init_params(self, params)
         n_iter = _kmeans_fit(handle_[0], params, X, sample_weight, centers)
-        labels, inertia = _kmeans_predict(handle_[0], params, X, sample_weight, centers)
+        if use_host_path:
+            labels, inertia = _kmeans_predict_host_chunked(
+                handle_[0], params, X, sample_weight, centers,
+                device_buffer_samples,
+            )
+        else:
+            labels, inertia = _kmeans_predict(
+                handle_[0], params, X, sample_weight, centers,
+            )
         handle.sync()
 
         # Store fitted attributes and return

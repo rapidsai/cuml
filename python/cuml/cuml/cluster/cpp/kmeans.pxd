@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,7 +29,9 @@ cdef extern from "cuml/cluster/kmeans_params.hpp" namespace "ML::kmeans" nogil:
         int n_init,
         double oversampling_factor,
         int batch_samples,
-        int batch_centroids
+        int batch_centroids,
+        int64_t init_size,
+        int64_t device_buffer_samples
 
 
 cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans" nogil:
