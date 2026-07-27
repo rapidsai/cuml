@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Support invoking test script outside the script directory
@@ -30,12 +30,13 @@ timeout -v --signal=SIGINT --kill-after=60s 60m ./python/cuml/cuml_accel_tests/u
     --example-timeout=300 \
     --junitxml="${SKLEARN_EXAMPLES_JUNITXML}"
 
-# Per-example timeouts and network failures are reported as xfails. The
-# examples tests still require a healthy majority of examples to pass so
-# widespread regressions are not missed.
+# Per-example timeouts and network failures are reported as xfails. Network
+# failures do not exercise cuml.accel and are excluded from the pass-rate
+# denominator. Timeouts and all other xfails remain non-passing outcomes.
 rapids-logger "scikit-learn examples: require >=90% pass rate"
 ./python/cuml/cuml_accel_tests/upstream/summarize-results.py \
     --fail-below 90 \
+    --exclude-xfail-reason "Network error:" \
     "${SKLEARN_EXAMPLES_JUNITXML}"
 
 rapids-logger "Test script exiting with value: $EXITCODE"

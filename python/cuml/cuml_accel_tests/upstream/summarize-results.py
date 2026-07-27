@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 """Summarize test results from a JUnit XML report file."""
@@ -94,6 +94,16 @@ def parse_args():
         dest="filter_pattern",
         help="Filter tests by ID pattern (substring match, case-insensitive)",
     )
+    parser.add_argument(
+        "--exclude-xfail-reason",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help=(
+            "Exclude xfails whose JUnit reason contains TEXT from the pass-rate "
+            "denominator. May be specified multiple times."
+        ),
+    )
     args = parser.parse_args()
 
     # Load config if provided
@@ -135,6 +145,12 @@ def matches_filter(test_id, pattern):
     if pattern is None:
         return True
     return pattern.lower() in test_id.lower()
+
+
+def matches_xfail_reason(skipped_elem, patterns):
+    """Return whether an xfail reason matches any exclusion pattern."""
+    message = skipped_elem.get("message", "")
+    return any(pattern in message for pattern in patterns)
 
 
 def get_test_results(testsuite, prefix: str = ""):
@@ -317,6 +333,7 @@ def main():
     regular_errors = 0
     regular_skipped = 0
     xfailed = 0
+    excluded_xfailed = 0
     xpassed_strict = 0
     xpassed_non_strict = 0
     for testcase in testsuite.findall(".//testcase"):
@@ -345,6 +362,10 @@ def main():
         elif skipped_elem is not None:
             if skipped_elem.get("type") == "pytest.xfail":
                 xfailed += 1
+                if matches_xfail_reason(
+                    skipped_elem, args.exclude_xfail_reason
+                ):
+                    excluded_xfailed += 1
             else:
                 regular_skipped += 1
 
@@ -358,7 +379,12 @@ def main():
         - xpassed_strict
         - xpassed_non_strict
     )
-    pass_rate = (passed / total_tests * 100) if total_tests > 0 else 0
+    pass_rate_denominator = total_tests - excluded_xfailed
+    pass_rate = (
+        passed / pass_rate_denominator * 100
+        if pass_rate_denominator > 0
+        else 0
+    )
 
     if args.format == "traceback":
         output = format_traceback_output(
@@ -407,6 +433,7 @@ def main():
         ["Passed:", str(passed)],
         ["Failed:", str(regular_failures)],
         ["XFailed:", str(xfailed)],
+        ["Excluded XFailed:", str(excluded_xfailed)],
         ["XPassed (strict):", str(xpassed_strict)],
         ["XPassed (non-strict):", str(xpassed_non_strict)],
         ["Errors:", str(regular_errors)],
