@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
@@ -305,7 +305,7 @@ def test_svc_weights(class_weight, sample_weight):
                 "degree": 40,
                 "C": 1,
                 "gamma": "scale",
-                "x_arraytype": "numba",
+                "x_arraytype": "cupy",
             }
         ),
     ],

@@ -475,6 +475,7 @@
 - reason: Test should fail with cuml.accel on scikit-learn <1.9
   marker: cuml_accel_bugs
   condition: scikit-learn<1.9
+  strict: false
   tests:
   - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
 - reason: These tests sometimes fail in CI due to a misconfigured machine leading to ASCII codec reads
