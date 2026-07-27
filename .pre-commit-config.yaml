@@ -193,8 +193,7 @@ repos:
         - id: rstcheck
           args: ["--config", "pyproject.toml"]
           additional_dependencies:
-            - nbsphinx
-            - sphinx
+            - 'rstcheck[sphinx,toml]'
     - repo: https://github.com/shellcheck-py/shellcheck-py
       rev: v0.10.0.1
       hooks:
