@@ -177,12 +177,8 @@ def test_tsne_fft_random_state_reproducibility(
         "min_grad_norm": 1e-12,
     }
 
-    embedding_a = TSNE(**tsne_kwargs).fit_transform(
-        data, knn_graph=knn_graph
-    )
-    embedding_b = TSNE(**tsne_kwargs).fit_transform(
-        data, knn_graph=knn_graph
-    )
+    embedding_a = TSNE(**tsne_kwargs).fit_transform(data, knn_graph=knn_graph)
+    embedding_b = TSNE(**tsne_kwargs).fit_transform(data, knn_graph=knn_graph)
 
     assert np.array_equal(embedding_a, embedding_b)
 
