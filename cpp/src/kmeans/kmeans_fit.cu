@@ -230,6 +230,21 @@ void fit(const raft::handle_t& handle,
   }
 }
 
+// Detect partition residency from the first non-empty partition: an empty
+// partition may carry a null data pointer that `is_device_or_managed_type`
+// cannot classify, so skip past empties. An all-empty rank has no local data;
+// default to the host path.
+template <typename value_t>
+static bool parts_on_device(const value_t* const* X_parts,
+                            const int64_t* n_samples_parts,
+                            int64_t n_parts)
+{
+  for (int64_t i = 0; i < n_parts; ++i) {
+    if (n_samples_parts[i] > 0) { return ML::is_device_or_managed_type(X_parts[i]); }
+  }
+  return false;
+}
+
 void fit(const raft::handle_t& handle,
          const KMeansParams& params,
          const float* const* X_parts,
@@ -241,7 +256,7 @@ void fit(const raft::handle_t& handle,
          float& inertia,
          int64_t& n_iter)
 {
-  if (n_parts > 0 && ML::is_device_or_managed_type(X_parts[0])) {
+  if (parts_on_device(X_parts, n_samples_parts, n_parts)) {
     fit_impl_device_parts(handle,
                           params,
                           X_parts,
@@ -277,7 +292,7 @@ void fit(const raft::handle_t& handle,
          double& inertia,
          int64_t& n_iter)
 {
-  if (n_parts > 0 && ML::is_device_or_managed_type(X_parts[0])) {
+  if (parts_on_device(X_parts, n_samples_parts, n_parts)) {
     fit_impl_device_parts(handle,
                           params,
                           X_parts,

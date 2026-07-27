@@ -189,7 +189,8 @@ cdef _kmeans_fit_parts(
 
     `parts` is a non-empty list of row-major partitions that share
     `n_features` and dtype. They may all be device-resident
-    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`). Host
+    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`); the C++ layer
+    detects the residency from the first non-empty partition. Host
     partitions are buffered to the device in batches of
     `params.device_buffer_samples`. `sample_weight_parts` is
     either None or a matching list of weight vectors. The distributed
