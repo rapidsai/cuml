@@ -851,21 +851,21 @@ class KMeans(InteropMixin,
         has_weights = sample_weight_parts is not None
 
         # The C++ layer dispatches on the residency of the *first* partition
-        # (``is_device_or_managed_type(X_parts[0])``), so every partition must
-        # share the same residency. Coerce the first partition preserving its
-        # native residency (``mem_type=None``), then coerce the remaining
-        # partitions to match it (all host or all device) so mixed-residency
-        # inputs stay congruent with the C++ dispatch.
+        # (``is_device_or_managed_type(X_parts[0])``) and assumes a single value
+        # dtype across partitions (``_kmeans_fit_parts`` reads ``parts[0].dtype``).
+        # So the first partition establishes both the residency and the dtype:
+        # coerce it preserving its native residency.
         coerced_parts = []
         coerced_weights = [] if has_weights else None
         mem_type = None
+        dtype = ("float32", "float64")
         for i, part in enumerate(parts):
             sw_in = sample_weight_parts[i] if has_weights else None
             part_c, sw_c = check_inputs(
                 self,
                 part,
                 sample_weight=sw_in,
-                dtype=("float32", "float64"),
+                dtype=dtype,
                 order="C",
                 mem_type=mem_type,
                 ensure_min_samples=0,
@@ -873,6 +873,7 @@ class KMeans(InteropMixin,
             )
             if i == 0:
                 mem_type = "device" if isinstance(part_c, cp.ndarray) else "host"
+                dtype = part_c.dtype
             coerced_parts.append(part_c)
             if has_weights:
                 coerced_weights.append(sw_c)
