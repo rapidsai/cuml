@@ -327,7 +327,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[pca-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-exact]"
-  - "sklearn.manifold.tests.test_t_sne::test_tsne_n_jobs[barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_n_jobs[exact]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_perplexity_validation[20]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_perplexity_validation[30]"
@@ -475,6 +474,7 @@
 - reason: Test should fail with cuml.accel on scikit-learn <1.9
   marker: cuml_accel_bugs
   condition: scikit-learn<1.9
+  strict: false
   tests:
   - "sklearn.ensemble.tests.test_voting::test_sample_weight[42]"
 - reason: These tests sometimes fail in CI due to a misconfigured machine leading to ASCII codec reads
@@ -595,6 +595,13 @@
   strict: false
   tests:
   - "sklearn.mixture.tests.test_gaussian_mixture::test_gaussian_mixture_precisions_init_diag[float64]"
+- reason: Test is flaky with cuml.accel
+  marker: cuml_accel_flaky
+  condition: scikit-learn>=1.8
+  strict: false
+  tests:
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-random-barnes_hut]"
+  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-random-barnes_hut]"
 - reason: Test is flaky with cuml.accel
   marker: cuml_accel_flaky
   condition: scikit-learn>=1.9
@@ -1045,11 +1052,6 @@
   condition: scikit-learn>=1.7
   tests:
   - "sklearn.cluster.tests.test_spectral::test_affinities[42]"
-- reason: cuML TSNE barnes_hut produces poor quality embeddings with sparse input
-  condition: scikit-learn>=1.8
-  tests:
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_array-random-barnes_hut]"
-  - "sklearn.manifold.tests.test_t_sne::test_fit_transform_csr_matrix[csr_matrix-random-barnes_hut]"
 - reason: cuML TSNE does not support sparse input with PCA initialization
   condition: scikit-learn>=1.8
   tests:

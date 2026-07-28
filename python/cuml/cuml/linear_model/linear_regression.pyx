@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import enum
 import warnings
@@ -8,7 +8,6 @@ import cupyx.scipy.sparse as sp
 import numpy as np
 
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import cuda_ptr
 from cuml.internals.base import Base, get_handle
 from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import (
@@ -18,7 +17,11 @@ from cuml.internals.mixins import (
 )
 from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
-from cuml.linear_model.base import LinearPredictMixin, fit_least_squares
+from cuml.linear_model.base import (
+    LinearPredictMixin,
+    cuda_ptr,
+    fit_least_squares,
+)
 
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
@@ -113,8 +116,7 @@ class LinearRegression(InteropMixin,
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See

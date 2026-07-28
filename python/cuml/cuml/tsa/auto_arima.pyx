@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import itertools
@@ -7,8 +7,7 @@ import itertools
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.internals import logger, reflect, run_in_internal_context
+from cuml.internals import ReflectedAttr, logger, mlfunc
 from cuml.internals.base import Base, get_handle
 from cuml.internals.validation import check_array
 from cuml.tsa._deprecation import warn_deprecated_tsa_api
@@ -116,8 +115,7 @@ class AutoARIMA(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -160,7 +158,7 @@ class AutoARIMA(Base):
 
     """
 
-    d_y = CumlArrayDescriptor()
+    d_y = ReflectedAttr()
 
     def __init__(self,
                  endog,
@@ -192,7 +190,7 @@ class AutoARIMA(Base):
 
         self._initial_calc()
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def _initial_calc(self):
         cdef uintptr_t d_y_ptr = self.d_y.data.ptr
         handle = get_handle()
@@ -206,7 +204,7 @@ class AutoARIMA(Base):
             raise ValueError(
                 "Missing observations are not supported in AutoARIMA yet")
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def search(self,
                s=None,
                d=range(3),
@@ -414,7 +412,7 @@ class AutoARIMA(Base):
             id_tracker, self.batch_size
         )
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def fit(self,
             h: float = 1e-8,
             maxiter: int = 1000,
@@ -441,7 +439,7 @@ class AutoARIMA(Base):
             logger.debug("Fitting {} ({})".format(model, method))
             model.fit(h=h, maxiter=maxiter, method=method, truncate=truncate)
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def predict(
         self,
         start=0,
@@ -500,7 +498,7 @@ class AutoARIMA(Base):
         else:
             return y_p, lower, upper
 
-    @reflect(array=None)
+    @mlfunc(array_arg=None)
     def forecast(self, nsteps: int, level=None):
         """Forecast `nsteps` into the future.
 
@@ -525,7 +523,7 @@ class AutoARIMA(Base):
         """
         return self.predict(self.n_obs, self.n_obs + nsteps, level)
 
-    @run_in_internal_context
+    @mlfunc(convert_output=False)
     def summary(self):
         """Display a quick summary of the models selected by `search`
         """

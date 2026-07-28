@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -15,12 +15,11 @@ import cupy as cp
 import nvforest
 import treelite
 
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
 from cuml.internals.device_type import DeviceType
 from cuml.internals.global_settings import GlobalSettings
 from cuml.internals.mixins import CMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import mlfunc
 from cuml.internals.validation import check_array
 
 
@@ -337,14 +336,14 @@ class ForestInference(CMajorInputTagMixin, Base):
             raise RuntimeError("ForestInference not yet loaded")
         return self.model.forest.get_dtype()
 
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict_proba(
         self,
         X,
         *,
         preds=None,
         chunk_size=None,
-    ) -> CumlArray:
+    ):
         if self.model is None:
             raise RuntimeError("ForestInference not yet loaded")
         if preds is not None:
@@ -358,24 +357,22 @@ class ForestInference(CMajorInputTagMixin, Base):
                 nvforest.CPUForestInferenceClassifier,
             ),
         ):
-            X, index = check_array(
+            X = check_array(
                 X,
                 dtype=self.get_dtype(),
                 order="C",
                 mem_type="device"
                 if _is_nvforest_model_on_device(self.model)
                 else "host",
-                return_index=True,
                 ensure_all_finite=self.ensure_all_finite,
                 input_name="X",
             )
             out = self.model.predict_proba(X, chunk_size=chunk_size)
             mem_type = GlobalSettings().fil_memory_type.name
-            out = cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
-            return CumlArray(out, index=index)
+            return cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
         raise RuntimeError("Must be a classifier to run predict_proba()")
 
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict(
         self,
         X,
@@ -383,21 +380,20 @@ class ForestInference(CMajorInputTagMixin, Base):
         preds=None,
         chunk_size=None,
         threshold=None,
-    ) -> CumlArray:
+    ):
         if self.model is None:
             raise RuntimeError("ForestInference not yet loaded")
         if preds is not None:
             raise NotImplementedError(
                 "Setting preds argument is no longer supported"
             )
-        X, index = check_array(
+        X = check_array(
             X,
             dtype=self.get_dtype(),
             order="C",
             mem_type="device"
             if _is_nvforest_model_on_device(self.model)
             else "host",
-            return_index=True,
             ensure_all_finite=self.ensure_all_finite,
             input_name="X",
         )
@@ -424,10 +420,9 @@ class ForestInference(CMajorInputTagMixin, Base):
                 f"Unrecognized type for self.model: {type(self.model)}"
             )
         mem_type = GlobalSettings().fil_memory_type.name
-        out = cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
-        return CumlArray(out, index=index)
+        return cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
 
-    @reflect
+    @mlfunc(preserve_index=True)
     def predict_per_tree(self, X, *, preds=None, chunk_size=None):
         if self.model is None:
             raise RuntimeError("ForestInference not yet loaded")
@@ -435,23 +430,21 @@ class ForestInference(CMajorInputTagMixin, Base):
             raise NotImplementedError(
                 "Setting preds argument is no longer supported"
             )
-        X, index = check_array(
+        X = check_array(
             X,
             dtype=self.get_dtype(),
             order="C",
             mem_type="device"
             if _is_nvforest_model_on_device(self.model)
             else "host",
-            return_index=True,
             ensure_all_finite=self.ensure_all_finite,
             input_name="X",
         )
         out = self.model.predict_per_tree(X, chunk_size=chunk_size)
         mem_type = GlobalSettings().fil_memory_type.name
-        out = cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
-        return CumlArray(out, index=index)
+        return cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
 
-    @reflect
+    @mlfunc(preserve_index=True)
     def apply(self, X, *, preds=None, chunk_size=None):
         if self.model is None:
             raise RuntimeError("ForestInference not yet loaded")
@@ -459,21 +452,19 @@ class ForestInference(CMajorInputTagMixin, Base):
             raise NotImplementedError(
                 "Setting preds argument is no longer supported"
             )
-        X, index = check_array(
+        X = check_array(
             X,
             dtype=self.get_dtype(),
             order="C",
             mem_type="device"
             if _is_nvforest_model_on_device(self.model)
             else "host",
-            return_index=True,
             ensure_all_finite=self.ensure_all_finite,
             input_name="X",
         )
         out = self.model.apply(X, chunk_size=chunk_size)
         mem_type = GlobalSettings().fil_memory_type.name
-        out = cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
-        return CumlArray(out, index=index)
+        return cp.asarray(out) if mem_type == "device" else cp.asnumpy(out)
 
     def optimize(
         self,

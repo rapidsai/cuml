@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -230,7 +230,6 @@ XFAILS = {
     },
     TSNE: {
         "check_dont_overwrite_parameters": "TSNE only supports n_components = 2",
-        "check_pipeline_consistency": "TSNE results are not deterministic",
         "check_methods_sample_order_invariance": "TSNE results depend on sample order",
         "check_methods_subset_invariance": "TSNE results depend on data subset",
         "check_fit2d_predict1d": "TSNE only supports n_components = 2",

@@ -1,23 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import warnings
 
-import cupy
-import numpy as np
+import cupy as cp
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import CMajorInputTagMixin, SparseInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ArrayIndexPair, ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_random_seed
 from cuml.manifold.utils import extract_knn_graph
 
@@ -293,9 +285,8 @@ class TSNE(InteropMixin,
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
-        Setting this can make repeated runs look more similar. Note, however,
-        that this highly parallelized t-SNE implementation is not completely
-        deterministic between runs, even with the same `random_state`.
+        Controls random initialization. For the FFT method, setting this value
+        makes repeated runs with the same inputs deterministic.
     method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
@@ -349,8 +340,7 @@ class TSNE(InteropMixin,
         In all cases the KNN should be computed using the same ``metric`` as
         provided to ``TSNE``.
 
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -384,11 +374,11 @@ class TSNE(InteropMixin,
 
     .. tip::
         Maaten and Linderman showcased how t-SNE can be very sensitive to both
-        the starting conditions (i.e. random initialization), and how parallel
-        versions of t-SNE can generate vastly different results between runs.
-        You can run t-SNE multiple times to settle on the best configuration.
-        Note that using the same random_state across runs does not guarantee
-        similar results each time.
+        the starting conditions (i.e. random initialization) and its
+        hyperparameters. You can run t-SNE with different random seeds to
+        compare embeddings and settle on the best configuration. For the FFT
+        method, reusing the same `random_state` and inputs reproduces the same
+        result.
 
     .. note::
         The CUDA implementation is derived from the excellent CannyLabs open
@@ -400,7 +390,7 @@ class TSNE(InteropMixin,
         (https://arxiv.org/abs/1807.11824).
 
     """
-    embedding_ = CumlArrayDescriptor(order="F")
+    embedding_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.manifold.TSNE"
 
@@ -461,8 +451,8 @@ class TSNE(InteropMixin,
             "method": method,
         }
         if model.learning_rate != "auto":
-            # For now have `learning_rate="auto"` just use cuml's default
-            params["learning_rate"]: model.learning_rate
+            params["learning_rate"] = model.learning_rate
+            params["learning_rate_method"] = "none"
 
         if (max_iter := getattr(model, "max_iter", None)) is not None:
             params["max_iter"] = max_iter
@@ -490,8 +480,8 @@ class TSNE(InteropMixin,
 
     def _attrs_from_cpu(self, model):
         return {
-            "embedding_": to_gpu(model.embedding_),
-            "kl_divergence_": to_gpu(model.kl_divergence_),
+            "embedding_": ArrayIndexPair(cp.asarray(model.embedding_, order="F"), None),
+            "kl_divergence_": model.kl_divergence_,
             "learning_rate_": model.learning_rate_,
             "n_iter_": model.n_iter_,
             **super()._attrs_from_cpu(model)
@@ -499,8 +489,8 @@ class TSNE(InteropMixin,
 
     def _attrs_to_cpu(self, model):
         return {
-            "embedding_": to_cpu(self.embedding_),
-            "kl_divergence_": to_cpu(self.kl_divergence_),
+            "embedding_": self.embedding_.array.get(order="A"),
+            "kl_divergence_": self.kl_divergence_,
             "learning_rate_": self.learning_rate_,
             "n_iter_": self.n_iter_,
             **super()._attrs_to_cpu(model)
@@ -566,7 +556,7 @@ class TSNE(InteropMixin,
 
     @generate_docstring(skip_parameters_heading=True,
                         X='dense_sparse')
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y=None, *, convert_dtype="deprecated", knn_graph=None) -> "TSNE":
         """
         Fit X into an embedded space.
@@ -631,10 +621,10 @@ class TSNE(InteropMixin,
             knn_indices_ptr = <uintptr_t>knn_indices.data.ptr
 
         # Allocate output array
-        embedding = cupy.zeros(
+        embedding = cp.zeros(
             (n_samples, self.n_components),
             order="F",
-            dtype=np.float32,
+            dtype=cp.float32,
         )
         cdef uintptr_t embed_ptr = <uintptr_t>embedding.data.ptr
 
@@ -680,7 +670,7 @@ class TSNE(InteropMixin,
         self._kl_divergence_ = kl_divergence
         self.n_iter_ = n_iter
         self.learning_rate_ = params.pre_learning_rate
-        self.embedding_ = CumlArray(data=embedding, index=index)
+        self.embedding_ = ArrayIndexPair(embedding, index)
 
         return self
 
@@ -690,10 +680,10 @@ class TSNE(InteropMixin,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @reflect
+    @mlfunc(preserve_index=True)
     def fit_transform(
         self, X, y=None, *, convert_dtype="deprecated", knn_graph=None
-    ) -> CumlArray:
+    ):
         """
         Fit X into an embedded space and return that transformed output.
         """

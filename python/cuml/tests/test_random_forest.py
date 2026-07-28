@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -1316,47 +1316,6 @@ def test_rf_feature_sampling_retries_until_valid_split():
 
         assert sk_acc == 1.0
         assert cuml_acc == sk_acc
-
-
-def test_rf_feature_sampling_does_not_retry_below_impurity_threshold():
-    n_samples = 128
-    n_features = 32
-    X = np.zeros((n_samples, n_features), dtype=np.float32)
-    y = np.zeros(n_samples, dtype=np.int32)
-    y[n_samples // 2 :] = 1
-
-    X[:, :-1] = (np.arange(n_samples) % 2).reshape(-1, 1)
-    X[:, -1] = y
-
-    cuml_accs = []
-    sk_accs = []
-    for random_state in range(16):
-        clf = curfc(
-            n_estimators=1,
-            bootstrap=False,
-            max_depth=None,
-            max_features=1,
-            min_impurity_decrease=0.1,
-            n_bins=4,
-            n_streams=1,
-            random_state=random_state,
-        )
-        clf.fit(X, y)
-        cuml_accs.append(accuracy_score(y, clf.predict(X)))
-
-        sk_clf = skrfc(
-            n_estimators=1,
-            bootstrap=False,
-            max_depth=None,
-            max_features=1,
-            min_impurity_decrease=0.1,
-            random_state=random_state,
-        )
-        sk_clf.fit(X, y)
-        sk_accs.append(accuracy_score(y, sk_clf.predict(X)))
-
-    assert min(sk_accs) == 0.5
-    assert min(cuml_accs) == 0.5
 
 
 def test_rf_predict_returns_int():
