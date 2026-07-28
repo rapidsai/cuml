@@ -878,7 +878,6 @@ class KMeans(InteropMixin,
 
         parts = coerced_parts
         sample_weight_parts = coerced_weights
-        dtype = parts[0].dtype
         n_cols = parts[0].shape[1]
         n_rows = sum(part.shape[0] for part in parts)
         self._validate_fit_row_constraints(n_rows)

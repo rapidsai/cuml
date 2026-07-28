@@ -492,7 +492,8 @@ def test_out_of_core_host_fit(
 
     fit_kwargs = {}
     if weighted:
-        wt = np.ones(n_rows, dtype=np.float32)
+        rng = np.random.RandomState(42)
+        wt = rng.uniform(0.5, 2.0, size=n_rows).astype(np.float32)
         fit_kwargs["sample_weight"] = da.from_array(wt, chunks=(chunk,))
 
     model = KMeans(
@@ -531,6 +532,9 @@ def test_out_of_core_host_matches_device(client, device_buffer_samples):
     X_np = X_np.astype(np.float32)
     chunk = int(np.ceil(n_rows / n_parts))
 
+    rng = np.random.RandomState(10)
+    wt = rng.uniform(0.5, 2.0, size=n_rows).astype(np.float32)
+
     common = dict(
         init="k-means||",
         n_clusters=n_clusters,
@@ -539,15 +543,21 @@ def test_out_of_core_host_matches_device(client, device_buffer_samples):
     )
 
     X_host = da.from_array(X_np, chunks=(chunk, n_cols))
+    wt_host = da.from_array(wt, chunks=(chunk,))
     host_model = KMeans(device_buffer_samples=device_buffer_samples, **common)
     host_labels = cp.asnumpy(
-        cp.asarray(host_model.fit_predict(X_host).compute())
+        cp.asarray(
+            host_model.fit_predict(X_host, sample_weight=wt_host).compute()
+        )
     ).reshape(-1)
 
     X_dev = da.from_array(cp.asarray(X_np), chunks=(chunk, n_cols))
+    wt_dev = da.from_array(cp.asarray(wt), chunks=(chunk,))
     dev_model = KMeans(**common)
     dev_labels = cp.asnumpy(
-        cp.asarray(dev_model.fit_predict(X_dev).compute())
+        cp.asarray(
+            dev_model.fit_predict(X_dev, sample_weight=wt_dev).compute()
+        )
     ).reshape(-1)
 
     assert sk_adjusted_rand_score(host_labels, dev_labels) >= 0.99
