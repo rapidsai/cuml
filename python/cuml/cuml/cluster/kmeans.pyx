@@ -938,11 +938,6 @@ class KMeans(InteropMixin,
             handle_[0], params, parts, sample_weight_parts, centers,
         )
 
-        # Assign labels and accumulate inertia one partition at a time (the
-        # data is never concatenated). Device partitions use the standard
-        # device predict; host partitions are streamed to the device in chunks
-        # via the shared host-chunked predict helper. Weights are applied as-is
-        # (they are normalized upstream by the Dask layer).
         labels_parts = []
         inertia = 0.0
         for i, part in enumerate(parts):
@@ -974,9 +969,6 @@ class KMeans(InteropMixin,
             labels = cp.concatenate(labels_parts)
         else:
             labels = np.concatenate(labels_parts)
-        # Labels are O(n_rows) (tiny relative to the data), so returning them on
-        # device keeps the Dask reduction path unchanged without defeating the
-        # out-of-core goal for the data itself.
         labels = cp.asarray(labels)
 
         self.cluster_centers_ = centers
