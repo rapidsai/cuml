@@ -36,7 +36,9 @@
 #include <cfloat>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
+#include <limits>
 
 /**
  * @brief Performs P + P.T.
@@ -63,7 +65,12 @@ void random_vector(value_t* vector,
     gettimeofday(&tp, NULL);
     seed = tp.tv_sec * 1000 + tp.tv_usec;
   }
-  raft::random::Rng random(seed);
+  // A zero seed does not produce reproducible output with the legacy RAFT
+  // generator used here. Map it to a value outside the nonnegative range of
+  // this signed API so it remains distinct from every other accepted seed.
+  const auto rng_seed = seed == 0 ? std::numeric_limits<uint64_t>::max()
+                                  : static_cast<uint64_t>(seed);
+  raft::random::Rng random(rng_seed);
   random.uniform<value_t>(vector, size, minimum, maximum, stream);
 }
 

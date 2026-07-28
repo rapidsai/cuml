@@ -327,7 +327,6 @@
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[pca-exact]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_preserve_trustworthiness_approximately[random-exact]"
-  - "sklearn.manifold.tests.test_t_sne::test_tsne_n_jobs[barnes_hut]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_n_jobs[exact]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_perplexity_validation[20]"
   - "sklearn.manifold.tests.test_t_sne::test_tsne_perplexity_validation[30]"

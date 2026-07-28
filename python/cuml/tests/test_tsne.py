@@ -183,6 +183,25 @@ def test_tsne_fft_random_state_reproducibility(
     assert np.array_equal(embedding_a, embedding_b)
 
 
+def test_tsne_fft_zero_random_state_reproducibility():
+    data, _ = make_blobs(
+        n_samples=30, n_features=10, centers=5, random_state=0
+    )
+    data = data.astype(np.float32)
+    tsne_kwargs = {
+        "random_state": 0,
+        "n_neighbors": 30,
+        "perplexity": 25,
+        "method": "fft",
+        "init": "random",
+    }
+
+    embedding_a = TSNE(**tsne_kwargs).fit_transform(data)
+    embedding_b = TSNE(**tsne_kwargs).fit_transform(data)
+
+    assert np.array_equal(embedding_a, embedding_b)
+
+
 @pytest.mark.parametrize("init", ["random", "pca"])
 @pytest.mark.parametrize("method", ["fft", "barnes_hut"])
 def test_tsne(supervised_learning_dataset, method, init):

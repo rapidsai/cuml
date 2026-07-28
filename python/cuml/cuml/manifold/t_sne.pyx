@@ -452,8 +452,8 @@ class TSNE(InteropMixin,
             "method": method,
         }
         if model.learning_rate != "auto":
-            # For now have `learning_rate="auto"` just use cuml's default
-            params["learning_rate"]: model.learning_rate
+            params["learning_rate"] = model.learning_rate
+            params["learning_rate_method"] = "none"
 
         if (max_iter := getattr(model, "max_iter", None)) is not None:
             params["max_iter"] = max_iter
