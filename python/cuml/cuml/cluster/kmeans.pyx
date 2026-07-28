@@ -1090,6 +1090,9 @@ class KMeans(InteropMixin,
         cdef int64_t n_cols = X.shape[1]
         cdef int64_t n_clusters = self.n_clusters
 
+        # Stop-gap: the current C++/cuVS transform path does not preserve
+        # int64 indexing end-to-end for the output matrix. Reject oversized
+        # outputs here until transform supports int64 output indexing.
         if not _kmeans_indices_i32(n_rows, n_clusters):
             raise NotImplementedError(
                 "KMeans.transform does not currently support output shapes "
