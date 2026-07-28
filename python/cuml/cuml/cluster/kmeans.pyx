@@ -731,11 +731,6 @@ class KMeans(InteropMixin,
 
         """
         device_buffer_samples = int(self.device_buffer_samples)
-        if device_buffer_samples < 0:
-            raise ValueError(
-                f"device_buffer_samples must be >= 0, got "
-                f"{device_buffer_samples}."
-            )
         if device_buffer_samples > 0 and self._multi_gpu:
             raise ValueError(
                 f"device_buffer_samples={device_buffer_samples} is not "
@@ -848,15 +843,26 @@ class KMeans(InteropMixin,
 
         has_weights = sample_weight_parts is not None
 
-        # The C++ layer dispatches on the residency of the *first* partition
-        # (``is_device_or_managed_type(X_parts[0])``) and assumes a single value
-        # dtype across partitions (``_kmeans_fit_parts`` reads ``parts[0].dtype``).
-        # So the first partition establishes both the residency and the dtype:
-        # coerce it preserving its native residency.
+        # The C++ layer dispatches on the residency of X and assumes the weight
+        # pointers share that residency and a single value dtype
+        # (``_kmeans_fit_parts`` reads ``parts[0].dtype``). Establish both from
+        # the first partition's X (coerced with ``mem_type=None`` to preserve
+        # its native residency), then coerce every partition's X *and* weights
+        # to that residency/dtype.
+        first_x = check_inputs(
+            self,
+            parts[0],
+            dtype=("float32", "float64"),
+            order="C",
+            mem_type=None,
+            ensure_min_samples=0,
+            reset=True,
+        )
+        mem_type = "device" if isinstance(first_x, cp.ndarray) else "host"
+        dtype = first_x.dtype
+
         coerced_parts = []
         coerced_weights = [] if has_weights else None
-        mem_type = None
-        dtype = ("float32", "float64")
         for i, part in enumerate(parts):
             sw_in = sample_weight_parts[i] if has_weights else None
             part_c, sw_c = check_inputs(
@@ -867,11 +873,8 @@ class KMeans(InteropMixin,
                 order="C",
                 mem_type=mem_type,
                 ensure_min_samples=0,
-                reset=(i == 0),
+                reset=False,
             )
-            if i == 0:
-                mem_type = "device" if isinstance(part_c, cp.ndarray) else "host"
-                dtype = part_c.dtype
             coerced_parts.append(part_c)
             if has_weights:
                 coerced_weights.append(sw_c)
@@ -969,6 +972,11 @@ class KMeans(InteropMixin,
         if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
             raise ValueError(
                 f"n_clusters={self.n_clusters} should be a positive integer."
+            )
+        if int(self.device_buffer_samples) < 0:
+            raise ValueError(
+                f"device_buffer_samples must be >= 0, got "
+                f"{int(self.device_buffer_samples)}."
             )
 
     def _validate_fit_row_constraints(self, n_rows):
