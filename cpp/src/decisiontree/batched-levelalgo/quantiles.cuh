@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -115,8 +115,8 @@ struct QuantileResult {
   rmm::device_uvector<T> quantiles_array;
   rmm::device_uvector<int> n_bins_array;
 
-  Quantiles<T, int> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
-  Quantiles<T, int> view() && = delete;
+  Quantiles<T> view() & { return {quantiles_array.data(), n_bins_array.data()}; }
+  Quantiles<T> view() && = delete;
 };
 
 /**
@@ -197,12 +197,10 @@ CUML_EXPORT QuantileResult<T> computeQuantiles(const raft::handle_t& handle,
   rmm::device_uvector<T> sampled_columns(total_sample_values, stream);
   rmm::device_uvector<T> sorted_samples(total_sample_values, stream);
 
-  int n_threads = 256;
-  auto segment_offsets =
-    thrust::make_transform_iterator(thrust::make_counting_iterator<std::int64_t>(0),
-                                    [sample_count] __host__ __device__(std::int64_t col) {
-                                      return col * static_cast<std::int64_t>(sample_count);
-                                    });
+  int n_threads        = 256;
+  auto segment_offsets = thrust::make_transform_iterator(
+    thrust::make_counting_iterator<std::int64_t>(0),
+    [sample_count] __host__ __device__(std::int64_t col) { return col * sample_count; });
   rmm::device_uvector<T> quantiles_array(ML::checked_mul<std::size_t>(n_cols, max_n_bins), stream);
   rmm::device_uvector<int> n_bins_array(n_cols, stream);
 
