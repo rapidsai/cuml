@@ -164,24 +164,38 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
         continue;
       }
 
-      int local_feature = static_cast<int>(sample_bounded(rng_state, static_cast<size_t>(n_cols)));
-      int original_feature =
-        feature_indices == nullptr ? local_feature : feature_indices[local_feature];
-
-      T min_val = local_data[work_indices[start] * n_cols + local_feature];
-      T max_val = min_val;
-      for (int i = start + 1; i < end; i++) {
-        T val = local_data[work_indices[i] * n_cols + local_feature];
-        if (val < min_val) min_val = val;
-        if (val > max_val) max_val = val;
+      // Try every feature, starting from a random offset, before concluding
+      // that this node cannot be split. This avoids prematurely stopping on
+      // sparse or one-hot data when the first random feature is constant.
+      int local_feature = -1;
+      T min_val         = T(0);
+      T max_val         = T(0);
+      int feature_start = static_cast<int>(sample_bounded(rng_state, static_cast<size_t>(n_cols)));
+      for (int attempt = 0; attempt < n_cols; ++attempt) {
+        int candidate   = (feature_start + attempt) % n_cols;
+        T candidate_min = local_data[work_indices[start] * n_cols + candidate];
+        T candidate_max = candidate_min;
+        for (int i = start + 1; i < end; ++i) {
+          T val = local_data[work_indices[i] * n_cols + candidate];
+          if (val < candidate_min) candidate_min = val;
+          if (val > candidate_max) candidate_max = val;
+        }
+        if (candidate_min < candidate_max) {
+          local_feature = candidate;
+          min_val       = candidate_min;
+          max_val       = candidate_max;
+          break;
+        }
       }
 
-      if (min_val >= max_val) {
+      if (local_feature < 0) {
         T path_length   = static_cast<T>(depth) + compute_c_n<T>(n_node_samples);
         nodes[node_idx] = {-1, path_length, -1, -1};
         continue;
       }
 
+      int original_feature =
+        feature_indices == nullptr ? local_feature : feature_indices[local_feature];
       float rand_frac = curand_uniform(rng_state);
       T threshold     = min_val + static_cast<T>(rand_frac) * (max_val - min_val);
 
@@ -196,7 +210,22 @@ __device__ void build_tree_iterative_global(const T* __restrict__ local_data,
         }
       }
 
-      if (left_end == start || left_end == end) { left_end = start + n_node_samples / 2; }
+      if (left_end == start || left_end == end) {
+        // Numerical rounding can move the random threshold onto an endpoint.
+        // Repartition with max_val so the stored split and training partition
+        // remain consistent. Since min_val < max_val, both children are nonempty.
+        threshold = max_val;
+        left_end  = start;
+        for (int i = start; i < end; ++i) {
+          T val = local_data[work_indices[i] * n_cols + local_feature];
+          if (val < threshold) {
+            int tmp                = work_indices[left_end];
+            work_indices[left_end] = work_indices[i];
+            work_indices[i]        = tmp;
+            ++left_end;
+          }
+        }
+      }
 
       int left_child  = n_nodes;
       int right_child = n_nodes + 1;
@@ -243,8 +272,8 @@ __global__ void build_isolation_trees_global_kernel(const T* __restrict__ data,
   curandState rng_state;
   curand_init(seed, tree_id, 0, &rng_state);
 
-  int tree_offset = tree_id * max_nodes_per_tree;
-  if (threadIdx.x == 0) { tree_offsets[tree_id] = tree_offset; }
+  size_t tree_offset = static_cast<size_t>(tree_id) * max_nodes_per_tree;
+  if (threadIdx.x == 0) { tree_offsets[tree_id] = static_cast<int>(tree_offset); }
 
   T* local_data = subsample_buffer + static_cast<size_t>(tree_id) * max_samples * max_features;
   size_t* tree_sample_indices = sample_indices + static_cast<size_t>(tree_id) * max_samples;
@@ -404,9 +433,9 @@ __global__ void compact_global_trees_kernel(const IFNode<T>* __restrict__ nodes,
 {
   int tree_id = blockIdx.x;
   if (tree_id >= n_trees) return;
-  int n       = tree_n_nodes[tree_id];
-  int src_off = tree_id * max_nodes_per_tree;
-  int dst_off = compact_offsets[tree_id];
+  int n          = tree_n_nodes[tree_id];
+  size_t src_off = static_cast<size_t>(tree_id) * max_nodes_per_tree;
+  int dst_off    = compact_offsets[tree_id];
   for (int i = threadIdx.x; i < n; i += blockDim.x) {
     compact_nodes[dst_off + i] = nodes[src_off + i];
   }

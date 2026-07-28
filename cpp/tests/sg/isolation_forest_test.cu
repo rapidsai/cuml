@@ -480,6 +480,38 @@ TEST_F(IsolationForestTest, MaxFeaturesFitStoresOriginalFeatureIds)
   EXPECT_EQ(model.global_feature_indices.size(), 0);
 }
 
+TEST_F(IsolationForestTest, ConstantFeaturesDoNotStopSplitting)
+{
+  const int n_samples    = 64;
+  const int n_features   = 8;
+  const int n_estimators = 4;
+  const int varying_col  = n_features - 1;
+
+  thrust::host_vector<float> h_X(static_cast<size_t>(n_samples) * n_features, 0.0f);
+  for (int row = 0; row < n_samples; ++row) {
+    h_X[static_cast<size_t>(varying_col) * n_samples + row] = static_cast<float>(row);
+  }
+  thrust::device_vector<float> X_colmajor = h_X;
+
+  IF_params params;
+  params.n_estimators = n_estimators;
+  params.max_samples  = n_samples;
+  params.max_features = n_features;
+  params.seed         = 42;
+
+  IsolationForestF model;
+  fit(*handle, &model, X_colmajor.data().get(), n_samples, n_features, params);
+  auto compact = get_compact_trees(*handle, &model);
+
+  ASSERT_EQ(compact.tree_offsets.size(), n_estimators);
+  for (int tree = 0; tree < n_estimators; ++tree) {
+    const auto& root = compact.nodes[compact.tree_offsets[tree]];
+    EXPECT_EQ(root.feature_idx, varying_col);
+    EXPECT_GE(root.left_child, 0);
+    EXPECT_GE(root.right_child, 0);
+  }
+}
+
 /**
  * @brief Test: Anomaly scores are in valid range [0, 1].
  *

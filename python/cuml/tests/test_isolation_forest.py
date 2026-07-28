@@ -20,7 +20,7 @@ from sklearn.datasets import make_blobs
 from sklearn.ensemble import IsolationForest as skIsolationForest
 
 from cuml import IsolationForest as cuIsolationForest
-from cuml.internals.interop import UnsupportedOnGPU
+from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.testing.utils import stress_param, unit_param
 
 # =============================================================================
@@ -299,6 +299,33 @@ def test_unsupported_warm_start(blobs_data):
 
     with pytest.raises(UnsupportedOnGPU, match="warm_start"):
         clf.fit(blobs_data)
+
+
+def test_unfitted_sklearn_conversion_preserves_parameters():
+    """Unfitted estimators may still be converted in either direction."""
+    cu_model = cuIsolationForest(n_estimators=7, random_state=42)
+    sk_model = cu_model.as_sklearn()
+    assert isinstance(sk_model, skIsolationForest)
+    assert sk_model.n_estimators == 7
+
+    roundtrip = cuIsolationForest.from_sklearn(sk_model)
+    assert roundtrip.n_estimators == 7
+    assert roundtrip.random_state == 42
+
+
+def test_fitted_sklearn_conversion_is_explicitly_unsupported(blobs_data):
+    """Fitted conversion must not silently drop the trained forest."""
+    cu_model = cuIsolationForest(n_estimators=5, random_state=42).fit(
+        blobs_data
+    )
+    with pytest.raises(UnsupportedOnCPU, match="fitted"):
+        cu_model.as_sklearn()
+
+    sk_model = skIsolationForest(n_estimators=5, random_state=42).fit(
+        blobs_data
+    )
+    with pytest.raises(UnsupportedOnGPU, match="fitted"):
+        cuIsolationForest.from_sklearn(sk_model)
 
 
 def test_contamination_float_sets_score_quantile_offset(blobs_data):

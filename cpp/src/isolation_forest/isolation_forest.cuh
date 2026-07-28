@@ -95,6 +95,8 @@ class IsolationForest {
     auto stream               = handle.get_stream();
     model->max_nodes_per_tree = compute_global_max_nodes_per_tree(max_depth, n_sampled_rows);
     size_t total_nodes = static_cast<size_t>(params.n_estimators) * model->max_nodes_per_tree;
+    ASSERT(total_nodes <= static_cast<size_t>(std::numeric_limits<int>::max()),
+           "Isolation Forest node offsets exceed int range.");
     model->global_nodes =
       rmm::device_buffer(total_nodes * sizeof(IsolationTree::IFNode<T>), stream);
     model->global_tree_offsets   = rmm::device_buffer(params.n_estimators * sizeof(int), stream);

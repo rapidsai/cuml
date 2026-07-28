@@ -16,7 +16,11 @@ from cuml.cluster import (
 from cuml.compose import ColumnTransformer
 from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
-from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.ensemble import (
+    IsolationForest,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from cuml.feature_extraction.text import TfidfTransformer
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
@@ -145,6 +149,8 @@ def _all_cuml_estimators():
 
 
 EXCLUDED = {
+    # Ensemble
+    IsolationForest: "Not yet tested for sklearn compat",
     # Linear model
     MBSGDClassifier: "Not yet tested for sklearn compat",
     MBSGDRegressor: "Not yet tested for sklearn compat",

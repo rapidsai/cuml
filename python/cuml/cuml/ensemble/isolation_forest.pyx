@@ -20,7 +20,11 @@ import nvforest
 import treelite
 
 from cuml.internals.base import Base, get_handle
-from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
+from cuml.internals.interop import (
+    InteropMixin,
+    UnsupportedOnCPU,
+    UnsupportedOnGPU,
+)
 from cuml.internals.mixins import CMajorInputTagMixin
 from cuml.internals.outputs import mlfunc
 from cuml.internals.treelite import safe_treelite_call
@@ -161,7 +165,7 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         >>> # Fit the model
         >>> clf = IsolationForest(n_estimators=100, random_state=42)
         >>> clf.fit(X)
-        IsolationForest()
+        IsolationForest(random_state=42)
 
         >>> # Predict anomalies (-1 for anomaly, 1 for normal)
         >>> predictions = clf.predict(X)
@@ -205,11 +209,13 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
     warm_start : bool, default=False
         ``warm_start=True`` is not currently supported.
     verbose : int or boolean, default=False
-        Sets logging level.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \\
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
-        type.
+        type. If None, the output type set at the module level
+        (`cuml.global_settings.output_type`) will be used. See
+        :ref:`output-data-type-configuration` for more info.
 
     Attributes
     ----------
@@ -374,6 +380,16 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
             "contamination": self.contamination,
             "warm_start": self.warm_start,
         }
+
+    def _attrs_from_cpu(self, model):
+        raise UnsupportedOnGPU(
+            "Conversion of a fitted sklearn IsolationForest is not supported"
+        )
+
+    def _attrs_to_cpu(self, model):
+        raise UnsupportedOnCPU(
+            "Conversion of a fitted cuML IsolationForest is not supported"
+        )
 
     def __getstate__(self):
         """Pickle support - serialize state."""
@@ -554,42 +570,56 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
 
         cdef IsolationForestF* forest_f
         cdef IsolationForestD* forest_d
-        cdef TreeliteModelHandle tl_handle
+        cdef TreeliteModelHandle tl_handle = NULL
         cdef const char* tl_bytes = NULL
         cdef size_t tl_bytes_len
+        cdef int tl_free_status
 
-        if X_m.dtype == np.float32:
-            forest_f = new IsolationForestF()
-            with nogil:
-                fit(handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
-                    params, verbose)
-            self._forest_float = <uintptr_t>forest_f
-            self._n_samples_per_tree = forest_f.n_samples_per_tree
-            self._c_normalization = forest_f.c_normalization
-            with nogil:
-                build_treelite_isolation_forest[float](
-                    &tl_handle, handle_[0], forest_f)
-        else:
-            forest_d = new IsolationForestD()
-            with nogil:
-                fit(handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
-                    params, verbose)
-            self._forest_double = <uintptr_t>forest_d
-            self._n_samples_per_tree = forest_d.n_samples_per_tree
-            self._c_normalization = forest_d.c_normalization
-            with nogil:
-                build_treelite_isolation_forest[double](
-                    &tl_handle, handle_[0], forest_d)
+        try:
+            if X_m.dtype == np.float32:
+                forest_f = new IsolationForestF()
+                self._forest_float = <uintptr_t>forest_f
+                with nogil:
+                    fit(handle_[0], forest_f, <float*>X_ptr, n_rows, n_cols,
+                        params, verbose)
+                self._n_samples_per_tree = forest_f.n_samples_per_tree
+                self._c_normalization = forest_f.c_normalization
+                with nogil:
+                    build_treelite_isolation_forest[float](
+                        &tl_handle, handle_[0], forest_f)
+            else:
+                forest_d = new IsolationForestD()
+                self._forest_double = <uintptr_t>forest_d
+                with nogil:
+                    fit(handle_[0], forest_d, <double*>X_ptr, n_rows, n_cols,
+                        params, verbose)
+                self._n_samples_per_tree = forest_d.n_samples_per_tree
+                self._c_normalization = forest_d.c_normalization
+                with nogil:
+                    build_treelite_isolation_forest[double](
+                        &tl_handle, handle_[0], forest_d)
 
-        # Serialize the Treelite handle immediately, following the RandomForest
-        # ABI-safe pattern for Python wheels/conda environments.
-        safe_treelite_call(
-            TreeliteSerializeModelToBytes(tl_handle, &tl_bytes, &tl_bytes_len),
-            "Failed to serialize Treelite model to bytes:"
-        )
-        safe_treelite_call(
-            TreeliteFreeModel(tl_handle), "Failed to free Treelite model:"
-        )
+            # Serialize the Treelite handle immediately, following the
+            # RandomForest ABI-safe pattern for Python wheels/conda environments.
+            safe_treelite_call(
+                TreeliteSerializeModelToBytes(
+                    tl_handle, &tl_bytes, &tl_bytes_len
+                ),
+                "Failed to serialize Treelite model to bytes:"
+            )
+            tl_free_status = TreeliteFreeModel(tl_handle)
+            tl_handle = NULL
+            safe_treelite_call(
+                tl_free_status, "Failed to free Treelite model:"
+            )
+        except Exception:
+            if tl_handle != NULL:
+                TreeliteFreeModel(tl_handle)
+            self._free_model()
+            self._treelite_model_bytes = None
+            self._nvforest_model = None
+            raise
+
         self._treelite_model_bytes = <bytes>(tl_bytes[:tl_bytes_len])
         self._nvforest_model = None
 
