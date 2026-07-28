@@ -175,10 +175,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   auto thrust_policy = handle.get_thrust_policy();
   // Fixed seeds use deterministic accumulation paths; unseeded runs keep the
   // original faster atomic/reduction paths.
-  const bool fixed_seed                  = params.random_state >= 0;
-  const bool deterministic_interpolation = fixed_seed;
-  const bool deterministic_potentials    = fixed_seed;
-  const bool deterministic_attractive    = fixed_seed;
+  const bool deterministic = params.random_state >= 0;
 
   // Get device properties
   //---------------------------------------------------
@@ -245,24 +242,24 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
   raft::linalg::zero(
     y_interpolated_values_device.data(), y_interpolated_values_device.size(), stream);
   const value_idx n_interpolation_segments = total_interpolation_points * n_terms;
-  DB(uint64_t, interpolation_point_sort_keys, deterministic_interpolation ? n : 0);
-  DB(value_idx, sorted_interpolation_point_indices, deterministic_interpolation ? n : 0);
-  DB(uint64_t, interpolation_box_keys, deterministic_interpolation ? n_total_boxes + 1 : 0);
-  DB(value_idx, interpolation_box_offsets, deterministic_interpolation ? n_total_boxes + 1 : 0);
-  DB(value_idx, interpolation_chunk_counts, deterministic_interpolation ? n_total_boxes + 1 : 0);
-  DB(value_idx, interpolation_chunk_offsets, deterministic_interpolation ? n_total_boxes + 1 : 0);
-  DB(value_idx, interpolation_chunk_box_indices, deterministic_interpolation ? n : 0);
+  DB(uint64_t, interpolation_point_sort_keys, deterministic ? n : 0);
+  DB(value_idx, sorted_interpolation_point_indices, deterministic ? n : 0);
+  DB(uint64_t, interpolation_box_keys, deterministic ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_box_offsets, deterministic ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_counts, deterministic ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_offsets, deterministic ? n_total_boxes + 1 : 0);
+  DB(value_idx, interpolation_chunk_box_indices, deterministic ? n : 0);
   DB(value_t,
      interpolation_chunk_partials,
-     deterministic_interpolation ? n * n_interpolation_coefficients_per_chunk : 0);
+     deterministic ? n * n_interpolation_coefficients_per_chunk : 0);
   DB(value_t, potentialsQij_device, n * n_terms);
   raft::linalg::zero(potentialsQij_device.data(), potentialsQij_device.size(), stream);
   DB(value_t, w_coefficients_device, total_interpolation_points * n_terms);
   raft::linalg::zero(w_coefficients_device.data(), w_coefficients_device.size(), stream);
   DB(value_t, chargesQij_device, n * n_terms);
   raft::linalg::zero(chargesQij_device.data(), chargesQij_device.size(), stream);
-  DB(value_idx, attractive_row_ids, deterministic_attractive ? n + 1 : 0);
-  DB(value_idx, attractive_row_offsets, deterministic_attractive ? n + 1 : 0);
+  DB(value_idx, attractive_row_ids, deterministic ? n + 1 : 0);
+  DB(value_idx, attractive_row_offsets, deterministic ? n + 1 : 0);
   DB(value_t, box_lower_bounds_device, 2 * n_total_boxes);
   raft::linalg::zero(box_lower_bounds_device.data(), box_lower_bounds_device.size(), stream);
   DB(value_t, kernel_tilde_device, n_fft_coeffs * n_fft_coeffs);
@@ -303,7 +300,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                                 cudaMemcpyHostToDevice,
                                 stream));
 
-  if (deterministic_attractive) {
+  if (deterministic) {
     // Precompute COO row ranges once so attractive forces can be accumulated
     // row-by-row in a fixed order each iteration. lower_bound is deterministic
     // because ROW has already been sorted by the fixed-seed COO canonicalization.
@@ -316,7 +313,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
                         attractive_row_ids.end(),
                         attractive_row_offsets.begin());
   }
-  if (deterministic_interpolation) {
+  if (deterministic) {
     // Build one search key per interpolation box. lower_bound uses these keys
     // after the point sort below to recover each box's [begin, end) span without
     // atomics or scheduler-dependent grouping.
@@ -477,7 +474,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         n_interpolation_points,
         n);
 
-      if (deterministic_interpolation) {
+      if (deterministic) {
         // Sort points by box with point id as a tie-breaker. Each box is then
         // reduced in deterministic chunk order instead of using atomic adds, so
         // fixed-seed runs use the same coefficient accumulation order.
@@ -612,7 +609,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         y_tilde_values.data(), fft_output.data(), n_fft_coeffs, n_fft_coeffs_half, n_terms);
 
       // Step 3: Compute the potentials \tilde{\phi}
-      if (deterministic_potentials) {
+      if (deterministic) {
         // Seeded runs avoid atomicAdd here: each thread owns one
         // (point, charge-term) output and accumulates its 3x3 stencil directly.
         num_blocks = raft::ceildiv(n_terms * n, (value_idx)NTHREADS_128);
@@ -673,7 +670,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         value_t* Qs      = tmp.data();
         value_t* KL_divs = tmp.data();
 
-        if (deterministic_attractive) {
+        if (deterministic) {
           // Seeded runs accumulate each COO row with one owning thread instead
           // of atomically adding edge contributions into attr_forces.
           num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);
@@ -692,7 +689,7 @@ std::pair<float, int> FFT_TSNE(value_t* VAL,
         }
         kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
       } else {
-        if (deterministic_attractive) {
+        if (deterministic) {
           // Same deterministic row-wise attractive-force accumulation as the
           // final iteration, but without storing Q values for KL divergence.
           num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_128);

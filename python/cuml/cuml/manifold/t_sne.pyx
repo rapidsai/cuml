@@ -285,9 +285,8 @@ class TSNE(InteropMixin,
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
-        Setting this can make repeated runs look more similar. Note, however,
-        that this highly parallelized t-SNE implementation is not completely
-        deterministic between runs, even with the same `random_state`.
+        Controls random initialization. For the FFT method, setting this value
+        makes repeated runs with the same inputs deterministic.
     method : str 'fft', 'barnes_hut' or 'exact' (default 'fft')
         'barnes_hut' and 'fft' are fast approximations. 'exact' is more
         accurate but slower.
@@ -375,11 +374,11 @@ class TSNE(InteropMixin,
 
     .. tip::
         Maaten and Linderman showcased how t-SNE can be very sensitive to both
-        the starting conditions (i.e. random initialization), and how parallel
-        versions of t-SNE can generate vastly different results between runs.
-        You can run t-SNE multiple times to settle on the best configuration.
-        Note that using the same random_state across runs does not guarantee
-        similar results each time.
+        the starting conditions (i.e. random initialization) and its
+        hyperparameters. You can run t-SNE with different random seeds to
+        compare embeddings and settle on the best configuration. For the FFT
+        method, reusing the same `random_state` and inputs reproduces the same
+        result.
 
     .. note::
         The CUDA implementation is derived from the excellent CannyLabs open
