@@ -212,9 +212,9 @@ CompactIFForest<T> get_compact_trees(const raft::handle_t& handle,
   return result;
 }
 
-template CompactIFForest<float> get_compact_trees<float>(const raft::handle_t&,
-                                                         const IsolationForestModel<float>*);
-template CompactIFForest<double> get_compact_trees<double>(const raft::handle_t&,
-                                                           const IsolationForestModel<double>*);
+template CUML_EXPORT CompactIFForest<float> get_compact_trees<float>(
+  const raft::handle_t&, const IsolationForestModel<float>*);
+template CUML_EXPORT CompactIFForest<double> get_compact_trees<double>(
+  const raft::handle_t&, const IsolationForestModel<double>*);
 
 }  // namespace ML
