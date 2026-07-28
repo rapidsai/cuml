@@ -843,38 +843,56 @@ class KMeans(InteropMixin,
 
         has_weights = sample_weight_parts is not None
 
-        # The C++ layer dispatches on the residency of X and assumes the weight
-        # pointers share that residency and a single value dtype
-        # (``_kmeans_fit_parts`` reads ``parts[0].dtype``). Establish both from
-        # the first partition's X (coerced with ``mem_type=None`` to preserve
-        # its native residency), then coerce every partition's X *and* weights
-        # to that residency/dtype.
-        first_x = check_inputs(
-            self,
-            parts[0],
-            dtype=("float32", "float64"),
-            order="C",
-            mem_type=None,
-            ensure_min_samples=0,
-            reset=True,
-        )
-        mem_type = "device" if isinstance(first_x, cp.ndarray) else "host"
-        dtype = first_x.dtype
-
+        # All partitions on a rank (and their sample weights) must share a
+        # single memory residency and value dtype. Each input is coerced
+        # with ``mem_type=None`` to preserve its native residency; the first
+        # partition sets the reference, and every other partition and weight is
+        # validated against it.
         coerced_parts = []
         coerced_weights = [] if has_weights else None
+        mem_type = None
+        dtype = None
         for i, part in enumerate(parts):
             sw_in = sample_weight_parts[i] if has_weights else None
             part_c, sw_c = check_inputs(
                 self,
                 part,
                 sample_weight=sw_in,
-                dtype=dtype,
+                dtype=("float32", "float64"),
                 order="C",
-                mem_type=mem_type,
+                mem_type=None,
                 ensure_min_samples=0,
-                reset=False,
+                reset=(i == 0),
             )
+            part_mem = "device" if isinstance(part_c, cp.ndarray) else "host"
+            if i == 0:
+                mem_type = part_mem
+                dtype = part_c.dtype
+            elif part_mem != mem_type:
+                raise ValueError(
+                    f"All KMeansMG partitions must share the same memory "
+                    f"residency, but partition 0 is {mem_type!r} and partition "
+                    f"{i} is {part_mem!r}."
+                )
+            elif part_c.dtype != dtype:
+                raise ValueError(
+                    f"All KMeansMG partitions must share the same dtype, but "
+                    f"partition 0 is {dtype} and partition {i} is "
+                    f"{part_c.dtype}."
+                )
+            if sw_c is not None:
+                sw_mem = "device" if isinstance(sw_c, cp.ndarray) else "host"
+                if sw_mem != mem_type:
+                    raise ValueError(
+                        f"KMeansMG sample_weight partition {i} has memory "
+                        f"residency {sw_mem!r}, which must match the data "
+                        f"residency {mem_type!r}."
+                    )
+                if sw_c.dtype != dtype:
+                    raise ValueError(
+                        f"KMeansMG sample_weight partition {i} has dtype "
+                        f"{sw_c.dtype}, which must match the data dtype {dtype}."
+                    )
             coerced_parts.append(part_c)
             if has_weights:
                 coerced_weights.append(sw_c)
@@ -1093,6 +1111,7 @@ class KMeans(InteropMixin,
         # Stop-gap: the current C++/cuVS transform path does not preserve
         # int64 indexing end-to-end for the output matrix. Reject oversized
         # outputs here until transform supports int64 output indexing.
+
         if not _kmeans_indices_i32(n_rows, n_clusters):
             raise NotImplementedError(
                 "KMeans.transform does not currently support output shapes "
