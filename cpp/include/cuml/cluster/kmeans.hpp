@@ -23,7 +23,7 @@ namespace kmeans {
  manages the CUDA resources.
  * @param[in]     params        Parameters for KMeans model.
  * @param[in]     X             Training instances to cluster, in row-major
- * format. May live on the device or on the host.
+ * format. May or may not be device accessible.
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
@@ -33,7 +33,7 @@ namespace kmeans {
  centroids  as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
  kmeans algorithm is stored at the address pointed by 'centroids'. `centroids`
- * must always live on the device.
+ * must always be device accessible.
  * @param[out]    inertia       Sum of squared distances of samples to their
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
@@ -74,6 +74,57 @@ void fit(const raft::handle_t& handle,
          int64_t n_samples,
          int64_t n_features,
          const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int64_t& n_iter);
+
+/**
+ * @brief Multi-GPU / out-of-core k-means fit over multiple local data partitions.
+ *
+ * Each rank (e.g. each Dask worker) supplies its local training data as an
+ * array of `n_parts` partitions.
+ * All partitions on a given rank must share the same residency. The
+ * distributed reduction across ranks is performed via the NCCL communicator
+ * that must be initialized on `handle`.
+ *
+ * @param[in]     handle              cuML handle with NCCL comms initialized.
+ * @param[in]     params              Parameters for the KMeans model. For
+ *                                    host-resident partitions the
+ *                                    host-to-device batch size is read from
+ *                                    `params.device_buffer_samples`.
+ * @param[in]     X_parts             Array of `n_parts` pointers to the local
+ *                                    row-major partitions (all host- or all
+ *                                    device-resident). Partition `i` has shape
+ *                                    [`n_samples_parts[i]`, `n_features`].
+ * @param[in]     n_samples_parts     Array of `n_parts` per-partition row counts.
+ * @param[in]     n_parts             Number of local partitions on this rank.
+ * @param[in]     n_features          Number of features (shared by all partitions).
+ * @param[in]     sample_weight_parts Optional array of `n_parts` pointers to the
+ *                                    per-partition weight vectors (matching the
+ *                                    residency of `X_parts`), or `nullptr` for
+ *                                    uniform weights.
+ * @param[inout]  centroids           Device matrix [n_clusters x n_features].
+ * @param[out]    inertia             Sum of squared distances to closest center.
+ * @param[out]    n_iter              Number of iterations run.
+ */
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* const* X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const float* const* sample_weight_parts,
+         float* centroids,
+         float& inertia,
+         int64_t& n_iter);
+
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* const* X_parts,
+         const int64_t* n_samples_parts,
+         int64_t n_parts,
+         int64_t n_features,
+         const double* const* sample_weight_parts,
          double* centroids,
          double& inertia,
          int64_t& n_iter);
