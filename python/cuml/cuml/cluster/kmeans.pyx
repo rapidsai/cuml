@@ -178,6 +178,83 @@ cdef _kmeans_fit(
     return n_iter_32 if indices_i32 else n_iter_64
 
 
+cdef _kmeans_fit_parts(
+    handle_t& handle,
+    lib.KMeansParams& params,
+    parts,
+    sample_weight_parts,
+    centers,
+):
+    """Fit kmeans over multiple local partitions (multi-GPU / out-of-core).
+
+    `parts` is a non-empty list of row-major partitions that share
+    `n_features` and dtype. They may all be device-resident
+    (`cupy.ndarray`) or all host-resident (`numpy.ndarray`); Host
+    partitions are buffered to the device in batches of
+    `params.device_buffer_samples`. `sample_weight_parts` is
+    either None or a matching list of weight vectors. The distributed
+    reduction across ranks is performed via the NCCL communicator
+    initialized on `handle`.
+    """
+    cdef int64_t n_parts = len(parts)
+    cdef int64_t n_cols = parts[0].shape[1]
+    cdef bool values_f32 = parts[0].dtype == np.float32
+    cdef bool has_weights = sample_weight_parts is not None
+
+    X_ptrs = np.empty(n_parts, dtype=np.uintp)
+    n_samples_parts = np.empty(n_parts, dtype=np.int64)
+    sw_ptrs = np.empty(n_parts, dtype=np.uintp) if has_weights else None
+    for i in range(n_parts):
+        X_ptrs[i] = (
+            parts[i].data.ptr if isinstance(parts[i], cp.ndarray)
+            else parts[i].ctypes.data
+        )
+        n_samples_parts[i] = parts[i].shape[0]
+        if has_weights:
+            sw = sample_weight_parts[i]
+            sw_ptrs[i] = (
+                sw.data.ptr if isinstance(sw, cp.ndarray) else sw.ctypes.data
+            )
+
+    cdef uintptr_t X_ptrs_ptr = X_ptrs.ctypes.data
+    cdef uintptr_t n_samples_ptr = n_samples_parts.ctypes.data
+    cdef uintptr_t sw_ptrs_ptr = sw_ptrs.ctypes.data if has_weights else 0
+    cdef uintptr_t centers_ptr = centers.data.ptr
+
+    cdef float inertia_32 = 0
+    cdef double inertia_64 = 0
+    cdef int64_t n_iter_64 = 0
+
+    with nogil:
+        if values_f32:
+            lib.fit(
+                handle,
+                params,
+                <float **>X_ptrs_ptr,
+                <const int64_t *>n_samples_ptr,
+                n_parts,
+                n_cols,
+                <float **>sw_ptrs_ptr,
+                <float *>centers_ptr,
+                inertia_32,
+                n_iter_64,
+            )
+        else:
+            lib.fit(
+                handle,
+                params,
+                <double **>X_ptrs_ptr,
+                <const int64_t *>n_samples_ptr,
+                n_parts,
+                n_cols,
+                <double **>sw_ptrs_ptr,
+                <double *>centers_ptr,
+                inertia_64,
+                n_iter_64,
+            )
+    return n_iter_64
+
+
 cdef _kmeans_predict(
     handle_t& handle,
     lib.KMeansParams &params,
@@ -283,12 +360,21 @@ cdef _kmeans_predict_host_chunked(
     sample_weight,
     centers,
     int64_t batch_size,
+    bool normalize_weights=True,
 ):
     """Predict labels & total inertia for host-resident `X` in chunks.
 
     Streams chunks of `batch_size` host rows into a single reusable device
     buffer, runs the existing device-data predict on each chunk, and stitches
     the per-chunk labels into a single host (`numpy.ndarray`) result.
+
+    When `normalize_weights` is True the sample weights are rescaled to sum to
+    `n_rows` (matching the device predict), so a single-GPU host fit reports the
+    same inertia as the device fit. Pass False when the weights are already
+    normalized by the caller (e.g. the multi-GPU Dask layer normalizes
+    `sample_weight` globally before splitting it across workers); rescaling
+    per-partition there would make host-resident partitions report a different
+    inertia than device-resident ones.
 
     Returns (`numpy.ndarray` of labels, `float` total inertia).
     """
@@ -303,9 +389,10 @@ cdef _kmeans_predict_host_chunked(
     if uniform:
         sw_buf = cp.ones(cap, dtype=X.dtype)
     else:
-        total_sw = float(sample_weight.sum())
-        if total_sw > 0:
-            scale = n_rows / total_sw
+        if normalize_weights:
+            total_sw = float(sample_weight.sum())
+            if total_sw > 0:
+                scale = n_rows / total_sw
         sw_buf = cp.empty(shape=cap, dtype=X.dtype)
 
     X_buf = cp.empty(shape=(cap, n_cols), dtype=X.dtype, order="C")
@@ -328,11 +415,12 @@ cdef _kmeans_predict_host_chunked(
             end = n_rows
         n = end - start
 
-        # For non-uniform, copy the raw slice and scale on-device.
+        # For non-uniform, copy the raw slice and (optionally) scale on-device.
         X_buf[:n].set(X[start:end])
         if not uniform:
             sw_buf[:n].set(sample_weight[start:end])
-            sw_buf[:n] *= scale
+            if normalize_weights:
+                sw_buf[:n] *= scale
 
         batch_labels, batch_inertia = _kmeans_predict(
             handle, params, X_buf[:n], sw_buf[:n], centers,
@@ -642,11 +730,6 @@ class KMeans(InteropMixin,
 
         """
         device_buffer_samples = int(self.device_buffer_samples)
-        if device_buffer_samples < 0:
-            raise ValueError(
-                f"device_buffer_samples must be >= 0, got "
-                f"{device_buffer_samples}."
-            )
         if device_buffer_samples > 0 and self._multi_gpu:
             raise ValueError(
                 f"device_buffer_samples={device_buffer_samples} is not "
@@ -739,10 +822,170 @@ class KMeans(InteropMixin,
 
         return self
 
+    def _fit_mg_parts(self, parts, sample_weight_parts=None):
+        """Fit KMeans over a list of local partitions (multi-GPU / out-of-core).
+
+        Each worker passes its local partitions as a vector of mdspans. The
+        partitions may reside on host or device. The cross-rank reduction runs
+        over the NCCL communicator on ``self.handle``.
+
+        `parts` is a non-empty sequence of per-partition arrays.
+        `sample_weight_parts`, if given, is a matching sequence of per-partition
+        weight vectors.
+        """
+        if len(parts) == 0:
+            raise ValueError(
+                "KMeansMG requires at least one local data partition."
+            )
+
+        self._validate_fit_params()
+
+        has_weights = sample_weight_parts is not None
+
+        # All partitions on a rank (and their sample weights) must share a
+        # single memory residency and value dtype. Each input is coerced
+        # with ``mem_type=None`` to preserve its native residency; the first
+        # partition sets the reference, and every other partition and weight is
+        # validated against it.
+        coerced_parts = []
+        coerced_weights = [] if has_weights else None
+        mem_type = None
+        dtype = None
+        for i, part in enumerate(parts):
+            sw_in = sample_weight_parts[i] if has_weights else None
+            part_c, sw_c = check_inputs(
+                self,
+                part,
+                sample_weight=sw_in,
+                dtype=("float32", "float64"),
+                order="C",
+                mem_type=None,
+                ensure_min_samples=0,
+                reset=(i == 0),
+            )
+            part_mem = "device" if isinstance(part_c, cp.ndarray) else "host"
+            if i == 0:
+                mem_type = part_mem
+                dtype = part_c.dtype
+            elif part_mem != mem_type:
+                raise ValueError(
+                    f"All KMeansMG partitions must share the same memory "
+                    f"residency, but partition 0 is {mem_type!r} and partition "
+                    f"{i} is {part_mem!r}."
+                )
+            elif part_c.dtype != dtype:
+                raise ValueError(
+                    f"All KMeansMG partitions must share the same dtype, but "
+                    f"partition 0 is {dtype} and partition {i} is "
+                    f"{part_c.dtype}."
+                )
+            if sw_c is not None:
+                sw_mem = "device" if isinstance(sw_c, cp.ndarray) else "host"
+                if sw_mem != mem_type:
+                    raise ValueError(
+                        f"KMeansMG sample_weight partition {i} has memory "
+                        f"residency {sw_mem!r}, which must match the data "
+                        f"residency {mem_type!r}."
+                    )
+                if sw_c.dtype != dtype:
+                    raise ValueError(
+                        f"KMeansMG sample_weight partition {i} has dtype "
+                        f"{sw_c.dtype}, which must match the data dtype {dtype}."
+                    )
+            coerced_parts.append(part_c)
+            if has_weights:
+                coerced_weights.append(sw_c)
+
+        parts = coerced_parts
+        sample_weight_parts = coerced_weights
+        n_cols = parts[0].shape[1]
+        n_rows = sum(part.shape[0] for part in parts)
+        self._validate_fit_row_constraints(n_rows)
+
+        # Partitions on a rank share residency; a cupy first partition means
+        # the data is device-accessible.
+        on_device = isinstance(parts[0], cp.ndarray)
+
+        # Allocate output cluster_centers_ on the device.
+        if isinstance(self.init, str):
+            centers = cp.zeros(
+                shape=(self.n_clusters, n_cols), dtype=dtype, order="C",
+            )
+        else:
+            centers = check_array(
+                self.init, order="C", dtype=dtype,
+            ).copy()
+            if centers.shape[0] != self.n_clusters:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of clusters {self.n_clusters}."
+                )
+            if centers.shape[1] != n_cols:
+                raise ValueError(
+                    f"The shape of the initial centers {centers.shape} does not "
+                    f"match the number of features of the data {n_cols}."
+                )
+
+        cdef int64_t batch = int(self.device_buffer_samples)
+
+        handle = self.handle
+        cdef handle_t* handle_ = <handle_t *><size_t>handle.getHandle()
+        cdef lib.KMeansParams params
+        _kmeans_init_params(self, params)
+
+        n_iter = _kmeans_fit_parts(
+            handle_[0], params, parts, sample_weight_parts, centers,
+        )
+
+        labels_parts = []
+        inertia = 0.0
+        for i, part in enumerate(parts):
+            if part.shape[0] == 0:
+                continue
+            sw = sample_weight_parts[i] if has_weights else None
+            if on_device:
+                part_labels, part_inertia = _kmeans_predict(
+                    handle_[0], params, part, sw, centers,
+                    normalize_weights=False,
+                )
+            else:
+                part_labels, part_inertia = _kmeans_predict_host_chunked(
+                    handle_[0], params, part, sw, centers, batch,
+                    normalize_weights=False,
+                )
+            labels_parts.append(part_labels)
+            inertia += float(part_inertia)
+        handle.sync()
+
+        if not labels_parts:
+            labels = (
+                cp.empty(0, dtype=np.int32) if on_device
+                else np.empty(0, dtype=np.int32)
+            )
+        elif len(labels_parts) == 1:
+            labels = labels_parts[0]
+        elif on_device:
+            labels = cp.concatenate(labels_parts)
+        else:
+            labels = np.concatenate(labels_parts)
+        labels = cp.asarray(labels)
+
+        self.cluster_centers_ = centers
+        self.labels_ = labels
+        self.inertia_ = inertia
+        self.n_iter_ = n_iter
+
+        return self
+
     def _validate_fit_params(self):
         if not isinstance(self.n_clusters, Integral) or self.n_clusters <= 0:
             raise ValueError(
                 f"n_clusters={self.n_clusters} should be a positive integer."
+            )
+        if int(self.device_buffer_samples) < 0:
+            raise ValueError(
+                f"device_buffer_samples must be >= 0, got "
+                f"{int(self.device_buffer_samples)}."
             )
 
     def _validate_fit_row_constraints(self, n_rows):
@@ -859,6 +1102,7 @@ class KMeans(InteropMixin,
         # Stop-gap: the current C++/cuVS transform path does not preserve
         # int64 indexing end-to-end for the output matrix. Reject oversized
         # outputs here until transform supports int64 output indexing.
+
         if not _kmeans_indices_i32(n_rows, n_clusters):
             raise NotImplementedError(
                 "KMeans.transform does not currently support output shapes "
