@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -315,13 +315,16 @@ def test_noreg(fit_intercept, client):
 
 
 def test_n_classes_small(client):
-    def assert_small(X, y, n_classes):
+    def assert_small(X, y, n_classes, check_predictions=False):
         X_df, y_df = _prep_training_data(client, X, y, partitions_per_worker=1)
         from cuml.dask.linear_model import LogisticRegression as cumlLBFGS_dask
 
         lr = cumlLBFGS_dask()
         lr.fit(X_df, y_df)
         assert len(lr.classes_) == n_classes
+        if check_predictions:
+            predictions = lr.predict(X_df, delayed=True).compute().to_numpy()
+            assert np.array_equal(predictions, y)
         return lr
 
     X = np.array([(1, 2), (1, 3)], np.float32)
@@ -341,7 +344,7 @@ def test_n_classes_small(client):
 
     X = np.array([(1, 2), (1, 3), (1, 2.5)], np.float32)
     y = np.array([10.0, 50.0, 20.0], np.float32)
-    lr = assert_small(X=X, y=y, n_classes=3)
+    lr = assert_small(X=X, y=y, n_classes=3, check_predictions=True)
     assert np.array_equal(
         lr.classes_, np.array([10.0, 20.0, 50.0], np.float32)
     )
