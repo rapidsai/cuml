@@ -134,26 +134,7 @@ cdef extern from "cuml/ensemble/isolation_forest.hpp" namespace "ML" nogil:
 
 
 cdef class _IsolationForestModel:
-    """Own the native Isolation Forest model for the estimator lifetime."""
-
-    cdef IsolationForestF* model_f
-    cdef IsolationForestD* model_d
-
-    @staticmethod
-    cdef _IsolationForestModel new_float32():
-        cdef _IsolationForestModel self = (
-            _IsolationForestModel.__new__(_IsolationForestModel)
-        )
-        self.model_f = new IsolationForestF()
-        return self
-
-    @staticmethod
-    cdef _IsolationForestModel new_float64():
-        cdef _IsolationForestModel self = (
-            _IsolationForestModel.__new__(_IsolationForestModel)
-        )
-        self.model_d = new IsolationForestD()
-        return self
+    """Common interface for dtype-specific native model owners."""
 
     cdef void fit_and_build_treelite(
         self,
@@ -165,50 +146,13 @@ cdef class _IsolationForestModel:
         level_enum verbose,
         TreeliteModelHandle* tl_handle,
     ) except *:
-        if self.model_f != NULL:
-            with nogil:
-                fit(
-                    handle,
-                    self.model_f,
-                    <float*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    params,
-                    verbose,
-                )
-                build_treelite_isolation_forest[float](
-                    tl_handle, handle, self.model_f
-                )
-        elif self.model_d != NULL:
-            with nogil:
-                fit(
-                    handle,
-                    self.model_d,
-                    <double*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    params,
-                    verbose,
-                )
-                build_treelite_isolation_forest[double](
-                    tl_handle, handle, self.model_d
-                )
-        else:
-            raise RuntimeError("Isolation Forest model is not initialized.")
+        raise NotImplementedError()
 
     cdef int get_n_samples_per_tree(self) except -1:
-        if self.model_f != NULL:
-            return self.model_f.n_samples_per_tree
-        if self.model_d != NULL:
-            return self.model_d.n_samples_per_tree
-        raise RuntimeError("Isolation Forest model is not initialized.")
+        raise NotImplementedError()
 
     cdef double get_c_normalization(self) except *:
-        if self.model_f != NULL:
-            return self.model_f.c_normalization
-        if self.model_d != NULL:
-            return self.model_d.c_normalization
-        raise RuntimeError("Isolation Forest model is not initialized.")
+        raise NotImplementedError()
 
     cdef void score(
         self,
@@ -219,30 +163,7 @@ cdef class _IsolationForestModel:
         uintptr_t scores_ptr,
         level_enum verbose,
     ) except *:
-        if self.model_f != NULL:
-            with nogil:
-                score_samples(
-                    handle,
-                    self.model_f,
-                    <float*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    <float*>scores_ptr,
-                    verbose,
-                )
-        elif self.model_d != NULL:
-            with nogil:
-                score_samples(
-                    handle,
-                    self.model_d,
-                    <double*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    <double*>scores_ptr,
-                    verbose,
-                )
-        else:
-            raise RuntimeError("Isolation Forest model is not initialized.")
+        raise NotImplementedError()
 
     cdef void predict_labels(
         self,
@@ -254,40 +175,181 @@ cdef class _IsolationForestModel:
         double threshold,
         level_enum verbose,
     ) except *:
-        if self.model_f != NULL:
-            with nogil:
-                predict(
-                    handle,
-                    self.model_f,
-                    <float*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    <int*>predictions_ptr,
-                    <float>threshold,
-                    verbose,
-                )
-        elif self.model_d != NULL:
-            with nogil:
-                predict(
-                    handle,
-                    self.model_d,
-                    <double*>input_ptr,
-                    n_rows,
-                    n_cols,
-                    <int*>predictions_ptr,
-                    threshold,
-                    verbose,
-                )
-        else:
-            raise RuntimeError("Isolation Forest model is not initialized.")
+        raise NotImplementedError()
+
+
+cdef class _IsolationForestModelFloat32(_IsolationForestModel):
+    """Own a float32 native Isolation Forest model."""
+
+    cdef IsolationForestF* model
+
+    def __cinit__(self):
+        self.model = NULL
+        self.model = new IsolationForestF()
 
     def __dealloc__(self):
-        if self.model_f != NULL:
-            del self.model_f
-            self.model_f = NULL
-        if self.model_d != NULL:
-            del self.model_d
-            self.model_d = NULL
+        if self.model != NULL:
+            del self.model
+            self.model = NULL
+
+    cdef void fit_and_build_treelite(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        const IF_params& params,
+        level_enum verbose,
+        TreeliteModelHandle* tl_handle,
+    ) except *:
+        with nogil:
+            fit(
+                handle,
+                self.model,
+                <float*>input_ptr,
+                n_rows,
+                n_cols,
+                params,
+                verbose,
+            )
+            build_treelite_isolation_forest[float](
+                tl_handle, handle, self.model
+            )
+
+    cdef int get_n_samples_per_tree(self) except -1:
+        return self.model.n_samples_per_tree
+
+    cdef double get_c_normalization(self) except *:
+        return self.model.c_normalization
+
+    cdef void score(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        uintptr_t scores_ptr,
+        level_enum verbose,
+    ) except *:
+        with nogil:
+            score_samples(
+                handle,
+                self.model,
+                <float*>input_ptr,
+                n_rows,
+                n_cols,
+                <float*>scores_ptr,
+                verbose,
+            )
+
+    cdef void predict_labels(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        uintptr_t predictions_ptr,
+        double threshold,
+        level_enum verbose,
+    ) except *:
+        with nogil:
+            predict(
+                handle,
+                self.model,
+                <float*>input_ptr,
+                n_rows,
+                n_cols,
+                <int*>predictions_ptr,
+                <float>threshold,
+                verbose,
+            )
+
+
+cdef class _IsolationForestModelFloat64(_IsolationForestModel):
+    """Own a float64 native Isolation Forest model."""
+
+    cdef IsolationForestD* model
+
+    def __cinit__(self):
+        self.model = NULL
+        self.model = new IsolationForestD()
+
+    def __dealloc__(self):
+        if self.model != NULL:
+            del self.model
+            self.model = NULL
+
+    cdef void fit_and_build_treelite(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        const IF_params& params,
+        level_enum verbose,
+        TreeliteModelHandle* tl_handle,
+    ) except *:
+        with nogil:
+            fit(
+                handle,
+                self.model,
+                <double*>input_ptr,
+                n_rows,
+                n_cols,
+                params,
+                verbose,
+            )
+            build_treelite_isolation_forest[double](
+                tl_handle, handle, self.model
+            )
+
+    cdef int get_n_samples_per_tree(self) except -1:
+        return self.model.n_samples_per_tree
+
+    cdef double get_c_normalization(self) except *:
+        return self.model.c_normalization
+
+    cdef void score(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        uintptr_t scores_ptr,
+        level_enum verbose,
+    ) except *:
+        with nogil:
+            score_samples(
+                handle,
+                self.model,
+                <double*>input_ptr,
+                n_rows,
+                n_cols,
+                <double*>scores_ptr,
+                verbose,
+            )
+
+    cdef void predict_labels(
+        self,
+        const handle_t& handle,
+        uintptr_t input_ptr,
+        size_t n_rows,
+        int n_cols,
+        uintptr_t predictions_ptr,
+        double threshold,
+        level_enum verbose,
+    ) except *:
+        with nogil:
+            predict(
+                handle,
+                self.model,
+                <double*>input_ptr,
+                n_rows,
+                n_cols,
+                <int*>predictions_ptr,
+                threshold,
+                verbose,
+            )
 
 
 class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
@@ -671,9 +733,9 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
 
         try:
             if X_m.dtype == np.float32:
-                model = _IsolationForestModel.new_float32()
+                model = _IsolationForestModelFloat32()
             else:
-                model = _IsolationForestModel.new_float64()
+                model = _IsolationForestModelFloat64()
             self._model = model
             model.fit_and_build_treelite(
                 handle_[0],
