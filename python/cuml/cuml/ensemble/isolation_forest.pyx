@@ -197,8 +197,6 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
     random_state : int, RandomState instance or None, default=None
         Controls random row sampling and split selection. Pass an int for
         reproducible results across runs.
-    max_batch_size : int, default=4096
-        Currently unused.
     contamination : float or "auto", default="auto"
         The proportion of outliers in the data set, used to define the offset
         for ``decision_function`` and ``predict``.
@@ -260,7 +258,6 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         max_features=1.0,
         bootstrap=False,
         random_state=None,
-        max_batch_size=4096,
         contamination="auto",
         warm_start=False,
         verbose=False,
@@ -284,7 +281,6 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         self.max_features = max_features
         self.bootstrap = bootstrap
         self.random_state = random_state
-        self.max_batch_size = max_batch_size
         self.contamination = contamination
         self.warm_start = warm_start
 
@@ -317,7 +313,6 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
             "max_features",
             "bootstrap",
             "random_state",
-            "max_batch_size",
             "contamination",
             "warm_start",
         ]
