@@ -170,7 +170,7 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         >>> # Predict anomalies (-1 for anomaly, 1 for normal)
         >>> predictions = clf.predict(X)
 
-        >>> # Get sklearn-compatible anomaly scores (lower = more anomalous)
+        >>> # Get anomaly scores (lower = more anomalous)
         >>> scores = clf.score_samples(X)
 
     Parameters
@@ -198,12 +198,11 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         Controls random row sampling and split selection. Pass an int for
         reproducible results across runs.
     max_batch_size : int, default=4096
-        Accepted for sklearn API compatibility. The current GPU builder
-        builds each tree in a single CUDA block and does not batch nodes.
+        Currently unused.
     contamination : float or "auto", default="auto"
         The proportion of outliers in the data set, used to define the offset
         for ``decision_function`` and ``predict``.
-        - If ``"auto"``, the offset is set to -0.5 as in sklearn.
+        - If ``"auto"``, the offset is set to -0.5.
         - If float, must be in the range (0, 0.5] and the offset is set to
           the corresponding training-score quantile.
     warm_start : bool, default=False
@@ -228,16 +227,11 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
 
     Notes
     -----
-    The sklearn attributes ``estimator_``, ``estimators_``,
-    ``estimators_features_``, and ``estimators_samples_`` are not currently
-    exposed because the GPU model stores the forest in compact device buffers
-    rather than as individual sklearn tree estimators.
-
     The implementation is based on the original Isolation Forest paper:
     Liu, F. T., Ting, K. M., & Zhou, Z. H. (2008). Isolation forest.
     In 2008 Eighth IEEE International Conference on Data Mining (pp. 413-422).
 
-    **Original Paper Scoring (used internally by C++ backend):**
+    **Scoring**
 
     The anomaly score is computed as: s(x) = 2^(-E[h(x)] / c(n))
 
@@ -246,38 +240,13 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
     - E[h(x)] is the average path length over all trees
     - c(n) is the average path length in an unsuccessful search in a BST
 
-    In this convention:
-    - s ≈ 1.0: Anomaly (short path, easy to isolate)
-    - s ≈ 0.5: Normal (average path length)
-    - s ≈ 0.0: Very normal (long path, hard to isolate)
-
-    **sklearn Convention (used by Python API):**
-
-    For compatibility with sklearn, the Python method ``score_samples()``
-    returns the opposite of the original paper score:
-    ``sklearn_score = -paper_score``. ``decision_function()`` then subtracts
-    ``offset_``. With the sklearn ``contamination="auto"`` offset of ``-0.5``,
-    negative decision function values correspond to paper scores greater than
-    0.5 and are predicted as anomalies.
-
-    **Implementation Details:**
-
-    The GPU builder constructs all trees in one CUDA launch with one block per
-    tree. For each internal node it selects a random feature, computes the
-    minimum and maximum value for that feature in the current node partition,
-    and draws a random threshold uniformly between those values. Tree nodes,
-    per-tree offsets, and per-tree metadata are stored in RMM-backed global
-    memory, which supports both default and deeper non-default tree settings.
-    Leaf nodes store pre-computed path lengths (`depth + c(n_leaf)`), which
-    keeps inference to a simple tree traversal followed by the Isolation Forest
-    score transform.
+    Higher values of s indicate more anomalous samples. ``score_samples()``
+    returns the negative of s, so lower values indicate more anomalous samples.
+    ``decision_function()`` subtracts ``offset_`` from these scores; negative
+    decision-function values are predicted as anomalies.
 
     Fitted models can be exported to Treelite with ``as_treelite()`` and loaded
-    into nvForest with ``as_nvforest()``. The exported Treelite model predicts
-    average path length; cuML applies the anomaly score transform separately.
-
-    For additional docs, see `scikit-learn's IsolationForest
-    <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html>`_.
+    into nvForest with ``as_nvforest()``.
     """
 
     _cpu_class_path = "sklearn.ensemble.IsolationForest"
@@ -640,8 +609,7 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         Converts this estimator to a Treelite model.
 
         The exported Treelite model predicts average path length across the
-        isolation trees. cuML applies the Isolation Forest score transform
-        separately to produce sklearn-compatible anomaly scores.
+        isolation trees.
 
         Returns
         -------
@@ -746,22 +714,9 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         """
         Compute the anomaly score of X.
 
-        Returns sklearn-compatible scores where **more negative = more anomalous**.
-
-        .. note:: Score Convention Difference
-
-            The **original paper** (Liu et al. 2008) defines:
-                s(x) = 2^(-E[h(x)] / c(n))
-
-            Where higher scores (close to 1) indicate anomalies.
-
-            **sklearn** inverts this convention so that:
-                - More negative scores → anomalies
-                - Scores closer to 0 → more normal points
-
-            This method follows sklearn's convention for drop-in compatibility.
-            The C++ backend returns the original paper's scores, which are then
-            transformed here as: sklearn_score = -paper_score
+        Lower scores indicate more anomalous samples. The returned scores are
+        the negative of the anomaly scores defined in the original Isolation
+        Forest paper.
 
         Parameters
         ----------
@@ -771,7 +726,7 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
         Returns
         -------
         scores : ndarray of shape (n_samples,)
-            The anomaly scores (sklearn convention: lower/more negative = more anomalous).
+            The anomaly scores. Lower values indicate more anomalous samples.
             Typical range is approximately [-1.0, 0.0], where values below
             ``offset_`` are predicted as anomalies.
         """
