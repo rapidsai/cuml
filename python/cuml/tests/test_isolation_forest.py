@@ -651,6 +651,37 @@ def test_different_random_state_different_results(blobs_data):
     )
 
 
+def test_none_random_state_uses_numpy_global_state(blobs_data):
+    """random_state=None should draw its seed from NumPy's global RNG."""
+    random_state = np.random.get_state()
+    try:
+        np.random.seed(42)
+        scores1 = np.asarray(
+            cuIsolationForest(n_estimators=20)
+            .fit(blobs_data)
+            .score_samples(blobs_data)
+        )
+
+        np.random.seed(42)
+        scores2 = np.asarray(
+            cuIsolationForest(n_estimators=20)
+            .fit(blobs_data)
+            .score_samples(blobs_data)
+        )
+
+        np.random.seed(123)
+        scores3 = np.asarray(
+            cuIsolationForest(n_estimators=20)
+            .fit(blobs_data)
+            .score_samples(blobs_data)
+        )
+    finally:
+        np.random.set_state(random_state)
+
+    np.testing.assert_array_equal(scores1, scores2)
+    assert not np.allclose(scores1, scores3)
+
+
 # =============================================================================
 # Edge case tests
 # =============================================================================

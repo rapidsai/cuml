@@ -518,10 +518,7 @@ class IsolationForest(InteropMixin, CMajorInputTagMixin, Base):
             actual_max_depth = self.max_depth
 
         # Get random seed
-        cdef uint64_t seed = (
-            0 if self.random_state is None
-            else check_random_seed(self.random_state)
-        )
+        cdef uint64_t seed = check_random_seed(self.random_state)
 
         # Setup parameters
         cdef IF_params params
