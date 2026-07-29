@@ -378,6 +378,20 @@ def test_float_dtypes(dtype):
     assert predictions.shape == (X.shape[0],)
 
 
+def test_refit_replaces_native_model():
+    """Refitting should replace the native model, including across dtypes."""
+    rng = np.random.RandomState(42)
+    X = rng.randn(100, 4)
+    clf = cuIsolationForest(n_estimators=10, random_state=42)
+
+    for dtype in (np.float32, np.float64):
+        X_dtype = X.astype(dtype)
+        clf.fit(X_dtype)
+        scores = np.asarray(clf.score_samples(X_dtype))
+        assert scores.shape == (X.shape[0],)
+        assert scores.dtype == dtype
+
+
 # =============================================================================
 # Anomaly detection quality tests
 # =============================================================================
