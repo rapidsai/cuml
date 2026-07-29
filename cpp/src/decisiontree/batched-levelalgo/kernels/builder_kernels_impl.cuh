@@ -277,10 +277,9 @@ void launchFinalizeLeafKernel(const typename ObjectiveT::BinT* leaf_histograms,
                               int batch_size,
                               cudaStream_t builder_stream)
 {
-  constexpr int threads_per_block = 256;
-  auto num_blocks                 = raft::ceildiv(batch_size, threads_per_block);
+  auto num_blocks                 = raft::ceildiv(batch_size, TPB_DEFAULT);
   finalizeLeafKernel<ObjectiveT, DataT>
-    <<<num_blocks, threads_per_block, 0, builder_stream>>>(
+    <<<num_blocks, TPB_DEFAULT, 0, builder_stream>>>(
       leaf_histograms, leaves, num_outputs, batch_size);
 }
 
