@@ -680,8 +680,12 @@ struct Builder {
     tree->vector_leaf.resize(vector_leaf_size);
     ASSERT(tree->sparsetree.size() == instance_ranges.size(),
            "Expected instance range for each node");
-    // do this in batch to reduce peak memory usage in extreme cases
-    std::size_t max_batch_size = min(std::size_t{100000}, tree->sparsetree.size());
+    // Reuse the split histogram and packed reduction workspaces for leaf statistics. Cap the
+    // number of nodes so each leaf batch fits in those workspaces.
+    auto max_leaf_nodes_in_workspace = ML::checked_mul<std::size_t>(
+      params.max_batch_size, params.max_n_bins, n_blks_for_cols);
+    std::size_t max_batch_size = std::min(
+      std::size_t{100000}, std::min(tree->sparsetree.size(), max_leaf_nodes_in_workspace));
     auto max_leaf_values       = ML::checked_mul<std::size_t>(max_batch_size, dataset.num_outputs);
     rmm::device_uvector<NodeT> d_tree(max_batch_size, builder_stream);
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, builder_stream);
@@ -696,17 +700,27 @@ struct Builder {
       raft::update_device(
         d_instance_ranges.data(), instance_ranges.data() + batch_begin, batch_size, builder_stream);
 
-      auto leaves_bytes = ML::checked_mul<std::size_t>(sizeof(DataT), d_leaves.size());
-      RAFT_CUDA_TRY(cudaMemsetAsync(d_leaves.data(), 0, leaves_bytes, builder_stream));
+      auto leaf_histogram_count =
+        ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
+      auto leaf_histogram_bytes =
+        ML::checked_mul<std::size_t>(sizeof(BinT), leaf_histogram_count);
+      RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, leaf_histogram_bytes, builder_stream));
       size_t smem_size = ML::checked_mul<std::size_t>(sizeof(BinT), dataset.num_outputs);
-      launchLeafKernel(objective,
-                       dataset,
-                       d_tree.data(),
-                       d_instance_ranges.data(),
-                       d_leaves.data(),
-                       batch_size,
-                       smem_size,
-                       builder_stream);
+      launchBuildLeafHistogramsKernel(objective,
+                                      dataset,
+                                      d_tree.data(),
+                                      d_instance_ranges.data(),
+                                      histograms,
+                                      batch_size,
+                                      smem_size,
+                                      builder_stream);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
+
+      if (distributed) { allReduceHistograms(histograms, leaf_histogram_count); }
+
+      launchFinalizeLeafKernel<ObjectiveT, DataT>(
+        histograms, d_leaves.data(), dataset.num_outputs, batch_size, builder_stream);
+      RAFT_CUDA_TRY(cudaPeekAtLastError());
       auto leaf_offset = ML::checked_mul<std::size_t>(batch_begin, dataset.num_outputs);
       auto leaf_count  = ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
       raft::update_host(
