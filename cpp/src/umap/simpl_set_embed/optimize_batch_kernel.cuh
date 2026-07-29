@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -154,12 +154,10 @@ DI T repulsive_grad(T dist_squared, T gamma, UMAPParams params)
   return grad_coeff;
 }
 
-/**
- * Calculate the attractive gradient
- */
 template <typename T>
-DI T attractive_grad(T dist_squared, UMAPParams params)
+DI T attractive_coeff(T dist_squared, UMAPParams params)
 {
+  if (dist_squared <= T(0.0)) { return T(0.0); }
   auto grad_coeff = T(-2.0) * params.a * params.b * pow(dist_squared, params.b - T(1.0));
   grad_coeff /= params.a * pow(dist_squared, params.b) + T(1.0);
   return grad_coeff;
@@ -169,6 +167,12 @@ template <typename T>
 DI T truncate_gradient(T const rounding_factor, T const x)
 {
   return (rounding_factor + x) - rounding_factor;
+}
+
+template <typename T>
+DI T attractive_component_grad(T coeff, T diff)
+{
+  return clip<T>(coeff * diff, T(-4.0), T(4.0));
 }
 
 template <typename T>
@@ -280,8 +284,7 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
     auto dist_squared = rdist<T, n_components>(current_reg, other_reg);
     // Attractive force between the two vertices, since they
     // are connected by an edge in the 1-skeleton.
-    auto attractive_grad_coeff = T(0.0);
-    if (dist_squared > T(0.0)) { attractive_grad_coeff = attractive_grad<T>(dist_squared, params); }
+    auto attractive_grad_coeff = attractive_coeff<T>(dist_squared, params);
     /**
      * Apply attractive force between `current` and `other`
      * by updating their 'weights' to place them relative
@@ -290,8 +293,8 @@ CUML_KERNEL void optimize_batch_kernel_reg(T const* head_embedding,
      * performing unsupervised training).
      */
     for (int d = 0; d < n_components; d++) {
-      auto diff   = current_reg[d] - other_reg[d];
-      auto grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+      auto grad_d =
+        attractive_component_grad<T>(attractive_grad_coeff, current_reg[d] - other_reg[d]);
       current_reg[d] += grad_d * alpha;
       grads[d] = grad_d * alpha;
     }
@@ -419,8 +422,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     auto dist_squared = rdist<T>(current, other, n_components);
     // Attractive force between the two vertices, since they
     // are connected by an edge in the 1-skeleton.
-    auto attractive_grad_coeff = T(0.0);
-    if (dist_squared > T(0.0)) { attractive_grad_coeff = attractive_grad<T>(dist_squared, params); }
+    auto attractive_grad_coeff = attractive_coeff<T>(dist_squared, params);
     /**
      * Apply attractive force between `current` and `other`
      * by updating their 'weights' to place them relative
@@ -431,7 +433,7 @@ CUML_KERNEL void optimize_batch_kernel(T const* head_embedding,
     for (int d = 0; d < n_components; d++) {
       T current_val = current[d];
       if constexpr (use_shared_mem) { current_buffer[d] = current_val; }
-      auto grad_d = clip<T>(attractive_grad_coeff * (current_val - other[d]), T(-4.0), T(4.0));
+      auto grad_d = attractive_component_grad<T>(attractive_grad_coeff, current_val - other[d]);
       grad_d *= alpha;
       if constexpr (use_shared_mem) {
         current_buffer[d] += grad_d;
@@ -586,15 +588,12 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_thread(T const* head_embe
       }
 
       auto dist_squared          = rdist<T, N_COMPONENTS>(current_reg, other_reg);
-      auto attractive_grad_coeff = T(0.0);
-      if (dist_squared > T(0.0)) {
-        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
-      }
+      auto attractive_grad_coeff = attractive_coeff<T>(dist_squared, params);
 
 #pragma unroll
       for (int d = 0; d < N_COMPONENTS; d++) {
-        auto diff      = current_reg[d] - other_reg[d];
-        auto grad_d    = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+        auto grad_d =
+          attractive_component_grad<T>(attractive_grad_coeff, current_reg[d] - other_reg[d]);
         auto step_grad = grad_d * alpha;
         current_reg[d] += step_grad;
         if (move_other) {
@@ -734,17 +733,14 @@ CUML_KERNEL void optimize_sequential_kernel_vertex_per_warp(T const* head_embedd
       }
       T dist_squared = warp_all_reduce_sum(partial_dist);
 
-      auto attractive_grad_coeff = T(0.0);
-      if (dist_squared > T(0.0)) {
-        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
-      }
+      auto attractive_grad_coeff = attractive_coeff<T>(dist_squared, params);
 
 #pragma unroll
       for (int i = 0; i < CPL; i++) {
         int d = lane_id + i * 32;
         if (d < n_components) {
-          T diff   = current_reg[i] - other_reg[i];
-          T grad_d = clip<T>(attractive_grad_coeff * diff, T(-4.0), T(4.0));
+          T grad_d =
+            attractive_component_grad<T>(attractive_grad_coeff, current_reg[i] - other_reg[i]);
           current_reg[i] += grad_d * alpha;
           if (move_other) {
             raft::myAtomicAdd(other_write + d, truncate_gradient(rounding, -(grad_d * alpha)));
