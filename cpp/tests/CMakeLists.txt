@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -152,6 +152,15 @@ if(all_algo OR randomforest_algo)
   ConfigureTest(
     PREFIX SG
     NAME RF_TEST sg/rf_test.cu ML_INCLUDE
+    GPUS 1
+    PERCENT 100
+  )
+endif()
+
+if(all_algo OR isolationforest_algo)
+  ConfigureTest(
+    PREFIX SG
+    NAME ISOLATION_FOREST_TEST sg/isolation_forest_test.cu ML_INCLUDE
     GPUS 1
     PERCENT 100
   )
