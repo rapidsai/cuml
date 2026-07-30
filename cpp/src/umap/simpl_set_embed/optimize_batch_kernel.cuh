@@ -143,12 +143,10 @@ DI T clip(T val, T lb, T ub)
   return min(max(val, lb), ub);
 }
 
-/**
- * Calculate the repulsive gradient
- */
 template <typename T>
-DI T repulsive_grad(T dist_squared, T gamma, UMAPParams params)
+DI T repulsive_coeff(T dist_squared, T gamma, UMAPParams params)
 {
+  if (dist_squared <= T(0.0)) { return T(0.0); }
   auto grad_coeff = T(2.0) * gamma * params.b;
   grad_coeff /= (T(0.001) + dist_squared) * (params.a * pow(dist_squared, params.b) + T(1.0));
   return grad_coeff;
@@ -210,13 +208,8 @@ DI void run_negative_sampling(int n_neg_samples,
     gen.next(r);
     nnz_t t        = static_cast<nnz_t>(r % tail_n);
     T dist_squared = compute_dist(t);
-    T coeff        = T(0.0);
-    if (dist_squared > T(0.0)) {
-      coeff = repulsive_grad<T>(dist_squared, gamma, params);
-    } else if (self_loop_vertex == static_cast<int>(t)) {
-      continue;
-    }
-    apply_grad(coeff);
+    if (dist_squared <= T(0.0) && self_loop_vertex == static_cast<int>(t)) { continue; }
+    apply_grad(repulsive_coeff<T>(dist_squared, gamma, params));
   }
 }
 
