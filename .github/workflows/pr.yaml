@@ -416,12 +416,12 @@ jobs:
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: |
         (
-          map(select(.ARCH == "amd64"))
+          map(select(.ARCH == "arm64"))
           | sort_by(.PY_VER)
           | unique_by(.DEPENDENCIES)
         )
           + (
-          map(select(.ARCH == "amd64"))
+          map(select(.ARCH == "arm64"))
           | map(select(.DEPENDENCIES == "oldest"))
           | sort_by(.PY_VER)
           | map(.DEPENDENCIES = "intermediate")
@@ -441,7 +441,7 @@ jobs:
       build_type: pull-request
       script: "ci/test_python_cuml_accel_upstream.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
-      matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+      matrix_filter: map(select(.ARCH == "arm64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     permissions:
