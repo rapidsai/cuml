@@ -58,6 +58,7 @@ cuml = None
 cuml_metrics = None
 treelite = None
 
+
 # GPU-specific helper functions (only available when GPU libs present)
 _build_cpu_skl_classifier = None
 _build_mnmg_umap = None
@@ -938,7 +939,7 @@ def all_algorithms():
                 HDBSCAN,
                 cuml_HDBSCAN,
                 shared_args={},
-                cpu_args={},
+                cpu_args={"core_dist_n_jobs": -1},
                 name="HDBSCAN",
                 accepts_labels=False,
             )

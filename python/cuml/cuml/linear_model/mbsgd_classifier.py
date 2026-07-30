@@ -1,16 +1,13 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 
-import cuml.internals
-from cuml.common.array_descriptor import CumlArrayDescriptor
-from cuml.common.classification import decode_labels
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 from cuml.internals.mixins import ClassifierMixin, FMajorInputTagMixin
+from cuml.internals.outputs import ClassLabels, ReflectedAttr, mlfunc
 from cuml.linear_model.base import LinearClassifierMixin
 from cuml.solvers.sgd import fit_sgd
 
@@ -85,8 +82,7 @@ class MBSGDClassifier(
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -118,7 +114,7 @@ class MBSGDClassifier(
     array([2, 2])
     """
 
-    coef_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -174,7 +170,7 @@ class MBSGDClassifier(
         self.n_iter_no_change = n_iter_no_change
 
     @generate_docstring()
-    @cuml.internals.reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, *, convert_dtype="deprecated") -> "MBSGDClassifier":
         """
         Fit the model with X and y.
@@ -200,7 +196,7 @@ class MBSGDClassifier(
             n_iter_no_change=self.n_iter_no_change,
             return_classes=True,
         )
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         self.classes_ = classes
         return self
@@ -213,7 +209,7 @@ class MBSGDClassifier(
             "shape": "(n_samples, 1)",
         }
     )
-    @cuml.internals.run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the y for X.
@@ -221,9 +217,5 @@ class MBSGDClassifier(
         """
         scores = self.decision_function(X, convert_dtype=convert_dtype)
         thresh = 0 if self.loss == "hinge" else 0.5
-        indices = (scores.to_output("cupy") > thresh).view(cp.int8)
-        with cuml.internals.exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            indices, self.classes_, output_type=output_type, index=scores.index
-        )
+        indices = (scores > thresh).view(cp.int8)
+        return ClassLabels(indices, self.classes_)

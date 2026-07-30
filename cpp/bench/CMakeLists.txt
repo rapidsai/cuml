@@ -1,6 +1,6 @@
 # =============================================================================
 # cmake-format: off
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # cmake-format: on
 # =============================================================================
@@ -12,18 +12,8 @@ if(BUILD_CUML_BENCH)
   # (please keep the filenames in alphabetical order)
   add_executable(
     ${CUML_CPP_BENCH_TARGET}
-    sg/arima_loglikelihood.cu
-    sg/dbscan.cu
-    sg/kmeans.cu
-    sg/linkage.cu
-    sg/main.cpp
-    sg/rf_classifier.cu
-    # FIXME: RF Regressor is having an issue where the tests now seem to take
-    # forever to finish, as opposed to the classifier counterparts!
-    # sg/rf_regressor.cu
-    sg/svc.cu
-    sg/svr.cu
-    sg/umap.cu
+    sg/arima_loglikelihood.cu sg/dbscan.cu sg/kmeans.cu sg/linkage.cu sg/main.cpp
+    sg/rf_classifier.cu sg/rf_regressor.cu sg/svc.cu sg/svr.cu sg/umap.cu
   )
   if(CUML_ENABLE_GPU)
     target_compile_definitions(${CUML_CPP_BENCH_TARGET} PUBLIC CUML_ENABLE_GPU)

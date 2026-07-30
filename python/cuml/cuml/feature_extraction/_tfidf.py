@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
@@ -91,8 +91,7 @@ class TfidfTransformer(Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -160,7 +159,7 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit(self, X, y=None) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
@@ -177,7 +176,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -229,7 +228,7 @@ class TfidfTransformer(Base):
 
         return X
 
-    @cuml.internals.run_in_internal_context
+    @cuml.internals.mlfunc(convert_output=False)
     def fit_transform(self, X, y=None, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

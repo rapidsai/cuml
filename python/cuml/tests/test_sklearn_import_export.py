@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -29,6 +29,7 @@ from sklearn.linear_model import Lasso as SkLasso
 from sklearn.linear_model import LinearRegression as SkLinearRegression
 from sklearn.linear_model import LogisticRegression as SkLogisticRegression
 from sklearn.linear_model import Ridge as SkRidge
+from sklearn.manifold import TSNE as SkTSNE
 from sklearn.manifold import trustworthiness
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -292,6 +293,16 @@ def test_tsne(random_state):
 
     assert array_equal(original_embedding, sklearn_embedding)
     assert array_equal(original_embedding, roundtrip_embedding)
+
+
+def test_tsne_from_sklearn_numeric_learning_rate():
+    model = TSNE.from_sklearn(
+        SkTSNE(learning_rate=100.0, early_exaggeration=10.0)
+    )
+
+    assert model.learning_rate == 100.0
+    assert model.learning_rate_method == "none"
+    assert model.early_exaggeration == 10.0
 
 
 def test_spectral_embedding(random_state):
@@ -802,6 +813,10 @@ def test_random_forest_classifier(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_decision_function_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_decision_function_, cp.ndarray)
+            assert isinstance(cu_model2.oob_decision_function_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7
@@ -870,6 +885,10 @@ def test_random_forest_regressor(random_state, oob_score):
         assert hasattr(sk_model2, "oob_score_")
         assert cu_model.oob_score_ == sk_model2.oob_score_
         assert cu_model2.oob_score_ == sk_model.oob_score_
+        assert isinstance(sk_model2.oob_prediction_, np.ndarray)
+        with cuml.using_output_type("cupy"):
+            assert isinstance(cu_model.oob_prediction_, cp.ndarray)
+            assert isinstance(cu_model2.oob_prediction_, cp.ndarray)
 
     # Can infer on converted models
     assert sk_model2.score(X, y) > 0.7

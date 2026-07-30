@@ -1,9 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import inspect
 from copy import deepcopy
 from itertools import dropwhile
-from numbers import Number
 from textwrap import dedent, indent
 
 import cudf
@@ -13,19 +12,17 @@ import pandas as pd
 import pytest
 from cudf.pandas import LOADED as cudf_pandas_active
 from numba import cuda
-from numba.cuda.cudadrv.devicearray import DeviceNDArray
 
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.mem_type import MemoryType
+from cuml.internals.outputs import convert_arrays
 
 
 def array_difference(a, b, with_sign=True):
     """
     Utility function to compute the difference between 2 arrays.
     """
-    a = to_nparray(a)
-    b = to_nparray(b)
+    a = as_numpy(a)
+    b = as_numpy(b)
 
     if len(a) == 0 and len(b) == 0:
         return 0
@@ -46,8 +43,8 @@ class array_equal:
     """
 
     def __init__(self, a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
-        self.a = to_nparray(a)
-        self.b = to_nparray(b)
+        self.a = np.atleast_1d(as_numpy(a))
+        self.b = np.atleast_1d(as_numpy(b))
         self.unit_tol = unit_tol
         self.total_tol = total_tol
         self.with_sign = with_sign
@@ -135,8 +132,8 @@ def assert_array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
 
 def normalize_clusters(a0, b0, n_clusters):
-    a = to_nparray(a0)
-    b = to_nparray(b0)
+    a = as_numpy(a0)
+    b = as_numpy(b0)
 
     c = deepcopy(b)
 
@@ -148,49 +145,42 @@ def normalize_clusters(a0, b0, n_clusters):
     return a, b
 
 
-def as_type(type, *args):
-    # Convert array args to type supported by
-    # CumlArray.to_output ('numpy','cudf','cupy'...)
-    # Ensure 2 dimensional inputs are not converted to 1 dimension
-    # None remains as None
-    # Scalar remains a scalar
-    result = []
-    for arg in args:
-        if arg is None or np.isscalar(arg):
-            result.append(arg)
+def as_type(output_type, *arrays):
+    """Convert input arrays (cupy or numpy) to the requested output type"""
+    out = convert_arrays(
+        arrays, output_type=output_type, one_col_2d_as_series=False
+    )
+    return out[0] if len(out) == 1 else tuple(out)
+
+
+def as_numpy(*arrays):
+    """Convert input array-likes to numpy arrays"""
+    out = []
+    for x in arrays:
+        if hasattr(x, "to_numpy"):
+            # XXX: ensure copy for pandas, some downstream sklearn functions
+            # don't work for non-writable buffers.
+            out.append(x.to_numpy(copy=True))
+        elif x is None or np.isscalar(x):
+            out.append(x)
         else:
-            # make sure X with a single feature remains 2 dimensional
-            if type in ("cudf", "pandas", "df_obj") and len(arg.shape) > 1:
-                if type == "pandas":
-                    mem_type = MemoryType.host
-                else:
-                    mem_type = None
-                result.append(
-                    CumlArray.from_input(arg).to_output(
-                        output_type="dataframe", output_mem_type=mem_type
-                    )
-                )
-            else:
-                result.append(CumlArray.from_input(arg).to_output(type))
-    if len(result) == 1:
-        return result[0]
-    return tuple(result)
+            out.append(cp.asnumpy(x))
+    return out[0] if len(out) == 1 else tuple(out)
 
 
-def to_nparray(x):
-    if isinstance(x, Number):
-        return np.asarray([x])
-    elif isinstance(x, pd.DataFrame):
-        return x.values
-    elif isinstance(x, cudf.DataFrame):
-        return x.to_pandas().values
-    elif isinstance(x, cudf.Series):
-        return x.to_pandas().values
-    elif isinstance(x, DeviceNDArray):
-        return x.copy_to_host()
-    elif isinstance(x, cp.ndarray):
-        return cp.asnumpy(x)
-    return np.asarray(x)
+def as_cupy(*arrays):
+    """Convert input array-likes to cupy arrays"""
+    out = []
+    for x in arrays:
+        if hasattr(x, "to_cupy"):
+            out.append(x.to_cupy())
+        elif hasattr(x, "to_numpy"):
+            out.append(cp.asarray(x.to_numpy()))
+        elif x is None or cp.isscalar(x):
+            out.append(x)
+        else:
+            out.append(cp.asarray(x))
+    return out[0] if len(out) == 1 else tuple(out)
 
 
 def clusters_equal(a0, b0, n_clusters, tol=1e-4):

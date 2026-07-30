@@ -1,21 +1,16 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
-from cuml.common.classification import decode_labels, process_class_weight
+from cuml.common.classification import process_class_weight
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.sparse import is_sparse
-from cuml.internals.array import CumlArray
 from cuml.internals.interop import UnsupportedOnCPU, UnsupportedOnGPU
 from cuml.internals.logger import warn
 from cuml.internals.mixins import ClassifierMixin
-from cuml.internals.outputs import (
-    exit_internal_context,
-    reflect,
-    run_in_internal_context,
-)
+from cuml.internals.outputs import ClassLabels, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 from cuml.multiclass import OneVsOneClassifier, OneVsRestClassifier
 from cuml.svm.svm_base import SVMBase
@@ -92,8 +87,7 @@ class SVC(ClassifierMixin, SVMBase):
         We monitor how much our stopping criteria changes during outer
         iterations. If it does not change (changes less then 1e-3*tol)
         for nochange_steps consecutive steps, then we stop training.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -265,7 +259,7 @@ class SVC(ClassifierMixin, SVMBase):
         self.decision_function_shape = decision_function_shape
 
     @property
-    @reflect
+    @mlfunc
     def support_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -280,7 +274,7 @@ class SVC(ClassifierMixin, SVMBase):
         self._support_ = value
 
     @property
-    @reflect
+    @mlfunc
     def intercept_(self):
         if hasattr(self, "_multiclass"):
             estimators = self._multiclass.multiclass_estimator.estimators_
@@ -346,7 +340,7 @@ class SVC(ClassifierMixin, SVMBase):
         return self
 
     @generate_docstring(y="dense_anydtype")
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(
         self, X, y, sample_weight=None, *, convert_dtype="deprecated"
     ) -> "SVC":
@@ -413,7 +407,7 @@ class SVC(ClassifierMixin, SVMBase):
             "shape": "(n_samples, 1)",
         }
     )
-    @run_in_internal_context
+    @mlfunc(preserve_index=True)
     def predict(self, X, *, convert_dtype="deprecated"):
         """
         Predicts the class labels for X. The returned y values are the class
@@ -422,19 +416,12 @@ class SVC(ClassifierMixin, SVMBase):
         check_is_fitted(self)
 
         if hasattr(self, "_multiclass"):
-            inds = self._multiclass.predict(X)
-            index = inds.index
-            inds = inds.to_output("cupy")
+            indices = self._multiclass.predict(X)
         else:
             res = self.decision_function(X, convert_dtype=convert_dtype)
-            index = res.index
-            inds = (res.to_output("cupy") >= 0).view(cp.int8)
+            indices = (res >= 0).view(cp.int8)
 
-        with exit_internal_context():
-            output_type = self._get_output_type(X)
-        return decode_labels(
-            inds, self.classes_, output_type=output_type, index=index
-        )
+        return ClassLabels(indices, self.classes_)
 
     @generate_docstring(
         return_values={
@@ -444,8 +431,8 @@ class SVC(ClassifierMixin, SVMBase):
             "shape": "(n_samples, 1)",
         }
     )
-    @reflect
-    def decision_function(self, X, *, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def decision_function(self, X, *, convert_dtype="deprecated"):
         """
         Calculates the decision function values for X.
 

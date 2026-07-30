@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,12 +10,6 @@
 #include <raft/random/rng_state.hpp>
 
 #include <rapids_logger/logger.hpp>
-
-namespace cuvs::cluster::kmeans {
-
-struct params;
-
-}  // end namespace cuvs::cluster::kmeans
 
 namespace CUML_EXPORT ML {
 namespace kmeans {
@@ -29,12 +23,12 @@ struct KMeansParams {
   double tol                          = 1e-4;
   rapids_logger::level_enum verbosity = rapids_logger::level_enum::info;
   raft::random::RngState rng_state{0, raft::random::GeneratorType::GenPhilox};
-  int n_init                 = 1;
-  double oversampling_factor = 2.0;
-  int batch_samples          = 1 << 15;
-  int batch_centroids        = 0;
-
-  cuvs::cluster::kmeans::params to_cuvs() const;
+  int n_init                         = 1;
+  double oversampling_factor         = 2.0;
+  int batch_samples                  = 1 << 15;
+  int batch_centroids                = 0;
+  std::int64_t init_size             = 0;
+  std::int64_t device_buffer_samples = 0;
 };
 
 }  // end namespace kmeans

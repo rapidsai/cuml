@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -13,7 +13,6 @@ from sklearn.datasets import (
 )
 from sklearn.model_selection import train_test_split
 
-from cuml.internals.array import elements_in_representable_range
 from cuml.testing.strategies import (
     combined_datasets_strategy,
     regression_datasets,
@@ -78,11 +77,6 @@ def is_cuml_compatible_dataset(X_train, X_test, y_train, _=None):
         X_train.shape[0] >= 2
         and X_train.shape[1] >= 1
         and np.isfinite(X_train).all()
-        and all(
-            elements_in_representable_range(x, np.float32)
-            for x in (X_train, X_test, y_train)
-            if x is not None
-        )
     )
 
 

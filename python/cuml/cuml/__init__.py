@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2022-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -12,9 +12,6 @@ except ModuleNotFoundError:
 else:
     libcuml.load_library()
     del libcuml
-
-import cupy
-from rmm.allocators.cupy import rmm_cupy_allocator
 
 import cuml.accel
 import cuml.feature_extraction
@@ -32,6 +29,7 @@ from cuml.datasets.regression import make_regression
 from cuml.decomposition.incremental_pca import IncrementalPCA
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD
+from cuml.ensemble.isolation_forest import IsolationForest
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
 from cuml.explainer.kernel_shap import KernelExplainer
@@ -77,9 +75,28 @@ from cuml.tsa.arima import ARIMA
 from cuml.tsa.auto_arima import AutoARIMA
 from cuml.tsa.holtwinters import ExponentialSmoothing
 
-# Enable rmm_cupy_allocator
-cupy.cuda.set_allocator(rmm_cupy_allocator)
-del cupy, rmm_cupy_allocator
+
+def _setup_cupy():
+    """One-time setup calls for cupy interop"""
+    import copyreg
+
+    import cupy as cp
+    from rmm.allocators.cupy import rmm_cupy_allocator
+
+    # Enable rmm_cupy_allocator
+    cp.cuda.set_allocator(rmm_cupy_allocator)
+
+    # TODO: this is a workaround for https://github.com/cupy/cupy/issues/10084
+    # It can be conditionally done once the cupy fix is out (see
+    # https://github.com/rapidsai/cuml/issues/8364).
+    copyreg.dispatch_table[cp.ndarray] = lambda x: (
+        cp.array,
+        (x.get(order="A"),),
+    )
+
+
+_setup_cupy()
+del _setup_cupy
 
 
 def __getattr__(name):
@@ -117,6 +134,7 @@ __all__ = [
     "Handle",
     "HDBSCAN",
     "IncrementalPCA",
+    "IsolationForest",
     "KernelDensity",
     "KernelExplainer",
     "KernelRidge",

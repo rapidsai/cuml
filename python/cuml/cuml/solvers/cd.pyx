@@ -1,15 +1,13 @@
-# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2018-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
-from cuml.common import CumlArray
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base, get_handle
 from cuml.internals.mixins import FMajorInputTagMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs, check_is_fitted
 
 from libc.stdint cimport uintptr_t
@@ -247,8 +245,7 @@ class CD(FMajorInputTagMixin, Base):
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'array', 'dataframe', 'series', 'df_obj', \
-        'numba', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
+    output_type : {None, 'input', 'cupy', 'numpy', 'cudf', 'pandas'}, default=None
         Return results and set estimator attributes to the indicated output
         type. If None, the output type set at the module level
         (`cuml.global_settings.output_type`) will be used. See
@@ -286,7 +283,7 @@ class CD(FMajorInputTagMixin, Base):
     1 14.995...
     dtype: float32
     """
-    coef_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
 
     @classmethod
     def _get_param_names(cls):
@@ -316,7 +313,7 @@ class CD(FMajorInputTagMixin, Base):
         self.shuffle = shuffle
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, convert_dtype="deprecated", sample_weight=None) -> "CD":
         """
         Fit the model with X and y.
@@ -335,7 +332,7 @@ class CD(FMajorInputTagMixin, Base):
             tol=self.tol,
             shuffle=self.shuffle,
         )
-        self.coef_ = CumlArray(data=coef)
+        self.coef_ = coef
         self.intercept_ = intercept
         self.n_iter_ = n_iter
 
@@ -345,19 +342,18 @@ class CD(FMajorInputTagMixin, Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    @reflect
-    def predict(self, X, convert_dtype="deprecated") -> CumlArray:
+    @mlfunc(preserve_index=True)
+    def predict(self, X, convert_dtype="deprecated"):
         """
         Predicts the y for X.
         """
         check_is_fitted(self)
 
-        X, index = check_inputs(
+        X = check_inputs(
             self,
             X,
             dtype=self.coef_.dtype,
             convert_dtype=convert_dtype,
-            return_index=True,
         )
         preds = cp.zeros(X.shape[0], dtype=self.coef_.dtype, order="F")
 
@@ -365,7 +361,7 @@ class CD(FMajorInputTagMixin, Base):
         cdef int n_cols = X.shape[1]
         cdef uintptr_t X_ptr = X.data.ptr
         cdef uintptr_t preds_ptr = preds.data.ptr
-        cdef uintptr_t coef_ptr = self.coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.data.ptr
         cdef double intercept = self.intercept_
         handle = get_handle()
         cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
@@ -396,4 +392,4 @@ class CD(FMajorInputTagMixin, Base):
                 )
         handle.sync()
 
-        return CumlArray(data=preds, index=index)
+        return preds
