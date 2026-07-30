@@ -16,7 +16,11 @@ from cuml.cluster import (
 from cuml.compose import ColumnTransformer
 from cuml.covariance import EmpiricalCovariance, LedoitWolf
 from cuml.decomposition import PCA, IncrementalPCA, TruncatedSVD
-from cuml.ensemble import RandomForestClassifier, RandomForestRegressor
+from cuml.ensemble import (
+    IsolationForest,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from cuml.feature_extraction.text import TfidfTransformer
 from cuml.kernel_ridge import KernelRidge
 from cuml.linear_model import (
@@ -109,6 +113,7 @@ ESTIMATORS = [
     ElasticNet(),
     Lasso(),
     LinearRegression(),
+    IsolationForest(),
     RandomForestClassifier(),
     RandomForestRegressor(),
     KMeans(),
@@ -181,6 +186,23 @@ EXCLUDED = {
 
 
 XFAILS = {
+    IsolationForest: {
+        "check_estimators_unfitted": (
+            "Unfitted methods raise RuntimeError instead of NotFittedError"
+        ),
+        "check_sample_weights_pandas_series": "Sample weights are not supported",
+        "check_sample_weights_not_an_array": "Sample weights are not supported",
+        "check_sample_weights_list": "Sample weights are not supported",
+        "check_all_zero_sample_weights_error": "Sample weights are not supported",
+        "check_sample_weights_shape": "Sample weights are not supported",
+        "check_sample_weights_not_overwritten": "Sample weights are not supported",
+        "check_sample_weight_equivalence_on_dense_data": (
+            "Sample weights are not supported"
+        ),
+        "check_estimators_pickle": (
+            "Pickling does not preserve the fitted model state"
+        ),
+    },
     KMeans: {
         "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
