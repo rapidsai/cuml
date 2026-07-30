@@ -56,6 +56,9 @@ def _prep_training_data_sparse(c, X_train, y_train, partitions_per_worker):
 
     def cal_chunks(dataset, n_partitions):
         n_samples = dataset.shape[0]
+        # Avoid zero-row partitions when a small test dataset has fewer rows
+        # than the number of partitions requested by the available workers.
+        n_partitions = min(n_partitions, max(n_samples, 1))
         n_samples_per_part = int(n_samples / n_partitions)
         chunk_sizes = [n_samples_per_part] * n_partitions
         samples_last_row = n_samples - (
