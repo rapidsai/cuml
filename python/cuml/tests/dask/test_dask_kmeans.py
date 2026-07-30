@@ -1,16 +1,54 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import cudf
 import cupy as cp
 import dask.array as da
+import dask_cudf
 import numpy as np
 import pytest
+from raft_dask.common.comms import Comms
+from sklearn.datasets import make_blobs as sk_make_blobs
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
 
+from cuml.dask.cluster import KMeans
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cuml.metrics import adjusted_rand_score
 from cuml.testing.utils import quality_param, stress_param, unit_param
+
+
+def _make_skewed_kmeans_data(client, n_small_rows=2):
+    workers = list(client.scheduler_info()["workers"].keys())
+    if len(workers) < 2:
+        pytest.skip("Need at least 2 workers to test skewed partitions")
+
+    n_clusters = 4
+    X_np = np.asarray(
+        [
+            [0.0, 0.0],
+            [0.1, 0.0],
+            [10.0, 10.0],
+            [10.1, 10.0],
+            [20.0, 20.0],
+            [20.1, 20.0],
+        ],
+        dtype=np.float32,
+    )
+
+    worker_info = Comms(comms_p2p=False, client=client).worker_info(workers)
+    rank0_worker = next(
+        worker for worker, info in worker_info.items() if info["rank"] == 0
+    )
+    other_worker = next(worker for worker in workers if worker != rank0_worker)
+
+    X_small = cudf.DataFrame(X_np[:n_small_rows])
+    X_large = cudf.DataFrame(X_np[n_small_rows:])
+    small_f = client.scatter(X_small, workers=[rank0_worker])
+    large_f = client.scatter(X_large, workers=[other_worker])
+    X = dask_cudf.from_delayed([small_f, large_f], meta=X_small.iloc[:0])
+
+    return X, X_np, n_clusters
 
 
 @pytest.mark.mg
@@ -341,3 +379,188 @@ def test_nclusters_exceeds_n_samples(client):
         ValueError, match="n_samples=10 should be >= n_clusters=11"
     ):
         model.fit(X)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("n_clusters", [0, -1])
+def test_invalid_nclusters_raises(client, n_clusters):
+    from cuml.dask.datasets import make_blobs
+
+    X, _ = make_blobs(
+        n_samples=10,
+        n_features=5,
+        centers=2,
+        n_parts=2,
+        random_state=10,
+    )
+
+    model = KMeans(n_clusters=n_clusters, random_state=10)
+
+    with pytest.raises(
+        ValueError,
+        match=f"n_clusters={n_clusters} should be a positive integer",
+    ):
+        model.fit(X)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize(
+    "kwargs, match",
+    [
+        (
+            {"init": "k-means++"},
+            r"init='k-means\+\+' is not supported for KMeansMG",
+        ),
+        (
+            {"oversampling_factor": 0},
+            "oversampling_factor=0 is not supported for KMeansMG",
+        ),
+    ],
+)
+def test_unsupported_mg_init_params_raise(client, kwargs, match):
+    from cuml.dask.datasets import make_blobs
+
+    X, _ = make_blobs(
+        n_samples=10,
+        n_features=5,
+        centers=2,
+        n_parts=2,
+        random_state=10,
+    )
+
+    model = KMeans(n_clusters=2, random_state=10, **kwargs)
+
+    with pytest.raises(ValueError, match=match):
+        model.fit(X)
+
+
+@pytest.mark.mg
+def test_partition_with_fewer_rows_than_clusters(client):
+    """KMeansMG validates n_clusters against global, not per-rank, rows."""
+    X, X_np, n_clusters = _make_skewed_kmeans_data(client)
+
+    init = X_np[[0, 2, 4, 5]]
+    model = KMeans(
+        n_clusters=n_clusters,
+        init=init,
+        n_init=1,
+        random_state=10,
+    )
+
+    model.fit(X)
+
+    assert model.cluster_centers_.shape == (n_clusters, X_np.shape[1])
+    assert len(model.labels_.compute()) == X_np.shape[0]
+
+
+@pytest.mark.mg
+def test_random_init_partition_too_small_raises(client):
+    X, _, n_clusters = _make_skewed_kmeans_data(client, n_small_rows=1)
+
+    model = KMeans(
+        n_clusters=n_clusters,
+        init="random",
+        random_state=10,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="init='random' requires rank 0 to sample up to 2",
+    ):
+        model.fit(X)
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("n_parts", [2, 8])
+@pytest.mark.parametrize("device_buffer_samples", [0, 64])
+@pytest.mark.parametrize("weighted", [False, True])
+def test_out_of_core_host_fit(
+    client, n_parts, device_buffer_samples, weighted
+):
+    n_rows, n_cols, n_clusters = 4000, 16, 5
+    X_np, y_np = sk_make_blobs(
+        n_samples=n_rows,
+        n_features=n_cols,
+        centers=n_clusters,
+        cluster_std=0.1,
+        random_state=10,
+    )
+    X_np = X_np.astype(np.float32)
+
+    chunk = int(np.ceil(n_rows / n_parts))
+    X = da.from_array(X_np, chunks=(chunk, n_cols))
+
+    fit_kwargs = {}
+    if weighted:
+        rng = np.random.RandomState(42)
+        wt = rng.uniform(0.5, 2.0, size=n_rows).astype(np.float32)
+        fit_kwargs["sample_weight"] = da.from_array(wt, chunks=(chunk,))
+
+    model = KMeans(
+        init="k-means||",
+        n_clusters=n_clusters,
+        random_state=10,
+        n_init="auto",
+        init_size=n_rows,
+        device_buffer_samples=device_buffer_samples,
+    )
+
+    labels = model.fit_predict(X, **fit_kwargs).compute()
+    labels = cp.asnumpy(cp.asarray(labels)).reshape(-1)
+
+    assert labels.shape[0] == n_rows
+    assert model.cluster_centers_.shape == (n_clusters, n_cols)
+    assert sk_adjusted_rand_score(y_np, labels) >= 0.99
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("device_buffer_samples", [0, 128])
+def test_out_of_core_host_matches_device(client, device_buffer_samples):
+    """The host out-of-core fit and the in-core device fit should agree on
+    identical data (same clustering and inertia)."""
+    from sklearn.datasets import make_blobs as sk_make_blobs
+    from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
+
+    n_rows, n_cols, n_clusters, n_parts = 3000, 8, 6, 6
+    X_np, _ = sk_make_blobs(
+        n_samples=n_rows,
+        n_features=n_cols,
+        centers=n_clusters,
+        cluster_std=0.1,
+        random_state=10,
+    )
+    X_np = X_np.astype(np.float32)
+    chunk = int(np.ceil(n_rows / n_parts))
+
+    rng = np.random.RandomState(10)
+    wt = rng.uniform(0.5, 2.0, size=n_rows).astype(np.float32)
+
+    common = dict(
+        init="k-means||",
+        n_clusters=n_clusters,
+        random_state=10,
+        n_init="auto",
+    )
+
+    X_host = da.from_array(X_np, chunks=(chunk, n_cols))
+    wt_host = da.from_array(wt, chunks=(chunk,))
+    host_model = KMeans(device_buffer_samples=device_buffer_samples, **common)
+    host_labels = cp.asnumpy(
+        cp.asarray(
+            host_model.fit_predict(X_host, sample_weight=wt_host).compute()
+        )
+    ).reshape(-1)
+
+    X_dev = da.from_array(cp.asarray(X_np), chunks=(chunk, n_cols))
+    wt_dev = da.from_array(cp.asarray(wt), chunks=(chunk,))
+    dev_model = KMeans(**common)
+    dev_labels = cp.asnumpy(
+        cp.asarray(
+            dev_model.fit_predict(X_dev, sample_weight=wt_dev).compute()
+        )
+    ).reshape(-1)
+
+    assert sk_adjusted_rand_score(host_labels, dev_labels) >= 0.99
+    np.testing.assert_allclose(
+        float(host_model.inertia_), float(dev_model.inertia_), rtol=1e-2
+    )

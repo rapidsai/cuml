@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -19,7 +19,6 @@ from toolz import first
 from cuml.dask.common import parts_to_ranks
 from cuml.dask.common.input_utils import DistributedDataHandler
 from cuml.dask.common.utils import get_client, wait_and_raise_from_futures
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
 
 
@@ -220,12 +219,7 @@ class BaseEstimator:
                 "Attribute %s not found in %s" % (attr, type(self))
             )
 
-        if isinstance(ret_attr, CumlArray):
-            # Dask wrappers aren't meant to be pickled, so we can
-            # store the raw type on the instance
-            return ret_attr.to_output(self.output_type)
-        else:
-            return ret_attr
+        return ret_attr
 
 
 class DelayedParallelFunc(object):

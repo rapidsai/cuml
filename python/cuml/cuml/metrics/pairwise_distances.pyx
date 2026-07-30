@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import warnings
@@ -8,7 +8,7 @@ import cupy as cp
 import cupyx.scipy.sparse as cp_sp
 from sklearn.exceptions import DataConversionWarning
 
-from cuml.internals import get_handle, reflect
+from cuml.internals import get_handle, mlfunc
 from cuml.internals.outputs import using_output_type
 from cuml.internals.validation import check_array
 
@@ -99,7 +99,7 @@ def _determine_metric(metric, is_sparse=False):
     return metrics[metric]
 
 
-@reflect
+@mlfunc
 def nan_euclidean_distances(
     X,
     Y=None,
@@ -265,7 +265,7 @@ def _ensure_boolean(X, metric):
     return X
 
 
-@reflect
+@mlfunc
 def pairwise_distances(
     X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
 ):
@@ -501,7 +501,7 @@ def pairwise_distances(
     return out
 
 
-@reflect
+@mlfunc
 def sparse_pairwise_distances(
     X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
 ):

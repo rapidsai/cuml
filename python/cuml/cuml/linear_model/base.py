@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import cupy as cp
 import cupyx.scipy.sparse
@@ -171,6 +171,13 @@ def center_and_scale(
         sqrt_weight = None
 
     return X, y, X_offset, y_offset, sqrt_weight
+
+
+def cuda_ptr(X):
+    """Returns a pointer to a backing device array, or None if not a device array"""
+    if (interface := getattr(X, "__cuda_array_interface__", None)) is not None:
+        return interface["data"][0]
+    return None
 
 
 _ridge_transform = cp.ElementwiseKernel(

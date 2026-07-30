@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Andreas Mueller
 # SPDX-FileCopyrightText: Joris Van den Bossche
-# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2020-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Original authors from Sckit-Learn:
@@ -34,7 +34,6 @@ from sklearn.base import clone
 from sklearn.utils import Bunch
 
 import cuml
-from cuml.internals.array_sparse import SparseCumlArray
 from cuml.internals.global_settings import _global_settings_data
 from cuml.internals.validation import check_is_fitted, check_features, check_array
 
@@ -849,7 +848,7 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
             else:
                 raise
 
-    @cuml.internals.reflect
+    @cuml.internals.mlfunc
     def fit(self, X, y=None) -> "ColumnTransformer":
         """Fit all transformers using X.
 
@@ -873,8 +872,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
         self.fit_transform(X, y=y)
         return self
 
-    @cuml.internals.reflect(reset=True)
-    def fit_transform(self, X, y=None) -> SparseCumlArray:
+    @cuml.internals.mlfunc(set_input_type=True)
+    def fit_transform(self, X, y=None):
         """Fit all transformers, transform the data and concatenate results.
 
         Parameters
@@ -925,8 +924,8 @@ class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
 
         return self._hstack(list(Xs))
 
-    @cuml.internals.reflect
-    def transform(self, X) -> SparseCumlArray:
+    @cuml.internals.mlfunc
+    def transform(self, X):
         """Transform X separately by each transformer, concatenate results.
 
         Parameters
