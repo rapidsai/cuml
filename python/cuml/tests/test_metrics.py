@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import platform
@@ -1552,20 +1552,6 @@ def test_pairwise_distances_warns_bool_conversion(metric, kind):
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         pairwise_distances(X_bool_like, metric=metric)
-
-
-def test_pairwise_distances_metric_arg_deprecated():
-    X = np.array([[1, 2], [3, 4]], dtype="float64")
-    sol = sklearn_pairwise_distances(X, metric="minkowski", p=1)
-    with pytest.warns(FutureWarning, match="deprecated"):
-        res = pairwise_distances(X, metric="minkowski", metric_arg=1)
-    np.testing.assert_allclose(sol, res)
-
-    # edge case - check that nan_euclidean warns, but still runs
-    with pytest.warns(FutureWarning, match="deprecated"):
-        res = pairwise_distances(X, metric="nan_euclidean", metric_arg=1)
-    sol = sklearn_pairwise_distances(X, metric="nan_euclidean")
-    np.testing.assert_allclose(sol, res)
 
 
 def test_pairwise_distances_metric_kwds():
