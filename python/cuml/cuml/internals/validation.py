@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numbers
@@ -673,7 +673,14 @@ def check_array(
         if not isinstance(array_dtype, np.dtype) and array_dtype is not None:
             array_dtype = _as_numpy_dtype(array_dtype)
         elif not isinstance(array_dtype, np.dtype):
-            array_dtype = None
+            # Objects implementing the numpy array protocol may not expose a
+            # ``dtype`` attribute themselves. Normalize these before selecting
+            # from the supported dtypes so their represented dtype is preserved.
+            if hasattr(array, "__array__"):
+                array = np.asarray(array)
+                array_dtype = array.dtype
+            else:
+                array_dtype = None
 
     # Infer proper output dtype
     if array_dtype is not None:
