@@ -214,7 +214,7 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
 
     @generate_docstring()
     @mlfunc(set_input_type=True)
-    def fit(self, X, y, *, convert_dtype="deprecated") -> "KNeighborsRegressor":
+    def fit(self, X, y) -> "KNeighborsRegressor":
         """
         Fit a GPU index for k-nearest neighbors regression model.
 
@@ -223,15 +223,9 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
             raise ValueError(
                 f"weights must be 'uniform', 'distance', or a callable, got {self.weights}"
             )
-        super().fit(X, convert_dtype=convert_dtype)
+        super().fit(X)
 
-        y = check_y(
-            y,
-            dtype="float32",
-            convert_dtype=convert_dtype,
-            order="F",
-            accept_multi_output=True,
-        )
+        y = check_y(y, dtype="float32", order="F", accept_multi_output=True)
         check_consistent_length(self._fit_X, y)
         self._y = y
 
@@ -242,16 +236,14 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, n_features)'})
     @mlfunc(preserve_index=True)
-    def predict(self, X, *, convert_dtype="deprecated"):
+    def predict(self, X):
         """
         Use the trained k-nearest neighbors regression model to
         predict the labels for X
 
         """
         # Get KNN results - always get distances to compute weights
-        distances, indices = self.kneighbors(
-            X, return_distance=True, convert_dtype=convert_dtype
-        )
+        distances, indices = self.kneighbors(X, return_distance=True)
         indices = cp.ascontiguousarray(indices, dtype=cp.int64)
         cdef size_t n_rows = indices.shape[0]
         cdef int64_t* inds_ptr = <int64_t*><uintptr_t>indices.data.ptr

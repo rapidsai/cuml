@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import numbers
@@ -538,7 +538,6 @@ def check_array(
     accept_sparse=False,
     accept_large_sparse=False,
     dtype=None,
-    convert_dtype="deprecated",
     mem_type="device",
     order="A",
     copy=False,
@@ -570,13 +569,6 @@ def check_array(
         Pass a dtype or a list of supported dtypes to enforce a dtype for the
         output. If the input doesn't have a supported dtype, it will be
         converted to the first listed dtype.
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be removed
-            in version 26.10. cuML only copies input arrays when necessary
-            (e.g. to unify dtypes), there is no reason to provide this keyword
-            going forward.
-
     mem_type : {'device', 'host'} or None, default='device'
         The memory type use for the output. If 'device', the output will be a
         ``cupy.ndarray`` if dense, or a ``cupyx.scipy.sparse.spmatrix`` if
@@ -631,15 +623,6 @@ def check_array(
     if order not in ("F", "C", "A", None):
         raise ValueError(f"Unsupported {order=!r}")
 
-    if convert_dtype != "deprecated":
-        warnings.warn(
-            "`convert_dtype` was deprecated in version 26.08 and will be "
-            "removed in version 26.10. cuML only copies input arrays when "
-            "necessary (e.g. to unify dtypes), there is no reason to "
-            "provide this keyword going forward.",
-            FutureWarning,
-        )
-
     if dtype is not None:
         if not isinstance(dtype, (list, tuple)):
             dtype = [dtype]
@@ -683,14 +666,8 @@ def check_array(
         if dtype is None:
             dtype = array_dtype
         elif array_dtype not in dtype:
-            if convert_dtype is not False:
-                # Convert to first provided dtype
-                dtype = dtype[0]
-            else:
-                raise ValueError(
-                    f"Expected array with dtype in {[str(d) for d in dtype]} "
-                    f"but got {str(array_dtype)!r}"
-                )
+            # Convert to first provided dtype
+            dtype = dtype[0]
         else:
             dtype = array_dtype
     elif dtype is not None:
@@ -1045,7 +1022,6 @@ def check_y(
     y,
     *,
     dtype=None,
-    convert_dtype="deprecated",
     mem_type="device",
     order="A",
     accept_multi_output=False,
@@ -1065,13 +1041,6 @@ def check_y(
         the input dtype will be used. Pass a dtype or a list of supported
         dtypes to enforce a dtype for the output. If the input doesn't have a
         supported dtype, it will be converted to the first listed dtype.
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be removed
-            in version 26.10. cuML only copies input arrays when necessary
-            (e.g. to unify dtypes), there is no reason to provide this keyword
-            going forward.
-
     mem_type : {'device', 'host'} or None, default='device'
         The memory type use for the output. If 'device', the output will be a
         ``cupy.ndarray``. If 'host', the output will be a ``numpy.ndarray``. If
@@ -1170,7 +1139,6 @@ def check_y(
         y = check_array(
             y,
             dtype=dtype,
-            convert_dtype=convert_dtype,
             mem_type=mem_type,
             order=order,
             ensure_2d=False,
@@ -1309,7 +1277,6 @@ def check_sample_weight(
     sample_weight,
     *,
     dtype=None,
-    convert_dtype="deprecated",
     mem_type="device",
     order="A",
     ensure_non_negative=False,
@@ -1325,13 +1292,6 @@ def check_sample_weight(
         Pass a dtype or a list of supported dtypes to enforce a dtype for the
         output. If the input doesn't have a supported dtype, it will be
         converted to the first listed dtype.
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be removed
-            in version 26.10. cuML only copies input arrays when necessary
-            (e.g. to unify dtypes), there is no reason to provide this keyword
-            going forward.
-
     mem_type : {'device', 'host'} or None, default='device'
         The memory type use for the output. If 'device', the output will be a
         ``cupy.ndarray``. If 'host', the output will be a ``numpy.ndarray``. If
@@ -1372,7 +1332,6 @@ def check_sample_weight(
     sample_weight = check_array(
         sample_weight,
         dtype=dtype,
-        convert_dtype=convert_dtype,
         mem_type=mem_type,
         order=order,
         ensure_2d=False,
@@ -1402,7 +1361,6 @@ def check_inputs(
     dtype=None,
     y_dtype=...,
     sample_weight_dtype=...,
-    convert_dtype="deprecated",
     mem_type="device",
     order="A",
     copy=False,
@@ -1461,13 +1419,6 @@ def check_inputs(
     sample_weight_dtype : None, dtype, list[dtype], default=...
         The dtype(s) to support for sample_weight. If not specified, defaults
         to the output dtype of ``X``.
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be removed
-            in version 26.10. cuML only copies input arrays when necessary
-            (e.g. to unify dtypes), there is no reason to provide this keyword
-            going forward.
-
     mem_type : {'device', 'host'} or None, default='device'
         The memory type use for the output. If 'device', the output will be a
         ``cupy.ndarray`` if dense, or a ``cupyx.scipy.sparse.spmatrix`` if
@@ -1542,7 +1493,6 @@ def check_inputs(
         accept_sparse=accept_sparse,
         accept_large_sparse=accept_large_sparse,
         dtype=dtype,
-        convert_dtype=convert_dtype,
         mem_type=mem_type,
         order=order,
         copy=copy,
@@ -1567,7 +1517,6 @@ def check_inputs(
         y = check_y(
             y,
             dtype=y_dtype,
-            convert_dtype=convert_dtype,
             mem_type=mem_type,
             order=order,
             accept_multi_output=accept_multi_output,
@@ -1584,7 +1533,6 @@ def check_inputs(
         sample_weight = check_sample_weight(
             sample_weight,
             dtype=sample_weight_dtype,
-            convert_dtype=convert_dtype,
             mem_type=mem_type,
             order=order,
         )

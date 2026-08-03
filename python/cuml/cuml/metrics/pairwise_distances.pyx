@@ -107,7 +107,6 @@ def nan_euclidean_distances(
     squared=False,
     missing_values=cp.nan,
     copy=True,
-    convert_dtype="deprecated",
 ):
     """Calculate the euclidean distances in the presence of missing values.
 
@@ -153,13 +152,6 @@ def nan_euclidean_distances(
         False can reduce memory usage, but may result in mutation
         of X and Y.
 
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be
-            removed in version 26.10. cuML only copies input arrays when
-            necessary (e.g. to unify dtypes), there is no reason to provide
-            this keyword going forward.
-
     Returns
     -------
     distances : array of shape (n_samples_X, n_samples_Y)
@@ -172,7 +164,6 @@ def nan_euclidean_distances(
         X,
         order="A",
         dtype=("float32", "float64"),
-        convert_dtype=convert_dtype,
         ensure_all_finite="allow-nan",
         input_name="X",
         copy=copy,
@@ -190,7 +181,6 @@ def nan_euclidean_distances(
                 "A"
             ),
             dtype=X.dtype,
-            convert_dtype=convert_dtype,
             ensure_all_finite="allow-nan",
             input_name="Y",
             copy=copy,
@@ -266,9 +256,7 @@ def _ensure_boolean(X, metric):
 
 
 @mlfunc
-def pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
-):
+def pairwise_distances(X, Y=None, metric="euclidean", **kwds):
     """Compute the distance matrix from a feature array X and optional Y.
 
     This function takes either one or two feature arrays, and returns
@@ -294,13 +282,6 @@ def pairwise_distances(
           'kldivergence', 'nan_euclidean', 'russellrao'].
 
         - Supports sparse only: ['dice', 'inner_product', 'jaccard'].
-
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be
-            removed in version 26.10. cuML only copies input arrays when
-            necessary (e.g. to unify dtypes), there is no reason to provide
-            this keyword going forward.
 
     **kwds : optional keyword parameters
         Any additional metric-specific parameters. For example, with
@@ -345,7 +326,6 @@ def pairwise_distances(
         X,
         order="A",
         dtype=("float32", "float64"),
-        convert_dtype=convert_dtype,
         input_name="X",
         accept_sparse="csr",
     )
@@ -364,7 +344,6 @@ def pairwise_distances(
                 "A"
             ),
             dtype=X.dtype,
-            convert_dtype=convert_dtype,
             input_name="Y",
             accept_sparse="csr",
         )
@@ -494,9 +473,7 @@ def pairwise_distances(
 
 
 @mlfunc
-def sparse_pairwise_distances(
-    X, Y=None, metric="euclidean", convert_dtype="deprecated", **kwds
-):
+def sparse_pairwise_distances(X, Y=None, metric="euclidean", **kwds):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -536,13 +513,6 @@ def sparse_pairwise_distances(
         "jaccard", "hellinger", "chebyshev", "linf", "dice"}
         The metric to use when calculating distance between instances in a
         feature array.
-
-    convert_dtype : bool, default="deprecated"
-        .. deprecated:: 26.08
-            `convert_dtype` was deprecated in version 26.08 and will be
-            removed in version 26.10. cuML only copies input arrays when
-            necessary (e.g. to unify dtypes), there is no reason to provide
-            this keyword going forward.
 
     **kwds : optional keyword parameters
         Any additional metric-specific parameters. For example, with
@@ -593,6 +563,5 @@ def sparse_pairwise_distances(
         X,
         Y,
         metric=metric,
-        convert_dtype=convert_dtype,
         **kwds,
     )
