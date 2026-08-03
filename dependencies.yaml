@@ -726,7 +726,7 @@ dependencies:
             packages: []
           - matrix:
             packages:
-              - rapids-xgboost==26.10.*,>=0.0.0a0
+              - conda-forge::xgboost>=3.3.0
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
