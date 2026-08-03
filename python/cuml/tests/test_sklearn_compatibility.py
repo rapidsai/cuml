@@ -221,6 +221,10 @@ XFAILS = {
         ),
     },
     RandomForestRegressor: {
+        "check_regressor_data_not_an_array": (
+            "Predictions from repeated fits on equivalent inputs can differ "
+            "beyond the check's tolerance"
+        ),
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
@@ -252,6 +256,9 @@ XFAILS = {
         "check_fit2d_predict1d": "TSNE only supports n_components = 2",
     },
     UMAP: {
+        "check_transformer_data_not_an_array": (
+            "UMAP does not have consistent fit_transform and transform outputs"
+        ),
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
         "check_methods_subset_invariance": "UMAP results depend on data subset",
