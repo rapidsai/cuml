@@ -330,20 +330,12 @@ def pairwise_distances(
     array([[1., 2.],
            [2., 1.]])
     """
-    cdef double p = 2
-    if "metric_arg" in kwds:
-        warnings.warn(
-            "The `metric_arg` keyword was deprecated in version 26.08 and will "
-            "be removed in version 26.10. Please use `p` instead.",
-            FutureWarning,
-        )
-        p = kwds.pop("metric_arg")
-    elif metric == "minkowski":
-        p = kwds.pop("p", 2)
-
     if metric == "nan_euclidean":
         return nan_euclidean_distances(X, Y, **kwds)
 
+    cdef double p = 2
+    if metric == "minkowski":
+        p = kwds.pop("p", 2)
     if kwds:
         raise TypeError(f"Unknown parameters {sorted(kwds)}")
 
