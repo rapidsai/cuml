@@ -283,11 +283,17 @@ def pairwise_kernels(
         Y = X
     else:
         Y = check_array(Y, input_name="Y")
+    if metric == "precomputed":
+        if X.shape[1] != Y.shape[0]:
+            raise ValueError(
+                "Precomputed metric requires shape "
+                "(n_queries, n_indexed). "
+                f"Got {X.shape} for {Y.shape[0]} indexed."
+            )
+        return X
+
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
-
-    if metric == "precomputed":
-        return X
 
     if metric in PAIRWISE_KERNEL_FUNCTIONS:
         kwds = _filter_params(
