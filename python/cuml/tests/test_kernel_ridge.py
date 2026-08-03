@@ -8,6 +8,7 @@ import cupy as cp
 import numpy as np
 import pytest
 from cupy import linalg
+from cupyx import geterr, lapack, seterr
 from hypothesis import assume, example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -17,6 +18,7 @@ from sklearn.metrics.pairwise import pairwise_kernels as skl_pairwise_kernels
 
 import cuml
 from cuml import KernelRidge as cuKernelRidge
+from cuml.kernel_ridge.kernel_ridge import _safe_solve
 from cuml.metrics import PAIRWISE_KERNEL_FUNCTIONS, pairwise_kernels
 from cuml.testing.utils import as_cupy, as_numpy, as_type
 
@@ -342,6 +344,29 @@ def test_predict_output_type():
     with cuml.using_output_type("cupy"):
         res = kr.predict(X)
     assert isinstance(res, cp.ndarray)
+
+
+def test_safe_solve_restores_linalg_error_mode_when_posv_raises(monkeypatch):
+    original_mode = geterr()["linalg"]
+
+    try:
+        seterr(linalg="ignore")
+
+        def raise_linalg_error(*args, **kwargs):
+            raise np.linalg.LinAlgError
+
+        monkeypatch.setattr(lapack, "posv", raise_linalg_error)
+
+        K = cp.eye(2, dtype=cp.float64)
+        y = cp.ones((2, 1), dtype=cp.float64)
+
+        with pytest.warns(UserWarning, match="Singular matrix"):
+            result = _safe_solve(K, y)
+
+        assert result.shape == y.shape
+        assert geterr()["linalg"] == "ignore"
+    finally:
+        seterr(linalg=original_mode)
 
 
 def test_precomputed():

@@ -25,17 +25,19 @@ from cuml.metrics import pairwise_kernels
 
 # cholesky solve with fallback to least squares for singular problems
 def _safe_solve(K, y):
+    err_mode = geterr()["linalg"]
     try:
-        # we need to set the error mode of cupy to raise
-        # otherwise we silently get an array of NaNs
-        err_mode = geterr()["linalg"]
-        seterr(linalg="raise")
-        dual_coef = lapack.posv(K, y)
-        # Perform following check as a workaround for cusolver issue to be
-        # fixed in a future CUDA version
-        if cp.all(cp.isnan(dual_coef)):
-            raise np.linalg.LinAlgError
-        seterr(linalg=err_mode)
+        try:
+            # we need to set the error mode of cupy to raise
+            # otherwise we silently get an array of NaNs
+            seterr(linalg="raise")
+            dual_coef = lapack.posv(K, y)
+            # Perform following check as a workaround for cusolver issue to be
+            # fixed in a future CUDA version
+            if cp.all(cp.isnan(dual_coef)):
+                raise np.linalg.LinAlgError
+        finally:
+            seterr(linalg=err_mode)
     except np.linalg.LinAlgError:
         warnings.warn(
             "Singular matrix in solving dual problem. Using "
