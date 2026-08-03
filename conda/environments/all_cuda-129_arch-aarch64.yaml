@@ -9,7 +9,7 @@ dependencies:
 - ccache
 - certifi
 - cmake>=4.0
-- conda-forge::xgboost>=3.3.0
+- xgboost>=3.3.0
 - cuda-bindings>=12.9.2,<13.0
 - cuda-cudart-dev
 - cuda-nvcc
