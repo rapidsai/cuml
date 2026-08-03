@@ -206,12 +206,18 @@ def pairwise_kernels(
             (n_samples_X, n_features)
         Array of pairwise kernels between samples, or a feature array.
         The shape of the array should be (n_samples_X, n_samples_X) if
-        metric == "precomputed" and (n_samples_X, n_features) otherwise.
+        metric == "precomputed" and Y is None. If Y is provided with
+        metric == "precomputed", X should have shape (n_queries, n_indexed),
+        where n_indexed must equal Y.shape[0]. Otherwise, X should have shape
+        (n_samples_X, n_features).
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
     Y : array-like (device or host) of shape (n_samples_Y, n_features), \
         default=None
         A second feature array only if X has shape (n_samples_X, n_features).
+        For metric == "precomputed", only Y.shape[0] is used to validate the
+        shape of X; the values and second dimension of Y do not affect the
+        returned matrix.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
     metric : str or callable (numba device function), default="linear"
@@ -245,7 +251,9 @@ def pairwise_kernels(
 
     Notes
     -----
-    If metric is 'precomputed', Y is ignored and X is returned.
+    If metric is 'precomputed', Y is only used to validate the shape of X:
+    X must be square when Y is None, or X.shape[1] must equal Y.shape[0]
+    otherwise. X is returned unchanged.
 
     Examples
     --------
