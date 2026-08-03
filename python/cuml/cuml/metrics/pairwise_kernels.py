@@ -214,10 +214,11 @@ def pairwise_kernels(
         ndarray, cuda array interface compliant array like CuPy.
     Y : array-like (device or host) of shape (n_samples_Y, n_features), \
         default=None
-        A second feature array only if X has shape (n_samples_X, n_features).
-        For metric == "precomputed", only Y.shape[0] is used to validate the
-        shape of X; the values and second dimension of Y do not affect the
-        returned matrix.
+        For metrics other than "precomputed", a second feature array only if X
+        has shape (n_samples_X, n_features). For metric == "precomputed", Y
+        can be any 2D array; only Y.shape[0] is used to validate the shape of X,
+        and the values and second dimension of Y do not affect the returned
+        matrix.
         Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
         ndarray, cuda array interface compliant array like CuPy.
     metric : str or callable (numba device function), default="linear"
