@@ -1,22 +1,15 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import cupy as cp
 import numpy as np
 
-from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.doc_utils import generate_docstring
-from cuml.internals.array import CumlArray
 from cuml.internals.base import Base
-from cuml.internals.interop import (
-    InteropMixin,
-    UnsupportedOnGPU,
-    to_cpu,
-    to_gpu,
-)
+from cuml.internals.interop import InteropMixin, UnsupportedOnGPU
 from cuml.internals.mixins import FMajorInputTagMixin, RegressorMixin
-from cuml.internals.outputs import reflect
+from cuml.internals.outputs import ReflectedAttr, mlfunc
 from cuml.internals.validation import check_inputs
 from cuml.linear_model.base import LinearPredictMixin
 from cuml.linear_model.ridge import Ridge
@@ -121,11 +114,11 @@ class RidgeCV(
     0.1
     """
 
-    coef_ = CumlArrayDescriptor()
-    intercept_ = CumlArrayDescriptor()
-    cv_results_ = CumlArrayDescriptor()
-    alpha_ = CumlArrayDescriptor()
-    best_score_ = CumlArrayDescriptor()
+    coef_ = ReflectedAttr()
+    intercept_ = ReflectedAttr()
+    cv_results_ = ReflectedAttr()
+    alpha_ = ReflectedAttr()
+    best_score_ = ReflectedAttr()
 
     _cpu_class_path = "sklearn.linear_model.RidgeCV"
 
@@ -177,26 +170,50 @@ class RidgeCV(
 
     def _attrs_from_cpu(self, model):
         out = {
-            "coef_": to_gpu(model.coef_),
-            "intercept_": to_gpu(model.intercept_),
-            "alpha_": to_gpu(model.alpha_),
-            "best_score_": to_gpu(model.best_score_),
+            "coef_": cp.asarray(model.coef_),
+            "intercept_": (
+                model.intercept_
+                if cp.isscalar(model.intercept_)
+                else cp.asarray(model.intercept_)
+            ),
+            "alpha_": (
+                model.alpha_
+                if cp.isscalar(model.alpha_)
+                else cp.asarray(model.alpha_)
+            ),
+            "best_score_": (
+                model.best_score_
+                if cp.isscalar(model.best_score_)
+                else cp.asarray(model.best_score_)
+            ),
             **super()._attrs_from_cpu(model),
         }
         if self.store_cv_results and hasattr(model, "cv_results_"):
-            out["cv_results_"] = to_gpu(model.cv_results_)
+            out["cv_results_"] = cp.asarray(model.cv_results_)
         return out
 
     def _attrs_to_cpu(self, model):
         out = {
-            "coef_": to_cpu(self.coef_),
-            "intercept_": to_cpu(self.intercept_),
-            "alpha_": to_cpu(self.alpha_),
-            "best_score_": to_cpu(self.best_score_),
+            "coef_": cp.asnumpy(self.coef_),
+            "intercept_": (
+                self.intercept_
+                if cp.isscalar(self.intercept_)
+                else cp.asnumpy(self.intercept_)
+            ),
+            "alpha_": (
+                self.alpha_
+                if cp.isscalar(self.alpha_)
+                else cp.asnumpy(self.alpha_)
+            ),
+            "best_score_": (
+                self.best_score_
+                if cp.isscalar(self.best_score_)
+                else cp.asnumpy(self.best_score_)
+            ),
             **super()._attrs_to_cpu(model),
         }
         if self.store_cv_results and hasattr(self, "cv_results_"):
-            out["cv_results_"] = to_cpu(self.cv_results_)
+            out["cv_results_"] = cp.asnumpy(self.cv_results_)
         return out
 
     def __init__(
@@ -414,16 +431,16 @@ class RidgeCV(
         else:
             intercept = 0.0
 
-        self.coef_ = CumlArray(coef)
+        self.coef_ = coef
         if cp.isscalar(intercept) or intercept.ndim == 0:
             self.intercept_ = float(intercept)
         else:
-            self.intercept_ = CumlArray(intercept)
+            self.intercept_ = intercept
         # A single float when selecting one alpha, or a per-target array when
         # `alpha_per_target=True`.
         if per_target:
-            self.alpha_ = CumlArray(best_alpha)
-            self.best_score_ = CumlArray(best_score)
+            self.alpha_ = best_alpha
+            self.best_score_ = best_score
         else:
             self.alpha_ = float(best_alpha)
             self.best_score_ = float(best_score)
@@ -433,7 +450,7 @@ class RidgeCV(
                 shape = (n_samples, n_alphas)
             else:
                 shape = (n_samples, n_y, n_alphas)
-            self.cv_results_ = CumlArray(cv_results.reshape(shape))
+            self.cv_results_ = cv_results.reshape(shape)
 
     def _fit_cv(self, X, y, sample_weight):
         """Fit via an explicit k-fold search over :class:`~cuml.Ridge`."""
@@ -503,7 +520,7 @@ class RidgeCV(
         self.best_score_ = float(mean_scores[best_idx])
 
     @generate_docstring()
-    @reflect(reset=True)
+    @mlfunc(set_input_type=True)
     def fit(self, X, y, sample_weight=None) -> "RidgeCV":
         """Fit the RidgeCV model with X and y."""
         if self.scoring is not None:
