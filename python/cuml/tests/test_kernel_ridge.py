@@ -132,6 +132,14 @@ def test_pairwise_kernels_precomputed_wrong_indexed_count():
         pairwise_kernels(X, Y, metric="precomputed")
 
 
+def test_pairwise_kernels_rejects_mismatched_feature_dimensions():
+    X = np.ones((3, 4))
+    Y = np.ones((2, 5))
+
+    with pytest.raises(ValueError, match="X and Y have different dimensions."):
+        pairwise_kernels(X, Y, metric="linear")
+
+
 @cuda.jit(device=True)
 def custom_kernel(x, y, custom_arg=5.0):
     sum = 0.0
