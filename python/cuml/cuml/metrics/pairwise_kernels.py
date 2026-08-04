@@ -270,11 +270,14 @@ def pairwise_kernels(
             [5.04347663e-07, 2.03468369e-04],
             [4.24835426e-18, 2.54366565e-13]])
     """
-    X = check_array(X, input_name="X")
+    ensure_non_negative = metric in ("additive_chi2", "chi2")
+    X = check_array(X, input_name="X", ensure_non_negative=ensure_non_negative)
     if Y is None:
         Y = X
     else:
-        Y = check_array(Y, input_name="Y")
+        Y = check_array(
+            Y, input_name="Y", ensure_non_negative=ensure_non_negative
+        )
     if X.shape[1] != Y.shape[1]:
         raise ValueError("X and Y have different dimensions.")
 
