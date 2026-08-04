@@ -107,6 +107,41 @@ def test_pairwise_kernels_basic():
     assert np.allclose(X, pairwise_kernels(X, metric="precomputed"))
 
 
+@pytest.mark.parametrize("shape", [(5, 3), (3, 5)])
+def test_pairwise_kernels_precomputed_requires_square(shape):
+    X = np.ones(shape)
+
+    with pytest.raises(ValueError, match="Precomputed metric requires shape"):
+        pairwise_kernels(X, metric="precomputed")
+
+
+def test_pairwise_kernels_precomputed_cross_kernel():
+    X = np.arange(6).reshape(3, 2)
+    Y = np.ones((2, 10))
+
+    result = pairwise_kernels(X, Y, metric="precomputed")
+
+    cp.testing.assert_array_equal(result, cp.asarray(X))
+
+
+def test_pairwise_kernels_precomputed_wrong_indexed_count():
+    X = np.ones((3, 4))
+    Y = np.ones((2, 10))
+
+    with pytest.raises(ValueError, match="Precomputed metric requires shape"):
+        pairwise_kernels(X, Y, metric="precomputed")
+
+
+def test_pairwise_kernels_rejects_mismatched_feature_dimensions():
+    X = np.ones((3, 4))
+    Y = np.ones((2, 5))
+
+    with pytest.raises(
+        ValueError, match=r"X and Y have different dimensions\."
+    ):
+        pairwise_kernels(X, Y, metric="linear")
+
+
 @cuda.jit(device=True)
 def custom_kernel(x, y, custom_arg=5.0):
     sum = 0.0
