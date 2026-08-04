@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <type_traits>
@@ -165,6 +166,17 @@ void make_local_dataset(RfMgTestParams const& params,
   }
 }
 
+std::vector<int> global_rows_in_rank_order(RfMgTestParams const& params, int size)
+{
+  std::vector<int> rows;
+  rows.reserve(params.n_rows);
+  for (int rank = 0; rank < size; ++rank) {
+    auto rank_rows = local_rows_for_rank(params.n_rows, rank, size, params.partition_kind);
+    rows.insert(rows.end(), rank_rows.begin(), rank_rows.end());
+  }
+  return rows;
+}
+
 template <typename T, typename L>
 void expect_global_tree_counts(RandomForestMetaData<T, L> const& forest, int n_rows)
 {
@@ -263,10 +275,10 @@ class RfMgPropertyTestImpl {
                                    params.n_streams,
                                    128);
 
-    RandomForestMetaData<DataT, LabelT> forest;
+    RandomForestMetaData<DataT, LabelT> distributed_forest;
     if constexpr (std::is_integral_v<LabelT>) {
       fit(handle,
-          &forest,
+          &distributed_forest,
           X.data(),
           static_cast<int>(local_rows.size()),
           params.n_cols,
@@ -275,7 +287,7 @@ class RfMgPropertyTestImpl {
           rf_params);
     } else {
       fit(handle,
-          &forest,
+          &distributed_forest,
           X.data(),
           static_cast<int>(local_rows.size()),
           params.n_cols,
@@ -283,9 +295,56 @@ class RfMgPropertyTestImpl {
           rf_params);
     }
 
-    expect_global_tree_counts(forest, params.n_rows);
-    expect_tree_limits(forest, params);
-    expect_identical_across_ranks(handle, hash_forest_structure(forest), "tree structure");
+    expect_global_tree_counts(distributed_forest, params.n_rows);
+    expect_tree_limits(distributed_forest, params);
+    auto distributed_forest_hash = hash_forest_structure(distributed_forest);
+    expect_identical_across_ranks(handle, distributed_forest_hash, "tree structure");
+
+    // The distributed quantile sampler assigns global row ids in rank-major order. Reconstruct the
+    // single-node input in the same order so both algorithms receive the identical training data.
+    auto global_rows = global_rows_in_rank_order(params, size);
+    if (global_rows.size() != static_cast<size_t>(params.n_rows)) {
+      ADD_FAILURE() << "Reconstructed " << global_rows.size() << " global rows, expected "
+                    << params.n_rows;
+      return;
+    }
+    std::vector<DataT> h_global_X;
+    std::vector<LabelT> h_global_y;
+    make_local_dataset<DataT, LabelT>(params, global_rows, h_global_X, h_global_y);
+
+    auto single_node_stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.handle_n_streams);
+    raft::handle_t single_node_handle(rmm::cuda_stream_per_thread, single_node_stream_pool);
+    rmm::device_uvector<DataT> global_X(h_global_X.size(), single_node_handle.get_stream());
+    rmm::device_uvector<LabelT> global_y(h_global_y.size(), single_node_handle.get_stream());
+    raft::update_device(
+      global_X.data(), h_global_X.data(), h_global_X.size(), single_node_handle.get_stream());
+    raft::update_device(
+      global_y.data(), h_global_y.data(), h_global_y.size(), single_node_handle.get_stream());
+
+    auto single_node_rf_params      = rf_params;
+    single_node_rf_params.n_streams = 1;
+    RandomForestMetaData<DataT, LabelT> single_node_forest;
+    if constexpr (std::is_integral_v<LabelT>) {
+      fit(single_node_handle,
+          &single_node_forest,
+          global_X.data(),
+          params.n_rows,
+          params.n_cols,
+          global_y.data(),
+          params.n_labels,
+          single_node_rf_params);
+    } else {
+      fit(single_node_handle,
+          &single_node_forest,
+          global_X.data(),
+          params.n_rows,
+          params.n_cols,
+          global_y.data(),
+          single_node_rf_params);
+    }
+
+    EXPECT_EQ(distributed_forest_hash, hash_forest_structure(single_node_forest))
+      << "Distributed and single-node RF models differ";
   }
 
  private:
@@ -328,6 +387,8 @@ class RfMgPropertyTest : public ::testing::TestWithParam<RfMgTestParams> {
 
 TEST_P(RfMgPropertyTest, DistributedProperties) {}
 
+constexpr auto UNLIMITED_DEPTH = std::numeric_limits<std::int32_t>::max();
+
 std::vector<RfMgTestParams> inputs = {
   {128, 4, 1, 1.0f, 3, -1, 16, 1, 2, 0.0f, 1, 1, GINI, 7, 2, false, PartitionKind::Contiguous},
   {128, 4, 3, 0.5f, 4, 16, 32, 1, 2, 0.0f, 4, 4, ENTROPY, 11, 2, false, PartitionKind::Strided},
@@ -335,6 +396,59 @@ std::vector<RfMgTestParams> inputs = {
   {96, 3, 2, 1.0f, 4, 8, 8, 1, 2, 0.0f, 1, 1, GINI, 17, 2, true, PartitionKind::Imbalanced},
   {144, 5, 2, 0.8f, 4, -1, 16, 1, 2, 0.0f, 1, 1, GINI, 31, 3, false, PartitionKind::Strided},
   {160, 5, 1, 0.8f, 4, -1, 16, 1, 2, 0.0f, 1, 1, MSE, 19, 2, true, PartitionKind::Contiguous},
+  {256, 4, 5, 1.0f, 5, -1, 16, 1, 2, 0.0f, 1, 1, POISSON, 7, 1, true, PartitionKind::Strided},
+  {256, 4, 2, 0.8f, 5, -1, 16, 1, 2, 0.0f, 1, 1, GAMMA, 7, 1, true, PartitionKind::Contiguous},
+  {256,
+   4,
+   2,
+   0.8f,
+   5,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   INVERSE_GAUSSIAN,
+   7,
+   1,
+   true,
+   PartitionKind::Contiguous},
+  {256,
+   4,
+   5,
+   1.0f,
+   UNLIMITED_DEPTH,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   GINI,
+   7,
+   2,
+   false,
+   PartitionKind::Imbalanced},
+  {160,
+   4,
+   5,
+   1.0f,
+   UNLIMITED_DEPTH,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   ENTROPY,
+   7,
+   2,
+   false,
+   PartitionKind::Imbalanced},
   {64,
    4,
    2,
