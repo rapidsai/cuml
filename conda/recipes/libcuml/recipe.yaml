@@ -7,7 +7,7 @@ context:
   minor_version: ${{ (version | split("."))[:2] | join(".") }}
   cuda_version: ${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[:2] | join(".") }}
   cuda_major: '${{ (env.get("RAPIDS_CUDA_VERSION") | split("."))[0] }}'
-  datetime_string: '${{ env.get("RAPIDS_DATE_STRING") }}'
+  datetime_string: '${{ env.get("RAPIDS_DATETIME_STRING") }}'
   head_rev: '${{ git.head_rev(".")[:8] }}'
 
 recipe:
@@ -97,7 +97,7 @@ outputs:
         ignore:
           # See https://github.com/rapidsai/build-planning/issues/160
           - lib/libcuml.so
-      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_${{ datetime_string }}_${{ head_rev }}
     requirements:
       build:
         - cmake ${{ cmake_version }}
@@ -150,7 +150,7 @@ outputs:
       script:
         content: |
           cmake --install cpp/build --component testing
-      string: cuda${{ cuda_major }}_${{ date_string }}_${{ head_rev }}
+      string: cuda${{ cuda_major }}_${{ datetime_string }}_${{ head_rev }}
     requirements:
       build:
         - cmake ${{ cmake_version }}

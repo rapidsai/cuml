@@ -44,10 +44,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
+    needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       node_type: cpu16
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
@@ -95,7 +97,7 @@ jobs:
       dry-run: false
       version-map: '{"26.04": "legacy", "26.06": "stable"}'
   python-build:
-    needs: [cpp-build]
+    needs: [needs, cpp-build]
     permissions:
       actions: read
       contents: read
@@ -106,6 +108,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       date: ${{ inputs.date }}
       script: ci/build_python.sh
@@ -134,10 +137,12 @@ jobs:
       id-token: write
       packages: read
       pull-requests: read
+    needs: [build-details]
     secrets: inherit # zizmor: ignore[secrets-inherit]
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
@@ -166,7 +171,7 @@ jobs:
       package-type: cpp
       publish-wheel-search-key: cuml_wheel_cpp_libcuml
   wheel-build-cuml:
-    needs: wheel-build-libcuml
+    needs: [build-details, wheel-build-libcuml]
     permissions:
       actions: read
       contents: read
@@ -177,6 +182,7 @@ jobs:
     uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
     with:
       build_type: ${{ inputs.build_type || 'branch' }}
+      build-datetime: ${{ needs.build-details.outputs.build-datetime }}
       branch: ${{ inputs.branch }}
       sha: ${{ inputs.sha }}
       date: ${{ inputs.date }}
