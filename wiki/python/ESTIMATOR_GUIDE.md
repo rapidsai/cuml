@@ -233,11 +233,6 @@ Accepted output types are:
  - `"numpy"`: Return a NumPy array.
  - `"cudf"`: Return a cuDF Series or DataFrame.
  - `"pandas"`: Return a pandas Series or DataFrame.
- - `"numba"`: Return a Numba device array.
- - `"dataframe"`: Return a cuDF DataFrame.
- - `"series"`: Return a cuDF Series.
- - `"array"`: An alias for `"cupy"`.
- - `"df_obj"`: An alias for `"cudf"`.
 
 The internal output type `"cuml"` may appear inside reflected calls.
 User-facing code should not set it.
