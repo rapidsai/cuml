@@ -222,9 +222,8 @@ XFAILS = {
     },
     RandomForestRegressor: {
         "check_regressor_data_not_an_array": (
-            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
-            "float64). Our float32 and float64 results differ _just enough_ that "
-            "this test fails on tolerances."
+            "Predictions from repeated fits on equivalent inputs can differ "
+            "beyond the check's tolerance"
         ),
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
@@ -258,9 +257,7 @@ XFAILS = {
     },
     UMAP: {
         "check_transformer_data_not_an_array": (
-            "cuml defaults to float32 for non-arrays (while sklearn defaults to "
-            "float64). Our float32 and float64 results differ _just enough_ that "
-            "this test fails on tolerances."
+            "UMAP does not have consistent fit_transform and transform outputs"
         ),
         "check_methods_sample_order_invariance": "UMAP results depend on sample order",
         "check_transformer_general": "UMAP does not have consistent fit_transform and transform outputs",
