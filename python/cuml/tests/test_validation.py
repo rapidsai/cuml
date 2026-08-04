@@ -827,45 +827,6 @@ def test_check_array_sparse_copy(mem_type, format):
         assert ptr(res.indptr) != ptr(array.indptr)
 
 
-def test_convert_dtype_deprecated():
-    model = MyModel()
-    X = cp.array([[1, 2], [3, 4], [5, 6]], dtype="float32")
-    y = sample_weight = cp.array([1, 2, 3], dtype="float32")
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_array(X, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_inputs(model, X, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_y(y, dtype="float64", convert_dtype=True)
-
-    with pytest.warns(FutureWarning, match="`convert_dtype` was deprecated"):
-        check_sample_weight(sample_weight, dtype="float64", convert_dtype=True)
-
-
-@pytest.mark.filterwarnings(
-    "ignore:`convert_dtype` was deprecated:FutureWarning"
-)
-def test_check_array_convert_dtype():
-    array = cp.array([[1, 2, 3]], dtype="float32")
-
-    with pytest.raises(
-        ValueError,
-        match=r"Expected array with dtype in \['int32'\] but got 'float32'",
-    ):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-    array = pd.DataFrame({"x": [1, 2, 3], "y": [1.5, 2.5, 3.5]})
-    with pytest.raises(ValueError, match=r"\['int32'\] but got 'float64'"):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-    array = pd.DataFrame({"x": [1, 2, 3], "y": ["a", "b", "a"]})
-    with pytest.raises(ValueError, match=r"\['int32'\] but got 'object'"):
-        check_array(array, dtype="int32", convert_dtype=False)
-
-
 @pytest.mark.parametrize("kind", ["cudf", "pandas"])
 @pytest.mark.parametrize("mem_type", ["device", "host", None])
 def test_check_array_dataframe_mixed_dtypes(kind, mem_type):
