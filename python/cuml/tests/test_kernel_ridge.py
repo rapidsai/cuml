@@ -136,7 +136,9 @@ def test_pairwise_kernels_rejects_mismatched_feature_dimensions():
     X = np.ones((3, 4))
     Y = np.ones((2, 5))
 
-    with pytest.raises(ValueError, match="X and Y have different dimensions."):
+    with pytest.raises(
+        ValueError, match=r"X and Y have different dimensions\."
+    ):
         pairwise_kernels(X, Y, metric="linear")
 
 
