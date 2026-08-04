@@ -265,9 +265,8 @@ static __global__ void finalizeLeafKernel(const typename ObjectiveT::BinT* leaf_
 {
   auto node_id = int(blockIdx.x) * blockDim.x + threadIdx.x;
   if (node_id >= batch_size) return;
-  ObjectiveT::SetLeafVector(leaf_histograms + num_outputs * node_id,
-                            num_outputs,
-                            leaves + num_outputs * node_id);
+  ObjectiveT::SetLeafVector(
+    leaf_histograms + num_outputs * node_id, num_outputs, leaves + num_outputs * node_id);
 }
 
 template <typename ObjectiveT, typename DataT>
@@ -277,10 +276,9 @@ void launchFinalizeLeafKernel(const typename ObjectiveT::BinT* leaf_histograms,
                               int batch_size,
                               cudaStream_t builder_stream)
 {
-  auto num_blocks                 = raft::ceildiv(batch_size, TPB_DEFAULT);
-  finalizeLeafKernel<ObjectiveT, DataT>
-    <<<num_blocks, TPB_DEFAULT, 0, builder_stream>>>(
-      leaf_histograms, leaves, num_outputs, batch_size);
+  auto num_blocks = raft::ceildiv(batch_size, TPB_DEFAULT);
+  finalizeLeafKernel<ObjectiveT, DataT><<<num_blocks, TPB_DEFAULT, 0, builder_stream>>>(
+    leaf_histograms, leaves, num_outputs, batch_size);
 }
 
 /**

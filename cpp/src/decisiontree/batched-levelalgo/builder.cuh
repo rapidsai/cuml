@@ -683,11 +683,11 @@ struct Builder {
            "Expected instance range for each node");
     // Reuse the split histogram and packed reduction workspaces for leaf statistics. Cap the
     // number of nodes so each leaf batch fits in those workspaces.
-    auto max_leaf_nodes_in_workspace = ML::checked_mul<std::size_t>(
-      params.max_batch_size, params.max_n_bins, n_blks_for_cols);
-    std::size_t max_batch_size = std::min(
-      std::size_t{100000}, std::min(tree->sparsetree.size(), max_leaf_nodes_in_workspace));
-    auto max_leaf_values       = ML::checked_mul<std::size_t>(max_batch_size, dataset.num_outputs);
+    auto max_leaf_nodes_in_workspace =
+      ML::checked_mul<std::size_t>(params.max_batch_size, params.max_n_bins, n_blks_for_cols);
+    std::size_t max_batch_size =
+      std::min(std::size_t{100000}, std::min(tree->sparsetree.size(), max_leaf_nodes_in_workspace));
+    auto max_leaf_values = ML::checked_mul<std::size_t>(max_batch_size, dataset.num_outputs);
     rmm::device_uvector<NodeT> d_tree(max_batch_size, builder_stream);
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, builder_stream);
     rmm::device_uvector<DataT> d_leaves(max_leaf_values, builder_stream);
@@ -701,10 +701,8 @@ struct Builder {
       raft::update_device(
         d_instance_ranges.data(), instance_ranges.data() + batch_begin, batch_size, builder_stream);
 
-      auto leaf_histogram_count =
-        ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
-      auto leaf_histogram_bytes =
-        ML::checked_mul<std::size_t>(sizeof(BinT), leaf_histogram_count);
+      auto leaf_histogram_count = ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
+      auto leaf_histogram_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), leaf_histogram_count);
       RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, leaf_histogram_bytes, builder_stream));
       size_t smem_size = ML::checked_mul<std::size_t>(sizeof(BinT), dataset.num_outputs);
       launchBuildLeafHistogramsKernel(objective,
