@@ -549,7 +549,7 @@ class ProxyBase(BaseEstimator, metaclass=ProxyBaseMeta):
         return self._gpu
 
     if SKLEARN_110:
-        # New private method added in sklearn 1.10
+        # Required for sklearn 1.10 callback support
         def _set_callbacks(self, callbacks):
             self._cpu._set_callbacks(callbacks)
             return self
