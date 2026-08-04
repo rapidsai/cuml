@@ -257,13 +257,12 @@ from cuml.internals.validation import check_inputs, check_is_fitted
 
 
 @mlfunc(set_input_type=True)
-def fit(self, X, y, *, convert_dtype=True):
+def fit(self, X, y):
     X, y = check_inputs(
         self,
         X,
         y,
         dtype=("float32", "float64"),
-        convert_dtype=convert_dtype,
         order="K",
         reset=True,
     )
@@ -273,13 +272,12 @@ def fit(self, X, y, *, convert_dtype=True):
 
 
 @mlfunc(preserve_index=True)
-def transform(self, X, *, convert_dtype=True):
+def transform(self, X):
     check_is_fitted(self)
     X = check_inputs(
         self,
         X,
         dtype=self.result_.dtype,
-        convert_dtype=convert_dtype,
         order="K",
     )
     ...
