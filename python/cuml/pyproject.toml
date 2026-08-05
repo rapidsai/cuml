@@ -70,6 +70,8 @@ filterwarnings = [
   "default::pytest_benchmark.logger.PytestBenchmarkWarning",
   # sklearn's parametrize_with_checks passes a generator to parametrize
   "ignore:Passing a non-Collection iterable:pytest.PytestRemovedIn10Warning",
+  # https://github.com/rapidsai/cuml/issues/8454
+  "ignore:.*`rapids-xgboost` will no longer be published.*:FutureWarning",
 ]
 
 [project]

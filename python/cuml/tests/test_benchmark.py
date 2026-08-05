@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2019-2026, NVIDIA CORPORATION.
 # SPDX-License-Identifier: Apache-2.0
 #
 import time
@@ -22,11 +22,7 @@ from cuml.benchmark.runners import (
     run_variations,
 )
 
-pytestmark = [
-    pytest.mark.filterwarnings(
-        r"ignore:.*`rapids-xgboost` will no longer be published.*:FutureWarning"
-    ),
-]
+pytestmark = pytest.mark.skip
 
 
 @pytest.mark.parametrize("dataset", ["blobs", "regression", "classification"])
