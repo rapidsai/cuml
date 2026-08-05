@@ -136,6 +136,10 @@ html_theme_options = {
     "navbar_align": "right",
     "navbar_center": "navbar-nav, version-switcher, navbar-external-links",
     "navigation_with_keys": True,
+    "switcher": {
+        "json_url": "https://docs.nvidia.com/cuml/versions.json",
+        "version_match": version,
+    },
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
