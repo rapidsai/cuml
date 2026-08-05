@@ -50,6 +50,7 @@ struct RfMgTestParams {
   int seed;
   int n_labels;
   bool double_precision;
+  bool use_sample_weights;
   PartitionKind partition_kind;
 };
 
@@ -172,10 +173,12 @@ template <typename DataT, typename LabelT>
 void make_local_dataset(RfMgTestParams const& params,
                         std::vector<int> const& rows,
                         std::vector<DataT>& X,
-                        std::vector<LabelT>& y)
+                        std::vector<LabelT>& y,
+                        std::vector<double>& sample_weights)
 {
   X.resize(rows.size() * params.n_cols);
   y.resize(rows.size());
+  sample_weights.resize(params.use_sample_weights ? rows.size() : 0);
   for (size_t i = 0; i < rows.size(); ++i) {
     int global_row = rows[i];
     DataT signal   = static_cast<DataT>((global_row % 97) - 48);
@@ -191,6 +194,7 @@ void make_local_dataset(RfMgTestParams const& params,
     } else {
       y[i] = signal * DataT(0.5) + static_cast<DataT>((global_row % 7) - 3);
     }
+    if (params.use_sample_weights) { sample_weights[i] = i % 2 == 0 ? 0.8 : 0.6; }
   }
 }
 
@@ -281,12 +285,20 @@ class RfMgPropertyTestImpl {
     auto local_rows = local_rows_for_rank(params.n_rows, rank, size, params.partition_kind);
     std::vector<DataT> h_X;
     std::vector<LabelT> h_y;
-    make_local_dataset<DataT, LabelT>(params, local_rows, h_X, h_y);
+    std::vector<double> h_sample_weights;
+    make_local_dataset<DataT, LabelT>(params, local_rows, h_X, h_y, h_sample_weights);
 
     rmm::device_uvector<DataT> X(h_X.size(), handle.get_stream());
     rmm::device_uvector<LabelT> y(h_y.size(), handle.get_stream());
+    // A non-null pointer keeps empty ranks on the weighted objective path.
+    auto sample_weight_buffer_size =
+      params.use_sample_weights ? std::max(size_t{1}, h_sample_weights.size()) : size_t{0};
+    rmm::device_uvector<double> sample_weights(sample_weight_buffer_size, handle.get_stream());
     raft::update_device(X.data(), h_X.data(), h_X.size(), handle.get_stream());
     raft::update_device(y.data(), h_y.data(), h_y.size(), handle.get_stream());
+    raft::update_device(
+      sample_weights.data(), h_sample_weights.data(), h_sample_weights.size(), handle.get_stream());
+    auto sample_weight_ptr = params.use_sample_weights ? sample_weights.data() : nullptr;
 
     auto rf_params = set_rf_params(params.max_depth,
                                    params.max_leaves,
@@ -312,7 +324,10 @@ class RfMgPropertyTestImpl {
           params.n_cols,
           y.data(),
           params.n_labels,
-          rf_params);
+          rf_params,
+          rapids_logger::level_enum::info,
+          nullptr,
+          sample_weight_ptr);
     } else {
       fit(handle,
           &distributed_forest,
@@ -320,7 +335,10 @@ class RfMgPropertyTestImpl {
           static_cast<int>(local_rows.size()),
           params.n_cols,
           y.data(),
-          rf_params);
+          rf_params,
+          rapids_logger::level_enum::info,
+          nullptr,
+          sample_weight_ptr);
     }
 
     expect_global_tree_counts(distributed_forest, params.n_rows);
@@ -336,16 +354,26 @@ class RfMgPropertyTestImpl {
     }
     std::vector<DataT> h_global_X;
     std::vector<LabelT> h_global_y;
-    make_local_dataset<DataT, LabelT>(params, global_rows, h_global_X, h_global_y);
+    std::vector<double> h_global_sample_weights;
+    make_local_dataset<DataT, LabelT>(
+      params, global_rows, h_global_X, h_global_y, h_global_sample_weights);
 
     auto single_node_stream_pool = std::make_shared<rmm::cuda_stream_pool>(params.handle_n_streams);
     raft::handle_t single_node_handle(rmm::cuda_stream_per_thread, single_node_stream_pool);
     rmm::device_uvector<DataT> global_X(h_global_X.size(), single_node_handle.get_stream());
     rmm::device_uvector<LabelT> global_y(h_global_y.size(), single_node_handle.get_stream());
+    rmm::device_uvector<double> global_sample_weights(h_global_sample_weights.size(),
+                                                      single_node_handle.get_stream());
     raft::update_device(
       global_X.data(), h_global_X.data(), h_global_X.size(), single_node_handle.get_stream());
     raft::update_device(
       global_y.data(), h_global_y.data(), h_global_y.size(), single_node_handle.get_stream());
+    raft::update_device(global_sample_weights.data(),
+                        h_global_sample_weights.data(),
+                        h_global_sample_weights.size(),
+                        single_node_handle.get_stream());
+    auto global_sample_weight_ptr =
+      params.use_sample_weights ? global_sample_weights.data() : nullptr;
 
     auto single_node_rf_params      = rf_params;
     single_node_rf_params.n_streams = 1;
@@ -358,7 +386,10 @@ class RfMgPropertyTestImpl {
           params.n_cols,
           global_y.data(),
           params.n_labels,
-          single_node_rf_params);
+          single_node_rf_params,
+          rapids_logger::level_enum::info,
+          nullptr,
+          global_sample_weight_ptr);
     } else {
       fit(single_node_handle,
           &single_node_forest,
@@ -366,7 +397,10 @@ class RfMgPropertyTestImpl {
           params.n_rows,
           params.n_cols,
           global_y.data(),
-          single_node_rf_params);
+          single_node_rf_params,
+          rapids_logger::level_enum::info,
+          nullptr,
+          global_sample_weight_ptr);
     }
 
     expect_forests_equal(distributed_forest, single_node_forest);
@@ -403,14 +437,116 @@ TEST_P(RfMgPropertyTest, DistributedProperties) {}
 constexpr auto UNLIMITED_DEPTH = std::numeric_limits<std::int32_t>::max();
 
 std::vector<RfMgTestParams> inputs = {
-  {128, 4, 1, 1.0f, 3, -1, 16, 1, 2, 0.0f, 1, 1, GINI, 7, 2, false, PartitionKind::Contiguous},
-  {128, 4, 3, 0.5f, 4, 16, 32, 1, 2, 0.0f, 4, 4, ENTROPY, 11, 2, false, PartitionKind::Strided},
-  {192, 6, 1, 1.0f, 5, -1, 32, 2, 4, 0.0f, 1, 1, MSE, 13, 2, false, PartitionKind::Imbalanced},
-  {96, 3, 2, 1.0f, 4, 8, 8, 1, 2, 0.0f, 1, 1, GINI, 17, 2, true, PartitionKind::Imbalanced},
-  {144, 5, 2, 0.8f, 4, -1, 16, 1, 2, 0.0f, 1, 1, GINI, 31, 3, false, PartitionKind::Strided},
-  {160, 5, 1, 0.8f, 4, -1, 16, 1, 2, 0.0f, 1, 1, MSE, 19, 2, true, PartitionKind::Contiguous},
-  {256, 4, 5, 1.0f, 5, -1, 16, 1, 2, 0.0f, 1, 1, POISSON, 7, 1, true, PartitionKind::Strided},
-  {256, 4, 2, 0.8f, 5, -1, 16, 1, 2, 0.0f, 1, 1, GAMMA, 7, 1, true, PartitionKind::Contiguous},
+  {128,
+   4,
+   1,
+   1.0f,
+   3,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   GINI,
+   7,
+   2,
+   false,
+   false,
+   PartitionKind::Contiguous},
+  {128,
+   4,
+   3,
+   0.5f,
+   4,
+   16,
+   32,
+   1,
+   2,
+   0.0f,
+   4,
+   4,
+   ENTROPY,
+   11,
+   2,
+   false,
+   false,
+   PartitionKind::Strided},
+  {192,
+   6,
+   1,
+   1.0f,
+   5,
+   -1,
+   32,
+   2,
+   4,
+   0.0f,
+   1,
+   1,
+   MSE,
+   13,
+   2,
+   false,
+   false,
+   PartitionKind::Imbalanced},
+  {96, 3, 2, 1.0f, 4, 8, 8, 1, 2, 0.0f, 1, 1, GINI, 17, 2, true, false, PartitionKind::Imbalanced},
+  {144, 5, 2, 0.8f, 4, -1, 16, 1, 2, 0.0f, 1, 1, GINI, 31, 3, false, false, PartitionKind::Strided},
+  {160,
+   5,
+   1,
+   0.8f,
+   4,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   MSE,
+   19,
+   2,
+   true,
+   false,
+   PartitionKind::Contiguous},
+  {256,
+   4,
+   5,
+   1.0f,
+   5,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   POISSON,
+   7,
+   1,
+   true,
+   false,
+   PartitionKind::Strided},
+  {256,
+   4,
+   2,
+   0.8f,
+   5,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   1,
+   1,
+   GAMMA,
+   7,
+   1,
+   true,
+   false,
+   PartitionKind::Contiguous},
   {256,
    4,
    2,
@@ -427,6 +563,7 @@ std::vector<RfMgTestParams> inputs = {
    7,
    1,
    true,
+   false,
    PartitionKind::Contiguous},
   {256,
    4,
@@ -443,6 +580,7 @@ std::vector<RfMgTestParams> inputs = {
    GINI,
    7,
    2,
+   false,
    false,
    PartitionKind::Imbalanced},
   {160,
@@ -461,6 +599,7 @@ std::vector<RfMgTestParams> inputs = {
    7,
    2,
    false,
+   false,
    PartitionKind::Imbalanced},
   {64,
    4,
@@ -477,6 +616,7 @@ std::vector<RfMgTestParams> inputs = {
    GINI,
    23,
    2,
+   false,
    false,
    PartitionKind::EmptyNonRootRanks},
   {80,
@@ -495,6 +635,25 @@ std::vector<RfMgTestParams> inputs = {
    29,
    2,
    false,
+   false,
+   PartitionKind::EmptyNonRootRanks},
+  {80,
+   5,
+   2,
+   0.8f,
+   4,
+   -1,
+   16,
+   1,
+   2,
+   0.0f,
+   3,
+   3,
+   MSE,
+   29,
+   2,
+   false,
+   true,
    PartitionKind::EmptyNonRootRanks}};
 
 INSTANTIATE_TEST_SUITE_P(RfTests, RfMgPropertyTest, ::testing::ValuesIn(inputs));

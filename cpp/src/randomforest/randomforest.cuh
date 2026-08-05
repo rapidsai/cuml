@@ -91,7 +91,9 @@ class RowSampler {
                              sample_weight_cdf_.begin());
     }
 
-    if (sample_weight_ != nullptr) {
+    // Empty distributed partitions still pass a non-null pointer so every rank selects the same
+    // weighted objective type, but they have no local weight sum to validate.
+    if (sample_weight_ != nullptr && n_rows_ > 0) {
       sample_weight_sum_ = compute_sample_weight_sum(handle);
       ASSERT(sample_weight_sum_ > 0.0,
              "sample_weight values must contain at least one positive value");
