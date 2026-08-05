@@ -72,10 +72,6 @@ from cuml.testing.test_preproc_utils import (  # noqa: F401
     sparse_nan_filled_positive,
 )
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:Outputting `numba` arrays:FutureWarning"
-)
-
 
 @pytest.mark.parametrize("feature_range", [(0, 1), (0.1, 0.8)])
 def test_minmax_scaler(

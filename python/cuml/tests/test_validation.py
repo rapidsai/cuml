@@ -739,6 +739,21 @@ def test_check_array_dtype(array, mem_type):
     assert out.dtype == "float32"
 
 
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("mem_type", ["device", "host", None])
+def test_check_array_array_protocol_preserves_dtype(dtype, mem_type):
+    class ArrayLike:
+        def __init__(self, array):
+            self.array = array
+
+        def __array__(self, dtype=None, copy=None):
+            return self.array
+
+    array = ArrayLike(np.array([[1, 2, 3]], dtype=dtype))
+    out = check_array(array, dtype=("float32", "float64"), mem_type=mem_type)
+    assert out.dtype == dtype
+
+
 @example(mem_type="device", dtype="int32", order="C", shape=(3, 4))
 @example(mem_type="host", dtype="float32", order="F", shape=(3,))
 @given(

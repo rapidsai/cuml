@@ -5,7 +5,6 @@
 import contextlib
 import functools
 import inspect
-import warnings
 
 import cudf
 import cupy as cp
@@ -29,18 +28,7 @@ __all__ = (
 )
 
 
-OUTPUT_TYPES = (
-    "input",
-    "numpy",
-    "cupy",
-    "cudf",
-    "pandas",
-    "numba",
-    "array",
-    "dataframe",
-    "series",
-    "df_obj",
-)
+OUTPUT_TYPES = ("input", "numpy", "cupy", "cudf", "pandas")
 
 
 def check_output_type(output_type: str) -> str:
@@ -54,33 +42,6 @@ def check_output_type(output_type: str) -> str:
             f"Expected one of {valid_output_types}, or None."
         )
     return output_type
-
-
-def warn_if_output_type_deprecated(output_type: str):
-    """Warn if the specified `output_type` is deprecated"""
-    if isinstance(output_type, str) and output_type in (
-        "numba",
-        "array",
-        "df_obj",
-        "dataframe",
-        "series",
-    ):
-        alt = "cupy" if output_type in ("numba", "array") else "cudf"
-        if output_type in ("dataframe", "series"):
-            suffix = (
-                " Note that `output_type='cudf'` will return `cudf.Series` "
-                "objects for 1-dimensional outputs and `cudf.DataFrame` "
-                "objects for 2-dimensional outputs. You may need to "
-                "update consumers as necessary."
-            )
-        else:
-            suffix = ""
-        warnings.warn(
-            f"`output_type={output_type!r}` was deprecated in version 26.08 "
-            "and will be removed in version 26.10. Please use "
-            f"`output_type={alt!r}` instead.{suffix}",
-            FutureWarning,
-        )
 
 
 def set_global_output_type(output_type):
@@ -160,7 +121,6 @@ def set_global_output_type(output_type):
     """
     if output_type is not None:
         output_type = check_output_type(output_type)
-        warn_if_output_type_deprecated(output_type)
     GlobalSettings().output_type = output_type
 
 
@@ -289,7 +249,7 @@ def infer_output_type(array, array_like="numpy"):
 
     Returns
     -------
-    output_type : {"cupy", "numpy", "pandas", "cudf", "numba", "cuml", None}
+    output_type : {"cupy", "numpy", "pandas", "cudf", None}
         The inferred ``output_type``, or ``None`` if not an array-like input.
     """
     if isinstance(array, np.ndarray) or sp.issparse(array):
@@ -300,8 +260,6 @@ def infer_output_type(array, array_like="numpy"):
         return "cudf"
     elif isinstance(array, (pd.DataFrame, pd.Series, pd.Index)):
         return "pandas"
-    elif hasattr(array, "__cuda_ndarray__"):
-        return "numba"
     elif hasattr(array, "__cuda_array_interface__"):
         return "cupy"
 
@@ -373,7 +331,7 @@ class ClassLabels:
 
         Parameters
         ----------
-        output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'} or None
+        output_type : {'cupy', 'numpy', 'cudf', 'pandas'} or None
             The output type to convert to. If `None`, `cupy` will be used when
             possible, falling back to `cudf` if necessary.
         index : pandas.Index, cudf.Index, or None, default=None
@@ -459,17 +417,13 @@ class ClassLabels:
         # Coerce result to requested output_type
         if isinstance(out, cp.ndarray):
             return convert_arrays(out, output_type, index=index)
-        elif output_type in ("cudf", "df_obj"):
-            return out
-        elif output_type == "dataframe":
-            return out.to_frame() if isinstance(out, cudf.Series) else out
-        elif output_type == "series" and isinstance(out, cudf.Series):
+        elif output_type == "cudf":
             return out
         elif output_type == "pandas":
             if cudf.pandas.LOADED:
                 return cudf.pandas.as_proxy_object(out)
             return out.to_pandas()
-        elif output_type in ("numpy", "array"):
+        elif output_type == "numpy":
             # XXX: dtype coercion not needed for object, and when specified
             # cudf will sometimes coerce `None -> <NA>` erroneously.
             # See https://github.com/rapidsai/cudf/issues/22419
@@ -500,7 +454,7 @@ def convert_arrays(
         traversed recursively to find array-likes. Other array-likes (pandas,
         ...) will error as unsupported. Any other type is passed through
         unchanged.
-    output_type : {'cupy', 'numpy', 'cudf', 'pandas', 'numba'}
+    output_type : {'cupy', 'numpy', 'cudf', 'pandas'}
         The output type to convert to.
     index : pandas.Index, cudf.Index, or None, default=None
         An optional index to attach to arrays when returning dataframe-like
@@ -542,36 +496,9 @@ def convert_arrays(
     if isinstance(obj, cp.ndarray):
         if output_type == "numpy":
             return obj.get(order="A")
-        elif output_type in (
-            "cudf",
-            "pandas",
-            "df_obj",
-            "dataframe",
-            "series",
-        ):
-            if output_type == "series":
-                if obj.ndim == 2:
-                    if obj.shape[1] == 1:
-                        obj = obj.flatten()
-                    else:
-                        raise ValueError(
-                            "Only single dimensional arrays can be transformed to"
-                            " Series."
-                        )
-                elif obj.ndim == 0:
-                    obj = obj[None]
-            elif output_type == "dataframe":
-                if obj.ndim == 1:
-                    obj = obj[:, None]
-                elif obj.ndim == 0:
-                    obj = obj[None, None]
-
+        elif output_type in ("cudf", "pandas"):
             if obj.ndim == 2:
-                if (
-                    one_col_2d_as_series
-                    and obj.shape[1] == 1
-                    and output_type != "dataframe"
-                ):
+                if one_col_2d_as_series and obj.shape[1] == 1:
                     df = cudf.Series(obj.flatten(), index=index)
                 else:
                     df = cudf.DataFrame(obj, index=index)
@@ -583,13 +510,8 @@ def convert_arrays(
                     return cudf.pandas.as_proxy_object(df)
                 return df.to_pandas()
             return df
-
-        elif output_type == "numba":
-            from numba import cuda
-
-            return cuda.as_cuda_array(obj)
         else:
-            assert output_type in ("cuml", "cupy", "array")
+            assert output_type in ("cuml", "cupy")
             # Return `cupy` directly
             return obj
 
