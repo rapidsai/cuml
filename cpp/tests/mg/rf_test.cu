@@ -19,6 +19,7 @@
 #include <mpi.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -53,54 +54,81 @@ struct RfMgTestParams {
 };
 
 template <typename T>
-void hash_value(uint64_t& hash, const T& value)
+void expect_floating_values_equal(T distributed_value, T single_node_value, char const* field)
 {
-  const auto* bytes = reinterpret_cast<const unsigned char*>(&value);
-  for (size_t i = 0; i < sizeof(T); ++i) {
-    hash ^= bytes[i];
-    hash *= 1099511628211ULL;
-  }
+  static_assert(std::is_floating_point_v<T>);
+  constexpr T absolute_tolerance = std::is_same_v<T, float> ? T{1e-5} : T{1e-12};
+  constexpr T relative_tolerance = std::is_same_v<T, float> ? T{1e-5} : T{1e-10};
+  auto scale     = std::max(std::abs(distributed_value), std::abs(single_node_value));
+  auto tolerance = absolute_tolerance + relative_tolerance * scale;
+  EXPECT_NEAR(distributed_value, single_node_value, tolerance)
+    << "Mismatched distributed RF " << field;
 }
 
 template <typename T, typename L>
-uint64_t hash_forest_structure(const RandomForestMetaData<T, L>& forest)
+void expect_forests_equal(RandomForestMetaData<T, L> const& distributed_forest,
+                          RandomForestMetaData<T, L> const& single_node_forest)
 {
-  uint64_t hash = 1469598103934665603ULL;
-  hash_value(hash, forest.n_features);
-  hash_value(hash, forest.rf_params.n_trees);
-  hash_value(hash, forest.rf_params.bootstrap);
-  hash_value(hash, forest.rf_params.max_samples);
-  hash_value(hash, forest.rf_params.seed);
-  hash_value(hash, forest.rf_params.tree_params.max_depth);
-  hash_value(hash, forest.rf_params.tree_params.max_leaves);
-  hash_value(hash, forest.rf_params.tree_params.max_n_bins);
-  hash_value(hash, forest.rf_params.tree_params.min_samples_leaf);
-  hash_value(hash, forest.rf_params.tree_params.min_samples_split);
-  hash_value(hash, forest.rf_params.tree_params.min_impurity_decrease);
-  hash_value(hash, forest.rf_params.tree_params.split_criterion);
-  for (auto const& tree : forest.trees) {
-    hash_value(hash, tree->treeid);
-    hash_value(hash, tree->depth_counter);
-    hash_value(hash, tree->leaf_counter);
-    hash_value(hash, tree->num_outputs);
-    hash_value(hash, tree->sparsetree.size());
-    int node_id = 0;
-    for (auto const& node : tree->sparsetree) {
-      hash_value(hash, node.ColumnId());
-      hash_value(hash, node.QueryValue());
-      hash_value(hash, node.BestMetric());
-      hash_value(hash, node.LeftChildId());
-      hash_value(hash, node.InstanceCount());
-      hash_value(hash, node.IsLeaf());
-      if (node.IsLeaf()) {
-        for (int k = 0; k < tree->num_outputs; ++k) {
-          hash_value(hash, tree->vector_leaf[node_id * tree->num_outputs + k]);
-        }
-      }
-      ++node_id;
+  EXPECT_EQ(distributed_forest.n_features, single_node_forest.n_features);
+
+  auto const& distributed_params = distributed_forest.rf_params;
+  auto const& single_node_params = single_node_forest.rf_params;
+  EXPECT_EQ(distributed_params.n_trees, single_node_params.n_trees);
+  EXPECT_EQ(distributed_params.bootstrap, single_node_params.bootstrap);
+  expect_floating_values_equal(
+    distributed_params.max_samples, single_node_params.max_samples, "max_samples");
+  EXPECT_EQ(distributed_params.seed, single_node_params.seed);
+
+  auto const& distributed_tree_params = distributed_params.tree_params;
+  auto const& single_node_tree_params = single_node_params.tree_params;
+  EXPECT_EQ(distributed_tree_params.max_depth, single_node_tree_params.max_depth);
+  EXPECT_EQ(distributed_tree_params.max_leaves, single_node_tree_params.max_leaves);
+  expect_floating_values_equal(
+    distributed_tree_params.max_features, single_node_tree_params.max_features, "max_features");
+  EXPECT_EQ(distributed_tree_params.max_n_bins, single_node_tree_params.max_n_bins);
+  EXPECT_EQ(distributed_tree_params.min_samples_leaf, single_node_tree_params.min_samples_leaf);
+  EXPECT_EQ(distributed_tree_params.min_samples_split, single_node_tree_params.min_samples_split);
+  expect_floating_values_equal(distributed_tree_params.min_impurity_decrease,
+                               single_node_tree_params.min_impurity_decrease,
+                               "min_impurity_decrease");
+  EXPECT_EQ(distributed_tree_params.split_criterion, single_node_tree_params.split_criterion);
+  EXPECT_EQ(distributed_tree_params.max_batch_size, single_node_tree_params.max_batch_size);
+
+  ASSERT_EQ(distributed_forest.trees.size(), single_node_forest.trees.size());
+  for (size_t tree_idx = 0; tree_idx < distributed_forest.trees.size(); ++tree_idx) {
+    SCOPED_TRACE(::testing::Message() << "tree_idx=" << tree_idx);
+    auto const& distributed_tree = distributed_forest.trees[tree_idx];
+    auto const& single_node_tree = single_node_forest.trees[tree_idx];
+    ASSERT_NE(distributed_tree, nullptr);
+    ASSERT_NE(single_node_tree, nullptr);
+    EXPECT_EQ(distributed_tree->treeid, single_node_tree->treeid);
+    EXPECT_EQ(distributed_tree->depth_counter, single_node_tree->depth_counter);
+    EXPECT_EQ(distributed_tree->leaf_counter, single_node_tree->leaf_counter);
+    EXPECT_EQ(distributed_tree->num_outputs, single_node_tree->num_outputs);
+
+    ASSERT_EQ(distributed_tree->sparsetree.size(), single_node_tree->sparsetree.size());
+    for (size_t node_idx = 0; node_idx < distributed_tree->sparsetree.size(); ++node_idx) {
+      SCOPED_TRACE(::testing::Message() << "node_idx=" << node_idx);
+      auto const& distributed_node = distributed_tree->sparsetree[node_idx];
+      auto const& single_node_node = single_node_tree->sparsetree[node_idx];
+      EXPECT_EQ(distributed_node.ColumnId(), single_node_node.ColumnId());
+      expect_floating_values_equal(
+        distributed_node.QueryValue(), single_node_node.QueryValue(), "split threshold");
+      expect_floating_values_equal(
+        distributed_node.BestMetric(), single_node_node.BestMetric(), "split metric");
+      EXPECT_EQ(distributed_node.LeftChildId(), single_node_node.LeftChildId());
+      EXPECT_EQ(distributed_node.InstanceCount(), single_node_node.InstanceCount());
+      EXPECT_EQ(distributed_node.IsLeaf(), single_node_node.IsLeaf());
+    }
+
+    ASSERT_EQ(distributed_tree->vector_leaf.size(), single_node_tree->vector_leaf.size());
+    for (size_t value_idx = 0; value_idx < distributed_tree->vector_leaf.size(); ++value_idx) {
+      SCOPED_TRACE(::testing::Message() << "leaf_value_idx=" << value_idx);
+      expect_floating_values_equal(distributed_tree->vector_leaf[value_idx],
+                                   single_node_tree->vector_leaf[value_idx],
+                                   "leaf value");
     }
   }
-  return hash;
 }
 
 std::vector<int> local_rows_for_rank(int n_rows, int rank, int size, PartitionKind kind)
@@ -297,8 +325,6 @@ class RfMgPropertyTestImpl {
 
     expect_global_tree_counts(distributed_forest, params.n_rows);
     expect_tree_limits(distributed_forest, params);
-    auto distributed_forest_hash = hash_forest_structure(distributed_forest);
-    expect_identical_across_ranks(handle, distributed_forest_hash, "tree structure");
 
     // The distributed quantile sampler assigns global row ids in rank-major order. Reconstruct the
     // single-node input in the same order so both algorithms receive the identical training data.
@@ -343,23 +369,10 @@ class RfMgPropertyTestImpl {
           single_node_rf_params);
     }
 
-    EXPECT_EQ(distributed_forest_hash, hash_forest_structure(single_node_forest))
-      << "Distributed and single-node RF models differ";
+    expect_forests_equal(distributed_forest, single_node_forest);
   }
 
  private:
-  void expect_identical_across_ranks(raft::handle_t const& handle,
-                                     uint64_t local_hash,
-                                     char const* label)
-  {
-    auto const& comm = handle.get_comms();
-    std::vector<uint64_t> hashes(comm.get_size());
-    MPI_Allgather(&local_hash, 1, MPI_UINT64_T, hashes.data(), 1, MPI_UINT64_T, MPI_COMM_WORLD);
-    for (auto hash : hashes) {
-      EXPECT_EQ(hash, hashes.front()) << "Mismatched distributed RF " << label;
-    }
-  }
-
   RfMgTestParams params;
 };
 
