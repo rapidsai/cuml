@@ -305,7 +305,10 @@ def test_sklearn_compatible_estimator(estimator, check):
         estimator_checks._get_check_estimator_ids(check)
         == "check_regressor_data_not_an_array"
     ):
-        pytest.skip("Predictions from repeated fits are nondeterministic")
+        pytest.skip(
+            "Predictions from repeated fits are nondeterministic; see "
+            "https://github.com/rapidsai/cuml/issues/8457"
+        )
     check(estimator)
 
 
