@@ -40,7 +40,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/pr-builder.yaml@test-gb300
     if: always()
     with:
       needs: ${{ toJSON(needs) }}
@@ -83,7 +83,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/changed-files.yaml@test-gb300
     with:
       files_yaml: |
         build_docs:
@@ -279,7 +279,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/checks.yaml@test-gb300
     with:
       enable_check_generated_files: false
       ignored_pr_jobs: >-
@@ -293,7 +293,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@test-gb300
     with:
       build_type: pull-request
       node_type: "cpu8"
@@ -309,7 +309,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-build.yaml@test-gb300
     with:
       build_type: pull-request
       node_type: cpu16
@@ -323,7 +323,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_cpp
     with:
       build_type: pull-request
@@ -337,7 +337,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-cpp-post-build-checks.yaml@test-gb300
     with:
       build_type: pull-request
       package_name: libcuml
@@ -350,7 +350,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-build.yaml@test-gb300
     with:
       build_type: pull-request
       script: ci/build_python.sh
@@ -365,13 +365,13 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
       # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
+      # matrix_filter: map(select(.GPU != "gb300"))
   conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build, changed-files]
     permissions:
@@ -381,7 +381,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       # Select the amd64 entry with the highest CUDA and Python version
@@ -397,7 +397,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
@@ -411,7 +411,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
@@ -419,12 +419,12 @@ jobs:
       # One run for each dependencies config on amd64, breaking ties by highest Python version
       matrix_filter: |
         (
-          map(select(.ARCH == "amd64"))
+          map(select(.ARCH == "arm64"))
           | sort_by(.PY_VER)
           | unique_by(.DEPENDENCIES)
         )
           + (
-          map(select(.ARCH == "amd64"))
+          map(select(.ARCH == "arm64"))
           | map(select(.DEPENDENCIES == "oldest"))
           | sort_by(.PY_VER)
           | map(.DEPENDENCIES = "intermediate")
@@ -438,13 +438,13 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/conda-python-tests.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_conda
     with:
       build_type: pull-request
       script: "ci/test_python_cuml_accel_upstream.sh"
       # One run for each dependencies config on amd64, breaking ties by highest Python version
-      matrix_filter: map(select(.ARCH == "amd64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
+      matrix_filter: map(select(.ARCH == "arm64")) | sort_by(.PY_VER) | unique_by(.DEPENDENCIES)
   conda-notebook-tests:
     needs: [conda-python-build, changed-files]
     permissions:
@@ -454,7 +454,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_notebooks
     with:
       build_type: pull-request
@@ -471,7 +471,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/custom-job.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).build_docs
     with:
       build_type: pull-request
@@ -508,7 +508,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@test-gb300
     with:
       build_type: pull-request
       branch: ${{ inputs.branch }}
@@ -529,7 +529,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-build.yaml@test-gb300
     with:
       build_type: pull-request
       node_type: cpu8
@@ -547,13 +547,13 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
       # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
+      # matrix_filter: map(select(.GPU != "gb300"))
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     permissions:
@@ -563,7 +563,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/wheels-test.yaml@test-gb300
     if: fromJSON(needs.changed-files.outputs.changed_file_groups).test_python_wheels
     with:
       build_type: pull-request
@@ -577,7 +577,7 @@ jobs:
       packages: read
       pull-requests: read
     secrets: inherit # zizmor: ignore[secrets-inherit]
-    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@main
+    uses: rapidsai/shared-workflows/.github/workflows/build-in-devcontainer.yaml@test-gb300
     with:
       arch: '["amd64", "arm64"]'
       cuda: '["13.3"]'
