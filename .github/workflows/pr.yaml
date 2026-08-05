@@ -370,8 +370,6 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
-      # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
   conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build, changed-files]
     permissions:
@@ -552,8 +550,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-      # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     permissions:
