@@ -221,10 +221,6 @@ XFAILS = {
         ),
     },
     RandomForestRegressor: {
-        "check_regressor_data_not_an_array": (
-            "Predictions from repeated fits on equivalent inputs can differ "
-            "beyond the check's tolerance"
-        ),
         "check_sample_weight_equivalence_on_dense_data": (
             "RandomForest uses quantile-binned splits, so sample weighting is "
             "not equivalent to duplicating rows"
@@ -305,6 +301,11 @@ if missing := set(XFAILS).difference((type(est) for est in ESTIMATORS)):
 @pytest.mark.filterwarnings("ignore:The number of bins.*:UserWarning")
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_sklearn_compatible_estimator(estimator, check):
+    if isinstance(estimator, RandomForestRegressor) and (
+        estimator_checks._get_check_estimator_ids(check)
+        == "check_regressor_data_not_an_array"
+    ):
+        pytest.skip("Predictions from repeated fits are nondeterministic")
     check(estimator)
 
 
