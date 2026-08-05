@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION.
+# SPDX-FileCopyrightText: Copyright (c) 2021-2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 import json
@@ -25,6 +25,13 @@ from cuml.explainer.tree_shap import TreeExplainer
 from cuml.testing.utils import as_type
 
 shap = pytest.importorskip("shap")
+
+
+pytestmark = [
+    pytest.mark.filterwarnings(
+        r"ignore:.*`rapids-xgboost` will no longer be published.*:FutureWarning"
+    ),
+]
 
 
 def make_classification_with_categorical(
