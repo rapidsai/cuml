@@ -70,6 +70,8 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: "ci/test_python_singlegpu.sh"
+      # https://github.com/rapidsai/cuml/issues/8430
+      matrix_filter: map(select(.GPU != "gb300"))
   conda-python-tests-dask:
     permissions:
       actions: read
@@ -180,6 +182,8 @@ jobs:
       date: ${{ inputs.date }}
       sha: ${{ inputs.sha }}
       script: ci/test_wheel.sh
+      # https://github.com/rapidsai/cuml/issues/8430
+      matrix_filter: map(select(.GPU != "gb300"))
   wheel-tests-cuml-nightly-dependencies-versions:
     permissions:
       actions: read
