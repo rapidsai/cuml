@@ -217,8 +217,12 @@ void expect_global_tree_counts(RandomForestMetaData<T, L> const& forest, int n_r
     EXPECT_EQ(tree->sparsetree.front().InstanceCount(), n_rows);
     for (auto const& node : tree->sparsetree) {
       if (!node.IsLeaf()) {
+        ASSERT_GE(node.LeftChildId(), 0);
+        ASSERT_GE(node.RightChildId(), 0);
+        ASSERT_LT(static_cast<std::size_t>(node.LeftChildId()), tree->sparsetree.size());
+        ASSERT_LT(static_cast<std::size_t>(node.RightChildId()), tree->sparsetree.size());
         auto left_count  = tree->sparsetree[node.LeftChildId()].InstanceCount();
-        auto right_count = tree->sparsetree[node.LeftChildId() + 1].InstanceCount();
+        auto right_count = tree->sparsetree[node.RightChildId()].InstanceCount();
         EXPECT_EQ(left_count + right_count, node.InstanceCount());
       }
     }
