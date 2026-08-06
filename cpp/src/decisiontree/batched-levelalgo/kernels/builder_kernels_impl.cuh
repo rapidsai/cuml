@@ -252,7 +252,7 @@ void launchBuildLeafHistogramsKernel(ObjectiveT objective,
                                      size_t smem_size,
                                      cudaStream_t builder_stream)
 {
-  int num_blocks = batch_size;
+  auto num_blocks = ML::narrow_cast<ML::cuda_launch_t>(batch_size);
   buildLeafHistogramsKernel<<<num_blocks, TPB_DEFAULT, smem_size, builder_stream>>>(
     objective, dataset, tree, instance_ranges, leaf_histograms);
 }
@@ -276,7 +276,7 @@ void launchFinalizeLeafKernel(const typename ObjectiveT::BinT* leaf_histograms,
                               int batch_size,
                               cudaStream_t builder_stream)
 {
-  auto num_blocks = raft::ceildiv(batch_size, TPB_DEFAULT);
+  auto num_blocks = ML::narrow_cast<ML::cuda_launch_t>(raft::ceildiv(batch_size, TPB_DEFAULT));
   finalizeLeafKernel<ObjectiveT, DataT><<<num_blocks, TPB_DEFAULT, 0, builder_stream>>>(
     leaf_histograms, leaves, num_outputs, batch_size);
 }

@@ -703,6 +703,7 @@ struct Builder {
 
       auto leaf_histogram_count = ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
       auto leaf_histogram_bytes = ML::checked_mul<std::size_t>(sizeof(BinT), leaf_histogram_count);
+      auto leaf_batch_size      = ML::narrow_cast<int>(batch_size);
       RAFT_CUDA_TRY(cudaMemsetAsync(histograms, 0, leaf_histogram_bytes, builder_stream));
       size_t smem_size = ML::checked_mul<std::size_t>(sizeof(BinT), dataset.num_outputs);
       launchBuildLeafHistogramsKernel(objective,
@@ -710,7 +711,7 @@ struct Builder {
                                       d_tree.data(),
                                       d_instance_ranges.data(),
                                       histograms,
-                                      batch_size,
+                                      leaf_batch_size,
                                       smem_size,
                                       builder_stream);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -718,7 +719,7 @@ struct Builder {
       if (distributed) { allReduceHistograms(histograms, leaf_histogram_count); }
 
       launchFinalizeLeafKernel<ObjectiveT, DataT>(
-        histograms, d_leaves.data(), dataset.num_outputs, batch_size, builder_stream);
+        histograms, d_leaves.data(), dataset.num_outputs, leaf_batch_size, builder_stream);
       RAFT_CUDA_TRY(cudaPeekAtLastError());
       auto leaf_offset = ML::checked_mul<std::size_t>(batch_begin, dataset.num_outputs);
       auto leaf_count  = ML::checked_mul<std::size_t>(batch_size, dataset.num_outputs);
