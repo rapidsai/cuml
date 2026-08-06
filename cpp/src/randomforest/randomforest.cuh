@@ -117,7 +117,7 @@ class RowSampler {
     raft::common::nvtx::range fun_scope("bootstrapping row IDs @randomforest.cuh");
 
     auto& selected_rows = selected_rows_[stream_id];
-    if (selected_rows.size() == 0) { return selected_rows; }
+    if (n_rows_ == 0) { return selected_rows; }
 
     raft::resources stream_resources;
     raft::resource::set_cuda_stream(stream_resources, stream);
