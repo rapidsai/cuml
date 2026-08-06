@@ -194,7 +194,7 @@ void make_local_dataset(RfMgTestParams const& params,
     } else {
       y[i] = signal * DataT(0.5) + static_cast<DataT>((global_row % 7) - 3);
     }
-    if (params.use_sample_weights) { sample_weights[i] = i % 2 == 0 ? 0.8 : 0.6; }
+    if (params.use_sample_weights) { sample_weights[i] = global_row % 2 == 0 ? 0.8 : 0.6; }
   }
 }
 
