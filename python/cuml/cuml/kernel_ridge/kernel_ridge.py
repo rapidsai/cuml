@@ -5,9 +5,10 @@
 import warnings
 
 import cupy as cp
+import cupyx
 import numpy as np
 from cupy import linalg
-from cupyx import geterr, lapack, seterr
+from cupyx import lapack
 
 from cuml.common.doc_utils import generate_docstring
 from cuml.internals.base import Base
@@ -26,16 +27,14 @@ from cuml.metrics import pairwise_kernels
 # cholesky solve with fallback to least squares for singular problems
 def _safe_solve(K, y):
     try:
-        # we need to set the error mode of cupy to raise
-        # otherwise we silently get an array of NaNs
-        err_mode = geterr()["linalg"]
-        seterr(linalg="raise")
-        dual_coef = lapack.posv(K, y)
-        # Perform following check as a workaround for cusolver issue to be
-        # fixed in a future CUDA version
-        if cp.all(cp.isnan(dual_coef)):
-            raise np.linalg.LinAlgError
-        seterr(linalg=err_mode)
+        with cupyx.errstate(linalg="raise"):
+            # we need to set the error mode of cupy to raise
+            # otherwise we silently get an array of NaNs
+            dual_coef = lapack.posv(K, y)
+            # Perform following check as a workaround for cusolver issue to be
+            # fixed in a future CUDA version
+            if cp.all(cp.isnan(dual_coef)):
+                raise np.linalg.LinAlgError
     except np.linalg.LinAlgError:
         warnings.warn(
             "Singular matrix in solving dual problem. Using "

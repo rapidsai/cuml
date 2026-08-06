@@ -103,7 +103,7 @@ jobs:
           - '!.github/release.yml'
           - '!.github/scripts/**'
           - '!.github/workflows/build.yaml'
-          - '!.gihtub/workflows/labeler.yml'
+          - '!.github/workflows/labeler.yml'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -133,7 +133,7 @@ jobs:
           - '!.github/release.yml'
           - '!.github/scripts/**'
           - '!.github/workflows/build.yaml'
-          - '!.gihtub/workflows/labeler.yml'
+          - '!.github/workflows/labeler.yml'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -174,7 +174,7 @@ jobs:
           - '!.github/release.yml'
           - '!.github/scripts/**'
           - '!.github/workflows/build.yaml'
-          - '!.gihtub/workflows/labeler.yml'
+          - '!.github/workflows/labeler.yml'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -212,7 +212,7 @@ jobs:
           - '!.github/release.yml'
           - '!.github/scripts/**'
           - '!.github/workflows/build.yaml'
-          - '!.gihtub/workflows/labeler.yml'
+          - '!.github/workflows/labeler.yml'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -255,7 +255,7 @@ jobs:
           - '!.github/release.yml'
           - '!.github/scripts/**'
           - '!.github/workflows/build.yaml'
-          - '!.gihtub/workflows/labeler.yml'
+          - '!.github/workflows/labeler.yml'
           - '!.github/workflows/new-issues-to-triage-projects.yml'
           - '!.github/workflows/pr_assign_author.yml'
           - '!.github/workflows/pr_issue_status_automation.yml'
@@ -390,8 +390,6 @@ jobs:
     with:
       build_type: pull-request
       script: "ci/test_python_singlegpu.sh"
-      # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
   conda-python-tests-cudf-pandas-integration:
     needs: [conda-python-build, changed-files]
     permissions:
@@ -574,8 +572,6 @@ jobs:
     with:
       build_type: pull-request
       script: ci/test_wheel.sh
-      # https://github.com/rapidsai/cuml/issues/8430
-      matrix_filter: map(select(.GPU != "gb300"))
   wheel-tests-cuml-dask:
     needs: [wheel-build-cuml, changed-files]
     permissions:

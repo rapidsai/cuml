@@ -97,7 +97,7 @@ jobs:
       dry-run: false
       version-map: '{"26.04": "legacy", "26.06": "stable"}'
   python-build:
-    needs: [needs, cpp-build]
+    needs: [build-details, cpp-build]
     permissions:
       actions: read
       contents: read
