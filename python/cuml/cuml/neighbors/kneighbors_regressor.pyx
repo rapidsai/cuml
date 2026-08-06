@@ -181,10 +181,12 @@ class KNeighborsRegressor(RegressorMixin, FMajorInputTagMixin, NeighborsBase):
         }
 
     def _attrs_from_cpu(self, model):
-        return {
-            "_y": cp.asarray(model._y, order="F"),
-            **super()._attrs_from_cpu(model),
-        }
+        y = cp.asarray(
+            model._y,
+            dtype="float64" if model._y.dtype == "float64" else "float32",
+            order="F",
+        )
+        return {"_y": y, **super()._attrs_from_cpu(model)}
 
     def _attrs_to_cpu(self, model):
         return {
