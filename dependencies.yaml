@@ -721,12 +721,12 @@ dependencies:
     specific:
       - output_types: [conda]
         matrices:
-        - matrix:
-            py: "3.11"
-          packages: []
-        - matrix:
-          packages:
-            - rapids-xgboost==26.10.*,>=0.0.0a0
+          - matrix:
+              py: "3.11"
+            packages: []
+          - matrix:
+            packages:
+              - xgboost>=3.3.0
       - output_types: [requirements, pyproject]
         matrices:
           - matrix:
@@ -1065,7 +1065,7 @@ dependencies:
     common:
       - output_types: [conda]
         packages:
-        - &numba_cuda numba-cuda>=0.22.2
+          - &numba_cuda numba-cuda>=0.22.2
     specific:
       - output_types: [requirements, pyproject]
         matrices:
