@@ -226,11 +226,6 @@ XFAILS = {
             "not equivalent to duplicating rows"
         ),
     },
-    KNeighborsRegressor: {
-        "check_regressor_multioutput": (
-            "predict returns float32 output, but the test expects float64"
-        ),
-    },
     LinearSVC: {
         "check_sample_weight_equivalence_on_dense_data": "Sample weights not equal to repeating data",
     },
