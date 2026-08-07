@@ -284,8 +284,27 @@ def pairwise_distances(X, Y=None, metric="euclidean", **kwds):
         - Supports sparse only: ['dice', 'inner_product', 'jaccard'].
 
     **kwds : optional keyword parameters
-        Any additional metric-specific parameters. For example, with
-        ``metric="minkowski"``, passing ``p`` sets the norm used.
+        Additional metric-specific parameters:
+
+        - ``minkowski``:
+
+          - ``p`` : float, default=2.0
+            The p-norm to apply for Minkowski distance. ``p=1`` gives
+            Manhattan distance, ``p=2`` gives Euclidean distance.
+
+        - ``nan_euclidean``:
+
+          - ``squared`` : bool, default=False
+            Return squared Euclidean distances.
+          - ``missing_values`` : np.nan or int, default=np.nan
+            Representation of missing values in the input data.
+          - ``copy`` : bool, default=True
+            Whether to make a copy of X and Y when necessary. Setting
+            to ``False`` can reduce memory usage, but may result in
+            mutation of X and Y.
+
+        All other metrics do not accept additional keyword parameters.
+        Passing unknown parameters raises a ``TypeError``.
 
     Returns
     -------
