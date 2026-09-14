@@ -215,6 +215,9 @@ class MBSGDClassifier(
 
         """
         scores = self.decision_function(X)
-        thresh = 0 if self.loss == "hinge" else 0.5
+        # decision_function returns raw margins/logits, so the cut is at 0 for
+        # both hinge and log. Only squared_loss regresses the 0/1 targets
+        # directly, where 0.5 is the natural cut.
+        thresh = 0.5 if self.loss == "squared_loss" else 0
         indices = (scores > thresh).view(cp.int8)
         return ClassLabels(indices, self.classes_)
