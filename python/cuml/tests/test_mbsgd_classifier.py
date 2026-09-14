@@ -149,6 +149,36 @@ def test_mbsgd_classifier_default(make_dataset):
     assert cu_acc >= 0.69
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_mbsgd_classifier_log_loss_boundary(dtype):
+    # decision_function returns the raw logit for loss="log", so predict has
+    # to cut at 0. A logit of 0.25 is still a positive prediction.
+    X, y = make_classification(
+        n_samples=500, n_features=20, n_informative=10, random_state=10
+    )
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+
+    model = cuml.MBSGDClassifier(
+        loss="log", eta0=0.005, epochs=100, batch_size=2, tol=0.0
+    ).fit(X, y)
+
+    scores = cp.asnumpy(model.decision_function(X))
+    above = np.flatnonzero(scores > 0.5)
+    below = np.flatnonzero(scores < 0.0)
+    assert len(above) and len(below), "model did not separate the data"
+
+    # Interpolate between a clearly positive and a clearly negative sample
+    # until the logit lands in (0, 0.5].
+    a, b = above[0], below[0]
+    t = (0.25 - scores[b]) / (scores[a] - scores[b])
+    x_mid = (X[b] + t * (X[a] - X[b])).astype(dtype)[None]
+    logit = cp.asnumpy(model.decision_function(x_mid))[0]
+    assert 0.0 < logit <= 0.5
+
+    assert cp.asnumpy(model.predict(x_mid))[0] == model.classes_[1]
+
+
 def test_mbsgd_multiclass_errors():
     X, y = make_classification(random_state=42, n_classes=4, n_informative=4)
     model = cuml.MBSGDClassifier()
