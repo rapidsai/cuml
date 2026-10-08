@@ -1,0 +1,624 @@
+# Overlapping cases intentionally match the native, Dask, and accel neutral
+# definitions exactly. Package identity is resolved independently per case.
+
+version: 2
+name: sklearn-cpu
+implementation: scikit-learn
+
+profiles:
+  standard:
+    warmups: 1
+    repetitions: 3
+    size_scale: 1.0
+  smoke:
+    warmups: 1
+    repetitions: 1
+    size_scale: 0.01
+
+cases:
+  - estimator: KMeans
+    dataset:
+      kind: blobs
+      shape:
+        rows: 5000000
+        features: 128
+    operation: fit_predict
+    input_selection: [X]
+    parameters:
+      n_clusters: 5
+
+  - estimator: DBSCAN
+    dataset:
+      kind: blobs
+      shape:
+        rows: 500000
+        features: 128
+    operation: fit_predict
+    input_selection: [X]
+    parameters:
+      eps: 2.0
+      min_samples: 5
+
+  - estimator: SpectralClustering
+    dataset:
+      kind: blobs
+      shape:
+        rows: 750
+        features: 64
+    operation: fit_predict
+    input_selection: [X]
+    parameters:
+      n_clusters: 5
+
+  - estimator: AgglomerativeClustering
+    dataset:
+      kind: blobs
+      shape:
+        rows: 1000
+        features: 64
+    operation: fit_predict
+    input_selection: [X]
+    parameters:
+      n_clusters: 5
+
+  - estimator: EmpiricalCovariance
+    dataset:
+      kind: matrix
+      shape:
+        rows: 500000
+        features: 128
+    operation: fit
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: LedoitWolf
+    dataset:
+      kind: matrix
+      shape:
+        rows: 500000
+        features: 128
+    operation: fit
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: PCA
+    dataset:
+      kind: matrix
+      shape:
+        rows: 12000000
+        features: 128
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 8
+
+  - estimator: IncrementalPCA
+    dataset:
+      kind: matrix
+      shape:
+        rows: 2000000
+        features: 128
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 8
+      batch_size: 128
+
+  - estimator: TruncatedSVD
+    dataset:
+      kind: matrix
+      shape:
+        rows: 12000000
+        features: 128
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 8
+
+  - estimator: GaussianRandomProjection
+    dataset:
+      kind: matrix
+      shape:
+        rows: 18000000
+        features: 128
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 8
+      random_state: 42
+
+  - estimator: SparseRandomProjection
+    dataset:
+      kind: matrix
+      shape:
+        rows: 6000000
+        features: 128
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 8
+      random_state: 42
+
+  - estimator: NearestNeighbors
+    dataset:
+      kind: matrix
+      shape:
+        rows: 50000
+        train_rows: 450000
+        features: 128
+    operation: kneighbors
+    input_selection: [X]
+    fit_input_selection: [X]
+    parameters:
+      n_neighbors: 5
+
+  - estimator: KNeighborsClassifier
+    dataset:
+      kind: classification
+      shape:
+        rows: 25000
+        train_rows: 225000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      n_neighbors: 5
+
+  - estimator: KNeighborsRegressor
+    dataset:
+      kind: regression
+      shape:
+        rows: 25000
+        train_rows: 225000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      n_neighbors: 5
+
+  - estimator: KernelDensity
+    dataset:
+      kind: matrix
+      shape:
+        rows: 2000
+        train_rows: 18000
+        features: 16
+    operation: score_samples
+    input_selection: [X]
+    fit_input_selection: [X]
+    parameters:
+      bandwidth: 1.0
+
+  - estimator: LinearRegression
+    dataset:
+      kind: regression
+      shape:
+        rows: 1050000
+        train_rows: 9450000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: LogisticRegression
+    dataset:
+      kind: classification
+      shape:
+        rows: 1050000
+        train_rows: 9450000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      max_iter: 200
+
+  - estimator: ElasticNet
+    dataset:
+      kind: regression
+      shape:
+        rows: 2100000
+        train_rows: 18900000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      alpha: 0.1
+
+  - estimator: Ridge
+    dataset:
+      kind: regression
+      shape:
+        rows: 1050000
+        train_rows: 9450000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      alpha: 1.0
+
+  - estimator: Lasso
+    dataset:
+      kind: regression
+      shape:
+        rows: 2100000
+        train_rows: 18900000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      alpha: 0.1
+
+  - estimator: KernelRidge
+    dataset:
+      kind: regression
+      shape:
+        rows: 100
+        train_rows: 900
+        features: 64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      alpha: 1.0
+
+  - estimator: RandomForestClassifier
+    dataset:
+      kind: classification
+      shape:
+        rows: 80000
+        train_rows: 720000
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      n_estimators: 10
+      max_depth: 8
+      random_state: 42
+
+  - estimator: RandomForestRegressor
+    dataset:
+      kind: regression
+      shape:
+        rows: 12500
+        train_rows: 112500
+        features: 128
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      n_estimators: 10
+      max_depth: 8
+      random_state: 42
+
+  - estimator: TSNE
+    dataset:
+      kind: blobs
+      shape:
+        rows: 75000
+        features: 64
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 2
+      perplexity: 10.0
+      random_state: 42
+
+  - estimator: SpectralEmbedding
+    dataset:
+      kind: blobs
+      shape:
+        rows: 750
+        features: 64
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_components: 2
+      n_neighbors: 10
+      random_state: 42
+
+  - estimator: SVC
+    dataset:
+      kind: classification
+      shape:
+        rows: 25000
+        train_rows: 225000
+        features: 64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      C: 1.0
+
+  - estimator: SVR
+    dataset:
+      kind: regression
+      shape:
+        rows: 12500
+        train_rows: 112500
+        features: 64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      C: 1.0
+
+  - estimator: LinearSVC
+    dataset:
+      kind: classification
+      shape:
+        rows: 4000000
+        train_rows: 36000000
+        features: 64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      C: 1.0
+
+  - estimator: LinearSVR
+    dataset:
+      kind: regression
+      shape:
+        rows: 2000000
+        train_rows: 18000000
+        features: 64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters:
+      C: 1.0
+
+  - estimator: MultinomialNB
+    dataset:
+      kind: positive
+      shape:
+        rows: 600000
+        train_rows: 5400000
+        features: 256
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: BernoulliNB
+    dataset:
+      kind: positive
+      shape:
+        rows: 20000
+        train_rows: 180000
+        features: 256
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: ComplementNB
+    dataset:
+      kind: positive
+      shape:
+        rows: 20000
+        train_rows: 180000
+        features: 256
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: CategoricalNB
+    dataset:
+      kind: categorical
+      shape:
+        rows: 20000
+        train_rows: 180000
+        features: 64
+      dtype:
+        X: int32
+        y: int64
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: GaussianNB
+    dataset:
+      kind: classification
+      shape:
+        rows: 300000
+        train_rows: 2700000
+        features: 256
+    operation: predict
+    input_selection: [X]
+    fit_input_selection: [X, y]
+    parameters: {}
+
+  - estimator: StandardScaler
+    dataset:
+      kind: matrix
+      shape:
+        rows: 52000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: MinMaxScaler
+    dataset:
+      kind: matrix
+      shape:
+        rows: 52000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: MaxAbsScaler
+    dataset:
+      kind: matrix
+      shape:
+        rows: 52000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: Normalizer
+    dataset:
+      kind: matrix
+      shape:
+        rows: 60000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: RobustScaler
+    dataset:
+      kind: matrix
+      shape:
+        rows: 70000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: PolynomialFeatures
+    dataset:
+      kind: matrix
+      shape:
+        rows: 500000
+        features: 32
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      degree: 2
+
+  - estimator: Binarizer
+    dataset:
+      kind: matrix
+      shape:
+        rows: 52000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      threshold: 0.0
+
+  - estimator: KBinsDiscretizer
+    dataset:
+      kind: matrix
+      shape:
+        rows: 52000
+        features: 512
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_bins: 5
+
+  - estimator: PowerTransformer
+    dataset:
+      kind: positive
+      shape:
+        rows: 5000
+        features: 64
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: QuantileTransformer
+    dataset:
+      kind: matrix
+      shape:
+        rows: 25000
+        features: 256
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_quantiles: 100
+
+  - estimator: OneHotEncoder
+    dataset:
+      kind: categorical
+      shape:
+        rows: 100000
+        features: 16
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: OrdinalEncoder
+    dataset:
+      kind: categorical
+      shape:
+        rows: 500000
+        features: 32
+    operation: fit_transform
+    input_selection: [X]
+    parameters: {}
+
+  - estimator: LabelEncoder
+    dataset:
+      kind: categorical
+      shape:
+        rows: 10000000
+        features: 16
+      dtype:
+        X: float32
+        y: int64
+    operation: fit_transform
+    input_selection: [y]
+    parameters: {}
+
+  - estimator: LabelBinarizer
+    dataset:
+      kind: categorical
+      shape:
+        rows: 10000000
+        features: 16
+      dtype:
+        X: float32
+        y: int64
+    operation: fit_transform
+    input_selection: [y]
+    parameters: {}
+
+  - estimator: TargetEncoder
+    dataset:
+      kind: categorical
+      shape:
+        rows: 200000
+        features: 16
+    operation: fit_transform
+    input_selection: [X, y]
+    parameters: {}
+
+  - estimator: UMAP
+    dataset:
+      kind: blobs
+      shape:
+        rows: 10000
+        features: 100
+    operation: fit_transform
+    input_selection: [X]
+    parameters:
+      n_neighbors: 10
+      n_components: 2
+      random_state: 42
+
+  - estimator: HDBSCAN
+    dataset:
+      kind: blobs
+      shape:
+        rows: 10000
+        features: 100
+    operation: fit_predict
+    input_selection: [X]
+    parameters:
+      min_cluster_size: 5
