@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Command line interface for suite-driven neutral-v2 benchmarks."""
+"""Run benchmark suites and save measurement results."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import contextlib
 import datetime as dt
 import logging
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,7 +23,8 @@ from .suite import (
     suite_profile_names,
 )
 
-DEFAULT_SUITE = "cuml_sg"
+DEFAULT_SUITE = "estimators"
+DEFAULT_IMPLEMENTATION = "cuml"
 
 
 def _parser(
@@ -42,14 +44,24 @@ def _parser(
     parser.add_argument(
         "--output",
         help=(
-            "neutral-v2 JSON artifact path; defaults to a timestamped file "
+            "output directory for one JSON results file per selected backend; "
+            "defaults to a timestamped directory "
             "in the current directory"
         ),
     )
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="resume --output, preserving successful cases and retrying failures",
+        help="resume --output directory, retaining successes and retrying failures",
+    )
+    parser.add_argument(
+        "--implementation",
+        action="append",
+        dest="implementations",
+        help=f"run only this suite implementation (repeatable; default: {DEFAULT_IMPLEMENTATION})",
+    )
+    parser.add_argument(
+        "--_worker", action="store_true", help=argparse.SUPPRESS
     )
     profile_metavar = (
         "{" + ",".join(profile_names) + "}" if profile_names else "PROFILE"
@@ -81,12 +93,12 @@ def _output_suite_name(suite) -> str:
 
 
 def default_output_path(suite, now: dt.datetime | None = None) -> Path:
-    """Return an unused timestamped artifact path in the current directory.
+    """Return an unused timestamped output directory in the current directory.
 
     Parameters
     ----------
-    suite : Suite
-        Suite used to name the artifact.
+    suite : SuitePlan
+        Suite used to name the output directory.
     now : datetime, optional
         Timestamp to use; defaults to the current UTC time.
     """
@@ -97,10 +109,10 @@ def default_output_path(suite, now: dt.datetime | None = None) -> Path:
         f"{_output_suite_name(suite)}-{suite.profile_name}-"
         f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}"
     )
-    candidate = Path.cwd() / f"{stem}.json"
+    candidate = Path.cwd() / stem
     suffix = 2
     while candidate.exists():
-        candidate = Path.cwd() / f"{stem}-{suffix}.json"
+        candidate = Path.cwd() / f"{stem}-{suffix}"
         suffix += 1
     return candidate
 
@@ -156,35 +168,107 @@ def main(argv: list[str] | None = None) -> int:
     if args.resume and not args.output:
         parser.error("--resume requires --output")
     try:
-        suite = load_suite_reference(args.suite, args.profile)
-        backend = get_backend(suite.implementation)
-        backend.bootstrap_process()
-        backend.prepare_process()
+        suite = load_suite_reference(
+            args.suite,
+            args.profile,
+            args.implementations or [DEFAULT_IMPLEMENTATION],
+        )
         output = (
             Path(args.output).resolve()
             if args.output
             else default_output_path(suite)
         )
         with _console_logging(args.verbose):
-            if args.output is None:
-                logger.info("Writing benchmark artifact to %s", output)
-            # Import only after backend startup and prerequisite validation.
-            from .harness import run_suite
+            if args._worker:
+                if len(suite.runs) != 1 or not args.output:
+                    raise SuiteError(
+                        "worker requires one implementation and an output file"
+                    )
+                run = suite.runs[0]
+                backend = get_backend(run.implementation)
+                backend.bootstrap_process()
+                backend.prepare_process()
+                # Import only after backend startup and prerequisite validation.
+                from .harness import run_suite
 
-            artifact = run_suite(
-                suite,
-                output,
-                [sys.executable, "-m", "cuml.benchmark", *argument_values],
-                resume=args.resume,
-            )
-    except SuiteError as exc:
+                artifact = run_suite(
+                    run,
+                    output,
+                    [sys.executable, "-m", "cuml.benchmark", *argument_values],
+                    resume=args.resume,
+                )
+                return int(
+                    any(
+                        r["outcome"]["status"] == "failed"
+                        for r in artifact["results"]
+                    )
+                )
+            return _run_plan(suite, output, args)
+    except (SuiteError, OSError, ImportError) as exc:
         parser.error(str(exc))
-    return int(
-        any(
-            result["outcome"]["status"] == "failed"
-            for result in artifact["results"]
+
+
+def _run_plan(suite, output: Path, args) -> int:
+    """Run isolated backend workers sequentially, retaining each checkpoint."""
+    if args.resume and not output.is_dir():
+        raise SuiteError("--resume requires an existing output directory")
+    # Backend names become filenames. Built-in names are already safe; reject
+    # unsafe names from programmatic backend registrations rather than collide.
+    for run in suite.runs:
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", run.implementation):
+            raise SuiteError(
+                f"unsafe implementation filename: {run.implementation!r}"
+            )
+    output.mkdir(parents=True, exist_ok=True)
+    logger.info("Writing benchmark artifacts to %s", output)
+    failed = []
+    for run in suite.runs:
+        artifact = output / f"{run.implementation}.json"
+        command = [
+            sys.executable,
+            "-m",
+            "cuml.benchmark",
+            "--_worker",
+            "--suite",
+            args.suite,
+            "--profile",
+            suite.profile_name,
+            "--implementation",
+            run.implementation,
+            "--output",
+            str(artifact),
+        ]
+        if args.resume and artifact.exists():
+            command.append("--resume")
+        if args.verbose:
+            command.append("--verbose")
+        environment = get_backend(run.implementation).worker_environment()
+        logger.info(
+            "Starting implementation %s (%d cases)",
+            run.implementation,
+            len(run.cases),
         )
+        try:
+            status = subprocess.run(
+                command, env=environment, check=False
+            ).returncode
+        except OSError as exc:
+            logger.error("Unable to start %s: %s", run.implementation, exc)
+            status = 1
+        if status:
+            failed.append(run.implementation)
+            logger.error(
+                "Implementation %s failed (exit %d)",
+                run.implementation,
+                status,
+            )
+    logger.info(
+        "Completed %d implementations: %d passed, %d failed",
+        len(suite.runs),
+        len(suite.runs) - len(failed),
+        len(failed),
     )
+    return int(bool(failed))
 
 
 if __name__ == "__main__":

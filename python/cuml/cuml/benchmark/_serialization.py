@@ -26,7 +26,7 @@ def dataset_descriptor(case: ResolvedCase) -> dict[str, Any]:
     """
     parameters = dict(case.dataset_parameters)
     parameters["dtypes"] = case.dtypes
-    # Input attributes are descriptive, not identity-bearing in schema v2.
+    # Input attributes are descriptive, not identity-bearing.
     # Record representation here so dense and CSR workloads have distinct IDs.
     parameters["input_format"] = case.input_format
     if case.lifecycle == "inference":

@@ -2,8 +2,8 @@
 # established benchmark configuration. Smoke retains every case at 1% rows.
 
 version: 2
-name: cuml-single-gpu
-implementation: cuml
+name: estimators
+implementations: [cuml, scikit-learn, cuml.accel, cuml.dask]
 
 profiles:
   standard:
@@ -40,6 +40,7 @@ cases:
       min_samples: 5
 
   - estimator: SpectralClustering
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: blobs
       shape:
@@ -51,6 +52,7 @@ cases:
       n_clusters: 5
 
   - estimator: AgglomerativeClustering
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: blobs
       shape:
@@ -62,6 +64,7 @@ cases:
       n_clusters: 5
 
   - estimator: EmpiricalCovariance
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -72,6 +75,7 @@ cases:
     parameters: {}
 
   - estimator: LedoitWolf
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -93,6 +97,7 @@ cases:
       n_components: 8
 
   - estimator: IncrementalPCA
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -116,6 +121,7 @@ cases:
       n_components: 8
 
   - estimator: GaussianRandomProjection
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -128,6 +134,7 @@ cases:
       random_state: 42
 
   - estimator: SparseRandomProjection
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -179,6 +186,7 @@ cases:
       n_neighbors: 5
 
   - estimator: KernelDensity
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -256,6 +264,7 @@ cases:
       alpha: 0.1
 
   - estimator: KernelRidge
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: regression
       shape:
@@ -299,6 +308,7 @@ cases:
       random_state: 42
 
   - estimator: TSNE
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: blobs
       shape:
@@ -312,6 +322,7 @@ cases:
       random_state: 42
 
   - estimator: SpectralEmbedding
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: blobs
       shape:
@@ -325,6 +336,7 @@ cases:
       random_state: 42
 
   - estimator: SVC
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: classification
       shape:
@@ -338,6 +350,7 @@ cases:
       C: 1.0
 
   - estimator: SVR
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: regression
       shape:
@@ -351,6 +364,7 @@ cases:
       C: 1.0
 
   - estimator: LinearSVC
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: classification
       shape:
@@ -364,6 +378,7 @@ cases:
       C: 1.0
 
   - estimator: LinearSVR
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: regression
       shape:
@@ -377,6 +392,7 @@ cases:
       C: 1.0
 
   - estimator: MultinomialNB
+    implementations: [cuml, scikit-learn, cuml.dask]
     dataset:
       kind: positive
       shape:
@@ -389,6 +405,7 @@ cases:
     parameters: {}
 
   - estimator: BernoulliNB
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: positive
       shape:
@@ -401,6 +418,7 @@ cases:
     parameters: {}
 
   - estimator: ComplementNB
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: positive
       shape:
@@ -413,6 +431,7 @@ cases:
     parameters: {}
 
   - estimator: CategoricalNB
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: categorical
       shape:
@@ -428,6 +447,7 @@ cases:
     parameters: {}
 
   - estimator: GaussianNB
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: classification
       shape:
@@ -440,6 +460,7 @@ cases:
     parameters: {}
 
   - estimator: StandardScaler
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -450,6 +471,7 @@ cases:
     parameters: {}
 
   - estimator: MinMaxScaler
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -460,6 +482,7 @@ cases:
     parameters: {}
 
   - estimator: MaxAbsScaler
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -470,6 +493,7 @@ cases:
     parameters: {}
 
   - estimator: Normalizer
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -480,6 +504,7 @@ cases:
     parameters: {}
 
   - estimator: RobustScaler
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -490,6 +515,7 @@ cases:
     parameters: {}
 
   - estimator: PolynomialFeatures
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: matrix
       shape:
@@ -501,6 +527,7 @@ cases:
       degree: 2
 
   - estimator: Binarizer
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -512,6 +539,7 @@ cases:
       threshold: 0.0
 
   - estimator: KBinsDiscretizer
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -523,6 +551,7 @@ cases:
       n_bins: 5
 
   - estimator: PowerTransformer
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: positive
       shape:
@@ -533,6 +562,7 @@ cases:
     parameters: {}
 
   - estimator: QuantileTransformer
+    implementations: [cuml, scikit-learn]
     dataset:
       kind: matrix
       shape:
@@ -554,6 +584,7 @@ cases:
     parameters: {}
 
   - estimator: OrdinalEncoder
+    implementations: [cuml, scikit-learn, cuml.dask]
     dataset:
       kind: categorical
       shape:
@@ -590,6 +621,7 @@ cases:
     parameters: {}
 
   - estimator: TargetEncoder
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: categorical
       shape:
@@ -613,6 +645,7 @@ cases:
       random_state: 42
 
   - estimator: HDBSCAN
+    implementations: [cuml, scikit-learn, cuml.accel]
     dataset:
       kind: blobs
       shape:

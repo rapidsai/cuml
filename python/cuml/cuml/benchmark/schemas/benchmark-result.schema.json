@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rapids.ai/schemas/benchmark-result.schema.json",
-  "title": "Benchmark Observation Artifact v2",
+  "title": "Benchmark Observation Artifact",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "run", "results"],

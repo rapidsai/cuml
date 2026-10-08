@@ -114,7 +114,7 @@ def document():
     return {
         "version": 2,
         "name": "test",
-        "implementation": "scikit-learn",
+        "implementations": ["scikit-learn"],
         "profiles": {"standard": dict(PROFILE)},
         "cases": [_request()],
     }
@@ -137,7 +137,12 @@ def test_estimator_benchmark_coverage():
     }
     assert BENCHMARK_EXCLUSIONS.keys() <= public
     assert all(reason.strip() for reason in BENCHMARK_EXCLUSIONS.values())
-    manifest = {c.estimator for c in load_suite_reference("cuml_sg").cases}
+    manifest = {
+        c.estimator
+        for c in load_suite_reference("estimators", implementations=["cuml"])
+        .runs[0]
+        .cases
+    }
     covered = {
         spec.name for key, spec in SG_REGISTRY.items() if key in manifest
     }
@@ -164,11 +169,18 @@ def test_estimator_benchmark_coverage():
                 ):
                     exported.update(ast.literal_eval(node.value))
     assert ACCEL_BENCHMARK_EXCLUSIONS.keys() <= exported
-    assert all(reason.strip() for reason in ACCEL_BENCHMARK_EXCLUSIONS.values())
+    assert all(
+        reason.strip() for reason in ACCEL_BENCHMARK_EXCLUSIONS.values()
+    )
     expected = exported - ACCEL_BENCHMARK_EXCLUSIONS.keys()
     assert set(ACCEL_REGISTRY) == expected
     assert {
-        c.estimator for c in load_suite_reference("cuml_accel").cases
+        c.estimator
+        for c in load_suite_reference(
+            "estimators", implementations=["cuml.accel"]
+        )
+        .runs[0]
+        .cases
     } == expected
 
 
@@ -181,33 +193,33 @@ def test_packaged_suites_are_valid_and_comparable():
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         validator.validate(document)
         for profile in document["profiles"]:
-            suite = load_suite(path, profile)
-            assert suite.cases
-            assert len({c.id for c in suite.cases}) == len(suite.cases)
-            if path.stem in BUILTIN_SUITES:
-                assert (
-                    load_suite_reference(path.stem, profile).cases
-                    == suite.cases
-                )
-                assert {c.estimator for c in suite.cases} == set(
-                    get_backend(suite.implementation).catalog
-                )
-            for case in suite.cases:
-                # Capability examples have different workloads from the built-ins.
-                key = (
-                    ("builtin", profile, case.estimator)
-                    if path.stem in BUILTIN_SUITES
-                    else (
-                        "capability",
+            plan = load_suite(path, profile)
+            assert [run.implementation for run in plan.runs] == document[
+                "implementations"
+            ]
+            for suite in plan.runs:
+                assert suite.cases
+                assert len({c.id for c in suite.cases}) == len(suite.cases)
+                if path.stem in BUILTIN_SUITES:
+                    builtin = load_suite_reference(
+                        path.stem, profile, [suite.implementation]
+                    )
+                    assert builtin.runs[0].cases == suite.cases
+                    assert builtin.runs[0].path == f"builtin:{path.stem}"
+                    assert {c.estimator for c in suite.cases} == set(
+                        get_backend(suite.implementation).catalog
+                    )
+                for case in suite.cases:
+                    key = (
+                        path.stem,
                         profile,
                         case.estimator,
                         case.operation,
                         case.input_format,
                         case.dtypes["X"],
                     )
-                )
-                assert comparable.setdefault(key, case.id) == case.id
-                assert case.id == result_id(case.to_artifact_fields())
+                    assert comparable.setdefault(key, case.id) == case.id
+                    assert case.id == result_id(case.to_artifact_fields())
     assert {p.stem for p in SUITES.glob("*.yaml")} >= BUILTIN_SUITES
 
 
@@ -230,7 +242,9 @@ def test_python_and_yaml_resolution_agree(
         request["timeout_sec"] = timeout
     before = copy.deepcopy(document)
     case = resolve_case(request, profile)
-    assert load_suite(_write_suite(tmp_path, document)).cases == (case,)
+    assert load_suite(_write_suite(tmp_path, document)).runs[0].cases == (
+        case,
+    )
     assert (
         case.generated_rows,
         case.training_rows,
@@ -295,13 +309,90 @@ def test_invalid_suite_requests_are_rejected(
         )
         document["cases"].append(duplicate)
     else:
-        document["implementation"] = "cuml.accel"
+        document["implementations"] = ["cuml.accel"]
         profile["warmups"] = 0
     with pytest.raises(SuiteError, match=match):
         load_suite(_write_suite(tmp_path, document))
     if change not in {"estimator", "duplicate", "accel_warmup"}:
         with pytest.raises(SuiteError, match=match):
             resolve_case(case, profile)
+
+
+def test_suite_backend_selection(document, tmp_path):
+    document["implementations"] = ["cuml", "scikit-learn", "cuml.accel"]
+    restricted = _request(estimator="AgglomerativeClustering", parameters={})
+    restricted["implementations"] = ["cuml", "scikit-learn"]
+    document["cases"].append(restricted)
+    path = _write_suite(tmp_path, document)
+    plan = load_suite(path)
+    assert [len(run.cases) for run in plan.runs] == [2, 2, 1]
+    assert len({run.cases[0].id for run in plan.runs}) == 1
+    selected = load_suite(path, implementations=["cuml.accel", "cuml"])
+    assert selected.runs == (plan.runs[0], plan.runs[2])
+    document["profiles"]["standard"]["warmups"] = 0
+    path = _write_suite(tmp_path, document)
+    assert load_suite(path, implementations=["scikit-learn"])
+    with pytest.raises(SuiteError, match="at least one warmup"):
+        load_suite(path)
+
+
+@pytest.mark.parametrize(
+    "change,match",
+    [
+        ("unknown", "invalid implementation"),
+        ("duplicate", "duplicate implementations"),
+        ("empty", "length >= 1"),
+        ("scalar", "unknown field|missing required field"),
+        ("case_unknown", "invalid implementation"),
+        ("case_duplicate", "duplicate implementations"),
+        ("case_empty", "length >= 1"),
+        ("case_outside", "subset"),
+        ("no_cases", "no applicable cases"),
+    ],
+)
+def test_invalid_implementation_declarations(
+    document, tmp_path, change, match
+):
+    if change == "scalar":
+        document["implementation"] = document.pop("implementations")[0]
+    elif change == "no_cases":
+        document["implementations"].append("cuml")
+        document["cases"][0]["implementations"] = ["scikit-learn"]
+    else:
+        values = {
+            "unknown": ["unknown"],
+            "duplicate": ["scikit-learn"] * 2,
+            "empty": [],
+            "outside": ["cuml"],
+        }[change.removeprefix("case_")]
+        target = (
+            document["cases"][0] if change.startswith("case_") else document
+        )
+        target["implementations"] = values
+    with pytest.raises(SuiteError, match=match):
+        load_suite(_write_suite(tmp_path, document))
+
+
+@pytest.mark.parametrize(
+    "selection", [[], ["cuml"], ["unknown"], ["scikit-learn"] * 2]
+)
+def test_invalid_backend_selection(document, tmp_path, selection):
+    with pytest.raises(SuiteError):
+        load_suite(_write_suite(tmp_path, document), implementations=selection)
+
+
+def test_duplicate_workloads_allowed_only_on_disjoint_backends(
+    document, tmp_path
+):
+    document["implementations"] = ["cuml", "scikit-learn"]
+    document["cases"][0]["implementations"] = ["cuml"]
+    duplicate = copy.deepcopy(document["cases"][0])
+    duplicate["implementations"] = ["scikit-learn"]
+    document["cases"].append(duplicate)
+    assert len(load_suite(_write_suite(tmp_path, document)).runs) == 2
+    duplicate["implementations"].append("cuml")
+    with pytest.raises(SuiteError, match="duplicate case identity"):
+        load_suite(_write_suite(tmp_path, document))
 
 
 def test_workload_identity_contract():
@@ -662,7 +753,7 @@ def test_accel_warmup_dispatch_verification(monkeypatch, fallback_at):
     )
 
 
-# One registered backend exercises the CLI, artifacts, and resume end to end.
+# One registered backend exercises the worker, artifacts, and resume end to end.
 
 
 @pytest.fixture
@@ -722,7 +813,7 @@ def registered_suite(monkeypatch, tmp_path):
         {
             "version": 2,
             "name": "test",
-            "implementation": "test",
+            "implementations": ["test"],
             "profiles": {"standard": {**PROFILE, "repetitions": 1}},
             "cases": [
                 _request(
@@ -744,7 +835,15 @@ def registered_suite(monkeypatch, tmp_path):
 
 def _run_cli(manifest, output, *, resume=False):
     return cli.main(
-        ["--suite", str(manifest), "--output", str(output)]
+        [
+            "--_worker",
+            "--suite",
+            str(manifest),
+            "--output",
+            str(output),
+            "--implementation",
+            "test",
+        ]
         + (["--resume"] if resume else [])
     )
 
@@ -865,13 +964,163 @@ def test_cli_output_safety(monkeypatch, tmp_path, capsys):
     assert error.value.code == 2
     assert "--resume requires --output" in capsys.readouterr().err
     monkeypatch.chdir(tmp_path)
-    suite = load_suite_reference("sklearn_cpu", "smoke")
+    suite = load_suite_reference("estimators", "smoke", ["scikit-learn"])
     now = dt.datetime(2026, 8, 13, tzinfo=dt.timezone.utc)
     first = cli.default_output_path(suite, now)
     first.write_text("existing artifact", encoding="utf-8")
     second = cli.default_output_path(suite, now)
     assert second != first and not second.exists()
     assert first.read_text() == "existing artifact"
+
+
+@pytest.mark.parametrize(
+    "implementation", ["cuml", "scikit-learn", "cuml.accel", "cuml.dask"]
+)
+@pytest.mark.parametrize("inherited", [None, "1"])
+def test_backend_worker_environment(monkeypatch, implementation, inherited):
+    if inherited is None:
+        monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("CUML_ACCEL_ENABLED", inherited)
+    monkeypatch.setenv("BENCHMARK_ENV_TEST", "preserved")
+    original = dict(os.environ)
+    environment = get_backend(implementation).worker_environment()
+    assert environment == {
+        k: v for k, v in original.items() if k != "CUML_ACCEL_ENABLED"
+    }
+    assert dict(os.environ) == original
+    environment["BENCHMARK_ENV_TEST"] = "changed"
+    assert os.environ["BENCHMARK_ENV_TEST"] == "preserved"
+
+
+def test_cli_coordinates_isolated_backends(document, tmp_path, monkeypatch):
+    document["implementations"] = ["cuml", "scikit-learn", "cuml.accel"]
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    calls = []
+    monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
+    # The launcher must forward backend policy, not synthesize its own env.
+    environments = {
+        name: {"TEST_BACKEND": name} for name in document["implementations"]
+    }
+    for name, environment in environments.items():
+        monkeypatch.setattr(
+            get_backend(name),
+            "worker_environment",
+            lambda env=environment: env,
+        )
+
+    def run(command, *, env, check):
+        assert check is False
+        assert "--_worker" in command
+        backend = command[command.index("--implementation") + 1]
+        assert env is environments[backend]
+        assert "--verbose" in command
+        artifact = Path(command[command.index("--output") + 1])
+        assert artifact == output / f"{backend}.json"
+        calls.append((backend, "--resume" in command))
+        artifact.touch()
+        return SimpleNamespace(
+            returncode=1 if backend == "scikit-learn" else 0
+        )
+
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    argv = ["--suite", str(path), "--output", str(output), "--verbose"]
+    assert cli.main(argv) == 0
+    assert calls == [("cuml", False)]
+    calls.clear()
+    selected = [
+        arg
+        for name in document["implementations"]
+        for arg in ("--implementation", name)
+    ]
+    assert cli.main([*argv, *selected]) == 1
+    assert calls == [(name, False) for name in document["implementations"]]
+    assert os.environ["CUML_ACCEL_ENABLED"] == "1"
+    (output / "cuml.accel.json").unlink()
+    calls.clear()
+    assert cli.main([*argv, *selected, "--resume"]) == 1
+    assert calls == [
+        ("cuml", True),
+        ("scikit-learn", True),
+        ("cuml.accel", False),
+    ]
+    calls.clear()
+    assert cli.main([*argv, "--implementation", "cuml"]) == 0
+    assert calls == [("cuml", False)]
+    calls.clear()
+    assert cli.main([*argv, "--implementation", "scikit-learn"]) == 1
+    assert calls == [("scikit-learn", False)]
+
+
+def test_cli_default_requires_cuml_in_suite(
+    document, tmp_path, monkeypatch, capsys
+):
+    path = _write_suite(tmp_path, document)
+    monkeypatch.setattr(
+        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+    )
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["--suite", str(path), "--output", str(tmp_path / "results")])
+    assert exc.value.code == 2
+    assert "subset of suite implementations" in capsys.readouterr().err
+
+
+def test_cli_coordinator_output_errors(document, tmp_path, monkeypatch):
+    document["implementations"] = ["cuml"]
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "missing"
+    monkeypatch.setattr(
+        cli.subprocess, "run", lambda *a, **k: pytest.fail("launched worker")
+    )
+    with pytest.raises(SystemExit):
+        cli.main(["--suite", str(path), "--output", str(output), "--resume"])
+    output.write_text("not a directory")
+    with pytest.raises(SystemExit):
+        cli.main(["--suite", str(path), "--output", str(output)])
+    assert output.read_text() == "not a directory"
+
+
+@pytest.mark.parametrize(
+    "implementations",
+    [["scikit-learn"], ["cuml.accel", "scikit-learn", "cuml"]],
+)
+def test_cli_real_workers(document, tmp_path, monkeypatch, implementations):
+    # Even a caller running under accel must launch a genuinely CPU worker,
+    # including when the CPU backend follows accel in the execution plan.
+    monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
+    document["implementations"] = implementations
+    path = _write_suite(tmp_path, document)
+    output = tmp_path / "results"
+    argv = ["--suite", str(path), "--output", str(output)]
+    argv.extend(
+        arg for name in implementations for arg in ("--implementation", name)
+    )
+    assert cli.main(argv) == 0
+    artifacts = {}
+    for implementation in implementations:
+        artifact = json.loads((output / f"{implementation}.json").read_text())
+        artifacts[implementation] = artifact
+        _validate_artifact(artifact)
+        assert len(artifact["results"]) == 1
+        result = artifact["results"][0]
+        assert result["outcome"]["status"] == "success"
+        assert (
+            result["extensions"][harness.EXTENSION]["implementation"]
+            == implementation
+        )
+        if implementation == "cuml.accel":
+            evidence = result["observations"][0]["extensions"][ACCEL_EXTENSION]
+            assert evidence["gpu_calls"] > 0 and evidence["cpu_calls"] == 0
+    assert len({a["results"][0]["id"] for a in artifacts.values()}) == 1
+    assert len({a["run"]["id"] for a in artifacts.values()}) == len(
+        implementations
+    )
+    assert cli.main([*argv, "--resume"]) == 0
+    for implementation, artifact in artifacts.items():
+        resumed = json.loads((output / f"{implementation}.json").read_text())
+        assert resumed["run"]["id"] == artifact["run"]["id"]
+        assert resumed["results"] == artifact["results"]
 
 
 @pytest.mark.parametrize(
@@ -883,7 +1132,18 @@ def test_accel_startup(monkeypatch, enabled, attempted):
         monkeypatch.setenv("CUML_ACCEL_ENABLED", "1")
     else:
         monkeypatch.delenv("CUML_ACCEL_ENABLED", raising=False)
-    monkeypatch.setattr(sys, "argv", ["benchmark", "--suite", "cuml_accel"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "benchmark",
+            "--suite",
+            "estimators",
+            "--implementation",
+            "cuml.accel",
+            "--_worker",
+        ],
+    )
     calls = []
     monkeypatch.setattr(os, "execvpe", lambda *args: calls.append(args))
     backend = get_backend("cuml.accel")
@@ -904,7 +1164,10 @@ def test_accel_startup(monkeypatch, enabled, attempted):
                 "-m",
                 "cuml.benchmark",
                 "--suite",
-                "cuml_accel",
+                "estimators",
+                "--implementation",
+                "cuml.accel",
+                "--_worker",
             ]
             assert env["CUML_ACCEL_ENABLED"] == "1"
 
@@ -1099,6 +1362,29 @@ def test_dask_synchronization(monkeypatch, fallback):
     assert events == (
         ["wait", "compute", "gpu"] if fallback else ["wait", "gpu"]
     )
+
+
+@pytest.mark.parametrize("count", [0, 1])
+def test_dask_requires_multiple_gpus(monkeypatch, count):
+    def import_module(name):
+        assert name == "cupy", (
+            "must reject before importing cluster dependencies"
+        )
+        return SimpleNamespace(
+            cuda=SimpleNamespace(
+                runtime=SimpleNamespace(getDeviceCount=lambda: count)
+            )
+        )
+
+    monkeypatch.setattr(importlib, "import_module", import_module)
+    case = resolve_case(_request(), PROFILE)
+    with pytest.raises(
+        SuiteError, match=f"at least two visible GPUs; found {count}"
+    ):
+        with get_backend("cuml.dask").runtime(
+            _suite(case, implementation="cuml.dask")
+        ):
+            pytest.fail("must reject before resource creation")
 
 
 @pytest.mark.parametrize(

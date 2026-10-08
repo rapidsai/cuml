@@ -14,10 +14,10 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal
 
+from ._serialization import case_artifact_fields
 from .backends import BACKENDS, get_backend
 from .datasets import resolve_dataset, resolve_dtypes
 from .identity import result_id
-from ._serialization import case_artifact_fields
 
 if TYPE_CHECKING:
     from ._schema import CaseManifest, ProfileManifest
@@ -38,7 +38,7 @@ OPERATIONS = TRAINING_OPERATIONS | frozenset(
         "score_samples",
     }
 )
-BUILTIN_SUITES = frozenset({"cuml_sg", "cuml_mg", "cuml_accel", "sklearn_cpu"})
+BUILTIN_SUITES = frozenset({"estimators"})
 
 
 def _manifest_schema() -> ModuleType:
@@ -220,7 +220,7 @@ def _resolve_case(
 
 @dataclass(frozen=True)
 class Suite:
-    """Store a resolved suite and its selected execution profile."""
+    """Store one backend's resolved workloads and execution profile."""
 
     path: str | Path
     name: str
@@ -229,7 +229,30 @@ class Suite:
     cases: tuple[ResolvedCase, ...]
 
 
-def load_suite(path: str | Path, profile: str | None = None) -> Suite:
+@dataclass(frozen=True)
+class SuitePlan:
+    """Store a suite's selected, ordered single-backend runs."""
+
+    path: str | Path
+    name: str
+    profile_name: str
+    runs: tuple[Suite, ...]
+
+
+def _implementations(values: list[str], where: str) -> None:
+    """Reject unknown and duplicate backend declarations."""
+    if len(set(values)) != len(values):
+        raise SuiteError(f"{where}: duplicate implementations")
+    for value in values:
+        if value not in BACKENDS:
+            raise SuiteError(f"{where}: invalid implementation {value!r}")
+
+
+def load_suite(
+    path: str | Path,
+    profile: str | None = None,
+    implementations: list[str] | None = None,
+) -> SuitePlan:
     """Load and validate a suite manifest for the selected profile.
 
     Parameters
@@ -238,6 +261,8 @@ def load_suite(path: str | Path, profile: str | None = None) -> Suite:
         YAML suite manifest path.
     profile : str, optional
         Profile name; defaults to standard.
+    implementations : list of str, optional
+        Subset of declared backends; defaults to all in manifest order.
     """
     suite_path = Path(path).resolve()
     schema = _manifest_schema()
@@ -245,9 +270,18 @@ def load_suite(path: str | Path, profile: str | None = None) -> Suite:
         manifest = schema.convert_manifest(_load_suite_document(suite_path))
     except schema.msgspec.ValidationError as exc:
         raise SuiteError(f"invalid suite {suite_path}: {exc}") from exc
-    implementation = manifest.implementation
-    if implementation not in BACKENDS:
-        raise SuiteError(f"invalid implementation {implementation!r}")
+    _implementations(manifest.implementations, "suite")
+    selected = (
+        manifest.implementations
+        if implementations is None
+        else implementations
+    )
+    _implementations(selected, "selection")
+    if not selected or not set(selected) <= set(manifest.implementations):
+        raise SuiteError(
+            "selection must be a nonempty subset of suite implementations"
+        )
+    selected = [name for name in manifest.implementations if name in selected]
     profile_name = profile or "standard"
     if profile_name not in manifest.profiles:
         available = ", ".join(sorted(manifest.profiles))
@@ -255,37 +289,58 @@ def load_suite(path: str | Path, profile: str | None = None) -> Suite:
             f"unknown profile {profile_name!r}; available profiles: {available}"
         )
     profile_data = manifest.profiles[profile_name]
-    backend = get_backend(implementation)
-    try:
-        backend.validate_profile(profile_name, profile_data.warmups)
-    except SuiteError as exc:
-        raise SuiteError(f"profile {profile_name!r}: {exc}") from exc
-
-    resolved = []
-    seen = set()
-    registry = backend.catalog
+    resolved = {name: [] for name in selected}
+    seen = {name: set() for name in selected}
     for index, item in enumerate(manifest.cases):
         where = f"case {index}"
-        estimator = item.estimator
-        if estimator not in registry:
+        applicable = item.implementations or manifest.implementations
+        _implementations(applicable, where)
+        if not set(applicable) <= set(manifest.implementations):
             raise SuiteError(
-                f"{where}: estimator {estimator!r} is incompatible with {implementation!r}"
+                f"{where}: implementations must be a subset of the suite"
             )
         try:
             case = _resolve_case(item, profile_data)
         except SuiteError as exc:
             raise SuiteError(f"{where}: {exc}") from exc
-        if case.id in seen:
-            raise SuiteError(f"{where}: duplicate case identity {case.id!r}")
-        seen.add(case.id)
-        resolved.append(case)
-    return Suite(
-        suite_path,
-        manifest.name,
-        implementation,
-        profile_name,
-        tuple(resolved),
-    )
+        for implementation in selected:
+            if implementation not in applicable:
+                continue
+            backend = get_backend(implementation)
+            if case.estimator not in backend.catalog:
+                raise SuiteError(
+                    f"{where}: estimator {case.estimator!r} is incompatible with {implementation!r}"
+                )
+            if case.id in seen[implementation]:
+                raise SuiteError(
+                    f"{where}: duplicate case identity {case.id!r}"
+                )
+            seen[implementation].add(case.id)
+            resolved[implementation].append(case)
+    runs = []
+    for implementation, cases in resolved.items():
+        if not cases:
+            raise SuiteError(
+                f"implementation {implementation!r} has no applicable cases"
+            )
+        try:
+            get_backend(implementation).validate_profile(
+                profile_name, profile_data.warmups
+            )
+        except SuiteError as exc:
+            raise SuiteError(
+                f"{implementation}, profile {profile_name!r}: {exc}"
+            ) from exc
+        runs.append(
+            Suite(
+                suite_path,
+                manifest.name,
+                implementation,
+                profile_name,
+                tuple(cases),
+            )
+        )
+    return SuitePlan(suite_path, manifest.name, profile_name, tuple(runs))
 
 
 @contextmanager
@@ -327,8 +382,10 @@ def suite_profile_names(reference: str | Path) -> tuple[str, ...]:
 
 
 def load_suite_reference(
-    reference: str | Path, profile: str | None = None
-) -> Suite:
+    reference: str | Path,
+    profile: str | None = None,
+    implementations: list[str] | None = None,
+) -> SuitePlan:
     """Load a built-in suite or manifest for the selected profile.
 
     Parameters
@@ -337,9 +394,16 @@ def load_suite_reference(
         Built-in suite name or YAML manifest path.
     profile : str, optional
         Profile name; defaults to standard.
+    implementations : list of str, optional
+        Subset of declared backends; defaults to all in manifest order.
     """
     with _suite_reference_path(reference) as (suite_path, builtin_name):
-        suite = load_suite(suite_path, profile)
+        suite = load_suite(suite_path, profile, implementations)
     if builtin_name is not None:
-        return replace(suite, path=f"builtin:{builtin_name}")
+        path = f"builtin:{builtin_name}"
+        return replace(
+            suite,
+            path=path,
+            runs=tuple(replace(run, path=path) for run in suite.runs),
+        )
     return suite

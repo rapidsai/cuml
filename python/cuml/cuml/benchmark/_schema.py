@@ -15,6 +15,7 @@ PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 # The upper bound rejects infinity as well as nonpositive and NaN timeouts.
 PositiveTimeout = Annotated[float, msgspec.Meta(gt=0, le=sys.float_info.max)]
 ElementType = Literal["float32", "float64", "int32", "int64"]
+Implementations = Annotated[list[NonEmptyString], msgspec.Meta(min_length=1)]
 InputSelection = Annotated[
     list[Literal["X", "y"]], msgspec.Meta(min_length=1, max_length=2)
 ]
@@ -53,6 +54,8 @@ class CaseManifest(msgspec.Struct, forbid_unknown_fields=True):
     operation: NonEmptyString
     parameters: dict[str, Any]
     input_selection: InputSelection
+    # Omission inherits the suite implementations; a list narrows applicability.
+    implementations: Implementations | None = None
     # Required for inference, forbidden for fitting (validated by the loader).
     fit_input_selection: InputSelection | None = None
     # Omission inherits the profile timeout; explicit null disables it.
@@ -74,11 +77,11 @@ ProfileMapping = Annotated[
 
 
 class SuiteManifest(msgspec.Struct, forbid_unknown_fields=True):
-    """Specify a benchmark implementation, profiles, and workload cases."""
+    """Specify benchmark implementations, profiles, and shared workloads."""
 
     version: Literal[2]
     name: NonEmptyString
-    implementation: NonEmptyString
+    implementations: Implementations
     profiles: ProfileMapping
     cases: Annotated[list[CaseManifest], msgspec.Meta(min_length=1)]
 

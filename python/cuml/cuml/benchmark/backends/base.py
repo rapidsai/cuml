@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,17 @@ class Backend:
         """Initialize the backend name and supported estimator catalog."""
         self.name = name
         self.catalog = catalog
+
+    def worker_environment(self) -> dict[str, str]:
+        """Return an isolated startup environment without mutating the caller.
+
+        Do not inherit acceleration into CPU or native workers. The accel
+        backend also starts clean and enables itself through bootstrap_process.
+        Backends may override this hook for other process-startup requirements.
+        """
+        environment = os.environ.copy()
+        environment.pop("CUML_ACCEL_ENABLED", None)
+        return environment
 
     def bootstrap_process(self) -> None:
         """Bootstrap process startup for the backend."""
