@@ -103,7 +103,7 @@ estimator registry. Suites declare which providers they support.
 | `umap-learn` | UMAP | CPU |
 | `hdbscan` | Standalone HDBSCAN | CPU |
 | `cuml` | Native cuML estimators | Single GPU |
-| `cuml.accel` | Supported accelerated sklearn, umap-learn, and hdbscan estimators | Accelerated GPU |
+| `cuml.accel` | Supported accelerated sklearn, umap-learn, and hdbscan estimators | Single GPU (transparent dispatch) |
 | `cuml.dask` | Distributed cuML estimators | Multi-GPU Dask |
 
 For example, compare both CPU HDBSCAN implementations against cuML:
