@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 # Small custom-path examples, not a built-in suite or performance baseline.
-# Keep cases identical to capabilities_sklearn.yaml and capabilities_accel.yaml.
+# Keep cases identical to example_sklearn.yaml and example_accel.yaml.
 
 version: 2
-name: capabilities-cuml
+name: example-cuml
 implementation: cuml
 
 profiles:
