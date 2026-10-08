@@ -66,11 +66,13 @@ class AccelBackend(CumlBackend):
         # Re-exec once so the installed .pth hook enables acceleration before
         # cuML or sklearn imports. The environment flag prevents a second exec
         # if startup activation fails.
+        from ..cli import _entrypoint
+
         environment = os.environ.copy()
         environment["CUML_ACCEL_ENABLED"] = "1"
         os.execvpe(
             sys.executable,
-            [sys.executable, "-m", "cuml.benchmark", *sys.argv[1:]],
+            [*_entrypoint(), *sys.argv[1:]],
             environment,
         )
 

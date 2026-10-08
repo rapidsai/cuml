@@ -353,7 +353,7 @@ def _suite_reference_path(
     if builtin_name in BUILTIN_SUITES and Path(reference_text).parent == Path(
         "."
     ):
-        resource = importlib.resources.files("cuml.benchmark.suites").joinpath(
+        resource = importlib.resources.files(f"{__package__}.suites").joinpath(
             f"{builtin_name}.yaml"
         )
         with importlib.resources.as_file(resource) as resource_path:

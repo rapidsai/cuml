@@ -27,11 +27,25 @@ DEFAULT_SUITE = "estimators"
 DEFAULT_PROVIDER = "cuml"
 
 
+def _entrypoint() -> list[str]:
+    """Preserve standalone execution when launching provider workers."""
+    if __package__ == "benchmark":
+        return [
+            sys.executable,
+            str(Path(__file__).with_name("run_benchmarks.py")),
+        ]
+    return [sys.executable, "-m", "cuml.benchmark"]
+
+
 def _parser(
     profile_names: tuple[str, ...] | None = None,
 ) -> argparse.ArgumentParser:
     """Build the benchmark argument parser with suite profile choices."""
-    parser = argparse.ArgumentParser(prog="python -m cuml.benchmark")
+    parser = argparse.ArgumentParser(
+        prog=" ".join(_entrypoint())
+        if __package__ == "benchmark"
+        else "python -m cuml.benchmark"
+    )
     parser.add_argument(
         "--suite",
         default=DEFAULT_SUITE,
@@ -195,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
                 artifact = run_suite(
                     run,
                     output,
-                    [sys.executable, "-m", "cuml.benchmark", *argument_values],
+                    [*_entrypoint(), *argument_values],
                     resume=args.resume,
                 )
                 return int(
@@ -237,9 +251,7 @@ def _run_plan(suite, output: Path, args) -> int:
     for run in suite.runs:
         artifact = output / f"{run.provider}.json"
         command = [
-            sys.executable,
-            "-m",
-            "cuml.benchmark",
+            *_entrypoint(),
             "--_worker",
             "--suite",
             args.suite,

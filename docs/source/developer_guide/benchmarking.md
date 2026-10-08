@@ -222,6 +222,18 @@ in `providers/base.py`. Check generator constraints in `datasets.py`.
 Extend packaged manifests and provider catalogs together; the tests in
 `python/cuml/tests/test_benchmark.py` check coverage and workload identity.
 
+## CPU-only execution
+
+From a source checkout, run without cuML installed:
+
+```bash
+python -m pip install scikit-learn pandas scipy pyyaml msgspec
+python python/cuml/cuml/benchmark/run_benchmarks.py \
+  --profile smoke --provider scikit-learn --output cpu-results
+```
+
+For `umap-learn` or `hdbscan`, install the package and select its provider.
+
 ## NVTX profiling
 
 `cuml.benchmark.nvtx_benchmark` is a standalone Nsight Systems utility. It
